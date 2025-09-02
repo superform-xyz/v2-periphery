@@ -74,5 +74,17 @@
                 "type": "token"
             }
         ]
+    },
+    "Redeem5115VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "tokenOut",
+                "type": "token"
+            }
+        ]
     }
 }

@@ -49,6 +49,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVault gearSuperVault;
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
+    
 
     function setUp() public override {
         super.setUp();
