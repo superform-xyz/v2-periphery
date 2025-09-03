@@ -73,9 +73,9 @@ ftest-ci :; $(MAKE) regenerate-merkle-cache-ci && forge test -v --jobs 2
 
 ftest-quick :; forge test
 
-coverage :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt --exclude 'src/vendor/*' --exclude 'test/*'
+coverage :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov
 
-coverage-ci :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov
+coverage-genhtml :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt,unused --exclude 'src/libraries/*' --exclude 'src/oracles/SuperOracleBase.sol' --exclude 'src/oracles/SuperOracle.sol' --exclude 'src/oracles/SuperOracleL2.sol' --exclude 'src/SuperAsset/*' --exclude 'src/UP/*' --exclude 'src/VaultBank/*' --exclude 'src/vendor/*' --exclude 'src/BundlerRegistry.sol' --exclude 'test/*'
 
 test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_executeHooks_WithNativeETHHook  -vvvv --jobs 10
 

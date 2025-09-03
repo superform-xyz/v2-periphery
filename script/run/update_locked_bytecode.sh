@@ -55,7 +55,7 @@ mkdir -p script/locked-bytecode
 log "INFO" "${BLUE}📋 Copying periphery contract artifacts...${NC}"
 
 # Define arrays of contracts to copy
-# Core periphery contracts
+# Core periphery contracts (only 6 core contracts)
 CORE_PERIPHERY_CONTRACTS=(
     "SuperGovernor"
     "SuperVault"
@@ -63,24 +63,6 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultStrategy"
     "SuperVaultEscrow"
     "ECDSAPPSOracle"
-    "SuperOracle"
-    "SuperOracleBase"
-    "SuperOracleL2"
-    "VaultBank"
-    "VaultBankSource"
-    "VaultBankDestination"
-    "SuperBank"
-    "BundlerRegistry"
-    "SuperAsset"
-    "SuperAssetFactory"
-    "IncentiveCalculationContract"
-    "IncentiveFundContract"
-)
-
-# UP contracts
-UP_CONTRACTS=(
-    "Up"
-    "UpDistributor"
 )
 
 # Function to copy contract artifact
@@ -113,18 +95,9 @@ for contract in "${CORE_PERIPHERY_CONTRACTS[@]}"; do
     fi
 done
 
-# Copy all UP contracts
-log "INFO" "${BLUE}🆙 Copying UP contracts...${NC}"
-failed_up=0
-for contract in "${UP_CONTRACTS[@]}"; do
-    if ! copy_contract "$contract"; then
-        failed_up=$((failed_up + 1))
-    fi
-done
-
 # Summary
-total_contracts=$((${#CORE_PERIPHERY_CONTRACTS[@]} + ${#UP_CONTRACTS[@]}))
-total_failed=$((failed_core + failed_up))
+total_contracts=${#CORE_PERIPHERY_CONTRACTS[@]}
+total_failed=$failed_core
 total_success=$((total_contracts - total_failed))
 
 log "INFO" "${BLUE}📊 Summary:${NC}"
@@ -132,10 +105,6 @@ log "INFO" "${GREEN}  ✅ Successfully copied: ${total_success}/${total_contract
 
 if [ $failed_core -gt 0 ]; then
     log "WARN" "${YELLOW}  ⚠️  Failed core periphery contracts: ${failed_core}/${#CORE_PERIPHERY_CONTRACTS[@]}${NC}"
-fi
-
-if [ $failed_up -gt 0 ]; then
-    log "WARN" "${YELLOW}  ⚠️  Failed UP contracts: ${failed_up}/${#UP_CONTRACTS[@]}${NC}"
 fi
 
 if [ $total_failed -eq 0 ]; then

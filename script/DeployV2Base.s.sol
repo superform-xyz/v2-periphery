@@ -202,6 +202,32 @@ abstract contract DeployV2Base is Script, ConfigBase {
         contractAddr = DeterministicDeployerLib.computeAddress(bytecode, args, salt);
     }
 
+    /// @notice Compute the deterministic address of a core contract deployed by core deployment with specific salt
+    /// @param contractName Name of the core contract
+    /// @param args Constructor arguments for the core contract
+    /// @param coreSaltNamespace The salt namespace used for core deployment
+    /// @return contractAddr The computed address
+    function __computeCoreContractAddressWithSalt(
+        string memory contractName,
+        bytes memory args,
+        string memory coreSaltNamespace
+    )
+        internal
+        view
+        returns (address contractAddr)
+    {
+        // Get bytecode from core locked artifacts
+        string memory artifactPath =
+            string(abi.encodePacked("lib/v2-core/script/locked-bytecode/", contractName, ".json"));
+        bytes memory bytecode = vm.getCode(artifactPath);
+
+        // Use the specific core salt generation pattern (convert string to bytes to match v2-core)
+        bytes32 salt = keccak256(abi.encodePacked("SuperformV2", bytes(coreSaltNamespace), contractName, "v2.0"));
+
+        // Compute address
+        contractAddr = DeterministicDeployerLib.computeAddress(bytecode, args, salt);
+    }
+
     /// @notice Save contract deployment status
     /// @param chainId Chain ID
     /// @param contractName Name of the contract

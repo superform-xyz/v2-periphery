@@ -28,8 +28,6 @@ import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.so
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
-import "forge-std/console2.sol";
-
 /// @title SuperVault
 /// @author Superform Labs
 /// @notice SuperVault vault contract implementing ERC4626 with synchronous deposits and asynchronous redeems via
@@ -182,9 +180,6 @@ contract SuperVault is
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
 
-        console2.log("--------------");
-        console2.log("shares", shares);
-        console2.log("balanceOf(owner)", balanceOf(owner));
         if (balanceOf(owner) < shares) revert INVALID_AMOUNT();
 
         // Enforce auditor's invariant for current accounting model

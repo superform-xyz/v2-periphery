@@ -535,6 +535,24 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         executeOp(claimUserOpData);
     }
 
+    function __claimWithdraw5115(AccountInstance memory accInst, uint256 assets, address _svVault) internal {
+        address[] memory claimHooksAddresses = new address[](1);
+        claimHooksAddresses[0] = _getHookAddress(ETH, WITHDRAW_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory claimHooksData = new bytes[](1);
+        claimHooksData[0] = _createWithdraw7540VaultHookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC7540_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            _svVault,
+            assets,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory claimEntry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: claimHooksAddresses, hooksData: claimHooksData });
+        UserOpData memory claimUserOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(claimEntry));
+        executeOp(claimUserOpData);
+    }
+
     function _deposit(uint256 depositAmount) internal {
         __deposit(instanceOnEth, depositAmount);
     }
@@ -600,6 +618,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
     function _claimWithdraw(uint256 assets) internal {
         __claimWithdraw(instanceOnEth, assets);
+    }
+
+    function _claimWithdraw5115(uint256 assets, address svVault) internal {
+        __claimWithdraw5115(instanceOnEth, assets, svVault);
     }
 
     function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address vault1, address vault2) internal {
@@ -874,6 +896,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 underlyingSharesForVault1;
         uint256 underlyingSharesForVault2;
         uint256[] expectedAssetsOrSharesOut;
+    }
+
+    // Local variables struct for _depositFreeAssets with 3 vaults
+    struct DepositFreeAssetsVars {
+        address depositHookAddress;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        uint256[] expectedAssetsOrSharesOut;
+        bytes[] argsForProofs;
+        bytes32 yieldSourceOracleId;
+        address assetAddress;
+        ISuperVaultStrategy.ExecuteArgs executeArgs;
     }
 
     function _fulfillRedeem(uint256 redeemShares, address vault1, address vault2) internal {
@@ -1197,62 +1231,66 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
-        address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+        DepositFreeAssetsVars memory vars;
+        vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+        vars.yieldSourceOracleId = _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
+        vars.assetAddress = address(asset);
 
-        address[] memory fulfillHooksAddresses = new address[](3);
-        fulfillHooksAddresses[0] = depositHookAddress;
-        fulfillHooksAddresses[1] = depositHookAddress;
-        fulfillHooksAddresses[2] = depositHookAddress;
+        vars.fulfillHooksAddresses = new address[](3);
+        vars.fulfillHooksAddresses[0] = vars.depositHookAddress;
+        vars.fulfillHooksAddresses[1] = vars.depositHookAddress;
+        vars.fulfillHooksAddresses[2] = vars.depositHookAddress;
 
-        bytes[] memory fulfillHooksData = new bytes[](3);
-        // allocate up to the max allocation rate in the two Vaults
-        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        vars.fulfillHooksData = new bytes[](3);
+        // allocate up to the max allocation rate in the three Vaults
+        vars.fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+            vars.yieldSourceOracleId,
             vault1,
-            address(asset),
+            vars.assetAddress,
             allocationAmountVault1,
             false,
             address(0),
             0
         );
-        fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        vars.fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
+            vars.yieldSourceOracleId,
             vault2,
-            address(asset),
+            vars.assetAddress,
             allocationAmountVault2,
             false,
             address(0),
             0
         );
-        fulfillHooksData[2] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        vars.fulfillHooksData[2] = _createApproveAndDeposit4626HookData(
+            vars.yieldSourceOracleId,
             vault3,
-            address(asset),
+            vars.assetAddress,
             allocationAmountVault3,
             false,
             address(0),
             0
         );
 
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](3);
-        expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(allocationAmountVault1);
-        expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(allocationAmountVault2);
-        expectedAssetsOrSharesOut[2] = IERC4626(address(vault3)).convertToShares(allocationAmountVault3);
+        vars.expectedAssetsOrSharesOut = new uint256[](3);
+        vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(allocationAmountVault1);
+        vars.expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(allocationAmountVault2);
+        vars.expectedAssetsOrSharesOut[2] = IERC4626(address(vault3)).convertToShares(allocationAmountVault3);
+        
         vm.startPrank(MANAGER);
-        bytes[] memory argsForProofs = new bytes[](3);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
-        argsForProofs[2] = ISuperHookInspector(fulfillHooksAddresses[2]).inspect(fulfillHooksData[2]);
+        vars.argsForProofs = new bytes[](3);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
+        vars.argsForProofs[2] = ISuperHookInspector(vars.fulfillHooksAddresses[2]).inspect(vars.fulfillHooksData[2]);
 
-        strategy.executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](3)
-            })
-        );
+        vars.executeArgs = ISuperVaultStrategy.ExecuteArgs({
+            hooks: vars.fulfillHooksAddresses,
+            hookCalldata: vars.fulfillHooksData,
+            expectedAssetsOrSharesOut: vars.expectedAssetsOrSharesOut,
+            globalProofs: _getMerkleProofsForHooks(vars.fulfillHooksAddresses, vars.argsForProofs),
+            strategyProofs: new bytes32[][](3)
+        });
+        
+        strategy.executeHooks(vars.executeArgs);
         vm.stopPrank();
     }
 
@@ -2124,5 +2162,62 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             newArray[i] = array[i];
         }
         return newArray;
+    }
+
+
+    /// @notice Helper function to set vault PPS to 0 for testing zero PPS scenarios
+    /// @dev Exactly matches _updateSuperVaultPPS but forces PPS to 0
+    /// @param strategyAddr The strategy address
+    function _updateSuperVaultPPS_ToZero(address strategyAddr) internal {
+        UpdatePPSVars memory vars;
+
+        // Force PPS to 0 for testing
+        vars.pps = 0;
+
+        // Get the current timestamp for the signature
+        vars.timestamp = block.timestamp;
+
+        // Set the additional parameters as in _updateSuperVaultPPS
+        vars.ppsStdev = 0;
+        vars.validatorSet = 1;
+        vars.totalValidators = 1;
+
+        // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
+                strategyAddr,
+                vars.pps,
+                vars.ppsStdev,
+                vars.validatorSet,
+                vars.totalValidators,
+                vars.timestamp,
+                ecdsappsOracle.nonce()
+            )
+        );
+        vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(ecdsappsOracle.domainSeparator(), structHash);
+
+        // Create signature (r, s, v) components using VALIDATOR_KEY (exactly as in _updateSuperVaultPPS)
+        (vars.v, vars.r, vars.s) = vm.sign(VALIDATOR_KEY, vars.ethSignedMessageHash);
+
+        // Combine the signature components into a single bytes signature
+        vars.signature = abi.encodePacked(vars.r, vars.s, vars.v);
+
+        // Create an array of proofs with the signature
+        vars.proofs = new bytes[](1);
+        vars.proofs[0] = vars.signature;
+
+        // Call updatePPS on the ECDSAPPSOracle (exactly as in _updateSuperVaultPPS)
+        ecdsappsOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategy: strategyAddr,
+                proofs: vars.proofs,
+                pps: vars.pps,
+                ppsStdev: vars.ppsStdev,
+                validatorSet: vars.validatorSet,
+                totalValidators: vars.totalValidators,
+                timestamp: vars.timestamp
+            })
+        );
     }
 }

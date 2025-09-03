@@ -4,4 +4,3 @@
 [submodule "lib/v2-core"]
 	path = lib/v2-core
 	url = https://github.com/superform-xyz/v2-core
-	branch = dev

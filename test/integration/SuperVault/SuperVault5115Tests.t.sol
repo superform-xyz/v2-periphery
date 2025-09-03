@@ -107,6 +107,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertEq(symbol, "sv5115");
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        DEPOSIT & ALLOCATE TESTS
+    //////////////////////////////////////////////////////////////*/
     function test_Deposit5115() public {
         vm.selectFork(FORKS[ETH]);
 
@@ -143,7 +146,6 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Verify allocation state
         assertGt(pendleEthena.balanceOf(address(strategy5115SuperVault)), 0, "No shares allocated");
     }
-
 
     function test_Deposit5115_AndAllocateToYieldViaSmartAccountManager() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
@@ -189,7 +191,48 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Verify that the strategy has no free assets left
         assertEq(asset5115.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
     }
+    
+    function test_DepositAndAllocateTo5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
 
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Setup and fulfill deposit
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // Verify state
+        uint256 userShares = sv5115.balanceOf(accountEth);
+        assertGt(userShares, 0, "No shares minted to user");
+
+        // Verify allocation
+        assertGt(pendleEthena.balanceOf(address(strategy5115SuperVault)), 0, "No shares allocated");
+    }
+    
+    /*//////////////////////////////////////////////////////////////
+                        REDEEM TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_RequestRedeem5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // Request redemption
+        uint256 vaultBalance = sv5115.balanceOf(accountEth);
+        uint256 redeemShares = vaultBalance - (vaultBalance * 2e4 / 1e5);
+        _requestRedeem(redeemShares, address(sv5115));
+
+        // Verify state
+        assertEq(strategy5115SuperVault.pendingRedeemRequest(accountEth), redeemShares, "Wrong pending redeem amount");
+        assertEq(sv5115.balanceOf(address(escrow5115SuperVault)), redeemShares, "Wrong escrow balance");
+    }
+    
     function test_FulfillRedeem_FullAmountWithThreshold5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
@@ -204,9 +247,331 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _requestRedeem(redeemShares, address(sv5115));
         _fulfillRedeem5115(redeemShares, address(sv5115), address(strategy5115SuperVault));
 
-        return;
         // Verify state
         assertEq(strategy5115SuperVault.pendingRedeemRequest(accountEth), 0, "Pending redeem request not cleared");
         assertGt(strategy5115SuperVault.claimableWithdraw(accountEth), 0, "No assets available to withdraw");
     }
+
+    function test_FulfillRedeem_FullAmount() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // Request redemption
+        uint256 vaultBalance = sv5115.balanceOf(accountEth);
+        _requestRedeem(vaultBalance, address(sv5115));
+        _fulfillRedeem5115(vaultBalance, address(sv5115), address(strategy5115SuperVault));
+
+        // Verify state
+        assertEq(strategy5115SuperVault.pendingRedeemRequest(accountEth), 0, "Pending redeem request not cleared");
+        assertGt(strategy5115SuperVault.claimableWithdraw(accountEth), 0, "No assets available to withdraw");
+    }
+
+
+     function test_ClaimRedeem5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        uint256 initialAssetBalance = asset5115.balanceOf(address(accountEth));
+        console2.log("-------------- initialAssetBalance user", initialAssetBalance);
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+        console2.log("-------------- balance strategy after deposit ", asset5115.balanceOf(address(strategy5115SuperVault)));
+
+        // Get balances after deposit
+        uint256 assetBalanceAfterDeposit = asset5115.balanceOf(accountEth);
+        uint256 initialShares = sv5115.balanceOf(accountEth);
+        console2.log("-------------- initialAssetBalance user", assetBalanceAfterDeposit);
+        console2.log("-------------- initialShares user", initialShares);
+        console2.log("-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault)));
+
+        // Request redeem of half the shares
+        uint256 redeemShares = initialShares / 2;
+        _requestRedeem(redeemShares, address(sv5115));
+        _fulfillRedeem5115(redeemShares, address(sv5115), address(strategy5115SuperVault));
+        console2.log("-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault)));
+
+        // Get claimable assets
+        uint256 claimableAssets = strategy5115SuperVault.claimableWithdraw(accountEth);
+        console2.log("-------------- claimableAssets user", claimableAssets);
+
+        // Claim redeem
+        _claimWithdraw5115(claimableAssets, address(sv5115));
+
+        // Verify state
+        assertEq(sv5115.balanceOf(accountEth), initialShares - redeemShares, "Wrong final share balance");
+        assertApproxEqRel(
+            asset5115.balanceOf(accountEth), initialAssetBalance + claimableAssets, 0.05e18, "Wrong final asset balance"
+        );
+        assertEq(strategy5115SuperVault.claimableWithdraw(accountEth), 0, "Assets not claimed");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        ROUNDING & PPS TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_ConvertToShares5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 assetsAmount = 1000e6; // 1000 USDC
+
+        // With fresh vault (1:1 ratio), should convert directly
+        uint256 shares = sv5115.convertToShares(assetsAmount);
+        assertEq(shares, assetsAmount, "Initial share conversion should be 1:1");
+
+        // Make a deposit to ensure PPS is established
+        _deposit(assetsAmount, address(sv5115), address(asset5115));
+
+        // Should still be approximately 1:1 after initial deposit
+        uint256 sharesAfter = sv5115.convertToShares(assetsAmount);
+        assertApproxEqRel(sharesAfter, assetsAmount, 0.01e18, "Share conversion should be close to 1:1");
+    }
+
+     function test_ConvertToAssets5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 sharesAmount = 1000e6; // 1000 shares
+
+        // With fresh vault (1:1 ratio), should convert directly
+        uint256 assets = sv5115.convertToAssets(sharesAmount);
+        assertEq(assets, sharesAmount, "Initial asset conversion should be 1:1");
+
+        // Make a deposit to ensure PPS is established
+        _deposit(2000e6); // 2000 USDC deposit
+
+        // Should still be approximately 1:1 after initial deposit
+        uint256 assetsAfter = sv5115.convertToAssets(sharesAmount);
+        assertApproxEqRel(assetsAfter, sharesAmount, 0.01e18, "Asset conversion should be close to 1:1");
+    }
+
+    function test_Convert_VariousEdgeCases_AndInvalidPPS_5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        // First set PPS to 0 using the actual PPS update mechanism
+        _updateSuperVaultPPS_ToZero(address(strategy5115SuperVault));
+        uint256 testAssets = 1000e6; // 1000 USDC
+        uint256 testShares = 1000e6; // 1000 shares
+
+        // Test convertToShares with zero PPS
+        uint256 resultShares = sv5115.convertToShares(testAssets);
+        assertEq(resultShares, 0, "convertToShares should return 0 when PPS is 0");
+
+        // Test convertToAssets with zero PPS
+        uint256 resultAssets = sv5115.convertToAssets(testShares);
+        assertEq(resultAssets, 0, "convertToAssets should return 0 when PPS is 0");
+
+        // Test totalAssets consistency - should also be 0 when PPS is 0 (if no supply)
+        // Note: totalAssets depends on both PPS and total supply, so behavior may vary
+        uint256 totalAssets = sv5115.totalAssets();
+        console2.log("totalAssets with PPS=0:", totalAssets);
+
+        // Test edge cases with zero inputs
+        assertEq(sv5115.convertToShares(0), 0, "convertToShares(0) should return 0");
+        assertEq(sv5115.convertToAssets(0), 0, "convertToAssets(0) should return 0");
+
+        // Test with large values to ensure no overflow issues
+        uint256 largeValue = type(uint128).max; // Use uint128 max to avoid potential overflow
+        assertEq(sv5115.convertToShares(largeValue), 0, "convertToShares should return 0 for large values when PPS is 0");
+        assertEq(sv5115.convertToAssets(largeValue), 0, "convertToAssets should return 0 for large values when PPS is 0");
+
+        // Verify that operations requiring valid PPS should fail
+        deal(address(asset5115), address(this), testAssets);
+        asset5115.approve(address(sv5115), testAssets);
+
+        // Deposit should revert with INVALID_PPS when PPS is 0
+        vm.expectRevert(ISuperVault.INVALID_PPS.selector);
+        sv5115.deposit(testAssets, address(this));
+
+        // Mint should revert with INVALID_PPS when PPS is 0
+        vm.expectRevert(ISuperVault.INVALID_PPS.selector);
+        sv5115.mint(testShares, address(this));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        OTHER TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_AuthorizeOperator5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        // Create signature components
+        bool approved = true;
+        bytes32 nonce = keccak256("test_nonce");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Generate signature
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                sv5115.DOMAIN_SEPARATOR(),
+                keccak256(
+                    abi.encode(sv5115.AUTHORIZE_OPERATOR_TYPEHASH(), userAddress, operator, approved, nonce, deadline)
+                )
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Debug logs
+        console2.log("User Address:", userAddress);
+        console2.log("Operator:", operator);
+        console2.log("Digest:", uint256(digest));
+
+        vm.prank(operator);
+        bool success = sv5115.authorizeOperator(userAddress, operator, approved, nonce, deadline, signature);
+
+        assertTrue(success, "Authorization failed");
+        assertTrue(sv5115.isOperator(userAddress, operator), "Operator not authorized");
+        assertTrue(sv5115.authorizations(userAddress, nonce), "Nonce not marked as used");
+    }
+
+    function test_TotalAssets5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Check initial total assets
+        uint256 initialTotalAssets = sv5115.totalAssets();
+        assertEq(initialTotalAssets, 0, "Initial totalAssets should be 0");
+
+        // Perform deposit
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // Verify assets reported by totalAssets
+        uint256 totalAssetsAfterDeposit = sv5115.totalAssets();
+        assertApproxEqRel(
+            totalAssetsAfterDeposit, depositAmount, 0.01e18, "totalAssets should approximately equal deposit"
+        );
+    }
+
+    function test_Mint5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 mintShares = 1000e6; // 1000 shares
+        uint256 expectedAssets = sv5115.previewMint(mintShares);
+
+        // Approve assets for minting
+        _getTokens(address(asset5115), accountEth, expectedAssets);
+        vm.prank(accountEth);
+        asset5115.approve(address(sv5115), expectedAssets);
+
+        // Mint shares
+        vm.prank(accountEth);
+        uint256 assetsUsed = sv5115.mint(mintShares, accountEth);
+
+        // Verify results
+        assertEq(assetsUsed, expectedAssets, "Wrong amount of assets used");
+        assertEq(sv5115.balanceOf(accountEth), mintShares, "Wrong shares balance");
+        assertEq(asset5115.balanceOf(address(strategy5115SuperVault)), expectedAssets, "Wrong strategy asset balance");
+    }
+
+    function test_MaxMint5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 result = sv5115.maxMint(accountEth);
+
+        // By default, should be proportional to maxDeposit
+        uint256 maxDeposit = sv5115.maxDeposit(accountEth);
+        uint256 expectedMax = sv5115.convertToShares(maxDeposit);
+
+        assertEq(result, expectedMax, "maxMint should match shares equivalent of maxDeposit");
+    }
+
+    function test_MaxWithdraw5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // User balance vs maxWithdraw before redemption
+        uint256 userBalance = sv5115.balanceOf(accountEth);
+        uint256 maxWithdraw = sv5115.maxWithdraw(accountEth);
+
+        console2.log("----- userBalance", userBalance);
+        console2.log("----- maxWithdraw", maxWithdraw);
+
+        // Before fulfilling redeem request, maxWithdraw should be 0
+        assertEq(maxWithdraw, 0, "maxWithdraw should be 0 before redemption is fulfilled");
+
+        // Make and fulfill redeem request
+        _requestRedeem(userBalance, address(sv5115));
+        _fulfillRedeem5115(userBalance, address(sv5115), address(strategy5115SuperVault));
+
+        uint256 claimable = strategy5115SuperVault.claimableWithdraw(accountEth);
+        uint256 maxWithdrawAfter = sv5115.maxWithdraw(accountEth);
+        assertEq(maxWithdrawAfter, claimable, "maxWithdraw should match claimable amount");
+    }
+
+    function test_MaxRedeem5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        // Initial deposit and allocation
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _deposit(depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        // Before redemption request, maxRedeem should be 0 (no claimable assets)
+        uint256 maxRedeemBefore = sv5115.maxRedeem(accountEth);
+        assertEq(maxRedeemBefore, 0, "maxRedeem should be 0 before redemption request is fulfilled");
+
+        // Request and fulfill redemption for half of shares
+        uint256 userShares = sv5115.balanceOf(accountEth);
+        uint256 redeemAmount = userShares / 2;
+        _requestRedeem(redeemAmount, address(sv5115));
+        _fulfillRedeem5115(redeemAmount, address(sv5115), address(strategy5115SuperVault));
+
+        // After fulfillment, maxRedeem should match the shares equivalent to claimable assets
+        uint256 claimableAssets = strategy5115SuperVault.claimableWithdraw(accountEth);
+        uint256 maxRedeemAfter = sv5115.maxRedeem(accountEth);
+
+        // Calculate expected shares based on claimable assets and average withdraw price
+        uint256 avgWithdrawPrice = strategy5115SuperVault.getAverageWithdrawPrice(accountEth);
+        // Use Math.Rounding.Ceil to match the contract's implementation
+        uint256 expectedShares = claimableAssets.mulDiv(sv5115.PRECISION(), avgWithdrawPrice, Math.Rounding.Ceil);
+
+        // Verify maxRedeem matches expected shares with sufficient tolerance
+        assertApproxEqAbs(
+            maxRedeemAfter, expectedShares, 10, "maxRedeem should match shares equivalent of claimable assets"
+        );
+    }
+
+    function test_PreviewDepositAndMint5115() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        uint256 amount = 1000e6; // 1000 USDC/shares
+
+        // Test previewDeposit (implemented)
+        uint256 expectedShares = sv5115.convertToShares(amount);
+        uint256 previewShares = sv5115.previewDeposit(amount);
+        assertEq(previewShares, expectedShares, "previewDeposit should match convertToShares");
+
+        // Test previewMint (implemented)
+        uint256 expectedAssets = sv5115.convertToAssets(amount);
+        uint256 previewAssets = sv5115.previewMint(amount);
+        assertEq(previewAssets, expectedAssets, "previewMint should match convertToAssets");
+    }
+
+
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL
+    //////////////////////////////////////////////////////////////*/
 }

@@ -189,7 +189,7 @@ DESCRIPTION:
             if (isCoverage) {
                 this.log(`Detected coverage environment for address extraction (timeout: ${timeout}ms)`);
 
-                const command = `make forge-test-internal TEST=test/utils/merkle/config/GetAddressesFromBaseTest.s.sol ARGS="--match-test test_getAddresses -vv"`;
+                const command = `make forge-coverage-internal ARGS="--match-test test_getAddresses -vv"`;
                 result = execSync(command, {
                     encoding: 'utf8',
                     cwd: path.join(__dirname, '../../../..'), // Go to project root

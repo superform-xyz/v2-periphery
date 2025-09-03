@@ -1912,8 +1912,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimableShares = vault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
 
-        uint256 expectedLedgerFee =
-            superLedgerETH.previewFees(accountEth, address(vault), claimableAssets, claimableShares, 100);
+        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
+        uint256 expectedLedgerFee = superLedgerETH.previewFees(
+            accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
+        );
 
         console2.log("superformFee", superformFee);
         console2.log("recipientFee", recipientFee);
@@ -2039,8 +2041,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 3: Claim first Withdraw
         vars.claimableAssets1 = vault.maxWithdraw(accountEth);
 
+        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets1, vault.maxRedeem(accountEth), 100
+            accountEth, address(vault), vars.claimableAssets1, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
@@ -2077,8 +2080,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 3: Claim second Withdraw
         vars.claimableAssets2 = vault.maxWithdraw(accountEth);
 
+        pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets2, vault.maxRedeem(accountEth), 100
+            accountEth, address(vault), vars.claimableAssets2, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
         );
         vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
@@ -2115,8 +2119,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 3: Claim third Withdraw
         vars.claimableAssets3 = vault.maxWithdraw(accountEth);
 
+        pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets3, vault.maxRedeem(accountEth), 100
+            accountEth, address(vault), vars.claimableAssets3, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
         );
         vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
@@ -2400,8 +2405,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimableShares = gearSuperVault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
 
-        uint256 expectedLedgerFee =
-            superLedgerETH.previewFees(accountEth, address(gearSuperVault), claimableAssets, claimableShares, 100);
+        uint256 pps = gearSuperVault.totalSupply() > 0 ? gearSuperVault.convertToAssets(1e18) : 1e18;
+        uint256 expectedLedgerFee = superLedgerETH.previewFees(
+            accountEth, address(gearSuperVault), claimableAssets, claimableShares, 100, pps, gearSuperVault.decimals()
+        );
 
         uint256 totalFee = superformFee + recipientFee + expectedLedgerFee;
         console2.log("totalFee: ", totalFee);
@@ -6867,62 +6874,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 strategy: strategyAddr,
                 proofs: vars.proofs,
                 pps: newPPS,
-                ppsStdev: vars.ppsStdev,
-                validatorSet: vars.validatorSet,
-                totalValidators: vars.totalValidators,
-                timestamp: vars.timestamp
-            })
-        );
-    }
-
-    /// @notice Helper function to set vault PPS to 0 for testing zero PPS scenarios
-    /// @dev Exactly matches _updateSuperVaultPPS but forces PPS to 0
-    /// @param strategyAddr The strategy address
-    function _updateSuperVaultPPS_ToZero(address strategyAddr) internal {
-        UpdatePPSVars memory vars;
-
-        // Force PPS to 0 for testing
-        vars.pps = 0;
-
-        // Get the current timestamp for the signature
-        vars.timestamp = block.timestamp;
-
-        // Set the additional parameters as in _updateSuperVaultPPS
-        vars.ppsStdev = 0;
-        vars.validatorSet = 1;
-        vars.totalValidators = 1;
-
-        // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
-                strategyAddr,
-                vars.pps,
-                vars.ppsStdev,
-                vars.validatorSet,
-                vars.totalValidators,
-                vars.timestamp,
-                ecdsappsOracle.nonce()
-            )
-        );
-        vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(ecdsappsOracle.domainSeparator(), structHash);
-
-        // Create signature (r, s, v) components using VALIDATOR_KEY (exactly as in _updateSuperVaultPPS)
-        (vars.v, vars.r, vars.s) = vm.sign(VALIDATOR_KEY, vars.ethSignedMessageHash);
-
-        // Combine the signature components into a single bytes signature
-        vars.signature = abi.encodePacked(vars.r, vars.s, vars.v);
-
-        // Create an array of proofs with the signature
-        vars.proofs = new bytes[](1);
-        vars.proofs[0] = vars.signature;
-
-        // Call updatePPS on the ECDSAPPSOracle (exactly as in _updateSuperVaultPPS)
-        ecdsappsOracle.updatePPS(
-            IECDSAPPSOracle.UpdatePPSArgs({
-                strategy: strategyAddr,
-                proofs: vars.proofs,
-                pps: vars.pps,
                 ppsStdev: vars.ppsStdev,
                 validatorSet: vars.validatorSet,
                 totalValidators: vars.totalValidators,

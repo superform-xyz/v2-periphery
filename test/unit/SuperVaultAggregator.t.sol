@@ -2017,7 +2017,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     /// @notice Tests getStakeBalance returns zero for addresses with no stake
-    function test_GetStakeBalance_ZeroForNoStake() public {
+    function test_GetStakeBalance_ZeroForNoStake() public view {
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Initial stake balance should be zero");
         assertEq(superVaultAggregator.getStakeBalance(user), 0, "User stake balance should be zero");
         assertEq(superVaultAggregator.getStakeBalance(address(0)), 0, "Zero address stake balance should be zero");
