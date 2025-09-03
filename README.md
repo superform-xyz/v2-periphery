@@ -452,8 +452,8 @@ To ensure transparency and facilitate the audit process, the following points ou
 Clone the repository with submodules:
 
 ```bash
-git clone --recursive https://github.com/superform-xyz/v2-contracts
-cd v2-contracts
+git clone --recursive https://github.com/superform-xyz/v2-periphery
+cd v2-periphery
 ```
 
 Install dependencies:
@@ -466,6 +466,17 @@ forge install
 cd lib/v2-core/lib/modulekit/
 pnpm install
 ```
+
+```bash
+cd lib/v2-core/lib/safe7579
+yarn
+```
+
+```bash
+cd lib/v2-core/lib/nexus
+yarn
+```
+
 
 Note: This requires pnpm and will not work with npm. Install it using:
 
