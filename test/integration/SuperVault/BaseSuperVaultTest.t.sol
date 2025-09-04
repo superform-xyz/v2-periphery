@@ -625,6 +625,15 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     }
 
     function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address vault1, address vault2) internal {
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(strategy), address(asset), vault1, vault2);
+    }
+
+
+    function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address strat, address vault1, address vault2) internal {
+        _depositFreeAssetsFromSingleAmount(depositAmount, strat, address(asset), vault1, vault2);
+    }
+
+    function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address strat, address assetToDeposit, address vault1, address vault2) internal {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
         address[] memory fulfillHooksAddresses = new address[](2);
@@ -638,7 +647,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault1,
-            address(asset),
+            assetToDeposit,
             halfAmount,
             false,
             address(0),
@@ -648,7 +657,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault2,
-            address(asset),
+            assetToDeposit,
             depositAmount - halfAmount,
             false,
             address(0),
@@ -664,7 +673,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
 
         vm.startPrank(MANAGER);
-        strategy.executeHooks(
+        SuperVaultStrategy(payable(strat)).executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
                 hooks: fulfillHooksAddresses,
                 hookCalldata: fulfillHooksData,
@@ -676,10 +685,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vm.stopPrank();
 
         (uint256 pricePerShare) = _getSuperVaultPricePerShare();
-        uint256 shares = depositAmount.mulDiv(strategy.PRECISION(), pricePerShare);
+        uint256 shares = depositAmount.mulDiv(SuperVaultStrategy(payable(strat)).PRECISION(), pricePerShare);
 
         _trackDeposit(accountEth, shares, depositAmount);
     }
+
 
     function _depositFreeAssetsFromSingleAmount5115(uint256 depositAmount, address strategyAddress, address underlyingVault) internal {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY);

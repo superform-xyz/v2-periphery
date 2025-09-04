@@ -61,6 +61,10 @@
       "address": "0xda00000035fef4082F78dEF6A8903bee419FbF8E"
     },
     {
+      "symbol": "Mock4626Vault1",
+      "address": "0xc7550B7Ce6B9c4514dF66bD927dE578Cb2a2d123"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },

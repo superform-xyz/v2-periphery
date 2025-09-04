@@ -53,7 +53,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
     SuperVault sv5115;
     SuperVaultEscrow escrow5115SuperVault;
     SuperVaultStrategy strategy5115SuperVault;
-    
+
     function setUp() public override {
         super.setUp();
         userAddress = vm.addr(userPrivateKey); // Derive the correct address from private key
@@ -572,6 +572,186 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
 
     /*//////////////////////////////////////////////////////////////
-                        INTERNAL
+                        PPS TESTS
     //////////////////////////////////////////////////////////////*/
+    struct PositiveAndNegativePpsVars {
+        uint256 feeBalanceBefore;
+        
+        // PPS
+        uint256 ppsBefore;
+        uint256 ppsAfter;
+        // Deposit amounts
+        uint256 deposit1Amount;
+        uint256 deposit2Amount;
+        uint256 deposit3Amount;
+        // Shares
+        uint256 shares1;
+        uint256 shares2;
+        uint256 shares3;
+        uint256 totalShares;
+        // Redemption 1
+        uint256 redeemAmount1;
+        uint256 superformFee1;
+        uint256 recipientFee1;
+        uint256 totalFee1;
+        uint256 userBalanceBeforeRedeem1;
+        uint256 treasuryBalanceAfterRedeem1;
+        uint256 claimableAssets1;
+        uint256 userAssetsAfterRedeem1;
+        // Redemption 2
+        uint256 remainingShares;
+        uint256 redeemAmount2;
+        uint256 superformFee2;
+        uint256 recipientFee2;
+        uint256 totalFee2;
+        uint256 userBalanceBeforeRedeem2;
+        uint256 treasuryBalanceAfterRedeem2;
+        uint256 claimableAssets2;
+        uint256 userAssetsAfterRedeem2;
+    }
+    function test_SuperVault_5115_PositivePPS() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        PositiveAndNegativePpsVars memory vars;
+        vars.deposit1Amount = 1000e6;
+        vars.deposit2Amount = 2000e6; 
+        vars.deposit3Amount = 3000e6; // 3000 USDC
+
+        // deposit 1
+        deal(address(asset5115), accountEth, vars.deposit1Amount);
+        _deposit(vars.deposit1Amount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
+        assertGt(vars.shares1, 0, "no shares minted for deposit 1");
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertGt(vars.ppsAfter, vars.ppsBefore);
+
+        // deposit 2
+        deal(address(asset5115), accountEth, vars.deposit2Amount);
+        _deposit(vars.deposit2Amount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(vars.deposit2Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+        
+        vars.shares2 = IERC20(sv5115.share()).balanceOf(accountEth) - vars.shares1;
+        assertGt(vars.shares2, 0, "no shares minted for deposit 2");
+        assertGt(vars.shares2, vars.shares1, "less shares than it should - deposit 2");
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertGt(vars.ppsAfter, vars.ppsBefore);
+
+        // deposit 3
+        deal(address(asset5115), accountEth, vars.deposit3Amount);
+        _deposit(vars.deposit3Amount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(vars.deposit3Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+        
+        vars.shares3 = IERC20(sv5115.share()).balanceOf(accountEth) - vars.shares1 - vars.shares2;
+        assertGt(vars.shares3, 0, "no shares minted for deposit 3");
+        assertGt(vars.shares3, vars.shares2, "less shares than it should - deposit 3");
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertGt(vars.ppsAfter, vars.ppsBefore);
+    }   
+
+    function test_SuperVault_5115_NegativePPS() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        PositiveAndNegativePpsVars memory vars;
+        vars.deposit1Amount = 6000e6; //deposit 1 + 2 + 3
+
+        // deposit 1
+        deal(address(asset5115), accountEth, vars.deposit1Amount);
+        _deposit(vars.deposit1Amount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+
+        vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
+        assertGt(vars.shares1, 0, "no shares minted for deposit 1");
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertGt(vars.ppsAfter, vars.ppsBefore);
+
+        //redeem 1
+        vars.totalShares = IERC20(sv5115.share()).balanceOf(accountEth);
+        vars.redeemAmount1 = vars.totalShares / 4; 
+
+        (, vars.superformFee1, vars.recipientFee1) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount1);
+        vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
+        vars.userBalanceBeforeRedeem1 = asset5115.balanceOf(accountEth);
+
+        _requestRedeem(vars.redeemAmount1, address(sv5115));
+        _fulfillRedeem5115(vars.redeemAmount1, address(sv5115), address(strategy5115SuperVault));
+
+        vars.claimableAssets1 = sv5115.maxWithdraw(accountEth);
+
+        uint256 pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
+        uint256 expectedLedgerFee = superLedgerETH.previewFees(
+            accountEth, address(sv5115), vars.claimableAssets1, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
+        );
+        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
+        assertGt(vars.totalFee1, 0, "no fee");
+
+        _claimWithdraw5115(vars.claimableAssets1, address(sv5115));
+
+        vars.treasuryBalanceAfterRedeem1 = asset5115.balanceOf(TREASURY);
+        vars.userAssetsAfterRedeem1 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem1;
+        assertGt(vars.userAssetsAfterRedeem1, 0, "no assets received - redeem 1");
+
+        _assertFeeDerivation(vars.totalFee1, vars.feeBalanceBefore, vars.treasuryBalanceAfterRedeem1);
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertLt(vars.ppsAfter, vars.ppsBefore, "pps did not decrease - redeem 1");
+
+        //redeem 2
+        vars.remainingShares = IERC20(sv5115.share()).balanceOf(accountEth);
+        vars.redeemAmount2 = vars.remainingShares / 2;
+        (, vars.superformFee2, vars.recipientFee2) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount2);
+
+        vars.userBalanceBeforeRedeem2 = asset5115.balanceOf(accountEth);
+
+        _requestRedeem(vars.redeemAmount2, address(sv5115));
+        _fulfillRedeem5115(vars.redeemAmount2, address(sv5115), address(strategy5115SuperVault));
+
+        vars.claimableAssets2 = sv5115.maxWithdraw(accountEth);
+
+        pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
+        expectedLedgerFee = superLedgerETH.previewFees(
+            accountEth, address(sv5115), vars.claimableAssets2, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
+        );
+        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
+        assertGt(vars.totalFee2, 0, "no fee - redeem 2");
+
+        _claimWithdraw5115(vars.claimableAssets2, address(sv5115));
+
+        vars.treasuryBalanceAfterRedeem2 = asset5115.balanceOf(TREASURY);
+
+        vars.userAssetsAfterRedeem2 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem2;
+        assertGt(vars.userAssetsAfterRedeem2, 0, "no assets received - redeem 2");
+
+        _assertFeeDerivation(vars.totalFee2, vars.treasuryBalanceAfterRedeem1, vars.treasuryBalanceAfterRedeem2);
+
+        vm.warp(block.timestamp + 4 weeks);
+        vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
+        assertLt(vars.ppsAfter, vars.ppsBefore, "pps did not decrease - redeem 2");
+    }   
 }
+
+
