@@ -1817,6 +1817,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem1;
         uint256 treasuryBalanceAfterRedeem1;
         uint256 claimableAssets1;
+        uint256 claimableShares1;
         uint256 userAssetsAfterRedeem1;
         // Redemption 2
         uint256 remainingShares;
@@ -1827,6 +1828,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem2;
         uint256 treasuryBalanceAfterRedeem2;
         uint256 claimableAssets2;
+        uint256 claimableShares2;
         uint256 userAssetsAfterRedeem2;
         // Redemption 3
         uint256 finalShares;
@@ -1836,6 +1838,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem3;
         uint256 treasuryBalanceAfterRedeem3;
         uint256 claimableAssets3;
+        uint256 claimableShares3;
         uint256 userAssetsAfterRedeem3;
         // Totals
         uint256 totalDeposits;
@@ -1869,7 +1872,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(amount, address(fluidVault), address(aaveVault));
 
         // Verify shares minted to user
-        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+        uint256 userShares = vault.balanceOf(accountEth);
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
@@ -1926,7 +1929,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("getAverageWithdrawPrice", strategy.getAverageWithdrawPrice(accountEth));
 
         // Step 6: Claim Withdraw
-        _claimWithdraw(claimableAssets);
+        _claimWithdraw(claimableShares);
 
         uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
 
@@ -1957,7 +1960,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit1Amount, address(fluidVault), address(aaveVault));
 
         // Get shares minted to user for first deposit
-        vars.shares1 = IERC20(vault.share()).balanceOf(accountEth);
+        vars.shares1 = vault.balanceOf(accountEth);
         console2.log("Shares after deposit 1:", vars.shares1);
 
         // Simulate some yield accrual between deposits
@@ -1981,7 +1984,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit2Amount, address(fluidVault), address(aaveVault));
 
         // Get additional shares minted to user
-        vars.shares2 = IERC20(vault.share()).balanceOf(accountEth) - vars.shares1;
+        vars.shares2 = vault.balanceOf(accountEth) - vars.shares1;
         console2.log("Shares after deposit 2:", vars.shares2);
 
         // Simulate more yield accrual between deposits
@@ -2005,7 +2008,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit3Amount, address(fluidVault), address(aaveVault));
 
         // Get additional shares minted to user
-        vars.shares3 = IERC20(vault.share()).balanceOf(accountEth) - vars.shares1 - vars.shares2;
+        vars.shares3 = vault.balanceOf(accountEth) - vars.shares1 - vars.shares2;
         console2.log("Shares after deposit 3:", vars.shares3);
 
         // Get total shares for user
@@ -2041,6 +2044,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.redeemAmount1, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim first Withdraw
+        vars.claimableShares1 = vault.maxRedeem(accountEth);
         vars.claimableAssets1 = vault.maxWithdraw(accountEth);
 
         uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2049,7 +2053,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
-        _claimWithdraw(vars.claimableAssets1);
+        _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
 
@@ -2063,7 +2067,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ========== REDEMPTION 2 (33% of remaining shares) ==========
         console2.log("===== REDEMPTION 2 (33% of remaining) =====");
-        vars.remainingShares = IERC20(vault.share()).balanceOf(accountEth);
+        vars.remainingShares = vault.balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 3; // 33% of remaining shares
         console2.log("Redeeming shares (33% of remaining):", vars.redeemAmount2);
 
@@ -2080,6 +2084,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.redeemAmount2, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim second Withdraw
+        vars.claimableShares2 = vault.maxRedeem(accountEth);
         vars.claimableAssets2 = vault.maxWithdraw(accountEth);
 
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2089,7 +2094,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
 
-        _claimWithdraw(vars.claimableAssets2);
+        _claimWithdraw(vars.claimableShares2);
 
         vars.treasuryBalanceAfterRedeem2 = asset.balanceOf(TREASURY);
 
@@ -2103,7 +2108,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ========== REDEMPTION 3 (all remaining shares) ==========
         console2.log("===== REDEMPTION 3 (all remaining) =====");
-        vars.finalShares = IERC20(vault.share()).balanceOf(accountEth);
+        vars.finalShares = vault.balanceOf(accountEth);
         console2.log("Redeeming final shares:", vars.finalShares);
 
         // Calculate expected fee for third redemption
@@ -2119,6 +2124,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.finalShares, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim third Withdraw
+        vars.claimableShares3 = vault.maxRedeem(accountEth);
         vars.claimableAssets3 = vault.maxWithdraw(accountEth);
 
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2127,7 +2133,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
-        _claimWithdraw(vars.claimableAssets3);
+        _claimWithdraw(vars.claimableShares3);
 
         vars.treasuryBalanceAfterRedeem3 = asset.balanceOf(TREASURY);
 
@@ -2156,7 +2162,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(vars.totalAssetsReceived, vars.totalDeposits, "User should receive more than deposited due to yield");
 
         // Verify all shares are redeemed
-        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User should have no shares left");
+        assertEq(vault.balanceOf(accountEth), 0, "User should have no shares left");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -6797,6 +6803,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
+                address(this),
                 strategyAddr,
                 newPPS,
                 vars.ppsStdev,
@@ -6853,6 +6860,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
+                address(this),
                 strategyAddr,
                 vars.pps,
                 vars.ppsStdev,

@@ -1,5 +1,5 @@
 {
-  "timestamp": 1756826992100,
+  "timestamp": 1757320005850,
   "addressHash": "[\"0x01d1cf44a0a7c83457f5db373b3a01a95a4853da\",\"0x021210ad662b08fb81a53a560d9a03de8098c4f5\",\"0x04d27192ee5dc3699a8058ff1d34a31adbae368c\",\"0x08efaf0eb3662cacb0b30fe11d794a10f6f78d01\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x13c43599b83d0080624711b4c112307e44e98727\",\"0x1d10385bc2585e178d07918b820eab124a328cc2\",\"0x1fb1f544cfa43eba145bdab5aae306ea310238c4\",\"0x28c9c5f7c31438380e22b03b12fd1345b3b2bf37\",\"0x2e61fd42b7d5b2a882cb32dbe605f23d2b570e32\",\"0x3514f3c1a4ea412ff4ebfe410ddfa6e451d6ad80\",\"0x395055c952e907d7dc0e48b8b0c27dd0460cc5c6\",\"0x4bcd88abde29e42a66c661596fdef3aa9337be7f\",\"0x54ad48ca6a2b3d5c6f2875ced3221637028b7caa\",\"0x742f73a782f2d63735d94a117dba7eb73590df2b\",\"0x92bd9b2fb1e55283452760e369979eda4c180286\",\"0xa44982ae9000894bd2d66ff3365d914658295c0e\",\"0xb572b235901669b98e23920b161530f6191037d3\",\"0xb642cbd3e599c6c3946c56a6bcd712a9dfed408d\",\"0xca5060d3b853771d75fdb3ecaecdc020eef5ac45\",\"0xd4ca32fb524ede8faea6f0ab3b32fd366187875d\",\"0xef9e49285ea5deca9248cdbbe77aa7442359feea\",\"0xf032836827c0fb2c5bc07cc1ee96c4e3a3e27adb\",\"0xfdcecfc913fb31c98835697ab52705e2b1dde17d\"]",
   "addresses": {
     "vaults": {
@@ -18,9 +18,9 @@
       "MOCK_ETH_RECEIVER": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
     },
     "superVaults": {
-      "globalSVStrategy": "0xf8d8F2CddeB7Cd844cA43e09F64e6f00d5708915",
-      "globalSVGearStrategy": "0x96d5DafBA8dee4b3C7BB48BCDf02E9515E2e7fe1",
-      "globalRuggableVault": "0x7476E51C27065CE2eE663F1d2f0f9740766476C5"
+      "globalSVStrategy": "0xf3A90C46FF9C1F85030cbf57EC9d326c8225eE4A",
+      "globalSVGearStrategy": "0x378ba1b97E01C4430A19Fe93b7F9b87B6c34F3df",
+      "globalRuggableVault": "0x85e668C597913af5DbEcf544CFF6DB82Ef53505F"
     },
     "hooks": {
       "Redeem4626VaultHook": "0x28c9c5F7c31438380E22b03b12FD1345B3B2BF37",
@@ -29,12 +29,12 @@
       "ApproveAndDeposit5115VaultHook": "0xD4cA32fb524edE8faea6F0AB3B32fD366187875d",
       "ApproveAndRequestDeposit7540VaultHook": "0xf032836827C0fB2C5BC07cc1EE96C4E3A3e27AdB",
       "Deposit7540VaultHook": "0x08eFaf0Eb3662cAcb0B30Fe11d794A10F6f78D01",
-      "ApproveAndRequestRedeem7540VaultHook": "0xCA5060d3b853771D75fdB3ECaecdc020eEf5ac45",
-      "MockNativeETHHook": "0xEF9e49285EA5DeCA9248cdBbE77aA7442359fEEa",
-      "ApproveAndGearboxStakeHook": "0x4bcD88aBDE29E42A66c661596FdEF3aa9337be7F",
-      "GearboxUnstakeHook": "0x04D27192Ee5dC3699a8058fF1d34A31AdbaE368C",
-      "Withdraw7540VaultHook": "0x3514f3C1a4eA412fF4EBfE410Ddfa6E451d6Ad80",
-      "Redeem7540VaultHook": "0x742f73A782F2d63735D94a117DBA7eB73590DF2b"
+      "MockNativeETHHook": "0xCA5060d3b853771D75fdB3ECaecdc020eEf5ac45",
+      "ApproveAndGearboxStakeHook": "0xEF9e49285EA5DeCA9248cdBbE77aA7442359fEEa",
+      "GearboxUnstakeHook": "0x4bcD88aBDE29E42A66c661596FdEF3aa9337be7F",
+      "Withdraw7540VaultHook": "0x04D27192Ee5dC3699a8058fF1d34A31AdbaE368C",
+      "Redeem7540VaultHook": "0x3514f3C1a4eA412fF4EBfE410Ddfa6E451d6Ad80",
+      "RequestRedeem7540VaultHook": "0x742f73A782F2d63735D94a117DBA7eB73590DF2b"
     }
   }
 }

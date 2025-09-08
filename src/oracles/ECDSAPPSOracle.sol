@@ -27,7 +27,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
     bytes32 public constant UPDATE_PPS_TYPEHASH = keccak256(
-        "UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp, uint256 nonce)"
+        "UpdatePPS(address submitter, address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp, uint256 nonce)"
     );
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
@@ -58,7 +58,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     function updatePPS(UpdatePPSArgs calldata args) external {
         // Validate proofs and check quorum requirement
         _validateProofs(
-            args.strategy, args.proofs, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp
+            msg.sender, args.strategy, args.proofs, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp
         );
         nonce++;
 
@@ -98,6 +98,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // Process each strategy update
         for (uint256 i; i < strategiesLength; i++) {
             _validateProofs(
+                msg.sender,
                 args.strategies[i],
                 args.proofsArray[i],
                 args.ppss[i],
@@ -134,6 +135,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @param submitter Address of the submitter
     /// @param strategy Address of the strategy
     /// @param proofs Array of cryptographic proofs
     /// @param pps Price-per-share value (mean)
@@ -143,6 +145,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @param timestamp Timestamp when the value was generated
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function _validateProofs(
+        address submitter,
         address strategy,
         bytes[] calldata proofs,
         uint256 pps,
@@ -162,6 +165,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 UPDATE_PPS_TYPEHASH,
+                submitter,
                 strategy,
                 pps,
                 ppsStdev,

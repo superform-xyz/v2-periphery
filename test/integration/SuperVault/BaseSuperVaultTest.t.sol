@@ -2091,6 +2091,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
+                address(this),
                 strategyAddr,
                 vars.pps,
                 vars.ppsStdev,

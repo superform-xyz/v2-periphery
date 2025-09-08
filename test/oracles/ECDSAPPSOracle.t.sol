@@ -147,6 +147,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             new uint256[](0)
         );
 
+        vm.prank(user);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
                 strategy: address(svStrategy),
@@ -172,6 +173,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             new uint256[](0)
         );
 
+        vm.startPrank(user);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
                 strategy: address(svStrategy),
@@ -196,6 +198,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 timestamp: block.timestamp
             })
         );
+        vm.stopPrank();
     }
 
 
@@ -211,6 +214,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                user,
                 address(svStrategy),
                 PPS,
                 PPS_STDEV,
@@ -284,6 +288,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                user,
                 address(strategy),
                 PPS,
                 PPS_STDEV,
@@ -337,6 +342,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                user,
                 address(svStrategy),
                 PPS,
                 PPS_STDEV,
@@ -381,6 +387,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
          bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                user,
                 address(svStrategy),
                 PPS,
                 PPS_STDEV,
@@ -400,6 +407,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             proofs[i] = abi.encodePacked(r, s, v);
         }
 
+        vm.startPrank(user);
         vm.expectRevert(IECDSAPPSOracle.INVALID_VALIDATOR_SET.selector);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
@@ -412,6 +420,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 timestamp: block.timestamp
             })
         );
+        vm.stopPrank();
     }
 
     function test_UpdatePPS_InvalidValidatorSetReverts() public {
@@ -431,6 +440,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         shorterProofs[0] = proofs[0];
         shorterProofs[1] = proofs[1];
 
+        vm.startPrank(user);
         vm.expectRevert(IECDSAPPSOracle.INVALID_VALIDATOR_SET.selector);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
@@ -443,6 +453,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 timestamp: block.timestamp
             })
         );
+        vm.stopPrank();
     }
 
     function test_UpdatePPS_InvalidTotalValidatorsReverts() public {
@@ -457,6 +468,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             new uint256[](0)
         );
 
+        vm.startPrank(user);
         vm.expectRevert(IECDSAPPSOracle.INVALID_TOTAL_VALIDATORS.selector);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
@@ -469,6 +481,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 timestamp: block.timestamp
             })
         );
+        vm.stopPrank();
     }
 
     function test_UpdatePPS_EmptyProofsReverts() public {
@@ -815,6 +828,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                user,
                 strategy_,
                 pps,
                 ppsStdev,
