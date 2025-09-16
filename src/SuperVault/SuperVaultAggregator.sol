@@ -216,6 +216,20 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         uint256 chargeableCount;
         if (paymentsEnabled) {
             for (uint256 i; i < strategiesLength; ++i) {
+                // Check rate limiting
+                uint256 minInterval = _strategyData[args.strategies[i]].minUpdateInterval;
+                uint256 lastUpdate = _strategyData[args.strategies[i]].lastUpdateTimestamp;
+                if (args.timestamps[i] - lastUpdate < minInterval) {
+                    emit UpdateTooFrequent();
+                    continue;
+                }
+                
+                // Ensure timestamp is monotonically increasing to prevent out-of-order updates
+                if (args.timestamps[i] <= lastUpdate) {
+                    emit TimestampNotMonotonic();
+                    continue;
+                }
+
                 // Skip invalid strategies without reverting
                 if (!_superVaultStrategies.contains(args.strategies[i])) {
                     emit UnknownStrategy(args.strategies[i]);
@@ -271,11 +285,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
             // Skip when invalid timestamp is provided (future timestamp)
             if (args.timestamps[i] > block.timestamp) {
-                emit ProvidedTimestampExceedsBlockTimestamp(
-                    args.strategies[i],
-                    args.timestamps[i],
-                    block.timestamp
-                );
+                continue;
+            }
+
+            // Check rate limiting
+            uint256 minInterval = _strategyData[args.strategies[i]].minUpdateInterval;
+            uint256 lastUpdate = _strategyData[args.strategies[i]].lastUpdateTimestamp;
+            if (args.timestamps[i] - lastUpdate < minInterval) {
+                continue;
+            }
+            
+            // Ensure timestamp is monotonically increasing to prevent out-of-order updates
+            if (args.timestamps[i] <= lastUpdate) {
                 continue;
             }
 
@@ -1056,20 +1077,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @notice Internal implementation of forwarding PPS updates
     /// @param args Struct containing all parameters for PPS update
     function _forwardPPS(PPSUpdateData memory args) internal {
-        // Check rate limiting
-        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
-        uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
-        if (block.timestamp - lastUpdate < minInterval) {
-            emit UpdateTooFrequent();
-            return;
-        }
-        
-        // Ensure timestamp is monotonically increasing to prevent out-of-order updates
-        if (args.timestamp <= lastUpdate) {
-            emit TimestampNotMonotonic();
-            return;
-        }
-
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
