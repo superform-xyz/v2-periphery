@@ -654,6 +654,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             MAX_SECONDARY_MANAGERS
         ) {
             _strategyData[strategy].secondaryManagers.add(oldManager);
+        } else {
+            emit OldPrimaryManagerRemoved(strategy, oldManager);
         }
 
         // Set the new primary manager
