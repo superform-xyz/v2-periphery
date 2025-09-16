@@ -356,6 +356,10 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when the caller is authorized
     event AuthorizedCaller(address indexed strategy, address indexed caller);
 
+    /// @notice Emitted when the old primary manager is removed from the strategy
+    /// @dev This can happen because of reaching the max number of secondary managers
+    event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
