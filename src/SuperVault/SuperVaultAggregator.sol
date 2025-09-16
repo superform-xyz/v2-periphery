@@ -885,10 +885,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function getMainManager(address strategy) external view returns (address manager) {
-        manager = _strategyData[strategy].mainManager;
-        if (manager == address(0)) revert ZERO_ADDRESS();
-
-        return manager;
+        return _strategyData[strategy].mainManager;
     }
 
     /// @inheritdoc ISuperVaultAggregator
