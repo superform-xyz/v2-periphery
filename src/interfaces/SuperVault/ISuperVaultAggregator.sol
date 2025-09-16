@@ -191,7 +191,9 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when upkeep tokens are spent for validation
     /// @param manager Address of the manager
     /// @param amount Amount of UP tokens spent
-    event UpkeepSpent(address indexed manager, uint256 amount);
+    /// @param balance Current balance of the manager
+    /// @param claimableUpkeep Amount of upkeep tokens claimable by the manager
+    event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep);
 
     /// @notice Emitted when stake tokens are deposited
     /// @param manager Address of the manager

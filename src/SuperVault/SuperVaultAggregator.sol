@@ -1133,7 +1133,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             // Add claimable upkeep for the `feeRecipient`
             claimableUpkeep += args.upkeepCost;
 
-            emit UpkeepSpent(manager, args.upkeepCost);
+            emit UpkeepSpent(manager, args.upkeepCost, _managerUpkeepBalance[manager], claimableUpkeep);
         }
 
         // Update PPS, ppsStdev and timestamp in StrategyData
