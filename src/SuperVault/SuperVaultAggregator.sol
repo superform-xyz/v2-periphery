@@ -224,169 +224,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _processValidEntries(args, validIndices, isChargeable, validCount, paymentsEnabled, perEntry);
     }
 
-    /// @notice Internal function to validate and categorize all entries in a single loop
-    /// @param args The forward PPS arguments
-    /// @param paymentsEnabled Whether upkeep payments are enabled
-    /// @return validIndices Array of valid entry indices
-    /// @return isChargeable Array indicating which entries are chargeable
-    /// @return validCount Number of valid entries
-    /// @return chargeableCount Number of chargeable entries
-    function _validateAndCategorizeEntries(
-        ForwardPPSArgs calldata args,
-        bool paymentsEnabled
-    ) internal returns (
-        uint256[] memory validIndices,
-        bool[] memory isChargeable,
-        uint256 validCount,
-        uint256 chargeableCount
-    ) {
-        uint256 strategiesLength = args.strategies.length;
-        validIndices = new uint256[](strategiesLength);
-        isChargeable = new bool[](strategiesLength);
-        
-        for (uint256 i; i < strategiesLength; ++i) {
-            if (!_isValidEntry(args, i)) continue;
-            
-            validIndices[validCount] = i;
-            
-            bool chargeable = false;
-            if (paymentsEnabled) {
-                chargeable = _isChargeableEntry(args, i);
-                if (chargeable) {
-                    ++chargeableCount;
-                }
-            }
-            
-            isChargeable[validCount] = chargeable;
-            ++validCount;
-        }
-    }
-
-    /// @notice Internal function to validate a single entry with event emissions
-    /// @param args The forward PPS arguments
-    /// @param i The index to validate
-    /// @return valid Whether the entry is valid
-    function _isValidEntry(ForwardPPSArgs calldata args, uint256 i) internal returns (bool valid) {
-        // Skip invalid strategies without reverting
-        if (!_superVaultStrategies.contains(args.strategies[i])) {
-            emit UnknownStrategy(args.strategies[i]);
-            return false;
-        }
-
-        // Skip when invalid timestamp is provided (future timestamp)
-        if (args.timestamps[i] > block.timestamp) {
-            emit ProvidedTimestampExceedsBlockTimestamp(
-                args.strategies[i],
-                args.timestamps[i],
-                block.timestamp
-            );
-            return false;
-        }
-
-        // Get strategy data once
-        uint256 lastUpdate = _strategyData[args.strategies[i]].lastUpdateTimestamp;
-        
-        // Ensure timestamp is monotonically increasing to prevent out-of-order updates
-        // Check this BEFORE rate limiting to avoid underflow
-        if (args.timestamps[i] <= lastUpdate) {
-            emit TimestampNotMonotonic();
-            return false;
-        }
-
-        // Check rate limiting (safe now since we know args.timestamps[i] > lastUpdate)
-        uint256 minInterval = _strategyData[args.strategies[i]].minUpdateInterval;
-        if (args.timestamps[i] - lastUpdate < minInterval) {
-            emit UpdateTooFrequent();
-            return false;
-        }
-
-        return true;
-    }
-
-    /// @notice Internal function to check if an entry is chargeable
-    /// @param args The forward PPS arguments
-    /// @param i The index to check
-    /// @return chargeable Whether the entry is chargeable
-    function _isChargeableEntry(ForwardPPSArgs calldata args, uint256 i) internal view returns (bool chargeable) {
-        address manager = _strategyData[args.strategies[i]].mainManager;
-        
-        // Check if stale (safe from underflow since we know timestamp <= block.timestamp from validation)
-        bool isStale = args.timestamps[i] < block.timestamp && 
-                      (block.timestamp - args.timestamps[i] > _strategyData[args.strategies[i]].maxStaleness);
-        
-        bool isExempt = SUPER_GOVERNOR.isSuperformManager(manager) ||
-                       _strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority) ||
-                       isStale;
-        
-        return !isExempt;
-    }
-
-    /// @notice Internal function to calculate per-entry upkeep cost
-    /// @param paymentsEnabled Whether upkeep payments are enabled
-    /// @param chargeableCount Number of chargeable entries
-    /// @return perEntry Cost per entry
-    function _calculatePerEntryUpkeepCost(bool paymentsEnabled, uint256 chargeableCount) internal view returns (uint256 perEntry) {
-        if (!paymentsEnabled || chargeableCount == 0) return 0;
-        
-        uint256 totalCost = SUPER_GOVERNOR.getUpkeepCostPerBatchUpdate(msg.sender, chargeableCount);
-        return totalCost / chargeableCount;
-    }
-
-    /// @notice Internal function to process all valid entries
-    /// @param args The forward PPS arguments
-    /// @param validIndices Array of valid entry indices
-    /// @param isChargeable Array indicating which entries are chargeable
-    /// @param validCount Number of valid entries
-    /// @param paymentsEnabled Whether upkeep payments are enabled
-    /// @param perEntry Cost per entry
-    function _processValidEntries(
-        ForwardPPSArgs calldata args,
-        uint256[] memory validIndices,
-        bool[] memory isChargeable,
-        uint256 validCount,
-        bool paymentsEnabled,
-        uint256 perEntry
-    ) internal {
-        for (uint256 j; j < validCount; ++j) {
-            uint256 i = validIndices[j];
-            
-            uint256 upkeepCost = 0;
-            if (paymentsEnabled) {
-                // Check exemption due to staleness of a given strategy (safe from underflow)
-                bool isStale = args.timestamps[i] < block.timestamp && 
-                              (block.timestamp - args.timestamps[i] > _strategyData[args.strategies[i]].maxStaleness);
-                
-                if (isStale) {
-                    emit StaleUpdate(args.strategies[i], args.updateAuthority, args.timestamps[i]);
-                } else {
-                    address manager = _strategyData[args.strategies[i]].mainManager;
-                    if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                        emit SuperformManager(args.strategies[i], manager);
-                    } else if (_strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)) {
-                        emit AuthorizedCaller(args.strategies[i], args.updateAuthority);
-                    } else if (isChargeable[j]) {
-                        // Split the total batch cost fairly across chargeable entries
-                        upkeepCost = perEntry;
-                    }
-                }
-            }
-
-            // Forward update
-            _forwardPPS(
-                PPSUpdateData({
-                    strategy: args.strategies[i],
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
-                    pps: args.ppss[i],
-                    ppsStdev: args.ppsStdevs[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidators[i],
-                    timestamp: args.timestamps[i],
-                    upkeepCost: upkeepCost
-                })
-            );
-        }
-    }
-
     /*//////////////////////////////////////////////////////////////
                         UPKEEP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -1200,6 +1037,169 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
 
         emit PPSUpdated(args.strategy, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp);
+    }
+
+    /// @notice Internal function to validate and categorize all entries in a single loop
+    /// @param args The forward PPS arguments
+    /// @param paymentsEnabled Whether upkeep payments are enabled
+    /// @return validIndices Array of valid entry indices
+    /// @return isChargeable Array indicating which entries are chargeable
+    /// @return validCount Number of valid entries
+    /// @return chargeableCount Number of chargeable entries
+    function _validateAndCategorizeEntries(
+        ForwardPPSArgs calldata args,
+        bool paymentsEnabled
+    ) internal returns (
+        uint256[] memory validIndices,
+        bool[] memory isChargeable,
+        uint256 validCount,
+        uint256 chargeableCount
+    ) {
+        uint256 strategiesLength = args.strategies.length;
+        validIndices = new uint256[](strategiesLength);
+        isChargeable = new bool[](strategiesLength);
+        
+        for (uint256 i; i < strategiesLength; ++i) {
+            if (!_isValidEntry(args, i)) continue;
+            
+            validIndices[validCount] = i;
+            
+            bool chargeable = false;
+            if (paymentsEnabled) {
+                chargeable = _isChargeableEntry(args, i);
+                if (chargeable) {
+                    ++chargeableCount;
+                }
+            }
+            
+            isChargeable[validCount] = chargeable;
+            ++validCount;
+        }
+    }
+
+    /// @notice Internal function to validate a single entry with event emissions
+    /// @param args The forward PPS arguments
+    /// @param i The index to validate
+    /// @return valid Whether the entry is valid
+    function _isValidEntry(ForwardPPSArgs calldata args, uint256 i) internal returns (bool valid) {
+        // Skip invalid strategies without reverting
+        if (!_superVaultStrategies.contains(args.strategies[i])) {
+            emit UnknownStrategy(args.strategies[i]);
+            return false;
+        }
+
+        // Skip when invalid timestamp is provided (future timestamp)
+        if (args.timestamps[i] > block.timestamp) {
+            emit ProvidedTimestampExceedsBlockTimestamp(
+                args.strategies[i],
+                args.timestamps[i],
+                block.timestamp
+            );
+            return false;
+        }
+
+        // Get strategy data once
+        uint256 lastUpdate = _strategyData[args.strategies[i]].lastUpdateTimestamp;
+        
+        // Ensure timestamp is monotonically increasing to prevent out-of-order updates
+        // Check this BEFORE rate limiting to avoid underflow
+        if (args.timestamps[i] <= lastUpdate) {
+            emit TimestampNotMonotonic();
+            return false;
+        }
+
+        // Check rate limiting (safe now since we know args.timestamps[i] > lastUpdate)
+        uint256 minInterval = _strategyData[args.strategies[i]].minUpdateInterval;
+        if (args.timestamps[i] - lastUpdate < minInterval) {
+            emit UpdateTooFrequent();
+            return false;
+        }
+
+        return true;
+    }
+
+    /// @notice Internal function to check if an entry is chargeable
+    /// @param args The forward PPS arguments
+    /// @param i The index to check
+    /// @return chargeable Whether the entry is chargeable
+    function _isChargeableEntry(ForwardPPSArgs calldata args, uint256 i) internal view returns (bool chargeable) {
+        address manager = _strategyData[args.strategies[i]].mainManager;
+        
+        // Check if stale (safe from underflow since we know timestamp <= block.timestamp from validation)
+        bool isStale = args.timestamps[i] < block.timestamp && 
+                      (block.timestamp - args.timestamps[i] > _strategyData[args.strategies[i]].maxStaleness);
+        
+        bool isExempt = SUPER_GOVERNOR.isSuperformManager(manager) ||
+                       _strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority) ||
+                       isStale;
+        
+        return !isExempt;
+    }
+
+    /// @notice Internal function to calculate per-entry upkeep cost
+    /// @param paymentsEnabled Whether upkeep payments are enabled
+    /// @param chargeableCount Number of chargeable entries
+    /// @return perEntry Cost per entry
+    function _calculatePerEntryUpkeepCost(bool paymentsEnabled, uint256 chargeableCount) internal view returns (uint256 perEntry) {
+        if (!paymentsEnabled || chargeableCount == 0) return 0;
+        
+        uint256 totalCost = SUPER_GOVERNOR.getUpkeepCostPerBatchUpdate(msg.sender, chargeableCount);
+        return totalCost / chargeableCount;
+    }
+
+    /// @notice Internal function to process all valid entries
+    /// @param args The forward PPS arguments
+    /// @param validIndices Array of valid entry indices
+    /// @param isChargeable Array indicating which entries are chargeable
+    /// @param validCount Number of valid entries
+    /// @param paymentsEnabled Whether upkeep payments are enabled
+    /// @param perEntry Cost per entry
+    function _processValidEntries(
+        ForwardPPSArgs calldata args,
+        uint256[] memory validIndices,
+        bool[] memory isChargeable,
+        uint256 validCount,
+        bool paymentsEnabled,
+        uint256 perEntry
+    ) internal {
+        for (uint256 j; j < validCount; ++j) {
+            uint256 i = validIndices[j];
+            
+            uint256 upkeepCost = 0;
+            if (paymentsEnabled) {
+                // Check exemption due to staleness of a given strategy (safe from underflow)
+                bool isStale = args.timestamps[i] < block.timestamp && 
+                              (block.timestamp - args.timestamps[i] > _strategyData[args.strategies[i]].maxStaleness);
+                
+                if (isStale) {
+                    emit StaleUpdate(args.strategies[i], args.updateAuthority, args.timestamps[i]);
+                } else {
+                    address manager = _strategyData[args.strategies[i]].mainManager;
+                    if (SUPER_GOVERNOR.isSuperformManager(manager)) {
+                        emit SuperformManager(args.strategies[i], manager);
+                    } else if (_strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)) {
+                        emit AuthorizedCaller(args.strategies[i], args.updateAuthority);
+                    } else if (isChargeable[j]) {
+                        // Split the total batch cost fairly across chargeable entries
+                        upkeepCost = perEntry;
+                    }
+                }
+            }
+
+            // Forward update
+            _forwardPPS(
+                PPSUpdateData({
+                    strategy: args.strategies[i],
+                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    pps: args.ppss[i],
+                    ppsStdev: args.ppsStdevs[i],
+                    validatorSet: args.validatorSets[i],
+                    totalValidators: args.totalValidators[i],
+                    timestamp: args.timestamps[i],
+                    upkeepCost: upkeepCost
+                })
+            );
+        }
     }
 
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments
