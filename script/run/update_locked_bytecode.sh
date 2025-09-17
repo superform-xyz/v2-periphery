@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ###################################################################################
 # Update Locked Bytecode Script - Periphery
