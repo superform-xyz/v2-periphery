@@ -701,7 +701,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param currentPPS Current price per share
     function _processRedeemFulfillments(
         address[] calldata controllers,
-        uint256 controllersLength
+        uint256 controllersLength,
         uint256 currentPPS
     )
         internal
