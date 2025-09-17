@@ -332,7 +332,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Post-condition: processed shares must match intended shares
         if (processedShares != intendedShares) revert INVALID_REDEEM_FILL();
 
-        _processRedeemFulfillments(args.controllers, controllersLength, currentPPS);
+        _processRedeemFulfillments(args.controllers, controllersLength, processedShares, currentPPS);
 
         ISuperVault(_vault).burnShares(processedShares);
 
@@ -697,10 +697,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Process redeem fulfillments for multiple controllers
     /// @param controllers Array of controller addresses
     /// @param controllersLength Length of controllers array
+    /// @param processedShares Total shares processed
     /// @param currentPPS Current price per share
     function _processRedeemFulfillments(
         address[] calldata controllers,
         uint256 controllersLength,
+        uint256 processedShares,
         uint256 currentPPS
     )
         internal
@@ -832,7 +834,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentAssetsWithFees > historicalAssets) {
             uint256 profit = currentAssetsWithFees - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Floor);
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
                 uint256 superformFee = totalFee.mulDiv(
