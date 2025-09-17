@@ -17,6 +17,7 @@ contract GetAddressesFromBaseTest is BaseTest {
     function test_getAddresses() external view {
         // Add SuperVaults here
         console.log("globalSVStrategy:", globalSVStrategy);
+        console.log("globalSV5115Strategy:", globalSV5115Strategy);
         console.log("globalSVGearStrategy:", globalSVGearStrategy);
         console.log("globalRuggableVault:", globalRuggableVault);
 

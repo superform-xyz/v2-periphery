@@ -167,6 +167,14 @@
     {
       "symbol": "MOCK_ETH_RECEIVER_Coverage",
       "address": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy_Coverage",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     }
   ],
   "10": [

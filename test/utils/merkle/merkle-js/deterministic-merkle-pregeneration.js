@@ -112,7 +112,7 @@ DESCRIPTION:
                 }
             }
             // SuperVault detection - these should NOT have VAULT_ prefix
-            else if (line.includes('globalSVStrategy:') || line.includes('globalSVGearStrategy:') || line.includes('globalRuggableVault:')) {
+            else if (line.includes('globalSVStrategy:') || line.includes('globalSV5115Strategy:') || line.includes('globalSVGearStrategy:') || line.includes('globalRuggableVault:')) {
                 const svMatch = line.match(/(global[A-Za-z0-9_]+):\s*(0x[a-fA-F0-9]{40})/);
                 if (svMatch) {
                     const svName = svMatch[1];
@@ -235,6 +235,7 @@ DESCRIPTION:
     validateAddresses(addresses) {
         const requiredSuperVaults = [
             'globalSVStrategy',
+            'globalSV5115Strategy',
             'globalSVGearStrategy',
             'globalRuggableVault'
         ];
@@ -259,6 +260,7 @@ DESCRIPTION:
         const requiredHooks = [
             'ApproveAndDeposit4626VaultHook',
             'Redeem4626VaultHook',
+            'Redeem5115VaultHook',
             'ApproveAndGearboxStakeHook',
             'GearboxUnstakeHook',
             'MockNativeETHHook'

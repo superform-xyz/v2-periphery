@@ -69,6 +69,9 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     address public test10_RuggableVault_Withdraw_ConvertDistortion;
     address public test11_Allocate_NewYieldSource;
 
+    address public test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1;
+    address public test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2;
+
     // Periphery-specific merkle hooks
     address[] public globalMerkleHooksPeriphery;
     string[] public globalMerkleHookNamesPeriphery;
@@ -280,6 +283,12 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         // Test 11: Allocate NewYieldSource - uses salt "TEST"
         test11_Allocate_NewYieldSource =
             _predictMock4626VaultAddress(deployer, assetAddress, "New Vault", "NV", TEST_SALT);
+
+        // Test 1: SuperVault 5115 ReAllocateFrom4626To5115 - uses salt "TEST"
+        test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1 =
+            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault1", "SV5115R1", TEST_SALT);
+        test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2 =
+            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault2", "SV5115R2", TEST_SALT);
     }
 
     /// @notice Updates test vault predictions with the correct deployer address
@@ -396,7 +405,6 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             superGovernor.registerHook(hookAddresses[chainIds[i]][TRANSFER_ERC20_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_REDEEM_7540_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_1INCH_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_ODOSV2_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY], false);
@@ -432,8 +440,6 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHooksPeriphery[6] =
                     hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[7] = hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY];
-                globalMerkleHooksPeriphery[8] =
-                    hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_REDEEM_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[9] = address(PA[i].mockNativeETHHook);
                 // Add missing hooks from globalMerkleHooks
                 globalMerkleHooksPeriphery[10] = hookAddresses[chainIds[i]][GEARBOX_APPROVE_AND_STAKE_HOOK_KEY];

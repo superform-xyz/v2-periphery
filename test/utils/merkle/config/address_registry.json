@@ -127,6 +127,11 @@
         "symbol": "Mock4626Vault2",
         "address": "0x03E3ef5a57272b4C00a6aF11E85655d63dB6709B",
         "category": "lending"
+      },
+      {
+        "symbol": "test11_Allocate_NewYieldSource",
+        "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+        "category": "lending"
       }
     ],
     "10": [
