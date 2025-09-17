@@ -7098,7 +7098,314 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                       EMERGENCY WITHDRAWAL TESTS
+                        DUST BUG TESTS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Test that exposes the dust bug in _handleClaimRedeem function
+    /// @dev This test creates a scenario where the strategy balance is reduced below what users can claim,
+    ///      but the difference is within the tolerance constant, causing the dust collection logic to trigger
+    function test_DustBugInClaimRedeem() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        // Get the claimable amount
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        console2.log("Claimable amount:", claimableAmount);
+
+        // Step 2: Reduce strategy balance artificially (simulating insolvency)
+        // This could happen due to various reasons like:
+        // - Yield source losses
+        // - Accounting errors
+
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance before reduction:", strategyBalanceBefore);
+
+        // Simulate reducing strategy balance by transferring assets out
+        // We'll make the difference exactly equal to TOLERANCE_CONSTANT (10 wei)
+        // to trigger the dust collection logic
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+
+        // Transfer assets out of strategy to simulate insolvency
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+
+        // Verify the difference is within tolerance constant
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+
+        // Step 3: Try to claim the full amount
+        // This should trigger the dust collection logic and give the user the remaining balance
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+
+        console2.log("User balance before claim:", userBalanceBefore);
+        console2.log("User balance after claim:", userBalanceAfter);
+        console2.log("Actual amount received:", actualReceived);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The bug: User receives less than they should have been able to claim
+        // but the strategy balance is now 0, making the vault insolvent
+        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+
+        // This is problematic because:
+        // 1. The user's maxWithdraw is not updated to reflect the actual amount received
+        // 2. The vault becomes insolvent (strategy balance < 0 in accounting terms)
+        // 3. Other users might not be able to claim their rightful amounts
+
+        // Verify that the user's maxWithdraw is not properly updated
+        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
+        console2.log("Remaining maxWithdraw:", remainingMaxWithdraw);
+
+        // The user still has a positive maxWithdraw even though the strategy is empty
+        assertGt(remainingMaxWithdraw, 0, "User should still have positive maxWithdraw");
+    }
+
+    /// @notice Test the dust bug with emergency withdrawal scenario
+    /// @dev This test shows how emergency withdrawal can create the dust bug scenario
+    function test_DustBugWithEmergencyWithdrawal() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        // Step 2: Enable emergency withdrawal and withdraw most assets
+        vm.startPrank(MANAGER);
+
+        // Propose emergency withdrawal
+        strategy.manageEmergencyWithdraw(1, address(0), 0);
+
+        // Wait for timelock and execute
+        vm.warp(block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(2, address(0), 0);
+
+        // Withdraw most assets, leaving just enough to trigger dust collection
+        uint256 withdrawalAmount = strategyBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
+        strategy.manageEmergencyWithdraw(3, address(this), withdrawalAmount);
+
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance after emergency withdrawal:", strategyBalanceAfter);
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+
+        // Verify the difference is within tolerance constant
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+
+        // Step 3: Try to claim - this will trigger the dust bug
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+
+        console2.log("Actual amount received:", actualReceived);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The dust bug occurs here
+        assertEq(actualReceived, strategyBalanceAfter, "User receives remaining balance due to dust collection");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy becomes empty");
+
+        // The vault is now insolvent
+        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
+        assertGt(remainingMaxWithdraw, 0, "User still has positive maxWithdraw despite empty strategy");
+    }
+
+    /// @notice Test the specific dust bug in maxWithdraw accounting
+    /// @dev This test demonstrates the core issue: maxWithdraw is reduced by actualAmountToClaim
+    ///      instead of assetsToClaim, causing accounting inconsistencies
+    function test_DustBugMaxWithdrawAccounting() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        console2.log("Initial claimable amount:", claimableAmount);
+        console2.log("Initial strategy balance:", strategyBalanceBefore);
+
+        // Step 2: Reduce strategy balance to trigger dust collection
+        // Make the difference exactly 5 wei (within TOLERANCE_CONSTANT of 10)
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5;
+
+        // Transfer assets out of strategy
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 difference = claimableAmount - strategyBalanceAfter;
+
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Difference (should be 5):", difference);
+        console2.log("Tolerance constant: 10");
+
+        // Verify we're in the dust collection scenario
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(difference <= 10, "Difference should be within tolerance");
+
+        // Step 3: Claim the full amount
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
+
+        console2.log("User received:", actualReceived);
+        console2.log("MaxWithdraw before:", maxWithdrawBefore);
+        console2.log("MaxWithdraw after:", maxWithdrawAfter);
+        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
+
+        // The bug: maxWithdraw is reduced by actualReceived (strategyBalanceAfter)
+        // instead of claimableAmount, leaving the user with extra claimable balance
+        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, actualReceived, "MaxWithdraw reduced by actual received");
+
+        // The user still has claimable balance even though strategy is empty
+        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
+        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw should equal the dust amount");
+
+        // This creates an insolvent state where the user can claim more than the strategy has
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+        assertGt(maxWithdrawAfter, 0, "But user still has claimable balance");
+    }
+
+    /// @notice Test the dust bug by directly calling the strategy function
+    /// @dev This test directly calls handleOperations7540 to demonstrate the bug more clearly
+    function test_DustBugDirectStrategyCall() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        // Step 2: Reduce strategy balance to trigger dust collection
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+
+        // Transfer assets out of strategy
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 difference = claimableAmount - strategyBalanceAfter;
+
+        console2.log("=== Dust Bug Test ===");
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Difference (dust):", difference);
+        console2.log("Tolerance constant: 10");
+
+        // Verify we're in the dust collection scenario
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(difference <= 10, "Difference should be within tolerance");
+
+        // Step 3: Directly call the strategy's claim function
+        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+
+        // Call the strategy directly (this is what vault.withdraw calls internally)
+        vm.startPrank(address(vault));
+        strategy.handleOperations7540(
+            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
+        );
+        vm.stopPrank();
+
+        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+
+        console2.log("User balance after claim:", userBalanceAfter);
+        console2.log("MaxWithdraw before:", maxWithdrawBefore);
+        console2.log("MaxWithdraw after:", maxWithdrawAfter);
+        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The bug: maxWithdraw is reduced by the actual amount received (strategyBalanceAfter)
+        // instead of the requested amount (claimableAmount)
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, strategyBalanceAfter, "MaxWithdraw reduced by actual received");
+        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw equals dust amount");
+
+        // The user still has claimable balance even though strategy is empty
+        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+
+        console2.log("=== Bug Confirmed ===");
+        console2.log("User can still claim:", maxWithdrawAfter);
+        console2.log("But strategy has:", asset.balanceOf(address(strategy)));
+        console2.log("Vault is insolvent!");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        EMERGENCY WITHDRAWAL TESTS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Test that NO_PROPOSAL error is thrown when trying to execute emergency withdraw activation without a
