@@ -176,7 +176,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Initialize prover
         _prover = prover_;
-        emit ProverSet(prover_);
+        emit ProverSet(address(0), prover_);
     }
 
     /*//////////////////////////////////////////////////////////////
