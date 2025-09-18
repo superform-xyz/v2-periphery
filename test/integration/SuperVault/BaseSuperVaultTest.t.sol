@@ -799,7 +799,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             address[] memory fulfillHooksAddresses,
             bytes[] memory fulfillHooksData,
             uint256[] memory expectedAssetsOrSharesOut
-        ) = _prepareDepositHookData(depositAmount, assetToDeposit, vault1, vault2);
+        ) = __prepareDepositHookData(depositAmount, assetToDeposit, vault1, vault2);
         
         __executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
     } 

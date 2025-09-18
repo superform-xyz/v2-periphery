@@ -77,108 +77,112 @@
       "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     },
     {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
-      "address": "0xD1514B84f4DCf20896ee12ACfeff8b6E60D0F681"
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
     {
       "symbol": "test_1_DynamicAllocation_MockVault_Coverage",
-      "address": "0xD1514B84f4DCf20896ee12ACfeff8b6E60D0F681"
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest",
-      "address": "0xEABB98d049a913C9a034491FbC028E672524f028"
+      "address": "0xb572b235901669b98E23920B161530f6191037d3"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest_Coverage",
-      "address": "0xEABB98d049a913C9a034491FbC028E672524f028"
+      "address": "0xb572b235901669b98E23920B161530f6191037d3"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1",
-      "address": "0xE609be82f86D4f42867FF269D5919245124cd497"
+      "address": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1_Coverage",
-      "address": "0xE609be82f86D4f42867FF269D5919245124cd497"
+      "address": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault2",
-      "address": "0xD1d2bE9b598A71FC42FA8F30d3C52E9B10493042"
+      "address": "0x13C43599b83d0080624711B4c112307e44E98727"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault2_Coverage",
-      "address": "0xD1d2bE9b598A71FC42FA8F30d3C52E9B10493042"
+      "address": "0x13C43599b83d0080624711B4c112307e44E98727"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault3",
-      "address": "0x0518FE37F7F1DCf7Aba555581C39b9658e5b4243"
+      "address": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault3_Coverage",
-      "address": "0x0518FE37F7F1DCf7Aba555581C39b9658e5b4243"
+      "address": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault1",
-      "address": "0x3d45C62666C60A4E6e6eDaA3BE16fC77C512CE59"
+      "address": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault1_Coverage",
-      "address": "0x3d45C62666C60A4E6e6eDaA3BE16fC77C512CE59"
+      "address": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault2",
-      "address": "0x287633BAF5E3A0bcd9C0a08D708F6A4Ded0b2194"
+      "address": "0x021210aD662B08fb81a53a560d9a03De8098C4f5"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault2_Coverage",
-      "address": "0x287633BAF5E3A0bcd9C0a08D708F6A4Ded0b2194"
+      "address": "0x021210aD662B08fb81a53a560d9a03De8098C4f5"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault3",
-      "address": "0xd0e33c3a58caFD5A4e6e7D28F8A9ac19b8ED1622"
+      "address": "0xa44982Ae9000894BD2D66ff3365d914658295c0E"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault3_Coverage",
-      "address": "0xd0e33c3a58caFD5A4e6e7D28F8A9ac19b8ED1622"
+      "address": "0xa44982Ae9000894BD2D66ff3365d914658295c0E"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit",
-      "address": "0x4722ef68D18dac4e62e7878a550FBA7530f0E1Bb"
+      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit_Coverage",
-      "address": "0x4722ef68D18dac4e62e7878a550FBA7530f0E1Bb"
+      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw",
-      "address": "0xE112ac214C0A804Ce2c7d6f0c65Cc9e0b715eCcb"
+      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_Coverage",
-      "address": "0xE112ac214C0A804Ce2c7d6f0c65Cc9e0b715eCcb"
+      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_ConvertDistortion",
-      "address": "0x5624Fc43A44A27c169710e2506DFAAa5fa200e56"
+      "address": "0x92bd9b2Fb1E55283452760e369979EDa4C180286"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_ConvertDistortion_Coverage",
-      "address": "0x5624Fc43A44A27c169710e2506DFAAa5fa200e56"
+      "address": "0x92bd9b2Fb1E55283452760e369979EDa4C180286"
     },
     {
       "symbol": "test_11_Allocate_NewYieldSource",
-      "address": "0xD1514B84f4DCf20896ee12ACfeff8b6E60D0F681"
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
     {
       "symbol": "test_11_Allocate_NewYieldSource_Coverage",
-      "address": "0xD1514B84f4DCf20896ee12ACfeff8b6E60D0F681"
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
     {
       "symbol": "MOCK_ETH_RECEIVER",
-      "address": "0x1f9f66B691841f3C036C6d0DAB02586F55E462A0"
+      "address": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
     },
     {
       "symbol": "MOCK_ETH_RECEIVER_Coverage",
-      "address": "0x1f9f66B691841f3C036C6d0DAB02586F55E462A0"
+      "address": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
     },
     {
       "symbol": "globalSV5115Strategy",
