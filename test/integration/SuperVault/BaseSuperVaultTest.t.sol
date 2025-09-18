@@ -801,83 +801,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             uint256[] memory expectedAssetsOrSharesOut
         ) = _prepareDepositHookData(depositAmount, assetToDeposit, vault1, vault2);
         
-        _executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
-    }
-
-    function _prepareDepositHookData(
-        uint256 depositAmount,
-        address assetToDeposit,
-        address vault1,
-        address vault2
-    ) internal view returns (
-        address[] memory fulfillHooksAddresses,
-        bytes[] memory fulfillHooksData,
-        uint256[] memory expectedAssetsOrSharesOut
-    ) {
-        address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-
-        fulfillHooksAddresses = new address[](2);
-        fulfillHooksAddresses[0] = depositHookAddress;
-        fulfillHooksAddresses[1] = depositHookAddress;
-
-        fulfillHooksData = new bytes[](2);
-
-        // Split the deposit between two hooks
-        uint256 halfAmount = depositAmount / 2;
-        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
-            vault1,
-            assetToDeposit,
-            halfAmount,
-            false,
-            address(0),
-            0
-        );
-
-        fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
-            vault2,
-            assetToDeposit,
-            depositAmount - halfAmount,
-            false,
-            address(0),
-            0
-        );
-
-        expectedAssetsOrSharesOut = new uint256[](2);
-        expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(halfAmount);
-        expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(depositAmount - halfAmount);
-    }
-
-    function _executeDepositHooks(
-        uint256 depositAmount,
-        address strat,
-        address[] memory fulfillHooksAddresses,
-        bytes[] memory fulfillHooksData,
-        uint256[] memory expectedAssetsOrSharesOut
-    ) internal {
-        bytes[] memory argsForProofs = new bytes[](2);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
-
-        vm.startPrank(MANAGER);
-        SuperVaultStrategy(payable(strat)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](2)
-            })
-        );
-        vm.stopPrank();
-
-        (uint256 pricePerShare) = _getSuperVaultPricePerShare();
-        uint256 shares = depositAmount.mulDiv(SuperVaultStrategy(payable(strat)).PRECISION(), pricePerShare);
-
-        _trackDeposit(accountEth, shares, depositAmount);
-    }
-    
+        __executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
+    } 
 
     function _depositFreeAssetsFromSingleAmount5115(uint256 depositAmount, address strategyAddress, address underlyingVault) internal {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY);
@@ -2820,5 +2745,78 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         // Update PPS after asset manipulation
         _updateSuperVaultPPS(strategyAddr, vault_);
+    }
+
+        function __prepareDepositHookData(
+        uint256 depositAmount,
+        address assetToDeposit,
+        address vault1,
+        address vault2
+    ) private view returns (
+        address[] memory fulfillHooksAddresses,
+        bytes[] memory fulfillHooksData,
+        uint256[] memory expectedAssetsOrSharesOut
+    ) {
+        address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+
+        fulfillHooksAddresses = new address[](2);
+        fulfillHooksAddresses[0] = depositHookAddress;
+        fulfillHooksAddresses[1] = depositHookAddress;
+
+        fulfillHooksData = new bytes[](2);
+
+        // Split the deposit between two hooks
+        uint256 halfAmount = depositAmount / 2;
+        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault1,
+            assetToDeposit,
+            halfAmount,
+            false,
+            address(0),
+            0
+        );
+
+        fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault2,
+            assetToDeposit,
+            depositAmount - halfAmount,
+            false,
+            address(0),
+            0
+        );
+
+        expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(halfAmount);
+        expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(depositAmount - halfAmount);
+    }
+    function __executeDepositHooks(
+        uint256 depositAmount,
+        address strat,
+        address[] memory fulfillHooksAddresses,
+        bytes[] memory fulfillHooksData,
+        uint256[] memory expectedAssetsOrSharesOut
+    ) private {
+        bytes[] memory argsForProofs = new bytes[](2);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+
+        vm.startPrank(MANAGER);
+        SuperVaultStrategy(payable(strat)).executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: fulfillHooksAddresses,
+                hookCalldata: fulfillHooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](2)
+            })
+        );
+        vm.stopPrank();
+
+        (uint256 pricePerShare) = _getSuperVaultPricePerShare();
+        uint256 shares = depositAmount.mulDiv(SuperVaultStrategy(payable(strat)).PRECISION(), pricePerShare);
+
+        _trackDeposit(accountEth, shares, depositAmount);
     }
 }
