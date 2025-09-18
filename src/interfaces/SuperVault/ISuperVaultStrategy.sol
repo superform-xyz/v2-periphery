@@ -291,11 +291,6 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Update the controller for the given state
-    /// @param controller The new controller address
-    /// @param state The super vault state
-    function updateSuperVaultState(address controller, SuperVaultState memory state) external;
-
     /// @notice Move accumulator shares and cost basis pro-rata during share transfers
     /// @param from The address transferring shares
     /// @param to The address receiving shares

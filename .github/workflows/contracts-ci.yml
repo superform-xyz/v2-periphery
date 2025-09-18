@@ -26,7 +26,10 @@ on:
       - main
       - dev
       - "feat/**"
-
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev
 jobs:
   build:
     runs-on: "SuperformCore3"

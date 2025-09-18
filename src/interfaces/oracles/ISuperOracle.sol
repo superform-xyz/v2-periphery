@@ -59,6 +59,12 @@ interface ISuperOracle {
     /// @notice Error when caller is not authorized to update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
 
+    /// @notice Error when oracle decimals call fails
+    error ORACLE_DECIMALS_CALL_FAIL(address oracle);
+
+    /// @notice Error when oracle round data call fails 
+    error ORACLE_ROUND_DATA_CALL_FAIL(address oracle);
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/

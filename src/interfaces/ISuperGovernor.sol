@@ -29,6 +29,13 @@ interface ISuperGovernor is IAccessControl {
         uint256 effectiveTime; // Timestamp when the proposed root becomes effective
     }
 
+    struct GasInfo {
+        // `batchForwardPPS` base gas
+        uint256 baseGasBatch;
+        // `batchForwardPPS` gas increase per entry
+        uint256 gasIncreasePerEntryBatch;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -78,8 +85,6 @@ interface ISuperGovernor is IAccessControl {
     error NO_PROPOSED_MERKLE_ROOT();
     /// @notice Thrown when no proposed Merkle root exists but one is expected
     error ZERO_PROPOSED_MERKLE_ROOT();
-    /// @notice Thrown when no proposed upkeep cost exists but one is expected
-    error NO_PROPOSED_UPKEEP_COST();
     /// @notice Thrown when no proposed minimum staleness exists but one is expected
     error NO_PROPOSED_MIN_STALENESS();
     /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
@@ -108,6 +113,16 @@ interface ISuperGovernor is IAccessControl {
     error KEEPER_ALREADY_REGISTERED();
     /// @notice Thrown when trying to unregister a keeper that is not registered
     error KEEPER_NOT_REGISTERED();
+    /// @notice Thrown when the price is not found
+    error PRICE_NOT_FOUND();
+    /// @notice Thrown when the price is stale
+    error STALE_ORACLE_PRICE();
+    /// @notice Thrown when the super oracle is not found
+    error SUPER_ORACLE_NOT_FOUND();
+    /// @notice Thrown when the up token is not found
+    error UP_NOT_FOUND();
+    /// @notice Thrown when the gas info is invalid
+    error INVALID_GAS_INFO();
 
     /*//////////////////////////////////////////////////////////////
                                   EVENTS
@@ -199,15 +214,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Event emitted when manager takeovers are permanently frozen
     event ManagerTakeoversFrozen();
 
-    /// @notice Emitted when a new upkeep cost per update is proposed
-    /// @param newCost The proposed upkeep cost
-    /// @param effectiveTime The timestamp when the new cost will be effective
-    event UpkeepCostPerUpdateProposed(uint256 newCost, uint256 effectiveTime);
-
-    /// @notice Emitted when the upkeep cost per update is changed
-    /// @param newCost The new upkeep cost
-    event UpkeepCostPerUpdateChanged(uint256 newCost);
-
     /// @notice Emitted when a relayer is added
     /// @param relayer The address of the added relayer
     event RelayerAdded(address indexed relayer);
@@ -279,6 +285,12 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a protected keeper is unregistered
     /// @param keeper Address of the keeper being unregistered
     event ProtectedKeeperUnregistered(address indexed keeper);
+
+    /// @notice Emitted when gas info is set
+    /// @param oracle The address of the oracle
+    /// @param baseGasBatch The base gas for the oracle
+    /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
+    event GasInfoSet(address indexed oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch);
 
     /*//////////////////////////////////////////////////////////////
                        CONTRACT REGISTRY FUNCTIONS
@@ -475,12 +487,11 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                       UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Proposes a new upkeep cost per update (for PPS updates)
-    /// @param newCost The proposed new upkeep cost per update
-    function proposeUpkeepCostPerUpdate(uint256 newCost) external;
-
-    /// @notice Executes a previously proposed upkeep cost change after timelock has expired
-    function executeUpkeepCostPerUpdateChange() external;
+    /// @notice Sets gas info for an oracle
+    /// @param oracle The address of the oracle
+    /// @param baseGasBatch The base gas for the oracle
+    /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
+    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external;
 
     /// @notice Proposes a change to upkeep payments enabled status
     /// @param enabled The proposed enabled status
@@ -571,6 +582,9 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice The identifier of the role that grants access to bank management functions
     function BANK_MANAGER_ROLE() external view returns (bytes32);
+
+    /// @notice The identifier of the role that grants access to gas management functions
+    function GAS_MANAGER_ROLE() external view returns (bytes32);
 
     /// @notice The identifier of the role that grants access to guardian functions
     function GUARDIAN_ROLE() external view returns (bytes32);
@@ -665,15 +679,13 @@ interface ISuperGovernor is IAccessControl {
     /// @return The current fee value (in basis points)
     function getFee(FeeType feeType) external view returns (uint256);
 
-    /// @notice Gets the current upkeep cost per update for PPS updates
-    /// @return The current upkeep cost per update in UP tokens
-    function getUpkeepCostPerUpdate() external view returns (uint256);
+    /// @notice Gets the current upkeep cost per batch update for PPS updates
+    /// @param oracle The address of the PPS oracle
+    /// @param chargeableEntries The number of chargeable entries
+    /// @return The current upkeep cost per batch update in UP tokens
+    function getUpkeepCostPerBatchUpdate(address oracle, uint256 chargeableEntries) external view returns (uint256);
 
     /// @notice Gets the proposed upkeep cost per update and its effective time
-    /// @return proposedCost The proposed new upkeep cost
-    /// @return effectiveTime The timestamp when the new cost will become effective
-    function getProposedUpkeepCostPerUpdate() external view returns (uint256 proposedCost, uint256 effectiveTime);
-
     /// @notice Gets the current minimum staleness value
     /// @return The current minimum staleness value in seconds
     function getMinStaleness() external view returns (uint256);
@@ -805,4 +817,9 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the number of registered protected keepers
     /// @return The number of registered protected keepers
     function getProtectedKeepersCount() external view returns (uint256);
+
+    /// @notice Gets the gas info for a specific SuperVault PPS Oracle
+    /// @param oracle_ The address of the oracle to get gas info for
+    /// @return The gas info for the specified oracle
+    function getGasInfo(address oracle_) external view returns (GasInfo memory);
 }

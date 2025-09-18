@@ -23,6 +23,7 @@ globalMerkleHooksPeriphery[X] = address(yourNewHook); // Replace X with next ava
 
 **Important**: The hook must be deployed and accessible via `address(yourHook)` or from `hookAddresses[chainId][HOOK_KEY]`.
 
+Add your hook address to the console logs in `GetAddressesFromBaseTest.s.sol`.
 The console output from `GetAddressesFromBaseTest.s.sol` should show:
 ```
 YourNewHook: 0x1234567890123456789012345678901234567890
@@ -172,6 +173,15 @@ test/utils/merkle/config/
 ```
 
 ## Troubleshooting
+
+### Dependancies Missing
+- This process requires both `@openzeppelin/merkle-tree` and `ethers` packages, they can be installed in the root directory via:
+  ```
+  bash
+  pnpm add -D @openzeppelin/merkle-tree
+  pnpm add ethers@5.7.2
+  ```
+  Note: `ethers` must be installed at a version `<6.x`
 
 ### Hook Not Detected
 - Verify hook is in `globalMerkleHooksPeriphery` array

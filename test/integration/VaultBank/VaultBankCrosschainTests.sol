@@ -105,7 +105,7 @@ contract VaultBankCrosschainTests is BaseTest {
         // BASE IS DST
         SELECT_FORK_AND_WARP(BASE, safeTimestamp);
 
-        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this));
+        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this));
         vaultBank = new VaultBank(address(superGovernor));
         superGovernor.addVaultBank(ETH, address(vaultBank));
         superGovernor.registerHook(_getHookAddress(BASE, MINT_SUPERPOSITIONS_HOOK_KEY), false);
@@ -236,7 +236,7 @@ contract VaultBankCrosschainTests is BaseTest {
         // BASE IS DST
         SELECT_FORK_AND_WARP(BASE, safeTimestamp);
 
-        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this));
+        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this));
         vaultBank = new VaultBank(address(superGovernor));
         superGovernor.addVaultBank(ETH, address(vaultBank));
         superGovernor.registerHook(_getHookAddress(BASE, MINT_SUPERPOSITIONS_HOOK_KEY), false);

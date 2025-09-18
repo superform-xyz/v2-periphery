@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 // external
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 // Superform
 import { ISuperGovernor, FeeType } from "./interfaces/ISuperGovernor.sol";
@@ -81,12 +82,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Effective times for proposed fee updates
     mapping(FeeType type_ => uint256 effectiveTime) private _feeEffectiveTimes;
 
-    // Upkeep cost per update for PPS updates
-    uint256 private _upkeepCostPerUpdate;
-    // Proposed new upkeep cost
-    uint256 private _proposedUpkeepCostPerUpdate;
-    // Effective time for proposed upkeep cost change
-    uint256 private _upkeepCostEffectiveTime;
+    mapping(address _oracle => GasInfo info) private _oracleGasInfo;
 
     // Upkeep control
     bool private _upkeepPaymentsEnabled;
@@ -101,6 +97,15 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     uint256 private _proposedMinStaleness;
     uint256 private _minStalenesEffectiveTime;
 
+    // Oracle constants
+    address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address private constant USD_TOKEN = address(840);
+    address private constant GAS_QUOTE =
+        address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address private constant GWEI_QUOTE =
+        address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
+
     // Timelock configuration
     uint256 private constant TIMELOCK = 7 days;
     uint256 private constant BPS_MAX = 10_000; // 100% in basis points
@@ -111,6 +116,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _BANK_MANAGER_ROLE = keccak256("BANK_MANAGER_ROLE");
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
+    bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -132,10 +138,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param treasury_ Address of the treasury
     /// @param prover_ Address of the prover
-    constructor(address superGovernor, address governor, address bankManager, address treasury_, address prover_) {
+    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury_, address prover_) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -143,6 +149,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_SUPER_GOVERNOR_ROLE, superGovernor);
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
+        _grantRole(_GAS_MANAGER_ROLE, gasManager);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -150,6 +157,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
         _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
@@ -162,11 +170,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
         emit AddressSet(TREASURY, treasury_);
-
-        // Initialize upkeep cost
-        _upkeepCostPerUpdate = 1e18; // 1 UP token
-
-        emit UpkeepCostPerUpdateChanged(_upkeepCostPerUpdate);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
@@ -562,26 +565,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function proposeUpkeepCostPerUpdate(uint256 newCost) external onlyRole(_SUPER_GOVERNOR_ROLE) {
-        _proposedUpkeepCostPerUpdate = newCost;
-        _upkeepCostEffectiveTime = block.timestamp + TIMELOCK;
+    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
+        if (oracle == address(0)) revert INVALID_ADDRESS();
+        if (baseGasBatch == 0 || gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
-        emit UpkeepCostPerUpdateProposed(newCost, _upkeepCostEffectiveTime);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function executeUpkeepCostPerUpdateChange() external {
-        uint256 upkeepCostEffectiveTime = _upkeepCostEffectiveTime;
-        if (upkeepCostEffectiveTime == 0) revert NO_PROPOSED_UPKEEP_COST();
-        if (block.timestamp < upkeepCostEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
-
-        _upkeepCostPerUpdate = _proposedUpkeepCostPerUpdate;
-
-        // Reset proposal data
-        _proposedUpkeepCostPerUpdate = 0;
-        _upkeepCostEffectiveTime = 0;
-
-        emit UpkeepCostPerUpdateChanged(_upkeepCostPerUpdate);
+        _oracleGasInfo[oracle] = GasInfo({baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch});
+        emit GasInfoSet(oracle, baseGasBatch, gasIncreasePerEntryBatch);
     }
 
     /// @notice Proposes a change to the upkeep payments enabled status
@@ -855,6 +844,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function GAS_MANAGER_ROLE() external pure returns (bytes32) {
+        return _GAS_MANAGER_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
     function GUARDIAN_ROLE() external pure returns (bytes32) {
         return _GUARDIAN_ROLE;
     }
@@ -958,13 +952,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getUpkeepCostPerUpdate() external view returns (uint256) {
-        return _upkeepCostPerUpdate;
+    function getGasInfo(address oracle_) external view returns (GasInfo memory) {
+        return _oracleGasInfo[oracle_];
     }
 
-    /// @inheritdoc ISuperGovernor
-    function getProposedUpkeepCostPerUpdate() external view returns (uint256 proposedCost, uint256 effectiveTime) {
-        return (_proposedUpkeepCostPerUpdate, _upkeepCostEffectiveTime);
+     /// @inheritdoc ISuperGovernor
+    function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) external view returns (uint256) {
+        // Calculate total gas cost
+        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch + 
+            (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
+
+        return _convertGasToUp(totalGas);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -1110,4 +1108,39 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    function _convertGasToUp(uint256 gasAmount) internal view returns (uint256) {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert SUPER_ORACLE_NOT_FOUND();
+        address upToken = _addressRegistry[UP];
+        if (upToken == address(0)) revert UP_NOT_FOUND();
+
+        // Step 1: convert gas to ETH
+        (uint256 ethAmount,,,) = ISuperOracle(oracle).getQuoteFromProvider(
+            gasAmount,
+            GAS_QUOTE,
+            GWEI_QUOTE,
+            AVERAGE_PROVIDER
+        );
+
+        // Step 2: convert ETH to USD
+        (uint256 ethToUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
+            ethAmount,
+            NATIVE_TOKEN,
+            USD_TOKEN,
+            AVERAGE_PROVIDER
+        );
+
+        // Step 3: convert USD to UP (how much USD per UP token)
+        (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
+            1e18, // 1 UP token (18 decimals)
+            upToken,
+            USD_TOKEN,
+            AVERAGE_PROVIDER
+        );
+
+        // Calculate required UP tokens
+        // usdAmount / upPerUsd = required UP tokens
+        uint256 requiredUpTokens = Math.mulDiv(ethToUsd, 1e18, upPerUsd, Math.Rounding.Ceil);
+        return requiredUpTokens;
+    }
 }

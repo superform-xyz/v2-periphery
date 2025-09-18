@@ -148,6 +148,7 @@ contract IncentiveFundContractTest is PeripheryHelpers {
             admin, // superGovernor role
             admin, // governor role
             admin, // bankManager role
+            admin, // gasManager role
             makeAddr("treasury"), // treasury
             makeAddr("prover") // prover
         );

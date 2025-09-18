@@ -10,6 +10,7 @@ import { ISuperOracleL2 } from "../interfaces/oracles/ISuperOracleL2.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { BoringERC20 } from "../vendor/BoringSolidity/BoringERC20.sol";
 import { AggregatorV3Interface } from "../vendor/chainlink/AggregatorV3Interface.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title SuperOracleL2
 /// @author Superform Labs
@@ -131,7 +132,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
         // Calculate quote amount with proper decimal scaling
-        quoteAmount =
-            (baseAmount * uint256(answer) * (10 ** quoteDecimals)) / ((10 ** baseDecimals) * (10 ** feedDecimals));
+        quoteAmount = Math.mulDiv(baseAmount, uint256(answer), 10 ** feedDecimals);
+        quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
     }
 }

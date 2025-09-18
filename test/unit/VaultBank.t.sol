@@ -127,7 +127,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver = new MockCrossL2ProverV2();
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
         vaultBank = new TestVaultBank(address(superGovernor));
 
         vm.startPrank(governor);
@@ -313,7 +313,8 @@ contract VaultBankTest is PeripheryHelpers {
             lockAmount,
             CURRENT_CHAIN_ID,
             0,
-            uint32(DST_CHAIN_ID)
+            uint32(DST_CHAIN_ID),
+            yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -338,7 +339,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(token), lockAmount - 1, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID)
+            user, address(token), lockAmount - 1, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -363,7 +364,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(token), lockAmount, CURRENT_CHAIN_ID + 1, 0, uint32(DST_CHAIN_ID)
+            user, address(token), lockAmount, CURRENT_CHAIN_ID + 1, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -384,7 +385,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(token), lockAmount / 2, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID)
+            user, address(token), lockAmount / 2, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -407,7 +408,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            address(0), address(token), lockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID)
+            address(0), address(token), lockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -428,7 +429,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(0), lockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID)
+            user, address(0), lockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -448,7 +449,7 @@ contract VaultBankTest is PeripheryHelpers {
         vaultBank.lockAsset(yieldSourceOracleId, user, address(token), address(mockHook), lockAmount, DST_CHAIN_ID);
 
         mockProver.setEmittingContract(address(vaultBank));
-        mockProver.mockSuperpositionsBurnedEvent(user, address(token), 0, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID));
+        mockProver.mockSuperpositionsBurnedEvent(user, address(token), 0, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId);
 
         bytes memory mockProof = new bytes(0);
 
@@ -457,7 +458,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(token), lockAmount * 2, CURRENT_CHAIN_ID, 1, uint32(DST_CHAIN_ID)
+            user, address(token), lockAmount * 2, CURRENT_CHAIN_ID, 1, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         vm.expectRevert(IVaultBankSource.INVALID_AMOUNT.selector);
@@ -480,7 +481,7 @@ contract VaultBankTest is PeripheryHelpers {
         uint256 unlockAmount = lockAmount / 2;
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user, address(token), unlockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID)
+            user, address(token), unlockAmount, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         bytes memory mockProof = new bytes(0);
@@ -518,8 +519,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -584,7 +585,7 @@ contract VaultBankTest is PeripheryHelpers {
         uint256 unlockAmount = lockAmount / 2;
         mockProver.setEmittingContract(address(vaultBank));
         mockProver.mockSuperpositionsBurnedEvent(
-            user2, address(token), unlockAmount, CURRENT_CHAIN_ID, 2, uint32(DST_CHAIN_ID)
+            user2, address(token), unlockAmount, CURRENT_CHAIN_ID, 2, uint32(DST_CHAIN_ID), yieldSourceOracleId
         );
 
         vm.expectEmit(true, true, false, true);
@@ -618,8 +619,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -653,8 +654,8 @@ contract VaultBankTest is PeripheryHelpers {
         bytes32 invalidEventSelector = bytes32(uint256(0x12345678));
         bytes memory mockTopics = abi.encodePacked(
             invalidEventSelector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -687,8 +688,8 @@ contract VaultBankTest is PeripheryHelpers {
         address wrongToken = address(0x0000000000000000000000000000000000BaD123);
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(wrongToken))
         );
 
@@ -721,8 +722,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -754,8 +755,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -809,8 +810,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -843,8 +844,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -878,8 +879,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -935,8 +936,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 
@@ -990,8 +991,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes memory mockTopics = abi.encodePacked(
             IVaultBankSource.SharesLocked.selector,
-            keccak256(abi.encodePacked(account)),
-            bytes32(0),
+            sourceAsset.yieldSourceOracleId,
+            bytes32(uint256(uint160(account))),
             keccak256(abi.encodePacked(address(token)))
         );
 

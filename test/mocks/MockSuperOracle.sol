@@ -18,4 +18,20 @@ contract MockSuperOracle is IOracle {
     function getQuote(uint256, address, address) external view returns (uint256) {
         return quoteAmount;
     }
+    
+    function decimals() external pure returns (uint8) {
+        return 8;
+    }
+
+    function getQuoteFromProvider(
+        uint256,
+        address,
+        address,
+        bytes32
+    )
+        external
+        view
+        returns (uint256, uint256, uint256, uint256) {
+        return (quoteAmount, 0, 1, 1);
+    }
 }

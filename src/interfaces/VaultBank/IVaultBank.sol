@@ -37,6 +37,7 @@ interface IVaultBankSource {
     error NO_LOCKED_ASSETS();
     error INVALID_CLAIM_TARGET();
     error INVALID_YIELD_SOURCE_ORACLE_ID();
+    error INVALID_PROOF_YIELD_SOURCE_ORACLE_ID();
 
     /*//////////////////////////////////////////////////////////////
                                  VIEW METHODS

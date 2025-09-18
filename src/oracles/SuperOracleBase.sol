@@ -6,6 +6,7 @@ import { IOracle } from "../vendor/awesome-oracles/IOracle.sol";
 import { AggregatorV3Interface } from "../vendor/chainlink/AggregatorV3Interface.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { BoringERC20 } from "../vendor/BoringSolidity/BoringERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 // Superform
 import { ISuperOracle } from "../interfaces/oracles/ISuperOracle.sol";
@@ -39,6 +40,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
 
     /// @notice Timelock period for oracle updates
     uint256 internal constant TIMELOCK_PERIOD = 1 weeks;
+    uint256 internal constant MAX_SAMPLE_PROVIDERS = 10;
     bytes32 internal constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // SuperGovernor address
@@ -314,23 +316,40 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         virtual
         returns (uint256 quoteAmount)
     {
-        (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(oracle).latestRoundData();
+        int256 answer;
+        uint256 updatedAt;
 
-        // Validate data
+        // --- Get round data ---
+        try AggregatorV3Interface(oracle).latestRoundData() returns (
+            uint80, int256 _answer, uint256, uint256 _updatedAt, uint80
+        ) {
+            answer = _answer;
+            updatedAt = _updatedAt;
+        } catch {
+            if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
+            return 0;
+        }
+
+        // --- Validate data ---
         if (answer <= 0 || block.timestamp - updatedAt > feedMaxStaleness[oracle]) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
 
-        // Get decimals
-        uint8 feedDecimals = _getOracleDecimals(AggregatorV3Interface(oracle));
-        uint8 baseDecimals = IERC20(base).safeDecimals();
-        uint8 quoteDecimals = IERC20(quote).safeDecimals();
+        // --- Get decimals and compute scaled amount ---
+        try AggregatorV3Interface(oracle).decimals() returns (uint8 feedDecimals) {
+            uint8 baseDecimals = IERC20(base).safeDecimals();
+            uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
-        // Calculate quote amount with proper decimal scaling
-        quoteAmount =
-            (baseAmount * uint256(answer) * (10 ** quoteDecimals)) / ((10 ** baseDecimals) * (10 ** feedDecimals));
+            // Calculate quote amount with proper decimal scaling
+            quoteAmount = Math.mulDiv(baseAmount, uint256(answer), 10 ** feedDecimals);
+            quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
+        } catch {
+            if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
+            return 0;
+        }
     }
+
 
     function _getAverageQuote(
         address base,
@@ -347,6 +366,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         validQuotes = new uint256[](numberOfProviders);
 
         // Loop through all active providers
+        // Iterates only until MAX_SAMPLE_PROVIDERS valid quotes are collected to bound gas usage
         for (uint256 i; i < numberOfProviders; ++i) {
             bytes32 provider = activeProviders[i];
             address providerOracle = oracles[base][quote][provider];
@@ -374,6 +394,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             }
 
             uint256 quote_ = _getQuoteFromOracle(providerOracle, baseAmount, base, quote, false);
+
             /// @dev we don't revert on error, we just skip the oracle value
             if (quote_ > 0) {
                 total += quote_;
@@ -381,6 +402,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                 // This oracle is available
                 unchecked {
                     ++count;
+                }
+                if (count == MAX_SAMPLE_PROVIDERS) {
+                    break;
                 }
             }
         }
@@ -412,7 +436,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                 diff = mean - values[i];
             }
 
-            uint256 squaredDiff = diff * diff;
+            uint256 squaredDiff = Math.mulDiv(diff, diff, 1);
             sumSquaredDiff += squaredDiff;
         }
 

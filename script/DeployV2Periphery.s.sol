@@ -257,6 +257,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     configuration.owner,
                     configuration.owner,
                     configuration.owner,
+                    configuration.owner,
                     configuration.treasury,
                     configuration.polymerProvers[chainId]
                 )

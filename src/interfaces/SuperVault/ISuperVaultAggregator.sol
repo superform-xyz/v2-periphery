@@ -21,7 +21,7 @@ interface ISuperVaultAggregator {
     /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     /// @param upkeepCost Amount of upkeep tokens to charge if not exempt
-    struct ForwardPPSArgs {
+    struct PPSUpdateData {
         address strategy;
         bool isExempt;
         uint256 pps;
@@ -191,7 +191,9 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when upkeep tokens are spent for validation
     /// @param manager Address of the manager
     /// @param amount Amount of UP tokens spent
-    event UpkeepSpent(address indexed manager, uint256 amount);
+    /// @param balance Current balance of the manager
+    /// @param claimableUpkeep Amount of upkeep tokens claimable by the manager
+    event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep);
 
     /// @notice Emitted when stake tokens are deposited
     /// @param manager Address of the manager
@@ -335,11 +337,38 @@ interface ISuperVaultAggregator {
     /// @param amount Amount of upkeep claimed
     event UpkeepClaimed(address indexed superBank, uint256 amount);
 
+    /// @notice Emitted when PPS update is too frequent (before minUpdateInterval)
+    event UpdateTooFrequent();
+
+    /// @notice Emitted when PPS update timestamp is not monotonically increasing
+    event TimestampNotMonotonic();
+
+    /// @notice Emitted when a manager does not have enough upkeep balance
+    event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
+
+    /// @notice Emitted when the provided timestamp is too large
+    event ProvidedTimestampExceedsBlockTimestamp(address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp);
+
+    /// @notice Emitted when a strategy is unknown
+    event UnknownStrategy(address indexed strategy);
+
+    /// @notice Emitted when a strategy is managed by Superform
+    event SuperformManager(address indexed strategy, address indexed manager);
+
+    /// @notice Emitted when the caller is authorized
+    event AuthorizedCaller(address indexed strategy, address indexed caller);
+
+    /// @notice Emitted when the old primary manager is removed from the strategy
+    /// @dev This can happen because of reaching the max number of secondary managers
+    event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
     /// @notice Thrown when address provided is zero
     error ZERO_ADDRESS();
+    /// @notice Thrown when amount provided is zero
+    error ZERO_AMOUNT();
     /// @notice Thrown when array length is zero
     error ZERO_ARRAY_LENGTH();
     /// @notice Thrown when array length is zero
@@ -352,8 +381,6 @@ interface ISuperVaultAggregator {
     error VAULT_PAUSED();
     /// @notice Thrown when caller is not an approved PPS oracle
     error UNAUTHORIZED_PPS_ORACLE();
-    /// @notice Thrown when PPS update is too frequent (before minUpdateInterval)
-    error UPDATE_TOO_FREQUENT();
     /// @notice Thrown when PPS update is too stale (after maxStaleness)
     error UPDATE_TOO_STALE();
     /// @notice Thrown when caller is not authorized for update
@@ -398,12 +425,18 @@ interface ISuperVaultAggregator {
     error INVALID_ARRAY_LENGTH();
     /// @notice Thrown when trying to add a protected keeper as an authorized caller
     error CANNOT_ADD_PROTECTED_KEEPER();
-    /// @notice Thrown when update timestamp is not monotonically increasing
-    error TIMESTAMP_NOT_MONOTONIC();
     /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
     error MAX_STALENESS_TOO_LOW();
     /// @notice Thrown when arrays have mismatched lengths
     error MISMATCHED_ARRAY_LENGTHS();
+    /// @notice Thrown when timestamp is invalid
+    error INVALID_TIMESTAMP(uint256 index);
+    /// @notice Thrown when too many secondary managers are added
+    error TOO_MANY_SECONDARY_MANAGERS();
+    /// @notice Thrown when the number of strategies exceeds the maximum allowed
+    error MAX_STRATEGIES_EXCEEDED();
+    /// @notice Thrown when provided timestamp is too large
+    error TIMESTAMP_EXCEEDS_BLOCK();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -420,11 +453,6 @@ interface ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                           PPS UPDATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Forwards a validated PPS update from a trusted oracle
-    /// @param updateAuthority Address that initiated the update (for upkeep tracking for single updates)
-    /// @param args Struct containing all PPS update parameters
-    function forwardPPS(address updateAuthority, ForwardPPSArgs calldata args) external;
-
     /// @notice Arguments for batch forwarding PPS updates
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
@@ -432,18 +460,19 @@ interface ISuperVaultAggregator {
     /// @param validatorSets Array of numbers of validators who calculated each PPS
     /// @param totalValidators Total number of validators in the network
     /// @param timestamps Array of timestamps when values were generated
-    struct BatchForwardPPSArgs {
+    struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
         uint256[] ppsStdevs;
         uint256[] validatorSets;
         uint256[] totalValidators;
         uint256[] timestamps;
+        address updateAuthority;
     }
 
     /// @notice Batch forwards validated PPS updates to multiple strategies
     /// @param args Struct containing all batch PPS update parameters
-    function batchForwardPPS(BatchForwardPPSArgs calldata args) external;
+    function forwardPPS(ForwardPPSArgs calldata args) external;
 
     /*//////////////////////////////////////////////////////////////
                         UPKEEP MANAGEMENT

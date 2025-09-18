@@ -204,21 +204,21 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleTransactorRaw) Transact(opts *bind.Transa
 
 // BatchUpdatePPS is a paid mutator transaction binding the contract method 0xa1867527.
 //
-// Solidity: function batchUpdatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleTransactor) BatchUpdatePPS(opts *bind.TransactOpts, args IECDSAPPSOracleBatchUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.contract.Transact(opts, "batchUpdatePPS", args)
 }
 
 // BatchUpdatePPS is a paid mutator transaction binding the contract method 0xa1867527.
 //
-// Solidity: function batchUpdatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleSession) BatchUpdatePPS(args IECDSAPPSOracleBatchUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.Contract.BatchUpdatePPS(&_IECDSAPPSOracle.TransactOpts, args)
 }
 
 // BatchUpdatePPS is a paid mutator transaction binding the contract method 0xa1867527.
 //
-// Solidity: function batchUpdatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleTransactorSession) BatchUpdatePPS(args IECDSAPPSOracleBatchUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.Contract.BatchUpdatePPS(&_IECDSAPPSOracle.TransactOpts, args)
 }

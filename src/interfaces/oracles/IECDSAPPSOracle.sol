@@ -61,18 +61,36 @@ interface IECDSAPPSOracle {
         address indexed sender
     );
 
+    /// @notice Emitted when proof validation failed
+    /// @param strategy Address of the strategy
+    /// @param reason Revert reason
+    event ProofValidationFailed(address indexed strategy, string reason);
+
+    /// @notice Emitted when proof validation failed
+    /// @param strategy Address of the strategy
+    /// @param data Revert encoded data
+    event ProofValidationFailedLowLevel(address indexed strategy, bytes data);
+
+    /// @notice Emitted when batch forward PPS failed
+    /// @param reason Revert reason
+    event BatchForwardPPSFailed(string reason);
+
+    /// @notice Emitted when batch forward PPS failed
+    /// @param lowLevelData Revert encoded data
+    event BatchForwardPPSFailedLowLevel(bytes lowLevelData);
+
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Arguments for updating PPS for a single strategy
+    /// @notice Parameters for validating PPS proofs
     /// @param strategy Address of the strategy
-    /// @param proofs Array of cryptographic proofs of the PPS value from different validators
+    /// @param proofs Array of cryptographic proofs
     /// @param pps Price-per-share value (mean)
     /// @param ppsStdev Standard deviation of the price-per-share
     /// @param validatorSet Number of validators who calculated this PPS
     /// @param totalValidators Total number of validators in the network
-    /// @param timestamp The time and therefore the blockchain(s) state(s) (plural important) this PPS refers to
-    struct UpdatePPSArgs {
+    /// @param timestamp Timestamp when the value was generated
+    struct ValidationParams {
         address strategy;
         bytes[] proofs;
         uint256 pps;
@@ -90,7 +108,7 @@ interface IECDSAPPSOracle {
     /// @param validatorSets Array of numbers of validators who calculated each PPS
     /// @param totalValidators Array of total number of validators in the network for each update
     /// @param timestamps The time and therefore the blockchain(s) state(s) (plural important) this PPS refers to
-    struct BatchUpdatePPSArgs {
+    struct UpdatePPSArgs {
         address[] strategies;
         bytes[][] proofsArray;
         uint256[] ppss;
@@ -104,8 +122,9 @@ interface IECDSAPPSOracle {
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Returns the current nonce
+    /// @param strategy_ Address of the strategy
     /// @return The current nonce
-    function nonce() external view returns (uint256);
+    function noncePerStrategy(address strategy_) external view returns (uint256);
 
     /// @notice Returns the domain separator for the contract
     /// @return The domain separator
@@ -115,15 +134,15 @@ interface IECDSAPPSOracle {
     /// @return The typehash
     function UPDATE_PPS_TYPEHASH() external view returns (bytes32);
 
+    /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @param params Validation parameters
+    /// @dev Reverts immediately if duplicate signers are found or quorum is not met
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params) external view;
+
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Updates the PPS for a single strategy
-    /// @param args Struct containing all parameters for PPS update
-    function updatePPS(UpdatePPSArgs calldata args) external;
-
     /// @notice Updates the PPS for multiple strategies in a batch
     /// @param args Struct containing all parameters for batch PPS update
-    function batchUpdatePPS(BatchUpdatePPSArgs calldata args) external;
+    function updatePPS(UpdatePPSArgs calldata args) external;
 }

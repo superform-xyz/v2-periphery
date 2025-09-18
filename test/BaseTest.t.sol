@@ -114,7 +114,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             }
 
             PA[i].superGovernor =
-                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), TREASURY, proverAddress);
+                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), TREASURY, proverAddress);
             vm.label(address(PA[i].superGovernor), SUPER_GOVERNOR_KEY);
             contractAddresses[chainIds[i]][SUPER_GOVERNOR_KEY] = address(PA[i].superGovernor);
 
@@ -391,16 +391,19 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY], true);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_5115_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY], false);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY], true);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY], true);
 
             // Register remaining hooks
             superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY], true);
             superGovernor.registerHook(
-                hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], true
+                hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], false
             );
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], false);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_ERC20_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][TRANSFER_ERC20_HOOK_KEY], false);
             superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY], true);
@@ -430,7 +433,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 superGovernor.registerHook(address(PA[i].mockNativeETHHook), true);
 
                 // Initialize periphery-specific merkle hooks - include all hooks that can fulfill requests (true)
-                globalMerkleHooksPeriphery = new address[](12);
+                globalMerkleHooksPeriphery = new address[](14);
                 globalMerkleHooksPeriphery[0] = hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[1] = hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[2] = hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY];
@@ -440,12 +443,15 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHooksPeriphery[6] =
                     hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[7] = hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY];
-                globalMerkleHooksPeriphery[9] = address(PA[i].mockNativeETHHook);
+                globalMerkleHooksPeriphery[8] = address(PA[i].mockNativeETHHook);
                 // Add missing hooks from globalMerkleHooks
-                globalMerkleHooksPeriphery[10] = hookAddresses[chainIds[i]][GEARBOX_APPROVE_AND_STAKE_HOOK_KEY];
-                globalMerkleHooksPeriphery[11] = hookAddresses[chainIds[i]][GEARBOX_UNSTAKE_HOOK_KEY];
+                globalMerkleHooksPeriphery[9] = hookAddresses[chainIds[i]][GEARBOX_APPROVE_AND_STAKE_HOOK_KEY];
+                globalMerkleHooksPeriphery[10] = hookAddresses[chainIds[i]][GEARBOX_UNSTAKE_HOOK_KEY];
+                globalMerkleHooksPeriphery[11] = hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY];
+                globalMerkleHooksPeriphery[12] = hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY];
+                globalMerkleHooksPeriphery[13] = hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY];
 
-                globalMerkleHookNamesPeriphery = new string[](12);
+                globalMerkleHookNamesPeriphery = new string[](14);
                 globalMerkleHookNamesPeriphery[0] = "DEPOSIT_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[1] = "REDEEM_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[2] = "DEPOSIT_5115_VAULT_HOOK";
@@ -454,10 +460,12 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHookNamesPeriphery[5] = "APPROVE_AND_DEPOSIT_5115_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[6] = "APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[7] = "DEPOSIT_7540_VAULT_HOOK";
-                globalMerkleHookNamesPeriphery[8] = "APPROVE_AND_REQUEST_REDEEM_7540_VAULT_HOOK";
-                globalMerkleHookNamesPeriphery[9] = "MOCK_NATIVE_ETH_HOOK";
-                globalMerkleHookNamesPeriphery[10] = "APPROVE_AND_GEARBOX_STAKE_HOOK";
-                globalMerkleHookNamesPeriphery[11] = "GEARBOX_UNSTAKE_HOOK";
+                globalMerkleHookNamesPeriphery[8] = "MOCK_NATIVE_ETH_HOOK";
+                globalMerkleHookNamesPeriphery[9] = "APPROVE_AND_GEARBOX_STAKE_HOOK";
+                globalMerkleHookNamesPeriphery[10] = "GEARBOX_UNSTAKE_HOOK";
+                globalMerkleHookNamesPeriphery[11] = "WITHDRAW_7540_VAULT_HOOK";
+                globalMerkleHookNamesPeriphery[12] = "REDEEM_7540_VAULT_HOOK";
+                globalMerkleHookNamesPeriphery[13] = "REQUEST_REDEEM_7540_VAULT_HOOK";
             }
 
             // EXPERIMENTAL HOOKS FROM HERE ONWARDS

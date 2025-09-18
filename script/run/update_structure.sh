@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 # save to .scripts/update_structure.sh
 # best way to use is with tree: `brew install tree`
 

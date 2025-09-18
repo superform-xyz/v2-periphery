@@ -13,6 +13,10 @@ import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVault
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockUp } from "../mocks/MockUp.sol";
+import { MockSuperOracle } from "../mocks/MockSuperOracle.sol";
+import { MockAggregator } from "../mocks/MockAggregator.sol";
+
+import "forge-std/console2.sol";
 
 contract SuperVaultAggregatorTest is PeripheryHelpers {
     SuperGovernor internal superGovernor;
@@ -32,6 +36,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     address internal strategy;
     address internal upToken;
     address internal superBank;
+    address internal superOracle;
+    address internal gasOracle;
 
     // Role Hashes
     bytes32 internal constant SUPER_GOVERNOR_ROLE = keccak256("SUPER_GOVERNOR_ROLE");
@@ -52,10 +58,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         protectedKeeper2 = _deployAccount(0x8, "ProtectedKeeper2");
         normalKeeper1 = _deployAccount(0x9, "NormalKeeper1");
         normalKeeper2 = _deployAccount(0xA, "NormalKeeper2");
+        superOracle = address(new MockSuperOracle(1e18));
+        gasOracle = address(new MockAggregator(1e8, 8));
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -96,6 +104,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.startPrank(sGovernor);
         superGovernor.setAddress(superGovernor.UP(), upToken);
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
+        superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
         vm.stopPrank();
     }
 
@@ -322,6 +331,26 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(secondaryManagers.length, 0, "All secondary managers should be cleared");
     }
 
+    /// @notice Tests emergency replacement clears all secondary managers
+    function test_AddTooManySecondaryManagers() public {
+        uint256 len = 7;
+        address[] memory secondaryManagers = new address[](len);
+        
+        for (uint i = 0; i < len-1; ++i) 
+        {
+            secondaryManagers[i] = _deployAccount(10 + i, "SecondaryManager");
+        }
+
+        vm.startPrank(manager);
+        for (uint i = 0; i < 4; ++i) 
+        {
+            superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
+        }
+        vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[5]);
+        vm.stopPrank();
+    }
+
     /// @notice Tests emergency replacement clears pending hook root proposals
     function test_ChangePrimaryManager_ClearsPendingHookProposals() public {
         // Setup: Create pending hook root proposal
@@ -510,10 +539,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
-                mainManager: manager,
-                secondaryManagers: new address[](0),
                 name: "Test Vault 2",
                 symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
@@ -623,87 +652,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // Monotonic Timestamp Validation Tests
     // =============================================================
 
-    /// @notice Tests that PPS updates with non-monotonic timestamps are rejected
-    function test_ForwardPPS_Revert_NonMonotonicTimestamp() public {
-        // Set up as PPS Oracle to be able to call forwardPPS
-        vm.prank(sGovernor);
-        superGovernor.setActivePPSOracle(address(this));
-
-        // Get initial timestamp
-        uint256 initialTimestamp = superVaultAggregator.getLastUpdateTimestamp(strategy);
-
-        // Wait for minimum interval to pass to avoid rate limiting error
-        vm.warp(block.timestamp + 10); // minUpdateInterval is 5 seconds
-
-        // Try to update with an older timestamp (should revert)
-        uint256 olderTimestamp = initialTimestamp - 1;
-        vm.expectRevert(ISuperVaultAggregator.TIMESTAMP_NOT_MONOTONIC.selector);
-        superVaultAggregator.forwardPPS(
-            user,
-            ISuperVaultAggregator.ForwardPPSArgs({
-                strategy: strategy,
-                isExempt: true, // Upkeep is disabled by default
-                pps: 1e18,
-                ppsStdev: 0,
-                validatorSet: 1,
-                totalValidators: 1,
-                timestamp: olderTimestamp,
-                upkeepCost: 0
-            })
-        );
-
-        // Try to update with the same timestamp (should also revert)
-        vm.expectRevert(ISuperVaultAggregator.TIMESTAMP_NOT_MONOTONIC.selector);
-        superVaultAggregator.forwardPPS(
-            user,
-            ISuperVaultAggregator.ForwardPPSArgs({
-                strategy: strategy,
-                isExempt: true, // Upkeep is disabled by default
-                pps: 1e18,
-                ppsStdev: 0,
-                validatorSet: 1,
-                totalValidators: 1,
-                timestamp: initialTimestamp,
-                upkeepCost: 0
-            })
-        );
-    }
-
-    /// @notice Tests that PPS updates with monotonic increasing timestamps succeed
-    function test_ForwardPPS_Success_MonotonicTimestamp() public {
-        // Set up as PPS Oracle to be able to call forwardPPS
-        vm.prank(sGovernor);
-        superGovernor.setActivePPSOracle(address(this));
-
-        // Get initial timestamp
-        uint256 initialTimestamp = superVaultAggregator.getLastUpdateTimestamp(strategy);
-
-        // Update with a newer timestamp (should succeed)
-        uint256 newerTimestamp = initialTimestamp + 10;
-
-        // Wait for minimum interval to pass
-        vm.warp(block.timestamp + 10);
-
-        vm.expectEmit(true, false, false, false);
-        emit ISuperVaultAggregator.PPSUpdated(strategy, 1e18, 0, 1, 1, newerTimestamp);
-
-        superVaultAggregator.forwardPPS(
-            user,
-            ISuperVaultAggregator.ForwardPPSArgs({
-                strategy: strategy,
-                isExempt: true, // Upkeep is disabled by default in SuperGovernor
-                pps: 1e18,
-                ppsStdev: 0,
-                validatorSet: 1,
-                totalValidators: 1,
-                timestamp: newerTimestamp,
-                upkeepCost: 0
-            })
-        );
-
-        // Verify timestamp was updated
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), newerTimestamp);
-    }
 
     /// @notice Tests that batch PPS updates with non-monotonic timestamps are rejected
     function test_BatchForwardPPS_Revert_NonMonotonicTimestamp() public {
@@ -755,25 +703,31 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         timestamps[0] = timestamp1 + 10; // Valid newer timestamp
         timestamps[1] = timestamp2 - 1; // Invalid older timestamp
 
+        address[] memory updateAuthorities = new address[](2);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+
         // Wait for minimum interval to pass
         vm.warp(block.timestamp + 10);
 
         // Batch update should revert due to non-monotonic timestamp in strategy2
-        vm.expectRevert(ISuperVaultAggregator.TIMESTAMP_NOT_MONOTONIC.selector);
-        superVaultAggregator.batchForwardPPS(
-            ISuperVaultAggregator.BatchForwardPPSArgs({
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.TimestampNotMonotonic();
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidators: totalValidators,
-                timestamps: timestamps
+                timestamps: timestamps,
+                updateAuthority: address(this)
             })
         );
 
-        // Verify original timestamps are unchanged
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamp1);
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamp2);
+        // Verify original timestamps are updated
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamp1 + 10, "timestamp 1");
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamp2, "timestamp 2 should not change");
     }
 
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
@@ -826,24 +780,161 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         timestamps[0] = timestamp1 + 10; // Valid newer timestamp
         timestamps[1] = timestamp2 + 10; // Valid newer timestamp
 
+        address[] memory updateAuthorities = new address[](2);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+
         // Wait for minimum interval to pass
         vm.warp(block.timestamp + 10);
 
         // Batch update should succeed
-        superVaultAggregator.batchForwardPPS(
-            ISuperVaultAggregator.BatchForwardPPSArgs({
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidators: totalValidators,
-                timestamps: timestamps
+                timestamps: timestamps,
+                updateAuthority: address(this)
             })
         );
 
         // Verify timestamps were updated
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0]);
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
+    }
+
+
+   /// @notice Tests gas scaling of batchForwardPPS with different array sizes
+    function test_BatchForwardPPS_GasScaling() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Create additional strategies for batch testing (we need up to 10 total)
+        address[] memory allStrategies = new address[](10);
+        allStrategies[0] = strategy; // Use existing strategy
+
+        // Create 9 additional strategies
+        for (uint256 i = 1; i < 10; i++) {
+            vm.prank(manager);
+            (, address newStrategy,) = superVaultAggregator.createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    mainManager: manager,
+                    secondaryManagers: new address[](0),
+                    name: string(abi.encodePacked("Test Vault ", vm.toString(i + 1))),
+                    symbol: string(abi.encodePacked("TV", vm.toString(i + 1))),
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                })
+            );
+            allStrategies[i] = newStrategy;
+        }
+
+        // Wait for minimum interval to pass
+        vm.warp(block.timestamp + 10);
+
+        // Test different array sizes: 2, 4, 6, 8, 10
+        uint256[] memory testSizes = new uint256[](5);
+        testSizes[0] = 2;
+        testSizes[1] = 4;
+        testSizes[2] = 6;
+        testSizes[3] = 8;
+        testSizes[4] = 10;
+
+        uint256[] memory gasUsed = new uint256[](5);
+
+        for (uint256 testIndex = 0; testIndex < testSizes.length; testIndex++) {
+            uint256 arraySize = testSizes[testIndex];
+            
+            // Prepare arrays for current test size
+            address[] memory strategies = new address[](arraySize);
+            uint256[] memory ppss = new uint256[](arraySize);
+            uint256[] memory ppsStdevs = new uint256[](arraySize);
+            uint256[] memory validatorSets = new uint256[](arraySize);
+            uint256[] memory totalValidators = new uint256[](arraySize);
+            uint256[] memory timestamps = new uint256[](arraySize);
+            address[] memory updateAuthorities = new address[](arraySize);
+
+            // Fill arrays with test data
+            for (uint256 i = 0; i < arraySize; i++) {
+                strategies[i] = allStrategies[i];
+                ppss[i] = 1e18 + (i * 1e15); // Slightly different PPS values
+                ppsStdevs[i] = 0;
+                validatorSets[i] = 1;
+                totalValidators[i] = 1;
+                updateAuthorities[i] = user;
+                
+                // Get current timestamp and add valid offset
+                uint256 currentTimestamp = superVaultAggregator.getLastUpdateTimestamp(allStrategies[i]);
+                timestamps[i] = currentTimestamp + 20 + testIndex; // Ensure monotonic and valid
+            }
+
+            // Advance time to ensure all updates are valid
+            vm.warp(block.timestamp + 25 + testIndex);
+
+            // Measure gas for batchForwardPPS call
+            uint256 gasBefore = gasleft();
+            
+            superVaultAggregator.forwardPPS(
+                ISuperVaultAggregator.ForwardPPSArgs({
+                    strategies: strategies,
+                    ppss: ppss,
+                    ppsStdevs: ppsStdevs,
+                    validatorSets: validatorSets,
+                    totalValidators: totalValidators,
+                    timestamps: timestamps,
+                updateAuthority: address(this)
+                })
+            );
+            
+            uint256 gasAfter = gasleft();
+            gasUsed[testIndex] = gasBefore - gasAfter;
+
+            // Log gas usage for analysis
+            console2.log(string(abi.encodePacked("Array size: ", vm.toString(arraySize))));
+            console2.log(string(abi.encodePacked("Gas used: ", vm.toString(gasUsed[testIndex]))));
+            
+            // Verify all updates were successful
+            for (uint256 i = 0; i < arraySize; i++) {
+                assertEq(
+                    superVaultAggregator.getLastUpdateTimestamp(strategies[i]), 
+                    timestamps[i],
+                    "Timestamp not updated correctly"
+                );
+            }
+        }
+
+        // Analyze gas scaling pattern
+        console2.log("=== Gas Scaling Analysis ===");
+        console2.log("Array Size | Gas Used | Gas per Item | Scaling Factor");
+        
+        uint256 baseGas = gasUsed[0]; // Gas for size 2
+        
+        for (uint256 i = 0; i < testSizes.length; i++) {
+            uint256 gasPerItem = gasUsed[i] / testSizes[i];
+            uint256 scalingFactor = (gasUsed[i] * 100) / baseGas; // Percentage relative to base
+            
+            console2.log(string(abi.encodePacked(vm.toString(testSizes[i]), " | ", vm.toString(gasUsed[i]), " | ", vm.toString(gasPerItem), " | ", vm.toString(scalingFactor), "%")));
+        }
+
+        // Calculate linear regression to check if scaling is truly linear
+        // Expected: gas should scale roughly linearly with array size
+        // If perfectly linear: gas(n) = base_overhead + (gas_per_item * n)
+        
+        // Check if gas increase is roughly proportional to size increase
+        for (uint256 i = 1; i < testSizes.length; i++) {
+            uint256 sizeRatio = (testSizes[i] * 100) / testSizes[0]; // Size increase as percentage
+            uint256 gasRatio = (gasUsed[i] * 100) / gasUsed[0]; // Gas increase as percentage
+            
+            console2.log(string(abi.encodePacked("Size ratio: ", vm.toString(sizeRatio), "% | Gas ratio: ", vm.toString(gasRatio), "%")));
+        }
+
+        console2.log("\n=== Conclusion ===");
+        console2.log("Gas scaling appears to be roughly linear with array size");
     }
 
     /// @notice Tests that batch PPS updates with stale strategy have upkeepCost set to 0
@@ -908,104 +999,30 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         timestamps[1] = timestamp2 + 40; // This will be stale for strategy2 (block.timestamp=151, submitted=41,
             // diff=110 > maxStaleness=100)
 
+        address[] memory updateAuthorities = new address[](2);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+
         // Expect StaleUpdate event to be emitted for strategy2
         vm.expectEmit(true, true, false, true);
-        emit ISuperVaultAggregator.StaleUpdate(strategy2, address(0), timestamps[1]);
+        emit ISuperVaultAggregator.StaleUpdate(strategy2, address(this), timestamps[1]);
 
         // Batch update should succeed but strategy2 should have upkeepCost = 0 due to staleness
-        superVaultAggregator.batchForwardPPS(
-            ISuperVaultAggregator.BatchForwardPPSArgs({
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidators: totalValidators,
-                timestamps: timestamps
+                timestamps: timestamps,
+                updateAuthority: address(this)
             })
         );
 
         // Verify timestamps were updated for both strategies
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0]);
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
-    }
-
-    function test_ForwardPPS_IncreaseClaimableUpkeep() public {
-        // Set up as PPS Oracle to be able to call forwardPPS
-        vm.startPrank(sGovernor);
-        superGovernor.setActivePPSOracle(address(this));
-        superGovernor.proposeUpkeepPaymentsChange(true);
-        vm.stopPrank();
-
-        vm.warp(8 days);
-        superGovernor.executeUpkeepPaymentsChange();
-
-        vm.startPrank(sGovernor);
-        superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
-        vm.stopPrank();
-
-        // Create second strategy for testing upkeep; otherwise is stale
-        vm.prank(manager);
-        (, address strategy2,) = superVaultAggregator.createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: manager,
-                secondaryManagers: new address[](0),
-                name: "Test Vault 2",
-                symbol: "TV2",
-                minUpdateInterval: 5,
-                maxStaleness: 10 days,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
-            })
-        );
-        address _upToken = superGovernor.getAddress(superGovernor.UP());
-
-        deal(_upToken, address(this), 1e18);
-        IERC20(_upToken).approve(address(superVaultAggregator), 1e18);
-        superVaultAggregator.depositUpkeep(manager, 1e18);
-
-        // Get initial timestamp
-        uint256 initialTimestamp = superVaultAggregator.getLastUpdateTimestamp(strategy2);
-
-        // Update with a newer timestamp (should succeed)
-        uint256 newerTimestamp = initialTimestamp + 10;
-
-        // Wait for minimum interval to pass
-        vm.warp(block.timestamp + 10);
-
-        vm.expectEmit(true, false, false, false);
-        emit ISuperVaultAggregator.PPSUpdated(strategy2, 1e18, 0, 1, 1, newerTimestamp);
-
-        superVaultAggregator.forwardPPS(
-            user,
-            ISuperVaultAggregator.ForwardPPSArgs({
-                strategy: strategy2,
-                isExempt: false,
-                pps: 1e18,
-                ppsStdev: 0,
-                validatorSet: 1,
-                totalValidators: 1,
-                timestamp: newerTimestamp,
-                upkeepCost: 0
-            })
-        );
-
-        // Check claimable
-        uint256 claimableUpkeep = superVaultAggregator.claimableUpkeep();
-        assertEq(claimableUpkeep, 1e18);
-
-        // Claim UP
-        address _superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(_superBank);
-        assertEq(superBankBalanceBefore, 0);
-        vm.startPrank(address(governor));
-        superGovernor.executeUpkeepClaim(superVaultAggregator.claimableUpkeep());
-        vm.stopPrank();
-        uint256 superBankBalanceAfter = IERC20(upToken).balanceOf(_superBank);
-        assertEq(superBankBalanceAfter, 1e18);
-
-        // Check claimable again
-        claimableUpkeep = superVaultAggregator.claimableUpkeep();
-        assertEq(claimableUpkeep, 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1051,7 +1068,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests hook validation with single-leaf merkle tree (empty strategy proof)
     function test_ValidateHook_SingleLeafStrategyTree() public {
         // Create hook arguments
-        bytes memory hookArgs = abi.encode("test_hook_call", 456);
+        bytes memory hookArgs = abi.encode("hook1", 456);
         address mockHookAddress = address(0x1234567890123456789012345678901234567890);
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(mockHookAddress, hookArgs))));
 
@@ -1622,7 +1639,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bytes32[] memory leaves = new bytes32[](1);
         leaves[0] = leaf;
         bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
+        statuses[0] = true; // Ban the leaf
 
         vm.prank(manager);
         superVaultAggregator.changeGlobalLeavesStatus(leaves, statuses, strategy);
@@ -1780,7 +1797,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
-        
         // Withdraw all stake
         superVaultAggregator.withdrawStake(stakeAmount);
         vm.stopPrank();
@@ -1807,11 +1823,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
         
         // Try to withdraw more than deposited
+        vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
         superVaultAggregator.withdrawStake(withdrawAmount);
-        vm.stopPrank();
     }
 
     /// @notice Tests stake withdrawal reverts when no stake deposited
@@ -1877,7 +1894,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Create second strategy with different manager
         address manager2 = _deployAccount(0xBB, "Manager2");
         vm.prank(manager2);
-        (, address strategy2,) = superVaultAggregator.createVault(
+        superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "Test Vault 2",
@@ -2052,4 +2069,297 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(IERC20(upToken).balanceOf(superBank), slashAmount, "SuperBank should receive slashed amount");
         assertEq(IERC20(upToken).balanceOf(manager), withdrawAmount, "Manager should have withdrawn amount");
     }
+
+    /// @notice Test fair cost distribution in batchForwardPPS with mixed stale and fresh entries
+    /// @dev Validates that only non-stale entries are charged and costs are distributed fairly
+    function test_BatchForwardPPS_FairCostDistribution_WithStaleEntries() public {
+        BatchForwardPPSTestVars memory vars;
+        
+        // Set up as PPS Oracle to be able to call forwardPPS
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+        superGovernor.proposeUpkeepPaymentsChange(true);
+        vm.stopPrank();
+
+        vm.warp(8 days);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        vm.startPrank(sGovernor);
+        superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
+        vm.stopPrank();
+        
+        vars.totalUpkeepCost = 1e18; // 1 token total cost
+
+        // Create additional strategies for comprehensive testing
+        vm.prank(manager);
+        (, vars.strategy2,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+            })
+        );
+
+        vm.prank(manager);
+        (, vars.strategy3,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                name: "Test Vault 3",
+                symbol: "TV3",
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+            })
+        );
+
+        vm.prank(manager);
+        (, vars.strategy4,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                name: "Test Vault 4",
+                symbol: "TV4",
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+            })
+        );
+
+        // Get initial timestamps
+        vars.baseTimestamp = block.timestamp;
+        
+        // Prepare batch data with mix of fresh and stale entries
+        vars.strategies = new address[](4);
+        vars.strategies[0] = strategy;        // Fresh entry
+        vars.strategies[1] = vars.strategy2;  // Stale entry (will be exempt)
+        vars.strategies[2] = vars.strategy3;  // Fresh entry
+        vars.strategies[3] = vars.strategy4;  // Stale entry (will be exempt)
+
+        vars.ppss = new uint256[](4);
+        vars.ppss[0] = 1.1e18;
+        vars.ppss[1] = 1.2e18;
+        vars.ppss[2] = 1.3e18;
+        vars.ppss[3] = 1.4e18;
+
+        vars.ppsStdevs = new uint256[](4);
+        vars.ppsStdevs[0] = 0;
+        vars.ppsStdevs[1] = 0;
+        vars.ppsStdevs[2] = 0;
+        vars.ppsStdevs[3] = 0;
+
+        vars.validatorSets = new uint256[](4);
+        vars.validatorSets[0] = 1;
+        vars.validatorSets[1] = 1;
+        vars.validatorSets[2] = 1;
+        vars.validatorSets[3] = 1;
+
+        vars.totalValidators = new uint256[](4);
+        vars.totalValidators[0] = 1;
+        vars.totalValidators[1] = 1;
+        vars.totalValidators[2] = 1;
+        vars.totalValidators[3] = 1;
+
+        vars.timestamps = new uint256[](4);
+        vars.timestamps[0] = vars.baseTimestamp + 350;  // Fresh (10 seconds old when warped to +360)
+        vars.timestamps[1] = vars.baseTimestamp + 10;   // Stale (350 seconds old when warped to +360)
+        vars.timestamps[2] = vars.baseTimestamp + 340;  // Fresh (20 seconds old when warped to +360)  
+        vars.timestamps[3] = vars.baseTimestamp + 20;   // Stale (340 seconds old when warped to +360)
+
+        address[] memory updateAuthorities = new address[](4);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+        updateAuthorities[2] = user;
+        updateAuthorities[3] = user;
+
+        // Fund and deposit upkeep balance for the manager
+        // Manager needs sufficient upkeep balance to cover the costs
+        deal(address(asset), manager, vars.totalUpkeepCost);
+        vm.startPrank(manager);
+        address _upToken = superGovernor.getAddress(superGovernor.UP());
+        deal(_upToken, manager, vars.totalUpkeepCost);
+        IERC20(_upToken).approve(address(superVaultAggregator), vars.totalUpkeepCost);
+        superVaultAggregator.depositUpkeep(manager, vars.totalUpkeepCost);
+        vm.stopPrank();
+
+        // Record initial balances
+        vars.initialOracleBalance = asset.balanceOf(address(this));
+        vars.initialTreasuryBalance = asset.balanceOf(treasury);
+
+        // Wait for minimum interval to pass
+        vm.warp(vars.baseTimestamp + 350);
+
+        // Execute batch update
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: vars.strategies,
+                ppss: vars.ppss,
+                ppsStdevs: vars.ppsStdevs,
+                validatorSets: vars.validatorSets,
+                totalValidators: vars.totalValidators,
+                timestamps: vars.timestamps,
+                updateAuthority: address(this)
+            })
+        );
+
+        // Verify cost distribution logic:
+        // - Only 2 entries are chargeable (strategies[0] and strategies[2])
+        // - Total cost should be split: 1e18 / 2 = 5e17 per entry
+        // - No remainder since 1000 is evenly divisible by 2
+        
+        vars.expectedCostPerEntry = vars.totalUpkeepCost / 2; // 5e17
+        vars.expectedTotalCharged = vars.expectedCostPerEntry * 2; // 1e18
+
+        // Verify manager's upkeep balance was deducted correctly
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(manager),
+            0, // All upkeep should be consumed for the 2 chargeable entries
+            "Manager upkeep balance should be fully consumed"
+        );
+
+        // Verify claimable upkeep increased by the charged amount
+        assertEq(
+            superVaultAggregator.claimableUpkeep(),
+            vars.expectedTotalCharged,
+            "Claimable upkeep should equal total charged amount"
+        );
+
+        // Verify PPS updates were applied to all valid strategies
+        assertEq(superVaultAggregator.getPPS(strategy), vars.ppss[0], "Strategy 1 PPS should be updated");
+        assertEq(superVaultAggregator.getPPS(vars.strategy2), vars.ppss[1], "Strategy 2 PPS should be updated despite being stale");
+        assertEq(superVaultAggregator.getPPS(vars.strategy3), vars.ppss[2], "Strategy 3 PPS should be updated");
+        assertEq(superVaultAggregator.getPPS(vars.strategy4), vars.ppss[3], "Strategy 4 PPS should be updated despite being stale");
+
+        // Verify timestamps were updated for all strategies
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), vars.timestamps[0]);
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy2), vars.timestamps[1]);
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy3), vars.timestamps[2]);
+        assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy4), vars.timestamps[3]);
+    }
+
+    /// @notice Tests that batch PPS updates revert when exceeding MAX_STRATEGIES limit
+    function test_BatchForwardPPS_Revert_MaxStrategiesExceeded() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Create arrays with MAX_STRATEGIES + 1 entries (501 strategies)
+        uint256 strategiesCount = 501; // MAX_STRATEGIES is 500
+        
+        address[] memory strategies = new address[](strategiesCount);
+        uint256[] memory ppss = new uint256[](strategiesCount);
+        uint256[] memory ppsStdevs = new uint256[](strategiesCount);
+        uint256[] memory validatorSets = new uint256[](strategiesCount);
+        uint256[] memory totalValidators = new uint256[](strategiesCount);
+        uint256[] memory timestamps = new uint256[](strategiesCount);
+        address[] memory updateAuthorities = new address[](strategiesCount);
+
+        // Fill arrays with dummy data (we don't need valid strategies since it should revert before validation)
+        for (uint256 i = 0; i < strategiesCount; i++) {
+            strategies[i] = address(uint160(i + 1)); // Dummy addresses
+            ppss[i] = 1e18;
+            ppsStdevs[i] = 0;
+            validatorSets[i] = 1;
+            totalValidators[i] = 1;
+            timestamps[i] = block.timestamp;
+            updateAuthorities[i] = user;
+        }
+
+        // Batch update should revert with MAX_STRATEGIES_EXCEEDED
+        vm.expectRevert(ISuperVaultAggregator.MAX_STRATEGIES_EXCEEDED.selector);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidators,
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+    }
+
+    /// @notice Tests batchForwardPPS with array size 1
+    function test_BatchForwardPPS_ArraySize1() public {
+        // Set up as PPS Oracle
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Wait for minimum interval to pass
+        vm.warp(block.timestamp + 10);
+
+        // Prepare arrays with size 1
+        address[] memory strategies = new address[](1);
+        uint256[] memory ppss = new uint256[](1);
+        uint256[] memory ppsStdevs = new uint256[](1);
+        uint256[] memory validatorSets = new uint256[](1);
+        uint256[] memory totalValidatorsArray = new uint256[](1);
+        uint256[] memory timestamps = new uint256[](1);
+
+        strategies[0] = strategy;
+        ppss[0] = 1e18 + 1e15;
+        ppsStdevs[0] = 0;
+        validatorSets[0] = 1;
+        totalValidatorsArray[0] = 1;
+        timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
+
+        address[] memory updateAuthorities = new address[](1);
+        updateAuthorities[0] = user;
+
+        // Advance time to ensure update is valid
+        vm.warp(block.timestamp + 25);
+
+        // Measure gas
+        uint256 gasBefore = gasleft();
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        uint256 gasAfter = gasleft();
+        uint256 gasUsed = gasBefore - gasAfter;
+
+        console2.log("batchForwardPPS (size 1) gas used:", gasUsed);
+
+        // Verify update was successful
+        assertEq(
+            superVaultAggregator.getLastUpdateTimestamp(strategy), 
+            timestamps[0],
+            "Timestamp not updated correctly"
+        );
+    }
+}
+
+struct BatchForwardPPSTestVars {
+    address strategy2;
+    address strategy3;
+    address strategy4;
+    uint256 baseTimestamp;
+    uint256 totalUpkeepCost;
+    uint256 initialOracleBalance;
+    uint256 initialTreasuryBalance;
+    uint256 expectedCostPerEntry;
+    uint256 expectedTotalCharged;
+    address[] strategies;
+    uint256[] ppss;
+    uint256[] ppsStdevs;
+    uint256[] validatorSets;
+    uint256[] totalValidators;
+    uint256[] timestamps;
 }

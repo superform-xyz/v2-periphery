@@ -48,8 +48,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
     address userAddress; 
 
     // super vaults
-    ERC5115YieldSourceOracle public oracle;
-    ISuperLedger public superLedgerETH;
+    ERC5115YieldSourceOracle public oracle5115;
     SuperVault sv5115;
     SuperVaultEscrow escrow5115SuperVault;
     SuperVaultStrategy strategy5115SuperVault;
@@ -61,7 +60,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vm.selectFork(FORKS[ETH]);
 
         superLedgerETH = ISuperLedger(_getContract(ETH, SUPER_LEDGER_KEY));
-        oracle = ERC5115YieldSourceOracle(_getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY));
+        oracle5115 = ERC5115YieldSourceOracle(_getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY));
     }
 
     function _setup5115Vault() internal {

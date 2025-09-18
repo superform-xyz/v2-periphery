@@ -1440,21 +1440,21 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) AddSecondary
 
 // BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
 //
-// Solidity: function batchForwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) BatchForwardPPS(opts *bind.TransactOpts, args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.contract.Transact(opts, "batchForwardPPS", args)
 }
 
 // BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
 //
-// Solidity: function batchForwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorSession) BatchForwardPPS(args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.BatchForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }
 
 // BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
 //
-// Solidity: function batchForwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) BatchForwardPPS(args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.BatchForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }

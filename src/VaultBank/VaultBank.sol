@@ -88,7 +88,7 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
         external
     {
         // validate and mark `proof.nonce[fromChainId]` as used
-        _validateUnlockAssetProof(token, amount, fromChainId, proof);
+        _validateUnlockAssetProof(account, yieldSourceOracleId, token, amount, fromChainId, proof);
 
         //`toChainId` is current chain
         uint256 _nonce = nonces[uint64(_chainId)];
@@ -129,7 +129,7 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
         onlyRelayer
     {
         // validate and mark `proof.nonce[sourceAsset_.chainId]` as used
-        _validateDistributeSPProof(sourceAsset_.asset, amount_, sourceAsset_.chainId, proof_);
+        _validateDistributeSPProof(account_, sourceAsset_.yieldSourceOracleId, sourceAsset_.asset, amount_, sourceAsset_.chainId, proof_);
 
         address spAddress = _retrieveSuperPosition(
             sourceAsset_.yieldSourceOracleId,
@@ -197,6 +197,8 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
     }
 
     function _validateDistributeSPProof(
+        address account,
+        bytes32 yieldSourceOracleId,
         address token,
         uint256 amount,
         uint64 fromChainId,
@@ -211,7 +213,7 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
 
         if (emittingContract != vaultBank) revert INVALID_PROOF_EMITTER();
 
-        _validateSPTopics(token, topics);
+        _validateSPTopics(account, yieldSourceOracleId, token, topics);
         _validateSPData(amount, fromChainId, chainId, unindexedData);
     }
 
@@ -222,12 +224,18 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
         return eventNonce;
     }
 
-    function _validateSPTopics(address token, bytes memory topics) private pure {
-        bytes32 eventSelector = topics.toBytes32(0); // event signature
-        bytes32 eventSrcTokenAddress = topics.toBytes32(96); // srcTokenAddress
+    function _validateSPTopics(address account, bytes32 yieldSourceOracleId, address token, bytes memory topics) private pure {
+         // topics[0] = event signature
+        if (topics.toBytes32(0) !=  IVaultBankSource.SharesLocked.selector) revert INVALID_PROOF_EVENT();
+        
+        // topics[1] = yieldSourceOracleId
+        if (topics.toBytes32(32) != yieldSourceOracleId) revert INVALID_PROOF_YIELD_SOURCE_ORACLE_ID();
 
-        if (eventSelector != IVaultBankSource.SharesLocked.selector) revert INVALID_PROOF_EVENT();
-        if (eventSrcTokenAddress != keccak256(abi.encodePacked(token))) revert INVALID_PROOF_TOKEN();
+        // topics[2] = account
+        if (topics.toBytes32(64) != bytes32(uint256(uint160(account)))) revert INVALID_PROOF_ACCOUNT();
+
+        // topics[3] = srcTokenAddress 
+        if (topics.toBytes32(96) != keccak256(abi.encodePacked(token))) revert INVALID_PROOF_TOKEN();
     }
 
     function _validateSPData(uint256 amount, uint64 fromChainId, uint32 chainId, bytes memory unindexedData) private {
@@ -242,6 +250,8 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
     }
 
     function _validateUnlockAssetProof(
+        address account,
+        bytes32 yieldSourceOracleId,
         address token,
         uint256 amount,
         uint64 fromChainId,
@@ -258,12 +268,21 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
 
         if (emittingContract != vaultBank) revert INVALID_PROOF_EMITTER();
 
-        _validateUnlockTopics(token, topics);
+        _validateUnlockTopics(account, yieldSourceOracleId, token, topics);
         _validateUnlockData(amount, fromChainId, unindexedData);
     }
 
-    function _validateUnlockTopics(address token, bytes memory topics) private pure {
-        if (topics.toBytes32(0) != IVaultBank.SuperpositionsBurned.selector) revert INVALID_PROOF_EVENT();
+    function _validateUnlockTopics(address account, bytes32 yieldSourceOracleId, address token, bytes memory topics) private pure {
+        // topics[0] = event signature
+        if (topics.toBytes32(0) !=  IVaultBank.SuperpositionsBurned.selector) revert INVALID_PROOF_EVENT();
+        
+        // topics[1] = yieldSourceOracleId
+        if (topics.toBytes32(32) != yieldSourceOracleId) revert INVALID_PROOF_YIELD_SOURCE_ORACLE_ID();
+
+        // topics[2] = account
+        if (topics.toBytes32(64) != bytes32(uint256(uint160(account)))) revert INVALID_PROOF_ACCOUNT();
+
+        // topics[3] = token 
         if (topics.toBytes32(96) != keccak256(abi.encodePacked(token))) revert INVALID_PROOF_TOKEN();
     }
 

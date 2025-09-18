@@ -53,24 +53,26 @@ contract MockCrossL2ProverV2 {
         uint256 amount,
         uint64 targetChainId,
         uint256 nonce,
-        uint32 chainId_
+        uint32 chainId_,
+        bytes32 yieldSourceOracleId
     )
         external
     {
         // Set the chain ID first
         _chainId = chainId_;
 
-        // Create event topics
-        bytes memory topics = new bytes(128); // 4 topics * 32 bytes
+        // Create event topics - 4 topics * 32 bytes = 128 bytes
+        bytes memory topics = new bytes(128);
         bytes32 eventSelector = IVaultBank.SuperpositionsBurned.selector;
-        bytes32 encodedAccount = keccak256(abi.encodePacked(account));
+        bytes32 encodedAccount = bytes32(uint256(uint160(account)));
         bytes32 encodedToken = keccak256(abi.encodePacked(token));
 
         // Write to bytes at correct offsets
         assembly {
-            mstore(add(topics, 32), eventSelector) // First 32 bytes
-            mstore(add(topics, 64), encodedAccount) // Next 32 bytes
-            mstore(add(topics, 128), encodedToken) // Next 32 bytes
+            mstore(add(topics, 32), eventSelector)        // topics[0] = event signature
+            mstore(add(topics, 64), yieldSourceOracleId)  // topics[1] = yieldSourceOracleId (not hashed)
+            mstore(add(topics, 96), encodedAccount)       // topics[2] = account (as bytes32)
+            mstore(add(topics, 128), encodedToken)        // topics[3] = token (hashed)
         }
 
         // Create event data

@@ -22,8 +22,6 @@ import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IERC7540Redeem, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
-import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 import { IGearboxFarmingPool } from "../../../src/vendor/gearbox/IGearboxFarmingPool.sol";
 import { ISuperExecutor } from "@superform-v2-core/src/interfaces/ISuperExecutor.sol";
@@ -41,11 +39,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE; // Replace with a known good testing private key
     address userAddress; // Will be derived from private key
-    ERC7540YieldSourceOracle public oracle;
-    ISuperLedger public superLedgerETH;
+
     address gearToken;
     IERC4626 gearboxVault;
     IGearboxFarmingPool gearboxFarmingPool;
+
     SuperVault gearSuperVault;
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
@@ -59,10 +57,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         updateTestVaultPredictions();
 
         vm.selectFork(FORKS[ETH]);
-
-        superLedgerETH = ISuperLedger(_getContract(ETH, SUPER_LEDGER_KEY));
-
-        oracle = ERC7540YieldSourceOracle(_getContract(ETH, ERC7540_YIELD_SOURCE_ORACLE_KEY));
 
         gearToken = existingUnderlyingTokens[ETH][GEAR_KEY];
         console2.log("gearToken: ", address(gearToken));
@@ -1815,6 +1809,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem1;
         uint256 treasuryBalanceAfterRedeem1;
         uint256 claimableAssets1;
+        uint256 claimableShares1;
         uint256 userAssetsAfterRedeem1;
         // Redemption 2
         uint256 remainingShares;
@@ -1825,6 +1820,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem2;
         uint256 treasuryBalanceAfterRedeem2;
         uint256 claimableAssets2;
+        uint256 claimableShares2;
         uint256 userAssetsAfterRedeem2;
         // Redemption 3
         uint256 finalShares;
@@ -1834,6 +1830,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userBalanceBeforeRedeem3;
         uint256 treasuryBalanceAfterRedeem3;
         uint256 claimableAssets3;
+        uint256 claimableShares3;
         uint256 userAssetsAfterRedeem3;
         // Totals
         uint256 totalDeposits;
@@ -1867,7 +1864,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(amount, address(fluidVault), address(aaveVault));
 
         // Verify shares minted to user
-        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+        uint256 userShares = vault.balanceOf(accountEth);
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
@@ -1924,9 +1921,179 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("getAverageWithdrawPrice", strategy.getAverageWithdrawPrice(accountEth));
 
         // Step 6: Claim Withdraw
-        _claimWithdraw(claimableAssets);
+        _claimWithdraw(claimableShares);
 
         uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
+
+        // Final balance assertions
+        assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
+
+        // Verify fee was taken
+        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+    }
+
+    function test_SuperVault_E2E_Flow_With_PPS_Slippage_Update() public {
+        uint256 amount = 1000e6; // 1000 USDC
+
+        vm.selectFork(FORKS[ETH]);
+
+        // Record initial balances
+        uint256 initialUserAssets = asset.balanceOf(accountEth);
+        uint256 initialVaultAssets = asset.balanceOf(address(vault));
+
+        // Step 1: Request Deposit
+        _deposit(amount);
+
+        // Verify assets transferred from user to vault
+        assertEq(
+            asset.balanceOf(accountEth), initialUserAssets - amount, "User assets not reduced after deposit request"
+        );
+        assertEq(
+            asset.balanceOf(address(strategy)),
+            initialVaultAssets + amount,
+            "Vault assets not increased after deposit request"
+        );
+
+        // Need to allocate to yield sources before requesting redemption
+        _depositFreeAssetsFromSingleAmount(amount, address(fluidVault), address(aaveVault));
+
+        // Verify shares minted to user
+        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+
+        // Record balances before redeem
+        uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
+        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+
+        // Fast forward time to simulate yield on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        // Update max PPS slippage to BPS_PRECISION (100%)
+        _updateMaxPPSSlippageToMax();
+
+        uint256 BPS_PRECISION = 10_000;
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        // Update PPS to PPS before + BPS_PRECISION
+        uint256 ppsBefore = aggregator.getPPS(address(strategy));
+        uint256 targetPPS = ppsBefore + BPS_PRECISION;
+        _updatePPSToTarget(address(strategy), address(vault), targetPPS);
+
+        console2.log("--pps after slippage update---", aggregator.getPPS(address(strategy)));
+
+        // Step 4: Request Redeem
+        _requestRedeem(userShares);
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User shares not transferred from account");
+        assertEq(IERC20(vault.share()).balanceOf(address(escrow)), userShares, "Shares not transferred to escrow");
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        vm.warp(block.timestamp + 6);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+
+        // Step 5: Fulfill Redeem
+        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+
+        // Calculate expected assets based on shares
+        uint256 claimableAssets = vault.maxWithdraw(accountEth);
+        uint256 claimableShares = vault.maxRedeem(accountEth);
+        console2.log("claimableShares", claimableShares);
+
+        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
+        uint256 expectedLedgerFee = superLedgerETH.previewFees(
+            accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
+        );
+
+        // Step 6: Claim Withdraw
+        _claimWithdraw(claimableShares);
+
+        uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
+
+        // Final balance assertions
+        assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
+
+        // Verify fee was taken
+        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+    }
+
+    function test_SuperVault_E2E_Flow_With_0_Ledger_Fees() public {
+        uint256 amount = 1000e6; // 1000 USDC
+
+        vm.selectFork(FORKS[ETH]);
+
+        _overrideSuperLedgerSetUp();
+
+        // Record initial balances
+        uint256 initialUserAssets = asset.balanceOf(accountEth);
+        uint256 initialVaultAssets = asset.balanceOf(address(vault));
+
+        // Step 1: Request Deposit
+        _deposit(amount);
+
+        // Verify assets transferred from user to vault
+        assertEq(
+            asset.balanceOf(accountEth), initialUserAssets - amount, "User assets not reduced after deposit request"
+        );
+        assertEq(
+            asset.balanceOf(address(strategy)),
+            initialVaultAssets + amount,
+            "Vault assets not increased after deposit request"
+        );
+
+        // Need to allocate to yield sources before requesting redemption
+        _depositFreeAssetsFromSingleAmount(amount, address(fluidVault), address(aaveVault));
+
+        // Verify shares minted to user
+        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+
+        // Record balances before redeem
+        uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
+        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+
+        // Fast forward time to simulate yield on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+        // Step 4: Request Redeem
+        _requestRedeem(userShares);
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User shares not transferred from account");
+        assertEq(IERC20(vault.share()).balanceOf(address(escrow)), userShares, "Shares not transferred to escrow");
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        vm.warp(block.timestamp + 6);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+
+        // Step 5: Fulfill Redeem
+        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+
+        // Calculate expected assets based on shares
+        uint256 claimableShares = vault.maxRedeem(accountEth);
+
+        // Step 6: Claim Withdraw
+        _claimWithdraw(claimableShares);
+
+        uint256 totalFeesTaken = superformFee + recipientFee;
 
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
@@ -1955,7 +2122,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit1Amount, address(fluidVault), address(aaveVault));
 
         // Get shares minted to user for first deposit
-        vars.shares1 = IERC20(vault.share()).balanceOf(accountEth);
+        vars.shares1 = vault.balanceOf(accountEth);
         console2.log("Shares after deposit 1:", vars.shares1);
 
         // Simulate some yield accrual between deposits
@@ -1979,7 +2146,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit2Amount, address(fluidVault), address(aaveVault));
 
         // Get additional shares minted to user
-        vars.shares2 = IERC20(vault.share()).balanceOf(accountEth) - vars.shares1;
+        vars.shares2 = vault.balanceOf(accountEth) - vars.shares1;
         console2.log("Shares after deposit 2:", vars.shares2);
 
         // Simulate more yield accrual between deposits
@@ -2003,11 +2170,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _depositFreeAssetsFromSingleAmount(vars.deposit3Amount, address(fluidVault), address(aaveVault));
 
         // Get additional shares minted to user
-        vars.shares3 = IERC20(vault.share()).balanceOf(accountEth) - vars.shares1 - vars.shares2;
+        vars.shares3 = vault.balanceOf(accountEth) - vars.shares1 - vars.shares2;
         console2.log("Shares after deposit 3:", vars.shares3);
 
         // Get total shares for user
-        vars.totalShares = IERC20(vault.share()).balanceOf(accountEth);
+        vars.totalShares = vault.balanceOf(accountEth);
         console2.log("Total shares:", vars.totalShares);
 
         // Fast forward time to simulate yield on underlying vaults
@@ -2039,6 +2206,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.redeemAmount1, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim first Withdraw
+        vars.claimableShares1 = vault.maxRedeem(accountEth);
         vars.claimableAssets1 = vault.maxWithdraw(accountEth);
 
         uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2047,7 +2215,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
-        _claimWithdraw(vars.claimableAssets1);
+        _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
 
@@ -2061,7 +2229,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ========== REDEMPTION 2 (33% of remaining shares) ==========
         console2.log("===== REDEMPTION 2 (33% of remaining) =====");
-        vars.remainingShares = IERC20(vault.share()).balanceOf(accountEth);
+        vars.remainingShares = vault.balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 3; // 33% of remaining shares
         console2.log("Redeeming shares (33% of remaining):", vars.redeemAmount2);
 
@@ -2078,6 +2246,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.redeemAmount2, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim second Withdraw
+        vars.claimableShares2 = vault.maxRedeem(accountEth);
         vars.claimableAssets2 = vault.maxWithdraw(accountEth);
 
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2087,7 +2256,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
 
-        _claimWithdraw(vars.claimableAssets2);
+        _claimWithdraw(vars.claimableShares2);
 
         vars.treasuryBalanceAfterRedeem2 = asset.balanceOf(TREASURY);
 
@@ -2101,7 +2270,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ========== REDEMPTION 3 (all remaining shares) ==========
         console2.log("===== REDEMPTION 3 (all remaining) =====");
-        vars.finalShares = IERC20(vault.share()).balanceOf(accountEth);
+        vars.finalShares = vault.balanceOf(accountEth);
         console2.log("Redeeming final shares:", vars.finalShares);
 
         // Calculate expected fee for third redemption
@@ -2117,6 +2286,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(vars.finalShares, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim third Withdraw
+        vars.claimableShares3 = vault.maxRedeem(accountEth);
         vars.claimableAssets3 = vault.maxWithdraw(accountEth);
 
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
@@ -2125,7 +2295,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
-        _claimWithdraw(vars.claimableAssets3);
+        _claimWithdraw(vars.claimableShares3);
 
         vars.treasuryBalanceAfterRedeem3 = asset.balanceOf(TREASURY);
 
@@ -2154,7 +2324,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(vars.totalAssetsReceived, vars.totalDeposits, "User should receive more than deposited due to yield");
 
         // Verify all shares are redeemed
-        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User should have no shares left");
+        assertEq(vault.balanceOf(accountEth), 0, "User should have no shares left");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -3312,58 +3482,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify assets were transferred correctly
         assertEq(asset.balanceOf(ownerController), initialAssetBalance + claimableAssets, "Should receive assets");
         assertEq(strategy.claimableWithdraw(ownerController), 0, "Claimable should be cleared");
-    }
-
-    /// @notice Test that redeem request reverts when controller has no accumulator shares (defense-in-depth)
-    function test_Fix15_RevertWhen_ControllerHasNoAccumulatorShares() public {
-        uint256 depositAmount = 1000e6;
-
-        // Setup: User A has shares but no accumulator (simulate a fresh user receiving shares)
-        // We'll use a user that has never deposited but receives shares from someone else
-        address userA = accInstances[0].account;
-        address userNoAccumulator = accInstances[1].account;
-
-        // User A deposits and gets shares
-        _getTokens(address(asset), userA, depositAmount);
-        __deposit(accInstances[0], depositAmount);
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
-
-        uint256 shares = vault.balanceOf(userA);
-
-        // User A transfers all shares to userNoAccumulator (this moves accumulators via Fix #1)
-        vm.prank(userA);
-        IERC20(address(vault)).transfer(userNoAccumulator, shares);
-
-        // Now userNoAccumulator has shares AND accumulator (from the transfer)
-        // To create a scenario where someone has shares but NO accumulator, we need to
-        // manually manipulate state or use a different approach
-
-        // Create a fresh user with zero accumulator by minting shares directly (bypassing deposit logic)
-        address freshUser = accInstances[2].account;
-
-        // Give fresh user some shares by having them receive a deposit but with controller != receiver
-        // Actually, let's use a different approach - modify accumulator directly via updateSuperVaultState
-
-        // Transfer some shares to fresh user from userNoAccumulator
-        vm.prank(userNoAccumulator);
-        IERC20(address(vault)).transfer(freshUser, shares / 4);
-
-        // Now manually remove the accumulator for freshUser to create the test scenario
-        // This simulates an edge case where shares exist but accumulator is somehow zero
-        ISuperVaultStrategy.SuperVaultState memory emptyState;
-        vm.prank(address(vault));
-        strategy.updateSuperVaultState(freshUser, emptyState);
-
-        // Verify freshUser has shares but no accumulator
-        assertGt(vault.balanceOf(freshUser), 0, "Fresh user should have shares");
-        ISuperVaultStrategy.SuperVaultState memory stateFresh = strategy.getSuperVaultState(freshUser);
-        assertEq(stateFresh.accumulatorShares, 0, "Fresh user should have no accumulator shares");
-
-        // Fresh user tries to request redeem - should revert due to no accumulator shares
-        vm.startPrank(freshUser);
-        vm.expectRevert(ISuperVaultStrategy.INSUFFICIENT_SHARES.selector);
-        vault.requestRedeem(shares / 4, freshUser, freshUser);
-        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -5793,7 +5911,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
-    function test_10_RuggableVault_Withdraw() public {
+    function test_10_RuggableVault_WithdrawX() public {
         RugTestVarsWithdraw memory vars;
         vars.depositAmount = 1000e6;
         vars.rugPercentage = 5000; // 50% rug
@@ -6836,8 +6954,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         UpdatePPSVars memory vars;
 
         // Get the current timestamp for the signature
-        vars.timestamp = block.timestamp + 1; // Ensure timestamp is greater than last update
-
+        vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
+        
         // Set the additional parameters: ppsStdev=0, validatorSet=1, totalValidators=1
         vars.ppsStdev = 0;
         vars.validatorSet = 1;
@@ -6853,7 +6971,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 vars.validatorSet,
                 vars.totalValidators,
                 vars.timestamp,
-                ecdsappsOracle.nonce()
+                ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
         );
         vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(ecdsappsOracle.domainSeparator(), structHash);
@@ -6868,22 +6986,352 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.proofs = new bytes[](1);
         vars.proofs[0] = vars.signature;
 
-        // Call updatePPS on the ECDSAPPSOracle with the deviating PPS
+        // Call batchUpdatePPS on the ECDSAPPSOracle with the deviating PPS
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategyAddr;
+        
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = vars.proofs;
+        
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = newPPS;
+        
+        uint256[] memory ppsStdevs = new uint256[](1);
+        ppsStdevs[0] = vars.ppsStdev;
+        
+        uint256[] memory validatorSets = new uint256[](1);
+        validatorSets[0] = vars.validatorSet;
+        
+        uint256[] memory totalValidators = new uint256[](1);
+        totalValidators[0] = vars.totalValidators;
+        
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = vars.timestamp;
+
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategy: strategyAddr,
-                proofs: vars.proofs,
-                pps: newPPS,
-                ppsStdev: vars.ppsStdev,
-                validatorSet: vars.validatorSet,
-                totalValidators: vars.totalValidators,
-                timestamp: vars.timestamp
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidators,
+                timestamps: timestamps
             })
         );
     }
 
+   
+
     /*//////////////////////////////////////////////////////////////
-                       EMERGENCY WITHDRAWAL TESTS
+                        DUST BUG TESTS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Test that exposes the dust bug in _handleClaimRedeem function
+    /// @dev This test creates a scenario where the strategy balance is reduced below what users can claim,
+    ///      but the difference is within the tolerance constant, causing the dust collection logic to trigger
+    function test_DustBugInClaimRedeem() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        // Get the claimable amount
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        console2.log("Claimable amount:", claimableAmount);
+
+        // Step 2: Reduce strategy balance artificially (simulating insolvency)
+        // This could happen due to various reasons like:
+        // - Yield source losses
+        // - Accounting errors
+
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance before reduction:", strategyBalanceBefore);
+
+        // Simulate reducing strategy balance by transferring assets out
+        // We'll make the difference exactly equal to TOLERANCE_CONSTANT (10 wei)
+        // to trigger the dust collection logic
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+
+        // Transfer assets out of strategy to simulate insolvency
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+
+        // Verify the difference is within tolerance constant
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+
+        // Step 3: Try to claim the full amount
+        // This should trigger the dust collection logic and give the user the remaining balance
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+
+        console2.log("User balance before claim:", userBalanceBefore);
+        console2.log("User balance after claim:", userBalanceAfter);
+        console2.log("Actual amount received:", actualReceived);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The bug: User receives less than they should have been able to claim
+        // but the strategy balance is now 0, making the vault insolvent
+        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+
+        // This is problematic because:
+        // 1. The user's maxWithdraw is not updated to reflect the actual amount received
+        // 2. The vault becomes insolvent (strategy balance < 0 in accounting terms)
+        // 3. Other users might not be able to claim their rightful amounts
+
+        // Verify that the user's maxWithdraw is not properly updated
+        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
+        console2.log("Remaining maxWithdraw:", remainingMaxWithdraw);
+
+        // The user still has a positive maxWithdraw even though the strategy is empty
+        assertGt(remainingMaxWithdraw, 0, "User should still have positive maxWithdraw");
+    }
+
+    /// @notice Test the dust bug with emergency withdrawal scenario
+    /// @dev This test shows how emergency withdrawal can create the dust bug scenario
+    function test_DustBugWithEmergencyWithdrawal() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        // Step 2: Enable emergency withdrawal and withdraw most assets
+        vm.startPrank(MANAGER);
+
+        // Propose emergency withdrawal
+        strategy.manageEmergencyWithdraw(1, address(0), 0);
+
+        // Wait for timelock and execute
+        vm.warp(block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(2, address(0), 0);
+
+        // Withdraw most assets, leaving just enough to trigger dust collection
+        uint256 withdrawalAmount = strategyBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
+        strategy.manageEmergencyWithdraw(3, address(this), withdrawalAmount);
+
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        console2.log("Strategy balance after emergency withdrawal:", strategyBalanceAfter);
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+
+        // Verify the difference is within tolerance constant
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+
+        // Step 3: Try to claim - this will trigger the dust bug
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+
+        console2.log("Actual amount received:", actualReceived);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The dust bug occurs here
+        assertEq(actualReceived, strategyBalanceAfter, "User receives remaining balance due to dust collection");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy becomes empty");
+
+        // The vault is now insolvent
+        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
+        assertGt(remainingMaxWithdraw, 0, "User still has positive maxWithdraw despite empty strategy");
+    }
+
+    /// @notice Test the specific dust bug in maxWithdraw accounting
+    /// @dev This test demonstrates the core issue: maxWithdraw is reduced by actualAmountToClaim
+    ///      instead of assetsToClaim, causing accounting inconsistencies
+    function test_DustBugMaxWithdrawAccounting() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        console2.log("Initial claimable amount:", claimableAmount);
+        console2.log("Initial strategy balance:", strategyBalanceBefore);
+
+        // Step 2: Reduce strategy balance to trigger dust collection
+        // Make the difference exactly 5 wei (within TOLERANCE_CONSTANT of 10)
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5;
+
+        // Transfer assets out of strategy
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 difference = claimableAmount - strategyBalanceAfter;
+
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Difference (should be 5):", difference);
+        console2.log("Tolerance constant: 10");
+
+        // Verify we're in the dust collection scenario
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(difference <= 10, "Difference should be within tolerance");
+
+        // Step 3: Claim the full amount
+        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+
+        vm.startPrank(accountEth);
+        vault.withdraw(claimableAmount, accountEth, accountEth);
+        vm.stopPrank();
+
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
+
+        console2.log("User received:", actualReceived);
+        console2.log("MaxWithdraw before:", maxWithdrawBefore);
+        console2.log("MaxWithdraw after:", maxWithdrawAfter);
+        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
+
+        // The bug: maxWithdraw is reduced by actualReceived (strategyBalanceAfter)
+        // instead of claimableAmount, leaving the user with extra claimable balance
+        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, actualReceived, "MaxWithdraw reduced by actual received");
+
+        // The user still has claimable balance even though strategy is empty
+        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
+        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw should equal the dust amount");
+
+        // This creates an insolvent state where the user can claim more than the strategy has
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+        assertGt(maxWithdrawAfter, 0, "But user still has claimable balance");
+    }
+
+    /// @notice Test the dust bug by directly calling the strategy function
+    /// @dev This test directly calls handleOperations7540 to demonstrate the bug more clearly
+    function test_DustBugDirectStrategyCall() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Step 1: Deposit and set up redeem request
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+        uint256 redeemShares = initialShares / 2;
+
+        // Request redeem
+        _requestRedeem(redeemShares);
+
+        // Fulfill the redeem request
+        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+
+        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
+        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+
+        // Step 2: Reduce strategy balance to trigger dust collection
+        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+
+        // Transfer assets out of strategy
+        vm.startPrank(address(strategy));
+        asset.transfer(address(this), reductionAmount);
+        vm.stopPrank();
+
+        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 difference = claimableAmount - strategyBalanceAfter;
+
+        console2.log("=== Dust Bug Test ===");
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Difference (dust):", difference);
+        console2.log("Tolerance constant: 10");
+
+        // Verify we're in the dust collection scenario
+        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(difference <= 10, "Difference should be within tolerance");
+
+        // Step 3: Directly call the strategy's claim function
+        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+
+        // Call the strategy directly (this is what vault.withdraw calls internally)
+        vm.startPrank(address(vault));
+        strategy.handleOperations7540(
+            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
+        );
+        vm.stopPrank();
+
+        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
+        uint256 userBalanceAfter = asset.balanceOf(accountEth);
+
+        console2.log("User balance after claim:", userBalanceAfter);
+        console2.log("MaxWithdraw before:", maxWithdrawBefore);
+        console2.log("MaxWithdraw after:", maxWithdrawAfter);
+        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
+        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+
+        // The bug: maxWithdraw is reduced by the actual amount received (strategyBalanceAfter)
+        // instead of the requested amount (claimableAmount)
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, strategyBalanceAfter, "MaxWithdraw reduced by actual received");
+        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw equals dust amount");
+
+        // The user still has claimable balance even though strategy is empty
+        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
+        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+
+        console2.log("=== Bug Confirmed ===");
+        console2.log("User can still claim:", maxWithdrawAfter);
+        console2.log("But strategy has:", asset.balanceOf(address(strategy)));
+        console2.log("Vault is insolvent!");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        EMERGENCY WITHDRAWAL TESTS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Test that NO_PROPOSAL error is thrown when trying to execute emergency withdraw activation without a
@@ -7302,6 +7750,66 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ethAmount // ETH amount to send
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                       7540 UNDERLYING TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_7540Underlying_E2E_Flow() public {
+        // Set up the vault
+        _setUp7540UnderlyingSuperVault();
+
+        AccountInstance memory instance = accInstances[0];
+        address account = instance.account;
+
+        // Deposit USDC into the SuperVault
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _getTokens(address(asset), account, depositAmount);
+        __deposit(instance, depositAmount);
+
+        // Verify state
+        assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+
+        _depositFreeAssetsFromSingleAmount7540(depositAmount, address(aaveVault), address(centrifugeVault));
+
+        uint256 userShares = vault.balanceOf(account);
+        assertGt(userShares, 0, "No shares minted to user");
+
+        // Record balances before redeem
+        uint256 preRedeemUserAssets = asset.balanceOf(account);
+        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+
+        // Fast forward time to simulate yield on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        // Step 4: Request Redeem
+        __requestRedeem(instance, userShares, false);
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(account), 0, "User shares not transferred from account");
+        assertEq(IERC20(vault.share()).balanceOf(address(escrow)), userShares, "Shares not transferred to escrow");
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
+
+        // Step 5: Fulfill Redeem
+        _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
+
+        // Verify balances
+        assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
+        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
+    }
+
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS

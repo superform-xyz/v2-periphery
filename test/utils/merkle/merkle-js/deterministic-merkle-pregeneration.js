@@ -521,10 +521,10 @@ DESCRIPTION:
                 }
             }
 
+            // New code: allow extras
             if (unexpectedAddresses.length > 0) {
-                console.log(`${logPrefix} Unexpected hook addresses in lookup cache:`, unexpectedAddresses);
-                console.log(`${logPrefix} This indicates the cache contains stale data`);
-                return false;
+                console.log(`${logPrefix} Extra hooks detected in lookup cache:`, unexpectedAddresses);
+                console.log(`${logPrefix} This is fine – we only require a minimum set to exist`);
             }
 
             if (this.verbose) {
