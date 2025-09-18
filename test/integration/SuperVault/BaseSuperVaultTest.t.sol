@@ -795,13 +795,32 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     }
 
     function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address strat, address assetToDeposit, address vault1, address vault2) internal {
+        (
+            address[] memory fulfillHooksAddresses,
+            bytes[] memory fulfillHooksData,
+            uint256[] memory expectedAssetsOrSharesOut
+        ) = _prepareDepositHookData(depositAmount, assetToDeposit, vault1, vault2);
+        
+        _executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
+    }
+
+    function _prepareDepositHookData(
+        uint256 depositAmount,
+        address assetToDeposit,
+        address vault1,
+        address vault2
+    ) internal view returns (
+        address[] memory fulfillHooksAddresses,
+        bytes[] memory fulfillHooksData,
+        uint256[] memory expectedAssetsOrSharesOut
+    ) {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
-        address[] memory fulfillHooksAddresses = new address[](2);
+        fulfillHooksAddresses = new address[](2);
         fulfillHooksAddresses[0] = depositHookAddress;
         fulfillHooksAddresses[1] = depositHookAddress;
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        fulfillHooksData = new bytes[](2);
 
         // Split the deposit between two hooks
         uint256 halfAmount = depositAmount / 2;
@@ -825,10 +844,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             0
         );
 
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut = new uint256[](2);
         expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(halfAmount);
         expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(depositAmount - halfAmount);
+    }
 
+    function _executeDepositHooks(
+        uint256 depositAmount,
+        address strat,
+        address[] memory fulfillHooksAddresses,
+        bytes[] memory fulfillHooksData,
+        uint256[] memory expectedAssetsOrSharesOut
+    ) internal {
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
@@ -850,7 +877,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         _trackDeposit(accountEth, shares, depositAmount);
     }
-
+    
 
     function _depositFreeAssetsFromSingleAmount5115(uint256 depositAmount, address strategyAddress, address underlyingVault) internal {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY);
