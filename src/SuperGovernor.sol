@@ -169,7 +169,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, treasury_);
+        emit AddressSet(TREASURY, address(0), treasury_);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
@@ -186,8 +186,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setAddress(bytes32 key, address value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value == address(0)) revert INVALID_ADDRESS();
 
+        address oldValue = _addressRegistry[key];
+
         _addressRegistry[key] = value;
-        emit AddressSet(key, value);
+        emit AddressSet(key, oldValue, value);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -197,8 +199,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setProver(address prover) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (prover == address(0)) revert INVALID_ADDRESS();
 
+        address oldProver = _prover;
+
         _prover = prover;
-        emit ProverSet(prover);
+        emit ProverSet(oldProver, prover);
     }
 
     /// @inheritdoc ISuperGovernor

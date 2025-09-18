@@ -130,7 +130,7 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when an address is set in the registry
     /// @param key The key used to reference the address
     /// @param value The address value
-    event AddressSet(bytes32 indexed key, address indexed value);
+    event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value);
 
     /// @notice Emitted when a hook is approved
     /// @param hook The address of the approved hook
@@ -237,7 +237,7 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Emitted when a prover is set
     /// @param prover The address of the prover
-    event ProverSet(address indexed prover);
+    event ProverSet(address indexed oldProver, address indexed newProver);
 
     /// @notice Emitted when a change to upkeep payments status is proposed
     /// @param enabled The proposed status (enabled/disabled)
