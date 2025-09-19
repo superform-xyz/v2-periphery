@@ -129,6 +129,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
+        // Validate that validatorSet matches actual number of valid signatures
+        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
+
         address lastSigner;
         // Process each proof
         for (uint256 i; i < proofsLength; i++) {
@@ -142,9 +145,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (signer <= lastSigner) revert INVALID_PROOF();
             lastSigner = signer;
         }
-
-        // Validate that validatorSet matches actual number of valid signatures
-        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
 
         // Validate that totalValidators matches actual total number of validators
         if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
