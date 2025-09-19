@@ -73,6 +73,8 @@
       "address": "0x03E3ef5a57272b4C00a6aF11E85655d63dB6709B"
     },
     {
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
