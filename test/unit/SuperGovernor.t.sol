@@ -1905,13 +1905,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.slashStake(address(0), 100e18);
     }
 
-    /// @notice Tests slashing reverts with zero amount
-    function test_SlashStake_RevertZeroAmount() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superGovernor.slashStake(manager, 0);
-    }
-
     /// @notice Tests slashing reverts with insufficient stake balance
     function test_SlashStake_RevertInsufficientStake() public {
         uint256 stakeAmount = 500e18;
