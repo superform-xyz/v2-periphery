@@ -97,6 +97,18 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
+        uint256 proofsLength = params.proofs.length;
+        if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
+
+        // Validate that validatorSet matches actual number of valid signatures
+        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
+
+        // Validate that totalValidators matches actual total number of validators
+        if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
+
+        // Ensure we have enough valid signatures to meet quorum
+        if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
+
         // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
         // derived signer address will be incorrect- resulting in a revert
         bytes32 structHash = keccak256(
@@ -113,12 +125,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         );
         bytes32 digest = _hashTypedDataV4(structHash);
 
-        uint256 proofsLength = params.proofs.length;
-        if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
-
-        // Validate that validatorSet matches actual number of valid signatures
-        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
-
         address lastSigner;
         // Process each proof
         for (uint256 i; i < proofsLength; i++) {
@@ -132,12 +138,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (signer <= lastSigner) revert INVALID_PROOF();
             lastSigner = signer;
         }
-
-        // Validate that totalValidators matches actual total number of validators
-        if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
-
-        // Ensure we have enough valid signatures to meet quorum
-        if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
     }
 
     /// @notice Processes batch strategies and returns valid entries
