@@ -13,7 +13,6 @@ lcov.info
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
-test/utils/merkle/output/jsTreeDump_1.json
 
 # broadcasts
 !broadcast
@@ -23,4 +22,5 @@ broadcast/*/31337/
 # node_modules
 lib/modulekit/node_modules
 
-broadcast
+test/utils/merkle/output/lookup_cache_1.json
+test/utils/merkle/output/jsTreeDump_1.json

@@ -16,6 +16,7 @@ import { SuperVault } from "../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../src/SuperVault/SuperVaultEscrow.sol";
 import { ECDSAPPSOracle } from "../src/oracles/ECDSAPPSOracle.sol";
+import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
 // Mock contracts for address prediction
 import { Mock4626Vault } from "./mocks/Mock4626Vault.sol";
@@ -35,6 +36,7 @@ struct PeripheryAddresses {
     ECDSAPPSOracle ecdsappsOracle;
     MockNativeETHHook mockNativeETHHook;
     MockETHReceiver mockETHReceiver;
+    ApproveAndSwapOdosV2Hook approveAndSwapOdosHook;
 }
 
 contract BaseTest is PeripheryHelpers, CoreBaseTest {
@@ -46,6 +48,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
     // Constants for test vault deployment
     string constant TEST_SALT = "TEST";
+    string constant PERIPHERY_HOOKS_SALT = "PERIPHERY_HOOKS";
 
     // Global addresses for SuperVault strategies
     address public globalSVStrategy;
@@ -70,6 +73,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     // Periphery-specific merkle hooks
     address[] public globalMerkleHooksPeriphery;
     string[] public globalMerkleHookNamesPeriphery;
+
+    address public approveAndSwapOdosHookAddressETH;
 
     /*//////////////////////////////////////////////////////////////
                                 SETUP
@@ -172,6 +177,12 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                     ),
                     aggregator
                 );
+
+                // Deploy ApproveAndSwapOdosV2Hook
+                PA[i].approveAndSwapOdosHook = new ApproveAndSwapOdosV2Hook{ salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT)) }(CHAIN_1_ODOS_ROUTER);
+                vm.label(address(PA[i].approveAndSwapOdosHook), "ApproveAndSwapOdosV2Hook");
+                contractAddresses[ETH][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY] = address(PA[i].approveAndSwapOdosHook);
+                approveAndSwapOdosHookAddressETH = address(PA[i].approveAndSwapOdosHook);
 
                 // Deploy MockETHReceiver first (needed for MockNativeETHHook constructor) - ETH only
                 PA[i].mockETHReceiver = new MockETHReceiver{ salt: SALT }(existingUnderlyingTokens[ETH][USDC_KEY]);
@@ -408,9 +419,10 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             // Register MockNativeETHHook for testing - ETH only
             if (chainIds[i] == ETH) {
                 superGovernor.registerHook(address(PA[i].mockNativeETHHook), true);
+                superGovernor.registerHook(address(PA[i].approveAndSwapOdosHook), false);
 
                 // Initialize periphery-specific merkle hooks - include all hooks that can fulfill requests (true)
-                globalMerkleHooksPeriphery = new address[](14);
+                globalMerkleHooksPeriphery = new address[](15);
                 globalMerkleHooksPeriphery[0] = hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[1] = hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[2] = hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY];
@@ -427,8 +439,9 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHooksPeriphery[11] = hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[12] = hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[13] = hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY];
+                globalMerkleHooksPeriphery[14] = address(PA[i].approveAndSwapOdosHook);
 
-                globalMerkleHookNamesPeriphery = new string[](14);
+                globalMerkleHookNamesPeriphery = new string[](15);
                 globalMerkleHookNamesPeriphery[0] = "DEPOSIT_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[1] = "REDEEM_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[2] = "DEPOSIT_5115_VAULT_HOOK";
@@ -443,6 +456,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHookNamesPeriphery[11] = "WITHDRAW_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[12] = "REDEEM_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[13] = "REQUEST_REDEEM_7540_VAULT_HOOK";
+                globalMerkleHookNamesPeriphery[14] = "APPROVE_AND_SWAP_ODOSV2_HOOK";
             }
 
             // EXPERIMENTAL HOOKS FROM HERE ONWARDS

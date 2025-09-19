@@ -102,6 +102,22 @@ class AddressListGenerator {
     }
 
     /**
+     * Generate passthrough_contracts_list.json from registry passthroughContracts
+     */
+    generatePassthroughContractsList(registry) {
+        const passthroughContractsList = {};
+
+        for (const [chainId, passthroughContracts] of Object.entries(registry.passthroughContracts || {})) {
+            passthroughContractsList[chainId] = passthroughContracts.map(contract => ({
+                symbol: contract.symbol,
+                address: contract.address
+            }));
+        }
+
+        return passthroughContractsList;
+    }
+
+    /**
      * Write JSON file with proper formatting
      */
     writeJsonFile(filename, data) {
@@ -135,6 +151,10 @@ class AddressListGenerator {
         // Generate staking list
         const stakingList = this.generateStakingList(registry);
         this.writeJsonFile('staking_list.json', stakingList);
+
+        // Generate passthrough contracts list
+        const passthroughContractsList = this.generatePassthroughContractsList(registry);
+        this.writeJsonFile('passthrough_contracts_list.json', passthroughContractsList);
 
         console.log('Address list generation complete!');
     }

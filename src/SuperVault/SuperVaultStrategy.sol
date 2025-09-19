@@ -604,7 +604,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.hookContract = ISuperHook(hook);
 
         vars.targetedYieldSource = HookDataDecoder.extractYieldSource(hookCalldata);
-        if (yieldSources[vars.targetedYieldSource] == address(0)) revert YIELD_SOURCE_NOT_FOUND();
 
         bool usePrevHookAmount = _decodeHookUsePrevHookAmount(hook, hookCalldata);
         if (usePrevHookAmount && prevHook != address(0)) {

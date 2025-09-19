@@ -118,5 +118,29 @@
                 "type": "yieldSource"
             }
         ]
+    },
+    "ApproveAndSwapOdosV2Hook": {
+        "args": [
+            {
+                "name": "inputToken",
+                "type": "token"
+            },
+            {
+                "name": "inputReceiver",
+                "type": "beneficiary"
+            },
+            {
+                "name": "outputToken",
+                "type": "token"
+            },
+            {
+                "name": "odosRouter",
+                "type": "passthroughContract"
+            },
+            {
+                "name": "executor",
+                "type": "passthroughContract"
+            }
+        ]
     }
 }

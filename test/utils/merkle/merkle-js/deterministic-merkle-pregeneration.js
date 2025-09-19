@@ -718,12 +718,16 @@ DESCRIPTION:
 
         this.log(`Generating merkle tree with ${Object.keys(hookAddresses).length} hooks and ${vaultAddresses.length} vaults`);
 
-        // Update address lists with detected vaults and SuperVaults
+        // FIRST: Generate all address lists from registry to ensure all JSON files exist
+        this.log('Generating address lists from registry...');
+        const AddressListGenerator = require('./generate-address-lists.js');
+        const generator = new AddressListGenerator();
+        generator.generateAll(); // This creates all required JSON files including passthrough_contracts_list.json
+
+        // THEN: Update address lists with detected vaults and SuperVaults
         const allDetectedAddresses = { ...addresses.vaults, ...addresses.superVaults };
         if (Object.keys(allDetectedAddresses).length > 0) {
             this.log('Updating address lists with detected vaults and SuperVaults...');
-            const AddressListGenerator = require('./generate-address-lists.js');
-            const generator = new AddressListGenerator();
             generator.addDetectedVaults(allDetectedAddresses);
         }
 

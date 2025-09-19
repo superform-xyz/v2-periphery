@@ -7,8 +7,18 @@ const tokenList = require('../target/token_list.json');
 const yieldSourcesList = require('../target/yield_sources_list.json');
 const ownerList = require('../target/owner_list.json');
 const stakingList = require('../target/staking_list.json');
+let passthroughContractsList = {};
+try {
+  passthroughContractsList = require('../target/passthrough_contracts_list.json');
+  console.log('[DEBUG] Successfully loaded passthrough contracts:', JSON.stringify(passthroughContractsList, null, 2));
+} catch (error) {
+  console.error('[ERROR] Failed to load passthrough_contracts_list.json:', error.message);
+  passthroughContractsList = { "1": [], "10": [], "8453": [] }; // Fallback
+}
 const hookConfigs = require('../config/hook_configs.json');
 
+// Add ethers import at the top
+const { ethers } = require('ethers');
 
 let customAddresses = {};
 
@@ -99,7 +109,7 @@ let hookDefinitions = {};
 
 /**
  * Get addresses for a specific semantic type and chainId with hook-specific filtering
- * @param {string} type - Semantic type ('token', 'yieldSource', 'beneficiary', 'staking')
+ * @param {string} type - Semantic type ('token', 'yieldSource', 'beneficiary', 'staking', 'passthroughContract')
  * @param {number} chainId - Chain ID to get addresses for
  * @param {string} hookName - Hook name for filtering (optional)
  * @returns {Array<string>} Array of addresses
@@ -125,6 +135,10 @@ function getAddressesForType(type, chainId, hookName = null) {
         addresses = ownerList[chainId] || []; // New chain-based format
       }
       break;
+    case 'passthroughContract':
+        addresses = (passthroughContractsList[chainId] || []).map(item => item.address);
+        console.log(`[DEBUG] getAddressesForType(passthroughContract, ${chainId}):`, addresses);
+        break;
     default:
       return [];
   }
@@ -134,6 +148,7 @@ function getAddressesForType(type, chainId, hookName = null) {
     addresses = applyHookFiltering(addresses, type, hookName, chainId);
   }
   
+  console.log(`[DEBUG] Final addresses for type '${type}', chainId ${chainId}, hook '${hookName}':`, addresses);
   return addresses;
 }
 
@@ -162,6 +177,9 @@ function applyHookFiltering(addresses, type, hookName, chainId) {
       break;
     case 'staking':
       allowedList = config.allowedStaking || ['all'];
+      break;
+    case 'passthroughContract':
+      allowedList = config.allowedPassthroughContracts || ['all'];
       break;
   }
   
@@ -192,14 +210,15 @@ function generateArgCombinations(hookDef, chainId) {
   const argDefs = hookDef.argsInfo.extractedAddresses;
   const hookName = hookDef.hookName;
 
-  console.log(`Generating combinations for ${hookName} with ${argDefs.length} argument types`);
+  console.log(`[DEBUG] Generating combinations for ${hookName} with ${argDefs.length} argument types`);
+  console.log(`[DEBUG] Hook config for ${hookName}:`, JSON.stringify(hookConfigs[hookName], null, 2));
 
   // Create a map of argument names to their possible values
   const argValues = {};
   for (const argDef of argDefs) {
     // Pass hook name for filtering
     argValues[argDef.name] = getAddressesForType(argDef.type, chainId, hookName);
-    console.log(`  ${argDef.name} (${argDef.type}): ${argValues[argDef.name].length} addresses`);
+    console.log(`[DEBUG]   ${argDef.name} (${argDef.type}): ${argValues[argDef.name].length} addresses - ${JSON.stringify(argValues[argDef.name])}`);
   }
 
   // Helper function to generate combinations recursively
@@ -217,6 +236,7 @@ function generateArgCombinations(hookDef, chainId) {
 
     // If there are no possible values, skip this argument
     if (possibleValues.length === 0) {
+      console.log(`[DEBUG] No values for argument ${argName}, skipping`);
       return generateCombinationsRecursive(argNames, currentIndex + 1, currentCombination);
     }
 
@@ -244,11 +264,11 @@ function generateArgCombinations(hookDef, chainId) {
   const argNames = argDefs.map(def => def.name);
 
   // Generate combinations for all arguments
-  return generateCombinationsRecursive(argNames, 0, {});
+  const finalCombinations = generateCombinationsRecursive(argNames, 0, {});
+  console.log(`[DEBUG] Generated ${finalCombinations.length} total combinations for ${hookName}`);
+  
+  return finalCombinations;
 }
-
-// Add ethers import at the top
-const { ethers } = require('ethers');
 
 /**
  * Encode args according to the hook's encoding scheme

@@ -56,5 +56,6 @@ contract GetAddressesFromBaseTest is BaseTest {
         console.log("Withdraw7540VaultHook:", globalMerkleHooksPeriphery[11]);
         console.log("Redeem7540VaultHook:", globalMerkleHooksPeriphery[12]);
         console.log("RequestRedeem7540VaultHook:", globalMerkleHooksPeriphery[13]);
+        console.log("ApproveAndSwapOdosV2Hook:", globalMerkleHooksPeriphery[14]);
     }
 }

@@ -35,6 +35,11 @@
         "symbol": "wstETH",
         "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
         "category": "eth"
+      },
+      {
+        "symbol": "USDT",
+        "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "category": "stablecoin"
       }
     ],
     "10": [
@@ -160,7 +165,8 @@
       "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6",
       "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA",
       "0x92bd9b2Fb1E55283452760e369979EDa4C180286",
-      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+      "0x31373595f40ea48a7aab6cbcb0d377c6066e2dca"
     ],
     "10": [],
     "8453": []
@@ -173,5 +179,21 @@
         "category": "defi"
       }
     ]
+  },
+  "passthroughContracts": {
+    "1": [
+      {
+        "symbol": "OdosExecutor",
+        "address": "0x365084b05fa7d5028346bd21d842ed0601bab5b8",
+        "category": "passthrough"
+      },
+      {
+        "symbol": "OdosRouter",
+        "address": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559",
+        "category": "passthrough"
+      }
+    ],
+    "10": [],
+    "8453": []
   }
 }
