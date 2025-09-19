@@ -47,6 +47,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVault gearSuperVault;
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
+    
 
     function setUp() public override {
         super.setUp();
@@ -7008,82 +7009,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
-    /// @notice Helper function to set vault PPS to 0 for testing zero PPS scenarios
-    /// @dev Exactly matches _updateSuperVaultPPS but forces PPS to 0
-    /// @param strategyAddr The strategy address
-    function _updateSuperVaultPPS_ToZero(address strategyAddr) internal {
-        UpdatePPSVars memory vars;
-
-        // Force PPS to 0 for testing
-        vars.pps = 0;
-
-        // Get the current timestamp for the signature
-        vars.timestamp = block.timestamp;
-
-        // Set the additional parameters as in _updateSuperVaultPPS
-        vars.ppsStdev = 0;
-        vars.validatorSet = 1;
-        vars.totalValidators = 1;
-
-        // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
-                strategyAddr,
-                vars.pps,
-                vars.ppsStdev,
-                vars.validatorSet,
-                vars.totalValidators,
-                vars.timestamp,
-                ecdsappsOracle.noncePerStrategy(strategyAddr)
-            )
-        );
-        vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(ecdsappsOracle.domainSeparator(), structHash);
-
-        // Create signature (r, s, v) components using VALIDATOR_KEY (exactly as in _updateSuperVaultPPS)
-        (vars.v, vars.r, vars.s) = vm.sign(VALIDATOR_KEY, vars.ethSignedMessageHash);
-
-        // Combine the signature components into a single bytes signature
-        vars.signature = abi.encodePacked(vars.r, vars.s, vars.v);
-
-        // Create an array of proofs with the signature
-        vars.proofs = new bytes[](1);
-        vars.proofs[0] = vars.signature;
-
-        // Call batchUpdatePPS on the ECDSAPPSOracle (exactly as in _updateSuperVaultPPS)
-        address[] memory strategies = new address[](1);
-        strategies[0] = strategyAddr;
-        
-        bytes[][] memory proofsArray = new bytes[][](1);
-        proofsArray[0] = vars.proofs;
-        
-        uint256[] memory ppss = new uint256[](1);
-        ppss[0] = vars.pps;
-        
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
-        
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = vars.validatorSet;
-        
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = vars.totalValidators;
-        
-        uint256[] memory timestamps = new uint256[](1);
-        timestamps[0] = vars.timestamp;
-
-        ecdsappsOracle.updatePPS(
-            IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
-                timestamps: timestamps
-            })
-        );
-    }
+   
 
     /*//////////////////////////////////////////////////////////////
                         DUST BUG TESTS
@@ -7871,6 +7797,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
         assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
     }
+
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS

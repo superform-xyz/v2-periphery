@@ -54,6 +54,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     address public globalSVStrategy;
     address public globalSVGearStrategy;
     address public globalRuggableVault;
+    address public globalSV5115Strategy;
+
 
     // Test vault addresses for deterministic testing
     address public test1_DynamicAllocation_MockVault;
@@ -69,6 +71,9 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     address public test10_RuggableVault_Withdraw;
     address public test10_RuggableVault_Withdraw_ConvertDistortion;
     address public test11_Allocate_NewYieldSource;
+
+    address public test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1;
+    address public test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2;
 
     // Periphery-specific merkle hooks
     address[] public globalMerkleHooksPeriphery;
@@ -177,13 +182,24 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                     ),
                     aggregator
                 );
+                      
+                globalSV5115Strategy = SuperVaultAggregator(aggregator).STRATEGY_IMPLEMENTATION()
+                    .predictDeterministicAddress(
+                    keccak256(
+                        abi.encode(
+                            //SV_MANAGER, existingUnderlyingTokens[ETH][USDE_KEY], "SuperVault", "sv5115", uint256(1)
+                            SV_MANAGER, CHAIN_1_SUSDE, "SuperVault", "sv5115", uint256(1)
+                        )
+                    ),
+                    aggregator
+                );
 
                 // Deploy ApproveAndSwapOdosV2Hook
                 PA[i].approveAndSwapOdosHook = new ApproveAndSwapOdosV2Hook{ salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT)) }(CHAIN_1_ODOS_ROUTER);
                 vm.label(address(PA[i].approveAndSwapOdosHook), "ApproveAndSwapOdosV2Hook");
                 contractAddresses[ETH][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY] = address(PA[i].approveAndSwapOdosHook);
                 approveAndSwapOdosHookAddressETH = address(PA[i].approveAndSwapOdosHook);
-
+          
                 // Deploy MockETHReceiver first (needed for MockNativeETHHook constructor) - ETH only
                 PA[i].mockETHReceiver = new MockETHReceiver{ salt: SALT }(existingUnderlyingTokens[ETH][USDC_KEY]);
                 vm.label(address(PA[i].mockETHReceiver), "MOCK_ETH_RECEIVER");
@@ -277,6 +293,12 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         // Test 11: Allocate NewYieldSource - uses salt "TEST"
         test11_Allocate_NewYieldSource =
             _predictMock4626VaultAddress(deployer, assetAddress, "New Vault", "NV", TEST_SALT);
+
+        // Test 1: SuperVault 5115 ReAllocateFrom4626To5115 - uses salt "TEST"
+        test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1 =
+            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault1", "SV5115R1", TEST_SALT);
+        test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2 =
+            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault2", "SV5115R2", TEST_SALT);
     }
 
     /// @notice Updates test vault predictions with the correct deployer address
