@@ -29,13 +29,6 @@ interface ISuperGovernor is IAccessControl {
         uint256 effectiveTime; // Timestamp when the proposed root becomes effective
     }
 
-    struct GasInfo {
-        // `batchForwardPPS` base gas
-        uint256 baseGasBatch;
-        // `batchForwardPPS` gas increase per entry
-        uint256 gasIncreasePerEntryBatch;
-    }
-
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -288,9 +281,8 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    event GasInfoSet(address indexed oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch);
+    event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch);
 
     /*//////////////////////////////////////////////////////////////
                        CONTRACT REGISTRY FUNCTIONS
@@ -489,9 +481,8 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets gas info for an oracle
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external;
+    function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external;
 
     /// @notice Proposes a change to upkeep payments enabled status
     /// @param enabled The proposed enabled status
@@ -818,5 +809,5 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the gas info for a specific SuperVault PPS Oracle
     /// @param oracle_ The address of the oracle to get gas info for
     /// @return The gas info for the specified oracle
-    function getGasInfo(address oracle_) external view returns (GasInfo memory);
+    function getGasInfo(address oracle_) external view returns (uint256);
 }

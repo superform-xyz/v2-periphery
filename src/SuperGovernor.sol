@@ -82,7 +82,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Effective times for proposed fee updates
     mapping(FeeType type_ => uint256 effectiveTime) private _feeEffectiveTimes;
 
-    mapping(address _oracle => GasInfo info) private _oracleGasInfo;
+    mapping(address _oracle => uint256 _entryGas) private _gasPerEntry;
 
     // Upkeep control
     bool private _upkeepPaymentsEnabled;
@@ -565,12 +565,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
+    function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
         if (oracle == address(0)) revert INVALID_ADDRESS();
-        if (baseGasBatch == 0 || gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
+        if (gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
-        _oracleGasInfo[oracle] = GasInfo({baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch});
-        emit GasInfoSet(oracle, baseGasBatch, gasIncreasePerEntryBatch);
+        _gasPerEntry[oracle] = gasIncreasePerEntryBatch;
+        emit GasInfoSet(oracle, gasIncreasePerEntryBatch);
     }
 
     /// @notice Proposes a change to the upkeep payments enabled status
@@ -952,13 +952,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getGasInfo(address oracle_) external view returns (GasInfo memory) {
-        return _oracleGasInfo[oracle_];
+    function getGasInfo(address oracle_) external view returns (uint256) {
+        return _gasPerEntry[oracle_];
     }
 
     /// @inheritdoc ISuperGovernor
     function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256) {
-        return _convertGasToUp(_oracleGasInfo[oracle_].gasIncreasePerEntryBatch);
+        return _convertGasToUp(_gasPerEntry[oracle_]);
     }
 
     /// @inheritdoc ISuperGovernor
