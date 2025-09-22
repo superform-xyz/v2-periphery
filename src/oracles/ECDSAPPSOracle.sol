@@ -57,15 +57,14 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @inheritdoc IECDSAPPSOracle
     function updatePPS(UpdatePPSArgs calldata args) external {
         uint256 strategiesLength = args.strategies.length;
-        
+
         if (strategiesLength == 0) revert ZERO_LENGTH_ARRAY();
         // Validate input array lengths
-        if (    strategiesLength != args.proofsArray.length
-                || strategiesLength != args.ppss.length
+        if (
+            strategiesLength != args.proofsArray.length || strategiesLength != args.ppss.length
                 || strategiesLength != args.ppsStdevs.length || strategiesLength != args.validatorSets.length
                 || strategiesLength != args.timestamps.length || strategiesLength != args.totalValidators.length
         ) revert ARRAY_LENGTH_MISMATCH();
-
 
         // Process strategies and collect valid entries
         (
@@ -79,24 +78,14 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
         // Forward valid entries if any exist
         _forwardValidEntries(
-            validStrategies,
-            validPpss,
-            validPpsStdevs,
-            validValidatorSets,
-            validTotalValidators,
-            validTimestamps
+            validStrategies, validPpss, validPpsStdevs, validValidatorSets, validTotalValidators, validTimestamps
         );
     }
-
-    
 
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function validateProofs(IECDSAPPSOracle.ValidationParams memory params)
-        public
-        view
-    {
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params) public view {
         _validateProofs(params);
     }
 
@@ -125,7 +114,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             )
         );
         bytes32 digest = _hashTypedDataV4(structHash);
-        
+
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
@@ -215,13 +204,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @param args Batch update arguments
     /// @param index Index of the strategy to process
     /// @return isValid True if the strategy was processed successfully
-    function _processIndividualStrategy(
-        UpdatePPSArgs calldata args,
-        uint256 index
-    ) internal returns (bool isValid) {
+    function _processIndividualStrategy(UpdatePPSArgs calldata args, uint256 index) internal returns (bool isValid) {
         address _strategy = args.strategies[index];
 
-         // Validate proofs and check quorum requirement
+        // Validate proofs and check quorum requirement
         try IECDSAPPSOracle(address(this)).validateProofs(
             IECDSAPPSOracle.ValidationParams({
                 strategy: _strategy,
@@ -249,7 +235,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             emit ProofValidationFailedLowLevel(_strategy, lowLevelData);
             return false;
         }
-        
+
         noncePerStrategy[_strategy]++;
         return true;
     }
@@ -268,7 +254,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256[] memory validValidatorSets,
         uint256[] memory validTotalValidators,
         uint256[] memory validTimestamps
-    ) internal {
+    )
+        internal
+    {
         // Only forward if there are valid entries
         if (validStrategies.length > 0) {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR)).forwardPPS(
@@ -281,13 +269,11 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     timestamps: validTimestamps,
                     updateAuthority: msg.sender
                 })
-            ) {
-            } catch Error(string memory reason) {
+            ) { } catch Error(string memory reason) {
                 emit BatchForwardPPSFailed(reason);
             } catch (bytes memory lowLevelData) {
                 emit BatchForwardPPSFailedLowLevel(lowLevelData);
             }
         }
     }
-
 }
