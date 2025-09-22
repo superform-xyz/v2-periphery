@@ -203,112 +203,72 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function forwardPPS(ForwardPPSArgs calldata args) external onlyPPSOracle {
         uint256 strategiesLength = args.strategies.length;
         if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
-
         if (strategiesLength == 0) revert ZERO_ARRAY_LENGTH();
         // Validate input array lengths
         if (
             strategiesLength != args.ppss.length
-                || strategiesLength != args.ppsStdevs.length || strategiesLength != args.validatorSets.length
-                || strategiesLength != args.timestamps.length || strategiesLength != args.totalValidators.length
+                || strategiesLength != args.ppsStdevs.length 
+                || strategiesLength != args.validatorSets.length
+                || strategiesLength != args.timestamps.length 
+                || strategiesLength != args.totalValidators.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
-        uint256 chargeableCount;
-        if (paymentsEnabled) {
-            for (uint256 i; i < strategiesLength; ++i) {
-                // Skip invalid strategies without reverting
-                if (!_superVaultStrategies.contains(args.strategies[i])) {
-                    emit UnknownStrategy(args.strategies[i]);
-                    continue;
-                }
 
-                // Skip when invalid timestamp is provided
-                if (args.timestamps[i] > block.timestamp) {
-                    emit ProvidedTimestampExceedsBlockTimestamp(args.strategies[i], args.timestamps[i], block.timestamp);
-                    continue;
-                }
- 
-                // Skip Superform manager
-                address manager = _strategyData[args.strategies[i]].mainManager;
-                if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                    emit SuperformManager(args.strategies[i], manager);
-                    continue;
-                }
-
-                // Skip if updateAuthority is in the authorized callers list
-                // These are manager-designated keepers that should be exempt from fees
-                // NOTE: Protected keepers cannot be added to this list (blocked in addAuthorizedCaller)
-                /// @dev: cannot underflow; it's checked above already and it skips the entry if that's the case
-                if (_strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)) {
-                    emit AuthorizedCaller(args.strategies[i], args.updateAuthority);
-                    continue;
-                }
-
-                // Count only non-stale entries as chargeable
-                if (
-                    block.timestamp - args.timestamps[i] <= _strategyData[args.strategies[i]].maxStaleness
-                ) {
-                        ++chargeableCount;
-                }
-            }
-        }
-
-        ///@dev Total upkeep cost is determined by the oracle based on the number of chargeable entries
-        uint256 totalCost = paymentsEnabled
-            ? SUPER_GOVERNOR.getUpkeepCostPerBatchUpdate(msg.sender, chargeableCount)
-            : 0;
-
-        // Compute per-entry charge
-        uint256 perEntry = 0;
-        if (paymentsEnabled && chargeableCount > 0) {
-            perEntry = totalCost / chargeableCount;
-        }
-
-        // Process all valid strategies
         for (uint256 i; i < strategiesLength; ++i) {
-            // Skip invalid strategies without reverting
-            if (!_superVaultStrategies.contains(args.strategies[i])) continue;
+            address strategy = args.strategies[i];
 
-            // Skip when invalid timestamp is provided (future timestamp)
-            if (args.timestamps[i] > block.timestamp) {
-                emit ProvidedTimestampExceedsBlockTimestamp(
-                    args.strategies[i],
-                    args.timestamps[i],
-                    block.timestamp
-                );
+            // Skip invalid strategy
+            if (!_superVaultStrategies.contains(strategy)) {
+                emit UnknownStrategy(strategy);
                 continue;
             }
 
-            uint256 upkeepCost;
+            // Skip invalid timestamp
+            uint256 ts = args.timestamps[i];
+            if (ts > block.timestamp) {
+                emit ProvidedTimestampExceedsBlockTimestamp(strategy, ts, block.timestamp);
+                continue;
+            }
+
+            StrategyData storage data = _strategyData[strategy];
+
+            // Skip if Superform manager
+            address manager = data.mainManager;
+            if (SUPER_GOVERNOR.isSuperformManager(manager)) {
+                emit SuperformManager(strategy, manager);
+                continue;
+            }
+
+            // Skip if updateAuthority is in the authorized callers list
+            // These are manager-designated keepers that should be exempt from fees
+            // NOTE: Protected keepers cannot be added to this list (blocked in addAuthorizedCaller)
+            /// @dev: cannot underflow; it's checked above already and it skips the entry if that's the case
+            if (data.authorizedCallers.contains(args.updateAuthority)) {
+                emit AuthorizedCaller(strategy, args.updateAuthority);
+                continue;
+            }
+
+            uint256 upkeepCost = 0;
             if (paymentsEnabled) {
-                // check exemption due to staleness of a given strategy
-                /// @dev cannot underflow as it's already checked above, in the previous `for` loop
-                if (block.timestamp - args.timestamps[i] > _strategyData[args.strategies[i]].maxStaleness) {
-                    upkeepCost = 0;
-                    emit StaleUpdate(args.strategies[i], args.updateAuthority, args.timestamps[i]);
+                // Check staleness
+                if (block.timestamp - ts > data.maxStaleness) {
+                    emit StaleUpdate(strategy, args.updateAuthority, ts);
                 } else {
-                    address manager = _strategyData[args.strategies[i]].mainManager;
-                    if (
-                        SUPER_GOVERNOR.isSuperformManager(manager) ||  _strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)
-                    ) {
-                        upkeepCost = 0;
-                    } else {
-                        // Split the total batch cost fairly across chargeable entries
-                        upkeepCost = perEntry;
-                    }
+                    // Query cost directly per entry
+                    upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
             }
 
-            // Forward update
             _forwardPPS(
                 PPSUpdateData({
-                    strategy: args.strategies[i],
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0), // If payments are disabled or the update is exempt from UP payments
+                    strategy: strategy,
+                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
                     pps: args.ppss[i],
                     ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
                     totalValidators: args.totalValidators[i],
-                    timestamp: args.timestamps[i],
+                    timestamp: ts,
                     upkeepCost: upkeepCost
                 })
             );

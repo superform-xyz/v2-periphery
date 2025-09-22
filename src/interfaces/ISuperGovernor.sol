@@ -679,11 +679,8 @@ interface ISuperGovernor is IAccessControl {
     /// @return The current fee value (in basis points)
     function getFee(FeeType feeType) external view returns (uint256);
 
-    /// @notice Gets the current upkeep cost per batch update for PPS updates
-    /// @param oracle The address of the PPS oracle
-    /// @param chargeableEntries The number of chargeable entries
-    /// @return The current upkeep cost per batch update in UP tokens
-    function getUpkeepCostPerBatchUpdate(address oracle, uint256 chargeableEntries) external view returns (uint256);
+    /// @notice Gets the current upkeep cost for an entry
+    function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256);
 
     /// @notice Gets the proposed upkeep cost per update and its effective time
     /// @notice Gets the current minimum staleness value

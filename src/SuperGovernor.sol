@@ -956,13 +956,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _oracleGasInfo[oracle_];
     }
 
-     /// @inheritdoc ISuperGovernor
-    function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) external view returns (uint256) {
-        // Calculate total gas cost
-        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch + 
-            (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
-
-        return _convertGasToUp(totalGas);
+    /// @inheritdoc ISuperGovernor
+    function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256) {
+        return _convertGasToUp(_oracleGasInfo[oracle_].gasIncreasePerEntryBatch);
     }
 
     /// @inheritdoc ISuperGovernor

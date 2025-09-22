@@ -2088,7 +2088,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
         vm.stopPrank();
         
-        vars.totalUpkeepCost = 1e18; // 1 token total cost
+        vars.totalUpkeepCost = 2e18; // 1 token total cost per entry (2 etnries)
 
         // Create additional strategies for comprehensive testing
         vm.prank(manager);
