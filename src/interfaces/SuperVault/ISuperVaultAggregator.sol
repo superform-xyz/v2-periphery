@@ -449,6 +449,8 @@ interface ISuperVaultAggregator {
     error TIMESTAMP_EXCEEDS_BLOCK();
     /// @notice Thrown when withdrawal request is not ready
     error WITHDRAW_STAKE_REQUEST_NOT_READY();
+    /// @notice Thrown when withdrawal request is not found
+    error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
