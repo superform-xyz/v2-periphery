@@ -413,6 +413,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     function completeStakeWithdrawal() external {
         WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
+
+        if (request.amount == 0 || request.timestamp == 0) revert WITHDRAW_STAKE_REQUEST_NOT_FOUND();
         if (request.timestamp + WITHDRAW_STAKE_TIMELOCK > block.timestamp) {
             revert WITHDRAW_STAKE_REQUEST_NOT_READY();
         }
@@ -429,7 +431,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         IERC20(upToken).safeTransfer(msg.sender, request.amount);
 
         // Clear withdrawal request
-        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ manager: address(0), amount: 0, timestamp: 0 });
+        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
 
         emit StakeWithdrawn(msg.sender, request.amount);
     }
@@ -454,6 +456,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Reduce manager's stake balance
         _managerStakeBalance[manager] -= amount;
+
+        // Clear any pending withdrawal requests
+        managerWithdrawalRequests[manager] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
 
         // Get the UP token address and SuperBank address
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
