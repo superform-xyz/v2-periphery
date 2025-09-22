@@ -1778,10 +1778,15 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         
         // Withdraw stake
         vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StakeWithdrawRequested(manager, withdrawAmount);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+
+        vm.warp(block.timestamp + 8 days);
+        vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StakeWithdrawn(manager, withdrawAmount);
-        superVaultAggregator.withdrawStake(withdrawAmount);
+        superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
-        
+
         // Verify balances
         assertEq(superVaultAggregator.getStakeBalance(manager), remainingStake, "Remaining stake should be correct");
         assertEq(IERC20(upToken).balanceOf(manager), withdrawAmount, "Manager should receive withdrawn tokens");
@@ -1797,8 +1802,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
+
         // Withdraw all stake
-        superVaultAggregator.withdrawStake(stakeAmount);
+        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
+        vm.warp(block.timestamp + 8 days);
+        superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
         
         // Verify balances
@@ -1810,7 +1818,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_WithdrawStake_RevertZeroAmount() public {
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.withdrawStake(0);
+        superVaultAggregator.requestStakeWithdrawal(0);
     }
 
     /// @notice Tests stake withdrawal reverts with insufficient balance
@@ -1828,14 +1836,40 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Try to withdraw more than deposited
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.withdrawStake(withdrawAmount);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
     }
 
     /// @notice Tests stake withdrawal reverts when no stake deposited
     function test_WithdrawStake_RevertNoStake() public {
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.withdrawStake(100e18);
+        superVaultAggregator.requestStakeWithdrawal(100e18);
+    }
+
+    /// @notice Tests stake withdrawal reverts when withdrawal request is not found
+    function test_WithdrawStake_RevertWithdrawalRequestNotFound() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.WITHDRAW_STAKE_REQUEST_NOT_FOUND.selector);
+        superVaultAggregator.completeStakeWithdrawal();
+    }
+
+    /// @notice Tests stake withdrawal reverts when withdrawal request is not ready
+    function test_WithdrawStake_RevertWithdrawalRequestNotReady() public {
+        uint256 stakeAmount = 500e18;
+        
+        // Setup: Deposit smaller stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+        
+        // Try to withdraw more than deposited
+        vm.startPrank(manager);
+        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
+        vm.expectRevert(ISuperVaultAggregator.WITHDRAW_STAKE_REQUEST_NOT_READY.selector);
+        superVaultAggregator.completeStakeWithdrawal();
+        vm.stopPrank();
     }
 
     /// @notice Tests successful stake slashing by SuperGovernor
@@ -2040,6 +2074,30 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getStakeBalance(address(0)), 0, "Zero address stake balance should be zero");
     }
 
+    function testSlashStake_ClearsWithdrawalRequest() public {
+        uint256 stakeAmount = 1000e18;
+        
+        // Setup: Deposit stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Request withdrawal
+        vm.prank(manager);
+        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
+
+        // Slash stake
+        vm.prank(address(superGovernor));
+        superVaultAggregator.slashStake(manager, stakeAmount);
+
+        // Verify withdrawal request is cleared
+        (uint256 amount, uint256 timestamp) = superVaultAggregator.managerWithdrawalRequests(manager);
+        assertEq(amount, 0, "Withdrawal request should be cleared");
+        assertEq(timestamp, 0, "Withdrawal request should be cleared");
+    }
+
     /// @notice Tests edge case: slashing after partial withdrawal
     function test_SlashStake_AfterPartialWithdrawal() public {
         uint256 initialStake = 1000e18;
@@ -2054,7 +2112,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.depositStake(manager, initialStake);
         
         // Partial withdrawal
-        superVaultAggregator.withdrawStake(withdrawAmount);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+        vm.warp(block.timestamp + 8 days);
+        superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
         
         // Verify state after withdrawal
