@@ -75,6 +75,18 @@
             }
         ]
     },
+    "Redeem5115VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "tokenOut",
+                "type": "token"
+            }
+        ]
+    },
     "ApproveAndRequestDeposit7540VaultHook": {
         "args": [
             {
