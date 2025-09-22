@@ -128,6 +128,11 @@ interface ISuperVaultAggregator {
         bytes32[] strategyProof;
     }
 
+    struct WithdrawStakeRequest {
+        uint256 amount;
+        uint256 timestamp;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -199,6 +204,11 @@ interface ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @param amount Amount of UP tokens deposited as stake
     event StakeDeposited(address indexed manager, uint256 amount);
+
+    /// @notice Emitted when a stake withdrawal request is initiated
+    /// @param manager Address of the manager
+    /// @param amount Amount of UP tokens to withdraw
+    event StakeWithdrawRequested(address indexed manager, uint256 amount);
 
     /// @notice Emitted when stake tokens are withdrawn
     /// @param manager Address of the manager
@@ -437,6 +447,8 @@ interface ISuperVaultAggregator {
     error MAX_STRATEGIES_EXCEEDED();
     /// @notice Thrown when provided timestamp is too large
     error TIMESTAMP_EXCEEDS_BLOCK();
+    /// @notice Thrown when withdrawal request is not ready
+    error WITHDRAW_STAKE_REQUEST_NOT_READY();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -500,9 +512,12 @@ interface ISuperVaultAggregator {
     /// @param amount Amount of UP tokens to deposit as stake
     function depositStake(address manager, uint256 amount) external;
 
-    /// @notice Withdraws UP tokens from manager stake balance
+    /// @notice Initiates withdrawal of staked UP tokens
     /// @param amount Amount of UP tokens to withdraw from stake
-    function withdrawStake(uint256 amount) external;
+    function requestStakeWithdrawal(uint256 amount) external;
+
+    /// @notice Executes the withdrawal of UP tokens from manager stake balance
+    function completeStakeWithdrawal() external;
 
     /// @notice Slashes a manager's stake balance by a specified amount
     /// @param manager The manager whose stake will be slashed

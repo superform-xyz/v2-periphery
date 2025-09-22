@@ -52,6 +52,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Stake balances
     mapping(address manager => uint256 stake) private _managerStakeBalance;
 
+    // Withdraw stake requests
+    mapping(address manager => WithdrawStakeRequest withdrawalRequest) public managerWithdrawalRequests;
+
     // Registry of created vaults
     EnumerableSet.AddressSet private _superVaults;
     EnumerableSet.AddressSet private _superVaultStrategies;
@@ -59,12 +62,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Constant for PPS decimals
     uint256 public constant PPS_DECIMALS = 18;
-    
+
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
     // Maximum number of strategies to process in `batchForwardPPS`
     uint256 public constant MAX_STRATEGIES = 300;
+
+    // Time lock for stake withdrawal requests
+    uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
@@ -179,10 +185,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         for (uint256 i; i < secondaryLen; ++i) {
             _strategyData[strategy].secondaryManagers.add(params.secondaryManagers[i]);
         }
-        if (
-            _strategyData[strategy].secondaryManagers.length() >=
-            MAX_SECONDARY_MANAGERS
-        ) {
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -207,9 +210,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (strategiesLength == 0) revert ZERO_ARRAY_LENGTH();
         // Validate input array lengths
         if (
-            strategiesLength != args.ppss.length
-                || strategiesLength != args.ppsStdevs.length || strategiesLength != args.validatorSets.length
-                || strategiesLength != args.timestamps.length || strategiesLength != args.totalValidators.length
+            strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
+                || strategiesLength != args.validatorSets.length || strategiesLength != args.timestamps.length
+                || strategiesLength != args.totalValidators.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
@@ -227,7 +230,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit ProvidedTimestampExceedsBlockTimestamp(args.strategies[i], args.timestamps[i], block.timestamp);
                     continue;
                 }
- 
+
                 // Skip Superform manager
                 address manager = _strategyData[args.strategies[i]].mainManager;
                 if (SUPER_GOVERNOR.isSuperformManager(manager)) {
@@ -245,18 +248,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 }
 
                 // Count only non-stale entries as chargeable
-                if (
-                    block.timestamp - args.timestamps[i] <= _strategyData[args.strategies[i]].maxStaleness
-                ) {
-                        ++chargeableCount;
+                if (block.timestamp - args.timestamps[i] <= _strategyData[args.strategies[i]].maxStaleness) {
+                    ++chargeableCount;
                 }
             }
         }
 
         ///@dev Total upkeep cost is determined by the oracle based on the number of chargeable entries
-        uint256 totalCost = paymentsEnabled
-            ? SUPER_GOVERNOR.getUpkeepCostPerBatchUpdate(msg.sender, chargeableCount)
-            : 0;
+        uint256 totalCost =
+            paymentsEnabled ? SUPER_GOVERNOR.getUpkeepCostPerBatchUpdate(msg.sender, chargeableCount) : 0;
 
         // Compute per-entry charge
         uint256 perEntry = 0;
@@ -271,11 +271,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
             // Skip when invalid timestamp is provided (future timestamp)
             if (args.timestamps[i] > block.timestamp) {
-                emit ProvidedTimestampExceedsBlockTimestamp(
-                    args.strategies[i],
-                    args.timestamps[i],
-                    block.timestamp
-                );
+                emit ProvidedTimestampExceedsBlockTimestamp(args.strategies[i], args.timestamps[i], block.timestamp);
                 continue;
             }
 
@@ -289,7 +285,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 } else {
                     address manager = _strategyData[args.strategies[i]].mainManager;
                     if (
-                        SUPER_GOVERNOR.isSuperformManager(manager) ||  _strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)
+                        SUPER_GOVERNOR.isSuperformManager(manager)
+                            || _strategyData[args.strategies[i]].authorizedCallers.contains(args.updateAuthority)
                     ) {
                         upkeepCost = 0;
                     } else {
@@ -303,7 +300,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _forwardPPS(
                 PPSUpdateData({
                     strategy: args.strategies[i],
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0), // If payments are disabled or the update is exempt from UP payments
+                    isExempt: (!paymentsEnabled) || (upkeepCost == 0), // If payments are disabled or the update is
+                        // exempt from UP payments
                     pps: args.ppss[i],
                     ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
@@ -320,7 +318,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
     function depositUpkeep(address manager, uint256 amount) external {
-        if (amount == 0) revert ZERO_AMOUNT(); 
+        if (amount == 0) revert ZERO_AMOUNT();
 
         // Get the UP token address from SUPER_GOVERNOR
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
@@ -355,7 +353,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function withdrawUpkeep(uint256 amount) external {
-        if (amount == 0) revert ZERO_AMOUNT(); 
+        if (amount == 0) revert ZERO_AMOUNT();
 
         // Check sufficient balance
         if (_managerUpkeepBalance[msg.sender] < amount) {
@@ -398,9 +396,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit StakeDeposited(manager, amount);
     }
 
-    /// @notice Withdraws UP tokens from stake balance
-    /// @param amount Amount of UP tokens to withdraw from stake
-    function withdrawStake(uint256 amount) external {
+    /// @inheritdoc ISuperVaultAggregator
+    function requestStakeWithdrawal(uint256 amount) external {
         if (amount == 0) revert ZERO_ADDRESS(); // Reusing error code for consistency
 
         // Check sufficient balance
@@ -408,18 +405,37 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert INSUFFICIENT_STAKE_BALANCE();
         }
 
-        // Get the UP token address from SUPER_GOVERNOR
+        // Create withdrawal request
+        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: amount, timestamp: block.timestamp });
+
+        emit StakeWithdrawRequested(msg.sender, amount);
+    }
+
+    function completeStakeWithdrawal() external {
+        WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
+        if (request.timestamp + WITHDRAW_STAKE_TIMELOCK > block.timestamp) {
+            revert WITHDRAW_STAKE_REQUEST_NOT_READY();
+        }
+
+        /// Get the UP token address from SUPER_GOVERNOR
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update stake balance
         unchecked {
-            _managerStakeBalance[msg.sender] -= amount;
+            _managerStakeBalance[msg.sender] -= request.amount;
         }
 
         // Transfer UP tokens to manager
-        IERC20(upToken).safeTransfer(msg.sender, amount);
+        IERC20(upToken).safeTransfer(msg.sender, request.amount);
 
-        emit StakeWithdrawn(msg.sender, amount);
+        // Clear withdrawal request
+        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({
+            manager: address(0),
+            amount: 0,
+            timestamp: 0
+        });
+
+        emit StakeWithdrawn(msg.sender, request.amount);
     }
 
     /// @notice Slashes a manager's stake balance by a specified amount
@@ -502,10 +518,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
-        if (
-            _strategyData[strategy].secondaryManagers.length() >=
-            MAX_SECONDARY_MANAGERS
-        ) {
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -649,10 +662,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].secondaryManagers.remove(newManager);
 
         // Make the old primary manager a secondary manager
-        if (
-            _strategyData[strategy].secondaryManagers.length() <
-            MAX_SECONDARY_MANAGERS
-        ) {
+        if (_strategyData[strategy].secondaryManagers.length() < MAX_SECONDARY_MANAGERS) {
             _strategyData[strategy].secondaryManagers.add(oldManager);
         } else {
             emit OldPrimaryManagerRemoved(strategy, oldManager);
@@ -1062,7 +1072,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpdateTooFrequent();
             return;
         }
-        
+
         // Ensure timestamp is monotonically increasing to prevent out-of-order updates
         if (args.timestamp <= lastUpdate) {
             emit TimestampNotMonotonic();
