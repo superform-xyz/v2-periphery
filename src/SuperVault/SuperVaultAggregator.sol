@@ -429,11 +429,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         IERC20(upToken).safeTransfer(msg.sender, request.amount);
 
         // Clear withdrawal request
-        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({
-            manager: address(0),
-            amount: 0,
-            timestamp: 0
-        });
+        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ manager: address(0), amount: 0, timestamp: 0 });
 
         emit StakeWithdrawn(msg.sender, request.amount);
     }
