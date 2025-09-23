@@ -269,8 +269,15 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256[] memory validTotalValidators,
         uint256[] memory validTimestamps
     ) internal {
+        uint256 count = validStrategies.length;
+
+        uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
+        if (gasleft() < totalGas) {
+            emit InsufficientGasForForward(gasleft(), totalGas);
+            return;
+        }
         // Only forward if there are valid entries
-        if (validStrategies.length > 0) {
+        if (count > 0) {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR)).forwardPPS(
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: validStrategies,
