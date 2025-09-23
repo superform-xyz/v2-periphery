@@ -3000,18 +3000,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_previewEquivalenceFromShares(1);
     }
 
-    // forge test --match-test test_property_naivePPSDoesntChangeOnDepositOrMint_2 -vvv
-    // TODO: determine if this is actually relevant because it just means that a donation causes the implied PPS to decrease on withdrawal but this isn't used anywhere
-    function test_property_naivePPSDoesntChangeOnDepositOrMint_2() public {
-        yieldSource_mint(1, 0x0000000000000000000000000000000000000000);
-
-        // crytic_erc7540_7_deposit(2);
-
-        superVault_mint(1);
-
-        property_naivePPSDoesntChangeOnDepositOrMint();
-    }
-
     // NOTE: shares are burned on fulfillment but assets only get transferred on withdraw/redeem so implied PPS changes after assets get transferred to user
     // TODO: same as above, determine if there are any side effects related to this
     function test_property_naivePPSDoesntChangeOnRedeemOrWithdraw() public {
@@ -3069,52 +3057,54 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     /// Optimization tests
-    // forge test --match-test test_optimize_maxDustAccumulation_1 -vvv
-    function test_optimize_maxDustAccumulation_1() public {
-        // Max value: 673998960742062360239077156080980998554;
 
-        yieldSource_mint(132, 0x0000000000000000000000000000000000000000);
+    // forge test --match-test test_optimize_burnMoreThanRequestedInRedemption_1 -vvv
+    // NOTE: either the fuzzer needs to run longer or 45 is the maximized amount of shares that can be overburned
+    // function test_optimize_burnMoreThanRequestedInRedemption_1() public {
+    //     // Max value: 45;
 
-        asset_mint(
-            0xc3C1658B1e3b9e017030807d0C50895456FD2379,
-            333716593821123896775702548649212786971
+    //     add_new_vault();
+
+    //     switch_vault(0);
+
+    //     yieldSource_deposit(45, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+
+    //     superVaultStrategy_manageYieldSource_clamped(0);
+
+    //     superVault_deposit(46);
+
+    //     superVault_requestRedeem_clamped(2);
+
+    //     superVault_requestRedeem(43);
+
+    //     superVaultStrategy_fulfillRedeemRequests_clamped(
+    //         14526225687130730360117364037
+    //     );
+    // }
+
+    // forge test --match-test test_optimize_previewDepositSharesGreater_3 -vvv
+    // NOTE: demonstrates that if price gets set very low, the previewDeposit and previewMint functions diverge significantly
+    function test_optimize_previewDepositSharesGreater_3() public {
+        // Max value: 1.088920968969824887891684361e27;
+
+        superVaultAggregator_createVault_clamped(
+            0,
+            0,
+            0,
+            1210702788157352289666743396201862986435986556611388607915935934266622204978
         );
 
-        console2.log("strategy", address(superVaultStrategy));
-        address[] memory yieldSources = _getYieldSources();
-        for (uint256 i = 0; i < yieldSources.length; i++) {
-            if (yieldSources[i] != address(0)) {
-                // Get the underlying asset balance held in each yield source
-                console2.log("yield source", address(yieldSources[i]));
-            }
-        }
-
-        asset_mint(
-            0xc7183455a4C133Ae270771860664b6B7ec320bB1,
-            340282366920938463463374607431768211451
-        );
-    }
-
-    // forge test --match-test test_optimize_previewMintSharesGreater_0 -vvv
-    function test_optimize_previewMintSharesGreater_0() public {
-        // Max value: 57896044618658097711785492504343953926634992332820282019728792003956564819967;
-
-        vm.warp(block.timestamp + 5);
+        vm.warp(block.timestamp + 1);
 
         vm.roll(block.number + 1);
 
-        ECDSAPPSOracle_updatePPS_clamped(
-            115792089237316195423570985008687907853269984665640564039457584007913129639932
-        );
+        ECDSAPPSOracle_updatePPS_clamped(35836224755461900);
 
         setPreviewSharesGreater(
-            57896044618658097711785492504343953926851202526103111848155002437154048892770
+            3104647964351261583628915090109288217111041223537980091379104895181676735351
         );
 
-        console2.log(
-            "previewDepositSharesGreater: ",
-            previewDepositSharesGreater
-        );
-        console2.log("previewMintSharesGreater: ", previewMintSharesGreater);
+        int256 depositSharesGreater = optimize_previewDepositSharesGreater();
+        console2.log("depositSharesGreater: %e", depositSharesGreater);
     }
 }

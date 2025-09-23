@@ -80,31 +80,33 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
     }
 
     /// Core Vault Functions (ERC4626/ERC4626-like) ///
-    function yieldSource_deposit(
-        uint256 assets,
-        address receiver
-    ) public asActor {
-        YieldSourceType currentType = _getCurrentYieldSourceType();
-        address yieldSource = _getYieldSource();
+    // NOTE: removed in optimization branch because causes issues with optimizing dust amount in optimize_maxDustAccumulation
+    // function yieldSource_deposit(
+    //     uint256 assets,
+    //     address receiver
+    // ) public asActor {
+    //     YieldSourceType currentType = _getCurrentYieldSourceType();
+    //     address yieldSource = _getYieldSource();
 
-        if (currentType == YieldSourceType.ERC4626) {
-            MockERC4626Tester(yieldSource).deposit(assets, receiver);
-        }
-        // Note: ERC5115 has different deposit signature, handled separately
-        // Note: ERC7540 has different deposit signature, handled separately
-    }
+    //     if (currentType == YieldSourceType.ERC4626) {
+    //         MockERC4626Tester(yieldSource).deposit(assets, receiver);
+    //     }
+    //     // Note: ERC5115 has different deposit signature, handled separately
+    //     // Note: ERC7540 has different deposit signature, handled separately
+    // }
 
-    function yieldSource_mint(uint256 shares, address receiver) public asActor {
-        YieldSourceType currentType = _getCurrentYieldSourceType();
-        address yieldSource = _getYieldSource();
+    // NOTE: removed in optimization branch because causes issues with optimizing dust amount in optimize_maxDustAccumulation
+    // function yieldSource_mint(uint256 shares, address receiver) public asActor {
+    //     YieldSourceType currentType = _getCurrentYieldSourceType();
+    //     address yieldSource = _getYieldSource();
 
-        if (currentType == YieldSourceType.ERC4626) {
-            MockERC4626Tester(yieldSource).mint(shares, receiver);
-        } else if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).mint(shares, receiver);
-        }
-        // Note: ERC5115 doesn't have mint function
-    }
+    //     if (currentType == YieldSourceType.ERC4626) {
+    //         MockERC4626Tester(yieldSource).mint(shares, receiver);
+    //     } else if (currentType == YieldSourceType.ERC7540) {
+    //         MockERC7540Tester(yieldSource).mint(shares, receiver);
+    //     }
+    //     // Note: ERC5115 doesn't have mint function
+    // }
 
     function yieldSource_withdraw(
         uint256 assets,

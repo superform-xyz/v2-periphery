@@ -6,6 +6,7 @@ import {MockERC20} from "@recon/MockERC20.sol";
 import {vm} from "@chimera/Hevm.sol";
 import {ERC7540Properties} from "@properties-7540/ERC7540Properties.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {console2} from "forge-std/Test.sol";
 
 import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
@@ -446,6 +447,8 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     }
 
     function setPreviewSharesGreater(uint256 assets) public {
+        assets %= type(uint88).max; // clamp by a reasonable amount of mintable assets
+
         uint256 previewDepositShares = superVault.previewDeposit(assets);
         uint256 previewMintShares = superVault.previewMint(
             previewDepositShares

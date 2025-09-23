@@ -12,16 +12,16 @@ contract TrophiesToFoundry is Test, TargetFunctions, FoundryAsserts {
         setup();
     }
 
-    // forge test --match-test test_property_naivePPSDoesntChangeOnDepositOrMint_ -vvv 
-    function test_property_naivePPSDoesntChangeOnDepositOrMint_() public {
+    // forge test --match-test test_property_naivePPSDoesntChangeOnDepositOrMint_ -vvv
+    // function test_property_naivePPSDoesntChangeOnDepositOrMint_() public {
 
-        superVault_mint(1);
+    //     superVault_mint(1);
 
-        yieldSource_mint(1,0x0000000000000000000000000000000000000000);
+    //     yieldSource_mint(1,0x0000000000000000000000000000000000000000);
 
-        superVault_deposit(2);
+    //     superVault_deposit(2);
 
-        property_naivePPSDoesntChangeOnDepositOrMint();
+    //     property_naivePPSDoesntChangeOnDepositOrMint();
 
-    }
+    // }
 }
