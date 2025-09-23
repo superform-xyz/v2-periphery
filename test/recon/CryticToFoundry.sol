@@ -3107,4 +3107,22 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         int256 depositSharesGreater = optimize_previewDepositSharesGreater();
         console2.log("depositSharesGreater: %e", depositSharesGreater);
     }
+
+    // forge test --match-test test_optimize_previewDepositAssetsGreater_4 -vvv
+    function test_optimize_previewDepositAssetsGreater_4() public {
+        // Max value: 57896044618658097711785492504343953926418782139537452191303000000000000000000;
+
+        vm.warp(block.timestamp + 5);
+
+        vm.roll(block.number + 1);
+
+        ECDSAPPSOracle_updatePPS_clamped(1);
+
+        setpreviewAssetsGreater(
+            57896044618658097711785492504343953926418782139537452191302581570759080747165
+        );
+
+        int256 optimizedAssetsGreater = optimize_previewDepositAssetsGreater();
+        console2.log("optimizedAssetsGreater: ", optimizedAssetsGreater);
+    }
 }
