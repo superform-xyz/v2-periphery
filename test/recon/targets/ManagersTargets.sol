@@ -57,6 +57,19 @@ abstract contract ManagersTargets is BaseTargetFunctions, Properties {
 
     /// @dev Mint to arbitrary address, uses owner by default, even though MockERC20 doesn't check
     function asset_mint(address to, uint128 amt) public updateGhosts asAdmin {
+        require(_notYieldSource(to)); // prevents donations to the yield strategy or sources
         MockERC20(superVault.asset()).mint(to, amt);
+    }
+
+    // Helpers
+    function _notYieldSource(address to) internal returns (bool) {
+        if (to == address(superVaultStrategy)) return false;
+
+        address[] memory yieldSources = _getYieldSources();
+        for (uint256 i = 0; i < yieldSources.length; i++) {
+            if (yieldSources[i] == to) return false;
+        }
+
+        return true;
     }
 }
