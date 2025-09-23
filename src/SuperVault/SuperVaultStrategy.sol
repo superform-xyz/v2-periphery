@@ -409,15 +409,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit MaxPPSSlippageUpdated(maxSlippageBps);
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external {
         if (action == 1) {
             _proposeEmergencyWithdraw();
         } else if (action == 2) {
-            _executeEmergencyWithdrawActivation();
-        } else if (action == 3) {
             _performEmergencyWithdraw(recipient, amount);
-        } else if (action == 4) {
+        } else if (action == 3) {
             _cancelEmergencyWithdrawProposal();
         } else {
             revert ACTION_TYPE_DISALLOWED();
@@ -973,17 +971,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         proposedEmergencyWithdrawable = true;
         emergencyWithdrawableEffectiveTime = block.timestamp + ONE_WEEK;
-        emit EmergencyWithdrawableProposed(true, emergencyWithdrawableEffectiveTime);
-    }
 
-    /// @notice Internal function to execute an emergency withdraw
-    function _executeEmergencyWithdrawActivation() internal {
-        if (emergencyWithdrawableEffectiveTime == 0) revert NO_PROPOSAL();
-        if (block.timestamp < emergencyWithdrawableEffectiveTime) revert INVALID_TIMESTAMP();
-        emergencyWithdrawable = proposedEmergencyWithdrawable;
-        proposedEmergencyWithdrawable = false;
-        emergencyWithdrawableEffectiveTime = 0;
-        emit EmergencyWithdrawableUpdated(emergencyWithdrawable);
+        emit EmergencyWithdrawableProposed(true, emergencyWithdrawableEffectiveTime);
     }
 
     /// @notice Internal function to cancel an emergency withdraw proposal
@@ -991,8 +980,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _isPrimaryManager(msg.sender);
 
         if (emergencyWithdrawableEffectiveTime == 0) revert NO_PROPOSAL();
+
         proposedEmergencyWithdrawable = false;
         emergencyWithdrawableEffectiveTime = 0;
+
         emit EmergencyWithdrawableProposalCanceled();
     }
 
@@ -1002,13 +993,24 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function _performEmergencyWithdraw(address recipient, uint256 amount) internal {
         _isPrimaryManager(msg.sender);
 
-        if (!emergencyWithdrawable) revert INVALID_EMERGENCY_WITHDRAWAL();
+        // Must have a valid proposal
+        if (!proposedEmergencyWithdrawable) revert NO_PROPOSAL();
+        if (block.timestamp < emergencyWithdrawableEffectiveTime) revert INVALID_TIMESTAMP();
+
         if (recipient == address(0)) revert ZERO_ADDRESS();
+
         uint256 freeAssets = _getTokenBalance(address(_asset), address(this));
         if (amount == 0 || amount > freeAssets) revert INSUFFICIENT_FUNDS();
+
+        // reset state so it cannot be reused
+        proposedEmergencyWithdrawable = false;
+        emergencyWithdrawableEffectiveTime = 0;
+
         _safeTokenTransfer(address(_asset), recipient, amount);
+
         emit EmergencyWithdrawal(recipient, amount);
     }
+
 
     /// @notice Internal function to check if a hook is a fulfill requests hook
     /// @param hook Address of the hook
