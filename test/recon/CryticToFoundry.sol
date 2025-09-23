@@ -3125,4 +3125,17 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         int256 optimizedAssetsGreater = optimize_previewDepositAssetsGreater();
         console2.log("optimizedAssetsGreater: ", optimizedAssetsGreater);
     }
+
+    // forge test --match-test test_optimize_previewMintAssetsGreater_5 -vvv
+    function test_optimize_previewMintAssetsGreater_5() public {
+        // Max value: 57894917863229994306996268958671095136141917196997796521462956475350655105818;
+
+        console2.log("current price: ", superVaultStrategy.getStoredPPS());
+        setpreviewAssetsGreater(
+            57315968684597694363926306269084384184780498025027818556248326910597148554759
+        );
+
+        int256 previewMintAssetsGreater = optimize_previewMintAssetsGreater();
+        console2.log("previewMintAssetsGreater: ", previewMintAssetsGreater);
+    }
 }

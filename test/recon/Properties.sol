@@ -440,9 +440,13 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         );
 
         if (previewMintAssets > previewDepositAssets) {
-            previewMintAssetsGreater = int256(previewMintAssets);
+            previewMintAssetsGreater =
+                int256(previewMintAssets) -
+                int256(previewDepositAssets);
         } else {
-            previewDepositAssetsGreater = int256(previewDepositAssets);
+            previewDepositAssetsGreater =
+                int256(previewDepositAssets) -
+                int256(previewMintAssets);
         }
     }
 
