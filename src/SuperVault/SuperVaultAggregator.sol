@@ -252,10 +252,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
                 // Check staleness
-                if (block.timestamp - ts > data.maxStaleness) {
-                    emit StaleUpdate(strategy, args.updateAuthority, ts);
-                } else if (data.isPaused) {
+                if (data.isPaused) {
                     emit PaymentSkippedForPausedStrategy(strategy);
+                } else if (block.timestamp - ts > data.maxStaleness) {
+                    emit StaleUpdate(strategy, args.updateAuthority, ts);
                 } else {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
