@@ -130,6 +130,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert ZERO_ADDRESS();
         }
 
+        if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
+            revert ZERO_AMOUNT();
+        }
+
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
