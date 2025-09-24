@@ -625,7 +625,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperHook(address(vars.hookContract)).resetExecutionState(address(this));
 
         uint256 actualOutput = ISuperHookResult(hook).getOutAmount(address(this));
-        if (actualOutput == 0) revert ZERO_OUTPUT_AMOUNT();
 
         uint256 minExpectedOut = expectedAssetsOrSharesOut * (BPS_PRECISION - _getSlippageTolerance()) / BPS_PRECISION;
         if (actualOutput < minExpectedOut) {
