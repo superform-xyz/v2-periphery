@@ -79,6 +79,11 @@ interface IECDSAPPSOracle {
     /// @param lowLevelData Revert encoded data
     event BatchForwardPPSFailedLowLevel(bytes lowLevelData);
 
+    /// @notice Emitted when batch forward PPS failed due to insufficient gas
+    /// @param gasLeft Gas left
+    /// @param requiredGas Required gas
+    event InsufficientGasForForward(uint256 gasLeft, uint256 requiredGas);
+
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
