@@ -148,6 +148,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
 
     /// @inheritdoc ISuperOracle
     function executeOracleUpdate() external {
+        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
         if (pendingUpdate.timestamp == 0) revert NO_PENDING_UPDATE();
         if (block.timestamp < pendingUpdate.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
@@ -349,7 +350,6 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             return 0;
         }
     }
-
 
     function _getAverageQuote(
         address base,
