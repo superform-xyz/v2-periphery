@@ -272,7 +272,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256 count = validStrategies.length;
 
         uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
-        if (gasleft() < totalGas) {
+        if (gasleft() <= totalGas + gasleft() / 64) {
             emit InsufficientGasForForward(gasleft(), totalGas);
             return;
         }

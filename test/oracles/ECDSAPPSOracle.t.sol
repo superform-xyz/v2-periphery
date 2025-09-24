@@ -878,6 +878,86 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Test passes if no revert occurs
     }
 
+    function test_BatchUpdatePPS_InsufficientGasForForward() public {
+        BatchTestData memory data;
+        
+        // Create two strategies and valid proofs for them
+        data.strategy1 = address(svStrategy);
+
+        (, data.strategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Secondary TestVault",
+                symbol: "STV",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY })
+            })
+        );
+
+        vm.warp(block.timestamp + 1 days);
+
+        data.strategies = new address[](2);
+        data.strategies[0] = data.strategy1;
+        data.strategies[1] = data.strategy2;
+
+        data.ppss = new uint256[](2);
+        data.ppss[0] = PPS;
+        data.ppss[1] = PPS * 2;
+
+        data.ppsStdevs = new uint256[](2);
+        data.ppsStdevs[0] = PPS_STDEV;
+        data.ppsStdevs[1] = PPS_STDEV * 2;
+
+        data.validatorSets = new uint256[](2);
+        data.validatorSets[0] = 2;
+        data.validatorSets[1] = 2;
+
+        data.totalValidatorsList = new uint256[](2);
+        data.totalValidatorsList[0] = 3;
+        data.totalValidatorsList[1] = 3;
+
+        data.timestamps = new uint256[](2);
+        data.timestamps[0] = block.timestamp;
+        data.timestamps[1] = block.timestamp;
+
+        data.proofsArray = new bytes[][](2);
+        data.proofsArray[0] = _createValidProofs(
+            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.validatorSets[0], data.totalValidatorsList[0], data.timestamps[0], new uint256[](0)
+        );
+        data.proofsArray[1] = _createValidProofs(
+            data.strategy2, data.ppss[1], data.ppsStdevs[1], data.validatorSets[1], data.totalValidatorsList[1], data.timestamps[1], new uint256[](0)
+        );
+
+        // Set an extremely high gas cost per strategy to trigger the insufficient gas check
+        // This will cause totalGas = count * gasInfo to be very high
+        vm.startPrank(governorAddress);
+        governor.setGasInfo(address(oracleECDSA), 1_000_000_000_000); // Set very high gas cost
+        vm.stopPrank();
+
+        // Expect the InsufficientGasForForward event to be emitted
+        vm.expectEmit(false, false, false, false);
+        emit IECDSAPPSOracle.InsufficientGasForForward(0, 0); // We don't check exact values since they depend on gas left
+
+        // Call batchUpdatePPS with limited gas - should trigger the gas check and emit the event
+        // With 2 strategies and 1_000_000_000_000 gas per strategy, totalGas = 2_000_000_000_000
+        // We need to call with less gas than totalGas + gasleft() / 64
+        vm.prank(user);
+        oracleECDSA.updatePPS{gas: 1_000_000}( // Use low gas limit to trigger the check
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: data.strategies,
+                proofsArray: data.proofsArray,
+                ppss: data.ppss,
+                ppsStdevs: data.ppsStdevs,
+                validatorSets: data.validatorSets,
+                totalValidators: data.totalValidatorsList,
+                timestamps: data.timestamps
+            })
+        );
+    }
+
     function test_BatchUpdatePPS_EmptyArrayReverts() public {
         // Create empty arrays
         address[] memory strategies = new address[](0);
