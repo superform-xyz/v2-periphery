@@ -665,7 +665,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc ISuperGovernor
     function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
@@ -870,6 +869,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function GAS_MANAGER_ROLE() external pure returns (bytes32) {
         return _GAS_MANAGER_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function ORACLE_MANAGER_ROLE() external pure returns (bytes32) {
+        return _ORACLE_MANAGER_ROLE;
     }
 
     /// @inheritdoc ISuperGovernor
