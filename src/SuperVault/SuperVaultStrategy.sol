@@ -605,15 +605,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         vars.targetedYieldSource = HookDataDecoder.extractYieldSource(hookCalldata);
 
+        // Bool flagging if the hook uses the previous hook's outAmount
+        // @dev No slippage checks performed here as they have already been performed in the previous hook execution
         bool usePrevHookAmount = _decodeHookUsePrevHookAmount(hook, hookCalldata);
-        if (usePrevHookAmount && prevHook != address(0)) {
-            vars.outAmount = _getPreviousHookOutAmount(prevHook);
-            if (expectedAssetsOrSharesOut == 0) revert ZERO_EXPECTED_VALUE();
-            uint256 minExpectedPrevOut = expectedAssetsOrSharesOut * (BPS_PRECISION - _getSlippageTolerance());
-            if (vars.outAmount * BPS_PRECISION < minExpectedPrevOut) {
-                revert MINIMUM_PREVIOUS_HOOK_OUT_AMOUNT_NOT_MET();
-            }
-        }
 
         ISuperHook(address(vars.hookContract)).setExecutionContext(address(this));
         vars.executions = vars.hookContract.build(prevHook, address(this), hookCalldata);
