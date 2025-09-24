@@ -2343,6 +2343,52 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             timestamps[0],
             "Timestamp not updated correctly"
         );
+        
+        // Check if strategy is paused at the end
+        bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should not be paused after successful update");
+        
+        // Test manual pause/unpause functionality
+        // First, let's pause the strategy by triggering a validation failure
+        vm.warp(block.timestamp + 100); // Move time forward
+        
+        // Set a very low dispersion threshold to trigger pause
+        address mainManager = superVaultAggregator.getMainManager(strategy);
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+        
+        // Create an update with high dispersion to trigger pause
+        timestamps[0] = block.timestamp; // Current timestamp (valid)
+        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        // Verify strategy is now paused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should be paused after invalid update");
+        
+        // Now unpause the strategy by pranking as the main manager
+        vm.prank(mainManager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        
+        // Verify strategy is unpaused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
     }
 }
 

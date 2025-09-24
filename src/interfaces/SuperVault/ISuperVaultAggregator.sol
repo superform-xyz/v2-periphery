@@ -362,6 +362,9 @@ interface ISuperVaultAggregator {
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
 
+    /// @notice Emitted when payment is skipped for a paused strategy
+    event PaymentSkippedForPausedStrategy(address indexed strategy);
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -391,6 +394,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_UPKEEP_BALANCE();
     /// @notice Thrown when withdrawing more stake than available
     error INSUFFICIENT_STAKE_BALANCE();
+    /// @notice Thrown when trying to unpause a strategy that is not paused
+    error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when caller is already authorized
     error CALLER_ALREADY_AUTHORIZED();
     /// @notice Thrown when caller is not authorized

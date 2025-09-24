@@ -254,6 +254,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 // Check staleness
                 if (block.timestamp - ts > data.maxStaleness) {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
+                } else if (data.isPaused) {
+                    emit PaymentSkippedForPausedStrategy(strategy);
                 } else {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
@@ -334,6 +336,28 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         IERC20(upToken).safeTransfer(msg.sender, amount);
 
         emit UpkeepWithdrawn(msg.sender, amount);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        PAUSE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Manually unpauses a strategy
+    /// @param strategy Address of the strategy to unpause
+    /// @dev Only the main manager of the strategy can unpause it
+    function unpauseStrategy(address strategy) external validStrategy(strategy) {
+        // Only the main manager can unpause the strategy
+        if (!isMainManager(msg.sender, strategy)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+        
+        // Check if strategy is currently paused
+        if (!_strategyData[strategy].isPaused) {
+            revert STRATEGY_NOT_PAUSED();
+        }
+        
+        // Unpause the strategy
+        _strategyData[strategy].isPaused = false;
+        emit StrategyUnpaused(strategy);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -851,7 +875,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function isMainManager(address manager, address strategy) external view returns (bool) {
+    function isMainManager(address manager, address strategy) public view returns (bool) {
         return _strategyData[strategy].mainManager == manager;
     }
 
@@ -1072,12 +1096,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _strategyData[args.strategy].isPaused = true;
             emit StrategyPaused(args.strategy);
         }
-        // Unpause strategy if all checks passed and strategy was previously paused
-        else if (!checksFailed && _strategyData[args.strategy].isPaused) {
-            _strategyData[args.strategy].isPaused = false;
-            emit StrategyUnpaused(args.strategy);
-        }
-
+       
         // Handle upkeep costs unless exempt
         if (!args.isExempt) {
             // Check if manager has sufficient upkeep balance
