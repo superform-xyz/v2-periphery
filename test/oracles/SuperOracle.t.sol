@@ -97,6 +97,12 @@ contract SuperOracleTest is PeripheryHelpers {
         assertEq(availableProvidersAvg, 3, "Available providers should be 3");
     }
 
+    function test_GetQuoteFromProvider_RevertIf_OOG() public view {
+        (uint256 quoteAmount,,,) =
+            superOracle.getQuoteFromProvider{gas: 26_397}(1e18, address(mockETH), address(mockUSD), PROVIDER_1);
+        assertEq(quoteAmount, 0, "Quote amount should be 0");
+    }
+
     /*//////////////////////////////////////////////////////////////
                         PROVIDER MANAGEMENT TESTS
     //////////////////////////////////////////////////////////////*/
