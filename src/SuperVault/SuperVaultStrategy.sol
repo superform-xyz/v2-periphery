@@ -43,7 +43,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     //////////////////////////////////////////////////////////////*/
     uint256 private constant ONE_WEEK = 7 days;
     uint256 private constant BPS_PRECISION = 10_000;
-    /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge) 
+    /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge)
     ///      can be lower by 1 or 2 wei than the `totalRequestedAmount`in SuperVault shares
     uint256 private constant TOLERANCE_CONSTANT = 10 wei;
 
@@ -303,20 +303,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             }
             if (args.expectedAssetsOrSharesOut[i] == 0) revert ZERO_EXPECTED_VALUE();
 
-            intendedShares += ISuperHookInflowOutflow(hook).decodeAmount(
-                args.hookCalldata[i]
-            );
+            intendedShares += ISuperHookInflowOutflow(hook).decodeAmount(args.hookCalldata[i]);
         }
 
         // Enforce both lower- and upper-bounds on intended shares to prevent escrow overburn
-        if (intendedShares + TOLERANCE_CONSTANT < totalRequestedShares)
-        {
+        if (intendedShares + TOLERANCE_CONSTANT < totalRequestedShares) {
             revert INVALID_REDEEM_FILL();
         }
 
-
-        if (intendedShares > totalRequestedShares + TOLERANCE_CONSTANT)
-        {
+        if (intendedShares > totalRequestedShares + TOLERANCE_CONSTANT) {
             revert INVALID_REDEEM_FILL();
         }
 
@@ -378,7 +373,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         external
     {
         _isPrimaryManager(msg.sender);
-        
+
         if (performanceFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
         if (managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
         if (recipient == address(0)) revert ZERO_ADDRESS();
@@ -951,13 +946,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param source Address of the yield source
     function _removeYieldSource(address source) internal {
         if (yieldSources[source] == address(0)) revert YIELD_SOURCE_NOT_FOUND();
-        
+
         // Remove from mapping
         delete yieldSources[source];
-        
+
         // Remove from EnumerableSet
         if (!yieldSourcesList.remove(source)) revert YIELD_SOURCE_NOT_FOUND();
-        
+
         emit YieldSourceRemoved(source);
     }
 
