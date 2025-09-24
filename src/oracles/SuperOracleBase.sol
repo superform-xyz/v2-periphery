@@ -318,6 +318,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     {
         int256 answer;
         uint256 updatedAt;
+        uint256 gasBefore = gasleft();
 
         // --- Get round data ---
         try AggregatorV3Interface(oracle).latestRoundData() returns (
@@ -326,7 +327,10 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             answer = _answer;
             updatedAt = _updatedAt;
         } catch {
-            if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
+            // Require that enough gas was provided to prevent an OOG revert.
+            if (gasleft() <= gasBefore / 64) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
+
+            // If call to Chainlink aggregator reverts, return a zero response with success = false
             return 0;
         }
 
