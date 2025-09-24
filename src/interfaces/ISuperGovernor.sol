@@ -380,6 +380,9 @@ interface ISuperGovernor is IAccessControl {
     )
         external;
 
+    /// @notice Executes a previously queued oracle update after timelock has expired
+    function executeOracleUpdate() external;
+
     /// @notice Queues a provider removal for execution after timelock period
     /// @param providers The providers to remove
     function queueOracleProviderRemoval(bytes32[] calldata providers) external;
