@@ -2988,41 +2988,28 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVaultStrategy_fulfillRedeemRequests_clamped(1);
     }
 
-    // forge test --match-test test_doomsday_previewEquivalenceFromAssets_0 -vvv
     // NOTE: optimization tests in optimize_previewMintAssetsGreater and optimize_previewDepositAssetsGreater
-    function test_doomsday_previewEquivalenceFromAssets_0() public {
+    // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
+    function test_property_previewEquivalenceFromAssets_2() public {
+        vm.warp(block.timestamp + 5);
+
+        vm.roll(block.number + 1);
+
+        ECDSAPPSOracle_updatePPS_clamped(0);
+
         property_previewEquivalenceFromAssets(1);
     }
 
-    // forge test --match-test test_doomsday_previewEquivalenceFromShares_3 -vvv
     // NOTE: optimization tests in optimize_previewMintSharesGreater and optimize_previewDepositSharesGreater
-    function test_doomsday_previewEquivalenceFromShares_3() public {
+    // forge test --match-test test_property_previewEquivalenceFromShares_3 -vvv
+    function test_property_previewEquivalenceFromShares_3() public {
+        vm.warp(block.timestamp + 5);
+
+        vm.roll(block.number + 1);
+
+        ECDSAPPSOracle_updatePPS_clamped(0);
+
         property_previewEquivalenceFromShares(1);
-    }
-
-    // NOTE: shares are burned on fulfillment but assets only get transferred on withdraw/redeem so implied PPS changes after assets get transferred to user
-    // TODO: same as above, determine if there are any side effects related to this
-    function test_property_naivePPSDoesntChangeOnRedeemOrWithdraw() public {
-        superVault_deposit(4);
-        superVault_requestRedeem_clamped(2);
-        superVaultStrategy_manageYieldSource_clamped(0);
-
-        uint256[] memory hookTypeInts = new uint256[](1);
-        hookTypeInts[
-            0
-        ] = 3366039565052519506129160632812429979925236647654304654821762322802056013872;
-        uint256[] memory amountsToInvest = new uint256[](1);
-        amountsToInvest[0] = 2;
-        bool[] memory usePrevHookAmounts = new bool[](1);
-        usePrevHookAmounts[0] = false;
-        superVaultStrategy_executeHooks_clamped(
-            hookTypeInts,
-            amountsToInvest,
-            usePrevHookAmounts
-        );
-        superVaultStrategy_fulfillRedeemRequests_clamped(2);
-        superVault_withdraw_clamped(1);
-        property_naivePPSDoesntChangeOnRedeemOrWithdraw();
     }
 
     // forge test --match-test test_superVault_transfer_9 -vvv
@@ -3100,7 +3087,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         ECDSAPPSOracle_updatePPS_clamped(35836224755461900);
 
-        setPreviewSharesGreater(
+        setpreviewDepositShares(
             3104647964351261583628915090109288217111041223537980091379104895181676735351
         );
 
@@ -3116,26 +3103,17 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         vm.roll(block.number + 1);
 
-        ECDSAPPSOracle_updatePPS_clamped(1);
-
-        setpreviewAssetsGreater(
-            57896044618658097711785492504343953926418782139537452191302581570759080747165
+        ECDSAPPSOracle_updatePPS_clamped(
+            115792089237316195423570985008687907853269984665640564039457584007913129639932
         );
 
-        int256 optimizedAssetsGreater = optimize_previewDepositAssetsGreater();
-        console2.log("optimizedAssetsGreater: ", optimizedAssetsGreater);
-    }
-
-    // forge test --match-test test_optimize_previewMintAssetsGreater_5 -vvv
-    function test_optimize_previewMintAssetsGreater_5() public {
-        // Max value: 57894917863229994306996268958671095136141917196997796521462956475350655105818;
-
-        console2.log("current price: ", superVaultStrategy.getStoredPPS());
-        setpreviewAssetsGreater(
-            57315968684597694363926306269084384184780498025027818556248326910597148554759
+        setpreviewDepositShares(
+            57896044618658097711785492504343953926851202526103111848155002437154048892770
         );
 
-        int256 previewMintAssetsGreater = optimize_previewMintAssetsGreater();
-        console2.log("previewMintAssetsGreater: ", previewMintAssetsGreater);
+        console2.log(
+            "previewDepositSharesGreater: ",
+            previewDepositSharesGreater
+        );
     }
 }

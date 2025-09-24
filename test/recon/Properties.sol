@@ -288,6 +288,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     ) public {
         uint256 previewMintAssets = superVault.previewMint(shares);
         uint256 convertToAssets = superVault.convertToAssets(shares);
+
         gte(
             previewMintAssets,
             convertToAssets,
@@ -304,7 +305,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         gte(
             convertToShares,
             previewDepositShares,
-            "convertToShares is higher than or equal to previewDepositShares (equivalent without fees)"
+            "convertToShares is >= previewDepositShares (equivalent without fees)"
         );
     }
 
@@ -432,39 +433,35 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
 
     /// Optimization Setters
 
-    function setpreviewAssetsGreater(uint256 shares) public {
+    function setpreviewDepositShares(uint256 shares) public {
         uint256 previewMintAssets = superVault.previewMint(shares);
-        uint256 previewDepositAssets = superVault.previewDeposit(
+        uint256 previewDepositShares = superVault.previewDeposit(
             previewMintAssets
         );
 
-        if (previewMintAssets > previewDepositAssets) {
-            previewMintAssetsGreater =
-                int256(previewMintAssets) -
-                int256(previewDepositAssets);
+        if (previewDepositShares > shares) {
+            previewDepositSharesGreater =
+                int256(previewDepositShares) -
+                int256(shares);
         } else {
-            previewDepositAssetsGreater =
-                int256(previewDepositAssets) -
-                int256(previewMintAssets);
+            previewDepositSharesLess =
+                int256(shares) -
+                int256(previewDepositShares);
         }
     }
 
-    function setPreviewSharesGreater(uint256 assets) public {
-        assets %= type(uint88).max; // clamp by a reasonable amount of mintable assets
-
+    function setPreviewMintAssets(uint256 assets) public {
         uint256 previewDepositShares = superVault.previewDeposit(assets);
-        uint256 previewMintShares = superVault.previewMint(
+        uint256 previewMintAssets = superVault.previewMint(
             previewDepositShares
         );
 
-        if (previewDepositShares > previewMintShares) {
-            previewDepositSharesGreater =
-                int256(previewDepositShares) -
-                int256(previewMintShares);
+        if (previewMintAssets > assets) {
+            previewMintAssetsGreater =
+                int256(previewMintAssets) -
+                int256(assets);
         } else {
-            previewMintSharesGreater =
-                int256(previewMintShares) -
-                int256(previewDepositShares);
+            previewMintAssetsLess = int256(assets) - int256(previewMintAssets);
         }
     }
 
@@ -530,8 +527,12 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         return burnedLessThanRequested;
     }
 
-    function optimize_previewMintSharesGreater() public view returns (int256) {
-        return previewMintSharesGreater;
+    function optimize_previewMintAssetsGreater() public view returns (int256) {
+        return previewMintAssetsGreater;
+    }
+
+    function optimize_previewMintAssetsLess() public view returns (int256) {
+        return previewMintAssetsLess;
     }
 
     function optimize_previewDepositSharesGreater()
@@ -542,16 +543,8 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         return previewDepositSharesGreater;
     }
 
-    function optimize_previewMintAssetsGreater() public view returns (int256) {
-        return previewMintAssetsGreater;
-    }
-
-    function optimize_previewDepositAssetsGreater()
-        public
-        view
-        returns (int256)
-    {
-        return previewDepositAssetsGreater;
+    function optimize_previewDepositSharesLess() public view returns (int256) {
+        return previewDepositSharesLess;
     }
 
     // Canaries
