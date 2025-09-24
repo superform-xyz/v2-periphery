@@ -342,8 +342,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
             // Calculate quote amount with proper decimal scaling
-            quoteAmount = Math.mulDiv(baseAmount, uint256(answer), 10 ** feedDecimals);
-            quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
+            quoteAmount = Math.mulDiv(
+                baseAmount,
+                uint256(answer) * 10 ** quoteDecimals,
+                10 ** (feedDecimals + baseDecimals)
+            );
         } catch {
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
