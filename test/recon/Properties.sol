@@ -6,7 +6,6 @@ import {MockERC20} from "@recon/MockERC20.sol";
 import {vm} from "@chimera/Hevm.sol";
 import {ERC7540Properties} from "@properties-7540/ERC7540Properties.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {console2} from "forge-std/Test.sol";
 
 import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
