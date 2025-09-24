@@ -117,6 +117,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
+    bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
