@@ -2343,6 +2343,156 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             timestamps[0],
             "Timestamp not updated correctly"
         );
+        
+        // Check if strategy is paused at the end
+        bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should not be paused after successful update");
+        
+        // Test manual pause/unpause functionality
+        // First, let's pause the strategy by triggering a validation failure
+        vm.warp(block.timestamp + 100); // Move time forward
+        
+        // Set a very low dispersion threshold to trigger pause
+        address mainManager = superVaultAggregator.getMainManager(strategy);
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+        
+        // Create an update with high dispersion to trigger pause
+        timestamps[0] = block.timestamp; // Current timestamp (valid)
+        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        // Verify strategy is now paused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should be paused after invalid update");
+        
+        // Now unpause the strategy by pranking as the main manager
+        vm.prank(mainManager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        
+        // Verify strategy is unpaused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
+
+        
+    }
+
+
+    function test_ForwardPPS_Pause_Unpause_PPS_Update() public {
+        // Set up as PPS Oracle
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Wait for minimum interval to pass
+        vm.warp(block.timestamp + 10);
+
+        // Prepare arrays with size 1
+        address[] memory strategies = new address[](1);
+        uint256[] memory ppss = new uint256[](1);
+        uint256[] memory ppsStdevs = new uint256[](1);
+        uint256[] memory validatorSets = new uint256[](1);
+        uint256[] memory totalValidatorsArray = new uint256[](1);
+        uint256[] memory timestamps = new uint256[](1);
+
+        strategies[0] = strategy;
+        ppss[0] = 1e18 + 1e15;
+        ppsStdevs[0] = 0;
+        validatorSets[0] = 1;
+        totalValidatorsArray[0] = 1;
+        timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
+
+        // Advance time to ensure update is valid
+        vm.warp(block.timestamp + 25);
+        
+        // Set a very low dispersion threshold to trigger pause
+        address mainManager = superVaultAggregator.getMainManager(strategy);
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+        
+        // Create an update with high dispersion to trigger pause
+        timestamps[0] = block.timestamp; // Current timestamp (valid)
+        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        // Verify strategy is now paused
+        bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should be paused after invalid update");
+        
+        // let's do a valid update now
+
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1e18, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+
+        ppss[0] = 1e18 + 1e15;
+        ppsStdevs[0] = 0;
+        validatorSets[0] = 1;
+        totalValidatorsArray[0] = 1;
+        timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
+
+        // Advance time to ensure update is valid
+        vm.warp(block.timestamp + 25);
+
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should still be paused");
+
+        vm.prank(mainManager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        
+        // Verify strategy is unpaused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
+
+        uint256 pps = superVaultAggregator.getPPS(strategy);
+        assertEq(pps, 1e18 + 1e15, "PPS should be updated after successful update");
     }
 }
 
