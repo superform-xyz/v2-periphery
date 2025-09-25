@@ -686,9 +686,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Calculate underlying shares and update hook calldata
         // uint256 currentPPS = getStoredPPS();
         //vars.amountOfAssets = vars.superVaultShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
-        vars.svAsset = address(_asset);
-        // TODO: implement the line belowand remove PPS
+        // TODO: implement the line belowand remove PPS implementation above
         vars.amountOfAssets = IERC4626(_vault).convertToAssets(vars.superVaultShares);
+        vars.svAsset = address(_asset);
         vars.amountConvertedToUnderlyingShares = IYieldSourceOracle(yieldSources[vars.targetedYieldSource])
             .getShareOutput(vars.targetedYieldSource, vars.svAsset, vars.amountOfAssets);
         hookCalldata =
@@ -806,8 +806,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         private
         returns (uint256 costBasis)
     {
-        if (requestedShares > state.accumulatorShares) revert INSUFFICIENT_SHARES();
-
         // Calculate cost basis proportionally
         costBasis = requestedShares.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
 
