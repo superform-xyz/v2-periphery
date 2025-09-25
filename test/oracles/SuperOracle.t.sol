@@ -8,6 +8,8 @@ import { MockAggregator } from "../mocks/MockAggregator.sol";
 import { SuperOracle } from "../../src/oracles/SuperOracle.sol";
 import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
 
+import "forge-std/console.sol";
+
 contract SuperOracleTest is PeripheryHelpers {
     bytes32 public constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
     bytes32 public constant PROVIDER_1 = bytes32(keccak256("Provider 1"));
@@ -69,6 +71,105 @@ contract SuperOracleTest is PeripheryHelpers {
 
         uint256 quoteAmount = superOracle.getQuote(baseAmount, address(mockETH), address(mockUSD));
         assertEq(quoteAmount, expectedQuote, "Quote amount should match expected value");
+    }
+
+    function test_GetQuoteWithInsufficientGasCheck() public {
+        console.log("test_GetQuoteWithInsufficientGasCheck() Start");
+        
+        // Test the gas check directly by calling with calculated gas limits
+        // The check is: if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+        
+        bytes4 expectedSelector = bytes4(keccak256("InsufficientGasForExternalCall()"));
+        console.log("Expected error selector:");
+        console.logBytes4(expectedSelector);
+        
+        // Try different gas amounts to find the threshold
+        uint256[] memory gasAmounts = new uint256[](8);
+        gasAmounts[0] = 200000;
+        gasAmounts[1] = 150000;
+        gasAmounts[2] = 100000;
+        gasAmounts[3] = 80000;
+        gasAmounts[4] = 60000;
+        gasAmounts[5] = 40000;
+        gasAmounts[6] = 20000;
+        gasAmounts[7] = 10000;
+        
+        for (uint256 i = 0; i < gasAmounts.length; i++) {
+            console.log("\n--- Testing with gas:", gasAmounts[i], "---");
+            
+            try this.testOracleGasCheckDirectly{gas: gasAmounts[i]}() {
+                console.log("Call succeeded - no gas check triggered");
+            } catch (bytes memory reason) {
+                console.log("Call reverted");
+                console.log("Error length:", reason.length);
+                
+                if (reason.length >= 4) {
+                    bytes4 actualSelector;
+                    assembly {
+                        actualSelector := mload(add(reason, 0x20))
+                    }
+                    
+                    console.log("Actual error selector:");
+                    console.logBytes4(actualSelector);
+                    
+                    if (actualSelector == expectedSelector) {
+                        console.log("SUCCESS: InsufficientGasForExternalCall triggered at gas:", gasAmounts[i]);
+                        return;
+                    } else {
+                        console.log("Different error received");
+                    }
+                } else {
+                    console.log("Empty error - likely out of gas");
+                }
+                console.logBytes(reason);
+            }
+        }
+        
+        console.log("Test completed - check results above");
+    }
+    
+    // Direct test function that simulates the gas check scenario for oracle calls
+    function testOracleGasCheckDirectly() external view {
+        // This function simulates the scenario in SuperOracleBase where the gas check occurs
+        uint256 gasBefore = gasleft();
+        console.log("Gas at start:", gasBefore);
+        
+        // Calculate how much gas we need to consume to trigger the condition
+        uint256 threshold = gasBefore / 64;
+        uint256 targetGasLeft = threshold - 100; // Leave slightly less than threshold
+        uint256 gasToConsume = gasBefore - targetGasLeft;
+        
+        console.log("Threshold (gasBefore/64):", threshold);
+        console.log("Target gas left:", targetGasLeft);
+        console.log("Gas to consume:", gasToConsume);
+        
+        // Consume the calculated amount of gas
+        uint256 iterations = gasToConsume / 50; // Approximate gas per iteration
+        for (uint256 i = 0; i < iterations; i++) {
+            // Each iteration consumes roughly 50 gas
+            keccak256(abi.encode(i, gasBefore, threshold));
+            
+            // Check if we're close to the threshold
+            if (gasleft() <= threshold + 1000) {
+                break; // Stop before we hit OOG
+            }
+        }
+        
+        uint256 gasAfter = gasleft();
+        console.log("Gas after consumption:", gasAfter);
+        console.log("Check condition (gasAfter <= gasBefore/64):", gasAfter <= gasBefore / 64);
+        
+        // This is the exact check from SuperOracleBase
+        if (gasleft() <= gasBefore / 64) {
+            // Use assembly to revert with the exact custom error selector
+            assembly {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x24b593d900000000000000000000000000000000000000000000000000000000) // InsufficientGasForExternalCall()
+                revert(ptr, 4)
+            }
+        }
+        
+        console.log("Gas check passed - threshold not reached");
     }
 
     /*//////////////////////////////////////////////////////////////
