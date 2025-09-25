@@ -609,8 +609,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (usePrevHookAmount && prevHook != address(0)) {
             vars.outAmount = _getPreviousHookOutAmount(prevHook);
             if (expectedAssetsOrSharesOut == 0) revert ZERO_EXPECTED_VALUE();
-            uint256 minExpectedPrevOut = expectedAssetsOrSharesOut * (BPS_PRECISION - _getSlippageTolerance());
-            if (vars.outAmount * BPS_PRECISION < minExpectedPrevOut) {
+            if (vars.outAmount < expectedAssetsOrSharesOut) {
                 revert MINIMUM_PREVIOUS_HOOK_OUT_AMOUNT_NOT_MET();
             }
         }
@@ -627,8 +626,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 actualOutput = ISuperHookResult(hook).getOutAmount(address(this));
         if (actualOutput == 0) revert ZERO_OUTPUT_AMOUNT();
 
-        uint256 minExpectedOut = expectedAssetsOrSharesOut * (BPS_PRECISION - _getSlippageTolerance()) / BPS_PRECISION;
-        if (actualOutput < minExpectedOut) {
+        if (actualOutput < expectedAssetsOrSharesOut) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
 
@@ -685,7 +683,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.outAmount = _getTokenBalance(vars.svAsset, address(this)) - vars.balanceAssetBefore;
 
         if (vars.outAmount == 0) revert ZERO_OUTPUT_AMOUNT();
-        if (vars.outAmount * BPS_PRECISION < expectedAssetOutput * (BPS_PRECISION - _getSlippageTolerance())) {
+        if (vars.outAmount < expectedAssetOutput) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
         emit FulfillHookExecuted(hook, vars.targetedYieldSource, hookCalldata);
@@ -1153,12 +1151,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @return Token balance of the account
     function _getTokenBalance(address token, address account) private view returns (uint256) {
         return IERC20(token).balanceOf(account);
-    }
-
-    /// @notice Internal function to get the slippage tolerance
-    /// @return Slippage tolerance
-    function _getSlippageTolerance() private pure returns (uint256) {
-        return SV_SLIPPAGE_TOLERANCE_BPS;
     }
 
     /// @notice Internal function to check if the caller is the vault
