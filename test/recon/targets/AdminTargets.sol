@@ -398,17 +398,17 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         );
 
         // setting values for optimization test
-        if (
-            pendingRedeemBefore - pendingRedeemAfter >
-            totalSharesBefore - totalSharesAfter
-        ) {
+
+        uint256 deltaPendingRedeem = pendingRedeemBefore - pendingRedeemAfter;
+        uint256 deltaTotalShares = totalSharesBefore - totalSharesAfter;
+        if (deltaPendingRedeem > deltaTotalShares) {
             burnedLessThanRequested =
-                int256(totalSharesBefore) -
-                int256(totalSharesAfter);
-        } else {
+                int256(deltaPendingRedeem) -
+                int256(deltaTotalShares);
+        } else if (deltaPendingRedeem < deltaTotalShares) {
             burnedMoreThanRequested =
-                int256(totalSharesBefore) -
-                int256(totalSharesAfter);
+                int256(deltaTotalShares) -
+                int256(deltaPendingRedeem);
         }
 
         // eq(
