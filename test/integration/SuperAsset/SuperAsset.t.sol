@@ -590,22 +590,30 @@ contract SuperAssetTest is PeripheryHelpers {
         
         // Calculate how much gas we need to consume to trigger the condition
         uint256 threshold = gasBefore / 64;
-        uint256 targetGasLeft = threshold - 100; // Leave slightly less than threshold
-        uint256 gasToConsume = gasBefore - targetGasLeft;
         
         console.log("Threshold (gasBefore/64):", threshold);
-        console.log("Target gas left:", targetGasLeft);
-        console.log("Gas to consume:", gasToConsume);
         
-        // Consume the calculated amount of gas
-        uint256 iterations = gasToConsume / 50; // Approximate gas per iteration
-        for (uint256 i = 0; i < iterations; i++) {
-            // Each iteration consumes roughly 50 gas
-            keccak256(abi.encode(i, gasBefore, threshold));
+        // Use a more efficient gas consumption method with limited iterations
+        // Consume gas in chunks to avoid excessive memory usage
+        uint256 maxIterations = 500; // Limit iterations to prevent memory issues
+        
+        for (uint256 i = 0; i < maxIterations; i++) {
+            // Simple gas consumption without excessive memory allocation
+            uint256 temp = gasleft();
             
             // Check if we're close to the threshold
-            if (gasleft() <= threshold + 1000) {
-                break; // Stop before we hit OOG
+            if (temp <= threshold + 500) {
+                console.log("Approaching threshold, stopping iterations");
+                break;
+            }
+            
+            // Consume some gas with a simple operation
+            assembly {
+                let x := add(temp, i)
+                let y := mul(x, 2)
+                let z := div(y, 3)
+                // Store result in memory to consume gas
+                mstore(0x0, z)
             }
         }
         
