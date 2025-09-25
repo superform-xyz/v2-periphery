@@ -3134,4 +3134,41 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         int256 previewMintAssetsLess = optimize_previewMintAssetsLess();
         console2.log("previewMintAssetsLess: ", previewMintAssetsLess);
     }
+
+    // forge test --match-test test_optimize_previewDepositSharesGreater_2 -vvv
+    function test_optimize_previewDepositSharesGreater_2() public {
+        // Max value: 9999999999999999999999999999999999999999999999999999999999999999999999999999;
+
+        add_new_asset(76);
+
+        superVaultAggregator_createVault_clamped(
+            88433643901778489509813930336220772601795020892393115637894189725680800,
+            0,
+            0,
+            0
+        );
+
+        vm.warp(block.timestamp + 1);
+
+        vm.roll(block.number + 1);
+
+        ECDSAPPSOracle_updatePPS_clamped(1);
+
+        setpreviewDepositShares(1);
+    }
+
+    // forge test --match-test test_optimize_previewDepositSharesLess_3 -vvv
+    function test_optimize_previewDepositSharesLess_3() public {
+        // Max value: 57896044618658097711785492504343953926418782139537452191302581570759080747169;
+
+        vm.warp(block.timestamp + 5);
+
+        vm.roll(block.number + 1);
+
+        ECDSAPPSOracle_updatePPS_clamped(0);
+
+        setpreviewDepositShares(
+            57896044618658097711785492504343953926418782139537452191302581570759080747169
+        );
+    }
 }
