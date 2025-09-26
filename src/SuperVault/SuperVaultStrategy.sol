@@ -547,6 +547,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             historicalAssets = _calculateCostBasis(state, sharesToRedeem);
         }
 
+        uint256 currentPPS = getStoredPPS();
+        //TODO: match this to `fulfillRedeemRequests` logic
+
         // Calculate current value of shares in asset terms
         uint256 currentAssetsWithFees = sharesToRedeem.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
