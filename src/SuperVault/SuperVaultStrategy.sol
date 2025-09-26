@@ -856,38 +856,33 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         returns (uint256 netControllerAssets)
     {
         netControllerAssets = grossAssets;
-        if (grossAssets > historicalAssets) {
-            uint256 profit = grossAssets - historicalAssets;
-            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-
-            if (totalFee > 0) {
-                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                uint256 superformFee = Math.mulDiv(
-                    totalFee,
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
-                    BPS_PRECISION,
-                    Math.Rounding.Floor
-                );
-                uint256 recipientFee = totalFee - superformFee;
-
-                // Transfer fees
-                if (superformFee > 0) {
-                    // Get treasury address from SuperGovernor
-                    address treasury = superGovernor.getAddress(superGovernor.TREASURY());
-                    _safeTokenTransfer(address(_asset), treasury, superformFee);
-                    emit FeePaid(treasury, superformFee, performanceFeeBps);
-                }
-
-                if (recipientFee > 0) {
-                    address recipient = feeConfig.recipient;
-                    if (recipient == address(0)) revert ZERO_ADDRESS();
-                    _safeTokenTransfer(address(_asset), recipient, recipientFee);
-                    emit FeePaid(recipient, recipientFee, performanceFeeBps);
-                }
-
-                netControllerAssets -= totalFee;
+        uint256 profit = grossAssets - historicalAssets;
+        uint256 performanceFeeBps = feeConfig.performanceFeeBps;
+        uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+        
+        if (totalFee > 0) {
+            // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
+            uint256 superformFee = Math.mulDiv(
+                totalFee,
+                superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
+                BPS_PRECISION,
+                Math.Rounding.Floor
+            );
+            uint256 recipientFee = totalFee - superformFee;
+            // Transfer fees
+            if (superformFee > 0) {
+                // Get treasury address from SuperGovernor
+                address treasury = superGovernor.getAddress(superGovernor.TREASURY());
+                _safeTokenTransfer(address(_asset), treasury, superformFee);
+                emit FeePaid(treasury, superformFee, performanceFeeBps);
             }
+            if (recipientFee > 0) {
+                address recipient = feeConfig.recipient;
+                if (recipient == address(0)) revert ZERO_ADDRESS();
+                _safeTokenTransfer(address(_asset), recipient, recipientFee);
+                emit FeePaid(recipient, recipientFee, performanceFeeBps);
+            }
+            netControllerAssets -= totalFee;
         }
     }
 
