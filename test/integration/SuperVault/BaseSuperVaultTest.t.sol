@@ -590,10 +590,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
     function __claimWithdraw(AccountInstance memory accInst, uint256 assets) internal {
         address[] memory claimHooksAddresses = new address[](1);
-        claimHooksAddresses[0] = _getHookAddress(ETH, REDEEM_7540_VAULT_HOOK_KEY);
+        claimHooksAddresses[0] = _getHookAddress(ETH, WITHDRAW_7540_VAULT_HOOK_KEY);
 
         bytes[] memory claimHooksData = new bytes[](1);
-        claimHooksData[0] = _createRedeem7540VaultHookData(
+        claimHooksData[0] = _createWithdraw7540VaultHookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             address(vault),
             assets,
@@ -604,6 +604,32 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
             ISuperExecutor.ExecutorEntry({ hooksAddresses: claimHooksAddresses, hooksData: claimHooksData });
         UserOpData memory claimUserOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(claimEntry));
         executeOp(claimUserOpData);
+    }
+
+    function _claimRedeem(uint256 shares) internal {
+        __claimRedeem(instanceOnEth, shares);
+    }
+
+    function __claimRedeem(AccountInstance memory accInst, uint256 shares) internal {
+        address[] memory claimHooksAddresses = new address[](1);
+        claimHooksAddresses[0] = _getHookAddress(ETH, REDEEM_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory claimHooksData = new bytes[](1);
+        claimHooksData[0] = _createRedeem7540VaultHookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            address(vault),
+            shares,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory claimEntry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: claimHooksAddresses, hooksData: claimHooksData });
+        UserOpData memory claimUserOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(claimEntry));
+        executeOp(claimUserOpData);
+    }
+
+    function _claimRedeemForAccount(AccountInstance memory accInst, uint256 shares) internal {
+        __claimRedeem(accInst, shares);
     }
 
     function _deposit(uint256 depositAmount) internal {
