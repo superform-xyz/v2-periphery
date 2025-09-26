@@ -530,7 +530,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 sharesToRedeem
     )
         external
-        view
         returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee)
     {
         if (sharesToRedeem == 0) return (0, 0, 0);
