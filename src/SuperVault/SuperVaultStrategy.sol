@@ -734,22 +734,22 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         for (uint256 i; i < controllersLength; ++i) {
             SuperVaultState storage state = superVaultState[controllers[i]];
 
-            uint256 crtControllerRequestedAmount = state.pendingRedeemRequest;
+            uint256 controllerRequestedAmount = state.pendingRedeemRequest;
 
+            // Compute the net controller assets, process fees and update SuperVaultState for the controller
             uint256 netControllerAssets = _calculateHistoricalAssetsAndProcessFees(
-                state, crtControllerRequestedAmount, processedShares, assetsWithdrawn
+                state, controllerRequestedAmount, processedShares, assetsWithdrawn
             );
 
-            // Update user state, no partial redeems allowed
+            // Reset pending redeem request and average request PPS
             state.pendingRedeemRequest = 0;
-            state.maxWithdraw += netControllerAssets;
-            state.averageRequestPPS = 0; // Reset PPS value after fulfillment
+            state.averageRequestPPS = 0;
 
             // Call vault callback
             _onRedeemClaimable(
                 controllers[i],
                 netControllerAssets,
-                crtControllerRequestedAmount,
+                controllerRequestedAmount,
                 state.averageWithdrawPrice,
                 state.accumulatorShares,
                 state.accumulatorCostBasis
@@ -787,6 +787,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Process fees and get final assets
         netControllerAssets = _processFees(grossControllerAssets, historicalAssets);
+
+        // Add net controller assets to max withdraw
+        state.maxWithdraw += netControllerAssets;
 
         // Update average withdraw price if needed
         if (requestedShares > 0) {
@@ -857,11 +860,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (grossAssets > historicalAssets) {
             uint256 profit = grossAssets - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Floor);
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                uint256 superformFee = totalFee.mulDiv(
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+                uint256 superformFee = Math.mulDiv(
+                    totalFee,
+                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
+                    BPS_PRECISION,
+                    Math.Rounding.Floor
                 );
                 uint256 recipientFee = totalFee - superformFee;
 
@@ -1145,6 +1151,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function _handleClaimRedeem(address controller, address receiver, uint256 assetsToClaim) private {
         if (assetsToClaim == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
+
         SuperVaultState storage state = superVaultState[controller];
 
         // Handle dust collection for rounding errors
@@ -1159,6 +1166,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         if (state.maxWithdraw < actualAmountToClaim) revert INVALID_REDEEM_CLAIM();
         state.maxWithdraw -= actualAmountToClaim;
+
         _asset.safeTransfer(receiver, actualAmountToClaim);
         emit RedeemRequestFulfilled(receiver, controller, actualAmountToClaim, 0);
     }
