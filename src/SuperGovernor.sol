@@ -95,7 +95,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Min staleness configuration to prevent maxStaleness from being set too low
     uint256 private _minStaleness;
     uint256 private _proposedMinStaleness;
-    uint256 private _minStalenesEffectiveTime;
+    uint256 private _minStalenessEffectiveTime;
 
     // Oracle constants
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -624,14 +624,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function proposeMinStaleness(uint256 newMinStaleness) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         _proposedMinStaleness = newMinStaleness;
-        _minStalenesEffectiveTime = block.timestamp + TIMELOCK;
+        _minStalenessEffectiveTime = block.timestamp + TIMELOCK;
 
-        emit MinStalenesProposed(newMinStaleness, _minStalenesEffectiveTime);
+        emit MinStalenesProposed(newMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
     function executeMinStalenesChange() external {
-        uint256 minStalenesEffectiveTime = _minStalenesEffectiveTime;
+        uint256 minStalenesEffectiveTime = _minStalenessEffectiveTime;
         if (minStalenesEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
         if (block.timestamp < minStalenesEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
@@ -639,7 +639,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Reset proposal data
         _proposedMinStaleness = 0;
-        _minStalenesEffectiveTime = 0;
+        _minStalenessEffectiveTime = 0;
 
         emit MinStalenesChanged(_minStaleness);
     }
@@ -1000,7 +1000,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getProposedMinStaleness() external view returns (uint256 proposedMinStaleness, uint256 effectiveTime) {
-        return (_proposedMinStaleness, _minStalenesEffectiveTime);
+        return (_proposedMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor

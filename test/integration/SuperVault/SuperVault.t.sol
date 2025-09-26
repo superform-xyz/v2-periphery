@@ -2214,6 +2214,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
+
         _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
