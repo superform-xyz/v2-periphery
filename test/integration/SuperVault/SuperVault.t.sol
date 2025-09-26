@@ -260,7 +260,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(strategy.claimableWithdraw(accountEth), 0, "No assets available to withdraw");
     }
 
-    function test_ClaimRedeem() public {
+    function test_ClaimRedeem_1() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         uint256 initialAssetBalance = asset.balanceOf(address(accountEth));
         console2.log("-------------- initialAssetBalance user", initialAssetBalance);
@@ -285,10 +285,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("-------------- balance strategy after redeem ", asset.balanceOf(address(strategy)));
         // Get claimable assets
-        uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
-        console2.log("-------------- claimableAssets user", claimableAssets);
+        uint256 claimableShares = vault.maxRedeem(accountEth);
+        console2.log("-------------- claimableShares user", claimableShares);
         // Claim redeem
-        _claimWithdraw(claimableAssets);
+        _claimRedeem(claimableShares);
+
+        uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
 
         // Verify state
         assertEq(vault.balanceOf(accountEth), initialShares - redeemShares, "Wrong final share balance");
@@ -1581,8 +1583,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Get claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
+        uint256 claimableShares = vault.maxRedeem(accountEth);
+        
         // Claim redeem
-        _claimWithdraw(claimableAssets);
+        _claimRedeem(claimableShares);
 
         // Verify state
         assertEq(vault.balanceOf(accountEth), initialShares - redeemShares, "Wrong final share balance");
@@ -1919,8 +1923,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("claimableAssets", claimableAssets);
         console2.log("getAverageWithdrawPrice", strategy.getAverageWithdrawPrice(accountEth));
 
-        // Step 6: Claim Withdraw
-        _claimWithdraw(claimableShares);
+        // Step 6: Claim Redeem
+        _claimRedeem(claimableShares);
 
         uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
 
@@ -2014,8 +2018,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
         );
 
-        // Step 6: Claim Withdraw
-        _claimWithdraw(claimableShares);
+        // Step 6: Claim Redeem
+        _claimRedeem(claimableShares);
 
         uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
 
@@ -2089,8 +2093,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Calculate expected assets based on shares
         uint256 claimableShares = vault.maxRedeem(accountEth);
 
-        // Step 6: Claim Withdraw
-        _claimWithdraw(claimableShares);
+        // Step 6: Claim Redeem
+        _claimRedeem(claimableShares);
 
         uint256 totalFeesTaken = superformFee + recipientFee;
 
@@ -2214,7 +2218,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
-        _claimWithdraw(vars.claimableShares1);
+        _claimRedeem(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
 
@@ -2255,7 +2259,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
 
-        _claimWithdraw(vars.claimableShares2);
+        _claimRedeem(vars.claimableShares2);
 
         vars.treasuryBalanceAfterRedeem2 = asset.balanceOf(TREASURY);
 
@@ -2294,7 +2298,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
-        _claimWithdraw(vars.claimableShares3);
+        _claimRedeem(vars.claimableShares3);
 
         vars.treasuryBalanceAfterRedeem3 = asset.balanceOf(TREASURY);
 
