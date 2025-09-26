@@ -887,7 +887,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         uint256[] memory validatorSets = new uint256[](0);
         uint256[] memory totalValidatorsList = new uint256[](0);
         uint256[] memory timestamps = new uint256[](0);
-        address[] memory updateAuthorities = new address[](0);
 
         // Call should revert because arrays are empty
         vm.prank(user);
