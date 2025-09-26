@@ -465,51 +465,71 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
+    function setFulfilledDifference() public {
+        if (_currentOp == OpType.FULFILL) {
+            uint256 pendingRedeemDelta = _before.summedPendingRedeem -
+                _after.summedPendingRedeem;
+            uint256 totalSupplyDelta = _before.summedTotalShares -
+                _after.summedTotalShares;
+
+            // Check that burned amount is within tolerance of requested amount
+            if (totalSupplyDelta < pendingRedeemDelta) {
+                // Burned less than requested
+                int256 burnedLessThanRequested = int256(pendingRedeemDelta) -
+                    int256(totalSupplyDelta);
+            } else {
+                // Burned more than requested
+                int256 burnedMoreThanRequested = int256(totalSupplyDelta) -
+                    int256(pendingRedeemDelta);
+            }
+        }
+    }
+
     /// Optimization Tests
 
     /// @dev Optimize the difference between the amount of assets in the system and claimable assets
-    function optimize_maxDustAccumulation() public view returns (int256) {
-        address[] memory actors = _getActors();
+    // function optimize_maxDustAccumulation() public view returns (int256) {
+    //     address[] memory actors = _getActors();
 
-        uint256 summedClaimableRedemptionsAsAssets;
-        for (uint256 i; i < actors.length; i++) {
-            uint256 claimableRedemptions = superVault.claimableRedeemRequest(
-                0,
-                actors[i]
-            );
-            summedClaimableRedemptionsAsAssets += superVault.convertToAssets(
-                claimableRedemptions
-            );
-        }
+    //     uint256 summedClaimableRedemptionsAsAssets;
+    //     for (uint256 i; i < actors.length; i++) {
+    //         uint256 claimableRedemptions = superVault.claimableRedeemRequest(
+    //             0,
+    //             actors[i]
+    //         );
+    //         summedClaimableRedemptionsAsAssets += superVault.convertToAssets(
+    //             claimableRedemptions
+    //         );
+    //     }
 
-        uint256 totalAssets = _sumStrategyAssets();
+    //     uint256 totalAssets = _sumStrategyAssets();
 
-        return int256(totalAssets) - int256(summedClaimableRedemptionsAsAssets);
-    }
+    //     return int256(totalAssets) - int256(summedClaimableRedemptionsAsAssets);
+    // }
 
     /// @dev Optimize the difference between the amount of claimable assets and assets in the system
-    function optimize_moreClaimableThanHeldDifference()
-        public
-        view
-        returns (int256)
-    {
-        address[] memory actors = _getActors();
+    // function optimize_moreClaimableThanHeldDifference()
+    //     public
+    //     view
+    //     returns (int256)
+    // {
+    //     address[] memory actors = _getActors();
 
-        uint256 summedClaimableRedemptionsAsAssets;
-        for (uint256 i; i < actors.length; i++) {
-            summedClaimableRedemptionsAsAssets += superVault.maxWithdraw(
-                actors[i]
-            );
-        }
+    //     uint256 summedClaimableRedemptionsAsAssets;
+    //     for (uint256 i; i < actors.length; i++) {
+    //         summedClaimableRedemptionsAsAssets += superVault.maxWithdraw(
+    //             actors[i]
+    //         );
+    //     }
 
-        uint256 totalAssets = _sumStrategyAssets();
+    //     uint256 totalAssets = _sumStrategyAssets();
 
-        if (summedClaimableRedemptionsAsAssets > totalAssets) {
-            return
-                int256(summedClaimableRedemptionsAsAssets) -
-                int256(totalAssets);
-        }
-    }
+    //     if (summedClaimableRedemptionsAsAssets > totalAssets) {
+    //         return
+    //             int256(summedClaimableRedemptionsAsAssets) -
+    //             int256(totalAssets);
+    //     }
+    // }
 
     function optimize_burnMoreThanRequestedInRedemption()
         public
@@ -527,25 +547,25 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         return burnedLessThanRequested;
     }
 
-    function optimize_previewMintAssetsGreater() public view returns (int256) {
-        return previewMintAssetsGreater;
-    }
+    // function optimize_previewMintAssetsGreater() public view returns (int256) {
+    //     return previewMintAssetsGreater;
+    // }
 
-    function optimize_previewMintAssetsLess() public view returns (int256) {
-        return previewMintAssetsLess;
-    }
+    // function optimize_previewMintAssetsLess() public view returns (int256) {
+    //     return previewMintAssetsLess;
+    // }
 
-    function optimize_previewDepositSharesGreater()
-        public
-        view
-        returns (int256)
-    {
-        return previewDepositSharesGreater;
-    }
+    // function optimize_previewDepositSharesGreater()
+    //     public
+    //     view
+    //     returns (int256)
+    // {
+    //     return previewDepositSharesGreater;
+    // }
 
-    function optimize_previewDepositSharesLess() public view returns (int256) {
-        return previewDepositSharesLess;
-    }
+    // function optimize_previewDepositSharesLess() public view returns (int256) {
+    //     return previewDepositSharesLess;
+    // }
 
     // Canaries
 

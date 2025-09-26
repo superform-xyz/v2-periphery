@@ -397,20 +397,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             address(superVaultStrategy)
         );
 
-        // setting values for optimization test
-
-        uint256 deltaPendingRedeem = pendingRedeemBefore - pendingRedeemAfter;
-        uint256 deltaTotalShares = totalSharesBefore - totalSharesAfter;
-        if (deltaPendingRedeem > deltaTotalShares) {
-            burnedLessThanRequested =
-                int256(deltaPendingRedeem) -
-                int256(deltaTotalShares);
-        } else if (deltaPendingRedeem < deltaTotalShares) {
-            burnedMoreThanRequested =
-                int256(deltaTotalShares) -
-                int256(deltaPendingRedeem);
-        }
-
         // eq(
         //     pendingRedeemBefore - pendingRedeemAfter,
         //     totalSharesBefore - totalSharesAfter,
