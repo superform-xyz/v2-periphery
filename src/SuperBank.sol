@@ -54,7 +54,7 @@ contract SuperBank is ISuperBank, Bank {
         uint256 revenueShare = SUPER_GOVERNOR.getFee(FeeType.REVENUE_SHARE);
 
         // Calculate amounts for sUP and Treasury
-        uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_MAX);
+        uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_MAX, Math.Rounding.Ceil);
 
         uint256 treasuryAmount = upAmount - supAmount;
 

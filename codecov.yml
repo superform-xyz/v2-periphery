@@ -1,0 +1,8 @@
+ignore:
+  - "src/interfaces/SuperAsset/**"
+  - "src/interfaces/VaultBank/**"
+  - "src/libraries/**"
+  - "src/SuperAsset/**"
+  - "src/vendor/**"
+  - "src/VaultBank/**"
+  - "test/**"
