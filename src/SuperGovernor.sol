@@ -163,9 +163,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
         _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
         _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, _feeValues[FeeType.REVENUE_SHARE]);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE]);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, _feeValues[FeeType.SUPER_ASSET_SWAP_FEE]);
+        emit FeeUpdated(FeeType.REVENUE_SHARE, 2000);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, 2000);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, 4000);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
