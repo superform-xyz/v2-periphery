@@ -423,8 +423,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update stake balance
-        unchecked {
+        if (_managerStakeBalance[msg.sender] >= request.amount) {
             _managerStakeBalance[msg.sender] -= request.amount;
+        } else {
+            revert INSUFFICIENT_STAKE_BALANCE();
         }
 
         // Transfer UP tokens to manager
