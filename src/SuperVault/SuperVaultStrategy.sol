@@ -530,6 +530,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 sharesToRedeem
     )
         external
+        view
         returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee)
     {
         if (sharesToRedeem == 0) return (0, 0, 0);
@@ -543,7 +544,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Calculate historical assets (cost basis)
         uint256 historicalAssets;
         if (state.accumulatorShares > 0) {
-            historicalAssets = _calculateCostBasis(state, sharesToRedeem);
+            // historicalAssets = _calculateCostBasis(state, sharesToRedeem);
+            historicalAssets = sharesToRedeem.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
         }
 
         uint256 currentPPS = getStoredPPS();
