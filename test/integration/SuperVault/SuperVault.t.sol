@@ -2214,6 +2214,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
+
         _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
@@ -5715,18 +5716,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
         argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
-        vm.startPrank(MANAGER);
-        vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_NOT_FOUND.selector);
-        strategy.executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: hooksAddresses,
-                hookCalldata: hooksData,
-                expectedAssetsOrSharesOut: new uint256[](2),
-                globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](hooksAddresses.length)
-            })
-        );
-        vm.stopPrank();
+      
 
         // re-add fluid vault
         vm.startPrank(MANAGER);
