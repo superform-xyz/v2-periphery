@@ -12,7 +12,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 library SuperAssetPriceLib {
     using Math for uint256;
 
-    error InsufficientGasForExternalCall();
+    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
     /// @dev Gets the price of a token with circuit breakers
     /// @param args The arguments for the price calculation
@@ -83,7 +83,7 @@ library SuperAssetPriceLib {
             M = _m;
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
             priceUSD = superOracle.getEmergencyPrice(vaultAsset);
             stddev = 0;
             M = 0;
@@ -181,7 +181,7 @@ library SuperAssetPriceLib {
                 M = _m;
             } catch {
                 // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
                 priceUSD = superOracle.getEmergencyPrice(token);
                 M = 0;
@@ -244,7 +244,7 @@ library SuperAssetPriceLib {
             assetPriceUSD = _priceUSD;
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
             assetPriceUSD = superOracle.getEmergencyPrice(primaryAsset);
         }
     }

@@ -528,10 +528,10 @@ contract SuperAssetTest is PeripheryHelpers {
         vm.startPrank(user);
         
         // Test the gas check directly by calling with calculated gas limits
-        // The check is: if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+        // The check is: if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
         // So we need to provide gas such that after some consumption, gasleft() <= initial / 64
         
-        bytes4 expectedSelector = bytes4(keccak256("InsufficientGasForExternalCall()"));
+        bytes4 expectedSelector = bytes4(keccak256("INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()"));
         console.log("Expected error selector:");
         console.logBytes4(expectedSelector);
         
@@ -565,7 +565,7 @@ contract SuperAssetTest is PeripheryHelpers {
                     console.logBytes4(actualSelector);
                     
                     if (actualSelector == expectedSelector) {
-                        console.log("SUCCESS: InsufficientGasForExternalCall triggered at gas:", gasAmounts[i]);
+                        console.log("SUCCESS: INSUFFICIENT_GAS_FOR_EXTERNAL_CALL triggered at gas:", gasAmounts[i]);
                         vm.stopPrank();
                         return;
                     } else {
@@ -626,7 +626,7 @@ contract SuperAssetTest is PeripheryHelpers {
             // Use assembly to revert with the exact custom error selector
             assembly {
                 let ptr := mload(0x40)
-                mstore(ptr, 0x24b593d900000000000000000000000000000000000000000000000000000000) // InsufficientGasForExternalCall()
+                mstore(ptr, 0x24b593d900000000000000000000000000000000000000000000000000000000) // INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()
                 revert(ptr, 4)
             }
         }

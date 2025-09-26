@@ -329,7 +329,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             updatedAt = _updatedAt;
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
             return 0;
@@ -352,7 +352,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert InsufficientGasForExternalCall();
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;

@@ -66,7 +66,7 @@ interface ISuperOracle {
     error ORACLE_ROUND_DATA_CALL_FAIL(address oracle);
 
     /// @notice Error when external call gas is insufficient
-    error InsufficientGasForExternalCall();
+    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
