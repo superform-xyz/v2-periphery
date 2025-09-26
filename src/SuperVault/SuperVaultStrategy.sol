@@ -541,14 +541,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Check if controller has enough shares
         if (sharesToRedeem > state.accumulatorShares) return (0, 0, 0);
 
-        // Get the current price per share
-        uint256 currentPPS = getStoredPPS();
-
         // Calculate historical assets (cost basis)
-        uint256 historicalAssets = 0;
+        uint256 historicalAssets;
         if (state.accumulatorShares > 0) {
-            historicalAssets =
-                sharesToRedeem.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+            historicalAssets = _calculateCostBasis(state, sharesToRedeem);
         }
 
         // Calculate current value of shares in asset terms
@@ -558,12 +554,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentAssetsWithFees > historicalAssets) {
             uint256 profit = currentAssetsWithFees - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Floor);
+            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                superformFee = totalFee.mulDiv(
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+                superformFee = Math.mulDiv(
+                    totalFee,
+                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
+                    BPS_PRECISION,
+                    Math.Rounding.Floor
                 );
                 recipientFee = totalFee - superformFee;
             }
@@ -861,6 +860,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             uint256 profit = grossAssets - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
             uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
                 uint256 superformFee = Math.mulDiv(
