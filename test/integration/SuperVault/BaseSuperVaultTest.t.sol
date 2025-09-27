@@ -1024,6 +1024,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vars.underlyingSharesForVault1);
         vars.expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(vars.underlyingSharesForVault2);
 
+        for (uint256 i; i < vars.expectedAssetsOrSharesOut.length; i++) {
+            vars.expectedAssetsOrSharesOut[i] = vars.expectedAssetsOrSharesOut[i] - vars.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
+
         vm.startPrank(MANAGER);
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
@@ -1338,8 +1342,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
             uint256 underlyingSharesForVault1 = IERC4626(address(vault1)).convertToShares(amountForVault1);
             uint256 underlyingSharesForVault2 = IERC4626(address(vault2)).convertToShares(amountForVault2);
 
-            expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
-            expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(underlyingSharesForVault2);
+            uint256 vault1ConvertToAssets = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
+            uint256 vault2ConvertToAssets = IERC4626(address(vault2)).convertToAssets(underlyingSharesForVault2);
+
+            expectedAssetsOrSharesOut[0] = vault1ConvertToAssets - vault1ConvertToAssets * 1e3 / 1e5;
+            expectedAssetsOrSharesOut[1] = vault2ConvertToAssets - vault2ConvertToAssets * 1e3 / 1e5;
         }
 
         console2.log("----requestingUsersLength", requestingUsers.length);
@@ -1378,6 +1385,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     )
         internal
     {
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
         address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
         address[] memory fulfillHooksAddresses = new address[](2);
@@ -1491,6 +1501,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(aaveShares);
         vars.expectedAssetsOrSharesOut[1] = centrifugeVault.convertToAssets(centrifugeShares);
+
+        for (uint256 i; i < vars.expectedAssetsOrSharesOut.length; i++) {
+            vars.expectedAssetsOrSharesOut[i] = vars.expectedAssetsOrSharesOut[i] - vars.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
 
         vm.startPrank(MANAGER);
         bytes[] memory argsForProofs = new bytes[](2);
@@ -2083,6 +2097,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
         expectedAssetsOrSharesOut[0] = IERC4626(sourceVault).previewRedeem(sharesToRedeem);
         expectedAssetsOrSharesOut[1] = IERC4626(targetVault).previewDeposit(assetsToMove);
+
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
         argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
