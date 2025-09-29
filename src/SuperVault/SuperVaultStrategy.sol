@@ -30,6 +30,8 @@ import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrateg
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 
+import "forge-std/console2.sol";
+
 /// @title SuperVaultStrategy
 /// @author Superform Labs
 /// @notice Strategy implementation for SuperVault that executes strategies
@@ -308,6 +310,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             );
         }
 
+        console2.log("intendedShares                     : ", intendedShares);
+        console2.log("intendedShares + TOLERANCE_CONSTANT: ", intendedShares + TOLERANCE_CONSTANT);
+        console2.log("totalRequestedShares               : ", totalRequestedShares);
         // Enforce both lower- and upper-bounds on intended shares to prevent escrow overburn
         if (intendedShares + TOLERANCE_CONSTANT < totalRequestedShares)
         {
