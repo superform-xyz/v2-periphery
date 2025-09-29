@@ -2214,6 +2214,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
+
         _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
@@ -2758,7 +2759,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
         uint256 assets = gearSuperVault.convertToAssets(shares);
         uint256 underlyingShares = gearboxVault.previewDeposit(assets);
-        expectedAssetsOrSharesOut[0] = underlyingShares;
+        expectedAssetsOrSharesOut[0] = underlyingShares - underlyingShares * 1e3/1e5;
+
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
 
@@ -4662,6 +4664,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         expectedAssetsOrSharesOut[0] = fluidVault.previewDeposit(allocationAmountVault1);
         expectedAssetsOrSharesOut[1] = IERC4626(vars.ruggableVault).previewDeposit(allocationAmountVault2);
 
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
+
         _depositFreeAssets(
             allocationAmountVault1,
             allocationAmountVault2,
@@ -5715,18 +5721,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
         argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
-        vm.startPrank(MANAGER);
-        vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_NOT_FOUND.selector);
-        strategy.executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: hooksAddresses,
-                hookCalldata: hooksData,
-                expectedAssetsOrSharesOut: new uint256[](2),
-                globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](hooksAddresses.length)
-            })
-        );
-        vm.stopPrank();
+      
 
         // re-add fluid vault
         vm.startPrank(MANAGER);

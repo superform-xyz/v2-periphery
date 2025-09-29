@@ -27,7 +27,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
     bytes32 public constant UPDATE_PPS_TYPEHASH = keccak256(
-        "UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp, uint256 strategyNonce)"
+        "UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp,uint256 strategyNonce)"
     );
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
