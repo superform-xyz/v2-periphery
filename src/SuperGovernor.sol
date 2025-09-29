@@ -100,10 +100,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Oracle constants
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant USD_TOKEN = address(840);
-    address private constant GAS_QUOTE =
-        address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE =
-        address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
@@ -138,7 +136,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param treasury_ Address of the treasury
     /// @param prover_ Address of the prover
-    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury_, address prover_) {
+    constructor(
+        address superGovernor,
+        address governor,
+        address bankManager,
+        address gasManager,
+        address treasury_,
+        address prover_
+    ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
                 || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
@@ -569,11 +574,19 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
+    function setGasInfo(
+        address oracle,
+        uint256 baseGasBatch,
+        uint256 gasIncreasePerEntryBatch
+    )
+        external
+        onlyRole(_GAS_MANAGER_ROLE)
+    {
         if (oracle == address(0)) revert INVALID_ADDRESS();
         if (baseGasBatch == 0 || gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
-        _oracleGasInfo[oracle] = GasInfo({baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch});
+        _oracleGasInfo[oracle] =
+            GasInfo({ baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch });
         emit GasInfoSet(oracle, baseGasBatch, gasIncreasePerEntryBatch);
     }
 
@@ -960,11 +973,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _oracleGasInfo[oracle_];
     }
 
-     /// @inheritdoc ISuperGovernor
+    /// @inheritdoc ISuperGovernor
     function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) external view returns (uint256) {
         // Calculate total gas cost
-        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch + 
-            (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
+        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch
+            + (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
 
         return _convertGasToUp(totalGas);
     }
@@ -1119,20 +1132,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (upToken == address(0)) revert UP_NOT_FOUND();
 
         // Step 1: convert gas to ETH
-        (uint256 ethAmount,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            gasAmount,
-            GAS_QUOTE,
-            GWEI_QUOTE,
-            AVERAGE_PROVIDER
-        );
+        (uint256 ethAmount,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
-        (uint256 ethToUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            ethAmount,
-            NATIVE_TOKEN,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 ethToUsd,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(ethAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
         (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
