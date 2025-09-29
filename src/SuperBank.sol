@@ -47,6 +47,11 @@ contract SuperBank is ISuperBank, Bank {
 
         // Get UP token address from SuperGovernor
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
+        // Get the UP token instance
+        IERC20 up = IERC20(upToken);
+        // Ensure we have the tokens
+        if (up.balanceOf(address(this)) < upAmount) revert INVALID_UP_AMOUNT_TO_DISTRIBUTE();
+
         address supToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUP());
         address treasury = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.TREASURY());
 
@@ -57,12 +62,6 @@ contract SuperBank is ISuperBank, Bank {
         uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_MAX, Math.Rounding.Ceil);
 
         uint256 treasuryAmount = upAmount - supAmount;
-
-        // Get the UP token instance
-        IERC20 up = IERC20(upToken);
-
-        // Ensure we have the tokens
-        if (up.balanceOf(address(this)) < upAmount) revert INVALID_UP_AMOUNT_TO_DISTRIBUTE();
 
         // Transfer tokens to sUP and Treasury
         if (supAmount > 0) {
