@@ -270,7 +270,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function fulfillRedeemRequests(FulfillArgs calldata args) external nonReentrant {
+    function fulfillRedeemRequests(FulfillArgs calldata args) external payable nonReentrant {
         _isManager(msg.sender);
 
         // Check if strategy is paused
@@ -327,7 +327,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Post-condition: processed shares must match intended shares
         if (processedShares != intendedShares) revert INVALID_REDEEM_FILL();
 
-        _processRedeemFulfillments(args.controllers, controllersLength, processedShares, currentPPS);
+        _processRedeemFulfillments(args.controllers, controllersLength, currentPPS);
 
         ISuperVault(_vault).burnShares(processedShares);
 
@@ -562,7 +562,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentAssetsWithFees > historicalAssets) {
             uint256 profit = currentAssetsWithFees - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Floor);
+            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
@@ -616,8 +616,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 actualOutput = ISuperHookResult(hook).getOutAmount(address(this));
         if (actualOutput == 0) revert ZERO_OUTPUT_AMOUNT();
 
-        uint256 minExpectedOut = expectedAssetsOrSharesOut * (BPS_PRECISION - _getSlippageTolerance()) / BPS_PRECISION;
-        if (actualOutput < minExpectedOut) {
+        if (actualOutput < expectedAssetsOrSharesOut) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
 
@@ -674,7 +673,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.outAmount = _getTokenBalance(vars.svAsset, address(this)) - vars.balanceAssetBefore;
 
         if (vars.outAmount == 0) revert ZERO_OUTPUT_AMOUNT();
-        if (vars.outAmount * BPS_PRECISION < expectedAssetOutput * (BPS_PRECISION - _getSlippageTolerance())) {
+        if (vars.outAmount < expectedAssetOutput) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
         emit FulfillHookExecuted(hook, vars.targetedYieldSource, hookCalldata);
@@ -685,12 +684,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Process redeem fulfillments for multiple controllers
     /// @param controllers Array of controller addresses
     /// @param controllersLength Length of controllers array
-    /// @param processedShares Total shares processed
     /// @param currentPPS Current price per share
     function _processRedeemFulfillments(
         address[] calldata controllers,
         uint256 controllersLength,
-        uint256 processedShares,
         uint256 currentPPS
     )
         internal
@@ -822,7 +819,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentAssetsWithFees > historicalAssets) {
             uint256 profit = currentAssetsWithFees - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Floor);
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
             if (totalFee > 0) {
                 // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
                 uint256 superformFee = totalFee.mulDiv(
@@ -1142,12 +1140,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @return Token balance of the account
     function _getTokenBalance(address token, address account) private view returns (uint256) {
         return IERC20(token).balanceOf(account);
-    }
-
-    /// @notice Internal function to get the slippage tolerance
-    /// @return Slippage tolerance
-    function _getSlippageTolerance() private pure returns (uint256) {
-        return SV_SLIPPAGE_TOLERANCE_BPS;
     }
 
     /// @notice Internal function to check if the caller is the vault
