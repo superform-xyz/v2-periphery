@@ -116,19 +116,20 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
         // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
         // derived signer address will be incorrect- resulting in a revert
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                UPDATE_PPS_TYPEHASH,
-                params.strategy,
-                params.pps,
-                params.ppsStdev,
-                params.validatorSet,
-                params.totalValidators,
-                params.timestamp,
-                noncePerStrategy[params.strategy]
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(
+                abi.encodePacked(
+                    UPDATE_PPS_TYPEHASH,
+                    params.strategy,
+                    params.pps,
+                    params.ppsStdev,
+                    params.validatorSet,
+                    params.totalValidators,
+                    params.timestamp,
+                    noncePerStrategy[params.strategy]
+                )
             )
         );
-        bytes32 digest = _hashTypedDataV4(structHash);
 
         address lastSigner;
         // Process each proof
