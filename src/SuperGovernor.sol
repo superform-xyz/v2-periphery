@@ -635,9 +635,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function executeMinStalenesChange() external {
-        uint256 minStalenesEffectiveTime = _minStalenessEffectiveTime;
-        if (minStalenesEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
-        if (block.timestamp < minStalenesEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+        uint256 minStalenessEffectiveTime = _minStalenessEffectiveTime;
+        if (minStalenessEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
+        if (block.timestamp < minStalenessEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
         _minStaleness = _proposedMinStaleness;
 
@@ -664,6 +664,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (!_superformManagers.remove(manager)) revert MANAGER_NOT_REGISTERED();
 
         emit SuperformManagerRemoved(manager);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
     }
 
     /*//////////////////////////////////////////////////////////////

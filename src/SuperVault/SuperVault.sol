@@ -345,6 +345,7 @@ contract SuperVault is
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
+        if (_isPaused()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
