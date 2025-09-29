@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
 // Superform
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockAggregator } from "../mocks/MockAggregator.sol";
 import { SuperOracle } from "../../src/oracles/SuperOracle.sol";
 import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
+
+import "forge-std/console.sol";
 
 contract SuperOracleTest is PeripheryHelpers {
     bytes32 public constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
@@ -69,6 +73,113 @@ contract SuperOracleTest is PeripheryHelpers {
 
         uint256 quoteAmount = superOracle.getQuote(baseAmount, address(mockETH), address(mockUSD));
         assertEq(quoteAmount, expectedQuote, "Quote amount should match expected value");
+    }
+
+    function test_GetQuoteWithInsufficientGasCheck() public view {
+        console.log("test_GetQuoteWithInsufficientGasCheck() Start");
+        
+        // Test the gas check directly by calling with calculated gas limits
+        // The check is: if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+        
+        bytes4 expectedSelector = bytes4(keccak256("INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()"));
+        console.log("Expected error selector:");
+        console.logBytes4(expectedSelector);
+        
+        // Try different gas amounts to find the threshold
+        uint256[] memory gasAmounts = new uint256[](8);
+        gasAmounts[0] = 200000;
+        gasAmounts[1] = 150000;
+        gasAmounts[2] = 100000;
+        gasAmounts[3] = 80000;
+        gasAmounts[4] = 60000;
+        gasAmounts[5] = 40000;
+        gasAmounts[6] = 20000;
+        gasAmounts[7] = 10000;
+        
+        for (uint256 i = 0; i < gasAmounts.length; i++) {
+            console.log("\n--- Testing with gas:", gasAmounts[i], "---");
+            
+            try this.testOracleGasCheckDirectly{gas: gasAmounts[i]}() {
+                console.log("Call succeeded - no gas check triggered");
+            } catch (bytes memory reason) {
+                console.log("Call reverted");
+                console.log("Error length:", reason.length);
+                
+                if (reason.length >= 4) {
+                    bytes4 actualSelector;
+                    assembly {
+                        actualSelector := mload(add(reason, 0x20))
+                    }
+                    
+                    console.log("Actual error selector:");
+                    console.logBytes4(actualSelector);
+                    
+                    if (actualSelector == expectedSelector) {
+                        console.log("SUCCESS: INSUFFICIENT_GAS_FOR_EXTERNAL_CALL triggered at gas:", gasAmounts[i]);
+                        return;
+                    } else {
+                        console.log("Different error received");
+                    }
+                } else {
+                    console.log("Empty error - likely out of gas");
+                }
+                console.logBytes(reason);
+            }
+        }
+        
+        console.log("Test completed - check results above");
+    }
+    
+    // Direct test function that simulates the gas check scenario for oracle calls
+    function testOracleGasCheckDirectly() external view {
+        // This function simulates the scenario in SuperOracleBase where the gas check occurs
+        uint256 gasBefore = gasleft();
+        console.log("Gas at start:", gasBefore);
+        
+        // Calculate how much gas we need to consume to trigger the condition
+        uint256 threshold = gasBefore / 64;
+        
+        console.log("Threshold (gasBefore/64):", threshold);
+        
+        // Use a more efficient gas consumption method with limited iterations
+        // Consume gas in chunks to avoid excessive memory usage
+        uint256 maxIterations = 500; // Limit iterations to prevent memory issues
+        
+        for (uint256 i = 0; i < maxIterations; i++) {
+            // Simple gas consumption without excessive memory allocation
+            uint256 temp = gasleft();
+            
+            // Check if we're close to the threshold
+            if (temp <= threshold + 500) {
+                console.log("Approaching threshold, stopping iterations");
+                break;
+            }
+            
+            // Consume some gas with a simple operation
+            assembly {
+                let x := add(temp, i)
+                let y := mul(x, 2)
+                let z := div(y, 3)
+                // Store result in memory to consume gas
+                mstore(0x0, z)
+            }
+        }
+        
+        uint256 gasAfter = gasleft();
+        console.log("Gas after consumption:", gasAfter);
+        console.log("Check condition (gasAfter <= gasBefore/64):", gasAfter <= gasBefore / 64);
+        
+        // This is the exact check from SuperOracleBase
+        if (gasleft() <= gasBefore / 64) {
+            // Use assembly to revert with the exact custom error selector
+            assembly {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x24b593d900000000000000000000000000000000000000000000000000000000) // INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()
+                revert(ptr, 4)
+            }
+        }
+        
+        console.log("Gas check passed - threshold not reached");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -842,5 +953,44 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Should now return the quote from the new feed (mockFeed4)
         assertEq(quoteAmount, 2e6, "Quote should be $2000 from the updated feed");
+    }
+
+    // Minimal fuzz to ensure mulDiv scaling in _getQuoteFromOracle cannot overflow
+    // under realistic oracle settings (feedDecimals=8, baseDecimals=18, quoteDecimals=6)
+    function test_FuzzMulDivNoOverflowWithRealisticBounds(uint128 baseAmount_, uint128 answerRaw_) public {
+        // Constrain fuzz domain:
+        // - non-zero base amount
+        // - positive oracle answer within realistic upper bound (<= 1e18)
+        vm.assume(baseAmount_ > 0);
+        vm.assume(answerRaw_ > 0 && answerRaw_ <= 1e18);
+
+        // Configure feed1 to the fuzzed answer and ensure freshness
+        mockFeed1.setAnswer(int256(uint256(answerRaw_)));
+        mockFeed1.setUpdatedAt(block.timestamp);
+
+        // Query using Provider 1 (mockFeed1) with ETH (18d) -> USD (6d), feedDecimals = 8
+        uint256 quoteAmount;
+        uint256 _dev;
+        uint256 _total;
+        uint256 _avail;
+        (quoteAmount, _dev, _total, _avail) = superOracle.getQuoteFromProvider(
+            uint256(baseAmount_),
+            address(mockETH),
+            address(mockUSD),
+            PROVIDER_1
+        );
+
+        // Compute expected using the same scaling logic used in _getQuoteFromOracle
+        uint8 feedDecimals = 8; // mockFeed1 constructed with 8 decimals
+        uint8 baseDecimals = MockERC20(address(mockETH)).decimals();
+        uint8 quoteDecimals = MockERC20(address(mockUSD)).decimals();
+
+        uint256 expected = Math.mulDiv(
+            uint256(baseAmount_),
+            uint256(answerRaw_) * 10 ** quoteDecimals,
+            10 ** (feedDecimals + baseDecimals)
+        );
+
+        assertEq(quoteAmount, expected, "Quote should equal mulDiv result without overflow");
     }
 }

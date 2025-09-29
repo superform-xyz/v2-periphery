@@ -163,20 +163,20 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
         _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
         _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, _feeValues[FeeType.REVENUE_SHARE]);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE]);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, _feeValues[FeeType.SUPER_ASSET_SWAP_FEE]);
+        emit FeeUpdated(FeeType.REVENUE_SHARE, 2000);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, 2000);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, 4000);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, treasury_);
+        emit AddressSet(TREASURY, address(0), treasury_);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
 
         // Initialize prover
         _prover = prover_;
-        emit ProverSet(prover_);
+        emit ProverSet(address(0), prover_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -186,8 +186,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setAddress(bytes32 key, address value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value == address(0)) revert INVALID_ADDRESS();
 
+        address oldValue = _addressRegistry[key];
+
         _addressRegistry[key] = value;
-        emit AddressSet(key, value);
+        emit AddressSet(key, oldValue, value);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -197,8 +199,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setProver(address prover) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (prover == address(0)) revert INVALID_ADDRESS();
 
+        address oldProver = _prover;
+
         _prover = prover;
-        emit ProverSet(prover);
+        emit ProverSet(oldProver, prover);
     }
 
     /// @inheritdoc ISuperGovernor
