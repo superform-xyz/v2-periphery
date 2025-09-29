@@ -524,57 +524,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return superVaultState[controller].averageWithdrawPrice;
     }
 
-    // @inheritdoc ISuperVaultStrategy
-    function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
-    )
-        external
-        view
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee)
-    {
-        if (sharesToRedeem == 0) return (0, 0, 0);
-
-        // Get controller's state
-        SuperVaultState storage state = superVaultState[controller];
-
-        // Check if controller has enough shares
-        if (sharesToRedeem > state.accumulatorShares) return (0, 0, 0);
-
-        // Calculate historical assets (cost basis)
-        uint256 historicalAssets;
-        if (state.accumulatorShares > 0) {
-            // historicalAssets = _calculateCostBasis(state, sharesToRedeem);
-            historicalAssets = sharesToRedeem.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
-        }
-
-        uint256 currentPPS = getStoredPPS();
-        //TODO: match this to `fulfillRedeemRequests` logic
-
-        // Calculate current value of shares in asset terms
-        uint256 currentAssetsWithFees = sharesToRedeem.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
-
-        // Calculate fee (if any) using same logic as _calculateAndTransferFee
-        if (currentAssetsWithFees > historicalAssets) {
-            uint256 profit = currentAssetsWithFees - historicalAssets;
-            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-
-            if (totalFee > 0) {
-                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                superformFee = Math.mulDiv(
-                    totalFee,
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
-                    BPS_PRECISION,
-                    Math.Rounding.Floor
-                );
-                recipientFee = totalFee - superformFee;
-            }
-        }
-
-        return (totalFee, superformFee, recipientFee);
-    }
-
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/

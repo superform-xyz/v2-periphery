@@ -340,20 +340,6 @@ interface ISuperVaultStrategy {
     /// @return state The super vault state
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state);
 
-    /// @notice Previews the fee that would be taken for redeeming a specific amount of shares
-    /// @param controller The address of the controller requesting the redemption
-    /// @param sharesToRedeem The number of shares to redeem
-    /// @return totalFee The estimated fee that would be taken in asset terms
-    /// @return superformFee The portion of the fee that would go to Superform treasury
-    /// @return recipientFee The portion of the fee that would go to the fee recipient
-    function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
-    )
-        external
-        view
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee);
-
     /// @notice Get the pending redeem request amount (shares) for a controller
     /// @param controller The controller address
     /// @return pendingShares The amount of shares pending redemption
