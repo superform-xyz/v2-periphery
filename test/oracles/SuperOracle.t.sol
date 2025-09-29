@@ -7,6 +7,7 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockAggregator } from "../mocks/MockAggregator.sol";
 import { SuperOracle } from "../../src/oracles/SuperOracle.sol";
 import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract SuperOracleTest is PeripheryHelpers {
     bytes32 public constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
@@ -842,5 +843,44 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Should now return the quote from the new feed (mockFeed4)
         assertEq(quoteAmount, 2e6, "Quote should be $2000 from the updated feed");
+    }
+
+    // Minimal fuzz to ensure mulDiv scaling in _getQuoteFromOracle cannot overflow
+    // under realistic oracle settings (feedDecimals=8, baseDecimals=18, quoteDecimals=6)
+    function test_FuzzMulDivNoOverflowWithRealisticBounds(uint128 baseAmount_, uint128 answerRaw_) public {
+        // Constrain fuzz domain:
+        // - non-zero base amount
+        // - positive oracle answer within realistic upper bound (<= 1e18)
+        vm.assume(baseAmount_ > 0);
+        vm.assume(answerRaw_ > 0 && answerRaw_ <= 1e18);
+
+        // Configure feed1 to the fuzzed answer and ensure freshness
+        mockFeed1.setAnswer(int256(uint256(answerRaw_)));
+        mockFeed1.setUpdatedAt(block.timestamp);
+
+        // Query using Provider 1 (mockFeed1) with ETH (18d) -> USD (6d), feedDecimals = 8
+        uint256 quoteAmount;
+        uint256 _dev;
+        uint256 _total;
+        uint256 _avail;
+        (quoteAmount, _dev, _total, _avail) = superOracle.getQuoteFromProvider(
+            uint256(baseAmount_),
+            address(mockETH),
+            address(mockUSD),
+            PROVIDER_1
+        );
+
+        // Compute expected using the same scaling logic used in _getQuoteFromOracle
+        uint8 feedDecimals = 8; // mockFeed1 constructed with 8 decimals
+        uint8 baseDecimals = MockERC20(address(mockETH)).decimals();
+        uint8 quoteDecimals = MockERC20(address(mockUSD)).decimals();
+
+        uint256 expected = Math.mulDiv(
+            uint256(baseAmount_),
+            uint256(answerRaw_) * 10 ** quoteDecimals,
+            10 ** (feedDecimals + baseDecimals)
+        );
+
+        assertEq(quoteAmount, expected, "Quote should equal mulDiv result without overflow");
     }
 }
