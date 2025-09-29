@@ -655,6 +655,16 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperformManagerRemoved(manager);
     }
 
+    /// @notice Slashes a manager's stake balance by a specified amount
+    /// @param manager The manager whose stake will be slashed
+    /// @param amount The amount of UP tokens to slash from the manager's stake balance
+    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
+    }
+
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
