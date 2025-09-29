@@ -231,31 +231,17 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 continue;
             }
 
-            StrategyData storage data = _strategyData[strategy];
-
-            // Skip if Superform manager
-            address manager = data.mainManager;
-            if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                emit SuperformManager(strategy, manager);
-                continue;
-            }
-
-            // Skip if updateAuthority is in the authorized callers list
-            // These are manager-designated keepers that should be exempt from fees
-            // NOTE: Protected keepers cannot be added to this list (blocked in addAuthorizedCaller)
-            /// @dev: cannot underflow; it's checked above already and it skips the entry if that's the case
-            if (data.authorizedCallers.contains(args.updateAuthority)) {
-                emit AuthorizedCaller(strategy, args.updateAuthority);
-                continue;
-            }
-
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
+                StrategyData storage data = _strategyData[strategy];
+                address manager = data.mainManager;
                 // Check staleness
                 if (data.isPaused) {
                     emit PaymentSkippedForPausedStrategy(strategy);
                 } else if (block.timestamp - ts > data.maxStaleness) {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
+                } else if (SUPER_GOVERNOR.isSuperformManager(manager)) {
+                    emit SuperformManager(strategy, manager);
                 } else {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
