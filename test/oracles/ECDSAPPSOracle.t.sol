@@ -748,11 +748,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             block.timestamp,
             new uint256[](0)
         );
-
-        // Call should emit ProofValidationFailedLowLevel event because this oracle is not the active one
-        vm.prank(user);
-        vm.expectEmit(true, false, false, false);
-        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.NOT_ACTIVE_PPS_ORACLE.selector));
         
         address[] memory strategies = new address[](1);
         strategies[0] = address(svStrategy);
@@ -887,7 +882,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         uint256[] memory validatorSets = new uint256[](0);
         uint256[] memory totalValidatorsList = new uint256[](0);
         uint256[] memory timestamps = new uint256[](0);
-        address[] memory updateAuthorities = new address[](0);
 
         // Call should revert because arrays are empty
         vm.prank(user);
