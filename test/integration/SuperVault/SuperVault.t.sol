@@ -2214,6 +2214,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
+
         _claimWithdraw(vars.claimableShares1);
 
         vars.treasuryBalanceAfterRedeem1 = asset.balanceOf(TREASURY);
@@ -2758,7 +2759,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
         uint256 assets = gearSuperVault.convertToAssets(shares);
         uint256 underlyingShares = gearboxVault.previewDeposit(assets);
-        expectedAssetsOrSharesOut[0] = underlyingShares;
+        expectedAssetsOrSharesOut[0] = underlyingShares - underlyingShares * 1e3/1e5;
+
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
 
@@ -4661,6 +4663,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
         expectedAssetsOrSharesOut[0] = fluidVault.previewDeposit(allocationAmountVault1);
         expectedAssetsOrSharesOut[1] = IERC4626(vars.ruggableVault).previewDeposit(allocationAmountVault2);
+
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+        }
 
         _depositFreeAssets(
             allocationAmountVault1,

@@ -27,7 +27,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
     bytes32 public constant UPDATE_PPS_TYPEHASH = keccak256(
-        "UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp, uint256 strategyNonce)"
+        "UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 validatorSet,uint256 totalValidators,uint256 timestamp,uint256 strategyNonce)"
     );
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
@@ -104,30 +104,38 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
-        // Check if this oracle is the active PPS Oracle
-        if (!SUPER_GOVERNOR.isActivePPSOracle(address(this))) revert NOT_ACTIVE_PPS_ORACLE();
+        uint256 proofsLength = params.proofs.length;
+        if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
+
+        // Validate that validatorSet matches actual number of valid signatures
+        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
+
+        // Validate that totalValidators matches actual total number of validators
+        if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
+
+        // Ensure we have enough valid signatures to meet quorum
+        if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
 
         // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
         // derived signer address will be incorrect- resulting in a revert
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                UPDATE_PPS_TYPEHASH,
-                params.strategy,
-                params.pps,
-                params.ppsStdev,
-                params.validatorSet,
-                params.totalValidators,
-                params.timestamp,
-                noncePerStrategy[params.strategy]
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(
+                abi.encodePacked(
+                    UPDATE_PPS_TYPEHASH,
+                    params.strategy,
+                    params.pps,
+                    params.ppsStdev,
+                    params.validatorSet,
+                    params.totalValidators,
+                    params.timestamp,
+                    noncePerStrategy[params.strategy]
+                )
             )
         );
-        bytes32 digest = _hashTypedDataV4(structHash);
-        
-        uint256 proofsLength = params.proofs.length;
-        if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
         address lastSigner;
         // Process each proof
@@ -142,15 +150,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (signer <= lastSigner) revert INVALID_PROOF();
             lastSigner = signer;
         }
-
-        // Validate that validatorSet matches actual number of valid signatures
-        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
-
-        // Validate that totalValidators matches actual total number of validators
-        if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
-
-        // Ensure we have enough valid signatures to meet quorum
-        if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
     }
 
     /// @notice Processes batch strategies and returns valid entries
