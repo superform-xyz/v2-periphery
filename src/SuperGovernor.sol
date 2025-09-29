@@ -624,9 +624,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function executeMinStalenesChange() external {
-        uint256 minStalenesEffectiveTime = _minStalenessEffectiveTime;
-        if (minStalenesEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
-        if (block.timestamp < minStalenesEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+        uint256 minStalenessEffectiveTime = _minStalenessEffectiveTime;
+        if (minStalenessEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
+        if (block.timestamp < minStalenessEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
         _minStaleness = _proposedMinStaleness;
 
