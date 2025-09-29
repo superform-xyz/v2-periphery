@@ -165,7 +165,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_AddressRegistry_SetAndGetAddress() public {
         vm.prank(sGovernor);
         vm.expectEmit(true, true, true, true);
-        emit ISuperGovernor.AddressSet(TEST_KEY, user);
+        emit ISuperGovernor.AddressSet(TEST_KEY, address(0), user);
         superGovernor.setAddress(TEST_KEY, user);
 
         assertEq(superGovernor.getAddress(TEST_KEY), user, "Address mismatch");
