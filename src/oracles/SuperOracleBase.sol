@@ -320,12 +320,17 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         uint256 updatedAt;
 
         // --- Get round data ---
+        uint256 gasBefore = gasleft();
+
         try AggregatorV3Interface(oracle).latestRoundData() returns (
             uint80, int256 _answer, uint256, uint256 _updatedAt, uint80
         ) {
             answer = _answer;
             updatedAt = _updatedAt;
         } catch {
+            // Require that enough gas was provided to prevent an OOG revert
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
             if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
             return 0;
         }
@@ -335,7 +340,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
-
+        
+        gasBefore = gasleft();
         // --- Get decimals and compute scaled amount ---
         try AggregatorV3Interface(oracle).decimals() returns (uint8 feedDecimals) {
             uint8 baseDecimals = IERC20(base).safeDecimals();
@@ -348,6 +354,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                 10 ** (feedDecimals + baseDecimals)
             );
         } catch {
+            // Require that enough gas was provided to prevent an OOG revert
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
         }

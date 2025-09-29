@@ -61,6 +61,10 @@
       "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     },
     {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
