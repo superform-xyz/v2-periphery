@@ -7872,7 +7872,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
+        // (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
