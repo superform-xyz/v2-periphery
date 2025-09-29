@@ -441,7 +441,11 @@ contract SuperVault is
         if (averageWithdrawPrice == 0) revert INVALID_WITHDRAW_PRICE();
 
         // Calculate assets based on shares and average withdraw price
-        assets = shares.mulDiv(averageWithdrawPrice, PRECISION, Math.Rounding.Floor);
+        if (shares == maxRedeem(controller)) {
+            assets = maxWithdraw(controller);
+        } else {
+            assets = shares.mulDiv(averageWithdrawPrice, PRECISION, Math.Rounding.Floor);
+        }
 
         uint256 maxWithdrawAmount = maxWithdraw(controller);
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
