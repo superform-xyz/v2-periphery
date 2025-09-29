@@ -130,6 +130,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert ZERO_ADDRESS();
         }
 
+        /// @dev Check that name and symbol are not empty
+        ///      We don't check for anything else and 
+        ///       it's up to the creator to ensure that the vault 
+        ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
             revert ZERO_AMOUNT();
         }
@@ -1145,46 +1149,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
 
         emit PPSUpdated(args.strategy, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp);
-    }
-
-    /// @notice Check if an update authority is exempt from paying upkeep costs
-    /// @param strategy Address of the strategy being updated
-    /// @param updateAuthority Address initiating the update
-    /// @param timestamp Timestamp of the PPS measurement
-    /// @return isExempt True if the authority is exempt from paying upkeep
-    function _isExemptFromUpkeep(
-        address strategy,
-        address updateAuthority,
-        uint256 timestamp
-    )
-        internal
-        returns (bool)
-    {
-        // Check if upkeep payments are globally disabled in SuperGovernor
-        if (!SUPER_GOVERNOR.isUpkeepPaymentsEnabled()) {
-            return true;
-        }
-
-        // Update is exempt if it is stale
-        if (block.timestamp - timestamp > _strategyData[strategy].maxStaleness) {
-            emit StaleUpdate(strategy, updateAuthority, timestamp);
-            return true;
-        }
-
-        // If manager is a superform manager, they're exempt from upkeep fees
-        address manager = _strategyData[strategy].mainManager;
-        if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-            return true;
-        }
-
-        // Check if the updateAuthority is in the authorized callers list
-        // These are manager-designated keepers that should be exempt from fees
-        // NOTE: Protected keepers cannot be added to this list (blocked in addAuthorizedCaller)
-        if (_strategyData[strategy].authorizedCallers.contains(updateAuthority)) {
-            return true;
-        }
-
-        return false;
     }
 
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments
