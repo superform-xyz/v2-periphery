@@ -36,7 +36,6 @@ interface ISuperVaultStrategy {
     error INVALID_PERFORMANCE_FEE_BPS();
     error INVALID_EMERGENCY_WITHDRAWAL();
     error ASYNC_REQUEST_BLOCKING();
-    error MINIMUM_PREVIOUS_HOOK_OUT_AMOUNT_NOT_MET();
     error MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
     error INVALID_REDEEM_CLAIM();
     error MANAGER_NOT_AUTHORIZED();
@@ -240,7 +239,7 @@ interface ISuperVaultStrategy {
 
     /// @notice Fulfills pending redeem requests by executing specific fulfill hooks.
     /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
-    function fulfillRedeemRequests(FulfillArgs calldata args) external;
+    function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT

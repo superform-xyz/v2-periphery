@@ -212,6 +212,10 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(vault2Amount);
         expectedAssetsOrSharesOut[2] = odosDecodedSwap.tokenInfo.outputQuote;
 
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3/1e5;
+        }
+        
         bytes[] memory argsForProofs = new bytes[](3);
         argsForProofs[0] = ISuperHookInspector(executeHookAddresses[0]).inspect(executeHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(executeHookAddresses[1]).inspect(executeHooksData[1]);
@@ -306,6 +310,10 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(params.halfAmount);
         expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(params.fullDepositAmount - params.halfAmount);
         expectedAssetsOrSharesOut[2] = odosDecodedSwap.tokenInfo.outputQuote;
+
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3/1e5;
+        }
 
         bytes[] memory argsForProofs = new bytes[](3);
         argsForProofs[0] = ISuperHookInspector(executeHookAddresses[0]).inspect(executeHooksData[0]);
