@@ -104,12 +104,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
-        // Check if this oracle is the active PPS Oracle
-        if (!SUPER_GOVERNOR.isActivePPSOracle(address(this))) revert NOT_ACTIVE_PPS_ORACLE();
-
         // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
         // derived signer address will be incorrect- resulting in a revert
         bytes32 structHash = keccak256(
