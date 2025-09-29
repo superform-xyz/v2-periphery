@@ -1143,46 +1143,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit PPSUpdated(args.strategy, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp);
     }
 
-    /// @notice Check if an update authority is exempt from paying upkeep costs
-    /// @param strategy Address of the strategy being updated
-    /// @param updateAuthority Address initiating the update
-    /// @param timestamp Timestamp of the PPS measurement
-    /// @return isExempt True if the authority is exempt from paying upkeep
-    function _isExemptFromUpkeep(
-        address strategy,
-        address updateAuthority,
-        uint256 timestamp
-    )
-        internal
-        returns (bool)
-    {
-        // Check if upkeep payments are globally disabled in SuperGovernor
-        if (!SUPER_GOVERNOR.isUpkeepPaymentsEnabled()) {
-            return true;
-        }
-
-        // Update is exempt if it is stale
-        if (block.timestamp - timestamp > _strategyData[strategy].maxStaleness) {
-            emit StaleUpdate(strategy, updateAuthority, timestamp);
-            return true;
-        }
-
-        // If manager is a superform manager, they're exempt from upkeep fees
-        address manager = _strategyData[strategy].mainManager;
-        if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-            return true;
-        }
-
-        // Check if the updateAuthority is in the authorized callers list
-        // These are manager-designated keepers that should be exempt from fees
-        // NOTE: Protected keepers cannot be added to this list (blocked in addAuthorizedCaller)
-        if (_strategyData[strategy].authorizedCallers.contains(updateAuthority)) {
-            return true;
-        }
-
-        return false;
-    }
-
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments
     /// @param hookAddress The address of the hook contract
     /// @param hookArgs The packed-encoded hook arguments (from solidityPack in JS)

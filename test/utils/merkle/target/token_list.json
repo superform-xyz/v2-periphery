@@ -70,11 +70,11 @@
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest",
-      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
+      "address": "0xb572b235901669b98E23920B161530f6191037d3"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest_Coverage",
-      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
+      "address": "0xb572b235901669b98E23920B161530f6191037d3"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1",
@@ -126,19 +126,19 @@
     },
     {
       "symbol": "test_10_RuggableVault_Deposit",
-      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
+      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit_Coverage",
-      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
+      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw",
-      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
+      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_Coverage",
-      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
+      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_ConvertDistortion",
