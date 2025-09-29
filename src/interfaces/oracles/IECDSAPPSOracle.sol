@@ -25,8 +25,6 @@ interface IECDSAPPSOracle {
     error STRATEGY_MISMATCH();
     /// @notice Thrown when the pps value in the proof does not match
     error PPS_MISMATCH();
-    /// @notice Thrown when the oracle is not set as the active PPS Oracle in SuperGovernor
-    error NOT_ACTIVE_PPS_ORACLE();
     /// @notice Thrown when the dispersion (standard deviation / mean) is too high
     error HIGH_PPS_DISPERSION();
     /// @notice Thrown when the deviation from previous PPS is too high
