@@ -956,6 +956,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function _proposeEmergencyWithdraw() internal {
         _isPrimaryManager(msg.sender);
 
+        if (proposedEmergencyWithdrawable) revert ALREADY_PROPOSED();
+
         proposedEmergencyWithdrawable = true;
         emergencyWithdrawableEffectiveTime = block.timestamp + ONE_WEEK;
 
