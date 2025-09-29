@@ -332,7 +332,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Post-condition: processed shares must match intended shares
         if (processedShares != intendedShares) revert INVALID_REDEEM_FILL();
 
-        _processRedeemFulfillments(args.controllers, controllersLength, processedShares, currentPPS);
+        _processRedeemFulfillments(args.controllers, controllersLength, currentPPS);
 
         ISuperVault(_vault).burnShares(processedShares);
 
@@ -683,8 +683,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperHook(address(vars.hookContract)).resetExecutionState(address(this));
 
         vars.outAmount = _getTokenBalance(vars.svAsset, address(this)) - vars.balanceAssetBefore;
-
         if (vars.outAmount == 0) revert ZERO_OUTPUT_AMOUNT();
+
         if (vars.outAmount * BPS_PRECISION < expectedAssetOutput * (BPS_PRECISION - _getSlippageTolerance())) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
@@ -696,12 +696,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Process redeem fulfillments for multiple controllers
     /// @param controllers Array of controller addresses
     /// @param controllersLength Length of controllers array
-    /// @param processedShares Total shares processed
     /// @param currentPPS Current price per share
     function _processRedeemFulfillments(
         address[] calldata controllers,
         uint256 controllersLength,
-        uint256 processedShares,
         uint256 currentPPS
     )
         internal

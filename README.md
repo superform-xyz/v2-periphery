@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/superform-xyz/v2-periphery/graph/badge.svg?token=UL1Ifly2c4)](https://codecov.io/gh/superform-xyz/v2-periphery)
+
 # Overview
 
 Superform v2 Periphery is a suite of products built on top of the Superform core contracts, providing user-facing savings wrappers, validator-secured vault systems, and governance infrastructure.
@@ -327,6 +329,7 @@ Key Points for Auditors:
 #### SuperBank
 
 Executes protocol revenue distribution and hook-based operations under governance control. Extends the base Bank contract with Merkle-verified hook execution.
+In comparison with SuperVault, the leaves part of the merkle tree is the hash of the target address.
 
 Key Points for Auditors:
 
