@@ -110,7 +110,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
-        
+
+        // Validate that validatorSet matches actual number of valid signatures
+        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
+
         // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
         // derived signer address will be incorrect- resulting in a revert
         bytes32 structHash = keccak256(
@@ -140,9 +143,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (signer <= lastSigner) revert INVALID_PROOF();
             lastSigner = signer;
         }
-
-        // Validate that validatorSet matches actual number of valid signatures
-        if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
 
         // Validate that totalValidators matches actual total number of validators
         if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
