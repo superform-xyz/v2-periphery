@@ -1002,14 +1002,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 freeAssets = _getTokenBalance(address(_asset), address(this));
         if (amount == 0 || amount > freeAssets) revert INSUFFICIENT_FUNDS();
 
-        // reset state so it cannot be reused
-        proposedEmergencyWithdrawable = false;
-        emergencyWithdrawableEffectiveTime = 0;
-
         _safeTokenTransfer(address(_asset), recipient, amount);
 
         emit EmergencyWithdrawal(recipient, amount);
     }
+
 
 
     /// @notice Internal function to check if a hook is a fulfill requests hook

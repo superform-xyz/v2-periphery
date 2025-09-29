@@ -7470,6 +7470,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify execution state
         assertEq(strategy.emergencyWithdrawable(), false, "Emergency withdrawable should be false");
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposed should not be reset to false");
+        assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should not be reset to 0");
+
+        strategy.manageEmergencyWithdraw(3, address(0), 0);
         assertEq(strategy.proposedEmergencyWithdrawable(), false, "Proposed should be reset to false");
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset to 0");
 
