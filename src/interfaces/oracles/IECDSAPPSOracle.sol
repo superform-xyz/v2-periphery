@@ -37,6 +37,8 @@ interface IECDSAPPSOracle {
     error INVALID_VALIDATOR_SET();
     /// @notice Thrown when the totalValidators doesn't match the actual total number of validators
     error INVALID_TOTAL_VALIDATORS();
+    /// @notice Thrown when the gas provided is insufficient for external calls
+    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

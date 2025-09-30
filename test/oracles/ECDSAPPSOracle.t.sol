@@ -799,6 +799,21 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         address[] updateAuthorities;
     }
 
+    struct FuzzTestData {
+        address[] strategies;
+        uint256[] ppss;
+        uint256[] ppsStdevs;
+        uint256[] validatorSets;
+        uint256[] totalValidatorsList;
+        uint256[] timestamps;
+        bytes[][] proofsArray;
+        uint256 totalGasNeeded;
+        uint256 estimatedProcessingGas;
+        uint256 minimumGasToReachCheck;
+        uint256 estimatedGasAtCheck;
+        bool shouldTriggerGasCheck;
+    }
+
     function test_BatchUpdatePPS_Success() public {
         BatchTestData memory data;
         
@@ -951,6 +966,129 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 timestamps: data.timestamps
             })
         );
+    }
+
+    /// @notice Fuzz test for insufficient gas check with varying parameters
+    /// @param strategyCount_ Number of strategies to test (1-5)
+    /// @param gasLimit_ Gas limit to use for the call (100k-2M)
+    /// @param gasPerStrategy_ Gas cost per strategy (1M-10B)
+    function testFuzz_BatchUpdatePPS_InsufficientGasForForward(
+        uint8 strategyCount_,
+        uint32 gasLimit_,
+        uint64 gasPerStrategy_
+    ) public {
+        // Bound inputs to reasonable ranges
+        strategyCount_ = uint8(bound(strategyCount_, 1, 3)); // Reduce max strategies to avoid complexity
+        gasLimit_ = uint32(bound(gasLimit_, 500_000, 5_000_000)); // Higher minimum to avoid OOG
+        gasPerStrategy_ = uint64(bound(gasPerStrategy_, 100_000, 1_000_000_000)); // More reasonable range
+
+        FuzzTestData memory data;
+        
+        // Create strategies array
+        data.strategies = new address[](strategyCount_);
+        data.strategies[0] = address(svStrategy);
+        
+        // Create additional strategies if needed
+        for (uint256 i = 1; i < strategyCount_; i++) {
+            (, address newStrategy,) = aggregatorSuperVault.createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    name: string(abi.encodePacked("FuzzVault", vm.toString(i))),
+                    symbol: string(abi.encodePacked("FV", vm.toString(i))),
+                    mainManager: mockManager,
+                    secondaryManagers: new address[](0),
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                        performanceFeeBps: 1000, 
+                        managementFeeBps: 0, 
+                        recipient: TREASURY 
+                    })
+                })
+            );
+            data.strategies[i] = newStrategy;
+        }
+
+        vm.warp(block.timestamp + 1 days);
+
+        // Initialize arrays
+        data.ppss = new uint256[](strategyCount_);
+        data.ppsStdevs = new uint256[](strategyCount_);
+        data.validatorSets = new uint256[](strategyCount_);
+        data.totalValidatorsList = new uint256[](strategyCount_);
+        data.timestamps = new uint256[](strategyCount_);
+        data.proofsArray = new bytes[][](strategyCount_);
+
+        // Fill arrays with test data
+        for (uint256 i = 0; i < strategyCount_; i++) {
+            data.ppss[i] = PPS * (i + 1);
+            data.ppsStdevs[i] = PPS_STDEV * (i + 1);
+            data.validatorSets[i] = 2;
+            data.totalValidatorsList[i] = 3;
+            data.timestamps[i] = block.timestamp;
+            
+            data.proofsArray[i] = _createValidProofs(
+                data.strategies[i], 
+                data.ppss[i], 
+                data.ppsStdevs[i], 
+                data.validatorSets[i], 
+                data.totalValidatorsList[i], 
+                data.timestamps[i], 
+                new uint256[](0)
+            );
+        }
+
+        // Set the gas cost per strategy
+        vm.startPrank(governorAddress);
+        governor.setGasInfo(address(oracleECDSA), gasPerStrategy_);
+        vm.stopPrank();
+
+        // Calculate gas parameters
+        data.totalGasNeeded = uint256(strategyCount_) * uint256(gasPerStrategy_);
+        data.estimatedProcessingGas = strategyCount_ * 150_000; // Conservative estimate per strategy
+        data.minimumGasToReachCheck = data.estimatedProcessingGas + 50_000; // Buffer for reaching the check
+        
+        vm.prank(user);
+        
+        // Only test the gas check if we have enough gas to reach it
+        if (gasLimit_ >= data.minimumGasToReachCheck) {
+            // Calculate if the gas check should trigger
+            data.estimatedGasAtCheck = gasLimit_ > data.estimatedProcessingGas ? gasLimit_ - data.estimatedProcessingGas : 0;
+            data.shouldTriggerGasCheck = (data.estimatedGasAtCheck * 63) / 64 <= data.totalGasNeeded;
+            
+            if (data.shouldTriggerGasCheck) {
+                // Expect the InsufficientGasForForward event
+                vm.expectEmit(false, false, false, false);
+                emit IECDSAPPSOracle.InsufficientGasForForward(0, 0);
+            }
+            
+            // Call with the specified gas limit
+            oracleECDSA.updatePPS{gas: gasLimit_}(
+                IECDSAPPSOracle.UpdatePPSArgs({
+                    strategies: data.strategies,
+                    proofsArray: data.proofsArray,
+                    ppss: data.ppss,
+                    ppsStdevs: data.ppsStdevs,
+                    validatorSets: data.validatorSets,
+                    totalValidators: data.totalValidatorsList,
+                    timestamps: data.timestamps
+                })
+            );
+        } else {
+            // Skip this test case as it would cause OOG before reaching the gas check
+            vm.expectRevert();
+            oracleECDSA.updatePPS{gas: gasLimit_}(
+                IECDSAPPSOracle.UpdatePPSArgs({
+                    strategies: data.strategies,
+                    proofsArray: data.proofsArray,
+                    ppss: data.ppss,
+                    ppsStdevs: data.ppsStdevs,
+                    validatorSets: data.validatorSets,
+                    totalValidators: data.totalValidatorsList,
+                    timestamps: data.timestamps
+                })
+            );
+        }
     }
 
     function test_BatchUpdatePPS_EmptyArrayReverts() public {

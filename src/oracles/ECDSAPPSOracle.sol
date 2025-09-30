@@ -271,10 +271,12 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256 count = validStrategies.length;
 
         uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
-        if (gasleft() <= totalGas + gasleft() / 64) {
-            emit InsufficientGasForForward(gasleft(), totalGas);
+        uint256 gasBefore = gasleft();
+        if (gasBefore <= totalGas + gasBefore / 64) {
+            emit InsufficientGasForForward(gasBefore, totalGas);
             return;
         }
+        gasBefore = gasleft();
         // Only forward if there are valid entries
         if (count > 0) {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR)).forwardPPS(
@@ -289,8 +291,14 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                 })
             ) {
             } catch Error(string memory reason) {
+                // Require that enough gas was provided to prevent an OOG revert
+                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
                 emit BatchForwardPPSFailed(reason);
             } catch (bytes memory lowLevelData) {
+                // Require that enough gas was provided to prevent an OOG revert
+                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
                 emit BatchForwardPPSFailedLowLevel(lowLevelData);
             }
         }

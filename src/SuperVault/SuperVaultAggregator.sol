@@ -68,6 +68,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
+    uint256 private constant MAX_UNPAUSE_TIMELOCK = 1 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
     // Global hooks Merkle root data
@@ -347,6 +348,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check if strategy is currently paused
         if (!_strategyData[strategy].isPaused) {
             revert STRATEGY_NOT_PAUSED();
+        }
+
+        uint256 lastUpdateTimestamp = _strategyData[strategy].lastUpdateTimestamp;
+        if (block.timestamp - lastUpdateTimestamp >= MAX_UNPAUSE_TIMELOCK) {
+            revert UNPAUSE_TIMELOCK_NOT_MET();
         }
         
         // Unpause the strategy
@@ -1094,10 +1100,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
        
         // Handle upkeep costs unless exempt
+        uint256 managerUpkeepBalance = _managerUpkeepBalance[manager];
         if (!args.isExempt) {
             // Check if manager has sufficient upkeep balance
-            if (_managerUpkeepBalance[manager] < args.upkeepCost) {
-                emit InsufficientUpkeep(args.strategy, manager, _managerUpkeepBalance[manager], args.upkeepCost);
+            if (managerUpkeepBalance < args.upkeepCost) {
+                emit InsufficientUpkeep(args.strategy, manager, managerUpkeepBalance, args.upkeepCost);
                 return;
             }
 
@@ -1107,7 +1114,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             // Add claimable upkeep for the `feeRecipient`
             claimableUpkeep += args.upkeepCost;
 
-            emit UpkeepSpent(manager, args.upkeepCost, _managerUpkeepBalance[manager], claimableUpkeep);
+            emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
         }
 
         // Update PPS, ppsStdev and timestamp in StrategyData

@@ -442,6 +442,8 @@ interface ISuperVaultAggregator {
     error MAX_STRATEGIES_EXCEEDED();
     /// @notice Thrown when provided timestamp is too large
     error TIMESTAMP_EXCEEDS_BLOCK();
+    /// @notice Thrown when PPS is too stale to unpause a strategy
+    error UNPAUSE_TIMELOCK_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
