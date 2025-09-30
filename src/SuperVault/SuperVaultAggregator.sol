@@ -721,7 +721,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Update the global hooks root
         bytes32 oldRoot = _globalHooksRoot;
-        _globalHooksRoot = _proposedGlobalHooksRoot;
+        _globalHooksRoot = proposedRoot;
         _globalHooksRootEffectiveTime = 0;
         _proposedGlobalHooksRoot = bytes32(0);
 

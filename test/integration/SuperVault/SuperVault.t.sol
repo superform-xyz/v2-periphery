@@ -7515,11 +7515,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Wait for timelock and execute
         vm.warp(block.timestamp + 1 weeks);
-        strategy.manageEmergencyWithdraw(2, address(0), 0);
 
         // Withdraw most assets, leaving just enough to trigger dust collection
         uint256 withdrawalAmount = strategyBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
-        strategy.manageEmergencyWithdraw(3, address(this), withdrawalAmount);
+        strategy.manageEmergencyWithdraw(2, address(this), withdrawalAmount);
 
         vm.stopPrank();
 
@@ -7716,13 +7715,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Ensure there's no active proposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should not have active proposal");
 
+        vm.startPrank(MANAGER);
         // Try to execute emergency withdraw activation without a proposal
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
         strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        vm.stopPrank();
     }
 
     /// @notice Test that anyone can try to execute emergency withdraw activation when there's no proposal and get
-    /// NO_PROPOSAL error
+    /// MANAGER_NOT_AUTHORIZED error
     function test_RevertWhen_AnyoneTriesToExecuteEmergencyWithdrawActivation_NoProposal() public {
         // Ensure there's no active proposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should not have active proposal");
@@ -7733,7 +7734,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Try to execute emergency withdraw activation without a proposal - should revert with NO_PROPOSAL, not access
         // control
-        vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
+        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
         strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
 
         vm.stopPrank();
@@ -7749,7 +7750,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Try to cancel a proposal that doesn't exist
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
 
         vm.stopPrank();
     }
@@ -7775,12 +7776,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 3: Wait for timelock to expire and execute
         vm.warp(block.timestamp + 1 weeks);
 
+        deal(address(asset), address(strategy), 100);
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.EmergencyWithdrawableUpdated(true);
-        strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        emit ISuperVaultStrategy.EmergencyWithdrawal(address(this), 100);
+        strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = Perform
 
         // Verify execution state
-        assertEq(strategy.emergencyWithdrawable(), true, "Emergency withdrawable should be true");
+        assertEq(strategy.emergencyWithdrawable(), false, "Emergency withdrawable should be false");
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposed should not be reset to false");
+        assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should not be reset to 0");
+
+        strategy.manageEmergencyWithdraw(3, address(0), 0);
         assertEq(strategy.proposedEmergencyWithdrawable(), false, "Proposed should be reset to false");
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset to 0");
 
@@ -7802,7 +7808,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 2: Cancel the proposal
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultStrategy.EmergencyWithdrawableProposalCanceled();
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         // Verify cancellation state
         assertEq(strategy.proposedEmergencyWithdrawable(), false, "Proposed should be reset to false");
@@ -7820,7 +7826,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
 
         // Step 2: Cancel the proposal
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         // Step 3: Try to execute - should fail with NO_PROPOSAL
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
@@ -7843,7 +7849,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(randomUser);
 
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         vm.stopPrank();
     }
@@ -7856,22 +7862,23 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should have effective time");
 
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset");
 
         // Cycle 2: Propose and cancel again
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should have effective time again");
 
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset again");
 
         // Cycle 3: Propose, wait, and execute
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         vm.warp(block.timestamp + 1 weeks);
-        strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        deal(address(asset), address(strategy), 100);
+        strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = ExecuteActivation
 
-        assertEq(strategy.emergencyWithdrawable(), true, "Emergency withdrawable should be true");
+        assertEq(strategy.emergencyWithdrawable(), false, "Emergency withdrawable should be false");
 
         vm.stopPrank();
     }
@@ -7892,8 +7899,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
             vm.startPrank(actors[i]);
 
             // Should revert with NO_PROPOSAL, not allowing them to reset the flag
-            vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-            strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+            if (i == 0) {
+                vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
+            } else {
+                vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
+            }
+            strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = ExecuteActivation
 
             vm.stopPrank();
 
