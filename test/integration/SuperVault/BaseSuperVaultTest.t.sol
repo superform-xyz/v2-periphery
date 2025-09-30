@@ -2480,4 +2480,93 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         // Update PPS after asset manipulation
         _updateSuperVaultPPS(strategyAddr, vault_);
     }
+
+    /// @notice Calculate performance fee for one controller
+    /// @param redeemShares Shares being redeemed
+    /// @param controller Controller address
+    /// @param yieldSources Yield sources
+    /// @return superformFee Superform fee
+    /// @return recipientFee Recipient fee
+    /// @return epectedControllerAssets Expected controller assets
+    function _calculatePerformanceFee(
+        uint256 redeemShares,
+        address controller,
+        address[] memory yieldSources
+    )
+        internal
+        view
+        returns (uint256 superformFee, uint256 recipientFee, uint256 epectedControllerAssets)
+    {
+        SuperVaultState storage state = vault.getSuperVaultState(controller);
+        uint256 controllerRequestedAmount = state.pendingRedeemRequest;
+
+        uint256 netAssetsToBeWithdrawn;
+        for (uint256 i; i < yieldSources.length; ++i) {
+            address yieldSource = yieldSources[i];
+            uint256 assets = vault.convertToAssets(controllerRequestedAmount);
+            uint256 underlyingShares =
+                IYieldSourceOracle(yieldSource).getShareOutput(yieldSource, vault.asset(), assets);
+            uint256 expectedAssets = IERC4626(yieldSource).convertToAssets(underlyingShares);
+            netAssetsToBeWithdrawn += expectedAssets;
+        }
+
+        uint256 historicalAssets = _calculateCostBasis(state, controllerRequestedAmount);
+
+        uint256 grossControllerAssets = Math.mulDiv(
+            controllerRequestedAmount, netAssetsToBeWithdrawn, controllerRequestedAmount, Math.Rounding.Floor
+        );
+
+        (expectedControllerAssets, superformFee, recipientFee) = _deriveFeesFromAssets(grossControllerAssets, historicalAssets);
+    }
+
+    /// @notice Calculate cost basis for requested shares using weighted average approach
+    /// @param state User's vault state
+    /// @param requestedShares Shares being redeemed
+    function _calculateCostBasis(
+        SuperVaultState storage state,
+        uint256 requestedShares
+    )
+        internal
+        returns (uint256 costBasis)
+    {
+        // Calculate cost basis proportionally
+        costBasis = requestedShares.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+    }
+
+    /// @notice Derive fees from assets
+    /// @param grossAssets Gross assets
+    /// @param historicalAssets Historical assets
+    /// @return netAssets Net assets
+    /// @return superformFee Superform fee
+    /// @return recipientFee Recipient fee
+    function _deriveFeesFromAssets(
+        uint256 grossAssets,
+        uint256 historicalAssets
+    )
+        internal
+        returns (uint256 netAssets, uint256 superformFee, uint256 recipientFee)
+    {
+        // Apply fees only on profit
+        if (grossAssets > historicalAssets) {
+            netAssets = grossAssets;
+            uint256 profit = grossAssets - historicalAssets;
+            uint256 performanceFeeBps = strategy.getPerformanceFeeBps();
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
+            if (totalFee > 0) {
+                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
+                superformFee = Math.mulDiv(
+                    totalFee,
+                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
+                    BPS_PRECISION,
+                    Math.Rounding.Floor
+                );
+                recipientFee = totalFee - superformFee;
+                netAssets -= totalFee;
+            }
+        } else {
+            netAssets = grossAssets; // No fee
+            return (netAssets, 0, 0);
+        }
+    }
 }
