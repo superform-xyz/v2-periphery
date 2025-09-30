@@ -2494,7 +2494,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         address[] memory yieldSources
     )
         internal
-        view
         returns (uint256 superformFee, uint256 recipientFee, uint256 expectedControllerAssets)
     {
         ISuperVaultStrategy.SuperVaultState memory state = strategy.getSuperVaultState(controller);
@@ -2527,6 +2526,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 requestedShares
     )
         internal
+        view
         returns (uint256 costBasis)
     {
         // Calculate cost basis proportionally
@@ -2544,6 +2544,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 historicalAssets
     )
         internal
+        view
         returns (uint256 netAssets, uint256 superformFee, uint256 recipientFee)
     {
         // Apply fees only on profit
