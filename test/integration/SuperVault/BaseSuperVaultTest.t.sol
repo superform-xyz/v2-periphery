@@ -2482,18 +2482,17 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     }
 
     /// @notice Calculate performance fee for one controller
-    /// @param redeemShares Shares being redeemed
     /// @param controller Controller address
     /// @param yieldSources Yield sources
     /// @return superformFee Superform fee
     /// @return recipientFee Recipient fee
     /// @return expectedControllerAssets Expected controller assets
     function _calculatePerformanceFee(
-        uint256 redeemShares,
         address controller,
         address[] memory yieldSources
     )
         internal
+        view
         returns (uint256 superformFee, uint256 recipientFee, uint256 expectedControllerAssets)
     {
         ISuperVaultStrategy.SuperVaultState memory state = strategy.getSuperVaultState(controller);
@@ -2526,7 +2525,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 requestedShares
     )
         internal
-        view
+        pure
         returns (uint256 costBasis)
     {
         // Calculate cost basis proportionally

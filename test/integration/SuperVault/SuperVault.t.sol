@@ -1905,7 +1905,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2009,7 +2009,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee, ) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee, ) = _calculatePerformanceFee(accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2094,7 +2094,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2208,7 +2208,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
         (vars.superformFee1, vars.recipientFee1,) = _calculatePerformanceFee(
-            vars.redeemAmount1,
             accountEth,
             yieldSources
         );
@@ -2254,7 +2253,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Calculate expected fee for second redemption
         (vars.superformFee2, vars.recipientFee2,) = _calculatePerformanceFee(
-            vars.redeemAmount2,
             accountEth,
             yieldSources
         );
@@ -2298,7 +2296,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Calculate expected fee for third redemption
         (vars.superformFee3, vars.recipientFee3,) = _calculatePerformanceFee(
-            vars.finalShares,
             accountEth,
             yieldSources
         );
@@ -2595,7 +2592,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(gearboxVault);
         yieldSources[1] = address(gearboxFarmingPool);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem_Gearbox_SV();
@@ -7901,7 +7898,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(aaveVault);
         yieldSources[1] = address(centrifugeVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, account, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(account, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
