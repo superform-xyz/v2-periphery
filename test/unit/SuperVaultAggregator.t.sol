@@ -710,7 +710,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Wait for minimum interval to pass
         vm.warp(block.timestamp + 10);
 
-        // Batch update should revert due to non-monotonic timestamp in strategy2
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultAggregator.TimestampNotMonotonic();
         superVaultAggregator.forwardPPS(

@@ -1036,17 +1036,19 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check rate limiting
         uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
-        if (block.timestamp - lastUpdate < minInterval) {
-            emit UpdateTooFrequent();
-            return;
-        }
-        
+
         // Ensure timestamp is monotonically increasing to prevent out-of-order updates
         if (args.timestamp <= lastUpdate) {
             emit TimestampNotMonotonic();
             return;
         }
 
+        if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
+            emit UpdateTooFrequent();
+            return;
+        }
+        
+      
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
