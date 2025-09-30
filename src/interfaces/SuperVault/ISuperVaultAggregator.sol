@@ -83,6 +83,7 @@ interface ISuperVaultAggregator {
         uint256 mnThreshold; // Threshold for validatorSet / totalValidators ratio, scaled by 1e18
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
+        uint256 maxUnpauseTimeLock;
     }
 
     /// @notice Parameters for creating a new SuperVault trio
@@ -102,6 +103,7 @@ interface ISuperVaultAggregator {
         uint256 minUpdateInterval;
         uint256 maxStaleness;
         ISuperVaultStrategy.FeeConfig feeConfig;
+        uint256 maxUnpauseTimeLock;
     }
 
     /// @notice Struct to hold cached hook validation state variables to avoid stack too deep
@@ -364,6 +366,9 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when payment is skipped for a paused strategy
     event PaymentSkippedForPausedStrategy(address indexed strategy);
+
+    /// @notice Emitted when the strategy's PPS unpause timelock is updated
+    event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
@@ -813,4 +818,9 @@ interface ISuperVaultAggregator {
         external
         view
         returns (bytes32 root, uint256 effectiveTime);
+
+    /// @notice Updates the strategy's PPS unpause timelock
+    /// @param strategy Address of the strategy
+    /// @param timelock The new timelock value
+    function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
 }
