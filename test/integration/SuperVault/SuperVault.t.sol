@@ -1902,7 +1902,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         For this reason, should we continue like this and assume this? Should we set a ledger configuration just for
             super vaults where the core fee on yield is 0 so the user is not double charged on performance?
         */
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(fluidVault);
+        yieldSources[1] = address(aaveVault);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2003,7 +2006,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(fluidVault);
+        yieldSources[1] = address(aaveVault);
+        (uint256 superformFee, uint256 recipientFee, ) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2085,7 +2091,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(fluidVault);
+        yieldSources[1] = address(aaveVault);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2195,7 +2204,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Redeeming shares (25%):", vars.redeemAmount1);
 
         // Calculate expected fee for first redemption
-        (, vars.superformFee1, vars.recipientFee1) = strategy.previewPerformanceFee(accountEth, vars.redeemAmount1);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(fluidVault);
+        yieldSources[1] = address(aaveVault);
+        (vars.superformFee1, vars.recipientFee1,) = _calculatePerformanceFee(
+            vars.redeemAmount1,
+            accountEth,
+            yieldSources
+        );
 
         vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
 
@@ -2237,7 +2253,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Redeeming shares (33% of remaining):", vars.redeemAmount2);
 
         // Calculate expected fee for second redemption
-        (, vars.superformFee2, vars.recipientFee2) = strategy.previewPerformanceFee(accountEth, vars.redeemAmount2);
+        (vars.superformFee2, vars.recipientFee2,) = _calculatePerformanceFee(
+            vars.redeemAmount2,
+            accountEth,
+            yieldSources
+        );
 
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem2 = asset.balanceOf(accountEth);
@@ -2277,7 +2297,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Redeeming final shares:", vars.finalShares);
 
         // Calculate expected fee for third redemption
-        (, vars.superformFee3, vars.recipientFee3) = strategy.previewPerformanceFee(accountEth, vars.finalShares);
+        (vars.superformFee3, vars.recipientFee3,) = _calculatePerformanceFee(
+            vars.finalShares,
+            accountEth,
+            yieldSources
+        );
 
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem3 = asset.balanceOf(accountEth);
@@ -2568,8 +2592,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVault));
 
-        (, uint256 superformFee, uint256 recipientFee) =
-            strategyGearSuperVault.previewPerformanceFee(accountEth, userShares);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(gearboxVault);
+        yieldSources[1] = address(gearboxFarmingPool);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem_Gearbox_SV();
@@ -7872,14 +7898,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        // (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(aaveVault);
+        yieldSources[1] = address(centrifugeVault);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, account, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
 
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
-        //assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
+        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
     }
 
     /*//////////////////////////////////////////////////////////////
