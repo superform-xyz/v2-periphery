@@ -98,7 +98,8 @@ contract SuperGovernorTest is PeripheryHelpers {
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
         strategy1 = strategy;
