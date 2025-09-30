@@ -100,10 +100,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Oracle constants
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant USD_TOKEN = address(840);
-    address private constant GAS_QUOTE =
-        address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE =
-        address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
@@ -138,7 +136,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param treasury_ Address of the treasury
     /// @param prover_ Address of the prover
-    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury_, address prover_) {
+    constructor(
+        address superGovernor,
+        address governor,
+        address bankManager,
+        address gasManager,
+        address treasury_,
+        address prover_
+    ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
                 || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
@@ -163,20 +168,20 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
         _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
         _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, _feeValues[FeeType.REVENUE_SHARE]);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE]);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, _feeValues[FeeType.SUPER_ASSET_SWAP_FEE]);
+        emit FeeUpdated(FeeType.REVENUE_SHARE, 2000);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, 2000);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, 4000);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, treasury_);
+        emit AddressSet(TREASURY, address(0), treasury_);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
 
         // Initialize prover
         _prover = prover_;
-        emit ProverSet(prover_);
+        emit ProverSet(address(0), prover_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -186,8 +191,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setAddress(bytes32 key, address value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value == address(0)) revert INVALID_ADDRESS();
 
+        address oldValue = _addressRegistry[key];
+
         _addressRegistry[key] = value;
-        emit AddressSet(key, value);
+        emit AddressSet(key, oldValue, value);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -197,8 +204,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setProver(address prover) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (prover == address(0)) revert INVALID_ADDRESS();
 
+        address oldProver = _prover;
+
         _prover = prover;
-        emit ProverSet(prover);
+        emit ProverSet(oldProver, prover);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -565,11 +574,19 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
+    function setGasInfo(
+        address oracle,
+        uint256 baseGasBatch,
+        uint256 gasIncreasePerEntryBatch
+    )
+        external
+        onlyRole(_GAS_MANAGER_ROLE)
+    {
         if (oracle == address(0)) revert INVALID_ADDRESS();
         if (baseGasBatch == 0 || gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
-        _oracleGasInfo[oracle] = GasInfo({baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch});
+        _oracleGasInfo[oracle] =
+            GasInfo({ baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch });
         emit GasInfoSet(oracle, baseGasBatch, gasIncreasePerEntryBatch);
     }
 
@@ -607,9 +624,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function executeMinStalenesChange() external {
-        uint256 minStalenesEffectiveTime = _minStalenessEffectiveTime;
-        if (minStalenesEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
-        if (block.timestamp < minStalenesEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+        uint256 minStalenessEffectiveTime = _minStalenessEffectiveTime;
+        if (minStalenessEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
+        if (block.timestamp < minStalenessEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
         _minStaleness = _proposedMinStaleness;
 
@@ -636,6 +653,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (!_superformManagers.remove(manager)) revert MANAGER_NOT_REGISTERED();
 
         emit SuperformManagerRemoved(manager);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -956,11 +981,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _oracleGasInfo[oracle_];
     }
 
-     /// @inheritdoc ISuperGovernor
+    /// @inheritdoc ISuperGovernor
     function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) external view returns (uint256) {
         // Calculate total gas cost
-        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch + 
-            (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
+        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch
+            + (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
 
         return _convertGasToUp(totalGas);
     }
@@ -1115,20 +1140,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (upToken == address(0)) revert UP_NOT_FOUND();
 
         // Step 1: convert gas to ETH
-        (uint256 ethAmount,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            gasAmount,
-            GAS_QUOTE,
-            GWEI_QUOTE,
-            AVERAGE_PROVIDER
-        );
+        (uint256 ethAmount,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
-        (uint256 ethToUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            ethAmount,
-            NATIVE_TOKEN,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 ethToUsd,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(ethAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
         (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(

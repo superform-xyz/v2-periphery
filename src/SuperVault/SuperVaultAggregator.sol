@@ -136,6 +136,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert ZERO_ADDRESS();
         }
 
+        /// @dev Check that name and symbol are not empty
+        ///      We don't check for anything else and 
+        ///       it's up to the creator to ensure that the vault 
+        ///       is created with valid parameters
+        if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
+            revert ZERO_AMOUNT();
+        }
+
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
@@ -726,7 +734,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Update the global hooks root
         bytes32 oldRoot = _globalHooksRoot;
-        _globalHooksRoot = _proposedGlobalHooksRoot;
+        _globalHooksRoot = proposedRoot;
         _globalHooksRootEffectiveTime = 0;
         _proposedGlobalHooksRoot = bytes32(0);
 

@@ -129,8 +129,9 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Emitted when an address is set in the registry
     /// @param key The key used to reference the address
+    /// @param oldValue The old address value
     /// @param value The address value
-    event AddressSet(bytes32 indexed key, address indexed value);
+    event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value);
 
     /// @notice Emitted when a hook is approved
     /// @param hook The address of the approved hook
@@ -236,8 +237,9 @@ interface ISuperGovernor is IAccessControl {
     event ExecutorRemoved(address indexed executor);
 
     /// @notice Emitted when a prover is set
-    /// @param prover The address of the prover
-    event ProverSet(address indexed prover);
+    /// @param oldProver The address of the old prover
+    /// @param newProver The address of the new prover
+    event ProverSet(address indexed oldProver, address indexed newProver);
 
     /// @notice Emitted when a change to upkeep payments status is proposed
     /// @param enabled The proposed status (enabled/disabled)
@@ -513,7 +515,6 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                         SUPERFORM MANAGER MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Adds a manager to the superform managers list
     /// @param manager Address of the manager to add
     function addSuperformManager(address manager) external;
@@ -521,6 +522,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Removes a manager from the superform managers list
     /// @param manager Address of the manager to remove
     function removeSuperformManager(address manager) external;
+
+    /// @notice Slashes a manager's stake balance by a specified amount
+    /// @param manager The manager whose stake will be slashed
+    /// @param amount The amount of UP tokens to slash from the manager's stake balance
+    function slashStake(address manager, uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT

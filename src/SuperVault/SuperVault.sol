@@ -345,6 +345,7 @@ contract SuperVault is
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
+        if (_isPaused()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
@@ -415,7 +416,7 @@ contract SuperVault is
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
 
         // Calculate shares based on assets and average withdraw price
-        shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Floor);
+        shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Ceil);
 
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
