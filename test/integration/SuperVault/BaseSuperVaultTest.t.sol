@@ -23,14 +23,15 @@ import { IPoolManager } from "@superform-v2-core/test/mocks/centrifuge/IPoolMana
 import { IERC7540 } from "@superform-v2-core/src/vendor/vaults/7540/IERC7540.sol";
 
 // superform
+import { IYieldSourceOracle } from "@superform-v2-core/src/interfaces/accounting/IYieldSourceOracle.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
+import { FeeType } from "../../../src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperExecutor } from "@superform-v2-core/src/interfaces/ISuperExecutor.sol";
-import { FeeType } from "../../../src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { MerkleReader } from "../../utils/merkle/helper/MerkleReader.sol";
@@ -90,7 +91,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
     // Constants
     uint256 constant LARGE_DEPOSIT = 100_000e6; // 100k USDC
-
+    uint256 private constant BPS_PRECISION = 10_000;
     uint256 constant ONE_HUNDRED_PERCENT = 10_000;
 
     // Update state tracking
@@ -2431,7 +2432,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
      * @notice Updates max PPS slippage to BPS_PRECISION (100%)
      */
     function _updateMaxPPSSlippageToMax() internal {
-        uint256 BPS_PRECISION = 10_000;
         vm.prank(MANAGER);
         strategy.updateMaxPPSSlippage(BPS_PRECISION);
     }
@@ -2487,7 +2487,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     /// @param yieldSources Yield sources
     /// @return superformFee Superform fee
     /// @return recipientFee Recipient fee
-    /// @return epectedControllerAssets Expected controller assets
+    /// @return expectedControllerAssets Expected controller assets
     function _calculatePerformanceFee(
         uint256 redeemShares,
         address controller,
@@ -2495,9 +2495,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     )
         internal
         view
-        returns (uint256 superformFee, uint256 recipientFee, uint256 epectedControllerAssets)
+        returns (uint256 superformFee, uint256 recipientFee, uint256 expectedControllerAssets)
     {
-        SuperVaultState storage state = vault.getSuperVaultState(controller);
+        ISuperVaultStrategy.SuperVaultState memory state = strategy.getSuperVaultState(controller);
         uint256 controllerRequestedAmount = state.pendingRedeemRequest;
 
         uint256 netAssetsToBeWithdrawn;
@@ -2523,7 +2523,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     /// @param state User's vault state
     /// @param requestedShares Shares being redeemed
     function _calculateCostBasis(
-        SuperVaultState storage state,
+        ISuperVaultStrategy.SuperVaultState memory state,
         uint256 requestedShares
     )
         internal
@@ -2550,7 +2550,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         if (grossAssets > historicalAssets) {
             netAssets = grossAssets;
             uint256 profit = grossAssets - historicalAssets;
-            uint256 performanceFeeBps = strategy.getPerformanceFeeBps();
+            ISuperVaultStrategy.FeeConfig memory feeConfig = strategy.getConfigInfo();
+            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
             uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
             if (totalFee > 0) {
