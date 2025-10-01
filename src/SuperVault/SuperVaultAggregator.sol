@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 // Superform
 import { SuperVault } from "./SuperVault.sol";
@@ -343,7 +344,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
         // Only the main manager can unpause the strategy
-        if (!isMainManager(msg.sender, strategy)) {
+        if (!_isUnpauser(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
         
@@ -1219,5 +1220,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
      */
     function _getSuperBank() internal view returns (address) {
         return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_BANK());
+    }
+
+    function _isUnpauser(address account) internal view returns (bool) {
+        return !IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
     }
 }

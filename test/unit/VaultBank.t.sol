@@ -127,7 +127,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver = new MockCrossL2ProverV2();
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
         vaultBank = new TestVaultBank(address(superGovernor));
 
         vm.startPrank(governor);

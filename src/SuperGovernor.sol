@@ -115,6 +115,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
+    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -141,12 +142,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address governor,
         address bankManager,
         address gasManager,
+        address unpauser,
         address treasury_,
         address prover_
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
                 || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
+                || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -155,6 +158,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
+        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -163,6 +167,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
         _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
@@ -869,6 +874,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function GUARDIAN_ROLE() external pure returns (bytes32) {
         return _GUARDIAN_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function UNPAUSER_ROLE() external pure returns (bytes32) {
+        return _UNPAUSER_ROLE;
     }
 
     /// @inheritdoc ISuperGovernor
