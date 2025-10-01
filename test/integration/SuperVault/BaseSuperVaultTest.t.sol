@@ -22,6 +22,10 @@ import { IInvestmentManager } from "@superform-v2-core/test/mocks/centrifuge/IIn
 import { IPoolManager } from "@superform-v2-core/test/mocks/centrifuge/IPoolManager.sol";
 import { IERC7540 } from "@superform-v2-core/src/vendor/vaults/7540/IERC7540.sol";
 
+// vault mocks
+import { MockGainsVault } from "../../mocks/MockGainsVault.sol";
+import { MockLossVault } from "../../mocks/MockLossVault.sol";
+
 // superform
 import { IYieldSourceOracle } from "@superform-v2-core/src/interfaces/accounting/IYieldSourceOracle.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
@@ -90,6 +94,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     IERC20Metadata public asset;
     IERC4626 public fluidVault;
     IERC4626 public aaveVault;
+    IERC4626 public gainVault;
+    IERC4626 public lossVault;
 
     // Constants
     uint256 constant LARGE_DEPOSIT = 100_000e6; // 100k USDC
@@ -190,6 +196,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         // Get real yield sources from fork
         fluidVault = IERC4626(fluidVaultAddr);
         aaveVault = IERC4626(aaveVaultAddr);
+        gainVault = IERC4626(address(new MockGainsVault(address(asset), "MockGainsVault", "GainsVault")));
+        lossVault = IERC4626(address(new MockLossVault(address(asset), "MockLossVault", "LossVault")));
 
         vault = SuperVault(vaultAddr);
         strategy = SuperVaultStrategy(payable(strategyAddr));
@@ -414,6 +422,33 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         poolManager = IPoolManager(0x91808B5E2F6d7483D41A681034D7c9DbB64B9E29);
         assetId = poolManager.assetToId(address(asset));
         assertEq(assetId, uint128(242_333_941_209_166_991_950_178_742_833_476_896_417));
+    }
+
+    /**
+     * @notice Sets up the SuperVault with another 4626 vault as underlying yield source
+     */
+    function _setUpSuperVault_With_4626Vault_Underlying(address vault) internal {
+        // Set the vault to use the mock loss vault as underlying yield source
+        vm.startPrank(MANAGER);
+        strategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            2 // removeYieldSource
+        );
+
+        strategy.manageYieldSource(
+            address(vault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // addYieldSource
+        );
+        vm.stopPrank();
+
+        ISuperVaultStrategy.YieldSourceInfo[] memory yieldSourcesList =
+            ISuperVaultStrategy(strategy).getYieldSourcesList();
+
+        assertEq(yieldSourcesList.length, 2);
+        assertEq(yieldSourcesList[0].sourceAddress, address(aaveVault));
+        assertEq(yieldSourcesList[1].sourceAddress, address(vault));
     }
 
     /**
