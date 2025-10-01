@@ -755,7 +755,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         returns (uint256 costBasis)
     {
         // Calculate cost basis proportionally
-        costBasis = requestedShares.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+        costBasis = Math.mulDiv(requestedShares, state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
 
         // Update user's accumulator state
         state.accumulatorShares -= requestedShares;
@@ -803,9 +803,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     {
         netControllerAssets = grossAssets;
         uint256 profit = grossAssets - historicalAssets;
+
         uint256 performanceFeeBps = feeConfig.performanceFeeBps;
         uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-        
         if (totalFee > 0) {
             // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
             uint256 superformFee = Math.mulDiv(
@@ -815,6 +815,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 Math.Rounding.Floor
             );
             uint256 recipientFee = totalFee - superformFee;
+
             // Transfer fees
             if (superformFee > 0) {
                 // Get treasury address from SuperGovernor
