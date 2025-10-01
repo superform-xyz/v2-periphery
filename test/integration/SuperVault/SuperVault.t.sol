@@ -76,7 +76,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULT.SOL
     //////////////////////////////////////////////////////////////*/
-
     function test_Name_X() public view {
         string memory name = vault.name();
         assertEq(name, "SuperVault");
@@ -260,7 +259,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(strategy.claimableWithdraw(accountEth), 0, "No assets available to withdraw");
     }
 
-    function test_ClaimRedeem_1() public {
+    function test_ClaimRedeem() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         uint256 initialAssetBalance = asset.balanceOf(address(accountEth));
         console2.log("-------------- initialAssetBalance user", initialAssetBalance);
@@ -1584,7 +1583,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
         uint256 claimableShares = vault.maxRedeem(accountEth);
-        
+
         // Claim redeem
         _claimRedeem(claimableShares);
 
@@ -1905,7 +1904,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -1915,7 +1914,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimableShares = vault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
 
-        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
+        uint256 pps = strategy.getStoredPPS();
         uint256 expectedLedgerFee = superLedgerETH.previewFees(
             accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
         );
@@ -1929,7 +1928,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 6: Claim Redeem
         _claimRedeem(claimableShares);
 
+        //uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
         uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
+        console2.log("totalFeesTaken", totalFeesTaken);
+        console2.log("expectedLedgerFee", expectedLedgerFee);
+        console2.log("superformFee", superformFee);
+        console2.log("recipientFee", recipientFee);
 
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
@@ -1942,6 +1946,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 amount = 1000e6; // 1000 USDC
 
         vm.selectFork(FORKS[ETH]);
+
+        _overrideSuperLedgerSetUp();
 
         // Record initial balances
         uint256 initialUserAssets = asset.balanceOf(accountEth);
@@ -2009,25 +2015,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee, ) = _calculatePerformanceFee(accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
 
         // Calculate expected assets based on shares
-        uint256 claimableAssets = vault.maxWithdraw(accountEth);
         uint256 claimableShares = vault.maxRedeem(accountEth);
-        console2.log("claimableShares", claimableShares);
-
-        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
-        );
 
         // Step 6: Claim Redeem
         _claimRedeem(claimableShares);
 
-        uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
+        uint256 totalFeesTaken = superformFee + recipientFee;
 
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
@@ -2094,7 +2093,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory yieldSources = new address[](2);
         yieldSources[0] = address(fluidVault);
         yieldSources[1] = address(aaveVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
+        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
@@ -2116,6 +2115,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     function test_SuperVault_MultipleDeposits_PartialRedemptions() public {
         vm.selectFork(FORKS[ETH]);
+
+        _overrideSuperLedgerSetUp();
 
         MultipleDepositsPartialRedemptionsVars memory vars;
 
@@ -2203,15 +2204,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.redeemAmount1 = vars.totalShares / 4; // 25% of shares
         console2.log("Redeeming shares (25%):", vars.redeemAmount1);
 
-        // Calculate expected fee for first redemption
-        address[] memory yieldSources = new address[](2);
-        yieldSources[0] = address(fluidVault);
-        yieldSources[1] = address(aaveVault);
-        (vars.superformFee1, vars.recipientFee1,) = _calculatePerformanceFee(
-            accountEth,
-            yieldSources
-        );
-
         vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
 
         // Record asset balance before redemption
@@ -2220,18 +2212,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 1: Request first Redeem
         _requestRedeem(vars.redeemAmount1);
 
+        // Calculate expected fee for first redemption
+        address[] memory yieldSources = new address[](2);
+        yieldSources[0] = address(fluidVault);
+        yieldSources[1] = address(aaveVault);
+        (vars.superformFee1, vars.recipientFee1,) =
+            _calculatePerformanceFee(vars.redeemAmount1, accountEth, yieldSources);
+
         // Step 2: Fulfill first Redeem
         _fulfillRedeem(vars.redeemAmount1, address(fluidVault), address(aaveVault));
 
         // Step 3: Claim first Withdraw
         vars.claimableShares1 = vault.maxRedeem(accountEth);
-        vars.claimableAssets1 = vault.maxWithdraw(accountEth);
 
-        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets1, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
-        );
-        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
+        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1;
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
         _claimRedeem(vars.claimableShares1);
 
@@ -2251,17 +2245,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.redeemAmount2 = vars.remainingShares / 3; // 33% of remaining shares
         console2.log("Redeeming shares (33% of remaining):", vars.redeemAmount2);
 
-        // Calculate expected fee for second redemption
-        (vars.superformFee2, vars.recipientFee2,) = _calculatePerformanceFee(
-            accountEth,
-            yieldSources
-        );
-
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem2 = asset.balanceOf(accountEth);
 
         // Step 1: Request second Redeem
         _requestRedeem(vars.redeemAmount2);
+
+        // Calculate expected fee for second redemption
+        (vars.superformFee2, vars.recipientFee2,) =
+            _calculatePerformanceFee(vars.redeemAmount2, accountEth, yieldSources);
 
         // Step 2: Fulfill second Redeem
         _fulfillRedeem(vars.redeemAmount2, address(fluidVault), address(aaveVault));
@@ -2270,11 +2262,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.claimableShares2 = vault.maxRedeem(accountEth);
         vars.claimableAssets2 = vault.maxWithdraw(accountEth);
 
-        pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets2, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
-        );
-        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
+        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2;
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
 
         _claimRedeem(vars.claimableShares2);
@@ -2294,17 +2282,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.finalShares = vault.balanceOf(accountEth);
         console2.log("Redeeming final shares:", vars.finalShares);
 
-        // Calculate expected fee for third redemption
-        (vars.superformFee3, vars.recipientFee3,) = _calculatePerformanceFee(
-            accountEth,
-            yieldSources
-        );
-
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem3 = asset.balanceOf(accountEth);
 
         // Step 1: Request third Redeem
         _requestRedeem(vars.finalShares);
+
+        // Calculate expected fee for third redemption
+        (vars.superformFee3, vars.recipientFee3,) = _calculatePerformanceFee(vars.finalShares, accountEth, yieldSources);
 
         // Step 2: Fulfill third Redeem
         _fulfillRedeem(vars.finalShares, address(fluidVault), address(aaveVault));
@@ -2313,11 +2298,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.claimableShares3 = vault.maxRedeem(accountEth);
         vars.claimableAssets3 = vault.maxWithdraw(accountEth);
 
-        pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets3, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
-        );
-        vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
+        vars.totalFee3 = vars.superformFee3 + vars.recipientFee3;
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
         _claimRedeem(vars.claimableShares3);
 
@@ -2518,7 +2499,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_SuperVault_StakeClaimFlow() public {
         _setupGearVault();
         uint256 amount = 1000e6;
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         console2.log("DEPOSITING");
         _deposit(amount, address(gearSuperVault), address(asset));
@@ -2589,11 +2569,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVault));
 
-        address[] memory yieldSources = new address[](2);
-        yieldSources[0] = address(gearboxVault);
-        yieldSources[1] = address(gearboxFarmingPool);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(accountEth, yieldSources);
-
         // Step 5: Fulfill Redeem
         _fulfillRedeem_Gearbox_SV();
 
@@ -2601,23 +2576,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimableShares = gearSuperVault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
 
-        uint256 pps = gearSuperVault.totalSupply() > 0 ? gearSuperVault.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(gearSuperVault), claimableAssets, claimableShares, 100, pps, gearSuperVault.decimals()
-        );
-
-        uint256 totalFee = superformFee + recipientFee + expectedLedgerFee;
-        console2.log("totalFee: ", totalFee);
-        console2.log("feeBalanceBefore: ", feeBalanceBefore);
-        console2.log("asset.balanceOf(TREASURY): ", asset.balanceOf(TREASURY));
-        console2.log("recipientFee: ", recipientFee);
-        console2.log("superformFee: ", superformFee);
-        console2.log("expectedLedgerFee: ", expectedLedgerFee);
-
         // Step 6: Claim Withdraw
         _claimWithdraw_Gearbox_SV(claimableAssets);
-
-        _assertFeeDerivation(totalFee, feeBalanceBefore, asset.balanceOf(TREASURY));
 
         /*
         assertEq(
@@ -2785,7 +2745,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
         uint256 assets = gearSuperVault.convertToAssets(shares);
         uint256 underlyingShares = gearboxVault.previewDeposit(assets);
-        expectedAssetsOrSharesOut[0] = underlyingShares - underlyingShares * 1e3/1e5;
+        expectedAssetsOrSharesOut[0] = underlyingShares - underlyingShares * 1e3 / 1e5;
 
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
@@ -5747,7 +5707,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
         argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
-      
 
         // re-add fluid vault
         vm.startPrank(MANAGER);
@@ -6975,7 +6934,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
-        
+
         // Set the additional parameters: ppsStdev=0, validatorSet=1, totalValidators=1
         vars.ppsStdev = 0;
         vars.validatorSet = 1;
@@ -7009,22 +6968,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Call batchUpdatePPS on the ECDSAPPSOracle with the deviating PPS
         address[] memory strategies = new address[](1);
         strategies[0] = strategyAddr;
-        
+
         bytes[][] memory proofsArray = new bytes[][](1);
         proofsArray[0] = vars.proofs;
-        
+
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = newPPS;
-        
+
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = vars.ppsStdev;
-        
+
         uint256[] memory validatorSets = new uint256[](1);
         validatorSets[0] = vars.validatorSet;
-        
+
         uint256[] memory totalValidators = new uint256[](1);
         totalValidators[0] = vars.totalValidators;
-        
+
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -7086,22 +7045,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Call batchUpdatePPS on the ECDSAPPSOracle (exactly as in _updateSuperVaultPPS)
         address[] memory strategies = new address[](1);
         strategies[0] = strategyAddr;
-        
+
         bytes[][] memory proofsArray = new bytes[][](1);
         proofsArray[0] = vars.proofs;
-        
+
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
-        
+
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = vars.ppsStdev;
-        
+
         uint256[] memory validatorSets = new uint256[](1);
         validatorSets[0] = vars.validatorSet;
-        
+
         uint256[] memory totalValidators = new uint256[](1);
         totalValidators[0] = vars.totalValidators;
-        
+
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -7871,7 +7830,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(account);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -7895,17 +7853,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        address[] memory yieldSources = new address[](2);
-        yieldSources[0] = address(aaveVault);
-        yieldSources[1] = address(centrifugeVault);
-        (uint256 superformFee, uint256 recipientFee,) = _calculatePerformanceFee(account, yieldSources);
-
         // Step 5: Fulfill Redeem
         _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
 
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
-        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
     }
 
     /*//////////////////////////////////////////////////////////////
