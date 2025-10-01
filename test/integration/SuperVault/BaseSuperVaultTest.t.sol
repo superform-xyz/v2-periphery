@@ -2519,11 +2519,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
             controllerRequestedAmount, netAssetsToBeWithdrawn, controllerRequestedAmount, Math.Rounding.Floor
         );
 
-        // Cap against avg PPS
-        uint256 controllerAssetsAtAvgPPS =
-            Math.mulDiv(controllerRequestedAmount, state.averageRequestPPS, vault.PRECISION(), Math.Rounding.Floor);
-        if (grossControllerAssets > controllerAssetsAtAvgPPS) {
-            grossControllerAssets = controllerAssetsAtAvgPPS;
+        // Cap against PPS
+        uint256 controllerAssetsAtPPS =
+            Math.mulDiv(controllerRequestedAmount, strategy.getStoredPPS(), vault.PRECISION(), Math.Rounding.Floor);
+        if (grossControllerAssets > controllerAssetsAtPPS) {
+            grossControllerAssets = controllerAssetsAtPPS;
         }
 
         (expectedControllerAssets, superformFee, recipientFee) = _deriveFeesFromAssets(grossControllerAssets, historicalAssets);

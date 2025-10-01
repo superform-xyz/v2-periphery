@@ -723,11 +723,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 grossControllerAssets =
             Math.mulDiv(requestedShares, assetsWithdrawn, processedShares, Math.Rounding.Floor);
 
-        // Cap against avg PPS
-        uint256 controllerAssetsAtAvgPPS =
-            Math.mulDiv(requestedShares, state.averageRequestPPS, PRECISION, Math.Rounding.Floor);
-        if (grossControllerAssets > controllerAssetsAtAvgPPS) {
-            grossControllerAssets = controllerAssetsAtAvgPPS;
+        // Cap against PPS
+        uint256 controllerAssetsAtPPS =
+            Math.mulDiv(requestedShares, getStoredPPS(), PRECISION, Math.Rounding.Floor);
+        if (grossControllerAssets > controllerAssetsAtPPS) {
+            grossControllerAssets = controllerAssetsAtPPS;
         }
 
         // Process fees and get final assets
