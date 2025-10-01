@@ -45,6 +45,7 @@ import { MockFeedWithRealData } from "../../mocks/MockFeedWithRealData.sol";
 import { MockERC20 } from "../../mocks/MockERC20.sol";
 import { ISuperLedgerConfiguration } from "@superform-v2-core/src/interfaces/accounting/ISuperLedgerConfiguration.sol";
 import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC4626YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC4626YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 
 contract BaseSuperVaultTest is MerkleReader, BaseTest {
@@ -61,6 +62,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     // Config contracts
     ISuperLedger public superLedgerETH;
     ERC7540YieldSourceOracle public oracle;
+    ERC4626YieldSourceOracle public oracle4626;
     ISuperLedgerConfiguration public configSuperLedger;
 
     // Core contracts
@@ -171,6 +173,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         // Set up SuperLedger
         superLedgerETH = ISuperLedger(_getContract(ETH, SUPER_LEDGER_KEY));
         oracle = ERC7540YieldSourceOracle(_getContract(ETH, ERC7540_YIELD_SOURCE_ORACLE_KEY));
+        oracle4626 = ERC4626YieldSourceOracle(_getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY));
 
         // Get ECDSA Oracle
         ecdsappsOracle = IECDSAPPSOracle(_getContract(ETH, ECDSAPPS_ORACLE_KEY));
@@ -2141,12 +2144,12 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         if (currentAssets > historicalAssets) {
             uint256 profit = currentAssets - historicalAssets;
             uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            uint256 totalFee = profit.mulDiv(performanceFeeBps, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
             if (totalFee > 0) {
                 uint256 superVaultFeePercent = superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE);
                 // Calculate Superform's portion of the fee
-                superformFee = totalFee.mulDiv(superVaultFeePercent, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
+                superformFee = totalFee.mulDiv(superVaultFeePercent, BPS_PRECISION, Math.Rounding.Floor);
                 recipientFee = totalFee - superformFee;
             }
         }
@@ -2483,11 +2486,13 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
     /// @notice Calculate performance fee for one controller
     /// @param controller Controller address
+    /// @param redeemShares Redeem shares
     /// @param yieldSources Yield sources
     /// @return superformFee Superform fee
     /// @return recipientFee Recipient fee
     /// @return expectedControllerAssets Expected controller assets
     function _calculatePerformanceFee(
+        uint256 redeemShares,
         address controller,
         address[] memory yieldSources
     )
@@ -2501,10 +2506,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 netAssetsToBeWithdrawn;
         for (uint256 i; i < yieldSources.length; ++i) {
             address yieldSource = yieldSources[i];
-            uint256 assets = vault.convertToAssets(controllerRequestedAmount);
+            uint256 assets = vault.convertToAssets(redeemShares);
             uint256 underlyingShares =
-                IYieldSourceOracle(yieldSource).getShareOutput(yieldSource, vault.asset(), assets);
-            uint256 expectedAssets = IERC4626(yieldSource).convertToAssets(underlyingShares);
+                IYieldSourceOracle(oracle4626).getShareOutput(yieldSource, vault.asset(), assets);
+            uint256 expectedAssets = IERC4626(yieldSource).previewRedeem(underlyingShares);
             netAssetsToBeWithdrawn += expectedAssets;
         }
 
@@ -2513,6 +2518,13 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 grossControllerAssets = Math.mulDiv(
             controllerRequestedAmount, netAssetsToBeWithdrawn, controllerRequestedAmount, Math.Rounding.Floor
         );
+
+        // Cap against avg PPS
+        uint256 controllerAssetsAtAvgPPS =
+            Math.mulDiv(controllerRequestedAmount, state.averageRequestPPS, vault.PRECISION(), Math.Rounding.Floor);
+        if (grossControllerAssets > controllerAssetsAtAvgPPS) {
+            grossControllerAssets = controllerAssetsAtAvgPPS;
+        }
 
         (expectedControllerAssets, superformFee, recipientFee) = _deriveFeesFromAssets(grossControllerAssets, historicalAssets);
     }
