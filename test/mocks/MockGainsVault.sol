@@ -7,7 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
-contract MockLossVault is ERC4626 {
+contract MockGainsVault is ERC4626 {
     address public _asset;
     IERC20 private immutable assetInstance;
 
@@ -62,7 +62,7 @@ contract MockLossVault is ERC4626 {
     }
 
     function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
-        assets = Math.mulDiv(shares, 4000, 10_000, Math.Rounding.Floor);
+        assets = shares * 4000;
 
         IERC20(_asset).transfer(receiver, assets);
         _burn(owner, shares);
