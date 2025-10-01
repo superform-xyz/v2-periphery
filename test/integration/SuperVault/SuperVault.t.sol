@@ -1074,11 +1074,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         deal(address(asset), address(this), testAssets);
         asset.approve(address(vault), testAssets);
 
-        // Deposit should revert with INVALID_PPS when PPS is 0
-        vm.expectRevert(ISuperVault.INVALID_PPS.selector);
+        // Deposit should revert with STRATEGY_PAUSED when PPS is 0
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         vault.deposit(testAssets, address(this));
 
-        // Mint should revert with INVALID_PPS when PPS is 0
+        // Mint should revert with STRATEGY_PAUSED when PPS is 0
         vm.expectRevert(ISuperVault.INVALID_PPS.selector);
         vault.mint(testShares, address(this));
     }
@@ -2950,7 +2950,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
                     performanceFeeBps: params.performanceFeeBps,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
     }
@@ -2975,7 +2976,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
                     performanceFeeBps: params.performanceFeeBps,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
     }
