@@ -29,13 +29,6 @@ interface ISuperGovernor is IAccessControl {
         uint256 effectiveTime; // Timestamp when the proposed root becomes effective
     }
 
-    struct GasInfo {
-        // `batchForwardPPS` base gas
-        uint256 baseGasBatch;
-        // `batchForwardPPS` gas increase per entry
-        uint256 gasIncreasePerEntryBatch;
-    }
-
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -290,9 +283,8 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    event GasInfoSet(address indexed oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch);
+    event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch);
 
     /*//////////////////////////////////////////////////////////////
                        CONTRACT REGISTRY FUNCTIONS
@@ -494,9 +486,8 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets gas info for an oracle
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external;
+    function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external;
 
     /// @notice Proposes a change to upkeep payments enabled status
     /// @param enabled The proposed enabled status
@@ -598,6 +589,9 @@ interface ISuperGovernor is IAccessControl {
     /// @notice The identifier of the role that grants access to oracle management functions
     function ORACLE_MANAGER_ROLE() external view returns (bytes32);
 
+    /// @notice The identifier of the role that grants access to unpauser functions
+    function UNPAUSER_ROLE() external view returns (bytes32);
+
     /// @notice The identifier of the role that grants access to guardian functions
     function GUARDIAN_ROLE() external view returns (bytes32);
 
@@ -691,11 +685,8 @@ interface ISuperGovernor is IAccessControl {
     /// @return The current fee value (in basis points)
     function getFee(FeeType feeType) external view returns (uint256);
 
-    /// @notice Gets the current upkeep cost per batch update for PPS updates
-    /// @param oracle The address of the PPS oracle
-    /// @param chargeableEntries The number of chargeable entries
-    /// @return The current upkeep cost per batch update in UP tokens
-    function getUpkeepCostPerBatchUpdate(address oracle, uint256 chargeableEntries) external view returns (uint256);
+    /// @notice Gets the current upkeep cost for an entry
+    function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256);
 
     /// @notice Gets the proposed upkeep cost per update and its effective time
     /// @notice Gets the current minimum staleness value
@@ -833,5 +824,5 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the gas info for a specific SuperVault PPS Oracle
     /// @param oracle_ The address of the oracle to get gas info for
     /// @return The gas info for the specified oracle
-    function getGasInfo(address oracle_) external view returns (GasInfo memory);
+    function getGasInfo(address oracle_) external view returns (uint256);
 }
