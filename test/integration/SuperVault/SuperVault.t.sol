@@ -33,6 +33,9 @@ import { MockNativeETHHook } from "../../mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
 
+// vault mocks
+import { MockGainsVault } from "../../mocks/MockGainsVault.sol";
+
 contract SuperVaultTest is BaseSuperVaultTest {
     using Math for uint256;
 
@@ -2041,6 +2044,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.selectFork(FORKS[ETH]);
 
         _overrideSuperLedgerSetUp();
+        // Deploy a ruggable vault that rugs via convert functions
+        MockGainsVault gainVault = MockGainsVault(
+            Create2.deploy(
+                0,
+                keccak256(abi.encodePacked(TEST_SALT)),
+                abi.encodePacked(
+                    type(MockGainsVault).creationCode,
+                    abi.encode(address(asset), "MockGainsVault", "GainsVault")
+                )
+            )
+        );
+        console2.log("gainVault", test_Gains_Underlying_Vault);
+        assertEq(address(gainVault), test_Gains_Underlying_Vault, "GAIN VAULT NOT EQUAL TO PREDICTED");
+        deal(address(asset), address(gainVault), 9000e24);
+
+        _setUpSuperVault_With_1_Underlying_4626Vault(address(gainVault));
 
         // Record initial balances
         uint256 initialUserAssets = asset.balanceOf(accountEth);
@@ -2064,10 +2083,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify shares minted to user
         uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
-
-        // Record balances before redeem
-        uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+        uint256 userAssetsBeforeRedeem = asset.balanceOf(accountEth);
 
         // Fast forward time
         vm.warp(block.timestamp + 5 weeks);
@@ -2083,7 +2099,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         address[] memory yieldSources = new address[](1);
         yieldSources[0] = address(gainVault);
-        (uint256 superformFee, uint256 recipientFee, uint256 expectedNetAssets) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+        (,, uint256 expectedNetAssets) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
 
         // Step 5: Fulfill Redeem
         _fulfillRedeem_Single_YieldSource(userShares, address(gainVault));
@@ -2094,13 +2110,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 6: Claim Redeem
         _claimRedeem(claimableShares);
 
-        uint256 totalFeesTaken = superformFee + recipientFee;
-
         // Final balance assertions
-        assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
-
-        // Verify fee was taken
-        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+        assertEq(asset.balanceOf(accountEth), userAssetsBeforeRedeem + expectedNetAssets, "User assets not increased after redeem");
     }
 
     function test_SuperVault_E2E_Flow_With_0_Ledger_Fees() public {

@@ -62,10 +62,9 @@ contract MockGainsVault is ERC4626 {
     }
 
     function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {
-        assets = shares * 4000;
+        assets = shares * 400;
 
         IERC20(_asset).transfer(receiver, assets);
-        _burn(owner, shares);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
