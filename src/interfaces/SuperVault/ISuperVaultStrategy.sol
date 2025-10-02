@@ -29,6 +29,7 @@ interface ISuperVaultStrategy {
     error ZERO_EXPECTED_VALUE();
     error INVALID_ARRAY_LENGTH();
     error ACTION_TYPE_DISALLOWED();
+    error ALREADY_PROPOSED();
     error YIELD_SOURCE_NOT_FOUND();
     error INVALID_EMERGENCY_ADMIN();
     error INVALID_PERIPHERY_REGISTRY();

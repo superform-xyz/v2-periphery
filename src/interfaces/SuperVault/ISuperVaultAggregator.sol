@@ -83,6 +83,7 @@ interface ISuperVaultAggregator {
         uint256 mnThreshold; // Threshold for validatorSet / totalValidators ratio, scaled by 1e18
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
+        uint256 maxUnpauseTimeLock;
     }
 
     /// @notice Parameters for creating a new SuperVault trio
@@ -102,6 +103,7 @@ interface ISuperVaultAggregator {
         uint256 minUpdateInterval;
         uint256 maxStaleness;
         ISuperVaultStrategy.FeeConfig feeConfig;
+        uint256 maxUnpauseTimeLock;
     }
 
     /// @notice Struct to hold cached hook validation state variables to avoid stack too deep
@@ -362,6 +364,12 @@ interface ISuperVaultAggregator {
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
 
+    /// @notice Emitted when payment is skipped for a paused strategy
+    event PaymentSkippedForPausedStrategy(address indexed strategy);
+
+    /// @notice Emitted when the strategy's PPS unpause timelock is updated
+    event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -391,6 +399,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_UPKEEP_BALANCE();
     /// @notice Thrown when withdrawing more stake than available
     error INSUFFICIENT_STAKE_BALANCE();
+    /// @notice Thrown when trying to unpause a strategy that is not paused
+    error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when caller is already authorized
     error CALLER_ALREADY_AUTHORIZED();
     /// @notice Thrown when caller is not authorized
@@ -437,6 +447,8 @@ interface ISuperVaultAggregator {
     error MAX_STRATEGIES_EXCEEDED();
     /// @notice Thrown when provided timestamp is too large
     error TIMESTAMP_EXCEEDS_BLOCK();
+    /// @notice Thrown when PPS is too stale to unpause a strategy
+    error UNPAUSE_TIMELOCK_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -806,4 +818,9 @@ interface ISuperVaultAggregator {
         external
         view
         returns (bytes32 root, uint256 effectiveTime);
+
+    /// @notice Updates the strategy's PPS unpause timelock
+    /// @param strategy Address of the strategy
+    /// @param timelock The new timelock value
+    function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
 }

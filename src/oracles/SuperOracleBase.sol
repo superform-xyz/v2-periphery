@@ -348,8 +348,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
             // Calculate quote amount with proper decimal scaling
-            quoteAmount = Math.mulDiv(baseAmount, uint256(answer), 10 ** feedDecimals);
-            quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
+            quoteAmount = Math.mulDiv(
+                baseAmount,
+                uint256(answer) * 10 ** quoteDecimals,
+                10 ** (feedDecimals + baseDecimals)
+            );
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
             if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();

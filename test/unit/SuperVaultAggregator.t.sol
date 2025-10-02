@@ -63,7 +63,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -83,7 +83,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
         strategy = strategyAddress;
@@ -545,7 +546,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -589,7 +591,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -670,7 +673,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -710,7 +714,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Wait for minimum interval to pass
         vm.warp(block.timestamp + 10);
 
-        // Batch update should revert due to non-monotonic timestamp in strategy2
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultAggregator.TimestampNotMonotonic();
         superVaultAggregator.forwardPPS(
@@ -747,7 +750,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -828,7 +832,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     symbol: string(abi.encodePacked("TV", vm.toString(i + 1))),
                     minUpdateInterval: 5,
                     maxStaleness: 300,
-                    feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                    feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
                 })
             );
             allStrategies[i] = newStrategy;
@@ -962,7 +967,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -1621,7 +1627,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -1903,7 +1910,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 }),
+                maxUnpauseTimeLock: 0
             })
         );
         
@@ -2088,7 +2096,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
         vm.stopPrank();
         
-        vars.totalUpkeepCost = 1e18; // 1 token total cost
+        vars.totalUpkeepCost = 2e18; // 1 token total cost per entry (2 etnries)
 
         // Create additional strategies for comprehensive testing
         vm.prank(manager);
@@ -2101,7 +2109,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -2115,7 +2124,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV3",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -2129,7 +2139,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV4",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -2343,7 +2354,228 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             timestamps[0],
             "Timestamp not updated correctly"
         );
+        
+        // Check if strategy is paused at the end
+        bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should not be paused after successful update");
+        
+        // Test manual pause/unpause functionality
+        // First, let's pause the strategy by triggering a validation failure
+        vm.warp(block.timestamp + 100); // Move time forward
+        
+        // Set a very low dispersion threshold to trigger pause
+        address mainManager = superVaultAggregator.getMainManager(strategy);
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+        
+        // Create an update with high dispersion to trigger pause
+        timestamps[0] = block.timestamp; // Current timestamp (valid)
+        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        // Verify strategy is now paused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should be paused after invalid update");
+        
+        // Now unpause the strategy by pranking as the main manager
+        vm.prank(mainManager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        
+        // Verify strategy is unpaused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
+
+        
     }
+
+
+    function test_ForwardPPS_Pause_Unpause_PPS_Update() public {
+        // Set up as PPS Oracle
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Wait for minimum interval to pass
+        vm.warp(block.timestamp + 10);
+
+        // Prepare arrays with size 1
+        address[] memory strategies = new address[](1);
+        uint256[] memory ppss = new uint256[](1);
+        uint256[] memory ppsStdevs = new uint256[](1);
+        uint256[] memory validatorSets = new uint256[](1);
+        uint256[] memory totalValidatorsArray = new uint256[](1);
+        uint256[] memory timestamps = new uint256[](1);
+
+        strategies[0] = strategy;
+        ppss[0] = 1e18 + 1e15;
+        ppsStdevs[0] = 0;
+        validatorSets[0] = 1;
+        totalValidatorsArray[0] = 1;
+        timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
+
+        // Advance time to ensure update is valid
+        vm.warp(block.timestamp + 25);
+        
+        // Set a very low dispersion threshold to trigger pause
+        address mainManager = superVaultAggregator.getMainManager(strategy);
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+        
+        // Create an update with high dispersion to trigger pause
+        timestamps[0] = block.timestamp; // Current timestamp (valid)
+        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+        
+        // Verify strategy is now paused
+        bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should be paused after invalid update");
+        
+        // let's do a valid update now
+
+        vm.prank(mainManager);
+        superVaultAggregator.updatePPSVerificationThresholds(
+            strategy,
+            1e18, // Very low dispersion threshold (0.000000000000000001%)
+            type(uint256).max, // Keep deviation threshold at max (disabled)
+            0 // Keep M/N threshold at 0 (disabled)
+        );
+
+        ppss[0] = 1e18 + 1e15;
+        ppsStdevs[0] = 0;
+        validatorSets[0] = 1;
+        totalValidatorsArray[0] = 1;
+        timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
+
+        // Advance time to ensure update is valid
+        vm.warp(block.timestamp + 25);
+
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidators: totalValidatorsArray,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertTrue(isPaused, "Strategy should still be paused");
+
+        vm.prank(mainManager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        
+        // Verify strategy is unpaused
+        isPaused = superVaultAggregator.isStrategyPaused(strategy);
+        assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
+
+        uint256 pps = superVaultAggregator.getPPS(strategy);
+        assertEq(pps, 1e18 + 1e15, "PPS should be updated after successful update");
+    }
+
+    // =============================================================
+    //                    UPDATE UNPAUSE PPS TIMELOCK TESTS
+    // =============================================================
+
+    /// @notice Tests successful update of unpause PPS timelock by main manager
+    function test_UpdateUnpausePPSTimelock_Success() public {
+        uint256 newTimelock = 2 days;
+        
+        vm.prank(manager);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
+        
+
+        // does not revert
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+    }
+
+    /// @notice Tests updating unpause PPS timelock to zero (immediate unpause allowed)
+    function test_UpdateUnpausePPSTimelock_ZeroTimelock() public {
+        uint256 newTimelock = 0;
+        
+        vm.prank(manager);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
+        
+        // does not revert
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+    }
+
+    /// @notice Tests updating unpause PPS timelock to maximum value
+    function test_UpdateUnpausePPSTimelock_MaxTimelock() public {
+        uint256 newTimelock = type(uint256).max;
+        
+        vm.prank(manager);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
+        
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+    }
+
+    /// @notice Tests that only main manager can update unpause PPS timelock
+    function test_UpdateUnpausePPSTimelock_Revert_UnauthorizedCaller() public {
+        uint256 newTimelock = 2 days;
+        
+        // Test secondary manager cannot update
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+        
+        // Test random user cannot update
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+        
+        // Test governor cannot update (only main manager allowed)
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
+    }
+
+    /// @notice Tests updating unpause PPS timelock for unknown strategy reverts
+    function test_UpdateUnpausePPSTimelock_Revert_UnknownStrategy() public {
+        address unknownStrategy = _deployAccount(0x99, "UnknownStrategy");
+        uint256 newTimelock = 2 days;
+        
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        superVaultAggregator.updateUnpausePPSTimelock(unknownStrategy, newTimelock);
+    }
+
 }
 
 struct BatchForwardPPSTestVars {

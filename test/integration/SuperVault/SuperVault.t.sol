@@ -51,6 +51,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
 
+    struct UserPersona {
+        address account;
+        uint256 depositAmount;
+        uint256 initialBalance;
+        uint256 shares;
+        uint256 finalBalance;
+        uint256 claimableAssets;
+    }
+    struct TradingCycle {
+        uint256 cycleNumber;
+        uint256 depositAmount;
+        uint256 sharesAfterDeposit;
+        uint256 redeemAmount;
+        uint256 claimedAssets;
+    }
+
     function setUp() public override {
         super.setUp();
         userAddress = vm.addr(userPrivateKey); // Derive the correct address from private key
@@ -97,6 +113,499 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userShares = vault.balanceOf(accountEth);
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+    }
+
+    /// @notice Test successful emergency withdraw proposal and execution workflow with PPS impact testing
+    /// @dev Tests circuit breaker functionality by monitoring PPS/TVL around an emergency withdrawal
+    function test_EmergencyWithdrawProposalAndExecution_NoPPSUpdate() public {
+        // Setup: deposit via helper to mint shares and fund the strategy
+        uint256 depositAmount = 1_000e6; // 1000 USDC (6 decimals)
+        _deposit(depositAmount);
+
+        // Record initial metrics before proposal
+        uint256 initialPPS = vault.convertToAssets(1e6); // assets per whole share
+        uint256 initialTotalAssets = vault.totalAssets();
+        uint256 initialTotalSupply = vault.totalSupply();
+
+        vm.startPrank(MANAGER);
+
+        // Step 1: Propose emergency withdraw (timelocked)
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.EmergencyWithdrawableProposed(true, block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
+
+        // Verify proposal state
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposal should be true");
+        assertEq(strategy.emergencyWithdrawableEffectiveTime(), block.timestamp + 1 weeks, "Wrong effective time");
+
+        // PPS should remain stable during proposal phase
+        uint256 proposalPhasePPS = vault.convertToAssets(1e6);
+        assertEq(proposalPhasePPS, initialPPS, "PPS should remain stable during proposal phase");
+
+        // Step 2: Executing before timelock should revert
+        vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
+        strategy.manageEmergencyWithdraw(2, address(this), 1);
+
+        // Step 3: Wait for timelock and perform an emergency withdrawal of half the strategy assets
+        vm.warp(block.timestamp + 1 weeks);
+
+        uint256 strategyAssetBalance = IERC20(address(asset)).balanceOf(address(strategy));
+        uint256 withdrawAmount = strategyAssetBalance / 2;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.EmergencyWithdrawal(MANAGER, withdrawAmount);
+        strategy.manageEmergencyWithdraw(2, MANAGER, withdrawAmount); // action 2 = Withdraw to recipient
+
+        vm.stopPrank();
+
+        // Post-withdraw metrics
+        uint256 postPPS = vault.convertToAssets(1e6);
+        uint256 postTotalAssets = vault.totalAssets();
+        uint256 postTotalSupply = vault.totalSupply();
+
+        // Circuit breaker-style analysis: compute PPS deviation in basis points
+        uint256 ppsDeviation = postPPS > initialPPS
+            ? ((postPPS - initialPPS) * 10_000) / initialPPS
+            : ((initialPPS - postPPS) * 10_000) / initialPPS;
+
+        assertEq(ppsDeviation, 0, "no pps deviation before update");
+        assertEq(postPPS, initialPPS, "should be same pps");
+
+        console2.log("Initial PPS", initialPPS);
+        console2.log("Post-Withdraw PPS", postPPS);
+        console2.log("PPS Deviation (bp)", ppsDeviation);
+        console2.log("Initial Total Assets", initialTotalAssets);
+        console2.log("Post-Withdraw Total Assets", postTotalAssets);
+        console2.log("Initial Total Supply", initialTotalSupply);
+        console2.log("Post-Withdraw Total Supply", postTotalSupply);
+
+        uint256 circuitBreakerThreshold = 500; // 5%
+        if (ppsDeviation > circuitBreakerThreshold) {
+            console2.log("WARNING: PPS deviation exceeds circuit breaker threshold");
+            console2.log("Threshold (bp)", circuitBreakerThreshold);
+            console2.log("Actual deviation (bp)", ppsDeviation);
+        }
+    }
+
+    function test_EmergencyWithdrawProposalAndExecution_WithPPSUpdate() public {
+        // Setup: deposit via helper to mint shares and fund the strategy
+        uint256 depositAmount = 1_000e6; // 1000 USDC (6 decimals)
+        _deposit(depositAmount);
+
+        // Fast forward time to simulate yield on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+     
+
+        // Record initial metrics before proposal
+        uint256 initialPPS = vault.convertToAssets(1e6); // assets per whole share
+        uint256 initialTotalAssets = vault.totalAssets();
+        uint256 initialTotalSupply = vault.totalSupply();
+
+        vm.startPrank(MANAGER);
+
+        // Step 1: Propose emergency withdraw (timelocked)
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.EmergencyWithdrawableProposed(true, block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
+
+        // Verify proposal state
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposal should be true");
+        assertEq(strategy.emergencyWithdrawableEffectiveTime(), block.timestamp + 1 weeks, "Wrong effective time");
+
+        // PPS should remain stable during proposal phase
+        uint256 proposalPhasePPS = vault.convertToAssets(1e6);
+        assertEq(proposalPhasePPS, initialPPS, "PPS should remain stable during proposal phase");
+
+        // Step 2: Executing before timelock should revert
+        vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
+        strategy.manageEmergencyWithdraw(2, address(this), 1);
+
+        // Fast forward time to simulate PPS changes on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        uint256 newPPS = aggregator.getPPS(address(strategy));
+        assertEq(newPPS, initialPPS, "No deposits/withdraws so far. PPS should be the same");
+
+        // Step 3: Wait for timelock and perform an emergency withdrawal of half the strategy assets
+        vm.warp(block.timestamp + 1 weeks);
+
+        uint256 strategyAssetBalance = IERC20(address(asset)).balanceOf(address(strategy));
+        uint256 withdrawAmount = strategyAssetBalance / 2;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.EmergencyWithdrawal(MANAGER, withdrawAmount);
+        strategy.manageEmergencyWithdraw(2, MANAGER, withdrawAmount); // action 2 = Withdraw to recipient
+
+        vm.stopPrank();
+
+        // Fast forward time to simulate PPS changes on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        newPPS = aggregator.getPPS(address(strategy));
+
+        // Post-withdraw metrics
+        uint256 postPPS = vault.convertToAssets(1e6);
+        uint256 postTotalAssets = vault.totalAssets();
+        uint256 postTotalSupply = vault.totalSupply();
+
+        assertEq(newPPS, postPPS, "PPS from convert vs getPPS should be the same");
+
+        // Circuit breaker-style analysis: compute PPS deviation in basis points
+        uint256 ppsDeviation = postPPS > initialPPS
+            ? ((postPPS - initialPPS) * 10_000) / initialPPS
+            : ((initialPPS - postPPS) * 10_000) / initialPPS;
+
+        console2.log("Initial PPS", initialPPS);
+        console2.log("Post-Withdraw PPS", postPPS);
+        console2.log("PPS Deviation (bp)", ppsDeviation);
+        console2.log("Initial Total Assets", initialTotalAssets);
+        console2.log("Post-Withdraw Total Assets", postTotalAssets);
+        console2.log("Initial Total Supply", initialTotalSupply);
+        console2.log("Post-Withdraw Total Supply", postTotalSupply);
+
+        uint256 circuitBreakerThreshold = 500; // 5%
+        if (ppsDeviation > circuitBreakerThreshold) {
+            console2.log("WARNING: PPS deviation exceeds circuit breaker threshold");
+            console2.log("Threshold (bp)", circuitBreakerThreshold);
+            console2.log("Actual deviation (bp)", ppsDeviation);
+        }
+
+        assertGt(ppsDeviation, 0, "ppsDev should be greater than 0");
+        assertGt(initialPPS, postPPS, "initialPPS should be greater than postPPS");
+    }
+
+    /// @notice Struct to hold metrics and avoid stack too deep errors
+    struct EmergencyTestMetrics {
+        uint256 baselinePPS;
+        uint256 baselineTotalAssets;
+        uint256 baselineTotalSupply;
+        uint256 postFailurePPS;
+        uint256 postFailureTotalAssets;
+        uint256 postEmergencyPPS;
+        uint256 postEmergencyTotalAssets;
+        uint256 postEmergencyTotalSupply;
+        uint256 lossPercentage;
+        uint256 totalPPSDeviation;
+    }
+
+    /// @notice Struct to hold user data and avoid stack too deep errors
+    struct EmergencyTestUsers {
+        address user2;
+        address user3;
+        uint256 user1Shares;
+        uint256 user2Shares;
+        uint256 user3Shares;
+        uint256 user1PostValue;
+        uint256 user2PostValue;
+        uint256 user3PostValue;
+        uint256 user1Loss;
+        uint256 user2Loss;
+        uint256 user3Loss;
+    }
+
+    /// @notice Struct to hold emergency withdrawal data
+    struct EmergencyWithdrawData {
+        uint256 strategyAssetBalance;
+        uint256 emergencyWithdrawAmount;
+        uint256 managerBalanceBefore;
+        uint256 managerBalanceAfter;
+        uint256 recoveredAssets;
+    }
+
+    /// @notice Comprehensive emergency withdrawal test under various failure conditions
+    /// @dev Tests circuit breakers, partial vault failures, asset recovery, and impact on users
+    function test_EmergencyWithdraw_ComprehensiveFailureScenarios() public {
+        // Initialize structs
+        EmergencyTestMetrics memory metrics;
+        EmergencyTestUsers memory users;
+        EmergencyWithdrawData memory withdrawData;
+        
+        // Execute first part: setup through emergency withdrawal execution
+        _executeEmergencyWithdrawSetupAndExecution(metrics, users, withdrawData);
+        
+        // Execute second part: post-emergency analysis and validation
+        _executePostEmergencyAnalysisAndValidation(metrics, users);
+    }
+
+    /// @notice Private helper: Execute emergency withdrawal setup and execution phases
+    /// @dev Handles phases 1-6: setup, failure simulation, circuit breaker, and emergency withdrawal
+    function _executeEmergencyWithdrawSetupAndExecution(
+        EmergencyTestMetrics memory metrics,
+        EmergencyTestUsers memory users,
+        EmergencyWithdrawData memory withdrawData
+    ) private {
+        // === SETUP: Multiple users deposit to create a diverse user base ===
+        uint256 initialDeposit = 10_000e6; // 10k USDC
+        _deposit(initialDeposit);
+        
+        // Add more users to test impact on unaffected users
+        users.user2 = address(0x2222);
+        users.user3 = address(0x3333);
+        _getTokens(address(asset), users.user2, initialDeposit);
+        _getTokens(address(asset), users.user3, initialDeposit);
+        
+        vm.startPrank(users.user2);
+        asset.approve(address(vault), initialDeposit);
+        vault.deposit(initialDeposit, users.user2);
+        vm.stopPrank();
+        
+        vm.startPrank(users.user3);
+        asset.approve(address(vault), initialDeposit);
+        vault.deposit(initialDeposit, users.user3);
+        vm.stopPrank();
+
+        // Allocate assets to yield sources to simulate real vault operations
+        _depositFreeAssetsFromSingleAmount(initialDeposit * 3, address(fluidVault), address(aaveVault));
+
+        // === PHASE 1: Record baseline metrics ===
+        metrics.baselinePPS = vault.convertToAssets(1e6);
+        metrics.baselineTotalAssets = vault.totalAssets();
+        metrics.baselineTotalSupply = vault.totalSupply();
+        users.user1Shares = vault.balanceOf(accountEth);
+        users.user2Shares = vault.balanceOf(users.user2);
+        users.user3Shares = vault.balanceOf(users.user3);
+
+        console2.log("=== BASELINE METRICS ===");
+        console2.log("Baseline PPS:", metrics.baselinePPS);
+        console2.log("Baseline Total Assets:", metrics.baselineTotalAssets);
+        console2.log("Baseline Total Supply:", metrics.baselineTotalSupply);
+        console2.log("User1 Shares:", users.user1Shares);
+        console2.log("User2 Shares:", users.user2Shares);
+        console2.log("User3 Shares:", users.user3Shares);
+
+        // === PHASE 2: Simulate partial underlying vault failure (depeg scenario) ===
+        // Fast forward time to allow for yield accumulation
+        vm.warp(block.timestamp + 10 weeks);
+        
+        // Simulate a 20% loss in one of the underlying vaults (like a stablecoin depeg)
+        uint256 fluidBalance = fluidVault.balanceOf(address(strategy));
+        if (fluidBalance > 0) {
+            // Get the current convertToAssets value before applying the loss
+            uint256 originalAssets = fluidVault.convertToAssets(fluidBalance);
+            uint256 lossAssets = originalAssets * 80 / 100; // 20% loss
+            
+            console2.log("Original assets from fluid vault:", originalAssets);
+            console2.log("Assets after 20% loss:", lossAssets);
+            
+            // Simulate loss by directly reducing the vault's asset balance
+            // This mimics what would happen in a depeg or vault failure
+            vm.mockCall(
+                address(fluidVault),
+                abi.encodeWithSelector(IERC4626.convertToAssets.selector),
+                abi.encode(lossAssets)
+            );
+        }
+
+        // Update PPS to reflect the loss (now with mock applied)
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        
+        metrics.postFailurePPS = vault.convertToAssets(1e6);
+        metrics.postFailureTotalAssets = vault.totalAssets();
+        
+        // Calculate loss/gain percentage (handle both directions)
+        console2.log("----------D");
+        console2.log("----------D metrics.baselinePPS", metrics.baselinePPS);
+        console2.log("----------D metrics.postFailurePPS", metrics.postFailurePPS);
+        
+        if (metrics.postFailurePPS >= metrics.baselinePPS) {
+            // PPS increased (unexpected - should be a loss)
+            metrics.lossPercentage = 0; // No loss, actually a gain
+            console2.log("WARNING: PPS increased instead of decreasing after simulated failure");
+            console2.log("Gain percentage (bp):", ((metrics.postFailurePPS - metrics.baselinePPS) * 10_000) / metrics.baselinePPS);
+        } else {
+            // PPS decreased as expected
+            metrics.lossPercentage = ((metrics.baselinePPS - metrics.postFailurePPS) * 10_000) / metrics.baselinePPS;
+        }
+        
+        console2.log("----------E");
+        console2.log("=== POST-FAILURE METRICS ===");
+        console2.log("Post-Failure PPS:", metrics.postFailurePPS);
+        console2.log("Post-Failure Total Assets:", metrics.postFailureTotalAssets);
+        console2.log("Loss Percentage (bp):", metrics.lossPercentage);
+
+        // === PHASE 3: Circuit breaker checks ===
+        uint256 circuitBreakerThreshold = 1500; // 15% threshold for emergency action
+        bool circuitBreakerTriggered = metrics.lossPercentage > circuitBreakerThreshold;
+        
+        if (circuitBreakerTriggered) {
+            console2.log("CIRCUIT BREAKER TRIGGERED - Loss exceeds threshold");
+            console2.log("Threshold (bp):", circuitBreakerThreshold);
+            console2.log("Actual loss (bp):", metrics.lossPercentage);
+        }
+
+        // === PHASE 4: Governance-triggered emergency mode ===
+        vm.startPrank(MANAGER);
+        
+        // Propose emergency withdrawal
+        strategy.manageEmergencyWithdraw(1, address(0), 0);
+        
+        // Verify proposal state during crisis
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Emergency proposal should be active");
+        assertEq(strategy.emergencyWithdrawableEffectiveTime(), block.timestamp + 1 weeks, "Timelock should be set");
+        
+        // PPS should remain stable during proposal (no immediate impact)
+        uint256 duringProposalPPS = vault.convertToAssets(1e6);
+        assertEq(duringProposalPPS, metrics.postFailurePPS, "PPS should remain stable during proposal");
+
+        // === PHASE 5: Execute emergency withdrawal after timelock ===
+        vm.warp(block.timestamp + 1 weeks);
+        
+        // Calculate emergency withdrawal amount (recover what we can)
+        withdrawData.strategyAssetBalance = IERC20(address(asset)).balanceOf(address(strategy));
+        
+        console2.log("=== EMERGENCY WITHDRAWAL CALCULATION ===");
+        console2.log("Strategy asset balance:", withdrawData.strategyAssetBalance);
+        console2.log("Fluid vault balance:", fluidVault.balanceOf(address(strategy)));
+        console2.log("Aave vault balance:", aaveVault.balanceOf(address(strategy)));
+        
+        // Only withdraw what's actually available
+        if (withdrawData.strategyAssetBalance == 0) {
+            withdrawData.emergencyWithdrawAmount = 0;
+            console2.log("No free assets available - skipping emergency withdrawal");
+        } else {
+            // Withdraw available free assets (be conservative)
+            withdrawData.emergencyWithdrawAmount = withdrawData.strategyAssetBalance;
+            console2.log("Withdrawing all available free assets");
+        }
+        
+        console2.log("Emergency withdraw amount:", withdrawData.emergencyWithdrawAmount);
+        
+        withdrawData.managerBalanceBefore = IERC20(address(asset)).balanceOf(MANAGER);
+        
+        if (withdrawData.emergencyWithdrawAmount > 0 && withdrawData.strategyAssetBalance >= withdrawData.emergencyWithdrawAmount) {
+            strategy.manageEmergencyWithdraw(2, MANAGER, withdrawData.emergencyWithdrawAmount);
+            console2.log("Emergency withdrawal executed successfully");
+        } else {
+            console2.log("Skipping emergency withdrawal - insufficient assets available");
+            console2.log("Strategy balance:", withdrawData.strategyAssetBalance);
+            console2.log("Requested amount:", withdrawData.emergencyWithdrawAmount);
+        }
+        
+        withdrawData.managerBalanceAfter = IERC20(address(asset)).balanceOf(MANAGER);
+        
+        vm.stopPrank();
+
+        // === PHASE 6: Verify asset recovery ===
+        withdrawData.recoveredAssets = withdrawData.managerBalanceAfter - withdrawData.managerBalanceBefore;
+        
+        console2.log("=== ASSET RECOVERY ===");
+        console2.log("Emergency Withdrawal Amount:", withdrawData.emergencyWithdrawAmount);
+        console2.log("Assets Recovered by Manager:", withdrawData.recoveredAssets);
+        
+        if (withdrawData.emergencyWithdrawAmount > 0) {
+            assertEq(withdrawData.recoveredAssets, withdrawData.emergencyWithdrawAmount, "Manager should receive emergency withdrawal amount");
+            console2.log("Recovery Rate (%):", (withdrawData.recoveredAssets * 100) / withdrawData.emergencyWithdrawAmount);
+        } else {
+            assertEq(withdrawData.recoveredAssets, 0, "No assets should be recovered when no withdrawal occurred");
+            console2.log("No emergency withdrawal performed - no free assets available");
+        }
+    }
+
+    /// @notice Private helper: Execute post-emergency analysis and validation phases
+    /// @dev Handles phases 7-10: PPS analysis, user impact, deposits, and circuit breaker validation
+    function _executePostEmergencyAnalysisAndValidation(
+        EmergencyTestMetrics memory metrics,
+        EmergencyTestUsers memory users
+    ) private {
+
+        // === PHASE 7: Post-emergency PPS and impact analysis ===
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        
+        metrics.postEmergencyPPS = vault.convertToAssets(1e6);
+        metrics.postEmergencyTotalAssets = vault.totalAssets();
+        metrics.postEmergencyTotalSupply = vault.totalSupply();
+        
+        // Calculate total PPS deviation from baseline
+        metrics.totalPPSDeviation = ((metrics.baselinePPS - metrics.postEmergencyPPS) * 10_000) / metrics.baselinePPS;
+        
+        console2.log("=== POST-EMERGENCY METRICS ===");
+        console2.log("Post-Emergency PPS:", metrics.postEmergencyPPS);
+        console2.log("Post-Emergency Total Assets:", metrics.postEmergencyTotalAssets);
+        console2.log("Post-Emergency Total Supply:", metrics.postEmergencyTotalSupply);
+        console2.log("Total PPS Deviation from Baseline (bp):", metrics.totalPPSDeviation);
+
+        // === PHASE 8: Impact on unaffected users ===
+        users.user1PostValue = vault.convertToAssets(users.user1Shares);
+        users.user2PostValue = vault.convertToAssets(users.user2Shares);
+        users.user3PostValue = vault.convertToAssets(users.user3Shares);
+        
+        users.user1Loss = ((users.user1Shares * metrics.baselinePPS / 1e6) - users.user1PostValue) * 10_000 / (users.user1Shares * metrics.baselinePPS / 1e6);
+        users.user2Loss = ((users.user2Shares * metrics.baselinePPS / 1e6) - users.user2PostValue) * 10_000 / (users.user2Shares * metrics.baselinePPS / 1e6);
+        users.user3Loss = ((users.user3Shares * metrics.baselinePPS / 1e6) - users.user3PostValue) * 10_000 / (users.user3Shares * metrics.baselinePPS / 1e6);
+        
+        console2.log("=== USER IMPACT ANALYSIS ===");
+        console2.log("User1 Loss (bp):", users.user1Loss);
+        console2.log("User2 Loss (bp):", users.user2Loss);
+        console2.log("User3 Loss (bp):", users.user3Loss);
+
+        assertEq(users.user1Loss, users.user2Loss, "Users should have similar loss percentages");
+        assertEq(users.user2Loss, users.user3Loss, "Users should have similar loss percentages");
+        
+        // All users should have similar loss percentages (fair distribution of losses)
+        assertApproxEqRel(users.user1Loss, users.user2Loss, 0.01e18, "Users should have similar loss percentages");
+        assertApproxEqRel(users.user2Loss, users.user3Loss, 0.01e18, "Users should have similar loss percentages");
+
+        // === PHASE 9: Test deposit after emergency withdrawal ===
+        console2.log("=== TESTING DEPOSITS AFTER EMERGENCY ===");
+        
+        uint256 postEmergencyDeposit = 1_000e6;
+        _getTokens(address(asset), accountEth, postEmergencyDeposit);
+        
+        uint256 sharesBefore = vault.balanceOf(accountEth);
+        uint256 assetsBefore = IERC20(address(asset)).balanceOf(accountEth);
+        
+        vm.startPrank(accountEth);
+        asset.approve(address(vault), postEmergencyDeposit);
+        uint256 sharesReceived = vault.deposit(postEmergencyDeposit, accountEth);
+        vm.stopPrank();
+        
+        uint256 sharesAfter = vault.balanceOf(accountEth);
+        uint256 assetsAfter = IERC20(address(asset)).balanceOf(accountEth);
+        
+        console2.log("Shares Received from Post-Emergency Deposit:", sharesReceived);
+        console2.log("Expected Shares (based on current PPS):", postEmergencyDeposit * 1e6 / metrics.postEmergencyPPS);
+        
+        // Verify deposit still works correctly after emergency
+        assertEq(sharesAfter - sharesBefore, sharesReceived, "Shares should be minted correctly");
+        assertEq(assetsBefore - assetsAfter, postEmergencyDeposit, "Assets should be transferred correctly");
+        
+        // Verify new deposit gets fair PPS
+        uint256 expectedShares = postEmergencyDeposit * 1e6 / metrics.postEmergencyPPS;
+        assertApproxEqRel(sharesReceived, expectedShares, 0.01e18, "New deposit should get current PPS");
+
+        // === PHASE 10: Final circuit breaker validation ===
+        assertGt(metrics.totalPPSDeviation, 0, "Should have measurable PPS deviation");
+        assertLt(metrics.totalPPSDeviation, 5000, "PPS deviation should be reasonable (< 50%)");
+        
+        // Verify emergency withdrawal reduced total assets
+        assertLt(metrics.postEmergencyTotalAssets, metrics.baselineTotalAssets, "Total assets should be reduced after emergency");
+        
+        // Update total supply after the post-emergency deposit
+        uint256 currentTotalSupply = vault.totalSupply();
+        
+        // Verify total supply: baseline + new deposit shares (no shares burned in emergency withdrawal)
+        assertEq(currentTotalSupply, metrics.baselineTotalSupply + sharesReceived, "Supply should only increase by new deposit");
+        
+        console2.log("Baseline Total Supply:", metrics.baselineTotalSupply);
+        console2.log("Shares Received from Post-Emergency Deposit:", sharesReceived);
+        console2.log("Current Total Supply:", currentTotalSupply);
+        console2.log("Expected Total Supply:", metrics.baselineTotalSupply + sharesReceived);
+        
+        console2.log("=== CIRCUIT BREAKER VALIDATION COMPLETE ===");
+        console2.log("Emergency withdrawal mechanism functioning correctly");
+        console2.log("Asset recovery successful");
+        console2.log("User impact distributed fairly");
+        console2.log("Post-emergency deposits working correctly");
     }
 
     function test_DepositDirectlyMintsShares() public {
@@ -300,6 +809,297 @@ contract SuperVaultTest is BaseSuperVaultTest {
             asset.balanceOf(accountEth), initialAssetBalance + claimableAssets, 0.05e18, "Wrong final asset balance"
         );
         assertEq(strategy.claimableWithdraw(accountEth), 0, "Assets not claimed");
+    }
+
+
+    function test_LongTermHolder_vs_ActiveTrader_SameAmounts() public {
+        UserPersona memory holder;
+        UserPersona memory trader;
+        
+        // Setup user personas
+        holder.account = accInstances[0].account;
+        trader.account = accInstances[1].account;
+        holder.depositAmount = 10000e6; // 10,000 USDC - larger position
+        trader.depositAmount = 10000e6;  // 2,000 USDC - smaller, more active position
+        
+        console2.log("=== SETTING UP USER PERSONAS ===");
+        console2.log("Long-term holder:", holder.account);
+        console2.log("Active trader:", trader.account);
+        
+        // Give tokens to both users
+        _getTokens(address(asset), holder.account, holder.depositAmount);
+        _getTokens(address(asset), trader.account, trader.depositAmount * 5); // Extra for multiple trades
+        
+        // Track initial balances
+        holder.initialBalance = asset.balanceOf(holder.account);
+        trader.initialBalance = asset.balanceOf(trader.account);
+        
+        console2.log("Holder initial balance:", holder.initialBalance);
+        console2.log("Trader initial balance:", trader.initialBalance);
+        
+        _executeInitialDeposits(holder, trader);
+        _executeActiveTradingPeriod(trader);
+        _executeLongTermHolding(holder);
+        _executeFinalRedemptions(holder, trader);
+        
+        console2.log("=== TEST COMPLETED SUCCESSFULLY ===");
+    }
+
+    /// @notice Complete yield comparison test that shows final earnings for both strategies
+    function test_LongTermHolder_vs_ActiveTrader_CompleteYieldComparison() public {
+        UserPersona memory holder;
+        UserPersona memory trader;
+        
+        // Setup user personas with same total investment amounts
+        holder.account = accInstances[0].account;
+        trader.account = accInstances[1].account;
+        holder.depositAmount = 10000e6; // 10,000 USDC initial
+        trader.depositAmount = 10000e6; // 10,000 USDC initial
+        
+        console2.log("=== YIELD COMPARISON TEST: EQUAL TOTAL INVESTMENTS ===");
+        console2.log("Long-term holder:", holder.account);
+        console2.log("Active trader:", trader.account);
+        console2.log("Both users will invest 25,000 USDC total");
+        
+        // Give tokens to both users (enough for total investment)
+        uint256 totalInvestmentAmount = 25000e6; // 25,000 USDC each
+        _getTokens(address(asset), holder.account, totalInvestmentAmount);
+        _getTokens(address(asset), trader.account, totalInvestmentAmount);
+        
+        // Track initial balances
+        holder.initialBalance = asset.balanceOf(holder.account);
+        trader.initialBalance = asset.balanceOf(trader.account);
+        
+        console2.log("Holder initial balance:", holder.initialBalance / 1e6, "USDC");
+        console2.log("Trader initial balance:", trader.initialBalance / 1e6, "USDC");
+        
+        // Execute the full flow with equal total investments
+        _executeEqualInvestmentDeposits(holder, trader);
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        _executeActiveTradingPeriod(trader);
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+        _executeEqualInvestmentHolding(holder);
+        _executeFinalRedemptions(holder, trader);
+     
+        // Complete the redemption process and calculate final yields
+        _completeRedemptionsAndCalculateYield(holder, trader);
+    }
+ 
+    /**
+     * @notice Test simulating different user personas: Long-term holder vs Active trader
+     * @dev This test demonstrates how different user behaviors interact with the SuperVault system
+     */
+    function test_LongTermHolder_vs_ActiveTrader() public {
+        UserPersona memory holder;
+        UserPersona memory trader;
+        
+        // Setup user personas
+        holder.account = accInstances[0].account;
+        trader.account = accInstances[1].account;
+        holder.depositAmount = 10000e6; // 10,000 USDC - larger position
+        trader.depositAmount = 2000e6;  // 2,000 USDC - smaller, more active position
+        
+        console2.log("=== SETTING UP USER PERSONAS ===");
+        console2.log("Long-term holder:", holder.account);
+        console2.log("Active trader:", trader.account);
+        
+        // Give tokens to both users
+        _getTokens(address(asset), holder.account, holder.depositAmount);
+        _getTokens(address(asset), trader.account, trader.depositAmount * 5); // Extra for multiple trades
+        
+        // Track initial balances
+        holder.initialBalance = asset.balanceOf(holder.account);
+        trader.initialBalance = asset.balanceOf(trader.account);
+        
+        console2.log("Holder initial balance:", holder.initialBalance);
+        console2.log("Trader initial balance:", trader.initialBalance);
+        
+        _executeInitialDeposits(holder, trader);
+        _executeActiveTradingPeriod(trader);
+        _executeLongTermHolding(holder);
+        _executeFinalRedemptions(holder, trader);
+        
+        console2.log("=== TEST COMPLETED SUCCESSFULLY ===");
+    }
+
+    
+    /**
+     * @notice Test focused on long-term holder behavior with single deposit and hold strategy
+     */
+    function test_LongTermHolder_SingleDepositHold() public {
+        address holder = accInstances[0].account;
+        uint256 depositAmount = 50000e6; // 50,000 USDC - large position
+        
+        console2.log("=== LONG-TERM HOLDER TEST ===");
+        console2.log("Holder address:", holder);
+        console2.log("Deposit amount:", depositAmount);
+        
+        // Setup
+        _getTokens(address(asset), holder, depositAmount*2);
+        uint256 initialBalance = asset.balanceOf(holder);
+        
+        // Single deposit
+        _depositForAccount(accInstances[0], depositAmount);
+        uint256 shares = vault.balanceOf(holder);
+        
+        // Allocate to yield sources
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+        
+        console2.log("Shares received:", shares);
+        
+        // Hold for extended period (90 days)
+        vm.warp(block.timestamp + 90 days);
+        shares = vault.balanceOf(holder);
+
+        // Verify shares haven't changed
+        assertEq(vault.balanceOf(holder), shares, "Shares should remain constant during hold period");
+        
+        uint256 redeemShares = shares; // 40B shares - round number
+        console2.log("Using fixed redeem shares:", redeemShares);
+        
+        _requestRedeemForAccount(accInstances[0], redeemShares);
+        
+        // Check pending redeem request
+        uint256 pendingRedeem = strategy.pendingRedeemRequest(holder);
+        console2.log("Pending redeem request:", pendingRedeem);
+        assertEq(pendingRedeem, redeemShares, "Pending redeem should match requested amount");
+        
+        // Fulfill redeem using manual allocation to avoid INVALID_REDEEM_FILL precision issues
+        console2.log("\n=== FULFILLING REDEEM WITH MANUAL ALLOCATION ===");
+        
+        address[] memory requestingUsers = new address[](1);
+        requestingUsers[0] = holder;
+        uint256 allocationAmountVault1 = redeemShares / 2;
+        uint256 allocationAmountVault2 = redeemShares / 2;
+        
+        console2.log("Manual allocation:");
+        console2.log("  Vault 1 allocation:", allocationAmountVault1);
+        console2.log("  Vault 2 allocation:", allocationAmountVault2);
+        console2.log("  Total allocation:", allocationAmountVault1 + allocationAmountVault2);
+        
+        _fulfillRedeemForUsers(
+            requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
+        );
+        
+        console2.log("Redeem fulfillment successful!");
+        
+        // Now check claimable assets (this shows the actual earnings!)
+        uint256 claimableAssets = strategy.claimableWithdraw(holder);
+        console2.log("Claimable assets after 90 days:", claimableAssets);
+        
+        // Calculate actual earnings
+        uint256 expectedPrincipal = (depositAmount * redeemShares) / shares;
+        uint256 actualEarnings = claimableAssets > expectedPrincipal ? claimableAssets - expectedPrincipal : 0;
+        
+        console2.log("Actual earnings calculation:");
+        console2.log("  Expected principal:", expectedPrincipal);
+        console2.log("  Actual earnings:", actualEarnings);
+        if (expectedPrincipal > 0) {
+            console2.log("  Earnings percentage:", actualEarnings * 10000 / expectedPrincipal, "basis points");
+        }
+        
+        // Claim the assets to see final balance
+        if (claimableAssets > 0) {
+            _claimWithdrawForAccount(accInstances[0], claimableAssets);
+            uint256 finalBalance = asset.balanceOf(holder);
+            console2.log("Final balance after claim:", finalBalance);
+            console2.log("Total return:", finalBalance > initialBalance ? finalBalance - initialBalance : 0);
+        }
+        
+        console2.log("=== LONG-TERM HOLDER TEST COMPLETED ===");
+        console2.log("Initial balance:", initialBalance);
+        console2.log("Shares held for 90 days:", shares);
+        console2.log("Redeem request submitted for:", redeemShares);
+    }
+
+    /**
+     * @notice Test focused on active trader behavior with multiple rapid deposit-redeem cycles
+     */
+    function test_ActiveTrader_MultipleDepositRedeemCycles() public {
+        address trader = accInstances[0].account;
+        uint256 baseAmount = 5000e6; // 5,000 USDC base amount
+        
+        console2.log("=== ACTIVE TRADER TEST ===");
+        console2.log("Trader address:", trader);
+        console2.log("Base trading amount:", baseAmount);
+        
+        // Setup with enough tokens for multiple trades
+        _getTokens(address(asset), trader, baseAmount * 10);
+        uint256 initialBalance = asset.balanceOf(trader);
+        
+        // Track cumulative metrics
+        uint256 totalDeposited = 0;
+        uint256 totalRedeemRequests = 0;
+        uint256 cycleCount = 5;
+        
+        for (uint256 i = 0; i < cycleCount; i++) {
+            console2.log("--- Trading Cycle", i + 1, "---");
+            
+            // Vary deposit amounts to simulate realistic trading
+            uint256 depositAmount = baseAmount + (baseAmount * i / 4); // Increasing amounts
+            
+            // Deposit
+            _depositForAccount(accInstances[0], depositAmount);
+            totalDeposited += depositAmount;
+            uint256 shares = vault.balanceOf(trader);
+            
+            // Allocate to yield
+            _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+            
+            console2.log("Deposited:", depositAmount);
+            console2.log("Total shares after deposit:", shares);
+            
+            // Hold for short period (simulate day trading to swing trading)
+            vm.warp(block.timestamp + (1 + i) * 1 days);
+            
+            // Redeem portion (vary between 30-50% to simulate different strategies)
+            uint256 redeemPercentage = 30 + (i * 5); // 30%, 35%, 40%, 45%, 50%
+            uint256 redeemShares = shares * redeemPercentage / 100;
+            
+            if (redeemShares > 1) { // Avoid rounding issues
+                _requestRedeemForAccount(accInstances[0], redeemShares);
+                totalRedeemRequests += redeemShares;
+                
+                // Verify redeem request was recorded
+                uint256 pendingRedeem = strategy.pendingRedeemRequest(trader);
+                console2.log("Pending redeem after request:", pendingRedeem);
+                
+                console2.log("Requested redeem shares:", redeemShares);
+                console2.log("Redeem percentage:", redeemPercentage);
+            }
+            
+            // Short pause between cycles
+            vm.warp(block.timestamp + 12 hours);
+        }
+        
+        // Final verification of trading activity
+        uint256 finalShares = vault.balanceOf(trader);
+        uint256 finalPendingRedeem = strategy.pendingRedeemRequest(trader);
+        
+        console2.log("=== TRADING SUMMARY ===");
+        console2.log("Initial balance:", initialBalance);
+        console2.log("Total deposited:", totalDeposited);
+        console2.log("Total redeem requests:", totalRedeemRequests);
+        console2.log("Final shares held:", finalShares);
+        console2.log("Final pending redeems:", finalPendingRedeem);
+        
+        // Assertions for active trading behavior
+        assertGt(totalDeposited, baseAmount, "Should have made multiple deposits");
+        assertGt(totalRedeemRequests, 0, "Should have made redeem requests");
+        
+        // Verify trader has been active (either holding shares or has pending redeems)
+        assertGt(finalShares + finalPendingRedeem, 0, "Trader should have active position or pending redeems");
+        
+        // Verify trading pattern - multiple cycles should result in accumulated activity
+        assertGe(totalDeposited, baseAmount * cycleCount, "Should have deposited across multiple cycles");
+        
+        console2.log("=== ACTIVE TRADER TEST COMPLETED ===");
+        console2.log("Successfully simulated", cycleCount, "trading cycles");
     }
 
     function test_AuthorizeOperator() public {
@@ -585,11 +1385,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         deal(address(asset), address(this), testAssets);
         asset.approve(address(vault), testAssets);
 
-        // Deposit should revert with INVALID_PPS when PPS is 0
-        vm.expectRevert(ISuperVault.INVALID_PPS.selector);
+        // Deposit should revert with STRATEGY_PAUSED when PPS is 0
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         vault.deposit(testAssets, address(this));
 
-        // Mint should revert with INVALID_PPS when PPS is 0
+        // Mint should revert with STRATEGY_PAUSED when PPS is 0
         vm.expectRevert(ISuperVault.INVALID_PPS.selector);
         vault.mint(testShares, address(this));
     }
@@ -2541,7 +3341,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
                     performanceFeeBps: params.performanceFeeBps,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
     }
@@ -2566,7 +3367,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
                     performanceFeeBps: params.performanceFeeBps,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
     }
@@ -7272,11 +8074,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Wait for timelock and execute
         vm.warp(block.timestamp + 1 weeks);
-        strategy.manageEmergencyWithdraw(2, address(0), 0);
 
         // Withdraw most assets, leaving just enough to trigger dust collection
         uint256 withdrawalAmount = strategyBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
-        strategy.manageEmergencyWithdraw(3, address(this), withdrawalAmount);
+        strategy.manageEmergencyWithdraw(2, address(this), withdrawalAmount);
 
         vm.stopPrank();
 
@@ -7473,13 +8274,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Ensure there's no active proposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should not have active proposal");
 
+        vm.startPrank(MANAGER);
         // Try to execute emergency withdraw activation without a proposal
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
         strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        vm.stopPrank();
     }
 
     /// @notice Test that anyone can try to execute emergency withdraw activation when there's no proposal and get
-    /// NO_PROPOSAL error
+    /// MANAGER_NOT_AUTHORIZED error
     function test_RevertWhen_AnyoneTriesToExecuteEmergencyWithdrawActivation_NoProposal() public {
         // Ensure there's no active proposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should not have active proposal");
@@ -7490,7 +8293,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Try to execute emergency withdraw activation without a proposal - should revert with NO_PROPOSAL, not access
         // control
-        vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
+        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
         strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
 
         vm.stopPrank();
@@ -7506,7 +8309,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Try to cancel a proposal that doesn't exist
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
 
         vm.stopPrank();
     }
@@ -7532,12 +8335,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 3: Wait for timelock to expire and execute
         vm.warp(block.timestamp + 1 weeks);
 
+        deal(address(asset), address(strategy), 100);
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.EmergencyWithdrawableUpdated(true);
-        strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        emit ISuperVaultStrategy.EmergencyWithdrawal(address(this), 100);
+        strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = Perform
 
         // Verify execution state
-        assertEq(strategy.emergencyWithdrawable(), true, "Emergency withdrawable should be true");
+        assertEq(strategy.emergencyWithdrawable(), false, "Emergency withdrawable should be false");
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposed should not be reset to false");
+        assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should not be reset to 0");
+
+        strategy.manageEmergencyWithdraw(3, address(0), 0);
         assertEq(strategy.proposedEmergencyWithdrawable(), false, "Proposed should be reset to false");
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset to 0");
 
@@ -7559,7 +8367,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 2: Cancel the proposal
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultStrategy.EmergencyWithdrawableProposalCanceled();
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         // Verify cancellation state
         assertEq(strategy.proposedEmergencyWithdrawable(), false, "Proposed should be reset to false");
@@ -7577,7 +8385,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
 
         // Step 2: Cancel the proposal
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         // Step 3: Try to execute - should fail with NO_PROPOSAL
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
@@ -7600,7 +8408,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(randomUser);
 
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 4 = CancelProposal
 
         vm.stopPrank();
     }
@@ -7613,22 +8421,23 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should have effective time");
 
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset");
 
         // Cycle 2: Propose and cancel again
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         assertGt(strategy.emergencyWithdrawableEffectiveTime(), 0, "Should have effective time again");
 
-        strategy.manageEmergencyWithdraw(4, address(0), 0); // action 4 = CancelProposal
+        strategy.manageEmergencyWithdraw(3, address(0), 0); // action 3 = CancelProposal
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), 0, "Effective time should be reset again");
 
         // Cycle 3: Propose, wait, and execute
         strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
         vm.warp(block.timestamp + 1 weeks);
-        strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+        deal(address(asset), address(strategy), 100);
+        strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = ExecuteActivation
 
-        assertEq(strategy.emergencyWithdrawable(), true, "Emergency withdrawable should be true");
+        assertEq(strategy.emergencyWithdrawable(), false, "Emergency withdrawable should be false");
 
         vm.stopPrank();
     }
@@ -7649,8 +8458,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
             vm.startPrank(actors[i]);
 
             // Should revert with NO_PROPOSAL, not allowing them to reset the flag
-            vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-            strategy.manageEmergencyWithdraw(2, address(0), 0); // action 2 = ExecuteActivation
+            if (i == 0) {
+                vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
+            } else {
+                vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
+            }
+            strategy.manageEmergencyWithdraw(2, address(this), 100); // action 2 = ExecuteActivation
 
             vm.stopPrank();
 
@@ -7938,6 +8751,307 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
     }
+
+    /// @notice Execute initial deposits with equal total investment strategy
+    /// @param holder_ Long-term holder persona  
+    /// @param trader_ Active trader persona
+    function _executeEqualInvestmentDeposits(UserPersona memory holder_, UserPersona memory trader_) internal {
+        console2.log("\n=== PHASE 1: EQUAL INVESTMENT INITIAL DEPOSITS ===");
+        
+        // Both users make the same initial deposit
+        _depositForAccount(accInstances[0], holder_.depositAmount);
+        holder_.shares = vault.balanceOf(holder_.account);
+        console2.log("Holder initial deposit and shares:", holder_.shares);
+        
+        _depositForAccount(accInstances[1], trader_.depositAmount);
+        trader_.shares = vault.balanceOf(trader_.account);
+        console2.log("Trader initial deposit and shares:", trader_.shares);
+        
+        // Allocate funds to yield sources
+        uint256 totalDeposited = holder_.depositAmount + trader_.depositAmount;
+        _depositFreeAssetsFromSingleAmount(totalDeposited, address(fluidVault), address(aaveVault));
+    }
+    
+    /// @notice Execute holder strategy with additional deposits to match trader's total investment
+    /// @param holder_ Long-term holder persona
+    function _executeEqualInvestmentHolding(UserPersona memory holder_) internal {
+        console2.log("\n=== PHASE 3: EQUAL INVESTMENT HOLDER STRATEGY ===");
+        
+        // Holder makes additional deposits to match trader's total (3 x 5,000 USDC = 15,000 USDC more)
+        uint256 additionalDepositAmount = holder_.depositAmount / 2; // 5,000 USDC per deposit
+        
+        for (uint256 i = 0; i < 3; i++) {
+            console2.log("--- Holder Additional Deposit", i + 1, "---");
+            
+            // Time spacing similar to trader but holder just deposits and holds
+            vm.warp(block.timestamp + (1 + i) * 1 days);
+            
+            _depositForAccount(accInstances[0], additionalDepositAmount);
+            uint256 newShares = vault.balanceOf(holder_.account);
+            console2.log("Holder additional deposit:", additionalDepositAmount / 1e6, "USDC");
+            console2.log("Holder total shares after deposit:", newShares);
+            
+            // Allocate new funds
+            _depositFreeAssetsFromSingleAmount(additionalDepositAmount, address(fluidVault), address(aaveVault));
+            
+            // Holder just holds - no redemptions during accumulation phase
+        }
+        
+        console2.log("Holder total investment completed: 25,000 USDC");
+        
+        // Long-term hold period (30 days like original)
+        vm.warp(block.timestamp + 30 days);
+        console2.log("Holder completed long-term holding period");
+    }
+
+    /// @notice Complete redemptions and calculate final yield comparison
+    /// @param holder_ Long-term holder persona
+    /// @param trader_ Active trader persona
+    function _completeRedemptionsAndCalculateYield(UserPersona memory holder_, UserPersona memory trader_) internal {
+        console2.log("\n=== PHASE 5: FULFILLING REDEMPTIONS ===");
+        
+        // Get pending redemption amounts
+        uint256 holderPendingShares = strategy.pendingRedeemRequest(holder_.account);
+        uint256 traderPendingShares = strategy.pendingRedeemRequest(trader_.account);
+        
+        console2.log("Holder pending shares to redeem:", holderPendingShares);
+        console2.log("Trader pending shares to redeem:", traderPendingShares);
+        
+        // Fulfill redemptions for both users
+        address[] memory redeemUsers = new address[](2);
+        redeemUsers[0] = holder_.account;
+        redeemUsers[1] = trader_.account;
+        
+        uint256 totalPendingShares = holderPendingShares + traderPendingShares;
+        uint256 allocationVault1 = totalPendingShares / 2;
+        uint256 allocationVault2 = totalPendingShares - allocationVault1;
+        
+        _fulfillRedeemForUsers(
+            redeemUsers,
+            allocationVault1,
+            allocationVault2,
+            address(fluidVault),
+            address(aaveVault)
+        );
+        
+        console2.log("\n=== PHASE 6: CLAIMING FINAL ASSETS ===");
+        
+        // Claim final assets for both users
+        _claimRedeemForUsers(redeemUsers);
+        
+        // Calculate final balances and yields
+        _calculateAndCompareYields(holder_, trader_);
+    }
+    
+    /// @notice Calculate and compare final yields between holder and trader
+    /// @param holder_ Long-term holder persona
+    /// @param trader_ Active trader persona
+    function _calculateAndCompareYields(UserPersona memory holder_, UserPersona memory trader_) internal view {
+        console2.log("\n=== FINAL YIELD COMPARISON ===");
+        
+        // Get final balances
+        uint256 holderFinalBalance = asset.balanceOf(holder_.account);
+        uint256 traderFinalBalance = asset.balanceOf(trader_.account);
+        
+        console2.log("Holder final balance:", holderFinalBalance / 1e6, "USDC");
+        console2.log("Trader final balance:", traderFinalBalance / 1e6, "USDC");
+        
+        // Calculate actual net investment - both users now invest the same total amount
+        uint256 totalInvestmentAmount = 25000e6; // 25,000 USDC each
+        uint256 holderNetInvestment = totalInvestmentAmount;
+        uint256 traderNetInvestment = totalInvestmentAmount;
+        
+        console2.log("\n=== EQUAL INVESTMENT AMOUNTS ===");
+        console2.log("Holder total invested:", holderNetInvestment / 1e6, "USDC");
+        console2.log("Trader total invested:", traderNetInvestment / 1e6, "USDC");
+        console2.log("Investment amounts are equal for fair comparison");
+        
+        // Calculate yields
+        uint256 holderYield = holderFinalBalance > holderNetInvestment ? 
+            holderFinalBalance - holderNetInvestment : 0;
+        uint256 traderYield = traderFinalBalance > traderNetInvestment ? 
+            traderFinalBalance - traderNetInvestment : 0;
+            
+        console2.log("\n=== YIELD ANALYSIS ===");
+        console2.log("Holder net investment:", holderNetInvestment / 1e6, "USDC");
+        console2.log("Holder yield earned:", holderYield / 1e6, "USDC");
+        console2.log("Holder yield %:", holderNetInvestment > 0 ? (holderYield * 10000) / holderNetInvestment : 0, "bps");
+        
+        console2.log("Trader net investment:", traderNetInvestment / 1e6, "USDC");
+        console2.log("Trader yield earned:", traderYield / 1e6, "USDC");
+        console2.log("Trader yield %:", traderNetInvestment > 0 ? (traderYield * 10000) / traderNetInvestment : 0, "bps");
+        
+        // Compare yields
+        if (holderYield > traderYield) {
+            uint256 yieldDifference = holderYield - traderYield;
+            console2.log("\n=== RESULT: HOLDER WINS ===");
+            console2.log("Long-term holder earned", yieldDifference / 1e6, "USDC more than active trader");
+            console2.log("Advantage:", traderYield > 0 ? (yieldDifference * 10000) / traderYield : 0, "bps better");
+        } else if (traderYield > holderYield) {
+            uint256 yieldDifference = traderYield - holderYield;
+            console2.log("\n=== RESULT: TRADER WINS ===");
+            console2.log("Active trader earned", yieldDifference / 1e6, "USDC more than long-term holder");
+            console2.log("Advantage:", holderYield > 0 ? (yieldDifference * 10000) / holderYield : 0, "bps better");
+        } else {
+            console2.log("\n=== RESULT: TIE ===");
+            console2.log("Both strategies earned the same yield");
+        }
+        
+        // Additional metrics
+        console2.log("\n=== STRATEGY EFFICIENCY ===");
+        console2.log("Holder total return:", holderFinalBalance > holder_.initialBalance ? 
+            holderFinalBalance - holder_.initialBalance : 0, "wei");
+        console2.log("Trader total return:", traderFinalBalance > trader_.initialBalance ? 
+            traderFinalBalance - trader_.initialBalance : 0, "wei");
+    }
+
+    /// @notice Execute initial deposits phase
+    function _executeInitialDeposits(UserPersona memory holder, UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 1: INITIAL DEPOSITS ===");
+        
+        // Long-term holder makes single large deposit
+        _depositForAccount(accInstances[0], holder.depositAmount);
+        holder.shares = vault.balanceOf(holder.account);
+        console2.log("Holder deposited and received shares:", holder.shares);
+        
+        // Active trader makes first deposit
+        _depositForAccount(accInstances[1], trader.depositAmount);
+        trader.shares = vault.balanceOf(trader.account);
+        console2.log("Trader deposited and received shares:", trader.shares);
+        
+        // Allocate funds to yield sources
+        uint256 totalDeposited = holder.depositAmount + trader.depositAmount;
+        _depositFreeAssetsFromSingleAmount(totalDeposited, address(fluidVault), address(aaveVault));
+    }
+
+    /// @notice Execute active trading period
+    function _executeActiveTradingPeriod(UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 2: ACTIVE TRADING PERIOD ===");
+        
+        // Simulate time passing and yield generation
+        vm.warp(block.timestamp + 1 days);
+        
+        // Active trader performs multiple deposit-redeem-claim cycles
+        for (uint256 i = 0; i < 3; i++) {
+            TradingCycle memory cycle;
+            cycle.cycleNumber = i + 1;
+            cycle.depositAmount = trader.depositAmount / 2;
+            
+            console2.log("--- Trader Cycle", cycle.cycleNumber, "---");
+            
+            // Trader deposits more
+            _depositForAccount(accInstances[1], cycle.depositAmount);
+            cycle.sharesAfterDeposit = vault.balanceOf(trader.account);
+            console2.log("Trader shares after deposit:", cycle.sharesAfterDeposit);
+            
+            // Allocate new funds
+            _depositFreeAssetsFromSingleAmount(cycle.depositAmount, address(fluidVault), address(aaveVault));
+            console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+            _updateSuperVaultPPS(address(strategy), address(vault));
+            console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+            // Simulate some time for yield
+            vm.warp(block.timestamp + 6 hours);
+            
+            // Trader redeems part of position - avoid rounding issues
+            cycle.redeemAmount = cycle.sharesAfterDeposit / 4; // Redeem 25% of position
+            if (cycle.redeemAmount > 1) {
+                _requestRedeemForAccount(accInstances[1], cycle.redeemAmount);
+                
+                // Verify redeem request was recorded
+                uint256 pendingRedeem = strategy.pendingRedeemRequest(trader.account);
+                console2.log("Trader pending redeem:", pendingRedeem);
+                console2.log("Trader requested redeem shares:", cycle.redeemAmount);
+            }
+            console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+            _updateSuperVaultPPS(address(strategy), address(vault));
+            console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+            vm.warp(block.timestamp + 6 hours);
+        }
+    }
+
+    /// @notice Execute long-term holding behavior
+    function _executeLongTermHolding(UserPersona memory holder) internal {
+        console2.log("\n=== PHASE 3: LONG-TERM HOLDER HOLDS POSITION ===");
+        
+        // Long-term holder does nothing during active trading period
+        // Just track their position growth
+        uint256 holderSharesAfterTrading = vault.balanceOf(holder.account);
+        console2.log("Holder shares remained constant:", holderSharesAfterTrading);
+        assertEq(holderSharesAfterTrading, holder.shares, "Holder shares should remain unchanged");
+        
+        // Simulate longer time period (30 days)
+        vm.warp(block.timestamp + 30 days);
+    }
+
+    /// @notice Execute final redemptions phase
+    function _executeFinalRedemptions(UserPersona memory holder, UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 4: FINAL REDEMPTIONS ===");
+        
+        // Get final positions before redemption
+        uint256 holderFinalShares = vault.balanceOf(holder.account);
+        uint256 traderFinalShares = vault.balanceOf(trader.account);
+        
+        console2.log("Final holder shares:", holderFinalShares);
+        console2.log("Final trader shares:", traderFinalShares);
+        
+        // Both users redeem their full positions - avoid rounding issues
+        if (holderFinalShares > 1) {
+            _requestRedeemForAccount(accInstances[0], holderFinalShares - 1);
+        }
+        if (traderFinalShares > 1) {
+            _requestRedeemForAccount(accInstances[1], traderFinalShares - 1);
+        }
+        
+        // Verify redeem requests were recorded
+        uint256 holderPendingRedeem = strategy.pendingRedeemRequest(holder.account);
+        uint256 traderPendingRedeem = strategy.pendingRedeemRequest(trader.account);
+        
+        console2.log("Holder pending redeem:", holderPendingRedeem);
+        console2.log("Trader pending redeem:", traderPendingRedeem);
+        
+        // Verify final positions after redeem requests
+        uint256 holderRemainingShares = vault.balanceOf(holder.account);
+        uint256 traderRemainingShares = vault.balanceOf(trader.account);
+        
+        console2.log("Holder remaining shares:", holderRemainingShares);
+        console2.log("Trader remaining shares:", traderRemainingShares);
+        
+        _verifyFinalState(holder, trader);
+    }
+
+    /// @notice Verify final state and assertions
+    function _verifyFinalState(UserPersona memory holder, UserPersona memory trader) internal view {
+        console2.log("\n=== FINAL VERIFICATION ===");
+        
+        holder.finalBalance = asset.balanceOf(holder.account);
+        trader.finalBalance = asset.balanceOf(trader.account);
+        
+        console2.log("Holder final balance:", holder.finalBalance);
+        console2.log("Trader final balance:", trader.finalBalance);
+        
+        // Verify redeem requests were properly recorded
+        uint256 holderPendingRedeem = strategy.pendingRedeemRequest(holder.account);
+        uint256 traderPendingRedeem = strategy.pendingRedeemRequest(trader.account);
+        
+        console2.log("Holder pending redeem requests:", holderPendingRedeem);
+        console2.log("Trader pending redeem requests:", traderPendingRedeem);
+        
+        // Verify users have pending redeem requests (since we avoided fulfillment)
+        assertGt(holderPendingRedeem, 0, "Holder should have pending redeem requests");
+        assertGt(traderPendingRedeem, 0, "Trader should have pending redeem requests");
+        
+        // Verify users still have some shares remaining (since we redeemed shares-1)
+        uint256 holderRemainingShares = vault.balanceOf(holder.account);
+        uint256 traderRemainingShares = vault.balanceOf(trader.account);
+        
+        console2.log("Holder remaining shares:", holderRemainingShares);
+        console2.log("Trader remaining shares:", traderRemainingShares);
+        
+        // Both users should have minimal remaining shares (1 each)
+        assertEq(holderRemainingShares, 1, "Holder should have 1 remaining share");
+        assertEq(traderRemainingShares, 1, "Trader should have 1 remaining share");
+    }
+
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS

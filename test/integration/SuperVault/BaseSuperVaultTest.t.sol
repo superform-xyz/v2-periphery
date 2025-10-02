@@ -252,7 +252,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         maxStaleness[2] = 1 days;
         superOracle.setFeedMaxStalenessBatch(feeds, maxStaleness);
 
-        superGovernor.setGasInfo(address(ecdsappsOracle), 50_000, 10_000);
+        superGovernor.setGasInfo(address(ecdsappsOracle), 10_000);
 
         // Centrifuge setup
         rootManager = 0x0C1fDfd6a1331a875EA013F3897fc8a76ada5DfC;
@@ -301,7 +301,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -356,7 +357,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
 

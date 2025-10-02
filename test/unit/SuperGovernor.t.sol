@@ -12,9 +12,12 @@ import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
+import { MockUp } from "../mocks/MockUp.sol";
 
 contract SuperGovernorTest is PeripheryHelpers {
+    SuperVaultAggregator internal aggregator;
     SuperGovernor internal superGovernor;
+    MockUp internal upToken;
 
     // Roles & Addresses
     address internal sGovernor;
@@ -32,6 +35,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     address internal superVaultAggregator;
     address internal strategy1;
     address internal newManager;
+    address internal manager;
+    address internal superBank;
 
     // Role Hashes
     bytes32 internal constant SUPER_GOVERNOR_ROLE = keccak256("SUPER_GOVERNOR_ROLE");
@@ -63,10 +68,13 @@ contract SuperGovernorTest is PeripheryHelpers {
         ppsOracle1 = _deployAccount(0xB, "PPSOracle1");
         ppsOracle2 = _deployAccount(0xC, "PPSOracle2");
         newManager = _deployAccount(0xF, "NewManager");
+        manager = _deployAccount(0x10, "Manager");
+        upToken = new MockUp(address(this));
+        superBank = _deployAccount(0x12, "SuperBank");
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -75,6 +83,8 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         superVaultAggregator =
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
+        aggregator = SuperVaultAggregator(superVaultAggregator);
+
         (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -88,10 +98,17 @@ contract SuperGovernorTest is PeripheryHelpers {
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
         strategy1 = strategy;
+
+        vm.startPrank(sGovernor);
+        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
+        superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
+        superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        vm.stopPrank();
     }
 
     // =============================================================
@@ -109,19 +126,19 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, treasury, address(this));
+        new SuperGovernor(sGovernor, address(0), governor, governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, address(0), address(this));
+        new SuperGovernor(sGovernor, governor, governor, governor, governor, address(0), address(this));
     }
 
     // =============================================================
@@ -164,7 +181,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_AddressRegistry_SetAndGetAddress() public {
         vm.prank(sGovernor);
         vm.expectEmit(true, true, true, true);
-        emit ISuperGovernor.AddressSet(TEST_KEY, user);
+        emit ISuperGovernor.AddressSet(TEST_KEY, address(0), user);
         superGovernor.setAddress(TEST_KEY, user);
 
         assertEq(superGovernor.getAddress(TEST_KEY), user, "Address mismatch");
@@ -794,6 +811,207 @@ contract SuperGovernorTest is PeripheryHelpers {
             }
         }
         return false;
+    }
+
+    // =============================================================
+    // Slash Stake Validation Tests
+    // =============================================================
+    /// @notice Tests successful stake slashing
+    function test_SlashStake_Success() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 slashAmount = 200e18;
+        uint256 remainingStake = stakeAmount - slashAmount;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Record initial SuperBank balance
+        uint256 initialBankBalance = upToken.balanceOf(superBank);
+
+        // SuperGovernor slashes stake
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify balances
+        assertEq(aggregator.getStakeBalance(manager), remainingStake, "Manager stake should be reduced");
+        assertEq(
+            upToken.balanceOf(superBank), initialBankBalance + slashAmount, "SuperBank should receive slashed tokens"
+        );
+        assertEq(upToken.balanceOf(address(aggregator)), remainingStake, "Contract should hold remaining stake");
+    }
+
+    /// @notice Tests complete stake slashing
+    function test_SlashStake_CompleteSlashing() public {
+        uint256 stakeAmount = 1000e18;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // SuperGovernor slashes all stake
+        vm.prank(governor);
+        superGovernor.slashStake(manager, stakeAmount);
+
+        // Verify balances
+        assertEq(aggregator.getStakeBalance(manager), 0, "Manager stake should be zero");
+        assertEq(upToken.balanceOf(superBank), stakeAmount, "SuperBank should receive all slashed tokens");
+    }
+
+    /// @notice Tests slashing reverts when called by non-governor
+    function test_SlashStake_RevertUnauthorized() public {
+        uint256 stakeAmount = 1000e18;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Test various unauthorized callers
+        vm.prank(manager);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+
+        vm.prank(user);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+
+        vm.prank(sGovernor);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing reverts when SuperVaultAggregator is not set
+    function test_SlashStake_RevertContractNotFound() public {
+        // Deploy a new SuperGovernor with valid addresses but without setting the aggregator
+        SuperGovernor newSuperGovernor = new SuperGovernor(
+            sGovernor,
+            governor,
+            governor, // bankManager (using governor as valid address)
+            governor, // gasManager (using governor as valid address)
+            governor, // unpauser (using governor as valid address)
+            treasury,
+            governor // prover (using governor as valid address)
+        );
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        newSuperGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing reverts with zero address manager
+    function test_SlashStake_RevertZeroAddress() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superGovernor.slashStake(address(0), 100e18);
+    }
+
+    /// @notice Tests slashing reverts with insufficient stake balance
+    function test_SlashStake_RevertInsufficientStake() public {
+        uint256 stakeAmount = 500e18;
+        uint256 slashAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Try to slash more than available
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superGovernor.slashStake(manager, slashAmount);
+    }
+
+    /// @notice Tests slashing reverts when no stake deposited
+    function test_SlashStake_RevertNoStake() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing with multiple managers
+    function test_SlashStake_MultipleManagers() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 slashAmount = 200e18;
+        address manager2 = _deployAccount(0x9, "Manager2");
+
+        // Setup: Deposit stake for both managers
+        upToken.mint(manager, stakeAmount);
+        upToken.mint(manager2, stakeAmount);
+
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        vm.startPrank(manager2);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager2, stakeAmount);
+        vm.stopPrank();
+
+        // Slash only first manager's stake
+        vm.prank(governor);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only first manager was slashed
+        assertEq(
+            aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "First manager stake should be reduced"
+        );
+        assertEq(aggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged");
+    }
+
+    /// @notice Tests stake and upkeep systems are independent
+    function test_SlashStake_StakeUpkeepIndependence() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 upkeepAmount = 500e18;
+
+        // Mint tokens to manager
+        upToken.mint(manager, stakeAmount + upkeepAmount);
+
+        // Deposit both stake and upkeep
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        ISuperVaultAggregator(superVaultAggregator).depositUpkeep(manager, upkeepAmount);
+        vm.stopPrank();
+
+        // Verify independent balances
+        assertEq(aggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            upkeepAmount,
+            "Upkeep balance should be independent"
+        );
+
+        // Slash stake - should not affect upkeep
+        uint256 slashAmount = 300e18;
+        vm.prank(governor);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only stake was affected
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getStakeBalance(manager),
+            stakeAmount - slashAmount,
+            "Only stake should be reduced"
+        );
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            upkeepAmount,
+            "Upkeep should be unchanged"
+        );
+        assertEq(aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced");
     }
 
     // =============================================================
