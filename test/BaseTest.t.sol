@@ -20,6 +20,7 @@ import { ECDSAPPSOracle } from "../src/oracles/ECDSAPPSOracle.sol";
 // Mock contracts for address prediction
 import { Mock4626Vault } from "./mocks/Mock4626Vault.sol";
 import { RuggableVault } from "./mocks/RuggableVault.sol";
+import { MockGainsVault } from "./mocks/MockGainsVault.sol";
 import { RuggableConvertVault } from "./mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "./mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "./mocks/MockETHReceiver.sol";
@@ -57,6 +58,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     address public test3_UnderlyingVaults_StressTest;
     address public test6_yieldAccumulation_vault1;
     address public test6_yieldAccumulation_vault2;
+    address public test_Gains_Underlying_Vault;
 
     address public test6_yieldAccumulation_vault3;
     address public test6_yieldAccumulation_WithRebalancing_vault1;
@@ -266,6 +268,10 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         // Test 11: Allocate NewYieldSource - uses salt "TEST"
         test11_Allocate_NewYieldSource =
             _predictMock4626VaultAddress(deployer, assetAddress, "New Vault", "NV", TEST_SALT);
+
+        // Test 12: SuperVault E2E Flow With Gains From Underlying Vault - uses salt "TEST"
+        test_Gains_Underlying_Vault =
+            _predictGainsVaultAddress(deployer, assetAddress, "MockGainsVault", "GainsVault", TEST_SALT);
     }
 
     /// @notice Updates test vault predictions with the correct deployer address
@@ -334,6 +340,20 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         bytes memory bytecode = abi.encodePacked(
             type(RuggableConvertVault).creationCode, abi.encode(asset, name, symbol, rugPercentage, rugEnabled)
         );
+        bytes32 bytecodeHash = keccak256(bytecode);
+        bytes32 saltHash = keccak256(abi.encodePacked(salt));
+        return Create2.computeAddress(saltHash, bytecodeHash, deployer);
+    }
+
+    /// @notice Predicts CREATE2 address for MockGainsVault using same method as Create2.deploy()
+    function _predictGainsVaultAddress(
+        address deployer,
+        address asset,
+        string memory name,
+        string memory symbol,
+        string memory salt
+    ) internal pure returns (address) {
+        bytes memory bytecode = abi.encodePacked(type(MockGainsVault).creationCode, abi.encode(asset, name, symbol));
         bytes32 bytecodeHash = keccak256(bytecode);
         bytes32 saltHash = keccak256(abi.encodePacked(salt));
         return Create2.computeAddress(saltHash, bytecodeHash, deployer);
