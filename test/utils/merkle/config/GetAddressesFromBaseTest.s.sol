@@ -42,6 +42,7 @@ contract GetAddressesFromBaseTest is BaseTest {
         );
         console.log("VAULT_test11_Allocate_NewYieldSource:", test11_Allocate_NewYieldSource);
         console.log("VAULT_MOCK_ETH_RECEIVER:", contractAddresses[ETH]["MOCK_ETH_RECEIVER"]);
+        console.log("VAULT_GainVault:", test_Gains_Underlying_Vault);
 
         // Add all periphery hooks from globalMerkleHooksPeriphery
         console.log("Redeem4626VaultHook:", globalMerkleHooksPeriphery[1]);

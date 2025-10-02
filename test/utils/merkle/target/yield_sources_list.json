@@ -33,6 +33,22 @@
       "address": "0xda00000035fef4082F78dEF6A8903bee419FbF8E"
     },
     {
+      "symbol": "GainVault",
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+    },
+    {
+      "symbol": "GainVault",
+      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+    },
+    {
+      "symbol": "GainVault",
+      "address": "0x77f52c1a65A316447A5E8594BA21833a7be1273f"
+    },
+    {
+      "symbol": "GainVault",
+      "address": "0xd4c2fd9de47Fa4682D34D4993fA33f9610D8280a"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
@@ -135,6 +151,14 @@
     {
       "symbol": "MOCK_ETH_RECEIVER_Coverage",
       "address": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
+    },
+    {
+      "symbol": "GainVault",
+      "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
+    },
+    {
+      "symbol": "GainVault_Coverage",
+      "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
     }
   ],
   "10": [
