@@ -2035,6 +2035,74 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
     }
 
+    function test_SuperVault_E2E_Flow_With_GainsFrom_Underlying_Vault() public {
+        uint256 amount = 1000e6; // 1000 USDC
+
+        vm.selectFork(FORKS[ETH]);
+
+        _overrideSuperLedgerSetUp();
+
+        // Record initial balances
+        uint256 initialUserAssets = asset.balanceOf(accountEth);
+        uint256 initialVaultAssets = asset.balanceOf(address(vault));
+
+        // Step 1: Request Deposit
+        _deposit(amount);
+
+        // Verify assets transferred from user to vault
+        assertEq(
+            asset.balanceOf(accountEth), initialUserAssets - amount, "User assets not reduced after deposit request"
+        );
+        assertEq(
+            asset.balanceOf(address(strategy)),
+            initialVaultAssets + amount,
+            "Vault assets not increased after deposit request"
+        );
+
+        // Need to allocate to yield sources before requesting redemption
+        _depositFreeAssets_Into_Underlying_4626Vault(amount, address(gainVault));
+
+        // Verify shares minted to user
+        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+
+        // Record balances before redeem
+        uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
+        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+
+        // Fast forward time
+        vm.warp(block.timestamp + 5 weeks);
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Step 4: Request Redeem
+        _requestRedeem(userShares);
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User shares not transferred from account");
+        assertEq(IERC20(vault.share()).balanceOf(address(escrow)), userShares, "Shares not transferred to escrow");
+
+        address[] memory yieldSources = new address[](1);
+        yieldSources[0] = address(gainVault);
+        (uint256 superformFee, uint256 recipientFee, uint256 expectedNetAssets) = _calculatePerformanceFee(userShares, accountEth, yieldSources);
+
+        // Step 5: Fulfill Redeem
+        _fulfillRedeem_Single_YieldSource(userShares, address(gainVault));
+
+        // Calculate expected assets based on shares
+        uint256 claimableShares = vault.maxRedeem(accountEth);
+
+        // Step 6: Claim Redeem
+        _claimRedeem(claimableShares);
+
+        uint256 totalFeesTaken = superformFee + recipientFee;
+
+        // Final balance assertions
+        assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
+
+        // Verify fee was taken
+        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+    }
+
     function test_SuperVault_E2E_Flow_With_0_Ledger_Fees() public {
         uint256 amount = 1000e6; // 1000 USDC
 
