@@ -427,11 +427,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
     /**
      * @notice Sets up the SuperVault with another 4626 vault as underlying yield source
      */
-    function _setUpSuperVault_With_4626Vault_Underlying(address vault) internal {
+    function _setUpSuperVault_With_1_Underlying_4626Vault(address vault) internal {
         // Set the vault to use the mock loss vault as underlying yield source
         vm.startPrank(MANAGER);
         strategy.manageYieldSource(
             address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            2 // removeYieldSource
+        );
+        strategy.manageYieldSource(
+            address(aaveVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
             2 // removeYieldSource
         );
@@ -446,9 +451,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         ISuperVaultStrategy.YieldSourceInfo[] memory yieldSourcesList =
             ISuperVaultStrategy(strategy).getYieldSourcesList();
 
-        assertEq(yieldSourcesList.length, 2);
-        assertEq(yieldSourcesList[0].sourceAddress, address(aaveVault));
-        assertEq(yieldSourcesList[1].sourceAddress, address(vault));
+        assertEq(yieldSourcesList.length, 1);
+        assertEq(yieldSourcesList[0].sourceAddress, address(vault));
     }
 
     /**
@@ -971,6 +975,49 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         );
     }
 
+    function _depositFreeAssets_Into_Underlying_4626Vault(uint256 depositAmount, address vault) internal {
+        address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = depositHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+
+        // Split the deposit between two hooks
+        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault,
+            address(asset),
+            depositAmount,
+            false,
+            address(0),
+            0
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(vault)).convertToShares(depositAmount);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        vm.startPrank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: fulfillHooksAddresses,
+                hookCalldata: fulfillHooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+        vm.stopPrank();
+
+        (uint256 pricePerShare) = _getSuperVaultPricePerShare();
+        uint256 shares = depositAmount.mulDiv(strategy.PRECISION(), pricePerShare);
+
+        _trackDeposit(accountEth, shares, depositAmount);
+    }
+
     // Local variables struct for _depositFreeAssetsFromSingleAmountViaSmartAccount
     struct DepositViaSmartAccountVars {
         address depositHookAddress;
@@ -1080,6 +1127,38 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
                 expectedAssetsOrSharesOut: vars.expectedAssetsOrSharesOut,
                 globalProofs: _getMerkleProofsForHooks(vars.fulfillHooksAddresses, argsForProofs),
                 strategyProofs: new bytes32[][](2)
+            })
+        );
+        vm.stopPrank();
+    }
+
+    function _fulfillRedeem_Single_YieldSource(uint256 redeemShares, address vault) internal {
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+        fulfillHooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault,
+            address(strategy),
+            redeemShares,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(vault)).convertToAssets(redeemShares);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        strategy.fulfillRedeemRequests(
+            ISuperVaultStrategy.FulfillArgs({
+                controllers: requestingUsers,
+                hooks: fulfillHooksAddresses,
+                hookCalldata: fulfillHooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](1)
             })
         );
         vm.stopPrank();
