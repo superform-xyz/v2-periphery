@@ -77,6 +77,10 @@
       "address": "0xd4c2fd9de47Fa4682D34D4993fA33f9610D8280a"
     },
     {
+      "symbol": "GainVault",
+      "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
     },
@@ -182,11 +186,11 @@
     },
     {
       "symbol": "GainVault",
-      "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
+      "address": "0xeCa1755494d7A1109804B13e90E609DBa2884145"
     },
     {
       "symbol": "GainVault_Coverage",
-      "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
+      "address": "0xeCa1755494d7A1109804B13e90E609DBa2884145"
     }
   ],
   "10": [
