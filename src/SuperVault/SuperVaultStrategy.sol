@@ -229,7 +229,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _requireVault();
 
         if (_isPaused()) revert STRATEGY_PAUSED();
-        
+
         if (operation == Operation.RedeemRequest) {
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.CancelRedeem) {
@@ -312,10 +312,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         // Enforce both lower and upper bounds on intended shares to prevent escrow overburn
-        if (
-            intendedShares + TOLERANCE_CONSTANT < totalRequestedShares
-                || intendedShares > totalRequestedShares + TOLERANCE_CONSTANT
-        ) {
+        if (intendedShares != totalRequestedShares) {
             revert INVALID_REDEEM_FILL();
         }
 
@@ -721,8 +718,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             Math.mulDiv(requestedShares, assetsWithdrawn, processedShares, Math.Rounding.Floor);
 
         // Cap against PPS
-        uint256 controllerAssetsAtPPS =
-            Math.mulDiv(requestedShares, getStoredPPS(), PRECISION, Math.Rounding.Floor);
+        uint256 controllerAssetsAtPPS = Math.mulDiv(requestedShares, getStoredPPS(), PRECISION, Math.Rounding.Floor);
         if (grossControllerAssets > controllerAssetsAtPPS) {
             grossControllerAssets = controllerAssetsAtPPS;
         }
@@ -752,7 +748,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         returns (uint256 costBasis)
     {
         // Calculate cost basis proportionally
-        costBasis = Math.mulDiv(requestedShares, state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+        costBasis =
+            Math.mulDiv(requestedShares, state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
 
         // Update user's accumulator state
         state.accumulatorShares -= requestedShares;
@@ -806,10 +803,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (totalFee > 0) {
             // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
             uint256 superformFee = Math.mulDiv(
-                totalFee,
-                superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
-                BPS_PRECISION,
-                Math.Rounding.Floor
+                totalFee, superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
             );
             uint256 recipientFee = totalFee - superformFee;
 
@@ -979,8 +973,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         emit EmergencyWithdrawal(recipient, amount);
     }
-
-
 
     /// @notice Internal function to check if a hook is a fulfill requests hook
     /// @param hook Address of the hook
