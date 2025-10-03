@@ -251,9 +251,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     continue;
                 }
 
-            uint256 upkeepCost = 0;
-            if (paymentsEnabled) {
-                StrategyData storage data = _strategyData[strategy];
+                uint256 upkeepCost = 0;
+                if (paymentsEnabled) {
+                StrategyData storage data = _strategyData[args.strategies[i]];
                 address manager = data.mainManager;
                 // Check staleness
                 if (data.isPaused) {
@@ -266,20 +266,20 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
-            }
 
-            _forwardPPS(
-                PPSUpdateData({
-                    strategy: strategy,
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
-                    pps: args.ppss[i],
-                    ppsStdev: args.ppsStdevs[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidators[i],
-                    timestamp: ts,
-                    upkeepCost: upkeepCost
-                })
-            );
+                _forwardPPS(
+                    PPSUpdateData({
+                        strategy: strategy,
+                        isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                        pps: args.ppss[i],
+                        ppsStdev: args.ppsStdevs[i],
+                        validatorSet: args.validatorSets[i],
+                        totalValidators: args.totalValidators[i],
+                        timestamp: ts,
+                        upkeepCost: upkeepCost
+                    })
+                );}
+            }
         }
     }
 
