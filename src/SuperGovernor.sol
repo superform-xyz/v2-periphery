@@ -115,6 +115,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
+    bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
     bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
@@ -155,6 +156,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, superGovernor);
         _grantRole(_SUPER_GOVERNOR_ROLE, superGovernor);
+        _grantRole(_ORACLE_MANAGER_ROLE, superGovernor);
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
@@ -167,6 +169,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
@@ -353,6 +356,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
         ISuperOracle(oracle).queueOracleUpdate(bases_, quotes_, providers_, feeds_);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function executeOracleUpdate() external onlyRole(_ORACLE_MANAGER_ROLE) {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperOracle(oracle).executeOracleUpdate();
     }
 
     /// @inheritdoc ISuperGovernor
@@ -664,7 +675,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc ISuperGovernor
     function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
@@ -869,6 +879,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function GAS_MANAGER_ROLE() external pure returns (bytes32) {
         return _GAS_MANAGER_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function ORACLE_MANAGER_ROLE() external pure returns (bytes32) {
+        return _ORACLE_MANAGER_ROLE;
     }
 
     /// @inheritdoc ISuperGovernor
