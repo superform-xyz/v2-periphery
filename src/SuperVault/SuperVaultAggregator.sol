@@ -429,13 +429,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert INSUFFICIENT_STAKE_BALANCE();
         }
 
-        // Transfer UP tokens to manager
-        IERC20(upToken).safeTransfer(msg.sender, request.amount);
-
         // Clear withdrawal request
         managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
 
         emit StakeWithdrawn(msg.sender, request.amount);
+
+        // Transfer UP tokens to manager
+        IERC20(upToken).safeTransfer(msg.sender, request.amount);
     }
 
     /// @notice Slashes a manager's stake balance by a specified amount
