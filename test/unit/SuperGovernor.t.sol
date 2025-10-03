@@ -12,9 +12,12 @@ import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
+import { MockUp } from "../mocks/MockUp.sol";
 
 contract SuperGovernorTest is PeripheryHelpers {
+    SuperVaultAggregator internal aggregator;
     SuperGovernor internal superGovernor;
+    MockUp internal upToken;
 
     // Roles & Addresses
     address internal sGovernor;
@@ -32,11 +35,14 @@ contract SuperGovernorTest is PeripheryHelpers {
     address internal superVaultAggregator;
     address internal strategy1;
     address internal newManager;
+    address internal manager;
+    address internal superBank;
 
     // Role Hashes
     bytes32 internal constant SUPER_GOVERNOR_ROLE = keccak256("SUPER_GOVERNOR_ROLE");
     bytes32 internal constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
     bytes32 internal constant BANK_MANAGER_ROLE = keccak256("BANK_MANAGER_ROLE");
+    bytes32 internal constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
     bytes32 internal constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
     // Keys
@@ -63,10 +69,13 @@ contract SuperGovernorTest is PeripheryHelpers {
         ppsOracle1 = _deployAccount(0xB, "PPSOracle1");
         ppsOracle2 = _deployAccount(0xC, "PPSOracle2");
         newManager = _deployAccount(0xF, "NewManager");
+        manager = _deployAccount(0x10, "Manager");
+        upToken = new MockUp(address(this));
+        superBank = _deployAccount(0x12, "SuperBank");
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -75,6 +84,8 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         superVaultAggregator =
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
+        aggregator = SuperVaultAggregator(superVaultAggregator);
+
         (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -88,10 +99,17 @@ contract SuperGovernorTest is PeripheryHelpers {
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,
                     recipient: address(this)
-                })
+                }),
+                maxUnpauseTimeLock: 0
             })
         );
         strategy1 = strategy;
+
+        vm.startPrank(sGovernor);
+        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
+        superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
+        superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        vm.stopPrank();
     }
 
     // =============================================================
@@ -109,19 +127,19 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, treasury, address(this));
+        new SuperGovernor(sGovernor, address(0), governor, governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, address(0), address(this));
+        new SuperGovernor(sGovernor, governor, governor, governor, governor, address(0), address(this));
     }
 
     // =============================================================
@@ -164,7 +182,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_AddressRegistry_SetAndGetAddress() public {
         vm.prank(sGovernor);
         vm.expectEmit(true, true, true, true);
-        emit ISuperGovernor.AddressSet(TEST_KEY, user);
+        emit ISuperGovernor.AddressSet(TEST_KEY, address(0), user);
         superGovernor.setAddress(TEST_KEY, user);
 
         assertEq(superGovernor.getAddress(TEST_KEY), user, "Address mismatch");
@@ -794,6 +812,207 @@ contract SuperGovernorTest is PeripheryHelpers {
             }
         }
         return false;
+    }
+
+    // =============================================================
+    // Slash Stake Validation Tests
+    // =============================================================
+    /// @notice Tests successful stake slashing
+    function test_SlashStake_Success() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 slashAmount = 200e18;
+        uint256 remainingStake = stakeAmount - slashAmount;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Record initial SuperBank balance
+        uint256 initialBankBalance = upToken.balanceOf(superBank);
+
+        // SuperGovernor slashes stake
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify balances
+        assertEq(aggregator.getStakeBalance(manager), remainingStake, "Manager stake should be reduced");
+        assertEq(
+            upToken.balanceOf(superBank), initialBankBalance + slashAmount, "SuperBank should receive slashed tokens"
+        );
+        assertEq(upToken.balanceOf(address(aggregator)), remainingStake, "Contract should hold remaining stake");
+    }
+
+    /// @notice Tests complete stake slashing
+    function test_SlashStake_CompleteSlashing() public {
+        uint256 stakeAmount = 1000e18;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // SuperGovernor slashes all stake
+        vm.prank(governor);
+        superGovernor.slashStake(manager, stakeAmount);
+
+        // Verify balances
+        assertEq(aggregator.getStakeBalance(manager), 0, "Manager stake should be zero");
+        assertEq(upToken.balanceOf(superBank), stakeAmount, "SuperBank should receive all slashed tokens");
+    }
+
+    /// @notice Tests slashing reverts when called by non-governor
+    function test_SlashStake_RevertUnauthorized() public {
+        uint256 stakeAmount = 1000e18;
+
+        // Setup: Deposit stake first
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Test various unauthorized callers
+        vm.prank(manager);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+
+        vm.prank(user);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+
+        vm.prank(sGovernor);
+        vm.expectRevert();
+        superGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing reverts when SuperVaultAggregator is not set
+    function test_SlashStake_RevertContractNotFound() public {
+        // Deploy a new SuperGovernor with valid addresses but without setting the aggregator
+        SuperGovernor newSuperGovernor = new SuperGovernor(
+            sGovernor,
+            governor,
+            governor, // bankManager (using governor as valid address)
+            governor, // gasManager (using governor as valid address)
+            governor, // unpauser (using governor as valid address)
+            treasury,
+            governor // prover (using governor as valid address)
+        );
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        newSuperGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing reverts with zero address manager
+    function test_SlashStake_RevertZeroAddress() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superGovernor.slashStake(address(0), 100e18);
+    }
+
+    /// @notice Tests slashing reverts with insufficient stake balance
+    function test_SlashStake_RevertInsufficientStake() public {
+        uint256 stakeAmount = 500e18;
+        uint256 slashAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        upToken.mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Try to slash more than available
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superGovernor.slashStake(manager, slashAmount);
+    }
+
+    /// @notice Tests slashing reverts when no stake deposited
+    function test_SlashStake_RevertNoStake() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superGovernor.slashStake(manager, 100e18);
+    }
+
+    /// @notice Tests slashing with multiple managers
+    function test_SlashStake_MultipleManagers() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 slashAmount = 200e18;
+        address manager2 = _deployAccount(0x9, "Manager2");
+
+        // Setup: Deposit stake for both managers
+        upToken.mint(manager, stakeAmount);
+        upToken.mint(manager2, stakeAmount);
+
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        vm.startPrank(manager2);
+        upToken.approve(address(superVaultAggregator), stakeAmount);
+        aggregator.depositStake(manager2, stakeAmount);
+        vm.stopPrank();
+
+        // Slash only first manager's stake
+        vm.prank(governor);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only first manager was slashed
+        assertEq(
+            aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "First manager stake should be reduced"
+        );
+        assertEq(aggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged");
+    }
+
+    /// @notice Tests stake and upkeep systems are independent
+    function test_SlashStake_StakeUpkeepIndependence() public {
+        uint256 stakeAmount = 1000e18;
+        uint256 upkeepAmount = 500e18;
+
+        // Mint tokens to manager
+        upToken.mint(manager, stakeAmount + upkeepAmount);
+
+        // Deposit both stake and upkeep
+        vm.startPrank(manager);
+        upToken.approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
+        aggregator.depositStake(manager, stakeAmount);
+        ISuperVaultAggregator(superVaultAggregator).depositUpkeep(manager, upkeepAmount);
+        vm.stopPrank();
+
+        // Verify independent balances
+        assertEq(aggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            upkeepAmount,
+            "Upkeep balance should be independent"
+        );
+
+        // Slash stake - should not affect upkeep
+        uint256 slashAmount = 300e18;
+        vm.prank(governor);
+        superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only stake was affected
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getStakeBalance(manager),
+            stakeAmount - slashAmount,
+            "Only stake should be reduced"
+        );
+        assertEq(
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            upkeepAmount,
+            "Upkeep should be unchanged"
+        );
+        assertEq(aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced");
     }
 
     // =============================================================
@@ -1787,6 +2006,320 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.setOracleMaxStaleness(validStaleness);
     }
+
+    // =============================================================
+    // Oracle Update Management Tests
+    // =============================================================
+
+    /// @notice Tests queueOracleUpdate with valid parameters
+    function test_OracleUpdateManagement_QueueOracleUpdate_Success() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        address[] memory bases = new address[](2);
+        bases[0] = address(0x111);
+        bases[1] = address(0x222);
+
+        address[] memory quotes = new address[](2);
+        quotes[0] = address(0x333);
+        quotes[1] = address(0x444);
+
+        bytes32[] memory providers = new bytes32[](2);
+        providers[0] = keccak256("PROVIDER1");
+        providers[1] = keccak256("PROVIDER2");
+
+        address[] memory feeds = new address[](2);
+        feeds[0] = address(0x555);
+        feeds[1] = address(0x666);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Verify the mock oracle received the call
+        assertTrue(mockOracle.oracleUpdateQueued(), "Oracle update should be queued");
+        assertEq(mockOracle.getLastBasesLength(), 2, "Should have 2 bases");
+        assertEq(mockOracle.getLastQuotesLength(), 2, "Should have 2 quotes");
+        assertEq(mockOracle.getLastProvidersLength(), 2, "Should have 2 providers");
+        assertEq(mockOracle.getLastFeedsLength(), 2, "Should have 2 feeds");
+        assertEq(mockOracle.getLastBase(0), bases[0], "First base should match");
+        assertEq(mockOracle.getLastBase(1), bases[1], "Second base should match");
+    }
+
+    /// @notice Tests queueOracleUpdate reverts when oracle is not set in registry
+    function test_OracleUpdateManagement_QueueOracleUpdate_Revert_OracleNotSet() public {
+        address[] memory bases = new address[](1);
+        bases[0] = address(0x111);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(0x333);
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = address(0x555);
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+    }
+
+    /// @notice Tests queueOracleUpdate access control - only GOVERNOR_ROLE can call
+    function test_OracleUpdateManagement_QueueOracleUpdate_AccessControl() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        address[] memory bases = new address[](1);
+        bases[0] = address(0x111);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(0x333);
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = address(0x555);
+
+        // Test with user (should fail - needs GOVERNOR_ROLE)
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
+        );
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
+        vm.prank(sGovernor);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
+        );
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Test with governor (should succeed)
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+        assertTrue(mockOracle.oracleUpdateQueued(), "Governor should be able to queue oracle update");
+    }
+
+    /// @notice Tests queueOracleUpdate with empty arrays
+    function test_OracleUpdateManagement_QueueOracleUpdate_EmptyArrays() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        address[] memory bases = new address[](0);
+        address[] memory quotes = new address[](0);
+        bytes32[] memory providers = new bytes32[](0);
+        address[] memory feeds = new address[](0);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Verify the mock oracle received the call with empty arrays
+        assertTrue(mockOracle.oracleUpdateQueued(), "Oracle update should be queued");
+        assertEq(mockOracle.getLastBasesLength(), 0, "Should have 0 bases");
+        assertEq(mockOracle.getLastQuotesLength(), 0, "Should have 0 quotes");
+        assertEq(mockOracle.getLastProvidersLength(), 0, "Should have 0 providers");
+        assertEq(mockOracle.getLastFeedsLength(), 0, "Should have 0 feeds");
+    }
+
+    /// @notice Tests executeOracleUpdate with valid setup
+    function test_OracleUpdateManagement_ExecuteOracleUpdate_Success() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // First queue an update
+        address[] memory bases = new address[](1);
+        bases[0] = address(0x111);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(0x333);
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = address(0x555);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Now execute the update
+        vm.prank(sGovernor); // sGovernor has ORACLE_MANAGER_ROLE
+        superGovernor.executeOracleUpdate();
+
+        // Verify the mock oracle received the execution call
+        assertTrue(mockOracle.oracleUpdateExecuted(), "Oracle update should be executed");
+    }
+
+    /// @notice Tests executeOracleUpdate reverts when oracle is not set in registry
+    function test_OracleUpdateManagement_ExecuteOracleUpdate_Revert_OracleNotSet() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.executeOracleUpdate();
+    }
+
+    /// @notice Tests executeOracleUpdate access control - only ORACLE_MANAGER_ROLE can call
+    function test_OracleUpdateManagement_ExecuteOracleUpdate_AccessControl() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Test with user (should fail - needs ORACLE_MANAGER_ROLE)
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, ORACLE_MANAGER_ROLE)
+        );
+        superGovernor.executeOracleUpdate();
+
+        // Test with governor (should fail - needs ORACLE_MANAGER_ROLE specifically)
+        vm.prank(governor);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, governor, ORACLE_MANAGER_ROLE
+            )
+        );
+        superGovernor.executeOracleUpdate();
+
+        // Test with sGovernor (should succeed - has ORACLE_MANAGER_ROLE)
+        vm.prank(sGovernor);
+        superGovernor.executeOracleUpdate();
+        assertTrue(mockOracle.oracleUpdateExecuted(), "sGovernor should be able to execute oracle update");
+    }
+
+    /// @notice Tests executeOracleUpdate can be called without queuing first (depends on oracle implementation)
+    function test_OracleUpdateManagement_ExecuteOracleUpdate_WithoutQueue() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Execute without queuing first - this should work with our mock
+        vm.prank(sGovernor);
+        superGovernor.executeOracleUpdate();
+
+        // Verify the mock oracle received the execution call
+        assertTrue(mockOracle.oracleUpdateExecuted(), "Oracle update should be executed");
+    }
+
+    /// @notice Tests the complete flow: queue then execute oracle update
+    function test_OracleUpdateManagement_CompleteFlow() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Step 1: Queue the update
+        address[] memory bases = new address[](3);
+        bases[0] = address(0x111);
+        bases[1] = address(0x222);
+        bases[2] = address(0x333);
+
+        address[] memory quotes = new address[](3);
+        quotes[0] = address(0x444);
+        quotes[1] = address(0x555);
+        quotes[2] = address(0x666);
+
+        bytes32[] memory providers = new bytes32[](3);
+        providers[0] = keccak256("PROVIDER1");
+        providers[1] = keccak256("PROVIDER2");
+        providers[2] = keccak256("PROVIDER3");
+
+        address[] memory feeds = new address[](3);
+        feeds[0] = address(0x777);
+        feeds[1] = address(0x888);
+        feeds[2] = address(0x999);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
+
+        // Verify queuing worked
+        assertTrue(mockOracle.oracleUpdateQueued(), "Oracle update should be queued");
+        assertEq(mockOracle.getLastBasesLength(), 3, "Should have 3 bases");
+        assertEq(mockOracle.getLastProvider(2), providers[2], "Third provider should match");
+
+        // Step 2: Execute the update
+        vm.prank(sGovernor);
+        superGovernor.executeOracleUpdate();
+
+        // Verify execution worked
+        assertTrue(mockOracle.oracleUpdateExecuted(), "Oracle update should be executed");
+    }
+
+    /// @notice Tests multiple queue operations (should overwrite previous)
+    function test_OracleUpdateManagement_MultipleQueueOperations() public {
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // First queue operation
+        address[] memory bases1 = new address[](1);
+        bases1[0] = address(0x111);
+
+        address[] memory quotes1 = new address[](1);
+        quotes1[0] = address(0x333);
+
+        bytes32[] memory providers1 = new bytes32[](1);
+        providers1[0] = keccak256("PROVIDER1");
+
+        address[] memory feeds1 = new address[](1);
+        feeds1[0] = address(0x555);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases1, quotes1, providers1, feeds1);
+
+        // Second queue operation (should overwrite)
+        address[] memory bases2 = new address[](2);
+        bases2[0] = address(0x222);
+        bases2[1] = address(0x333);
+
+        address[] memory quotes2 = new address[](2);
+        quotes2[0] = address(0x444);
+        quotes2[1] = address(0x555);
+
+        bytes32[] memory providers2 = new bytes32[](2);
+        providers2[0] = keccak256("PROVIDER2");
+        providers2[1] = keccak256("PROVIDER3");
+
+        address[] memory feeds2 = new address[](2);
+        feeds2[0] = address(0x666);
+        feeds2[1] = address(0x777);
+
+        vm.prank(governor);
+        superGovernor.queueOracleUpdate(bases2, quotes2, providers2, feeds2);
+
+        // Verify the second operation overwrote the first
+        assertTrue(mockOracle.oracleUpdateQueued(), "Oracle update should be queued");
+        assertEq(mockOracle.getLastBasesLength(), 2, "Should have 2 bases from second operation");
+        assertEq(mockOracle.getLastBase(0), bases2[0], "First base should be from second operation");
+        assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
+        assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
+    }
 }
 
 // =============================================================
@@ -1800,6 +2333,14 @@ contract MockSuperOracleForStaleness {
     uint256 public lastFeedStaleness;
     bool public batchCalled;
 
+    // Oracle update tracking
+    address[] public lastBases;
+    address[] public lastQuotes;
+    bytes32[] public lastProviders;
+    address[] public lastFeeds;
+    bool public oracleUpdateQueued;
+    bool public oracleUpdateExecuted;
+
     function setMaxStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }
@@ -1811,5 +2352,57 @@ contract MockSuperOracleForStaleness {
 
     function setFeedMaxStalenessBatch(address[] calldata, uint256[] calldata) external {
         batchCalled = true;
+    }
+
+    function queueOracleUpdate(
+        address[] calldata bases,
+        address[] calldata quotes,
+        bytes32[] calldata providers,
+        address[] calldata feeds
+    )
+        external
+    {
+        lastBases = bases;
+        lastQuotes = quotes;
+        lastProviders = providers;
+        lastFeeds = feeds;
+        oracleUpdateQueued = true;
+    }
+
+    function executeOracleUpdate() external {
+        oracleUpdateExecuted = true;
+    }
+
+    // Getter functions for testing
+    function getLastBasesLength() external view returns (uint256) {
+        return lastBases.length;
+    }
+
+    function getLastQuotesLength() external view returns (uint256) {
+        return lastQuotes.length;
+    }
+
+    function getLastProvidersLength() external view returns (uint256) {
+        return lastProviders.length;
+    }
+
+    function getLastFeedsLength() external view returns (uint256) {
+        return lastFeeds.length;
+    }
+
+    function getLastBase(uint256 index) external view returns (address) {
+        return lastBases[index];
+    }
+
+    function getLastQuote(uint256 index) external view returns (address) {
+        return lastQuotes[index];
+    }
+
+    function getLastProvider(uint256 index) external view returns (bytes32) {
+        return lastProviders[index];
+    }
+
+    function getLastFeed(uint256 index) external view returns (address) {
+        return lastFeeds[index];
     }
 }

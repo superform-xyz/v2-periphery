@@ -84,8 +84,24 @@ abstract contract Bank is ReentrancyGuard {
                     }
                 }
 
+                uint256 valueToSend = executionStep.value;
+                address targetToCall = executionStep.target;
+                bytes memory callData = executionStep.callData;
                 // Execute the call after verification
-                (success,) = executionStep.target.call{ value: executionStep.value }(executionStep.callData);
+                // We call via assembly to avoid memcopying the returndata
+                assembly {
+                    success :=
+                        call(
+                            gas(), // gas
+                            targetToCall, // recipient
+                            valueToSend, // ether value
+                            add(callData, 0x20), // inloc
+                            mload(callData), // inlen
+                            0, // outloc
+                            0 // outlen
+                        )
+                }
+
                 if (!success) {
                     revert HOOK_EXECUTION_FAILED();
                 }

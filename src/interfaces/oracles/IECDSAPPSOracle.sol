@@ -25,8 +25,6 @@ interface IECDSAPPSOracle {
     error STRATEGY_MISMATCH();
     /// @notice Thrown when the pps value in the proof does not match
     error PPS_MISMATCH();
-    /// @notice Thrown when the oracle is not set as the active PPS Oracle in SuperGovernor
-    error NOT_ACTIVE_PPS_ORACLE();
     /// @notice Thrown when the dispersion (standard deviation / mean) is too high
     error HIGH_PPS_DISPERSION();
     /// @notice Thrown when the deviation from previous PPS is too high
@@ -35,10 +33,12 @@ interface IECDSAPPSOracle {
     error INSUFFICIENT_VALIDATOR_PARTICIPATION();
     /// @notice Thrown when the reported validator count doesn't match the actual number of valid signatures
     error VALIDATOR_COUNT_MISMATCH();
-    /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures  
+    /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures
     error INVALID_VALIDATOR_SET();
     /// @notice Thrown when the totalValidators doesn't match the actual total number of validators
     error INVALID_TOTAL_VALIDATORS();
+    /// @notice Thrown when the gas provided is insufficient for external calls
+    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -78,6 +78,11 @@ interface IECDSAPPSOracle {
     /// @notice Emitted when batch forward PPS failed
     /// @param lowLevelData Revert encoded data
     event BatchForwardPPSFailedLowLevel(bytes lowLevelData);
+
+    /// @notice Emitted when batch forward PPS failed due to insufficient gas
+    /// @param gasLeft Gas left
+    /// @param requiredGas Required gas
+    event InsufficientGasForForward(uint256 gasLeft, uint256 requiredGas);
 
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
