@@ -629,9 +629,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.superVaultShares = ISuperHookInflowOutflow(hook).decodeAmount(hookCalldata);
 
         // Calculate underlying shares and update hook calldata
-        // uint256 currentPPS = getStoredPPS();
-        //vars.amountOfAssets = vars.superVaultShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
-        // TODO: implement the line belowand remove PPS implementation above
         vars.amountOfAssets = IERC4626(_vault).convertToAssets(vars.superVaultShares);
         vars.svAsset = address(_asset);
         vars.amountConvertedToUnderlyingShares = IYieldSourceOracle(yieldSources[vars.targetedYieldSource])
