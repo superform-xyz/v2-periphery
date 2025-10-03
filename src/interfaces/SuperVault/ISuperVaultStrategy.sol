@@ -96,6 +96,12 @@ interface ISuperVaultStrategy {
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
 
+    event DepositRequestPlaced(address indexed receiver, uint256 shares);
+    event DepositRequestCancelled(address indexed receiver, uint256 shares);
+
+    event MintRequestPlaced(address indexed receiver, uint256 shares, uint256 maxAssets);
+    event MintRequestCancelled(address indexed receiver, uint256 assets, uint256 shares);
+
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -141,6 +147,12 @@ interface ISuperVaultStrategy {
 
     /// @notice State specific to asynchronous redeem requests
     struct SuperVaultState {
+        // Deposits
+        uint256 pendingDepositRequest; // assets
+        // Mints
+        uint256 pendingMintRequest; // maxAssets
+        uint256 pendingMintRequestedShares; // requestedShares
+        // Redeems
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
         uint256 averageRequestPPS; // Average PPS at the time of redeem request
@@ -176,7 +188,10 @@ interface ISuperVaultStrategy {
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
     enum Operation {
-        Deposit,
+        DepositRequest,
+        CancelDeposit,
+        MintRequest,
+        CancelMint,
         RedeemRequest,
         CancelRedeem,
         ClaimRedeem,
@@ -204,18 +219,6 @@ interface ISuperVaultStrategy {
         external
         returns (uint256 sharesNet);
 
-    /// @notice Execute a 4626 mint by processing shares.
-    /// @param controller The controller address
-    /// @param sharesNet The amount of shares to mint
-    /// @param assetsGross The amount of gross assets user has to deposit
-    /// @param assetsNet The amount of net assets that strategy will receive
-    function handleOperations4626Mint(
-        address controller,
-        uint256 sharesNet,
-        uint256 assetsGross,
-        uint256 assetsNet
-    )
-        external;
 
     /// @notice Quotes the amount of assets that will be received for a given amount of shares.
     /// @param shares The amount of shares to mint
@@ -228,7 +231,8 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @param receiver The receiver address
     /// @param amount The amount of assets or shares
-    function handleOperations7540(Operation op, address controller, address receiver, uint256 amount) external;
+    /// @param requestedShares The amount of shares requested (for mint operation)
+    function handleOperations7540(Operation op, address controller, address receiver, uint256 amount, uint256 requestedShares) external;
 
     /*//////////////////////////////////////////////////////////////
                 MANAGER EXTERNAL ACCESS FUNCTIONS
@@ -358,6 +362,21 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @return pendingShares The amount of shares pending redemption
     function pendingRedeemRequest(address controller) external view returns (uint256 pendingShares);
+
+    /// @notice Get the pending mint request amount (shares) for a controller
+    /// @param controller The controller address
+    /// @return pendingShares The amount of shares pending mint
+    function pendingMintRequestedShares(address controller) external view returns (uint256 pendingShares);
+
+    /// @notice Get the pending deposit request amount (assets) for a controller
+    /// @param controller The controller address
+    /// @return pendingAssets The amount of assets pending deposit
+    function pendingDepositRequest(address controller) external view returns (uint256 pendingAssets);
+
+    /// @notice Get the pending mint request amount (assets) for a controller
+    /// @param controller The controller address
+    /// @return pendingAssets The amount of assets pending mint
+    function pendingMintRequest(address controller) external view returns (uint256 pendingAssets);
 
     /// @notice Get the claimable withdraw amount (assets) for a controller
     /// @param controller The controller address

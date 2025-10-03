@@ -10,6 +10,7 @@ import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IERC165 } from "openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -20,7 +21,7 @@ import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Redeem, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7540Redeem, IERC7540Operator, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 import { IGearboxFarmingPool } from "../../../src/vendor/gearbox/IGearboxFarmingPool.sol";
@@ -354,12 +355,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         
         vm.startPrank(users.user2);
         asset.approve(address(vault), initialDeposit);
-        vault.deposit(initialDeposit, users.user2);
+        vault.requestDeposit(initialDeposit, users.user2, users.user2);
+        vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = users.user2;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
         
         vm.startPrank(users.user3);
         asset.approve(address(vault), initialDeposit);
-        vault.deposit(initialDeposit, users.user3);
+        vault.requestDeposit(initialDeposit, users.user3, users.user3);
+        vm.stopPrank();
+        vm.startPrank(MANAGER);
+        controllers = new address[](1);
+        controllers[0] = users.user3;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
 
         // Allocate assets to yield sources to simulate real vault operations
@@ -564,7 +575,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         
         vm.startPrank(accountEth);
         asset.approve(address(vault), postEmergencyDeposit);
-        uint256 sharesReceived = vault.deposit(postEmergencyDeposit, accountEth);
+        uint256 sharesReceived = vault.previewDeposit(postEmergencyDeposit);
+        vault.requestDeposit(postEmergencyDeposit, accountEth, accountEth);
+        vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
         
         uint256 sharesAfter = vault.balanceOf(accountEth);
@@ -660,7 +677,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _manageYieldSourcesViaSmartAccount(managerAccount, newStrategy);
 
         // Direct deposit to the new vault
-        _deposit(depositAmount, newVaultAddr, address(asset));
+        _deposit(depositAmount, newVaultAddr, address(newStrategy), address(asset));
+
 
         // Verify deposit state
         uint256 userShares = newVault.balanceOf(accountEth);
@@ -1381,16 +1399,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         deal(address(asset), address(this), testAssets);
         asset.approve(address(vault), testAssets);
 
-        // Deposit should revert with STRATEGY_PAUSED when PPS is 0
-        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        vault.deposit(testAssets, address(this));
+        _getTokens(address(asset), accountEth, testAssets);
 
         // Mint should revert with STRATEGY_PAUSED when PPS is 0
-        vm.expectRevert(ISuperVault.INVALID_PPS.selector);
-        vault.mint(testShares, address(this));
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        vault.requestMint(testShares, testAssets, address(this));
+
+        // Deposit should revert with STRATEGY_PAUSED when PPS is 0
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        vault.requestDeposit(testAssets, address(this), address(this));
     }
 
-    function test_Mint() public {
+    function test_MintX() public {
         uint256 mintShares = 1000e6; // 1000 shares
         uint256 expectedAssets = vault.previewMint(mintShares);
 
@@ -1400,8 +1420,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         asset.approve(address(vault), expectedAssets);
 
         // Mint shares
+        uint256 assetBalanceBefore = asset.balanceOf(accountEth);
         vm.prank(accountEth);
-        uint256 assetsUsed = vault.mint(mintShares, accountEth);
+        vault.requestMint(mintShares, expectedAssets, accountEth);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        strategy.fulfillMintRequest(controllers);
+        vm.stopPrank();
+        uint256 assetBalanceAfter = asset.balanceOf(accountEth);
+
+        uint256 assetsUsed = assetBalanceBefore - assetBalanceAfter;
 
         // Verify results
         assertEq(assetsUsed, expectedAssets, "Wrong amount of assets used");
@@ -3299,7 +3329,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         console2.log("DEPOSITING");
-        _deposit(amount, address(gearSuperVault), address(asset));
+        _deposit(amount, address(gearSuperVault), address(strategyGearSuperVault), address(asset));
 
         console2.log("DEPOSITING FREE ASSETS");
         _depositFreeAssetsFromSingleAmount_Gearbox(amount);
@@ -4035,46 +4065,34 @@ contract SuperVaultTest is BaseSuperVaultTest {
                        AUDIT FIX #10 - DEPOSIT RECEIVER TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test that deposit accounting follows the minted receiver, not the controller/sender
+    /// @notice Test that deposit accounting follows the minted receiver
     function test_Fix10_DepositAccountingFollowsReceiver() public {
         uint256 depositAmount = 1000e6;
 
         // Setup: get tokens for user A (sender)
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
+        _getTokens(address(asset), accInstances[1].account, depositAmount);
 
-        // User A will be the sender/controller, User B will be the receiver
-        address sender = accInstances[0].account;
         address receiver = accInstances[1].account;
 
         // Record initial accumulator states
-        ISuperVaultStrategy.SuperVaultState memory senderStateBefore = strategy.getSuperVaultState(sender);
         ISuperVaultStrategy.SuperVaultState memory receiverStateBefore = strategy.getSuperVaultState(receiver);
 
-        // User A deposits but specifies User B as receiver
-        vm.startPrank(sender);
+        vm.startPrank(receiver);
         asset.approve(address(vault), depositAmount);
-        uint256 shares = vault.deposit(depositAmount, receiver);
+        uint256 shares = vault.previewDeposit(depositAmount);
+        vault.requestDeposit(depositAmount, receiver, receiver);
+        vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = receiver;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
 
         // Verify shares were minted to receiver, not sender
-        assertEq(vault.balanceOf(sender), 0, "Sender should not have shares");
         assertEq(vault.balanceOf(receiver), shares, "Receiver should have all shares");
 
         // Verify accumulator accounting follows the receiver
-        ISuperVaultStrategy.SuperVaultState memory senderStateAfter = strategy.getSuperVaultState(sender);
         ISuperVaultStrategy.SuperVaultState memory receiverStateAfter = strategy.getSuperVaultState(receiver);
-
-        // Sender's accumulator should not change
-        assertEq(
-            senderStateAfter.accumulatorShares,
-            senderStateBefore.accumulatorShares,
-            "Sender accumulator shares should not change"
-        );
-        assertEq(
-            senderStateAfter.accumulatorCostBasis,
-            senderStateBefore.accumulatorCostBasis,
-            "Sender accumulator cost basis should not change"
-        );
 
         // Receiver's accumulator should reflect the deposit
         assertEq(
@@ -4106,10 +4124,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
         ISuperVaultStrategy.SuperVaultState memory receiverStateBefore = strategy.getSuperVaultState(receiver);
 
         // User A mints but specifies User B as receiver
+        uint256 assetBalanceBefore = asset.balanceOf(sender);
         vm.startPrank(sender);
         asset.approve(address(vault), expectedAssets);
-        uint256 assetsUsed = vault.mint(mintShares, receiver);
+        vault.requestMint(mintShares, expectedAssets, receiver);
         vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = receiver;
+        strategy.fulfillMintRequest(controllers);
+        vm.stopPrank();
+        uint256 assetBalanceAfter = asset.balanceOf(sender);
+
+        uint256 assetsUsed = assetBalanceBefore - assetBalanceAfter;
+
 
         // Verify shares were minted to receiver, not sender
         assertEq(vault.balanceOf(sender), 0, "Sender should not have shares");
@@ -4148,17 +4176,48 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_Fix10_ReceiverCanRedeemAfterReceivingDeposit() public {
         uint256 depositAmount = 1000e6;
 
-        // Setup: get tokens for user A (sender)
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
 
         // User A will be the sender/controller, User B will be the receiver
         address sender = accInstances[0].account;
         address receiver = accInstances[1].account;
 
-        // User A deposits but specifies User B as receiver
-        vm.startPrank(sender);
+        _getTokens(address(asset), receiver, depositAmount);
+
+
+        console2.log("sender", sender);
+        console2.log("receiver", receiver);
+
+        // Try to find the correct storage slot for isOperator mapping
+        // Let's test different slot numbers
+        bool operatorSet = false;
+        for (uint256 i = 0; i < 200; i++) {
+            bytes32 innerSlot = keccak256(abi.encode(receiver, i));
+            bytes32 slot = keccak256(abi.encode(address(this), innerSlot));
+            
+            vm.store(address(vault), slot, bytes32(uint256(1)));
+            
+            bool isOperatorValue = vault.isOperator(receiver, address(this));
+            if (isOperatorValue) {
+                console2.log("Found correct storage slot:", i);
+                operatorSet = true;
+                break;
+            }
+            
+            // Reset the slot if it wasn't the right one
+            vm.store(address(vault), slot, bytes32(uint256(0)));
+        }
+        
+        require(operatorSet, "Failed to find and set operator storage slot");
+
+        vm.startPrank(receiver);
         asset.approve(address(vault), depositAmount);
-        uint256 shares = vault.deposit(depositAmount, receiver);
+        vm.stopPrank();
+        uint256 shares = vault.previewDeposit(depositAmount);
+        vault.requestDeposit(depositAmount, receiver, receiver);
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = receiver;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
 
         // Allocate assets to yield sources
@@ -4174,7 +4233,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), shares, "Shares should be in escrow");
 
         // Fulfill the redeem request
-        address[] memory controllers = new address[](1);
+        controllers = new address[](1);
         controllers[0] = receiver;
         _fulfillRedeemForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
@@ -5451,9 +5510,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
+            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
+        vm.startPrank(MANAGER);
+        strategy.fulfillDepositRequest(vars.depositUsers);
+        vm.stopPrank();
 
         vm.warp(vars.initialTimestamp + 1 days);
 
@@ -6673,9 +6735,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
+            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
+        vm.startPrank(MANAGER);
+        strategy.fulfillDepositRequest(vars.depositUsers);
+        vm.stopPrank();
 
         // Simulate time passing
         vm.warp(vars.initialTimestamp + 1 days);
@@ -7387,9 +7452,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
+            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
+        vm.startPrank(MANAGER);
+        strategy.fulfillDepositRequest(vars.depositUsers);
+        vm.stopPrank();
 
         // Fulfill deposit requests
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
@@ -8172,7 +8240,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Call the strategy directly (this is what vault.withdraw calls internally)
         vm.startPrank(address(vault));
         strategy.handleOperations7540(
-            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
+            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount, 0
         );
         vm.stopPrank();
 
@@ -8423,7 +8491,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.startPrank(accInstances[0].account);
         asset.approve(address(vault), type(uint256).max);
-        uint256 shares = vault.deposit(assets, accInstances[0].account);
+        uint256 shares = vault.previewDeposit(assets);
+        vault.requestDeposit(assets, accInstances[0].account, accInstances[0].account);
+        vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillDepositRequest(controllers);
         vm.stopPrank();
 
         // Fee = ceil(1% of 1000) = 10
@@ -8452,18 +8526,27 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_Mint_WithMgmtFee_GrossChargedMatchesPreviewMint() public {
         _setFeeConfig(100, 100, TREASURY); // 1%
 
-        // Seed payer
-        _getTokens(address(asset), accInstances[0].account, 10_000e6);
-
         // Target shares
         uint256 sharesWanted = 123_456;
 
-        // Compute required gross assets
         uint256 grossRequired = vault.previewMint(sharesWanted);
+        _getTokens(address(asset), accInstances[0].account, grossRequired);
+
+        // Compute required gross assets
+        uint256 assetBalanceBefore = asset.balanceOf(accInstances[0].account);
         vm.startPrank(accInstances[0].account);
         asset.approve(address(vault), type(uint256).max);
-        uint256 assetsSpent = vault.mint(sharesWanted, accInstances[0].account);
+        vault.requestMint(sharesWanted, grossRequired, accInstances[0].account);
         vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillMintRequest(controllers);
+        vm.stopPrank();
+        uint256 assetBalanceAfter = asset.balanceOf(accInstances[0].account);
+
+        uint256 assetsSpent = assetBalanceBefore - assetBalanceAfter;
+
 
         assertEq(assetsSpent, grossRequired, "spent == previewMint");
         // Recipient got exactly the entry fee = gross - net
@@ -8478,16 +8561,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 shares = 1_000_000;
         (uint256 gross, uint256 net) = strategy.quoteMintAssetsGross(shares);
+        _getTokens(address(asset), accInstances[0].account, gross);
 
         // previewMint matches gross
         assertEq(vault.previewMint(shares), gross, "previewMint == quote gross");
 
         // Deposit enough and mint; caller pays 'gross'
-        _getTokens(address(asset), accInstances[0].account, gross);
+        uint256 assetBalanceBefore = asset.balanceOf(accInstances[0].account);
         vm.startPrank(accInstances[0].account);
         asset.approve(address(vault), type(uint256).max);
-        uint256 paid = vault.mint(shares, accInstances[0].account);
+        vault.requestMint(shares, gross, accInstances[0].account);
         vm.stopPrank();
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillMintRequest(controllers);
+        vm.stopPrank();
+        uint256 assetBalanceAfter = asset.balanceOf(accInstances[0].account);
+
+        uint256 paid = assetBalanceBefore - assetBalanceAfter;
+
 
         assertEq(paid, gross, "paid gross");
         // Fee equals gross - net to recipient

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title SuperVaultEscrow
@@ -64,5 +65,17 @@ contract SuperVaultEscrow {
     /// @param amount The amount of shares to return
     function returnShares(address to, uint256 amount) external onlyVault {
         IERC20(vault).safeTransfer(to, amount);
+    }
+
+    /// @notice Transfer assets from vault to escrow during deposit request
+    /// @param amount The amount of assets to transfer
+    function escrowAssets(uint256 amount) external onlyVault {
+        IERC20(IERC4626(vault).asset()).safeTransferFrom(vault, address(this), amount);
+    }
+
+    /// @notice Return assets from escrow to vault during deposit cancellation
+    /// @param amount The amount of assets to return
+    function returnAssets(uint256 amount) external onlyVault {
+        IERC20(IERC4626(vault).asset()).safeTransfer(vault, amount);
     }
 }

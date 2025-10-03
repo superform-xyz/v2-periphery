@@ -47,12 +47,24 @@ interface ISuperVault {
     event RedeemRequestCancelled(address indexed controller, address indexed sender);
 
     event SuperGovernorSet(address indexed superGovernor);
+    
+    event DepositRequestCancelled(address indexed receiver, address indexed caller, uint256 assets);
+
+    event MintRequest(address indexed sender, address indexed receiver, uint256 requestId, uint256 requestedShares, uint256 maxAssets);
+
+    event MintRequestCancelled(address indexed receiver, address indexed caller, uint256 assets);
+    event DepositAssetsReturned(address indexed receiver, uint256 assets);
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
 
     function cancelRedeem(address controller) external;
+
+    /// @notice Mint shares, only callable by strategy
+    /// @param to The address to mint shares to
+    /// @param amount The amount of shares to mint
+    function mintShares(address to, uint256 amount) external;
 
     /// @notice Burn shares, only callable by strategy
     /// @param amount The amount of shares to burn
@@ -74,4 +86,9 @@ interface ISuperVault {
         uint256 accumulatorCostBasis
     )
         external;
+
+    /// @notice Extract assets from escrow and moves them to strategy
+    /// @dev Called by `SuperVaultStrategy`
+    /// @param assets The amount of assets to be extracted
+    function extractAssets(uint256 assets) external;
 }

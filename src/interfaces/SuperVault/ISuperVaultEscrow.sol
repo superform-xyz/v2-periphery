@@ -34,4 +34,12 @@ interface ISuperVaultEscrow {
     /// @param to The address to return shares to
     /// @param amount The amount of shares to return
     function returnShares(address to, uint256 amount) external;
+
+    /// @notice Transfer assets from vault to escrow during deposit request
+    /// @param amount The amount of assets to transfer
+    function escrowAssets(uint256 amount) external;
+
+    /// @notice Return assets from escrow to vault during deposit cancellation
+    /// @param amount The amount of assets to return
+    function returnAssets(uint256 amount) external;
 }

@@ -21,9 +21,11 @@ import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Operator, IERC7540Redeem, IERC7741 } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7540Operator, IERC7540Redeem, IERC7540Deposit, IERC7741 } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
+
+import "forge-std/console2.sol";
 
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
@@ -36,6 +38,7 @@ contract SuperVault is
     Initializable,
     ERC20Upgradeable,
     IERC7540Redeem,
+    IERC7540Deposit,
     IERC7741,
     IERC4626,
     ISuperVault,
@@ -134,43 +137,91 @@ contract SuperVault is
     /*//////////////////////////////////////////////////////////////
                         USER EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IERC7540Deposit
+    function deposit(uint256 assets, address receiver, address controller) external returns (uint256 shares) {
+        revert NOT_IMPLEMENTED();
+    }
 
+    /// @inheritdoc IERC7540Deposit
+    function mint(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+        revert NOT_IMPLEMENTED();
+    }
+    
     /// @inheritdoc IERC4626
     function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256 shares) {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-        if (assets == 0) revert ZERO_AMOUNT();
-
-        // Forward assets from msg-sender to strategy
-        _asset.safeTransferFrom(msg.sender, address(strategy), assets);
-
-        // Single executor call: strategy skims entry fee, accounts on NET, returns net shares
-        shares = strategy.handleOperations4626Deposit(receiver, assets);
-        if (shares == 0) revert ZERO_AMOUNT();
-
-        // Mint the net shares
-        _mint(receiver, shares);
-
-        emit Deposit(msg.sender, receiver, assets, shares);
+        revert NOT_IMPLEMENTED();
     }
 
     /// @inheritdoc IERC4626
     function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256 assets) {
+        revert NOT_IMPLEMENTED();
+    }
+
+    function requestMint(uint256 requestedShares, uint256 maxAssets, address receiver) external nonReentrant returns (uint256 requestId) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
-        if (shares == 0) revert ZERO_AMOUNT();
+        if (maxAssets == 0) revert ZERO_AMOUNT();
 
-        uint256 assetsNet;
-        (assets, assetsNet) = strategy.quoteMintAssetsGross(shares);
+        // Forward assets from msg-sender to escrow for temporary locking
+        _asset.safeTransferFrom(msg.sender, address(this), maxAssets);
+        IERC20(_asset).approve(address(escrow), maxAssets);
+        ISuperVaultEscrow(escrow).escrowAssets(maxAssets);
 
-        // Forward quoted gross assets from msg-sender to strategy
-        _asset.safeTransferFrom(msg.sender, address(strategy), assets);
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.MintRequest, receiver, address(0), maxAssets, requestedShares);
 
-        // Single executor call: strategy handles fees and accounts on NET
-        strategy.handleOperations4626Mint(receiver, shares, assets, assetsNet);
+        emit MintRequest(msg.sender, receiver, REQUEST_ID, requestedShares, maxAssets);
+        return REQUEST_ID;
+    }
 
-        // Mint the exact shares asked
-        _mint(receiver, shares);
+    function cancelMint(address controller) external nonReentrant {
+        uint256 assets = strategy.pendingMintRequest(controller);
+        if (assets == 0) revert ZERO_AMOUNT();
 
-        emit Deposit(msg.sender, receiver, assets, shares);
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelMint, controller, address(0), 0, 0);
+
+        // Return assets
+        ISuperVaultEscrow(escrow).returnAssets(assets);
+        _asset.safeTransfer(controller, assets);
+
+        emit MintRequestCancelled(controller, msg.sender, assets);
+    }
+
+    function requestDeposit(uint256 assets, address controller, address owner) external override nonReentrant returns (uint256 requestId) {
+        console2.log("------------- requestDeposit -------------", assets);
+        console2.log("------------- requestDeposit controller-------------", controller);
+        console2.log("------------- requestDeposit owner-------------", owner);
+        console2.log("------------- requestDeposit msg.sender-------------", msg.sender);
+        if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
+        if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
+        if (assets == 0) revert ZERO_AMOUNT();
+
+        if (controller != owner) revert CONTROLLER_MUST_EQUAL_OWNER();
+
+        // Forward assets from msg-sender to escrow for temporary locking
+        _asset.safeTransferFrom(owner, address(this), assets);
+        IERC20(_asset).approve(address(escrow), assets);
+        ISuperVaultEscrow(escrow).escrowAssets(assets);
+
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.DepositRequest, controller, address(0), assets, 0);
+
+        emit DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
+        return REQUEST_ID;
+    }
+
+    function cancelDeposit(address controller) external nonReentrant {
+        uint256 assets = strategy.pendingDepositRequest(controller);
+        if (assets == 0) revert ZERO_AMOUNT();
+
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelDeposit, controller, address(0), 0, 0);
+
+        // Return assets
+        ISuperVaultEscrow(escrow).returnAssets(assets);
+        _asset.safeTransfer(controller, assets);
+
+        emit DepositRequestCancelled(controller, msg.sender, assets);
     }
 
     /// @inheritdoc IERC7540Redeem
@@ -189,7 +240,7 @@ contract SuperVault is
         ISuperVaultEscrow(escrow).escrowShares(owner, shares);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.RedeemRequest, controller, address(0), shares);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.RedeemRequest, controller, address(0), shares, 0);
 
         emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
@@ -202,7 +253,7 @@ contract SuperVault is
         uint256 shares = strategy.pendingRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0, 0);
 
         // Return shares to controller
         ISuperVaultEscrow(escrow).returnShares(controller, shares);
@@ -251,9 +302,68 @@ contract SuperVault is
     /*//////////////////////////////////////////////////////////////
                     USER EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     //--ERC7540--
+    function pendingMintRequest(
+        uint256, /*requestId*/
+        address receiver
+    )
+        external
+        view
+        returns (uint256 pendingAssets)
+    {
+        return strategy.pendingMintRequest(receiver);
+    }
 
+    function pendingMintRequestedShares(
+        uint256, /*requestId*/
+        address receiver
+    )
+        external
+        view
+        returns (uint256 pendingShares)
+    {
+        return strategy.pendingMintRequestedShares(receiver);
+    }
+
+    function claimableMintRequest(
+        uint256, /*requestId*/
+        address controller
+    )
+        external
+        view
+        returns (uint256 claimableAssets)
+    {   
+        //TODO: add
+        return 0;
+    }
+
+    /// @inheritdoc IERC7540Deposit
+    function pendingDepositRequest(
+        uint256, /*requestId*/
+        address receiver
+    ) 
+        external
+        view 
+        returns (uint256 pendingAssets) 
+    {
+        return strategy.pendingDepositRequest(receiver);
+    }
+
+    
+    /// @inheritdoc IERC7540Deposit
+    function claimableDepositRequest(
+        uint256, /*requestId*/
+        address controller
+    )
+        external
+        view
+        returns (uint256 claimableAssets)
+    {   
+        //TODO: add
+        return 0;
+    }
+
+ 
     /// @inheritdoc IERC7540Redeem
     function pendingRedeemRequest(
         uint256, /*requestId*/
@@ -296,6 +406,16 @@ contract SuperVault is
         _authorizations[msg.sender][nonce] = true;
 
         emit NonceInvalidated(msg.sender, nonce);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            STRATEGY RELATED
+    //////////////////////////////////////////////////////////////*/
+    function extractAssets(uint256 assets) external {
+        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
+        console2.log("------------- extractAssets -------------", assets);
+        ISuperVaultEscrow(escrow).returnAssets(assets);
+        _asset.safeTransfer(msg.sender, assets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -419,7 +539,7 @@ contract SuperVault is
         shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Ceil);
 
         // Take assets from strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -448,7 +568,7 @@ contract SuperVault is
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
 
         // Take assets from strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -457,6 +577,12 @@ contract SuperVault is
     function burnShares(uint256 amount) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         _burn(escrow, amount);
+    }
+
+    // @inheritdoc ISuperVault
+    function mintShares(address to, uint256 amount) external {
+        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
+        _mint(to, amount);
     }
 
     // @inheritdoc ISuperVault
