@@ -374,6 +374,9 @@ interface ISuperGovernor is IAccessControl {
     )
         external;
 
+    /// @notice Executes a previously queued oracle update after timelock has expired
+    function executeOracleUpdate() external;
+
     /// @notice Queues a provider removal for execution after timelock period
     /// @param providers The providers to remove
     function queueOracleProviderRemoval(bytes32[] calldata providers) external;
@@ -582,6 +585,9 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice The identifier of the role that grants access to gas management functions
     function GAS_MANAGER_ROLE() external view returns (bytes32);
+
+    /// @notice The identifier of the role that grants access to oracle management functions
+    function ORACLE_MANAGER_ROLE() external view returns (bytes32);
 
     /// @notice The identifier of the role that grants access to unpauser functions
     function UNPAUSER_ROLE() external view returns (bytes32);

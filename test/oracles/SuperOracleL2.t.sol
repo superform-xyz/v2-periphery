@@ -223,7 +223,6 @@ contract SuperOracleL2Test is Test {
         // Fast forward past timelock
         vm.warp(block.timestamp + 7 days);
 
-        vm.prank(owner);
         oracle.executeOracleUpdate();
 
         // Try to get a quote using the new provider
