@@ -654,7 +654,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         emit FulfillHookExecuted(hook, vars.targetedYieldSource, hookCalldata);
-        return (vars.superVaultShares, vars.assetsWithdrawn);
+        return (vars.superVaultShares, vars.outAmount);
     }
 
     /// @notice Process redeem fulfillments for multiple controllers
