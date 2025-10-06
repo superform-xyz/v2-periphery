@@ -53,6 +53,7 @@ interface ISuperVaultStrategy {
     error STRATEGY_PAUSED();
     error INVALID_MAX_SLIPPAGE_BPS();
     error NO_PROPOSAL();
+    error STALE_PPS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -208,18 +209,6 @@ interface ISuperVaultStrategy {
     /// @param feeConfigData Fee configuration
     function initialize(address vaultAddress, FeeConfig memory feeConfigData) external;
 
-    /// @notice Execute a 4626 deposit by processing assets.
-    /// @param controller The controller address
-    /// @param assetsGross The amount of gross assets user has to deposit
-    /// @return sharesNet The amount of net shares to mint
-    function handleOperations4626Deposit(
-        address controller,
-        uint256 assetsGross
-    )
-        external
-        returns (uint256 sharesNet);
-
-
     /// @notice Quotes the amount of assets that will be received for a given amount of shares.
     /// @param shares The amount of shares to mint
     /// @return assetsGross The amount of gross assets that will be received
@@ -245,6 +234,14 @@ interface ISuperVaultStrategy {
     /// @notice Fulfills pending redeem requests by executing specific fulfill hooks.
     /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
     function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
+
+    /// @notice Fulfills pending mint requests.
+    /// @param controllers Array of controller addresses    
+    function fulfillMintRequest(address[] memory controllers) external;
+
+    /// @notice Fulfills pending deposit requests.
+    /// @param controllers Array of controller addresses    
+    function fulfillDepositRequest(address[] memory controllers) external;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
@@ -304,6 +301,8 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Get the fulfill timestamp threshold
+    function getFulfillTimestampThreshold() external view returns (uint256);
 
     /// @notice Get the vault info
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals);

@@ -25,8 +25,6 @@ import { IERC7540Operator, IERC7540Redeem, IERC7540Deposit, IERC7741 } from "../
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
 
-import "forge-std/console2.sol";
-
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
@@ -77,6 +75,10 @@ contract SuperVault is
 
     // Authorization tracking
     mapping(address controller => mapping(bytes32 nonce => bool used)) private _authorizations;
+
+    /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge)
+    ///      can be lower by 1 or 2 wei than the `totalRequestedAmount`in SuperVault shares
+    uint256 private constant TOLERANCE_CONSTANT = 10 wei;
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -138,22 +140,22 @@ contract SuperVault is
                         USER EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IERC7540Deposit
-    function deposit(uint256 assets, address receiver, address controller) external returns (uint256 shares) {
+    function deposit(uint256 /*assets*/, address /*receiver*/, address /*controller*/) external pure returns (uint256 /*shares*/) {
         revert NOT_IMPLEMENTED();
     }
 
     /// @inheritdoc IERC7540Deposit
-    function mint(uint256 shares, address receiver, address controller) external returns (uint256 assets) {
+    function mint(uint256 /*shares*/, address /*receiver*/, address /*controller*/) external pure returns (uint256 /*assets*/) {
         revert NOT_IMPLEMENTED();
     }
     
     /// @inheritdoc IERC4626
-    function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256 shares) {
+    function deposit(uint256 /*assets*/, address /*receiver*/) public override pure returns (uint256 /*shares*/) {
         revert NOT_IMPLEMENTED();
     }
 
     /// @inheritdoc IERC4626
-    function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256 assets) {
+    function mint(uint256 /*shares*/, address /*receiver*/) public override pure returns (uint256 /*assets*/) {
         revert NOT_IMPLEMENTED();
     }
 
@@ -188,10 +190,6 @@ contract SuperVault is
     }
 
     function requestDeposit(uint256 assets, address controller, address owner) external override nonReentrant returns (uint256 requestId) {
-        console2.log("------------- requestDeposit -------------", assets);
-        console2.log("------------- requestDeposit controller-------------", controller);
-        console2.log("------------- requestDeposit owner-------------", owner);
-        console2.log("------------- requestDeposit msg.sender-------------", msg.sender);
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (assets == 0) revert ZERO_AMOUNT();
@@ -302,6 +300,11 @@ contract SuperVault is
     /*//////////////////////////////////////////////////////////////
                     USER EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVault
+    function getEscrowedAssets() external view returns (uint256) {
+        return _asset.balanceOf(escrow);
+    }
+
     //--ERC7540--
     function pendingMintRequest(
         uint256, /*requestId*/
@@ -325,17 +328,6 @@ contract SuperVault is
         return strategy.pendingMintRequestedShares(receiver);
     }
 
-    function claimableMintRequest(
-        uint256, /*requestId*/
-        address controller
-    )
-        external
-        view
-        returns (uint256 claimableAssets)
-    {   
-        //TODO: add
-        return 0;
-    }
 
     /// @inheritdoc IERC7540Deposit
     function pendingDepositRequest(
@@ -353,13 +345,14 @@ contract SuperVault is
     /// @inheritdoc IERC7540Deposit
     function claimableDepositRequest(
         uint256, /*requestId*/
-        address controller
+        address /*controller*/
     )
         external
-        view
-        returns (uint256 claimableAssets)
+        pure
+        returns (uint256 /* claimableAssets */)
     {   
-        //TODO: add
+        // no assets to claim
+        // assets are sent back to controller automatically when deposit request is cancelled/fulfilled
         return 0;
     }
 
@@ -408,14 +401,21 @@ contract SuperVault is
         emit NonceInvalidated(msg.sender, nonce);
     }
 
+
     /*//////////////////////////////////////////////////////////////
                             STRATEGY RELATED
     //////////////////////////////////////////////////////////////*/
-    function extractAssets(uint256 assets) external {
+    /// @inheritdoc ISuperVault
+    function extractAndSendAssets(address to, uint256 assets) external returns (uint256) {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
-        console2.log("------------- extractAssets -------------", assets);
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
+        assets = Math.min(assets, escrowBalance);
+
         ISuperVaultEscrow(escrow).returnAssets(assets);
-        _asset.safeTransfer(msg.sender, assets);
+        _asset.safeTransfer(to, assets);
+
+        return assets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -538,6 +538,11 @@ contract SuperVault is
         // Calculate shares based on assets and average withdraw price
         shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Ceil);
 
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+
+        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
+        assets = Math.min(assets, escrowBalance);
+
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
 
@@ -566,6 +571,10 @@ contract SuperVault is
 
         uint256 maxWithdrawAmount = maxWithdraw(controller);
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
+
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
+        assets = Math.min(assets, escrowBalance);
 
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
@@ -597,6 +606,11 @@ contract SuperVault is
         external
     {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
+
+        // lock assets in escrow
+        IERC20(_asset).approve(address(escrow), assets);
+        ISuperVaultEscrow(escrow).escrowAssets(assets);
+
         emit RedeemClaimable(
             user, REQUEST_ID, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
         );

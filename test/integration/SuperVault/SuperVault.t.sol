@@ -88,13 +88,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("gearboxStakingAddr: ", gearboxStakingAddr);
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
+
+        vm.startPrank(MANAGER);
+        strategy.setFullfillTimestampThreshold(100 days);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULT.SOL
     //////////////////////////////////////////////////////////////*/
 
-    function test_Name_X() public view {
+    function test_Name() public view {
         string memory name = vault.name();
         assertEq(name, "SuperVault");
     }
@@ -108,11 +112,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
 
+
         // Verify state
         uint256 userShares = vault.balanceOf(accountEth);
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
+
 
     /// @notice Test successful emergency withdraw proposal and execution workflow with PPS impact testing
     /// @dev Tests circuit breaker functionality by monitoring PPS/TVL around an emergency withdrawal
@@ -1711,6 +1717,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 accumulatorShares = 500e6;
         uint256 accumulatorCostBasis = 500e6;
 
+        _getTokens(address(asset), address(vault), assets);
+
         // Only the strategy can call this function
         vm.expectEmit(true, true, true, true);
         emit ISuperVault.RedeemClaimable(
@@ -1966,10 +1974,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 allocationAmountVault1 = redeemAmount / 2;
         uint256 allocationAmountVault2 = redeemAmount - allocationAmountVault1;
+     
         _fulfillRedeemForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
         console2.log("------fulfilled redeem");
+        uint256 escrowAssetBalanceBefore = asset.balanceOf(address(escrow));
+        console2.log("-----escrowAssetBalanceBefore", escrowAssetBalanceBefore);
         uint256 initialAssetBalance = asset.balanceOf(accInstances[0].account);
 
         // increase price of assets
@@ -1980,7 +1991,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         fluidVault.deposit(yieldAmount, address(this));
         aaveVault.deposit(yieldAmount, address(this));
 
-        uint256 strategyAssetBalanceBefore = asset.balanceOf(address(strategy));
         uint256 maxWithdraw = vault.maxWithdraw(accInstances[0].account);
         console2.log("maxWithdraw", maxWithdraw);
         _claimWithdrawForAccount(accInstances[0], maxWithdraw);
@@ -1993,24 +2003,24 @@ contract SuperVaultTest is BaseSuperVaultTest {
             "Assets received should be greater than or equal to requested redeem amount"
         );
 
-        uint256 strategyAssetBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 escrowAssetBalanceAfter = asset.balanceOf(address(escrow));
         assertApproxEqRel(
-            strategyAssetBalanceBefore - strategyAssetBalanceAfter,
+            escrowAssetBalanceBefore - escrowAssetBalanceAfter,
             assetsReceived,
             0.01e18,
-            "Strategy asset balance should decrease by the amount sent to user"
+            "Escrow asset balance should decrease by the amount sent to user"
         );
 
         assertApproxEqRel(
-            strategyAssetBalanceBefore - strategyAssetBalanceAfter,
+            escrowAssetBalanceBefore - escrowAssetBalanceAfter,
             assetsReceived,
             0.01e18,
-            "Strategy asset balance should decrease by the amount sent to user"
+            "Escrow asset balance should decrease by the amount sent to user"
         );
 
         console2.log("Requested redeem amount:", redeemAmount);
         console2.log("Actual assets received:", assetsReceived);
-        console2.log("Strategy asset withdrawn", strategyAssetBalanceBefore - strategyAssetBalanceAfter);
+        console2.log("Escrow asset withdrawn", escrowAssetBalanceBefore - escrowAssetBalanceAfter);
 
         // make sure redeem is cleared even if we have small rounding errors
         assertEq(strategy.claimableWithdraw(accInstances[0].account), 0);
@@ -2149,7 +2159,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
         vars.initialAaveVaultBalance = aaveVault.balanceOf(address(strategy));
-        vars.initialStrategyAssetBalance = asset.balanceOf(address(strategy));
+        vars.initialStrategyAssetBalance = asset.balanceOf(address(escrow)); //escrow balance
 
         vars.totalDepositAmount = vars.depositAmount * ACCOUNT_COUNT;
         vars.totalRedeemAmount = vars.redeemAmount * ACCOUNT_COUNT;
@@ -2172,7 +2182,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.fluidVaultSharesDecrease = vars.initialFluidVaultBalance - fluidVault.balanceOf(address(strategy));
         vars.aaveVaultSharesDecrease = vars.initialAaveVaultBalance - aaveVault.balanceOf(address(strategy));
-        vars.strategyAssetBalanceIncrease = asset.balanceOf(address(strategy)) - vars.initialStrategyAssetBalance;
+        vars.strategyAssetBalanceIncrease = asset.balanceOf(address(escrow)) - vars.initialStrategyAssetBalance; // escrow balance
 
         vars.fluidVaultAssetsValue = fluidVault.convertToAssets(vars.fluidVaultSharesDecrease);
         vars.aaveVaultAssetsValue = aaveVault.convertToAssets(vars.aaveVaultSharesDecrease);
@@ -2180,9 +2190,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalAssetsRedeemed = vars.fluidVaultAssetsValue + vars.aaveVaultAssetsValue;
 
         vars.totalRedeemedAssets = vault.convertToAssets(vars.totalRedeemAmount);
-        assertApproxEqRel(vars.totalAssetsRedeemed, vars.totalRedeemedAssets, 0.01e18);
+        assertApproxEqRel(vars.totalAssetsRedeemed, vars.totalRedeemedAssets, 0.01e18, "Total assets redeemed should be equal to total redeemed assets");
 
-        assertApproxEqRel(vars.strategyAssetBalanceIncrease, vars.totalRedeemedAssets, 0.01e18);
+        assertApproxEqRel(vars.strategyAssetBalanceIncrease, vars.totalRedeemedAssets, 0.01e18, "Escrow asset balance increase should be equal to total redeemed assets");
 
         _verifyRedeemSharesAndAssets(vars);
     }
@@ -3325,6 +3335,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     function test_SuperVault_StakeClaimFlow() public {
         _setupGearVault();
+
         uint256 amount = 1000e6;
         uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
@@ -3453,6 +3464,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearSuperVault = SuperVault(gearSuperVaultAddr);
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
+        vm.startPrank(MANAGER);
+        strategyGearSuperVault.setFullfillTimestampThreshold(100 days);
+        vm.stopPrank();
 
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
@@ -4175,7 +4189,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// @notice Test that receiver can successfully redeem after receiving deposit from another user
     function test_Fix10_ReceiverCanRedeemAfterReceivingDeposit() public {
         uint256 depositAmount = 1000e6;
-
 
         // User A will be the sender/controller, User B will be the receiver
         address sender = accInstances[0].account;
@@ -7993,27 +8006,27 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // - Yield source losses
         // - Accounting errors
 
-        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
-        console2.log("Strategy balance before reduction:", strategyBalanceBefore);
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
+        console2.log("Escrow balance before reduction:", escrowBalanceBefore);
 
         // Simulate reducing strategy balance by transferring assets out
         // We'll make the difference exactly equal to TOLERANCE_CONSTANT (10 wei)
         // to trigger the dust collection logic
-        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+        uint256 reductionAmount = claimableAmount - escrowBalanceBefore + 5; // 5 wei less than tolerance
 
         // Transfer assets out of strategy to simulate insolvency
-        vm.startPrank(address(strategy));
+        vm.startPrank(address(escrow));
         asset.transfer(address(this), reductionAmount);
         vm.stopPrank();
 
-        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
-        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
+        console2.log("Escrow balance after reduction:", escrowBalanceAfter);
         console2.log("Claimable amount:", claimableAmount);
-        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+        console2.log("Difference:", claimableAmount - escrowBalanceAfter);
 
         // Verify the difference is within tolerance constant
-        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
-        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+        assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - escrowBalanceAfter <= 10, "Difference should be within tolerance");
 
         // Step 3: Try to claim the full amount
         // This should trigger the dust collection logic and give the user the remaining balance
@@ -8029,12 +8042,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("User balance before claim:", userBalanceBefore);
         console2.log("User balance after claim:", userBalanceAfter);
         console2.log("Actual amount received:", actualReceived);
-        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
 
         // The bug: User receives less than they should have been able to claim
         // but the strategy balance is now 0, making the vault insolvent
-        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
-        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
+        assertEq(actualReceived, escrowBalanceAfter, "User should receive remaining escrow balance");
+        assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should be empty");
 
         // This is problematic because:
         // 1. The user's maxWithdraw is not updated to reflect the actual amount received
@@ -8052,6 +8065,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// @notice Test the dust bug with emergency withdrawal scenario
     /// @dev This test shows how emergency withdrawal can create the dust bug scenario
     function test_DustBugWithEmergencyWithdrawal() public {
+        /*
+        Before assets escrowing logs:
+            Registering periphery hooks for chain 1
+            Registering periphery hooks for chain 10
+            Registering periphery hooks for chain 8453
+            --- SETUP BASE SUPERVAULT ---
+            0xef1cfb974714b5ddafca509e18fbb84033bf66f9cc1f383425efd988c333468e
+            [DEBUG] Proposing global hooks root from explicitly generated tree
+            gearToken:  0xBa3335588D9403515223F109EdC4eB7269a9Ab5D
+            gearboxStakingAddr:  0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2
+            __requestRedeem ------ redeemShares 500000000
+            fluidUsdcValue 499999999
+            aaveUsdcValue 499999999
+            fluidSharesOut 250000000
+            aaveSharesOut 250000000
+            Strategy balance after emergency withdrawal: 499999993
+            Claimable amount: 499999998
+            Difference: 5
+            Actual amount received: 499999993
+            Strategy balance after claim: 0
+
+        */
         uint256 depositAmount = 1000e6; // 1000 USDC
 
         // Step 1: Deposit and set up redeem request
@@ -8067,35 +8102,44 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Fulfill the redeem request
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
 
+        // ^ at this point assets are in escrow
+
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
         uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
 
+        console2.log("Claimable amount:", claimableAmount);
+        console2.log("Strategy balance before:", strategyBalanceBefore);
+        console2.log("Escrow balance before:", escrowBalanceBefore);
         // Step 2: Enable emergency withdrawal and withdraw most assets
         vm.startPrank(MANAGER);
 
         // Propose emergency withdrawal
         strategy.manageEmergencyWithdraw(1, address(0), 0);
-
-        // Wait for timelock and execute
         vm.warp(block.timestamp + 1 weeks);
 
         // Withdraw most assets, leaving just enough to trigger dust collection
-        uint256 withdrawalAmount = strategyBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
+        uint256 withdrawalAmount = escrowBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
+        console2.log("Withdrawal amount:", withdrawalAmount);
+
         strategy.manageEmergencyWithdraw(2, address(this), withdrawalAmount);
 
         vm.stopPrank();
 
         uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
+        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
         console2.log("Strategy balance after emergency withdrawal:", strategyBalanceAfter);
+        console2.log("Escrow balance after emergency withdrawal:", escrowBalanceAfter);
         console2.log("Claimable amount:", claimableAmount);
-        console2.log("Difference:", claimableAmount - strategyBalanceAfter);
+        console2.log("Difference:", claimableAmount - escrowBalanceAfter);
 
         // Verify the difference is within tolerance constant
-        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
-        assertTrue(claimableAmount - strategyBalanceAfter <= 10, "Difference should be within tolerance");
+        assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount - escrowBalanceAfter <= 10, "Difference should be within tolerance");
 
         // Step 3: Try to claim - this will trigger the dust bug
         uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        console2.log("userBalanceBefore:", userBalanceBefore);
 
         vm.startPrank(accountEth);
         vault.withdraw(claimableAmount, accountEth, accountEth);
@@ -8106,15 +8150,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("Actual amount received:", actualReceived);
         console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
-
+        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
         // The dust bug occurs here
-        assertEq(actualReceived, strategyBalanceAfter, "User receives remaining balance due to dust collection");
-        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy becomes empty");
+        assertEq(actualReceived, escrowBalanceAfter, "User receives remaining balance due to dust collection");
+        assertEq(asset.balanceOf(address(escrow)), 0, "Strategy becomes empty");
 
         // The vault is now insolvent
         uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
         assertGt(remainingMaxWithdraw, 0, "User still has positive maxWithdraw despite empty strategy");
     }
+
+
 
     /// @notice Test the specific dust bug in maxWithdraw accounting
     /// @dev This test demonstrates the core issue: maxWithdraw is reduced by actualAmountToClaim
@@ -8136,29 +8182,29 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
 
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
-        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
 
         console2.log("Initial claimable amount:", claimableAmount);
-        console2.log("Initial strategy balance:", strategyBalanceBefore);
+        console2.log("Initial escrow balance:", escrowBalanceBefore);
 
-        // Step 2: Reduce strategy balance to trigger dust collection
+        // Step 2: Reduce escrow balance to trigger dust collection
         // Make the difference exactly 5 wei (within TOLERANCE_CONSTANT of 10)
-        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5;
+        uint256 reductionAmount = claimableAmount - escrowBalanceBefore + 5;
 
-        // Transfer assets out of strategy
-        vm.startPrank(address(strategy));
+        // Transfer assets out of escrow
+        vm.startPrank(address(escrow));
         asset.transfer(address(this), reductionAmount);
         vm.stopPrank();
 
-        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
-        uint256 difference = claimableAmount - strategyBalanceAfter;
+        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
+        uint256 difference = claimableAmount - escrowBalanceAfter;
 
-        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Escrow balance after reduction:", escrowBalanceAfter);
         console2.log("Difference (should be 5):", difference);
         console2.log("Tolerance constant: 10");
 
         // Verify we're in the dust collection scenario
-        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Claim the full amount
@@ -8178,10 +8224,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("MaxWithdraw after:", maxWithdrawAfter);
         console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
 
-        // The bug: maxWithdraw is reduced by actualReceived (strategyBalanceAfter)
+        // The bug: maxWithdraw is reduced by actualReceived (escrowBalanceAfter)
         // instead of claimableAmount, leaving the user with extra claimable balance
-        assertEq(actualReceived, strategyBalanceAfter, "User should receive remaining strategy balance");
-        assertEq(maxWithdrawBefore - maxWithdrawAfter, actualReceived, "MaxWithdraw reduced by actual received");
+        assertEq(actualReceived, escrowBalanceAfter, "User should receive remaining escrow balance");
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, escrowBalanceAfter, "MaxWithdraw reduced by actual received");
 
         // The user still has claimable balance even though strategy is empty
         assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
@@ -8207,35 +8253,42 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redeem
         _requestRedeem(redeemShares);
 
+        console2.log("-----A");
         // Fulfill the redeem request
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
 
+        console2.log("-----B");
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
-        uint256 strategyBalanceBefore = asset.balanceOf(address(strategy));
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
+        console2.log("-----C");
 
         // Step 2: Reduce strategy balance to trigger dust collection
-        uint256 reductionAmount = claimableAmount - strategyBalanceBefore + 5; // 5 wei less than tolerance
+        uint256 reductionAmount = claimableAmount - escrowBalanceBefore + 5; // 5 wei less than tolerance
+        console2.log("-----D");
 
         // Transfer assets out of strategy
-        vm.startPrank(address(strategy));
+        vm.startPrank(address(escrow));
         asset.transfer(address(this), reductionAmount);
         vm.stopPrank();
+        console2.log("-----E");
 
-        uint256 strategyBalanceAfter = asset.balanceOf(address(strategy));
-        uint256 difference = claimableAmount - strategyBalanceAfter;
+        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
+        uint256 difference = claimableAmount - escrowBalanceAfter;
+        console2.log("-----F");
 
         console2.log("=== Dust Bug Test ===");
         console2.log("Claimable amount:", claimableAmount);
-        console2.log("Strategy balance after reduction:", strategyBalanceAfter);
+        console2.log("Escrow balance after reduction:", escrowBalanceAfter);
         console2.log("Difference (dust):", difference);
         console2.log("Tolerance constant: 10");
 
         // Verify we're in the dust collection scenario
-        assertTrue(claimableAmount > strategyBalanceAfter, "Claimable should be greater than available");
+        assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Directly call the strategy's claim function
         uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+        console2.log("-----G");
 
         // Call the strategy directly (this is what vault.withdraw calls internally)
         vm.startPrank(address(vault));
@@ -8243,19 +8296,21 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount, 0
         );
         vm.stopPrank();
+        console2.log("-----G");
 
         uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
+        console2.log("-----H");
 
         console2.log("User balance after claim:", userBalanceAfter);
         console2.log("MaxWithdraw before:", maxWithdrawBefore);
         console2.log("MaxWithdraw after:", maxWithdrawAfter);
         console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
-        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
+        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
 
         // The bug: maxWithdraw is reduced by the actual amount received (strategyBalanceAfter)
         // instead of the requested amount (claimableAmount)
-        assertEq(maxWithdrawBefore - maxWithdrawAfter, strategyBalanceAfter, "MaxWithdraw reduced by actual received");
+        assertEq(maxWithdrawBefore - maxWithdrawAfter, escrowBalanceAfter, "MaxWithdraw reduced by actual received");
         assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw equals dust amount");
 
         // The user still has claimable balance even though strategy is empty
@@ -8264,7 +8319,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("=== Bug Confirmed ===");
         console2.log("User can still claim:", maxWithdrawAfter);
-        console2.log("But strategy has:", asset.balanceOf(address(strategy)));
+        console2.log("But escrow has:", asset.balanceOf(address(escrow)));
         console2.log("Vault is insolvent!");
     }
 

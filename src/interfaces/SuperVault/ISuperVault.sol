@@ -27,6 +27,7 @@ interface ISuperVault {
     error INVALID_PPS();
     error INVALID_CONTROLLER();
     error CONTROLLER_MUST_EQUAL_OWNER();
+    error NOT_ENOUGH_ASSETS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -89,6 +90,10 @@ interface ISuperVault {
 
     /// @notice Extract assets from escrow and moves them to strategy
     /// @dev Called by `SuperVaultStrategy`
+    /// @param to The address to send assets to
     /// @param assets The amount of assets to be extracted
-    function extractAssets(uint256 assets) external;
+    function extractAndSendAssets(address to, uint256 assets) external returns (uint256);
+    
+    /// @notice Get the amount of assets escrowed
+    function getEscrowedAssets() external view returns (uint256);
 }
