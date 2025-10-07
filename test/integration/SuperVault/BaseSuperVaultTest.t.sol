@@ -1457,14 +1457,83 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
             uint256 underlyingSharesForVault1 = IERC4626(address(vault1)).convertToShares(amountForVault1);
             uint256 underlyingSharesForVault2 = IERC4626(address(vault2)).convertToShares(amountForVault2);
 
-            uint256 vault1ConvertToAssets = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
+             uint256 vault1ConvertToAssets = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
             uint256 vault2ConvertToAssets = IERC4626(address(vault2)).convertToAssets(underlyingSharesForVault2);
 
             expectedAssetsOrSharesOut[0] = vault1ConvertToAssets - vault1ConvertToAssets * 1e3 / 1e5;
             expectedAssetsOrSharesOut[1] = vault2ConvertToAssets - vault2ConvertToAssets * 1e3 / 1e5;
         }
 
-        console2.log("----requestingUsersLength", requestingUsers.length);
+        vm.startPrank(MANAGER);
+        bytes[] memory argsForProofs = new bytes[](2);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+
+        console2.log("----argsForProofsLength", argsForProofs.length);
+        console2.log("----argsForProofs[0]");
+        console2.logBytes(argsForProofs[0]);
+        console2.log("----argsForProofs[1]");
+        console2.logBytes(argsForProofs[1]);
+
+        strategy.fulfillRedeemRequests(
+            ISuperVaultStrategy.FulfillArgs({
+                controllers: requestingUsers,
+                hooks: fulfillHooksAddresses,
+                hookCalldata: fulfillHooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](2)
+            })
+        );
+        vm.stopPrank();
+    }
+
+    function _fulfillRedeemForUsersAfterAllocation(
+        address[] memory requestingUsers,
+        uint256 redeemSharesVault1,
+        uint256 redeemSharesVault2,
+        address vault1,
+        address vault2
+    )
+        internal
+    {
+        address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](2);
+        fulfillHooksAddresses[0] = withdrawHookAddress;
+        fulfillHooksAddresses[1] = withdrawHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](2);
+        // Withdraw proportionally from both vaults
+        fulfillHooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault1,
+            address(strategy),
+            redeemSharesVault1,
+            false
+        );
+        fulfillHooksData[1] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault2,
+            address(strategy),
+            redeemSharesVault2,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        {
+            uint256 pricePerShare = strategy.getStoredPPS();
+
+            uint256 amountForVault1 = redeemSharesVault1 * vault.PRECISION() / pricePerShare;
+            uint256 amountForVault2 = redeemSharesVault2 * vault.PRECISION() / pricePerShare;
+
+            uint256 underlyingSharesForVault1 = IERC4626(address(vault1)).convertToShares(amountForVault1);
+            uint256 underlyingSharesForVault2 = IERC4626(address(vault2)).convertToShares(amountForVault2);
+
+            expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
+            expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(underlyingSharesForVault2);
+        }
+
         vm.startPrank(MANAGER);
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
