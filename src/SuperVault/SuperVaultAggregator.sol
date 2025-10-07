@@ -72,7 +72,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Time lock for stake withdrawal requests
     uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
-    uint256 public constant WITHDRAWAL_REQUEST_EXPIRATION = 14 days;
+    uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 14 days;
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
@@ -407,21 +407,21 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
 
         if (request.amount == 0 || request.timestamp == 0) revert WITHDRAW_STAKE_REQUEST_NOT_FOUND();
+
         if (request.timestamp + WITHDRAW_STAKE_TIMELOCK > block.timestamp) {
             revert WITHDRAW_STAKE_REQUEST_NOT_READY();
+        }
+
+        if (block.timestamp > request.timestamp + WITHDRAWAL_REQUEST_TIMEOUT) {
+            revert WITHDRAWAL_REQUEST_EXPIRED();
         }
 
         /// Get the UP token address from SUPER_GOVERNOR
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update stake balance
-        if (_managerStakeBalance[msg.sender] >= request.amount) {
-            _managerStakeBalance[msg.sender] -= request.amount;
-        } else {
-            // Clear withdrawal request
-            managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
-            revert INSUFFICIENT_STAKE_BALANCE();
-        }
+        /// @dev requestStakeWithdrawal checked for sufficient balance
+        _managerStakeBalance[msg.sender] -= request.amount;
 
         // Clear withdrawal request
         managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
