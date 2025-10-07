@@ -336,15 +336,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_AddTooManySecondaryManagers() public {
         uint256 len = 7;
         address[] memory secondaryManagers = new address[](len);
-        
-        for (uint i = 0; i < len-1; ++i) 
-        {
+
+        for (uint256 i = 0; i < len - 1; ++i) {
             secondaryManagers[i] = _deployAccount(10 + i, "SecondaryManager");
         }
 
         vm.startPrank(manager);
-        for (uint i = 0; i < 4; ++i) 
-        {
+        for (uint256 i = 0; i < 4; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
@@ -591,7 +589,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager2
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -654,7 +656,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // =============================================================
     // Monotonic Timestamp Validation Tests
     // =============================================================
-
 
     /// @notice Tests that batch PPS updates with non-monotonic timestamps are rejected
     function test_BatchForwardPPS_Revert_NonMonotonicTimestamp() public {
@@ -809,8 +810,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
     }
 
-
-   /// @notice Tests gas scaling of batchForwardPPS with different array sizes
+    /// @notice Tests gas scaling of batchForwardPPS with different array sizes
     function test_BatchForwardPPS_GasScaling() public {
         // Set up as PPS Oracle to be able to call batchForwardPPS
         vm.prank(sGovernor);
@@ -832,8 +832,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     symbol: string(abi.encodePacked("TV", vm.toString(i + 1))),
                     minUpdateInterval: 5,
                     maxStaleness: 300,
-                    feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
-                maxUnpauseTimeLock: 0
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000,
+                        managementFeeBps: 0,
+                        recipient: manager
+                    }),
+                    maxUnpauseTimeLock: 0
                 })
             );
             allStrategies[i] = newStrategy;
@@ -854,7 +858,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         for (uint256 testIndex = 0; testIndex < testSizes.length; testIndex++) {
             uint256 arraySize = testSizes[testIndex];
-            
+
             // Prepare arrays for current test size
             address[] memory strategies = new address[](arraySize);
             uint256[] memory ppss = new uint256[](arraySize);
@@ -872,7 +876,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 validatorSets[i] = 1;
                 totalValidators[i] = 1;
                 updateAuthorities[i] = user;
-                
+
                 // Get current timestamp and add valid offset
                 uint256 currentTimestamp = superVaultAggregator.getLastUpdateTimestamp(allStrategies[i]);
                 timestamps[i] = currentTimestamp + 20 + testIndex; // Ensure monotonic and valid
@@ -883,7 +887,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
             // Measure gas for batchForwardPPS call
             uint256 gasBefore = gasleft();
-            
+
             superVaultAggregator.forwardPPS(
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
@@ -892,21 +896,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     validatorSets: validatorSets,
                     totalValidators: totalValidators,
                     timestamps: timestamps,
-                updateAuthority: address(this)
+                    updateAuthority: address(this)
                 })
             );
-            
+
             uint256 gasAfter = gasleft();
             gasUsed[testIndex] = gasBefore - gasAfter;
 
             // Log gas usage for analysis
             console2.log(string(abi.encodePacked("Array size: ", vm.toString(arraySize))));
             console2.log(string(abi.encodePacked("Gas used: ", vm.toString(gasUsed[testIndex]))));
-            
+
             // Verify all updates were successful
             for (uint256 i = 0; i < arraySize; i++) {
                 assertEq(
-                    superVaultAggregator.getLastUpdateTimestamp(strategies[i]), 
+                    superVaultAggregator.getLastUpdateTimestamp(strategies[i]),
                     timestamps[i],
                     "Timestamp not updated correctly"
                 );
@@ -916,26 +920,45 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Analyze gas scaling pattern
         console2.log("=== Gas Scaling Analysis ===");
         console2.log("Array Size | Gas Used | Gas per Item | Scaling Factor");
-        
+
         uint256 baseGas = gasUsed[0]; // Gas for size 2
-        
+
         for (uint256 i = 0; i < testSizes.length; i++) {
             uint256 gasPerItem = gasUsed[i] / testSizes[i];
             uint256 scalingFactor = (gasUsed[i] * 100) / baseGas; // Percentage relative to base
-            
-            console2.log(string(abi.encodePacked(vm.toString(testSizes[i]), " | ", vm.toString(gasUsed[i]), " | ", vm.toString(gasPerItem), " | ", vm.toString(scalingFactor), "%")));
+
+            console2.log(
+                string(
+                    abi.encodePacked(
+                        vm.toString(testSizes[i]),
+                        " | ",
+                        vm.toString(gasUsed[i]),
+                        " | ",
+                        vm.toString(gasPerItem),
+                        " | ",
+                        vm.toString(scalingFactor),
+                        "%"
+                    )
+                )
+            );
         }
 
         // Calculate linear regression to check if scaling is truly linear
         // Expected: gas should scale roughly linearly with array size
         // If perfectly linear: gas(n) = base_overhead + (gas_per_item * n)
-        
+
         // Check if gas increase is roughly proportional to size increase
         for (uint256 i = 1; i < testSizes.length; i++) {
             uint256 sizeRatio = (testSizes[i] * 100) / testSizes[0]; // Size increase as percentage
             uint256 gasRatio = (gasUsed[i] * 100) / gasUsed[0]; // Gas increase as percentage
-            
-            console2.log(string(abi.encodePacked("Size ratio: ", vm.toString(sizeRatio), "% | Gas ratio: ", vm.toString(gasRatio), "%")));
+
+            console2.log(
+                string(
+                    abi.encodePacked(
+                        "Size ratio: ", vm.toString(sizeRatio), "% | Gas ratio: ", vm.toString(gasRatio), "%"
+                    )
+                )
+            );
         }
 
         console2.log("\n=== Conclusion ===");
@@ -1697,42 +1720,54 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests successful stake deposit by any user for a manager
     function test_DepositStake_Success() public {
         uint256 stakeAmount = 1000e18;
-        
+
         // Mint UP tokens to user
         MockUp(upToken).mint(user, stakeAmount);
-        
+
         // User approves and deposits stake for manager
         vm.startPrank(user);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        
+
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StakeDeposited(manager, stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Verify stake balance
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount, "Manager stake balance should match deposited amount");
-        
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager),
+            stakeAmount,
+            "Manager stake balance should match deposited amount"
+        );
+
         // Verify tokens were transferred
-        assertEq(IERC20(upToken).balanceOf(address(superVaultAggregator)), stakeAmount, "Contract should hold the staked tokens");
+        assertEq(
+            IERC20(upToken).balanceOf(address(superVaultAggregator)),
+            stakeAmount,
+            "Contract should hold the staked tokens"
+        );
         assertEq(IERC20(upToken).balanceOf(user), 0, "User balance should be zero after deposit");
     }
 
     /// @notice Tests manager can deposit stake for themselves
     function test_DepositStake_SelfDeposit() public {
         uint256 stakeAmount = 500e18;
-        
+
         // Mint UP tokens to manager
         MockUp(upToken).mint(manager, stakeAmount);
-        
+
         // Manager deposits stake for themselves
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Verify stake balance
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount, "Manager stake balance should match deposited amount");
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager),
+            stakeAmount,
+            "Manager stake balance should match deposited amount"
+        );
     }
 
     /// @notice Tests multiple stake deposits accumulate correctly
@@ -1740,17 +1775,17 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256 firstDeposit = 300e18;
         uint256 secondDeposit = 700e18;
         uint256 totalStake = firstDeposit + secondDeposit;
-        
+
         // Mint UP tokens to user
         MockUp(upToken).mint(user, totalStake);
-        
+
         vm.startPrank(user);
         IERC20(upToken).approve(address(superVaultAggregator), totalStake);
-        
+
         // First deposit
         superVaultAggregator.depositStake(manager, firstDeposit);
         assertEq(superVaultAggregator.getStakeBalance(manager), firstDeposit, "First deposit should be recorded");
-        
+
         // Second deposit
         superVaultAggregator.depositStake(manager, secondDeposit);
         assertEq(superVaultAggregator.getStakeBalance(manager), totalStake, "Total stake should be sum of deposits");
@@ -1776,13 +1811,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256 stakeAmount = 1000e18;
         uint256 withdrawAmount = 400e18;
         uint256 remainingStake = stakeAmount - withdrawAmount;
-        
+
         // Setup: Deposit stake first
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
-        
+
         // Withdraw stake
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StakeWithdrawRequested(manager, withdrawAmount);
@@ -1797,13 +1832,17 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify balances
         assertEq(superVaultAggregator.getStakeBalance(manager), remainingStake, "Remaining stake should be correct");
         assertEq(IERC20(upToken).balanceOf(manager), withdrawAmount, "Manager should receive withdrawn tokens");
-        assertEq(IERC20(upToken).balanceOf(address(superVaultAggregator)), remainingStake, "Contract should hold remaining stake");
+        assertEq(
+            IERC20(upToken).balanceOf(address(superVaultAggregator)),
+            remainingStake,
+            "Contract should hold remaining stake"
+        );
     }
 
     /// @notice Tests complete stake withdrawal
     function test_WithdrawStake_CompleteWithdrawal() public {
         uint256 stakeAmount = 1000e18;
-        
+
         // Setup: Deposit stake first
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
@@ -1815,7 +1854,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.warp(block.timestamp + 8 days);
         superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
-        
+
         // Verify balances
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
         assertEq(IERC20(upToken).balanceOf(manager), stakeAmount, "Manager should receive all tokens back");
@@ -1832,14 +1871,14 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_WithdrawStake_RevertInsufficientBalance() public {
         uint256 stakeAmount = 500e18;
         uint256 withdrawAmount = 1000e18;
-        
+
         // Setup: Deposit smaller stake
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Try to withdraw more than deposited
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
@@ -1863,14 +1902,14 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake withdrawal reverts when withdrawal request is not ready
     function test_WithdrawStake_RevertWithdrawalRequestNotReady() public {
         uint256 stakeAmount = 500e18;
-        
+
         // Setup: Deposit smaller stake
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Try to withdraw more than deposited
         vm.startPrank(manager);
         superVaultAggregator.requestStakeWithdrawal(stakeAmount);
@@ -1882,10 +1921,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_WithdrawStake_RevertWithdrawalRequestExpired() public {
         uint256 stakeAmount = 500e18;
         uint256 withdrawAmount = 100e18;
-        
+
         // Setup: Deposit stake
         MockUp(upToken).mint(manager, stakeAmount);
-    
+
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
@@ -1906,44 +1945,52 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256 stakeAmount = 1000e18;
         uint256 slashAmount = 300e18;
         uint256 remainingStake = stakeAmount - slashAmount;
-        
+
         // Setup: Deposit stake first
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Record initial SuperBank balance
         uint256 initialBankBalance = IERC20(upToken).balanceOf(superBank);
-        
+
         // SuperGovernor slashes stake
         vm.prank(address(superGovernor));
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
         superVaultAggregator.slashStake(manager, slashAmount);
-        
+
         // Verify balances
         assertEq(superVaultAggregator.getStakeBalance(manager), remainingStake, "Manager stake should be reduced");
-        assertEq(IERC20(upToken).balanceOf(superBank), initialBankBalance + slashAmount, "SuperBank should receive slashed tokens");
-        assertEq(IERC20(upToken).balanceOf(address(superVaultAggregator)), remainingStake, "Contract should hold remaining stake");
+        assertEq(
+            IERC20(upToken).balanceOf(superBank),
+            initialBankBalance + slashAmount,
+            "SuperBank should receive slashed tokens"
+        );
+        assertEq(
+            IERC20(upToken).balanceOf(address(superVaultAggregator)),
+            remainingStake,
+            "Contract should hold remaining stake"
+        );
     }
 
     /// @notice Tests complete stake slashing
     function test_SlashStake_CompleteSlashing() public {
         uint256 stakeAmount = 1000e18;
-        
+
         // Setup: Deposit stake first
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // SuperGovernor slashes all stake
         vm.prank(address(superGovernor));
         superVaultAggregator.slashStake(manager, stakeAmount);
-        
+
         // Verify balances
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Manager stake should be zero");
         assertEq(IERC20(upToken).balanceOf(superBank), stakeAmount, "SuperBank should receive all slashed tokens");
@@ -1953,7 +2000,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_SlashStake_MultipleManagers() public {
         uint256 stakeAmount = 1000e18;
         uint256 slashAmount = 200e18;
-        
+
         // Create second strategy with different manager
         address manager2 = _deployAccount(0xBB, "Manager2");
         vm.prank(manager2);
@@ -1966,54 +2013,64 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2 }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager2
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
-        
+
         // Setup: Both managers deposit stake
         MockUp(upToken).mint(manager, stakeAmount);
         MockUp(upToken).mint(manager2, stakeAmount);
-        
+
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         vm.startPrank(manager2);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager2, stakeAmount);
         vm.stopPrank();
-        
+
         // Slash only first manager's stake
         vm.prank(address(superGovernor));
         superVaultAggregator.slashStake(manager, slashAmount);
-        
+
         // Verify only first manager was slashed
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "First manager stake should be reduced");
-        assertEq(superVaultAggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged");
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager),
+            stakeAmount - slashAmount,
+            "First manager stake should be reduced"
+        );
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged"
+        );
     }
 
     /// @notice Tests slashing reverts when called by non-SuperGovernor
     function test_SlashStake_RevertUnauthorized() public {
         uint256 stakeAmount = 1000e18;
-        
+
         // Setup: Deposit stake first
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Test various unauthorized callers
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
         superVaultAggregator.slashStake(manager, 100e18);
-        
+
         vm.prank(user);
         vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
         superVaultAggregator.slashStake(manager, 100e18);
-        
+
         vm.prank(governor);
         vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
         superVaultAggregator.slashStake(manager, 100e18);
@@ -2037,14 +2094,14 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_SlashStake_RevertInsufficientStake() public {
         uint256 stakeAmount = 500e18;
         uint256 slashAmount = 1000e18;
-        
+
         // Setup: Deposit smaller stake
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
-        
+
         // Try to slash more than available
         vm.prank(address(superGovernor));
         vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
@@ -2062,39 +2119,45 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_StakeUpkeepIndependence() public {
         uint256 stakeAmount = 1000e18;
         uint256 upkeepAmount = 500e18;
-        
+
         // Mint tokens to manager
         MockUp(upToken).mint(manager, stakeAmount + upkeepAmount);
-        
+
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
-        
+
         // Deposit both stake and upkeep
         superVaultAggregator.depositStake(manager, stakeAmount);
         superVaultAggregator.depositUpkeep(manager, upkeepAmount);
         vm.stopPrank();
-        
+
         // Verify independent balances
         assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
         assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep balance should be independent");
-        
+
         // Slash stake - should not affect upkeep
         uint256 slashAmount = 300e18;
         vm.prank(address(superGovernor));
         superVaultAggregator.slashStake(manager, slashAmount);
-        
+
         // Verify only stake was affected
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced");
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced"
+        );
         assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep should be unchanged");
-        
+
         // Withdraw upkeep - should not affect stake
         uint256 withdrawUpkeep = 200e18;
         vm.prank(manager);
         superVaultAggregator.withdrawUpkeep(withdrawUpkeep);
-        
+
         // Verify only upkeep was affected
         assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Stake should be unchanged");
-        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount - withdrawUpkeep, "Only upkeep should be reduced");
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(manager),
+            upkeepAmount - withdrawUpkeep,
+            "Only upkeep should be reduced"
+        );
     }
 
     /// @notice Tests getStakeBalance returns zero for addresses with no stake
@@ -2106,7 +2169,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     function testSlashStake_ClearsWithdrawalRequest() public {
         uint256 stakeAmount = 1000e18;
-        
+
         // Setup: Deposit stake
         MockUp(upToken).mint(manager, stakeAmount);
         vm.startPrank(manager);
@@ -2134,26 +2197,30 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256 withdrawAmount = 300e18;
         uint256 slashAmount = 200e18;
         uint256 finalStake = initialStake - withdrawAmount - slashAmount;
-        
+
         // Setup: Deposit stake
         MockUp(upToken).mint(manager, initialStake);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), initialStake);
         superVaultAggregator.depositStake(manager, initialStake);
-        
+
         // Partial withdrawal
         superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
         vm.warp(block.timestamp + 8 days);
         superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
-        
+
         // Verify state after withdrawal
-        assertEq(superVaultAggregator.getStakeBalance(manager), initialStake - withdrawAmount, "Stake after withdrawal should be correct");
-        
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager),
+            initialStake - withdrawAmount,
+            "Stake after withdrawal should be correct"
+        );
+
         // Slash remaining stake
         vm.prank(address(superGovernor));
         superVaultAggregator.slashStake(manager, slashAmount);
-        
+
         // Verify final state
         assertEq(superVaultAggregator.getStakeBalance(manager), finalStake, "Final stake should be correct");
         assertEq(IERC20(upToken).balanceOf(superBank), slashAmount, "SuperBank should receive slashed amount");
@@ -2164,7 +2231,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @dev Validates that only non-stale entries are charged and costs are distributed fairly
     function test_BatchForwardPPS_FairCostDistribution_WithStaleEntries() public {
         BatchForwardPPSTestVars memory vars;
-        
+
         // Set up as PPS Oracle to be able to call forwardPPS
         vm.startPrank(sGovernor);
         superGovernor.setActivePPSOracle(address(this));
@@ -2177,7 +2244,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.startPrank(sGovernor);
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
         vm.stopPrank();
-        
+
         vars.totalUpkeepCost = 2e18; // 1 token total cost per entry (2 etnries)
 
         // Create additional strategies for comprehensive testing
@@ -2228,13 +2295,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Get initial timestamps
         vars.baseTimestamp = block.timestamp;
-        
+
         // Prepare batch data with mix of fresh and stale entries
         vars.strategies = new address[](4);
-        vars.strategies[0] = strategy;        // Fresh entry
-        vars.strategies[1] = vars.strategy2;  // Stale entry (will be exempt)
-        vars.strategies[2] = vars.strategy3;  // Fresh entry
-        vars.strategies[3] = vars.strategy4;  // Stale entry (will be exempt)
+        vars.strategies[0] = strategy; // Fresh entry
+        vars.strategies[1] = vars.strategy2; // Stale entry (will be exempt)
+        vars.strategies[2] = vars.strategy3; // Fresh entry
+        vars.strategies[3] = vars.strategy4; // Stale entry (will be exempt)
 
         vars.ppss = new uint256[](4);
         vars.ppss[0] = 1.1e18;
@@ -2261,10 +2328,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.totalValidators[3] = 1;
 
         vars.timestamps = new uint256[](4);
-        vars.timestamps[0] = vars.baseTimestamp + 350;  // Fresh (10 seconds old when warped to +360)
-        vars.timestamps[1] = vars.baseTimestamp + 10;   // Stale (350 seconds old when warped to +360)
-        vars.timestamps[2] = vars.baseTimestamp + 340;  // Fresh (20 seconds old when warped to +360)  
-        vars.timestamps[3] = vars.baseTimestamp + 20;   // Stale (340 seconds old when warped to +360)
+        vars.timestamps[0] = vars.baseTimestamp + 350; // Fresh (10 seconds old when warped to +360)
+        vars.timestamps[1] = vars.baseTimestamp + 10; // Stale (350 seconds old when warped to +360)
+        vars.timestamps[2] = vars.baseTimestamp + 340; // Fresh (20 seconds old when warped to +360)
+        vars.timestamps[3] = vars.baseTimestamp + 20; // Stale (340 seconds old when warped to +360)
 
         address[] memory updateAuthorities = new address[](4);
         updateAuthorities[0] = user;
@@ -2306,7 +2373,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // - Only 2 entries are chargeable (strategies[0] and strategies[2])
         // - Total cost should be split: 1e18 / 2 = 5e17 per entry
         // - No remainder since 1000 is evenly divisible by 2
-        
+
         vars.expectedCostPerEntry = vars.totalUpkeepCost / 2; // 5e17
         vars.expectedTotalCharged = vars.expectedCostPerEntry * 2; // 1e18
 
@@ -2326,9 +2393,17 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Verify PPS updates were applied to all valid strategies
         assertEq(superVaultAggregator.getPPS(strategy), vars.ppss[0], "Strategy 1 PPS should be updated");
-        assertEq(superVaultAggregator.getPPS(vars.strategy2), vars.ppss[1], "Strategy 2 PPS should be updated despite being stale");
+        assertEq(
+            superVaultAggregator.getPPS(vars.strategy2),
+            vars.ppss[1],
+            "Strategy 2 PPS should be updated despite being stale"
+        );
         assertEq(superVaultAggregator.getPPS(vars.strategy3), vars.ppss[2], "Strategy 3 PPS should be updated");
-        assertEq(superVaultAggregator.getPPS(vars.strategy4), vars.ppss[3], "Strategy 4 PPS should be updated despite being stale");
+        assertEq(
+            superVaultAggregator.getPPS(vars.strategy4),
+            vars.ppss[3],
+            "Strategy 4 PPS should be updated despite being stale"
+        );
 
         // Verify timestamps were updated for all strategies
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), vars.timestamps[0]);
@@ -2345,7 +2420,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Create arrays with MAX_STRATEGIES + 1 entries (501 strategies)
         uint256 strategiesCount = 501; // MAX_STRATEGIES is 500
-        
+
         address[] memory strategies = new address[](strategiesCount);
         uint256[] memory ppss = new uint256[](strategiesCount);
         uint256[] memory ppsStdevs = new uint256[](strategiesCount);
@@ -2412,7 +2487,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Measure gas
         uint256 gasBefore = gasleft();
-        
+
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
@@ -2424,7 +2499,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 updateAuthority: user
             })
         );
-        
+
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
 
@@ -2432,19 +2507,17 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Verify update was successful
         assertEq(
-            superVaultAggregator.getLastUpdateTimestamp(strategy), 
-            timestamps[0],
-            "Timestamp not updated correctly"
+            superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0], "Timestamp not updated correctly"
         );
-        
+
         // Check if strategy is paused at the end
         bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertFalse(isPaused, "Strategy should not be paused after successful update");
-        
+
         // Test manual pause/unpause functionality
         // First, let's pause the strategy by triggering a validation failure
         vm.warp(block.timestamp + 100); // Move time forward
-        
+
         // Set a very low dispersion threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
@@ -2454,11 +2527,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             type(uint256).max, // Keep deviation threshold at max (disabled)
             0 // Keep M/N threshold at 0 (disabled)
         );
-        
+
         // Create an update with high dispersion to trigger pause
         timestamps[0] = block.timestamp; // Current timestamp (valid)
         ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
-        
+
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
@@ -2470,22 +2543,19 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 updateAuthority: user
             })
         );
-        
+
         // Verify strategy is now paused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should be paused after invalid update");
-        
+
         // Now unpause the strategy by pranking as the main manager
         vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
-        
+
         // Verify strategy is unpaused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
-
-        
     }
-
 
     function test_ForwardPPS_Pause_Unpause_PPS_Update() public {
         // Set up as PPS Oracle
@@ -2512,7 +2582,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Advance time to ensure update is valid
         vm.warp(block.timestamp + 25);
-        
+
         // Set a very low dispersion threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
@@ -2522,11 +2592,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             type(uint256).max, // Keep deviation threshold at max (disabled)
             0 // Keep M/N threshold at 0 (disabled)
         );
-        
+
         // Create an update with high dispersion to trigger pause
         timestamps[0] = block.timestamp; // Current timestamp (valid)
         ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
-        
+
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
@@ -2538,11 +2608,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 updateAuthority: user
             })
         );
-        
+
         // Verify strategy is now paused
         bool isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should be paused after invalid update");
-        
+
         // let's do a valid update now
 
         vm.prank(mainManager);
@@ -2579,7 +2649,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
-        
+
         // Verify strategy is unpaused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
@@ -2595,11 +2665,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests successful update of unpause PPS timelock by main manager
     function test_UpdateUnpausePPSTimelock_Success() public {
         uint256 newTimelock = 2 days;
-        
+
         vm.prank(manager);
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
-        
 
         // does not revert
         superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
@@ -2608,11 +2677,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests updating unpause PPS timelock to zero (immediate unpause allowed)
     function test_UpdateUnpausePPSTimelock_ZeroTimelock() public {
         uint256 newTimelock = 0;
-        
+
         vm.prank(manager);
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
-        
+
         // does not revert
         superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
     }
@@ -2620,28 +2689,28 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests updating unpause PPS timelock to maximum value
     function test_UpdateUnpausePPSTimelock_MaxTimelock() public {
         uint256 newTimelock = type(uint256).max;
-        
+
         vm.prank(manager);
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultAggregator.StrategyUnpausePPSTimelockUpdated(strategy, newTimelock);
-        
+
         superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
     }
 
     /// @notice Tests that only main manager can update unpause PPS timelock
     function test_UpdateUnpausePPSTimelock_Revert_UnauthorizedCaller() public {
         uint256 newTimelock = 2 days;
-        
+
         // Test secondary manager cannot update
         vm.prank(secondaryManager);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
-        
+
         // Test random user cannot update
         vm.prank(user);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.updateUnpausePPSTimelock(strategy, newTimelock);
-        
+
         // Test governor cannot update (only main manager allowed)
         vm.prank(governor);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
@@ -2652,12 +2721,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_UpdateUnpausePPSTimelock_Revert_UnknownStrategy() public {
         address unknownStrategy = _deployAccount(0x99, "UnknownStrategy");
         uint256 newTimelock = 2 days;
-        
+
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
         superVaultAggregator.updateUnpausePPSTimelock(unknownStrategy, newTimelock);
     }
-
 }
 
 struct BatchForwardPPSTestVars {
