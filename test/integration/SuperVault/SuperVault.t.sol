@@ -5808,7 +5808,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         /// @dev The following reverts with INVALID_REDEEM_FILL()
         /// intendedShares = 2767
         /// totalRequestedShares = 3000
-        uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares, Math.Rounding.Floor);
+        uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares);
         uint256 maxReddemAaveShares = aaveVault.maxRedeem(address(strategy));
         uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
         if (redemptionSharesVault2 > maxReddemAaveShares) {
