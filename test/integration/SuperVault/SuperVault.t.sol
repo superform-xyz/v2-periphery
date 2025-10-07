@@ -5766,17 +5766,27 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         bytes[] memory hooksData = new bytes[](2);
 
-        uint256 amountToReallocate = fluidShares.mulDiv(3000, 10_000);
-        uint256 assetAmountToReallocate = fluidVault.convertToAssets(amountToReallocate);
+        // uint256 amountToReallocate = fluidShares.mulDiv(3000, 10_000);
+        // uint256 assetAmountToReallocate = fluidVault.convertToAssets(amountToReallocate);
+        uint256 assetAmountToReallocate = currentFluidVaultAssets.mulDiv(3000, 10_000);
 
         _rebalanceFromVaultToVault(
             hooksAddresses,
             hooksData,
             address(fluidVault),
             address(aaveVault),
-            currentFluidVaultAssets + assetAmountToReallocate,
+            currentAaveVaultAssets + assetAmountToReallocate,
             currentAaveVaultAssets
         );
+
+        // _rebalanceFromVaultToVault(
+        //     hooksAddresses,
+        //     hooksData,
+        //     address(fluidVault),
+        //     address(aaveVault),
+        //     currentFluidVaultAssets + assetAmountToReallocate,
+        //     currentAaveVaultAssets
+        // );
 
         uint256 finalFluidVaultBalance = fluidVault.balanceOf(address(strategy));
         uint256 finalAaveVaultBalance = aaveVault.balanceOf(address(strategy));
@@ -5786,6 +5796,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 finalAaveVaultAssets = aaveVault.previewRedeem(finalAaveVaultBalance);
 
         uint256 finalTotalAssets = finalFluidVaultAssets + finalAaveVaultAssets;
+
+        uint256 fluidWeightBps = finalFluidVaultAssets.mulDiv(10_000, finalTotalAssets); // in basis points
+        uint256 aaveWeightBps = 10_000 - fluidWeightBps;
 
         uint256 redeemShares;
         address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
@@ -5799,8 +5812,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAllUsers(0);
 
         /// @dev The following fails with the due to attempting to redeem more shares from Aave than allowed
-        // uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares);
-        // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+        // uint256 redemptionSharesVault2 = finalAaveVaultBalance.mulDiv(redeemShares, totalRedeemShares);
+        // uint256 redemptionSharesVault1 = redeemShares - redemptionSharesVault2;
         // _fulfillRedeemForUsersAfterAllocation(
         //     requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
         // );
@@ -5808,23 +5821,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
         /// @dev The following reverts with INVALID_REDEEM_FILL()
         /// intendedShares = 2767
         /// totalRequestedShares = 3000
-        uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares);
-        uint256 maxReddemAaveShares = aaveVault.maxRedeem(address(strategy));
-        uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
-        if (redemptionSharesVault2 > maxReddemAaveShares) {
-            redemptionSharesVault2 = maxReddemAaveShares;
-        }
-        _fulfillRedeemForUsersAfterAllocation(
-            requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
-        );
+        // uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares);
+        // uint256 maxReddemAaveShares = aaveVault.maxRedeem(address(strategy));
+        // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+        // if (redemptionSharesVault2 > maxReddemAaveShares) {
+        //     redemptionSharesVault2 = maxReddemAaveShares;
+        // }
+        // _fulfillRedeemForUsersAfterAllocation(
+        //     requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
+        // );
         
         /// @dev The following fails with the due to attempting to redeem more shares from Aave than allowed
         // uint256 redemptionSharesVault1 = redeemShares / 2;
         // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
-
-        // _fulfillRedeemForUsersAfterAllocation(
-        //     requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
-        // );
+        uint256 redemptionSharesVault1 = redeemShares.mulDiv(fluidWeightBps, 10_000);
+        uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+        console2.log("Requested Aave Redeem Shares:", redemptionSharesVault2);
+        console2.log("Max Redeemable Aave Shares:", aaveVault.maxRedeem(address(strategy)));
+        _fulfillRedeemForUsersAfterAllocation(
+            requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
+        );
 
         // check that all pending requests are cleared
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
