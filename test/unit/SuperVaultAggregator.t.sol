@@ -1879,6 +1879,28 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    function test_WithdrawStake_RevertWithdrawalRequestExpired() public {
+        uint256 stakeAmount = 500e18;
+        uint256 withdrawAmount = 100e18;
+        
+        // Setup: Deposit stake
+        MockUp(upToken).mint(manager, stakeAmount);
+    
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+
+        vm.warp(block.timestamp + 7 days);
+
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+
+        vm.warp(block.timestamp + 20 days);
+
+        vm.expectRevert(ISuperVaultAggregator.WITHDRAWAL_REQUEST_EXPIRED.selector);
+        superVaultAggregator.completeStakeWithdrawal();
+        vm.stopPrank();
+    }
+
     /// @notice Tests successful stake slashing by SuperGovernor
     function test_SlashStake_Success() public {
         uint256 stakeAmount = 1000e18;
