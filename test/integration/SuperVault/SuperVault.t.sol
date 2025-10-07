@@ -4686,8 +4686,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAccount(accInstances[0], firstRedeemShares);
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
+        uint256 redeemSharesVault1 = firstRedeemShares / 2;
+        uint256 redeemSharesVault2 = firstRedeemShares - redeemSharesVault1;
         _fulfillRedeemForUsers(
-            redeemUsers, firstRedeemShares / 2, firstRedeemShares / 2, address(fluidVault), address(aaveVault)
+            redeemUsers, redeemSharesVault1, redeemSharesVault2, address(fluidVault), address(aaveVault)
         );
 
         // Get state after first fulfillment
@@ -5778,23 +5780,50 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 finalFluidVaultBalance = fluidVault.balanceOf(address(strategy));
         uint256 finalAaveVaultBalance = aaveVault.balanceOf(address(strategy));
+        uint256 totalRedeemShares = finalFluidVaultBalance + finalAaveVaultBalance;
 
         uint256 finalFluidVaultAssets = fluidVault.previewRedeem(finalFluidVaultBalance);
         uint256 finalAaveVaultAssets = aaveVault.previewRedeem(finalAaveVaultBalance);
 
         uint256 finalTotalAssets = finalFluidVaultAssets + finalAaveVaultAssets;
 
+        uint256 redeemShares;
+        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; ++i) {
+            requestingUsers[i] = accInstances[i].account;
+            redeemShares += vault.balanceOf(accInstances[i].account);
+        }
+
         assertApproxEqRel(finalTotalAssets, totalAssets, 0.05e18, "Total value should be preserved");
 
         _requestRedeemForAllUsers(0);
 
-        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
-        for (uint256 i; i < ACCOUNT_COUNT; ++i) {
-            requestingUsers[i] = accInstances[i].account;
-        }
+        /// @dev The following fails with the due to attempting to redeem more shares from Aave than allowed
+        // uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares);
+        // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+        // _fulfillRedeemForUsersAfterAllocation(
+        //     requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
+        // );
 
-        _fulfillRedeemForUsers(
-            requestingUsers, finalFluidVaultAssets, finalAaveVaultAssets, address(fluidVault), address(aaveVault)
+        /// @dev The following reverts with INVALID_REDEEM_FILL()
+        /// intendedShares = 2767
+        /// totalRequestedShares = 3000
+        // uint256 redemptionSharesVault1 = finalFluidVaultBalance.mulDiv(redeemShares, totalRedeemShares, Math.Rounding.Floor);
+        // uint256 maxReddemAaveShares = aaveVault.maxRedeem(address(strategy));
+        // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+        // if (redemptionSharesVault2 > maxReddemAaveShares) {
+        //     redemptionSharesVault2 = maxReddemAaveShares;
+        // }
+        // _fulfillRedeemForUsersAfterAllocation(
+        //     requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
+        // );
+        
+        /// @dev The following fails with the due to attempting to redeem more shares from Aave than allowed
+        uint256 redemptionSharesVault1 = redeemShares / 2;
+        uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
+
+        _fulfillRedeemForUsersAfterAllocation(
+            requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
         );
 
         // check that all pending requests are cleared
