@@ -418,8 +418,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update stake balance
-        /// @dev requestStakeWithdrawal checked for sufficient balance
-        _managerStakeBalance[msg.sender] -= request.amount;
+        /// @dev re-check for sufficient balance in case slashing occurred
+        if (_managerStakeBalance[msg.sender] >= request.amount) {
+            _managerStakeBalance[msg.sender] -= request.amount;
+        } else {
+            revert INSUFFICIENT_STAKE_BALANCE();
+        }
 
         // Clear withdrawal request
         managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
