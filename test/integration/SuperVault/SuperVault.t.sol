@@ -119,6 +119,93 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
 
+    function test_Deposit_Async() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
+        assertEq(escrowBalanceBefore, 0, "Escrow should be empty");
+
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
+            address(vault),
+            address(asset),
+            depositAmount,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory entry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
+        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
+        executeOp(userOpData);
+        
+    }
+
+    function test_Deposit_StalePPS() public {
+        vm.startPrank(MANAGER);
+        strategy.setFullfillTimestampThreshold(1);
+        vm.stopPrank();
+        
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
+            address(vault),
+            address(asset),
+            depositAmount,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory entry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
+        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
+        executeOp(userOpData);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = address(accInstances[0].account);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        strategy.fulfillDepositRequest(controllers);
+        vm.stopPrank();
+    }
+
+    function test_Deposit_And_Emergency_Withdraw() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _deposit(depositAmount);
+        assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 userShares = vault.balanceOf(accountEth);
+        assertGt(userShares, 0, "No shares minted to user");
+
+        uint256 vaultBalance = vault.balanceOf(accountEth);
+        _requestRedeem(vaultBalance);
+        _fulfillRedeem(vaultBalance, address(fluidVault), address(aaveVault));
+
+        vm.startPrank(MANAGER);
+
+        // Step 1: Propose emergency withdraw (timelocked)
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.EmergencyWithdrawableProposed(true, block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(1, address(0), 0); // action 1 = Propose
+
+        // Verify proposal state
+        assertEq(strategy.proposedEmergencyWithdrawable(), true, "Proposal should be true");
+        assertEq(strategy.emergencyWithdrawableEffectiveTime(), block.timestamp + 1 weeks, "Wrong effective time");
+
+        vm.warp(block.timestamp + 1 weeks);
+        strategy.manageEmergencyWithdraw(2, MANAGER, depositAmount); // action 2 = Withdraw 
+        vm.stopPrank();
+
+        assertEq(asset.balanceOf(address(escrow)), 0, "Wrong escrow balance after emergency withdrawal");
+    }
 
     /// @notice Test successful emergency withdraw proposal and execution workflow with PPS impact testing
     /// @dev Tests circuit breaker functionality by monitoring PPS/TVL around an emergency withdrawal
