@@ -72,7 +72,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Time lock for stake withdrawal requests
     uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
-    uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 14 days;
+    uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 10 days;
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
