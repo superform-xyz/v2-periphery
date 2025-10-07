@@ -229,31 +229,26 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         ) revert ARRAY_LENGTH_MISMATCH();
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
-        uint256 chargeableCount;
-        if (paymentsEnabled) {
-            for (uint256 i; i < strategiesLength; ++i) {
-                // Skip invalid strategies without reverting
-                if (!_superVaultStrategies.contains(args.strategies[i])) {
-                    emit UnknownStrategy(args.strategies[i]);
-                    continue;
-                }
 
-                // Skip when invalid timestamp is provided
-                if (args.timestamps[i] > block.timestamp) {
-                    emit ProvidedTimestampExceedsBlockTimestamp(args.strategies[i], args.timestamps[i], block.timestamp);
-                    continue;
-                }
+        for (uint256 i; i < strategiesLength; ++i) {
+            address strategy = args.strategies[i];
 
-                // Skip Superform manager
-                address manager = _strategyData[args.strategies[i]].mainManager;
-                if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                    emit SuperformManager(args.strategies[i], manager);
-                    continue;
-                }
+            // Skip invalid strategy
+            if (!_superVaultStrategies.contains(strategy)) {
+                emit UnknownStrategy(strategy);
+                continue;
+            }
 
-                uint256 upkeepCost = 0;
-                if (paymentsEnabled) {
-                StrategyData storage data = _strategyData[args.strategies[i]];
+            // Skip invalid timestamp
+            uint256 ts = args.timestamps[i];
+            if (ts > block.timestamp) {
+                emit ProvidedTimestampExceedsBlockTimestamp(strategy, ts, block.timestamp);
+                continue;
+            }
+
+            uint256 upkeepCost = 0;
+            if (paymentsEnabled) {
+                StrategyData storage data = _strategyData[strategy];
                 address manager = data.mainManager;
                 // Check staleness
                 if (data.isPaused) {
@@ -266,20 +261,20 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
-
-                _forwardPPS(
-                    PPSUpdateData({
-                        strategy: strategy,
-                        isExempt: (!paymentsEnabled) || (upkeepCost == 0),
-                        pps: args.ppss[i],
-                        ppsStdev: args.ppsStdevs[i],
-                        validatorSet: args.validatorSets[i],
-                        totalValidators: args.totalValidators[i],
-                        timestamp: ts,
-                        upkeepCost: upkeepCost
-                    })
-                );}
             }
+
+            _forwardPPS(
+                PPSUpdateData({
+                    strategy: strategy,
+                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    pps: args.ppss[i],
+                    ppsStdev: args.ppsStdevs[i],
+                    validatorSet: args.validatorSets[i],
+                    totalValidators: args.totalValidators[i],
+                    timestamp: ts,
+                    upkeepCost: upkeepCost
+                })
+            );
         }
     }
 
@@ -1098,13 +1093,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpdateTooFrequent();
             return;
         }
-        
       
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
         // Flag to track if any check failed
-        bool checksFailed = false;
+        bool checksFailed;
 
         // C2.1) Dispersion Check: Check if the standard deviation is too high relative to mean
         if (_strategyData[args.strategy].dispersionThreshold != type(uint256).max && args.pps > 0) {
