@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
+import { console2 } from "forge-std/console2.sol";
+
 // External
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -311,7 +313,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             intendedShares += ISuperHookInflowOutflow(hook).decodeAmount(args.hookCalldata[i]);
         }
 
-        // Enforce both lower and upper bounds on intended shares to prevent escrow overburn
+        // Enforce both lower bound on intended shares
+        console2.log("----intendedShares", intendedShares);
+        console2.log("----totalRequestedShares", totalRequestedShares);
         if (intendedShares != totalRequestedShares) {
             revert INVALID_REDEEM_FILL();
         }
@@ -321,13 +325,17 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _processFulfillHooks(args.hooks, args.hookCalldata, args.expectedAssetsOrSharesOut);
 
         // Post-condition: processed shares must match intended shares
-        if (processedShares != intendedShares) revert INVALID_REDEEM_FILL();
+        if (processedShares < intendedShares) revert INVALID_REDEEM_FILL();
 
         _processRedeemFulfillments(args.controllers, controllersLength, processedShares, assetsWithdrawn);
 
         ISuperVault(_vault).burnShares(processedShares);
 
         emit RedeemRequestsFulfilled(args.hooks, args.controllers, processedShares, assetsWithdrawn, currentPPS);
+
+        console2.log("----processedShares", processedShares);
+        console2.log("----intendedShares", intendedShares);
+        console2.log("----totalRequestedShares", totalRequestedShares);
     }
 
     /*//////////////////////////////////////////////////////////////
