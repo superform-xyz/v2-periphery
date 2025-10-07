@@ -5816,7 +5816,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
         _fulfillRedeemForUsersAfterAllocation(
             requestingUsers, redemptionSharesVault1, redemptionSharesVault2, address(fluidVault), address(aaveVault)
-        // );
+        );
         
         /// @dev The following fails with the due to attempting to redeem more shares from Aave than allowed
         // uint256 redemptionSharesVault1 = redeemShares / 2;
