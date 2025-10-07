@@ -72,6 +72,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Time lock for stake withdrawal requests
     uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
+    uint256 public constant WITHDRAWAL_REQUEST_EXPIRATION = 14 days;
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
@@ -140,8 +141,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         /// @dev Check that name and symbol are not empty
-        ///      We don't check for anything else and 
-        ///       it's up to the creator to ensure that the vault 
+        ///      We don't check for anything else and
+        ///       it's up to the creator to ensure that the vault
         ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
             revert ZERO_AMOUNT();
@@ -191,7 +192,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].maxStaleness = params.maxStaleness;
         _strategyData[strategy].isPaused = false;
         _strategyData[strategy].mainManager = params.mainManager;
-        _strategyData[strategy].maxUnpauseTimeLock = params.maxUnpauseTimeLock > 0 ? params.maxUnpauseTimeLock : _MAX_UNPAUSE_TIMELOCK;
+        _strategyData[strategy].maxUnpauseTimeLock =
+            params.maxUnpauseTimeLock > 0 ? params.maxUnpauseTimeLock : _MAX_UNPAUSE_TIMELOCK;
 
         uint256 secondaryLen = params.secondaryManagers.length;
         for (uint256 i; i < secondaryLen; ++i) {
@@ -221,10 +223,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (strategiesLength == 0) revert ZERO_ARRAY_LENGTH();
         // Validate input array lengths
         if (
-            strategiesLength != args.ppss.length
-                || strategiesLength != args.ppsStdevs.length 
-                || strategiesLength != args.validatorSets.length
-                || strategiesLength != args.timestamps.length 
+            strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
+                || strategiesLength != args.validatorSets.length || strategiesLength != args.timestamps.length
                 || strategiesLength != args.totalValidators.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
@@ -350,7 +350,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!_isUnpauser(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
-        
+
         // Check if strategy is currently paused
         if (!_strategyData[strategy].isPaused) {
             revert STRATEGY_NOT_PAUSED();
@@ -360,7 +360,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (block.timestamp - lastUpdateTimestamp >= _strategyData[strategy].maxUnpauseTimeLock) {
             revert UNPAUSE_TIMELOCK_NOT_MET();
         }
-        
+
         // Unpause the strategy
         _strategyData[strategy].isPaused = false;
         emit StrategyUnpaused(strategy);
@@ -418,6 +418,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_managerStakeBalance[msg.sender] >= request.amount) {
             _managerStakeBalance[msg.sender] -= request.amount;
         } else {
+            // Clear withdrawal request
+            managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
             revert INSUFFICIENT_STAKE_BALANCE();
         }
 
@@ -534,14 +536,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit SecondaryManagerRemoved(strategy, manager);
     }
 
-     /// @inheritdoc ISuperVaultAggregator
-    function updateUnpausePPSTimelock(
-        address strategy,
-        uint256 newTimelock_
-    ) 
-        external
-        validStrategy(strategy)
-    {
+    /// @inheritdoc ISuperVaultAggregator
+    function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) external validStrategy(strategy) {
         // Since this is a risky call, we only allow main managers as callers
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -1093,7 +1089,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpdateTooFrequent();
             return;
         }
-      
+
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
@@ -1137,7 +1133,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _strategyData[args.strategy].isPaused = true;
             emit StrategyPaused(args.strategy);
         }
-       
+
         // Handle upkeep costs unless exempt
         uint256 managerUpkeepBalance = _managerUpkeepBalance[manager];
         if (!args.isExempt) {
