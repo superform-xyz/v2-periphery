@@ -88,6 +88,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
+        _fulfillTimestampThreshold = 1 days;
+
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
         _disableInitializers();
@@ -347,13 +349,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             uint256 sharesNet = state.pendingMintRequestedShares;
             if (assetsGross == 0 || sharesNet == 0) revert INVALID_AMOUNT();
             
-            (, uint256 assetsNet) = quoteMintAssetsGross(sharesNet);
+            (uint256 requiredGross, uint256 assetsNet) = quoteMintAssetsGross(sharesNet);
 
             uint256 feeBps = feeConfig.managementFeeBps;
             // Transfer fee if needed
             uint256 feeAssets;
             if (feeBps != 0) {
-                feeAssets = assetsGross - assetsNet;
+                feeAssets = requiredGross - assetsNet;
                 if (feeAssets != 0) {
                     address recipient = feeConfig.recipient;
                     if (recipient == address(0)) revert ZERO_ADDRESS();
@@ -368,7 +370,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             state.pendingMintRequest = 0;
             state.pendingMintRequestedShares = 0;
 
-            uint256 toTransferBack = assetsGross - assetsNet - feeAssets;
+            // refund any surplus
+            uint256 toTransferBack = assetsGross > requiredGross
+                ? assetsGross - requiredGross
+                : 0;
             if (toTransferBack > 0) {
                 _asset.safeTransfer(controller, toTransferBack);
             }
