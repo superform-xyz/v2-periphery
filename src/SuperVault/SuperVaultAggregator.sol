@@ -329,7 +329,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update upkeep balance
-        _managerUpkeepBalance[msg.sender] -= amount;
+        /// @dev unchecked because amount validated above
+        unchecked {
+            _managerUpkeepBalance[msg.sender] -= amount;
+        }
 
         // Transfer UP tokens to manager
         IERC20(upToken).safeTransfer(msg.sender, amount);
@@ -830,7 +833,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc ISuperVaultAggregator
     function getCurrentNonce() external view returns (uint256) {
         return _vaultCreationNonce;
@@ -899,6 +901,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance) {
+        if (managerWithdrawalRequests[manager].amount > 0) return 0;
         return _managerStakeBalance[manager];
     }
 

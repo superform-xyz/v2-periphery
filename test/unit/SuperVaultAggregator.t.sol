@@ -2167,6 +2167,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getStakeBalance(address(0)), 0, "Zero address stake balance should be zero");
     }
 
+    function test_GetStakeBalance_ZeroIfPendingWithdrawal() public {
+        uint256 stakeAmount = 1000e18;
+        MockUp(upToken).mint(manager, stakeAmount);
+
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        vm.prank(manager);
+        superVaultAggregator.requestStakeWithdrawal(500e18);
+
+        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
+    }
+
     function testSlashStake_ClearsWithdrawalRequest() public {
         uint256 stakeAmount = 1000e18;
 
