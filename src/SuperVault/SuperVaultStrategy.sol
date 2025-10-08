@@ -247,7 +247,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             totalAssetsToExtract += superVaultState[controller].pendingDepositRequest;
         }
 
-        totalAssetsToExtract = ISuperVault(_vault).extractAndSendAssets(address(this), totalAssetsToExtract);
+        // extract all assets
+        ISuperVault(_vault).extractAndSendAssets(address(this), totalAssetsToExtract);
 
         for (uint256 i; i < controllersLength; ++i) {
             address controller = controllers[i];
@@ -1157,9 +1158,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
         if (state.maxWithdraw < assetsToClaim) revert INVALID_REDEEM_CLAIM();
-        uint256 assets = ISuperVault(_vault).extractAndSendAssets(receiver, assetsToClaim);
-        state.maxWithdraw -= assets;
-        emit RedeemRequestFulfilled(receiver, controller, assets, 0);
+        ISuperVault(_vault).extractAndSendAssets(receiver, assetsToClaim);
+        state.maxWithdraw -= assetsToClaim;
+        emit RedeemRequestFulfilled(receiver, controller, assetsToClaim, 0);
     }
 
     /// @notice Internal function to safely transfer tokens

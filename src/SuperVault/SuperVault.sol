@@ -27,7 +27,6 @@ import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.so
 
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
-import { SuperApproveLib } from "../libraries/SuperApproveLib.sol";
 
 /// @title SuperVault
 /// @author Superform Labs
@@ -352,15 +351,13 @@ contract SuperVault is
                             STRATEGY RELATED
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVault
-    function extractAndSendAssets(address to, uint256 assets) external returns (uint256) {
+    function extractAndSendAssets(address to, uint256 assets) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         uint256 escrowBalance = _asset.balanceOf(escrow);
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         ISuperVaultEscrow(escrow).returnAssets(assets);
         _asset.safeTransfer(to, assets);
-
-        return assets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -550,8 +547,7 @@ contract SuperVault is
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
 
         // lock assets in escrow
-        SuperApproveLib.safeApprove(address(_asset), address(escrow), assets);
-        ISuperVaultEscrow(escrow).escrowAssets(assets);
+        _asset.safeTransfer(address(escrow), assets);
 
         emit RedeemClaimable(
             user, REQUEST_ID, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis

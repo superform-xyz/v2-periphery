@@ -92,7 +92,7 @@ interface ISuperVault {
     /// @dev Called by `SuperVaultStrategy`
     /// @param to The address to send assets to
     /// @param assets The amount of assets to be extracted
-    function extractAndSendAssets(address to, uint256 assets) external returns (uint256);
+    function extractAndSendAssets(address to, uint256 assets) external;
     
     /// @notice Get the amount of assets escrowed
     function getEscrowedAssets() external view returns (uint256);

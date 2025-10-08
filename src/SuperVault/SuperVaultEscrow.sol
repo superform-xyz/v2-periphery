@@ -67,12 +67,6 @@ contract SuperVaultEscrow {
         IERC20(vault).safeTransfer(to, amount);
     }
 
-    /// @notice Transfer assets from vault to escrow during deposit request
-    /// @param amount The amount of assets to transfer
-    function escrowAssets(uint256 amount) external onlyVault {
-        IERC20(IERC4626(vault).asset()).safeTransferFrom(vault, address(this), amount);
-    }
-
     /// @notice Return assets from escrow to vault during deposit cancellation
     /// @param amount The amount of assets to return
     function returnAssets(uint256 amount) external onlyVault {
