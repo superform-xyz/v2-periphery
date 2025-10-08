@@ -787,9 +787,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Ensure we don't exceed available balance
         uint256 balanceOfStrategy = _getTokenBalance(address(_asset), address(this));
-        netControllerAssets = netControllerAssets > balanceOfStrategy ? balanceOfStrategy : netControllerAssets;
-
         if (netControllerAssets > balanceOfStrategy) {
+            netControllerAssets = balanceOfStrategy;
             emit StrategyInsolvent(netControllerAssets, balanceOfStrategy);
         }
 
