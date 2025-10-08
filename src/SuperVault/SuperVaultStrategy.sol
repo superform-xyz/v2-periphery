@@ -248,6 +248,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             address controller = controllers[i];
             if (controller == address(0)) revert ZERO_ADDRESS();
 
+            bytes32 slot = keccak256(abi.encodePacked(_ns, controller));
+
+            // check duplicate
+            uint256 seenWord;
+            assembly ("memory-safe") { seenWord := tload(slot) } // 0 if unseen, non-zero if seen
+            if (seenWord != 0) continue;
+
             SuperVaultState storage state = superVaultState[controller];
 
             uint256 assetsGross = state.pendingDepositRequest;
