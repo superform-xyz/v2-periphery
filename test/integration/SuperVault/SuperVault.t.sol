@@ -5754,10 +5754,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _completeDepositFlow(depositAmount);
 
         uint256 fluidShares = fluidVault.balanceOf(address(strategy));
+        console2.log("Initial Fluid Shares:", fluidShares);
         uint256 aaveShares = aaveVault.balanceOf(address(strategy));
+        console2.log("Initial Aave Shares:", aaveShares);
 
         uint256 currentFluidVaultAssets = fluidVault.convertToAssets(fluidShares);
+        console2.log("Initial Fluid Vault Assets:", currentFluidVaultAssets);
         uint256 currentAaveVaultAssets = aaveVault.convertToAssets(aaveShares);
+        console2.log("Initial Aave Vault Assets:", currentAaveVaultAssets);
         uint256 totalAssets = currentFluidVaultAssets + currentAaveVaultAssets;
 
         address[] memory hooksAddresses = new address[](2);
@@ -5769,6 +5773,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // uint256 amountToReallocate = fluidShares.mulDiv(3000, 10_000);
         // uint256 assetAmountToReallocate = fluidVault.convertToAssets(amountToReallocate);
         uint256 assetAmountToReallocate = currentFluidVaultAssets.mulDiv(3000, 10_000);
+        console2.log("Asset Amount to Reallocate:", assetAmountToReallocate);
 
         _rebalanceFromVaultToVault(
             hooksAddresses,
@@ -5789,16 +5794,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // );
 
         uint256 finalFluidVaultBalance = fluidVault.balanceOf(address(strategy));
+        console2.log("Fluid Vault Balance After Reallocation:", finalFluidVaultBalance);
         uint256 finalAaveVaultBalance = aaveVault.balanceOf(address(strategy));
+        console2.log("Aave Vault Balance After Reallocation:", finalAaveVaultBalance);
         uint256 totalRedeemShares = finalFluidVaultBalance + finalAaveVaultBalance;
+        console2.log("Total Redeem Shares:", totalRedeemShares);
 
         uint256 finalFluidVaultAssets = fluidVault.previewRedeem(finalFluidVaultBalance);
+        console2.log("Fluid Vault Assets After Reallocation:", finalFluidVaultAssets);
         uint256 finalAaveVaultAssets = aaveVault.previewRedeem(finalAaveVaultBalance);
-
+        console2.log("Aave Vault Assets After Reallocation:", finalAaveVaultAssets);
         uint256 finalTotalAssets = finalFluidVaultAssets + finalAaveVaultAssets;
 
         uint256 fluidWeightBps = finalFluidVaultAssets.mulDiv(10_000, finalTotalAssets); // in basis points
+        console2.log("Fluid Weight Bps:", fluidWeightBps);
         uint256 aaveWeightBps = 10_000 - fluidWeightBps;
+        console2.log("Aave Weight Bps:", aaveWeightBps);
 
         uint256 redeemShares;
         address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
@@ -5806,6 +5817,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             requestingUsers[i] = accInstances[i].account;
             redeemShares += vault.balanceOf(accInstances[i].account);
         }
+
+        console2.log("User Requested Redeem Shares:", redeemShares);
 
         assertApproxEqRel(finalTotalAssets, totalAssets, 0.05e18, "Total value should be preserved");
 
@@ -5835,6 +5848,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // uint256 redemptionSharesVault1 = redeemShares / 2;
         // uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
         uint256 redemptionSharesVault1 = redeemShares.mulDiv(fluidWeightBps, 10_000);
+        console2.log("Requested Fluid Redeem Shares:", redemptionSharesVault1);
         uint256 redemptionSharesVault2 = redeemShares - redemptionSharesVault1;
         console2.log("Requested Aave Redeem Shares:", redemptionSharesVault2);
         console2.log("Max Redeemable Aave Shares:", aaveVault.maxRedeem(address(strategy)));

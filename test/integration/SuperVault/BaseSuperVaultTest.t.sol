@@ -1469,12 +1469,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
 
-        console2.log("----argsForProofsLength", argsForProofs.length);
-        console2.log("----argsForProofs[0]");
-        console2.logBytes(argsForProofs[0]);
-        console2.log("----argsForProofs[1]");
-        console2.logBytes(argsForProofs[1]);
-
         strategy.fulfillRedeemRequests(
             ISuperVaultStrategy.FulfillArgs({
                 controllers: requestingUsers,
@@ -1523,27 +1517,26 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
         {
             uint256 pricePerShare = strategy.getStoredPPS();
+            console2.log("----pricePerShare", pricePerShare);
 
             uint256 amountForVault1 = redeemSharesVault1 * vault.PRECISION() / pricePerShare;
             uint256 amountForVault2 = redeemSharesVault2 * vault.PRECISION() / pricePerShare;
 
             uint256 underlyingSharesForVault1 = IERC4626(address(vault1)).convertToShares(amountForVault1);
+            console2.log("----underlyingSharesForVault1", underlyingSharesForVault1);
             uint256 underlyingSharesForVault2 = IERC4626(address(vault2)).convertToShares(amountForVault2);
+            console2.log("----underlyingSharesForVault2", underlyingSharesForVault2);
 
             expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(underlyingSharesForVault1);
+            console2.log("----expectedAssetsOrSharesOut[0]", expectedAssetsOrSharesOut[0]);
             expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(underlyingSharesForVault2);
+            console2.log("----expectedAssetsOrSharesOut[1]", expectedAssetsOrSharesOut[1]);
         }
 
         vm.startPrank(MANAGER);
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
-
-        console2.log("----argsForProofsLength", argsForProofs.length);
-        console2.log("----argsForProofs[0]");
-        console2.logBytes(argsForProofs[0]);
-        console2.log("----argsForProofs[1]");
-        console2.logBytes(argsForProofs[1]);
 
         strategy.fulfillRedeemRequests(
             ISuperVaultStrategy.FulfillArgs({
