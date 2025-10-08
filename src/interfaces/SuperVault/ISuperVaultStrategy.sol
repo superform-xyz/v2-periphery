@@ -90,6 +90,7 @@ interface ISuperVaultStrategy {
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
 
+    event StrategyInsolvent(uint256 requiredAssets, uint256 availableAssets);
     event RedeemRequestsFulfilled(address[] hooks, address[] controllers, uint256 processedShares, uint256 assetsWithdrawn, uint256 currentPPS);
 
     event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
