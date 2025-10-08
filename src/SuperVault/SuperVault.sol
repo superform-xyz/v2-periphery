@@ -168,9 +168,7 @@ contract SuperVault is
         if (controller != owner) revert CONTROLLER_MUST_EQUAL_OWNER();
 
         // Forward assets from msg-sender to escrow for temporary locking
-        _asset.safeTransferFrom(owner, address(this), assets);
-        SuperApproveLib.safeApprove(address(_asset), address(escrow), assets);
-        ISuperVaultEscrow(escrow).escrowAssets(assets);
+        _asset.safeTransferFrom(owner, address(escrow), assets);
 
         // Forward to strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.DepositRequest, controller, address(0), assets, 0);
