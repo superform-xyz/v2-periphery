@@ -242,6 +242,10 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
     function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
 
+    /// @notice Fulfills pending redeem requests from assets already present in the strategy
+    /// @param controllers Array of controller addresses to fulfill redeem requests for
+    function fulfillRedeemsFromLiquidity(address[] memory controllers) external payable;
+
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
