@@ -68,8 +68,9 @@ contract SuperVaultEscrow {
     }
 
     /// @notice Return assets from escrow to vault during deposit cancellation
+    /// @param to The address to return assets to
     /// @param amount The amount of assets to return
-    function returnAssets(uint256 amount) external onlyVault {
-        IERC20(IERC4626(vault).asset()).safeTransfer(vault, amount);
+    function returnAssets(address to, uint256 amount) external onlyVault {
+        IERC20(IERC4626(vault).asset()).safeTransfer(to, amount);
     }
 }

@@ -36,6 +36,7 @@ interface ISuperVaultEscrow {
     function returnShares(address to, uint256 amount) external;
 
     /// @notice Return assets from escrow to vault during deposit cancellation
+    /// @param to The address to return assets to
     /// @param amount The amount of assets to return
-    function returnAssets(uint256 amount) external;
+    function returnAssets(address to, uint256 amount) external;
 }

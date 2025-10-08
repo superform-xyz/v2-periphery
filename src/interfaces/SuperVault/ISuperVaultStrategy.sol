@@ -103,6 +103,7 @@ interface ISuperVaultStrategy {
 
     event MintRequestPlaced(address indexed receiver, uint256 shares, uint256 maxAssets);
     event MintRequestCancelled(address indexed receiver, uint256 assets, uint256 shares);
+    event RedeemClaimable(address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice, uint256 accumulatorShares, uint256 accumulatorCostBasis);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -210,8 +211,7 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @param receiver The receiver address
     /// @param amount The amount of assets or shares
-    /// @param requestedShares The amount of shares requested (for mint operation)
-    function handleOperations7540(Operation op, address controller, address receiver, uint256 amount, uint256 requestedShares) external;
+    function handleOperations7540(Operation op, address controller, address receiver, uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
                 MANAGER EXTERNAL ACCESS FUNCTIONS

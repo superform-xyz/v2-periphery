@@ -71,23 +71,6 @@ interface ISuperVault {
     /// @param amount The amount of shares to burn
     function burnShares(uint256 amount) external;
 
-    /// @notice Callback function for when a redeem becomes claimable
-    /// @param user The user whose redeem is claimable
-    /// @param assets The amount of assets to be received
-    /// @param shares The amount of shares redeemed
-    /// @param averageWithdrawPrice The average price of the redeem
-    /// @param accumulatorShares The amount of shares in the accumulator
-    /// @param accumulatorCostBasis The cost basis of the accumulator
-    function onRedeemClaimable(
-        address user,
-        uint256 assets,
-        uint256 shares,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        external;
-
     /// @notice Extract assets from escrow and moves them to strategy
     /// @dev Called by `SuperVaultStrategy`
     /// @param to The address to send assets to
@@ -96,4 +79,10 @@ interface ISuperVault {
     
     /// @notice Get the amount of assets escrowed
     function getEscrowedAssets() external view returns (uint256);
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW METHODS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Get the escrow address
+    function escrow() external view returns (address);
 }

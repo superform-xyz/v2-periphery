@@ -1012,7 +1012,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             );
 
             vm.startPrank(mockManager);
-            SuperVaultStrategy(payable(newStrategy)).setFullfillTimestampThreshold(100 days);
+            SuperVaultStrategy(payable(newStrategy)).setFulfillTimestampThreshold(100 days);
             vm.stopPrank();
             data.strategies[i] = newStrategy;
         }

@@ -170,7 +170,7 @@ contract SuperVault is
         _asset.safeTransferFrom(owner, address(escrow), assets);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.DepositRequest, controller, address(0), assets, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.DepositRequest, controller, address(0), assets);
 
         emit DepositRequest(controller, owner, REQUEST_ID, msg.sender, assets);
         return REQUEST_ID;
@@ -181,11 +181,10 @@ contract SuperVault is
         if (assets == 0) revert ZERO_AMOUNT();
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelDeposit, controller, address(0), 0, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelDeposit, controller, address(0), 0);
 
         // Return assets
-        ISuperVaultEscrow(escrow).returnAssets(assets);
-        _asset.safeTransfer(controller, assets);
+        ISuperVaultEscrow(escrow).returnAssets(controller, assets);
 
         emit DepositRequestCancelled(controller, msg.sender, assets);
     }
@@ -206,7 +205,7 @@ contract SuperVault is
         ISuperVaultEscrow(escrow).escrowShares(owner, shares);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.RedeemRequest, controller, address(0), shares, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.RedeemRequest, controller, address(0), shares);
 
         emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
         return REQUEST_ID;
@@ -219,7 +218,7 @@ contract SuperVault is
         uint256 shares = strategy.pendingRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
 
         // Return shares to controller
         ISuperVaultEscrow(escrow).returnShares(controller, shares);
@@ -272,6 +271,7 @@ contract SuperVault is
     function getEscrowedAssets() external view returns (uint256) {
         return _asset.balanceOf(escrow);
     }
+
 
     //--ERC7540--
     /// @inheritdoc IERC7540Deposit
@@ -356,8 +356,7 @@ contract SuperVault is
         uint256 escrowBalance = _asset.balanceOf(escrow);
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
-        ISuperVaultEscrow(escrow).returnAssets(assets);
-        _asset.safeTransfer(to, assets);
+        ISuperVaultEscrow(escrow).returnAssets(to, assets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -484,7 +483,7 @@ contract SuperVault is
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         // Take assets from strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -516,7 +515,7 @@ contract SuperVault is
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         // Take assets from strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -531,27 +530,6 @@ contract SuperVault is
     function mintShares(address to, uint256 amount) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         _mint(to, amount);
-    }
-
-    // @inheritdoc ISuperVault
-    function onRedeemClaimable(
-        address user,
-        uint256 assets,
-        uint256 shares,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        external
-    {
-        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
-
-        // lock assets in escrow
-        _asset.safeTransfer(address(escrow), assets);
-
-        emit RedeemClaimable(
-            user, REQUEST_ID, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
-        );
     }
 
     /*//////////////////////////////////////////////////////////////

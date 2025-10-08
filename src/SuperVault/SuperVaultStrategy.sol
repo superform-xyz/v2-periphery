@@ -130,7 +130,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     //////////////////////////////////////////////////////////////*/
    
     /// @inheritdoc ISuperVaultStrategy
-    function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount, uint256 requestedShares) external {
+    function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
 
         if (_isPaused()) revert STRATEGY_PAUSED();
@@ -222,15 +222,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (controllersLength == 0) revert ZERO_LENGTH();
 
         // derive a per-call namespace using a transient counter
-        bytes32 _NS_COUNTER = keccak256("fulfillDepositRequest.ns.counter");
-        uint256 _callId;
-        assembly ("memory-safe") {
-            let c := add(tload(_NS_COUNTER), 1)
-            tstore(_NS_COUNTER, c)
-            _callId := c
-        }
-        bytes32 _ns = keccak256(abi.encodePacked("fulfillDepositRequest.seen", address(this), _callId));
-
+        bytes32 _ns = _createNamespacedSlot("fulfillDepositRequest.ns.counter.sum");
         uint256 totalAssetsToExtract;
         for (uint256 i; i < controllersLength; ++i) {
             address controller = controllers[i];
@@ -250,6 +242,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // extract all assets
         ISuperVault(_vault).extractAndSendAssets(address(this), totalAssetsToExtract);
 
+        // reset namespace
+        _ns = _createNamespacedSlot("fulfillDepositRequest.ns.counter.logic");
         for (uint256 i; i < controllersLength; ++i) {
             address controller = controllers[i];
             if (controller == address(0)) revert ZERO_ADDRESS();
@@ -472,7 +466,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                         PPS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     // @inheritdoc ISuperVaultStrategy
-    function setFullfillTimestampThreshold(uint256 timestampThreshold) external {
+    function setFulfillTimestampThreshold(uint256 timestampThreshold) external {
         _isPrimaryManager(msg.sender);
         _fulfillTimestampThreshold = timestampThreshold;
     }
@@ -1093,9 +1087,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         private
     {
         // transfer assets to vault
-        _asset.safeTransfer(_vault, assetsFulfilled);
+        address _escrow = ISuperVault(_vault).escrow();
+        _asset.safeTransfer(_escrow, assetsFulfilled);
 
-        ISuperVault(_vault).onRedeemClaimable(
+        emit RedeemClaimable(
             controller, assetsFulfilled, sharesFulfilled, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
         );
     }
@@ -1218,4 +1213,17 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             })
         );
     }
+    
+    function _createNamespacedSlot(string memory _name) internal returns (bytes32) {
+        bytes32 _NS_COUNTER = keccak256(bytes(_name));
+        uint256 _callId;
+        assembly ("memory-safe") {
+            let c := add(tload(_NS_COUNTER), 1)
+            tstore(_NS_COUNTER, c)
+            _callId := c
+        }
+        bytes32 _ns = keccak256(abi.encodePacked(_name, ".seen", address(this), _callId));
+        return _ns;
+    }
+
 }

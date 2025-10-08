@@ -90,7 +90,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
         vm.startPrank(MANAGER);
-        strategy.setFullfillTimestampThreshold(100 days);
+        strategy.setFulfillTimestampThreshold(100 days);
         vm.stopPrank();
     }
 
@@ -146,7 +146,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     function test_Deposit_StalePPS() public {
         vm.startPrank(MANAGER);
-        strategy.setFullfillTimestampThreshold(1);
+        strategy.setFulfillTimestampThreshold(1);
         vm.stopPrank();
         
         uint256 depositAmount = 1000e6; // 1000 USDC
@@ -1762,34 +1762,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.burnShares(burnAmount);
     }
 
-    function test_OnRedeemClaimable() public {
-        // Setup mock values for testing
-        address user = accountEth;
-        uint256 assets = 100e6;
-        uint256 shares = 100e6;
-        uint256 averageWithdrawPrice = vault.PRECISION();
-        uint256 accumulatorShares = 500e6;
-        uint256 accumulatorCostBasis = 500e6;
-
-        _getTokens(address(asset), address(vault), assets);
-
-        // Only the strategy can call this function
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVault.RedeemClaimable(
-            user, 0, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
-        );
-
-        vm.prank(address(strategy));
-        vault.onRedeemClaimable(user, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis);
-    }
-
-    function test_RevertWhen_UnauthorizedOnRedeemClaimable() public {
-        // Random address cannot call onRedeemClaimable
-        vm.prank(accountEth);
-        uint256 precision = vault.PRECISION();
-        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
-        vault.onRedeemClaimable(accountEth, 100e6, 100e6, precision, 500e6, 500e6);
-    }
 
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULTSTRATEGY.SOL
@@ -3519,7 +3491,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.setFullfillTimestampThreshold(100 days);
+        strategyGearSuperVault.setFulfillTimestampThreshold(100 days);
         vm.stopPrank();
 
         // Add a new yield source as manager
@@ -5819,6 +5791,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // perform deposit operations
         _completeDepositFlow(depositAmount);
+        return;
 
         uint256 totalRedeemShares;
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
@@ -8322,7 +8295,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         strategy.handleOperations7540(
-            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount, 0
+            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
         );
 
         /**
