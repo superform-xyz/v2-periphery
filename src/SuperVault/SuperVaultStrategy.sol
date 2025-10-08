@@ -62,7 +62,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Global configuration
     uint256 private _maxPPSSlippage;
 
-    // Fulfill deposit & mint timestamp threshold
+    // Fulfill deposit timestamp threshold
     uint256 private _fulfillTimestampThreshold;
 
     // Fee configuration
@@ -128,20 +128,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         CORE STRATEGY OPERATIONS
     //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperVaultStrategy
-    function quoteMintAssetsGross(uint256 shares) public view returns (uint256 assetsGross, uint256 assetsNet) {
-        uint256 pps = getStoredPPS();
-        if (pps == 0) revert INVALID_PPS();
-        assetsNet = Math.mulDiv(shares, pps, PRECISION, Math.Rounding.Ceil);
-        if (assetsNet == 0) revert INVALID_AMOUNT();
-
-        uint256 feeBps = feeConfig.managementFeeBps;
-        if (feeBps == 0) return (assetsNet, assetsNet);
-        if (feeBps >= BPS_PRECISION) revert INVALID_AMOUNT(); // prevents div-by-zero (100% fee)
-        assetsGross = Math.mulDiv(assetsNet, BPS_PRECISION, (BPS_PRECISION - feeBps), Math.Rounding.Ceil);
-        return (assetsGross, assetsNet);
-    }
-
+   
     /// @inheritdoc ISuperVaultStrategy
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount, uint256 requestedShares) external {
         _requireVault();
@@ -152,10 +139,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _handleDepositRequest(controller, amount); // amount = assets
         } else if (operation == Operation.CancelDeposit) {
             _handleCancelDeposit(controller);
-        } else if (operation == Operation.MintRequest) {
-            _handleMintRequest(controller, amount, requestedShares); // amount = assets
-        } else if (operation == Operation.CancelMint) {
-            _handleCancelMint(controller);
         } else if (operation == Operation.RedeemRequest) {
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.CancelRedeem) {
@@ -169,9 +152,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     function _handleDepositRequest(address receiver, uint256 amount) internal {
         if (receiver == address(0)) revert ZERO_ADDRESS();
-
-        // Check if strategy is paused
-        if (_isPaused()) revert STRATEGY_PAUSED();
 
         // register deposit request
         SuperVaultState storage state = superVaultState[receiver];
@@ -191,35 +171,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.pendingDepositRequest = 0;
 
         emit DepositRequestCancelled(receiver, _pendingDepositRequest);
-    }
-
-    function _handleMintRequest(address receiver, uint256 maxAssets, uint256 requestedShares) internal {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-
-        // Check if strategy is paused
-        if (_isPaused()) revert STRATEGY_PAUSED();
-        
-        // register mint request
-        SuperVaultState storage state = superVaultState[receiver];
-        state.pendingMintRequest += maxAssets;
-        state.pendingMintRequestedShares += requestedShares;
-
-        emit MintRequestPlaced(receiver, requestedShares, maxAssets);
-    }
-
-    function _handleCancelMint(address receiver) internal {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-
-        SuperVaultState storage state = superVaultState[receiver];
-        uint256 _pendingMintRequest = state.pendingMintRequest;
-        uint256 _pendingMintRequestedShares = state.pendingMintRequestedShares;
-        if (_pendingMintRequest == 0) revert REQUEST_NOT_FOUND();
-        
-        // clear pending mint request
-        state.pendingMintRequest = 0;
-        state.pendingMintRequestedShares = 0;
-
-        emit MintRequestCancelled(receiver, _pendingMintRequest, _pendingMintRequestedShares);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -270,9 +221,30 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
 
+        // derive a per-call namespace using a transient counter
+        bytes32 _NS_COUNTER = keccak256("fulfillDepositRequest.ns.counter");
+        uint256 _callId;
+        assembly ("memory-safe") {
+            let c := add(tload(_NS_COUNTER), 1)
+            tstore(_NS_COUNTER, c)
+            _callId := c
+        }
+        bytes32 _ns = keccak256(abi.encodePacked("fulfillDepositRequest.seen", address(this), _callId));
+
         uint256 totalAssetsToExtract;
         for (uint256 i; i < controllersLength; ++i) {
-            totalAssetsToExtract += superVaultState[controllers[i]].pendingDepositRequest;
+            address controller = controllers[i];
+            bytes32 slot = keccak256(abi.encodePacked(_ns, controller));
+
+            // check duplicate
+            uint256 seenWord;
+            assembly ("memory-safe") { seenWord := tload(slot) } // 0 if unseen, non-zero if seen
+            if (seenWord != 0) continue;
+
+            // mark as seen
+            assembly ("memory-safe") { tstore(slot, 1) }
+
+            totalAssetsToExtract += superVaultState[controller].pendingDepositRequest;
         }
 
         totalAssetsToExtract = ISuperVault(_vault).extractAndSendAssets(address(this), totalAssetsToExtract);
@@ -314,75 +286,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             emit DepositHandled(controller, assetsNet, sharesNet);
         }
     }
-    /// @inheritdoc ISuperVaultStrategy
-    function fulfillMintRequest(address[] memory controllers) external nonReentrant {
-        _isManager(msg.sender);
-
-        // Check if strategy is paused
-        if (_isPaused()) revert STRATEGY_PAUSED();
-
-        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
-        if (aggregator.isGlobalHooksRootVetoed()) {
-            revert OPERATIONS_BLOCKED_BY_VETO();
-        }
-
-        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > _fulfillTimestampThreshold ) revert STALE_PPS();
-
-        uint256 controllersLength = controllers.length;
-        if (controllersLength == 0) revert ZERO_LENGTH();
-
-        uint256 totalAssetsToExtract;
-        for (uint256 i; i < controllersLength; ++i) {
-            totalAssetsToExtract += superVaultState[controllers[i]].pendingMintRequest;
-        }
-
-        totalAssetsToExtract = ISuperVault(_vault).extractAndSendAssets(address(this), totalAssetsToExtract);
-
-        for (uint256 i; i < controllersLength; ++i) {
-            address controller = controllers[i];
-            if (controller == address(0)) revert ZERO_ADDRESS();
-
-            SuperVaultState storage state = superVaultState[controller];
-
-            uint256 assetsGross = state.pendingMintRequest;
-            uint256 sharesNet = state.pendingMintRequestedShares;
-            if (assetsGross == 0 || sharesNet == 0) revert INVALID_AMOUNT();
-            
-            (uint256 requiredGross, uint256 assetsNet) = quoteMintAssetsGross(sharesNet);
-
-            uint256 feeBps = feeConfig.managementFeeBps;
-            // Transfer fee if needed
-            uint256 feeAssets;
-            if (feeBps != 0) {
-                feeAssets = requiredGross - assetsNet;
-                if (feeAssets != 0) {
-                    address recipient = feeConfig.recipient;
-                    if (recipient == address(0)) revert ZERO_ADDRESS();
-                    _safeTokenTransfer(address(_asset), recipient, feeAssets);
-                    emit ManagementFeePaid(controller, recipient, feeAssets, feeBps);
-                }
-            }
-
-            // Account on NET
-            state.accumulatorShares += sharesNet;
-            state.accumulatorCostBasis += assetsNet;
-            state.pendingMintRequest = 0;
-            state.pendingMintRequestedShares = 0;
-
-            // refund any surplus
-            uint256 toTransferBack = assetsGross > requiredGross
-                ? assetsGross - requiredGross
-                : 0;
-            if (toTransferBack > 0) {
-                _asset.safeTransfer(controller, toTransferBack);
-            }
-            ISuperVault(_vault).mintShares(controller, sharesNet);
-
-            emit DepositHandled(controller, assetsNet, sharesNet);
-        }
-    }
-
+ 
     /// @inheritdoc ISuperVaultStrategy
     function fulfillRedeemRequests(FulfillArgs calldata args) external payable nonReentrant {
         _isManager(msg.sender);
@@ -639,16 +543,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // @inheritdoc ISuperVaultStrategy
     function pendingDepositRequest(address receiver) external view returns (uint256 pendingAssets) {
         return superVaultState[receiver].pendingDepositRequest;
-    }
-
-    // @inheritdoc ISuperVaultStrategy
-    function pendingMintRequest(address receiver) external view returns (uint256 pendingAssets) {
-        return superVaultState[receiver].pendingMintRequest;
-    }
-
-    // @inheritdoc ISuperVaultStrategy
-    function pendingMintRequestedShares(address receiver) external view returns (uint256 pendingShares) {
-        return superVaultState[receiver].pendingMintRequestedShares;
     }
 
     // @inheritdoc ISuperVaultStrategy

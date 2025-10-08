@@ -27,6 +27,7 @@ import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.so
 
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
+import { SuperApproveLib } from "../libraries/SuperApproveLib.sol";
 
 /// @title SuperVault
 /// @author Superform Labs
@@ -75,10 +76,6 @@ contract SuperVault is
 
     // Authorization tracking
     mapping(address controller => mapping(bytes32 nonce => bool used)) private _authorizations;
-
-    /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge)
-    ///      can be lower by 1 or 2 wei than the `totalRequestedAmount`in SuperVault shares
-    uint256 private constant TOLERANCE_CONSTANT = 10 wei;
 
     /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -160,33 +157,7 @@ contract SuperVault is
     }
 
     function requestMint(uint256 requestedShares, uint256 maxAssets, address receiver) external nonReentrant returns (uint256 requestId) {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-        if (maxAssets == 0) revert ZERO_AMOUNT();
-
-        // Forward assets from msg-sender to escrow for temporary locking
-        _asset.safeTransferFrom(msg.sender, address(this), maxAssets);
-        IERC20(_asset).approve(address(escrow), maxAssets);
-        ISuperVaultEscrow(escrow).escrowAssets(maxAssets);
-
-        // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.MintRequest, receiver, address(0), maxAssets, requestedShares);
-
-        emit MintRequest(msg.sender, receiver, REQUEST_ID, requestedShares, maxAssets);
-        return REQUEST_ID;
-    }
-
-    function cancelMint(address controller) external nonReentrant {
-        uint256 assets = strategy.pendingMintRequest(controller);
-        if (assets == 0) revert ZERO_AMOUNT();
-
-        // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelMint, controller, address(0), 0, 0);
-
-        // Return assets
-        ISuperVaultEscrow(escrow).returnAssets(assets);
-        _asset.safeTransfer(controller, assets);
-
-        emit MintRequestCancelled(controller, msg.sender, assets);
+        revert NOT_IMPLEMENTED();
     }
 
     function requestDeposit(uint256 assets, address controller, address owner) external override nonReentrant returns (uint256 requestId) {
@@ -198,7 +169,7 @@ contract SuperVault is
 
         // Forward assets from msg-sender to escrow for temporary locking
         _asset.safeTransferFrom(owner, address(this), assets);
-        IERC20(_asset).approve(address(escrow), assets);
+        SuperApproveLib.safeApprove(address(_asset), address(escrow), assets);
         ISuperVaultEscrow(escrow).escrowAssets(assets);
 
         // Forward to strategy (7540 path)
@@ -306,29 +277,6 @@ contract SuperVault is
     }
 
     //--ERC7540--
-    function pendingMintRequest(
-        uint256, /*requestId*/
-        address receiver
-    )
-        external
-        view
-        returns (uint256 pendingAssets)
-    {
-        return strategy.pendingMintRequest(receiver);
-    }
-
-    function pendingMintRequestedShares(
-        uint256, /*requestId*/
-        address receiver
-    )
-        external
-        view
-        returns (uint256 pendingShares)
-    {
-        return strategy.pendingMintRequestedShares(receiver);
-    }
-
-
     /// @inheritdoc IERC7540Deposit
     function pendingDepositRequest(
         uint256, /*requestId*/
@@ -409,8 +357,7 @@ contract SuperVault is
     function extractAndSendAssets(address to, uint256 assets) external returns (uint256) {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         uint256 escrowBalance = _asset.balanceOf(escrow);
-        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
-        assets = Math.min(assets, escrowBalance);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         ISuperVaultEscrow(escrow).returnAssets(assets);
         _asset.safeTransfer(to, assets);
@@ -539,9 +486,7 @@ contract SuperVault is
         shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Ceil);
 
         uint256 escrowBalance = _asset.balanceOf(escrow);
-
-        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
-        assets = Math.min(assets, escrowBalance);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
@@ -573,8 +518,7 @@ contract SuperVault is
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
 
         uint256 escrowBalance = _asset.balanceOf(escrow);
-        if (assets > escrowBalance + TOLERANCE_CONSTANT) revert NOT_ENOUGH_ASSETS();
-        assets = Math.min(assets, escrowBalance);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets, 0);
@@ -608,7 +552,7 @@ contract SuperVault is
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
 
         // lock assets in escrow
-        IERC20(_asset).approve(address(escrow), assets);
+        SuperApproveLib.safeApprove(address(_asset), address(escrow), assets);
         ISuperVaultEscrow(escrow).escrowAssets(assets);
 
         emit RedeemClaimable(

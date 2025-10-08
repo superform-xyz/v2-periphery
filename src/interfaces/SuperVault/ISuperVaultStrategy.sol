@@ -54,6 +54,7 @@ interface ISuperVaultStrategy {
     error INVALID_MAX_SLIPPAGE_BPS();
     error NO_PROPOSAL();
     error STALE_PPS();
+    error INSUFFICIENT_GROSS(uint256 assetsGross, uint256 requiredGross, uint256 sharesNet);
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -150,9 +151,6 @@ interface ISuperVaultStrategy {
     struct SuperVaultState {
         // Deposits
         uint256 pendingDepositRequest; // assets
-        // Mints
-        uint256 pendingMintRequest; // maxAssets
-        uint256 pendingMintRequestedShares; // requestedShares
         // Redeems
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
@@ -191,8 +189,6 @@ interface ISuperVaultStrategy {
     enum Operation {
         DepositRequest,
         CancelDeposit,
-        MintRequest,
-        CancelMint,
         RedeemRequest,
         CancelRedeem,
         ClaimRedeem,
@@ -208,12 +204,6 @@ interface ISuperVaultStrategy {
     /// @param vaultAddress Address of the associated SuperVault
     /// @param feeConfigData Fee configuration
     function initialize(address vaultAddress, FeeConfig memory feeConfigData) external;
-
-    /// @notice Quotes the amount of assets that will be received for a given amount of shares.
-    /// @param shares The amount of shares to mint
-    /// @return assetsGross The amount of gross assets that will be received
-    /// @return assetsNet The amount of net assets that will be received
-    function quoteMintAssetsGross(uint256 shares) external view returns (uint256 assetsGross, uint256 assetsNet);
 
     /// @notice Execute async redeem requests (redeem, cancel, claim).
     /// @param op The operation type (RedeemRequest, CancelRedeem, ClaimRedeem)
@@ -235,9 +225,6 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
     function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
 
-    /// @notice Fulfills pending mint requests.
-    /// @param controllers Array of controller addresses    
-    function fulfillMintRequest(address[] memory controllers) external;
 
     /// @notice Fulfills pending deposit requests.
     /// @param controllers Array of controller addresses    
@@ -362,20 +349,10 @@ interface ISuperVaultStrategy {
     /// @return pendingShares The amount of shares pending redemption
     function pendingRedeemRequest(address controller) external view returns (uint256 pendingShares);
 
-    /// @notice Get the pending mint request amount (shares) for a controller
-    /// @param controller The controller address
-    /// @return pendingShares The amount of shares pending mint
-    function pendingMintRequestedShares(address controller) external view returns (uint256 pendingShares);
-
     /// @notice Get the pending deposit request amount (assets) for a controller
     /// @param controller The controller address
     /// @return pendingAssets The amount of assets pending deposit
     function pendingDepositRequest(address controller) external view returns (uint256 pendingAssets);
-
-    /// @notice Get the pending mint request amount (assets) for a controller
-    /// @param controller The controller address
-    /// @return pendingAssets The amount of assets pending mint
-    function pendingMintRequest(address controller) external view returns (uint256 pendingAssets);
 
     /// @notice Get the claimable withdraw amount (assets) for a controller
     /// @param controller The controller address
