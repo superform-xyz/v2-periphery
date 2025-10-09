@@ -337,10 +337,41 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit RedeemRequestsFulfilled(args.hooks, args.controllers, processedShares, currentPPS);
     }
 
+    /// @inheritdoc ISuperVaultStrategy
+    function fulfillRedeemsFromLiquidity(address[] memory controllers) external payable nonReentrant {
+        _isManager(msg.sender);
+
+        // Check if strategy is paused
+        if (_isPaused()) revert STRATEGY_PAUSED();
+
+        uint256 controllersLength = controllers.length;
+        if (controllersLength == 0) revert ZERO_LENGTH();
+
+        uint256 currentPPS = getStoredPPS();
+        if (currentPPS == 0) revert INVALID_PPS();
+
+        // Pre-calculate totals to ensure no overburn of escrowed shares
+        uint256 totalRequestedShares;
+        for (uint256 i; i < controllersLength; ++i) {
+            totalRequestedShares += superVaultState[controllers[i]].pendingRedeemRequest;
+        }
+
+        uint256 processedShares;
+        for (uint256 i; i < controllersLength; ++i) {
+            processedShares += _processLiquidityRedeemFulfillment(controllers[i], currentPPS);
+        }
+
+        // Post-condition: processed shares must match intended shares
+        if (processedShares != totalRequestedShares) revert INVALID_REDEEM_FILL();
+
+        ISuperVault(_vault).burnShares(processedShares);
+
+        emit RedeemRequestsFulfilledFromLiquidity(controllers, processedShares, currentPPS);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-
     // @inheritdoc ISuperVaultStrategy
     function manageYieldSource(address source, address oracle, uint8 actionType) external {
         _isPrimaryManager(msg.sender);
@@ -456,7 +487,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     // @inheritdoc ISuperVaultStrategy
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {
         vault = _vault;
@@ -728,6 +758,48 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
     }
 
+    /// @notice Process a single redemption from liquidity fulfillment
+    /// @param controller Controller address
+    /// @param currentPPS Current price per share
+    /// @return processedShares Processed shares
+    function _processLiquidityRedeemFulfillment(address controller, uint256 currentPPS) internal returns (uint256 processedShares) {
+        SuperVaultState storage state = superVaultState[controller];
+
+        uint256 crtControllerRequestedAmount = state.pendingRedeemRequest;
+        // Check for PPS slippage if there's a recorded request PPS and max slippage is set
+        if (state.averageRequestPPS > 0 && _maxPPSSlippage > 0) {
+            uint256 averageRequestPPS = state.averageRequestPPS;
+
+            // Calculate the percentage decrease from request PPS to current PPS
+            if (currentPPS < averageRequestPPS) {
+                uint256 decrease =
+                    ((averageRequestPPS - currentPPS).mulDiv(BPS_PRECISION, averageRequestPPS, Math.Rounding.Floor));
+
+                // If decrease exceeds maximum allowed slippage, revert
+                if (decrease > _maxPPSSlippage) revert SLIPPAGE_EXCEEDED();
+            }
+        }
+        uint256 currentAssets =
+            _calculateAssetsAndProcessFeesLiquidityRedeem(state, crtControllerRequestedAmount, currentPPS);
+
+        // Update user state, no partial redeems allowed
+        state.pendingRedeemRequest = 0;
+        state.maxWithdraw += currentAssets;
+        state.averageRequestPPS = 0; // Reset PPS value after fulfillment
+
+        // Call vault callback
+        _onRedeemClaimable(
+            controller,
+            currentAssets,
+            crtControllerRequestedAmount,
+            state.averageWithdrawPrice,
+            state.accumulatorShares,
+            state.accumulatorCostBasis
+        );
+
+        processedShares = crtControllerRequestedAmount;
+    }
+
     /// @notice Calculate historical assets and process fees
     /// @param state User's vault state
     /// @param requestedShares Shares being redeemed
@@ -749,6 +821,33 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Update average withdraw price if needed
         if (requestedShares > 0) {
             _updateAverageWithdrawPrice(state, requestedShares, currentAssetsWithFees);
+        }
+
+        return currentAssets;
+    }
+
+    /// @notice Calculate historical assets and process fees for fulfillment of a redemption from liquidity
+    /// @param state User's vault state
+    /// @param requestedShares Shares being redeemed
+    /// @param currentPricePerShare Current price per share
+    function _calculateAssetsAndProcessFeesLiquidityRedeem(
+        SuperVaultState storage state,
+        uint256 requestedShares,
+        uint256 currentPricePerShare
+    )
+        private
+        returns (uint256 currentAssets)
+    {
+        // Calculate cost basis based on requested shares
+        uint256 historicalAssets = _calculateCostBasis(state, requestedShares);
+
+        uint256 currentAssetsWithFees;
+        // Process fees and get final assets
+        (currentAssetsWithFees, currentAssets) = _processFeesLiquidityRedeem(requestedShares, currentPricePerShare, historicalAssets);
+
+        // Update average withdraw price if needed
+        if (requestedShares > 0) {
+            _updateAverageWithdrawPriceLiquidityRedeem(state, requestedShares, currentAssetsWithFees);
         }
 
         return currentAssets;
@@ -784,6 +883,33 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @return currentAssetsWithFees Current value of shares in assets (not net of fees)
     /// @return currentAssets Current assets after fee deduction
     function _processFees(
+        uint256 requestedShares,
+        uint256 currentPricePerShare,
+        uint256 historicalAssets
+    )
+        private
+        returns (uint256 currentAssetsWithFees, uint256 currentAssets)
+    {
+        // Calculate current value of the shares at current price
+        currentAssetsWithFees = requestedShares.mulDiv(currentPricePerShare, PRECISION, Math.Rounding.Floor);
+
+        // Apply fees only on profit
+        currentAssets = _calculateAndTransferFeeLiquidityRedeem(currentAssetsWithFees, historicalAssets);
+
+        // Ensure we don't exceed available balance
+        uint256 balanceOfStrategy = _getTokenBalance(address(_asset), address(this));
+        currentAssets = currentAssets > balanceOfStrategy ? balanceOfStrategy : currentAssets;
+
+        return (currentAssetsWithFees, currentAssets);
+    }
+
+    /// @notice Calculate and transfer fees based on profit for fulfillment of a redemption from liquidity
+    /// @param requestedShares Shares being redeemed
+    /// @param currentPricePerShare Current price per share
+    /// @param historicalAssets Historical value of shares in assets
+    /// @return currentAssetsWithFees Current value of shares in assets (not net of fees)
+    /// @return currentAssets Current assets after fee deduction
+    function _processFeesLiquidityRedeem(
         uint256 requestedShares,
         uint256 currentPricePerShare,
         uint256 historicalAssets
@@ -849,11 +975,83 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return currentAssets;
     }
 
+    /// @notice Calculate fee on profit and transfer to recipient for fulfillment of a redemption from liquidity
+    /// @param currentAssetsWithFees Current value of shares in assets (not net of fees)
+    /// @param historicalAssets Historical value of shares in assets
+    /// @return currentAssets Current assets after fee deduction
+    function _calculateAndTransferFeeLiquidityRedeem(
+        uint256 currentAssetsWithFees,
+        uint256 historicalAssets
+    )
+        private
+        returns (uint256 currentAssets)
+    {
+        currentAssets = currentAssetsWithFees;
+        if (currentAssetsWithFees > historicalAssets) {
+            uint256 profit = currentAssetsWithFees - historicalAssets;
+            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
+            uint256 totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
+            if (totalFee > 0) {
+                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
+                uint256 superformFee = totalFee.mulDiv(
+                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+                );
+                uint256 recipientFee = totalFee - superformFee;
+
+                // Transfer fees
+                if (superformFee > 0) {
+                    // Get treasury address from SuperGovernor
+                    address treasury = superGovernor.getAddress(superGovernor.TREASURY());
+                    _safeTokenTransfer(address(_asset), treasury, superformFee);
+                    emit FeePaid(treasury, superformFee, performanceFeeBps);
+                }
+
+                if (recipientFee > 0) {
+                    address recipient = feeConfig.recipient;
+                    if (recipient == address(0)) revert ZERO_ADDRESS();
+                    _safeTokenTransfer(address(_asset), recipient, recipientFee);
+                    emit FeePaid(recipient, recipientFee, performanceFeeBps);
+                }
+
+                currentAssets -= totalFee;
+            }
+        }
+        return currentAssets;
+    }
+
     /// @notice Internal function to update the average withdraw price
     /// @param state Storage reference to the vault state
     /// @param requestedShares Number of shares requested
     /// @param currentAssetsWithFees Current assets with fees
     function _updateAverageWithdrawPrice(
+        SuperVaultState storage state,
+        uint256 requestedShares,
+        uint256 currentAssetsWithFees
+    )
+        private
+    {
+        uint256 existingShares;
+        uint256 existingAssets;
+
+        if (state.maxWithdraw > 0 && state.averageWithdrawPrice > 0) {
+            existingShares = state.maxWithdraw.mulDiv(PRECISION, state.averageWithdrawPrice, Math.Rounding.Floor);
+            existingAssets = state.maxWithdraw;
+        }
+
+        uint256 newTotalShares = existingShares + requestedShares;
+        uint256 newTotalAssets = existingAssets + currentAssetsWithFees;
+
+        if (newTotalShares > 0) {
+            state.averageWithdrawPrice = newTotalAssets.mulDiv(PRECISION, newTotalShares, Math.Rounding.Floor);
+        }
+    }
+
+    /// @notice Internal function to update the average withdraw price for fulfillment of a redemption from liquidity
+    /// @param state Storage reference to the vault state
+    /// @param requestedShares Number of shares requested
+    /// @param currentAssetsWithFees Current assets with fees
+    function _updateAverageWithdrawPriceLiquidityRedeem(
         SuperVaultState storage state,
         uint256 requestedShares,
         uint256 currentAssetsWithFees
