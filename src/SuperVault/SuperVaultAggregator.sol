@@ -903,7 +903,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance) {
         if (managerWithdrawalRequests[manager].amount > 0) {
-            return _managerStakeBalance[manager] - managerWithdrawalRequests[manager].amount;
+            if (managerWithdrawalRequests[manager].amount > _managerStakeBalance[manager]) {
+                return 0;
+            } else {
+                return _managerStakeBalance[manager] - managerWithdrawalRequests[manager].amount;
+            }
         }
         return _managerStakeBalance[manager];
     }
