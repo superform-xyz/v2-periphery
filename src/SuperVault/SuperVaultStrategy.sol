@@ -229,7 +229,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _requireVault();
 
         if (_isPaused()) revert STRATEGY_PAUSED();
-        
+
         if (operation == Operation.RedeemRequest) {
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.CancelRedeem) {
@@ -762,7 +762,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param controller Controller address
     /// @param currentPPS Current price per share
     /// @return processedShares Processed shares
-    function _processLiquidityRedeemFulfillment(address controller, uint256 currentPPS) internal returns (uint256 processedShares) {
+    function _processLiquidityRedeemFulfillment(
+        address controller,
+        uint256 currentPPS
+    )
+        internal
+        returns (uint256 processedShares)
+    {
         SuperVaultState storage state = superVaultState[controller];
 
         uint256 crtControllerRequestedAmount = state.pendingRedeemRequest;
@@ -843,7 +849,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 currentAssetsWithFees;
         // Process fees and get final assets
-        (currentAssetsWithFees, currentAssets) = _processFeesLiquidityRedeem(requestedShares, currentPricePerShare, historicalAssets);
+        (currentAssetsWithFees, currentAssets) =
+            _processFeesLiquidityRedeem(requestedShares, currentPricePerShare, historicalAssets);
 
         // Update average withdraw price if needed
         if (requestedShares > 0) {
@@ -1195,8 +1202,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         emit EmergencyWithdrawal(recipient, amount);
     }
-
-
 
     /// @notice Internal function to check if a hook is a fulfill requests hook
     /// @param hook Address of the hook
