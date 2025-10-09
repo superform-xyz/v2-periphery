@@ -429,7 +429,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Clear withdrawal request
-        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
+        delete managerWithdrawalRequests[msg.sender];
 
         emit StakeWithdrawn(msg.sender, request.amount);
 
@@ -459,7 +459,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _managerStakeBalance[manager] -= amount;
 
         // Clear any pending withdrawal requests
-        managerWithdrawalRequests[manager] = WithdrawStakeRequest({ amount: 0, timestamp: 0 });
+        delete managerWithdrawalRequests[manager];
 
         // Get the UP token address and SuperBank address
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
@@ -902,11 +902,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance) {
-        if (managerWithdrawalRequests[manager].amount > 0) {
-            if (managerWithdrawalRequests[manager].amount > _managerStakeBalance[manager]) {
+        uint256 _requestAmount = managerWithdrawalRequests[manager].amount;
+        if (_requestAmount > 0) {
+            if (_requestAmount > _managerStakeBalance[manager]) {
                 return 0;
             } else {
-                return _managerStakeBalance[manager] - managerWithdrawalRequests[manager].amount;
+                return _managerStakeBalance[manager] - _requestAmount;
             }
         }
         return _managerStakeBalance[manager];
