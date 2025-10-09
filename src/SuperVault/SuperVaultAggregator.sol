@@ -898,10 +898,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @notice Gets the current stake balance for a manager
+    /// @notice If a withdrawal request is pending, the balance is reduced by the amount of the request
     /// @param manager Address of the manager
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance) {
-        if (managerWithdrawalRequests[manager].amount > 0) return 0;
+        if (managerWithdrawalRequests[manager].amount > 0) {
+            return _managerStakeBalance[manager] - managerWithdrawalRequests[manager].amount;
+        }
         return _managerStakeBalance[manager];
     }
 

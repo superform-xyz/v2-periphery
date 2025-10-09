@@ -2169,6 +2169,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     function test_GetStakeBalance_ZeroIfPendingWithdrawal() public {
         uint256 stakeAmount = 1000e18;
+        uint256 withdrawalAmount = 500e18;
         MockUp(upToken).mint(manager, stakeAmount);
 
         vm.startPrank(manager);
@@ -2177,9 +2178,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         vm.prank(manager);
-        superVaultAggregator.requestStakeWithdrawal(500e18);
+        superVaultAggregator.requestStakeWithdrawal(withdrawalAmount);
 
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
+        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - withdrawalAmount, "Stake balance should be reduced by the withdrawal amount");
     }
 
     function testSlashStake_ClearsWithdrawalRequest() public {
