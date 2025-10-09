@@ -2180,7 +2180,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.prank(manager);
         superVaultAggregator.requestStakeWithdrawal(withdrawalAmount);
 
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - withdrawalAmount, "Stake balance should be reduced by the withdrawal amount");
+        assertEq(
+            superVaultAggregator.getStakeBalance(manager),
+            stakeAmount - withdrawalAmount,
+            "Stake balance should be reduced by the withdrawal amount"
+        );
     }
 
     function testSlashStake_ClearsWithdrawalRequest() public {
