@@ -1545,6 +1545,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         );
     }
 
+
     function _completeDepositFlow(uint256 depositAmount) internal {
         // create deposit requests for all users
         _depositForAllUsers(depositAmount);

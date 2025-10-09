@@ -960,7 +960,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                     superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
                 );
                 uint256 recipientFee = totalFee - superformFee;
-
                 // Transfer fees
                 if (superformFee > 0) {
                     // Get treasury address from SuperGovernor
