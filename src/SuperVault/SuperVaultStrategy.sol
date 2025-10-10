@@ -767,13 +767,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Process fees and get final assets
         netControllerAssets = _processFees(grossControllerAssets, historicalAssets);
 
-        // Add net controller assets to max withdraw
-        state.maxWithdraw += netControllerAssets;
-
         // Update average withdraw price if needed
         if (requestedShares > 0) {
             _updateAverageWithdrawPrice(state, requestedShares, netControllerAssets);
         }
+
+        // Add net controller assets to max withdraw
+        state.maxWithdraw += netControllerAssets;
 
         return netControllerAssets;
     }
