@@ -501,8 +501,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         ISuperVaultStrategy.YieldSourceInfo[] memory yieldSourcesList =
             ISuperVaultStrategy(strategy).getYieldSourcesList();
 
-        assertEq(yieldSourcesList.length, 1);
-        assertEq(yieldSourcesList[0].sourceAddress, address(newVault));
+        assertEq(yieldSourcesList.length, 2);
+        assertEq(yieldSourcesList[1].sourceAddress, address(newVault));
     }
 
     /**
@@ -823,6 +823,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
+        console2.log("----- DEPOSITING ----- ");
+        console2.log("----- __deposit superVault ", superVault);
+        console2.log("----- __deposit strat ", strat);
+        console2.log("----- __deposit asset_ ", asset_);
         address[] memory hooksAddresses = new address[](1);
         hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
 

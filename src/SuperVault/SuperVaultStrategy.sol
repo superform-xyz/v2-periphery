@@ -32,6 +32,8 @@ import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrateg
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 
+import "forge-std/console2.sol";
+
 /// @title SuperVaultStrategy
 /// @author Superform Labs
 /// @notice Strategy implementation for SuperVault that executes strategies
@@ -218,6 +220,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
+        console2.log("----block.timestamp: ", block.timestamp);
+        console2.log("----lastPPSUpdateTimestamp: ", lastPPSUpdateTimestamp);
+        console2.log("----block.timestamp - lastPPSUpdateTimestamp: ", block.timestamp - lastPPSUpdateTimestamp);
+        console2.log("----_fulfillTimestampThreshold: ", _fulfillTimestampThreshold);
         if (block.timestamp - lastPPSUpdateTimestamp > _fulfillTimestampThreshold) revert STALE_PPS();
 
         uint256 controllersLength = controllers.length;
