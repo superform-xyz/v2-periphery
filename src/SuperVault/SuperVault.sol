@@ -195,6 +195,7 @@ contract SuperVault is
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
+
         if (balanceOf(owner) < shares) revert INVALID_AMOUNT();
 
         // Enforce auditor's invariant for current accounting model

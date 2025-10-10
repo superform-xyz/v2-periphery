@@ -9077,6 +9077,309 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(traderRemainingShares, 1, "Trader should have 1 remaining share");
     }
 
+    /// @notice Execute initial deposits with equal total investment strategy
+    /// @param holder_ Long-term holder persona
+    /// @param trader_ Active trader persona
+    function _executeEqualInvestmentDeposits(UserPersona memory holder_, UserPersona memory trader_) internal {
+        console2.log("\n=== PHASE 1: EQUAL INVESTMENT INITIAL DEPOSITS ===");
+
+        // Both users make the same initial deposit
+        _depositForAccount(accInstances[0], holder_.depositAmount);
+        holder_.shares = vault.balanceOf(holder_.account);
+        console2.log("Holder initial deposit and shares:", holder_.shares);
+
+        _depositForAccount(accInstances[1], trader_.depositAmount);
+        trader_.shares = vault.balanceOf(trader_.account);
+        console2.log("Trader initial deposit and shares:", trader_.shares);
+
+        // Allocate funds to yield sources
+        uint256 totalDeposited = holder_.depositAmount + trader_.depositAmount;
+        _depositFreeAssetsFromSingleAmount(totalDeposited, address(fluidVault), address(aaveVault));
+    }
+
+    /// @notice Execute holder strategy with additional deposits to match trader's total investment
+    /// @param holder_ Long-term holder persona
+    function _executeEqualInvestmentHolding(UserPersona memory holder_) internal {
+        console2.log("\n=== PHASE 3: EQUAL INVESTMENT HOLDER STRATEGY ===");
+
+        // Holder makes additional deposits to match trader's total (3 x 5,000 USDC = 15,000 USDC more)
+        uint256 additionalDepositAmount = holder_.depositAmount / 2; // 5,000 USDC per deposit
+
+        for (uint256 i = 0; i < 3; i++) {
+            console2.log("--- Holder Additional Deposit", i + 1, "---");
+
+            // Time spacing similar to trader but holder just deposits and holds
+            vm.warp(block.timestamp + (1 + i) * 1 days);
+
+            _depositForAccount(accInstances[0], additionalDepositAmount);
+            uint256 newShares = vault.balanceOf(holder_.account);
+            console2.log("Holder additional deposit:", additionalDepositAmount / 1e6, "USDC");
+            console2.log("Holder total shares after deposit:", newShares);
+
+            // Allocate new funds
+            _depositFreeAssetsFromSingleAmount(additionalDepositAmount, address(fluidVault), address(aaveVault));
+
+            // Holder just holds - no redemptions during accumulation phase
+        }
+
+        console2.log("Holder total investment completed: 25,000 USDC");
+
+        // Long-term hold period (30 days like original)
+        vm.warp(block.timestamp + 30 days);
+        console2.log("Holder completed long-term holding period");
+    }
+
+    /// @notice Complete redemptions and calculate final yield comparison
+    /// @param holder_ Long-term holder persona
+    /// @param trader_ Active trader persona
+    function _completeRedemptionsAndCalculateYield(UserPersona memory holder_, UserPersona memory trader_) internal {
+        console2.log("\n=== PHASE 5: FULFILLING REDEMPTIONS ===");
+
+        // Get pending redemption amounts
+        uint256 holderPendingShares = strategy.pendingRedeemRequest(holder_.account);
+        uint256 traderPendingShares = strategy.pendingRedeemRequest(trader_.account);
+
+        console2.log("Holder pending shares to redeem:", holderPendingShares);
+        console2.log("Trader pending shares to redeem:", traderPendingShares);
+
+        // Fulfill redemptions for both users
+        address[] memory redeemUsers = new address[](2);
+        redeemUsers[0] = holder_.account;
+        redeemUsers[1] = trader_.account;
+
+        uint256 totalPendingShares = holderPendingShares + traderPendingShares;
+        uint256 allocationVault1 = totalPendingShares / 2;
+        uint256 allocationVault2 = totalPendingShares - allocationVault1;
+
+        _fulfillRedeemForUsers(redeemUsers, allocationVault1, allocationVault2, address(fluidVault), address(aaveVault));
+
+        console2.log("\n=== PHASE 6: CLAIMING FINAL ASSETS ===");
+
+        // Claim final assets for both users
+        _claimRedeemForUsers(redeemUsers);
+
+        // Calculate final balances and yields
+        _calculateAndCompareYields(holder_, trader_);
+    }
+
+    /// @notice Calculate and compare final yields between holder and trader
+    /// @param holder_ Long-term holder persona
+    /// @param trader_ Active trader persona
+    function _calculateAndCompareYields(UserPersona memory holder_, UserPersona memory trader_) internal view {
+        console2.log("\n=== FINAL YIELD COMPARISON ===");
+
+        // Get final balances
+        uint256 holderFinalBalance = asset.balanceOf(holder_.account);
+        uint256 traderFinalBalance = asset.balanceOf(trader_.account);
+
+        console2.log("Holder final balance:", holderFinalBalance / 1e6, "USDC");
+        console2.log("Trader final balance:", traderFinalBalance / 1e6, "USDC");
+
+        // Calculate actual net investment - both users now invest the same total amount
+        uint256 totalInvestmentAmount = 25_000e6; // 25,000 USDC each
+        uint256 holderNetInvestment = totalInvestmentAmount;
+        uint256 traderNetInvestment = totalInvestmentAmount;
+
+        console2.log("\n=== EQUAL INVESTMENT AMOUNTS ===");
+        console2.log("Holder total invested:", holderNetInvestment / 1e6, "USDC");
+        console2.log("Trader total invested:", traderNetInvestment / 1e6, "USDC");
+        console2.log("Investment amounts are equal for fair comparison");
+
+        // Calculate yields
+        uint256 holderYield = holderFinalBalance > holderNetInvestment ? holderFinalBalance - holderNetInvestment : 0;
+        uint256 traderYield = traderFinalBalance > traderNetInvestment ? traderFinalBalance - traderNetInvestment : 0;
+
+        console2.log("\n=== YIELD ANALYSIS ===");
+        console2.log("Holder net investment:", holderNetInvestment / 1e6, "USDC");
+        console2.log("Holder yield earned:", holderYield / 1e6, "USDC");
+        console2.log(
+            "Holder yield %:", holderNetInvestment > 0 ? (holderYield * 10_000) / holderNetInvestment : 0, "bps"
+        );
+
+        console2.log("Trader net investment:", traderNetInvestment / 1e6, "USDC");
+        console2.log("Trader yield earned:", traderYield / 1e6, "USDC");
+        console2.log(
+            "Trader yield %:", traderNetInvestment > 0 ? (traderYield * 10_000) / traderNetInvestment : 0, "bps"
+        );
+
+        // Compare yields
+        if (holderYield > traderYield) {
+            uint256 yieldDifference = holderYield - traderYield;
+            console2.log("\n=== RESULT: HOLDER WINS ===");
+            console2.log("Long-term holder earned", yieldDifference / 1e6, "USDC more than active trader");
+            console2.log("Advantage:", traderYield > 0 ? (yieldDifference * 10_000) / traderYield : 0, "bps better");
+        } else if (traderYield > holderYield) {
+            uint256 yieldDifference = traderYield - holderYield;
+            console2.log("\n=== RESULT: TRADER WINS ===");
+            console2.log("Active trader earned", yieldDifference / 1e6, "USDC more than long-term holder");
+            console2.log("Advantage:", holderYield > 0 ? (yieldDifference * 10_000) / holderYield : 0, "bps better");
+        } else {
+            console2.log("\n=== RESULT: TIE ===");
+            console2.log("Both strategies earned the same yield");
+        }
+
+        // Additional metrics
+        console2.log("\n=== STRATEGY EFFICIENCY ===");
+        console2.log(
+            "Holder total return:",
+            holderFinalBalance > holder_.initialBalance ? holderFinalBalance - holder_.initialBalance : 0,
+            "wei"
+        );
+        console2.log(
+            "Trader total return:",
+            traderFinalBalance > trader_.initialBalance ? traderFinalBalance - trader_.initialBalance : 0,
+            "wei"
+        );
+    }
+
+    /// @notice Execute initial deposits phase
+    function _executeInitialDeposits(UserPersona memory holder, UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 1: INITIAL DEPOSITS ===");
+
+        // Long-term holder makes single large deposit
+        _depositForAccount(accInstances[0], holder.depositAmount);
+        holder.shares = vault.balanceOf(holder.account);
+        console2.log("Holder deposited and received shares:", holder.shares);
+
+        // Active trader makes first deposit
+        _depositForAccount(accInstances[1], trader.depositAmount);
+        trader.shares = vault.balanceOf(trader.account);
+        console2.log("Trader deposited and received shares:", trader.shares);
+
+        // Allocate funds to yield sources
+        uint256 totalDeposited = holder.depositAmount + trader.depositAmount;
+        _depositFreeAssetsFromSingleAmount(totalDeposited, address(fluidVault), address(aaveVault));
+    }
+
+    /// @notice Execute active trading period
+    function _executeActiveTradingPeriod(UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 2: ACTIVE TRADING PERIOD ===");
+
+        // Simulate time passing and yield generation
+        vm.warp(block.timestamp + 1 days);
+
+        // Active trader performs multiple deposit-redeem-claim cycles
+        for (uint256 i = 0; i < 3; i++) {
+            TradingCycle memory cycle;
+            cycle.cycleNumber = i + 1;
+            cycle.depositAmount = trader.depositAmount / 2;
+
+            console2.log("--- Trader Cycle", cycle.cycleNumber, "---");
+
+            // Trader deposits more
+            _depositForAccount(accInstances[1], cycle.depositAmount);
+            cycle.sharesAfterDeposit = vault.balanceOf(trader.account);
+            console2.log("Trader shares after deposit:", cycle.sharesAfterDeposit);
+
+            // Allocate new funds
+            _depositFreeAssetsFromSingleAmount(cycle.depositAmount, address(fluidVault), address(aaveVault));
+            console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+            _updateSuperVaultPPS(address(strategy), address(vault));
+            console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+            // Simulate some time for yield
+            vm.warp(block.timestamp + 6 hours);
+
+            // Trader redeems part of position - avoid rounding issues
+            cycle.redeemAmount = cycle.sharesAfterDeposit / 4; // Redeem 25% of position
+            if (cycle.redeemAmount > 1) {
+                _requestRedeemForAccount(accInstances[1], cycle.redeemAmount);
+
+                // Verify redeem request was recorded
+                uint256 pendingRedeem = strategy.pendingRedeemRequest(trader.account);
+                console2.log("Trader pending redeem:", pendingRedeem);
+                console2.log("Trader requested redeem shares:", cycle.redeemAmount);
+            }
+            console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+            _updateSuperVaultPPS(address(strategy), address(vault));
+            console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+            vm.warp(block.timestamp + 6 hours);
+        }
+    }
+
+    /// @notice Execute long-term holding behavior
+    function _executeLongTermHolding(UserPersona memory holder) internal {
+        console2.log("\n=== PHASE 3: LONG-TERM HOLDER HOLDS POSITION ===");
+
+        // Long-term holder does nothing during active trading period
+        // Just track their position growth
+        uint256 holderSharesAfterTrading = vault.balanceOf(holder.account);
+        console2.log("Holder shares remained constant:", holderSharesAfterTrading);
+        assertEq(holderSharesAfterTrading, holder.shares, "Holder shares should remain unchanged");
+
+        // Simulate longer time period (30 days)
+        vm.warp(block.timestamp + 30 days);
+    }
+
+    /// @notice Execute final redemptions phase
+    function _executeFinalRedemptions(UserPersona memory holder, UserPersona memory trader) internal {
+        console2.log("\n=== PHASE 4: FINAL REDEMPTIONS ===");
+
+        // Get final positions before redemption
+        uint256 holderFinalShares = vault.balanceOf(holder.account);
+        uint256 traderFinalShares = vault.balanceOf(trader.account);
+
+        console2.log("Final holder shares:", holderFinalShares);
+        console2.log("Final trader shares:", traderFinalShares);
+
+        // Both users redeem their full positions - avoid rounding issues
+        if (holderFinalShares > 1) {
+            _requestRedeemForAccount(accInstances[0], holderFinalShares - 1);
+        }
+        if (traderFinalShares > 1) {
+            _requestRedeemForAccount(accInstances[1], traderFinalShares - 1);
+        }
+
+        // Verify redeem requests were recorded
+        uint256 holderPendingRedeem = strategy.pendingRedeemRequest(holder.account);
+        uint256 traderPendingRedeem = strategy.pendingRedeemRequest(trader.account);
+
+        console2.log("Holder pending redeem:", holderPendingRedeem);
+        console2.log("Trader pending redeem:", traderPendingRedeem);
+
+        // Verify final positions after redeem requests
+        uint256 holderRemainingShares = vault.balanceOf(holder.account);
+        uint256 traderRemainingShares = vault.balanceOf(trader.account);
+
+        console2.log("Holder remaining shares:", holderRemainingShares);
+        console2.log("Trader remaining shares:", traderRemainingShares);
+
+        _verifyFinalState(holder, trader);
+    }
+
+    /// @notice Verify final state and assertions
+    function _verifyFinalState(UserPersona memory holder, UserPersona memory trader) internal view {
+        console2.log("\n=== FINAL VERIFICATION ===");
+
+        holder.finalBalance = asset.balanceOf(holder.account);
+        trader.finalBalance = asset.balanceOf(trader.account);
+
+        console2.log("Holder final balance:", holder.finalBalance);
+        console2.log("Trader final balance:", trader.finalBalance);
+
+        // Verify redeem requests were properly recorded
+        uint256 holderPendingRedeem = strategy.pendingRedeemRequest(holder.account);
+        uint256 traderPendingRedeem = strategy.pendingRedeemRequest(trader.account);
+
+        console2.log("Holder pending redeem requests:", holderPendingRedeem);
+        console2.log("Trader pending redeem requests:", traderPendingRedeem);
+
+        // Verify users have pending redeem requests (since we avoided fulfillment)
+        assertGt(holderPendingRedeem, 0, "Holder should have pending redeem requests");
+        assertGt(traderPendingRedeem, 0, "Trader should have pending redeem requests");
+
+        // Verify users still have some shares remaining (since we redeemed shares-1)
+        uint256 holderRemainingShares = vault.balanceOf(holder.account);
+        uint256 traderRemainingShares = vault.balanceOf(trader.account);
+
+        console2.log("Holder remaining shares:", holderRemainingShares);
+        console2.log("Trader remaining shares:", traderRemainingShares);
+
+        // Both users should have minimal remaining shares (1 each)
+        assertEq(holderRemainingShares, 1, "Holder should have 1 remaining share");
+        assertEq(traderRemainingShares, 1, "Trader should have 1 remaining share");
+    }
+
+
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

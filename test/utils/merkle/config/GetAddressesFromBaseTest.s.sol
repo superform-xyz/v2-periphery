@@ -17,6 +17,7 @@ contract GetAddressesFromBaseTest is BaseTest {
     function test_getAddresses() external view {
         // Add SuperVaults here
         console.log("globalSVStrategy:", globalSVStrategy);
+        console.log("globalSV5115Strategy:", globalSV5115Strategy);
         console.log("globalSVGearStrategy:", globalSVGearStrategy);
         console.log("globalRuggableVault:", globalRuggableVault);
 
@@ -46,6 +47,7 @@ contract GetAddressesFromBaseTest is BaseTest {
 
         // Add all periphery hooks from globalMerkleHooksPeriphery
         console.log("Redeem4626VaultHook:", globalMerkleHooksPeriphery[1]);
+        console.log("Redeem5115VaultHook:", globalMerkleHooksPeriphery[3]);
         console.log("Deposit5115VaultHook:", globalMerkleHooksPeriphery[2]);
         console.log("ApproveAndDeposit4626VaultHook:", globalMerkleHooksPeriphery[4]);
         console.log("ApproveAndDeposit5115VaultHook:", globalMerkleHooksPeriphery[5]);

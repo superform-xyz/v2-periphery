@@ -38,10 +38,6 @@
     },
     {
       "symbol": "GainVault",
-      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
-    },
-    {
-      "symbol": "GainVault",
       "address": "0x77f52c1a65A316447A5E8594BA21833a7be1273f"
     },
     {
@@ -51,6 +47,18 @@
     {
       "symbol": "GainVault",
       "address": "0x9935c334adC761CA616018c1E0fcd8f71778a626"
+    },
+    {
+      "symbol": "Mock4626Vault1",
+      "address": "0xc7550B7Ce6B9c4514dF66bD927dE578Cb2a2d123"
+    },
+    {
+      "symbol": "Mock4626Vault2",
+      "address": "0x03E3ef5a57272b4C00a6aF11E85655d63dB6709B"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     },
     {
       "symbol": "test_1_DynamicAllocation_MockVault",
@@ -163,6 +171,14 @@
     {
       "symbol": "GainVault_Coverage",
       "address": "0xeCa1755494d7A1109804B13e90E609DBa2884145"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy_Coverage",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     }
   ],
   "10": [

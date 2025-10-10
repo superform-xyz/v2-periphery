@@ -20,11 +20,13 @@
     },
     "superVaults": {
       "globalSVStrategy": "0xf3A90C46FF9C1F85030cbf57EC9d326c8225eE4A",
+      "globalSV5115Strategy": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76",
       "globalSVGearStrategy": "0x378ba1b97E01C4430A19Fe93b7F9b87B6c34F3df",
       "globalRuggableVault": "0x85e668C597913af5DbEcf544CFF6DB82Ef53505F"
     },
     "hooks": {
       "Redeem4626VaultHook": "0x28c9c5F7c31438380E22b03b12FD1345B3B2BF37",
+      "Redeem5115VaultHook": "0xe2A130c4B6b42181588b784b405014e835D5923a",
       "Deposit5115VaultHook": "0x1D10385Bc2585e178d07918B820eAb124a328cc2",
       "ApproveAndDeposit4626VaultHook": "0xB642CBD3E599c6C3946C56A6bCD712A9DFED408D",
       "ApproveAndDeposit5115VaultHook": "0xD4cA32fb524edE8faea6F0AB3B32fD366187875d",
