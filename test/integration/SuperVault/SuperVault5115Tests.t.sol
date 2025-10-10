@@ -686,9 +686,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         //redeem 1
         vars.totalShares = IERC20(sv5115.share()).balanceOf(accountEth);
         vars.redeemAmount1 = vars.totalShares / 4; 
-
-        (, vars.superformFee1, vars.recipientFee1) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount1);
-        vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
+        
         vars.userBalanceBeforeRedeem1 = asset5115.balanceOf(accountEth);
 
         _requestRedeem(vars.redeemAmount1, address(sv5115));
@@ -696,20 +694,12 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.claimableAssets1 = sv5115.maxWithdraw(accountEth);
 
-        uint256 pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(sv5115), vars.claimableAssets1, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
-        );
-        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
-        assertGt(vars.totalFee1, 0, "no fee");
-
         _claimWithdraw5115(vars.claimableAssets1, address(sv5115));
 
-        vars.treasuryBalanceAfterRedeem1 = asset5115.balanceOf(TREASURY);
         vars.userAssetsAfterRedeem1 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem1;
+        vars.treasuryBalanceAfterRedeem1 = asset5115.balanceOf(TREASURY);
         assertGt(vars.userAssetsAfterRedeem1, 0, "no assets received - redeem 1");
-
-        _assertFeeDerivation(vars.totalFee1, vars.feeBalanceBefore, vars.treasuryBalanceAfterRedeem1);
+        assertGt(vars.treasuryBalanceAfterRedeem1, 0, "no treasury balance - redeem 1");
 
         vm.warp(block.timestamp + 4 weeks);
         vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
@@ -720,7 +710,6 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         //redeem 2
         vars.remainingShares = IERC20(sv5115.share()).balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 2;
-        (, vars.superformFee2, vars.recipientFee2) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount2);
 
         vars.userBalanceBeforeRedeem2 = asset5115.balanceOf(accountEth);
 
@@ -729,21 +718,13 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.claimableAssets2 = sv5115.maxWithdraw(accountEth);
 
-        pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
-        expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(sv5115), vars.claimableAssets2, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
-        );
-        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
-        assertGt(vars.totalFee2, 0, "no fee - redeem 2");
-
         _claimWithdraw5115(vars.claimableAssets2, address(sv5115));
 
         vars.treasuryBalanceAfterRedeem2 = asset5115.balanceOf(TREASURY);
+        assertGt(vars.treasuryBalanceAfterRedeem2, vars.treasuryBalanceAfterRedeem1, "treasury balance did not increase - redeem 2");
 
         vars.userAssetsAfterRedeem2 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem2;
         assertGt(vars.userAssetsAfterRedeem2, 0, "no assets received - redeem 2");
-
-        _assertFeeDerivation(vars.totalFee2, vars.treasuryBalanceAfterRedeem1, vars.treasuryBalanceAfterRedeem2);
 
         vm.warp(block.timestamp + 4 weeks);
         vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));

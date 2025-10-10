@@ -412,7 +412,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this) })
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this) }),
+                maxUnpauseTimeLock: 0
             })
         );
 
@@ -811,6 +812,39 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     //todo: this needs to be renamed / moved
     function _deposit5115(uint256 depositAmount, address superVault, address asset_) internal {
         __deposit5115(instanceOnEth, depositAmount, superVault, asset_);
+    }
+
+    function __deposit(
+        AccountInstance memory accInst,
+        uint256 depositAmount,
+        address superVault,
+        address strat,
+        address asset_
+    )
+        internal
+    {
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
+            //_getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            superVault,
+            asset_,
+            depositAmount,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory entry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
+        UserOpData memory userOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(entry));
+        executeOp(userOpData);
+
+        vm.startPrank(aggregator.getMainManager(strat));
+        address[] memory controllers = new address[](1);
+        controllers[0] = address(accInst.account);
+        SuperVaultStrategy(payable(strat)).fulfillDepositRequest(controllers);
+        vm.stopPrank();
     }
 
     /*
