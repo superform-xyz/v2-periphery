@@ -55,6 +55,7 @@ interface ISuperVaultStrategy {
     error NO_PROPOSAL();
     error STALE_PPS();
     error INSUFFICIENT_GROSS(uint256 assetsGross, uint256 requiredGross, uint256 sharesNet);
+    error MIN_SHARES_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -104,6 +105,7 @@ interface ISuperVaultStrategy {
     event MintRequestPlaced(address indexed receiver, uint256 shares, uint256 maxAssets);
     event MintRequestCancelled(address indexed receiver, uint256 assets, uint256 shares);
     event RedeemClaimable(address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice, uint256 accumulatorShares, uint256 accumulatorCostBasis);
+    event NextMinimumSharesOut(address indexed controller, uint256 minShare);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -279,6 +281,10 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+    /// @notice Set the next minimum share out
+    /// @param _minShareOut The next minimum share out
+    function setNextMinShareOut(uint256 _minShareOut) external;
+
     /// @notice Move accumulator shares and cost basis pro-rata during share transfers
     /// @param from The address transferring shares
     /// @param to The address receiving shares

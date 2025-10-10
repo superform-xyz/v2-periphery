@@ -78,12 +78,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     bool public proposedEmergencyWithdrawable;
     uint256 public emergencyWithdrawableEffectiveTime;
 
+    /// -- Request deposit slippage
+    mapping(address controller => uint256 minAmount) public nextMinimumSharesOut;
+
     // Yield source configuration - simplified mapping from source to oracle
     mapping(address source => address oracle) private yieldSources;
     EnumerableSet.AddressSet private yieldSourcesList;
 
     // --- Redeem Request State ---
     mapping(address controller => SuperVaultState state) private superVaultState;
+
 
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
@@ -279,6 +283,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             uint256 sharesNet = Math.mulDiv(assetsNet, PRECISION, pps, Math.Rounding.Floor);
             if (sharesNet == 0) revert INVALID_AMOUNT();
 
+            if (nextMinimumSharesOut[controller] > 0) {
+                if (sharesNet < nextMinimumSharesOut[controller]) revert MIN_SHARES_NOT_MET();
+                delete nextMinimumSharesOut[controller];
+            }
+
             state.accumulatorShares += sharesNet;
             state.accumulatorCostBasis += assetsNet;
             state.pendingDepositRequest = 0;
@@ -439,6 +448,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVaultStrategy
+    function setNextMinShareOut(uint256 _minShareOut) external {
+        nextMinimumSharesOut[msg.sender] = _minShareOut;
+        emit NextMinimumSharesOut(msg.sender, _minShareOut);
+    }
+    
     /// @inheritdoc ISuperVaultStrategy
     function moveAccumulatorOnTransfer(address from, address to, uint256 shares) external {
         _requireVault();

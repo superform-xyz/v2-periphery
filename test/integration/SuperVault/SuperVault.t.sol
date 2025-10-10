@@ -144,6 +144,57 @@ contract SuperVaultTest is BaseSuperVaultTest {
         
     }
 
+    function test_Deposit_Async_With_Slippage() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+
+        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
+        assertEq(escrowBalanceBefore, 0, "Escrow should be empty");
+        
+        // make it fail
+        vm.startPrank(accInstances[0].account);
+        strategy.setNextMinShareOut(9999999999999e18);
+        vm.stopPrank();
+
+        assertEq(strategy.nextMinimumSharesOut(accInstances[0].account), 9999999999999e18);
+
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
+            address(vault),
+            address(asset),
+            depositAmount,
+            false
+        );
+
+        ISuperExecutor.ExecutorEntry memory entry =
+            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
+        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
+        executeOp(userOpData);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = address(accInstances[0].account);
+        vm.expectRevert(ISuperVaultStrategy.MIN_SHARES_NOT_MET.selector);
+        strategy.fulfillDepositRequest(controllers);
+        vm.stopPrank();
+
+
+        // retry with a new min
+        vm.startPrank(accInstances[0].account);
+        strategy.setNextMinShareOut(1);
+        assertEq(strategy.nextMinimumSharesOut(accInstances[0].account), 1);
+        vm.stopPrank();
+
+        vm.startPrank(MANAGER);
+        strategy.fulfillDepositRequest(controllers);
+        vm.stopPrank();
+
+        assertEq(strategy.nextMinimumSharesOut(accInstances[0].account), 0);
+    }
+
     function test_Deposit_StalePPS() public {
         vm.startPrank(MANAGER);
         strategy.setFulfillTimestampThreshold(1);
@@ -5791,7 +5842,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // perform deposit operations
         _completeDepositFlow(depositAmount);
-        return;
 
         uint256 totalRedeemShares;
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
@@ -8003,7 +8053,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 3: Try to claim the full amount
         // This should trigger the dust collection logic and give the user the remaining balance
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
 
         vm.startPrank(accountEth);
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
@@ -8120,8 +8170,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(claimableAmount - escrowBalanceAfter <= 10, "Difference should be within tolerance");
 
         // Step 3: Try to claim - this will trigger the dust bug
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        console2.log("userBalanceBefore:", userBalanceBefore);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //console2.log("userBalanceBefore:", userBalanceBefore);
 
         vm.startPrank(accountEth);
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
@@ -8200,8 +8250,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Claim the full amount
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
         console2.log("----E");
 
         vm.startPrank(accountEth);
