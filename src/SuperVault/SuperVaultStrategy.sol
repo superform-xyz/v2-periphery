@@ -130,13 +130,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         CORE STRATEGY OPERATIONS
     //////////////////////////////////////////////////////////////*/
-   
+
     /// @inheritdoc ISuperVaultStrategy
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
 
         if (_isPaused()) revert STRATEGY_PAUSED();
-        
+
         if (operation == Operation.DepositRequest) {
             _handleDepositRequest(controller, amount); // amount = assets
         } else if (operation == Operation.CancelDeposit) {
@@ -168,7 +168,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[receiver];
         uint256 _pendingDepositRequest = state.pendingDepositRequest;
         if (_pendingDepositRequest == 0) revert REQUEST_NOT_FOUND();
-        
+
         // clear pending deposit request
         state.pendingDepositRequest = 0;
 
@@ -211,14 +211,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Check if strategy is paused
         if (_isPaused()) revert STRATEGY_PAUSED();
-        
+
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > _fulfillTimestampThreshold ) revert STALE_PPS();
+        if (block.timestamp - lastPPSUpdateTimestamp > _fulfillTimestampThreshold) revert STALE_PPS();
 
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
@@ -232,11 +232,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
             // check duplicate
             uint256 seenWord;
-            assembly ("memory-safe") { seenWord := tload(slot) } // 0 if unseen, non-zero if seen
+            assembly ("memory-safe") {
+                seenWord := tload(slot)
+            } // 0 if unseen, non-zero if seen
             if (seenWord != 0) continue;
 
             // mark as seen
-            assembly ("memory-safe") { tstore(slot, 1) }
+            assembly ("memory-safe") {
+                tstore(slot, 1)
+            }
 
             totalAssetsToExtract += superVaultState[controller].pendingDepositRequest;
         }
@@ -254,7 +258,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
             // check duplicate
             uint256 seenWord;
-            assembly ("memory-safe") { seenWord := tload(slot) } // 0 if unseen, non-zero if seen
+            assembly ("memory-safe") {
+                seenWord := tload(slot)
+            } // 0 if unseen, non-zero if seen
             if (seenWord != 0) continue;
 
             SuperVaultState storage state = superVaultState[controller];
@@ -290,7 +296,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             emit DepositHandled(controller, assetsNet, sharesNet);
         }
     }
- 
+
     /// @inheritdoc ISuperVaultStrategy
     function fulfillRedeemRequests(FulfillArgs calldata args) external payable nonReentrant {
         _isManager(msg.sender);
@@ -487,6 +493,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return _fulfillTimestampThreshold;
     }
     // @inheritdoc ISuperVaultStrategy
+
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {
         vault = _vault;
         asset = address(_asset);
@@ -1017,13 +1024,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperVault v = ISuperVault(_vault);
         uint256 escrowedAssets = v.getEscrowedAssets();
 
-        uint256 requiredFromEscrow = amount > freeStrategyAssets ? Math.min(amount - freeStrategyAssets, escrowedAssets) : 0;
+        uint256 requiredFromEscrow =
+            amount > freeStrategyAssets ? Math.min(amount - freeStrategyAssets, escrowedAssets) : 0;
         if (requiredFromEscrow > 0) {
             v.extractAndSendAssets(address(this), requiredFromEscrow);
         }
-        
+
         uint256 totalAssets = freeStrategyAssets + requiredFromEscrow;
-         if (amount > totalAssets + TOLERANCE_CONSTANT) revert INSUFFICIENT_FUNDS();
+        if (amount > totalAssets + TOLERANCE_CONSTANT) revert INSUFFICIENT_FUNDS();
         amount = Math.min(amount, totalAssets);
 
         _safeTokenTransfer(address(_asset), recipient, amount);
@@ -1209,7 +1217,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             })
         );
     }
-    
+
     function _createNamespacedSlot(string memory _name) internal returns (bytes32) {
         bytes32 _NS_COUNTER = keccak256(bytes(_name));
         uint256 _callId;
@@ -1221,5 +1229,4 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         bytes32 _ns = keccak256(abi.encodePacked(_name, ".seen", address(this), _callId));
         return _ns;
     }
-
 }
