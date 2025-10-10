@@ -1010,6 +1010,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                     maxUnpauseTimeLock: 0
                 })
             );
+
+            vm.startPrank(mockManager);
+            SuperVaultStrategy(payable(newStrategy)).setFulfillTimestampThreshold(100 days);
+            vm.stopPrank();
             data.strategies[i] = newStrategy;
         }
 
@@ -1056,9 +1060,13 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         
         // Only test the gas check if we have enough gas to reach it
         if (gasLimit_ >= data.minimumGasToReachCheck) {
-            // Calculate if the gas check should trigger
-            data.estimatedGasAtCheck = gasLimit_ > data.estimatedProcessingGas ? gasLimit_ - data.estimatedProcessingGas : 0;
-            data.shouldTriggerGasCheck = (data.estimatedGasAtCheck * 63) / 64 <= data.totalGasNeeded;
+            // Calculate if the gas check should trigger based on actual contract logic
+            // Contract condition: if (gasBefore <= totalGas + gasBefore / 64)
+            // Rearranging: gasBefore - gasBefore/64 <= totalGas
+            // Which is: gasBefore * (1 - 1/64) <= totalGas
+            // Which is: gasBefore * 63/64 <= totalGas
+            data.estimatedGasAtCheck = gasLimit_;
+            data.shouldTriggerGasCheck = data.estimatedGasAtCheck <= data.totalGasNeeded + data.estimatedGasAtCheck / 64;
             
             if (data.shouldTriggerGasCheck) {
                 // Expect the InsufficientGasForForward event
