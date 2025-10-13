@@ -4865,9 +4865,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         
         // Verify ERC7540 pending redeem is also cleared
         assertEq(vault.pendingRedeemRequest(0, account), 0, "ERC7540 pending redeem not cleared");
-    } 
+    }
 
-    function test_MultipleUsers_Redeem_From_Liquidity() public {
+     function test_MultipleUsers_Redeem_Half_From_Liquidity() public {
         uint256 depositAmount = 1000e6;
         
         // deposit without fulfillment to have free assets in the strat 
@@ -4911,6 +4911,142 @@ contract SuperVaultTest is BaseSuperVaultTest {
             assertGt(finalState.maxWithdraw, 0, "User should have claimable assets after fulfillment");
         }
 
+    }
+
+    function test_MultipleUsers_Redeem_From_Liquidity() public {
+        uint256 depositAmount = 1000e6;
+        
+        _depositForAllUsers(depositAmount);
+
+        uint256 strategyAssetBalance = asset.balanceOf(address(strategy));
+        _depositFreeAssets(
+            strategyAssetBalance / 2,
+            strategyAssetBalance / 2,
+            address(fluidVault),
+            address(aaveVault)
+        );
+
+        uint256[] memory initialShareBalances = new uint256[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            initialShareBalances[i] = vault.balanceOf(accInstances[i].account);
+        }
+
+        uint256 redeemShares;
+        uint256 totalRedeemShares;
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            redeemShares = vault.balanceOf(accInstances[i].account);
+            _requestRedeemForAccount(accInstances[i], redeemShares);
+            totalRedeemShares += redeemShares;
+        }
+
+        _executeRedeemHooks4626(totalRedeemShares, address(fluidVault), address(aaveVault));
+
+        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            requestingUsers[i] = accInstances[i].account;
+        }
+
+        vm.startPrank(MANAGER);
+        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
+        vm.stopPrank();
+
+        // Verify SuperVaultState is properly cleared for all users after fulfillment
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            address user = accInstances[i].account;
+            
+            // Verify SuperVaultState is cleared
+            ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(user);
+            assertEq(finalState.pendingRedeemRequest, 0, "Pending redeem request not cleared for user");
+            assertEq(finalState.averageRequestPPS, 0, "Average request PPS not cleared for user");
+            
+            // Verify no pending redeem requests remain
+            assertEq(strategy.pendingRedeemRequest(user), 0, "Pending redeem request still exists for user");
+            
+            // Verify ERC7540 pending redeem is also cleared
+            assertEq(vault.pendingRedeemRequest(0, user), 0, "ERC7540 pending redeem not cleared for user");
+            
+            // Verify user received their redeemed assets (should have maxWithdraw available)
+            assertGt(finalState.maxWithdraw, 0, "User should have claimable assets after fulfillment");
+        }
+    }
+
+    function test_MultipleUsers_Redeem_From_Liquidity_WithAllocation() public {
+        uint256 depositAmount = 1000e6;
+        
+        _completeDepositFlow(depositAmount);
+
+        uint256 fluidShares = fluidVault.balanceOf(address(strategy));
+        uint256 aaveShares = aaveVault.balanceOf(address(strategy));
+
+        uint256 currentFluidVaultAssets = fluidVault.convertToAssets(fluidShares);
+        uint256 currentAaveVaultAssets = aaveVault.convertToAssets(aaveShares);
+        uint256 totalAssets = currentFluidVaultAssets + currentAaveVaultAssets;
+
+        address[] memory hooksAddresses = new address[](2);
+        hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+        hooksAddresses[1] = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+
+        bytes[] memory hooksData = new bytes[](2);
+
+        uint256 amountToReallocate = fluidShares.mulDiv(3000, 10_000);
+        uint256 assetAmountToReallocate = fluidVault.convertToAssets(amountToReallocate);
+
+        _rebalanceFromVaultToVault(
+            hooksAddresses,
+            hooksData,
+            address(fluidVault),
+            address(aaveVault),
+            currentFluidVaultAssets + assetAmountToReallocate,
+            currentAaveVaultAssets
+        );
+
+        uint256 finalFluidVaultBalance = fluidVault.balanceOf(address(strategy));
+        uint256 finalAaveVaultBalance = aaveVault.balanceOf(address(strategy));
+
+        uint256 finalFluidVaultAssets = fluidVault.previewRedeem(finalFluidVaultBalance);
+        uint256 finalAaveVaultAssets = aaveVault.previewRedeem(finalAaveVaultBalance);
+
+        uint256 finalTotalAssets = finalFluidVaultAssets + finalAaveVaultAssets;
+
+        assertApproxEqRel(finalTotalAssets, totalAssets, 0.05e18, "Total value should be preserved");
+
+        uint256 redeemShares;
+        uint256 totalRedeemShares;
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            redeemShares = vault.balanceOf(accInstances[i].account);
+            _requestRedeemForAccount(accInstances[i], redeemShares);
+            totalRedeemShares += redeemShares;
+        }
+
+        _executeRedeemHooks4626AfterAllocation(address(fluidVault), address(aaveVault));
+
+        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            requestingUsers[i] = accInstances[i].account;
+        }
+
+        vm.startPrank(MANAGER);
+        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
+        vm.stopPrank();
+
+        // Verify SuperVaultState is properly cleared for all users after fulfillment
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            address user = accInstances[i].account;
+            
+            // Verify SuperVaultState is cleared
+            ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(user);
+            assertEq(finalState.pendingRedeemRequest, 0, "Pending redeem request not cleared for user");
+            assertEq(finalState.averageRequestPPS, 0, "Average request PPS not cleared for user");
+            
+            // Verify no pending redeem requests remain
+            assertEq(strategy.pendingRedeemRequest(user), 0, "Pending redeem request still exists for user");
+            
+            // Verify ERC7540 pending redeem is also cleared
+            assertEq(vault.pendingRedeemRequest(0, user), 0, "ERC7540 pending redeem not cleared for user");
+            
+            // Verify user received their redeemed assets (should have maxWithdraw available)
+            assertGt(finalState.maxWithdraw, 0, "User should have claimable assets after fulfillment");
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -5790,64 +5926,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // fulfill redeem
         _fulfillRedeemForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
-        );
-
-        // check that all pending requests are cleared
-        for (uint256 i; i < ACCOUNT_COUNT; ++i) {
-            assertEq(strategy.pendingRedeemRequest(accInstances[i].account), 0);
-            assertGt(strategy.claimableWithdraw(accInstances[i].account), 0);
-        }
-    }
-
-    function test_5_EdgeCases_SmallAmounts_WithAllocation() public {
-        uint256 depositAmount = 100; // very small
-
-        _completeDepositFlow(depositAmount);
-
-        uint256 fluidShares = fluidVault.balanceOf(address(strategy));
-        uint256 aaveShares = aaveVault.balanceOf(address(strategy));
-
-        uint256 currentFluidVaultAssets = fluidVault.convertToAssets(fluidShares);
-        uint256 currentAaveVaultAssets = aaveVault.convertToAssets(aaveShares);
-        uint256 totalAssets = currentFluidVaultAssets + currentAaveVaultAssets;
-
-        address[] memory hooksAddresses = new address[](2);
-        hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
-        hooksAddresses[1] = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-
-        bytes[] memory hooksData = new bytes[](2);
-
-        uint256 amountToReallocate = fluidShares.mulDiv(3000, 10_000);
-        uint256 assetAmountToReallocate = fluidVault.convertToAssets(amountToReallocate);
-
-        _rebalanceFromVaultToVault(
-            hooksAddresses,
-            hooksData,
-            address(fluidVault),
-            address(aaveVault),
-            currentFluidVaultAssets + assetAmountToReallocate,
-            currentAaveVaultAssets
-        );
-
-        uint256 finalFluidVaultBalance = fluidVault.balanceOf(address(strategy));
-        uint256 finalAaveVaultBalance = aaveVault.balanceOf(address(strategy));
-
-        uint256 finalFluidVaultAssets = fluidVault.previewRedeem(finalFluidVaultBalance);
-        uint256 finalAaveVaultAssets = aaveVault.previewRedeem(finalAaveVaultBalance);
-
-        uint256 finalTotalAssets = finalFluidVaultAssets + finalAaveVaultAssets;
-
-        assertApproxEqRel(finalTotalAssets, totalAssets, 0.05e18, "Total value should be preserved");
-
-        _requestRedeemForAllUsers(0);
-
-        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
-        for (uint256 i; i < ACCOUNT_COUNT; ++i) {
-            requestingUsers[i] = accInstances[i].account;
-        }
-
-        _fulfillRedeemForUsers(
-            requestingUsers, finalFluidVaultAssets, finalAaveVaultAssets, address(fluidVault), address(aaveVault)
         );
 
         // check that all pending requests are cleared

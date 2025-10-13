@@ -1022,6 +1022,93 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vm.stopPrank();
     }
 
+    function _executeRedeemHooks4626(uint256 redeemShares, address vault1, address vault2) internal {
+        address[] memory hooksAddresses = new address[](2);
+        hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+        hooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+        (uint256 vault1SharesOut, uint256 vault2SharesOut) = _convertSVStoUnderlyingShares(redeemShares, vault1, vault2);
+
+        bytes[] memory hooksData = new bytes[](2);
+        hooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault1,
+            address(strategy),
+            vault1SharesOut,
+            false
+        );
+        hooksData[1] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault2,
+            address(strategy),
+            vault2SharesOut,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vault1SharesOut);
+        expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(vault2SharesOut);
+
+        bytes[] memory argsForProofs = new bytes[](2);
+        argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
+        argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
+
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](2)
+            })
+        );
+    }
+
+    function _executeRedeemHooks4626AfterAllocation(address vault1, address vault2) internal {
+        address[] memory hooksAddresses = new address[](2);
+        hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+        hooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+        uint256 vault1SharesOut = IERC4626(vault1).balanceOf(address(strategy));
+        uint256 vault2SharesOut = IERC4626(vault2).balanceOf(address(strategy));
+
+        bytes[] memory hooksData = new bytes[](2);
+        hooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault1,
+            address(strategy),
+            vault1SharesOut,
+            false
+        );
+        hooksData[1] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            vault2,
+            address(strategy),
+            vault2SharesOut,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vault1SharesOut);
+        expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(vault2SharesOut);
+
+        bytes[] memory argsForProofs = new bytes[](2);
+        argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
+        argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
+
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](2)
+            })
+        );
+    }
+
     function _depositFreeAssets(
         uint256 allocationAmountVault1,
         uint256 allocationAmountVault2,
@@ -2326,6 +2413,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         }
 
         return (vault1SharesOut, vault2SharesOut);
+    }
+
+    function _convertSVStoUnderlyingShares(uint256 redeemShares, address vault1, address vault2) internal view returns (uint256 vault1SharesOut, uint256 vault2SharesOut) {
+        uint256 sharesAsAssetsFromSV = vault.convertToAssets(redeemShares);
+
+        uint256 vault1Assets = sharesAsAssetsFromSV / 2;
+        uint256 vault2Assets = sharesAsAssetsFromSV - vault1Assets;
+
+        vault1SharesOut = IERC4626(vault1).convertToShares(vault1Assets);
+        vault2SharesOut = IERC7540(vault2).convertToShares(vault2Assets);
     }
 
     /**
