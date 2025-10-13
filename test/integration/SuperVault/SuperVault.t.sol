@@ -4796,6 +4796,124 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
+                      LIQUIDITY REDEEM FLOW TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_7540Underlying_Fulfill_From_Liquidity() public {
+        // Set up the vault
+        _setUp7540UnderlyingSuperVault();
+
+        AccountInstance memory instance = accInstances[0];
+        address account = instance.account;
+
+        // Deposit USDC into the SuperVault
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _getTokens(address(asset), account, depositAmount);
+        __deposit(instance, depositAmount);
+
+        // Verify state
+        assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+
+        uint256 userShares = vault.balanceOf(account);
+        assertGt(userShares, 0, "No shares minted to user");
+
+        // Record balances before redeem
+        uint256 preRedeemUserAssets = asset.balanceOf(account);
+        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
+
+        // Fast forward time to simulate yield on underlying vaults
+        vm.warp(block.timestamp + 50 weeks);
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        // Step 4: Request Redeem
+        __requestRedeem(instance, userShares, false);
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(account), 0, "User shares not transferred from account");
+        assertEq(IERC20(vault.share()).balanceOf(address(escrow)), userShares, "Shares not transferred to escrow");
+
+        console2.log("--pps before---", aggregator.getPPS(address(strategy)));
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        console2.log("--pps after---", aggregator.getPPS(address(strategy)));
+
+        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
+        
+        address[] memory users = new address[](1);
+        users[0] = account;
+       
+        vm.startPrank(MANAGER);
+        strategy.fulfillRedeemsFromLiquidity(users);
+        vm.stopPrank();
+
+        // Verify balances
+        assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
+        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
+        
+        // Verify SuperVaultState is properly cleared after fulfillment
+        ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(account);
+        assertEq(finalState.pendingRedeemRequest, 0, "Pending redeem request not cleared");
+        assertEq(finalState.averageRequestPPS, 0, "Average request PPS not cleared");
+        
+        // Verify no pending redeem requests remain
+        assertEq(strategy.pendingRedeemRequest(account), 0, "Pending redeem request still exists");
+        
+        // Verify ERC7540 pending redeem is also cleared
+        assertEq(vault.pendingRedeemRequest(0, account), 0, "ERC7540 pending redeem not cleared");
+    } 
+
+    function test_MultipleUsers_Redeem_From_Liquidity() public {
+        uint256 depositAmount = 1000e6;
+        
+        // deposit without fulfillment to have free assets in the strat 
+        _depositForAllUsers(depositAmount);
+
+        uint256[] memory initialShareBalances = new uint256[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            initialShareBalances[i] = vault.balanceOf(accInstances[i].account);
+        }
+
+        uint256 redeemAmount = vault.balanceOf(accInstances[0].account) / 2;
+
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            _requestRedeemForAccount(accInstances[i], redeemAmount);
+        }
+        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            requestingUsers[i] = accInstances[i].account;
+        }
+
+        vm.startPrank(MANAGER);
+        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
+        vm.stopPrank();
+
+        // Verify SuperVaultState is properly cleared for all users after fulfillment
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            address user = accInstances[i].account;
+            
+            // Verify SuperVaultState is cleared
+            ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(user);
+            assertEq(finalState.pendingRedeemRequest, 0, "Pending redeem request not cleared for user");
+            assertEq(finalState.averageRequestPPS, 0, "Average request PPS not cleared for user");
+            
+            // Verify no pending redeem requests remain
+            assertEq(strategy.pendingRedeemRequest(user), 0, "Pending redeem request still exists for user");
+            
+            // Verify ERC7540 pending redeem is also cleared
+            assertEq(vault.pendingRedeemRequest(0, user), 0, "ERC7540 pending redeem not cleared for user");
+            
+            // Verify user received their redeemed assets (should have maxWithdraw available)
+            assertGt(finalState.maxWithdraw, 0, "User should have claimable assets after fulfillment");
+        }
+
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         SCENARIO TESTS
     //////////////////////////////////////////////////////////////*/
 
