@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { console2 } from "forge-std/console2.sol";
-
 // External
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -31,8 +29,6 @@ import { HookDataDecoder } from "@superform-v2-core/src/libraries/HookDataDecode
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-
-import "forge-std/console2.sol";
 
 /// @title SuperVaultStrategy
 /// @author Superform Labs
@@ -220,10 +216,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        console2.log("----block.timestamp: ", block.timestamp);
-        console2.log("----lastPPSUpdateTimestamp: ", lastPPSUpdateTimestamp);
-        console2.log("----block.timestamp - lastPPSUpdateTimestamp: ", block.timestamp - lastPPSUpdateTimestamp);
-        console2.log("----_fulfillTimestampThreshold: ", _fulfillTimestampThreshold);
         if (block.timestamp - lastPPSUpdateTimestamp > _fulfillTimestampThreshold) revert STALE_PPS();
 
         uint256 controllersLength = controllers.length;
@@ -343,8 +335,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         // Enforce both lower bound on intended shares
-        console2.log("----intendedShares", intendedShares);
-        console2.log("----totalRequestedShares", totalRequestedShares);
         if (intendedShares != totalRequestedShares) {
             revert INVALID_REDEEM_FILL();
         }
@@ -361,10 +351,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperVault(_vault).burnShares(processedShares);
 
         emit RedeemRequestsFulfilled(args.hooks, args.controllers, processedShares, assetsWithdrawn, currentPPS);
-
-        console2.log("----processedShares", processedShares);
-        console2.log("----intendedShares", intendedShares);
-        console2.log("----totalRequestedShares", totalRequestedShares);
     }
 
     /*//////////////////////////////////////////////////////////////
