@@ -130,6 +130,11 @@ interface ISuperVaultAggregator {
         bytes32[] strategyProof;
     }
 
+    struct WithdrawStakeRequest {
+        uint256 amount;
+        uint256 timestamp;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -202,6 +207,11 @@ interface ISuperVaultAggregator {
     /// @param amount Amount of UP tokens deposited as stake
     event StakeDeposited(address indexed manager, uint256 amount);
 
+    /// @notice Emitted when a stake withdrawal request is initiated
+    /// @param manager Address of the manager
+    /// @param amount Amount of UP tokens to withdraw
+    event StakeWithdrawRequested(address indexed manager, uint256 amount);
+
     /// @notice Emitted when stake tokens are withdrawn
     /// @param manager Address of the manager
     /// @param amount Amount of UP tokens withdrawn from stake
@@ -236,9 +246,7 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
-    event PrimaryManagerChanged(
-        address indexed strategy, address indexed oldManager, address indexed newManager
-    );
+    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager);
 
     /// @notice Emitted when a primary manager is changed to a superform manager
     /// @param strategy Address of the strategy
@@ -349,7 +357,9 @@ interface ISuperVaultAggregator {
     event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
 
     /// @notice Emitted when the provided timestamp is too large
-    event ProvidedTimestampExceedsBlockTimestamp(address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp);
+    event ProvidedTimestampExceedsBlockTimestamp(
+        address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp
+    );
 
     /// @notice Emitted when a strategy is unknown
     event UnknownStrategy(address indexed strategy);
@@ -445,8 +455,12 @@ interface ISuperVaultAggregator {
     error TOO_MANY_SECONDARY_MANAGERS();
     /// @notice Thrown when the number of strategies exceeds the maximum allowed
     error MAX_STRATEGIES_EXCEEDED();
-    /// @notice Thrown when provided timestamp is too large
-    error TIMESTAMP_EXCEEDS_BLOCK();
+    /// @notice Thrown when withdrawal request is expired
+    error WITHDRAWAL_REQUEST_EXPIRED();
+    /// @notice Thrown when withdrawal request is not ready
+    error WITHDRAW_STAKE_REQUEST_NOT_READY();
+    /// @notice Thrown when withdrawal request is not found
+    error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
     /// @notice Thrown when PPS is too stale to unpause a strategy
     error UNPAUSE_TIMELOCK_NOT_MET();
 
@@ -512,9 +526,12 @@ interface ISuperVaultAggregator {
     /// @param amount Amount of UP tokens to deposit as stake
     function depositStake(address manager, uint256 amount) external;
 
-    /// @notice Withdraws UP tokens from manager stake balance
+    /// @notice Initiates withdrawal of staked UP tokens
     /// @param amount Amount of UP tokens to withdraw from stake
-    function withdrawStake(uint256 amount) external;
+    function requestStakeWithdrawal(uint256 amount) external;
+
+    /// @notice Executes the withdrawal of UP tokens from manager stake balance
+    function completeStakeWithdrawal() external;
 
     /// @notice Slashes a manager's stake balance by a specified amount
     /// @param manager The manager whose stake will be slashed
@@ -622,12 +639,7 @@ interface ISuperVaultAggregator {
     /// @param leaves Array of leaf hashes to change status for
     /// @param statuses Array of banned statuses (true = banned, false = allowed)
     /// @param strategy Address of the strategy to change banned leaves for
-    function changeGlobalLeavesStatus(
-        bytes32[] memory leaves,
-        bool[] memory statuses,
-        address strategy
-    )
-        external;
+    function changeGlobalLeavesStatus(bytes32[] memory leaves, bool[] memory statuses, address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
@@ -727,13 +739,7 @@ interface ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @param strategy Address of the strategy
     /// @return isSecondaryManager True if the address is a secondary manager, false otherwise
-    function isSecondaryManager(
-        address manager,
-        address strategy
-    )
-        external
-        view
-        returns (bool isSecondaryManager);
+    function isSecondaryManager(address manager, address strategy) external view returns (bool isSecondaryManager);
 
     /// @dev Internal helper function to check if an address is any kind of manager (primary or secondary)
     /// @param manager Address to check
@@ -772,13 +778,7 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param args Arguments for hook validation
     /// @return isValid True if the hook is valid against either root
-    function validateHook(
-        address strategy,
-        ValidateHookArgs calldata args
-    )
-        external
-        view
-        returns (bool isValid);
+    function validateHook(address strategy, ValidateHookArgs calldata args) external view returns (bool isValid);
 
     /// @notice Batch validates multiple hooks against Merkle roots
     /// @param strategy Address of the strategy
