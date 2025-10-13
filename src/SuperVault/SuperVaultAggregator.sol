@@ -347,8 +347,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Only the main manager can unpause the strategy
-        if (!_isUnpauser(msg.sender)) {
+        // Allow only the main manager or UNPAUSER_ROLE to unpause
+        bool isUnpauser = IAccessControl(address(SUPER_GOVERNOR)).hasRole(
+            SUPER_GOVERNOR.UNPAUSER_ROLE(),
+            msg.sender
+        );
+ 
+        if (msg.sender != _strategyData[strategy].mainManager && !isUnpauser) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
@@ -519,13 +524,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check if manager is already the primary manager
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
+        // Add as secondary manager using EnumerableSet
+        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
+
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
         if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
-
-        // Add as secondary manager using EnumerableSet
-        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
 
         emit SecondaryManagerAdded(strategy, manager);
     }
@@ -1249,6 +1254,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     function _isUnpauser(address account) internal view returns (bool) {
-        return !IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
+        return IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
     }
 }

@@ -45,6 +45,16 @@ library SuperAssetPriceLib {
             if (primaryAsset == args.usd) {
                 return (precision, false, false, false);
             }
+            
+            // If primary asset USD price is unavailable (e.g., emergency price unset), treat as oracle off
+            uint256 assetPriceUSDCheck = _getAssetPriceUSD(
+                args.superOracle,
+                args.superAsset,
+                args.usd
+            );
+            if (assetPriceUSDCheck == 0) {
+                return (priceUSD, false, false, true);
+            }
 
             // Circuit Breaker for Depeg - price deviates more than ±2% from expected
             (isDepeg, isDispersion) = _getDepegAndDispersion(args, precision, priceUSD, stddev);
@@ -88,10 +98,12 @@ library SuperAssetPriceLib {
             stddev = 0;
             M = 0;
         }
-
+        // Normalize PPS by its own decimals so share USD price is correctly scaled; also scale stddev consistently
+        uint8 ppsDecimals = IYieldSourceOracle(oracle).decimals(token);
         uint256 pricePerShare = IYieldSourceOracle(oracle).getPricePerShare(token);
-        if (priceUSD > 0) {
-            priceUSD = pricePerShare.mulDiv(priceUSD, superAsset.getPrecision(), Math.Rounding.Floor);
+        if (priceUSD > 0 && pricePerShare > 0) {
+            priceUSD = pricePerShare.mulDiv(priceUSD, 10 ** ppsDecimals, Math.Rounding.Floor);
+            stddev = Math.mulDiv(stddev, pricePerShare, 10 ** ppsDecimals);
         }
     }
 
@@ -211,8 +223,14 @@ library SuperAssetPriceLib {
     {
         uint256 assetPriceUSD = _getAssetPriceUSD(args.superOracle, args.superAsset, args.usd);
 
-        isDepeg = _isTokenDepeg(priceUSD, precision, assetPriceUSD, args.depegLowerThreshold, args.depegUpperThreshold);
-
+        // Skip de-peg checks for underlying vault shares; they are not pegged to the primary asset
+        ISuperAsset.TokenData memory td = ISuperAsset(args.superAsset).getTokenData(args.token);
+        if (td.isSupportedUnderlyingVault) {
+            isDepeg = false;
+        } else {
+            isDepeg = _isTokenDepeg(priceUSD, precision, assetPriceUSD, args.depegLowerThreshold, args.depegUpperThreshold);
+        }
+        
         isDispersion = _isSTDDevDegged(args.superAsset, stddev, priceUSD, args.dispersionThreshold);
     }
 

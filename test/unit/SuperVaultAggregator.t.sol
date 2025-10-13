@@ -334,7 +334,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     /// @notice Tests emergency replacement clears all secondary managers
     function test_AddTooManySecondaryManagers() public {
-        uint256 len = 7;
+        uint256 len = 6;
         address[] memory secondaryManagers = new address[](len);
 
         for (uint256 i = 0; i < len - 1; ++i) {
@@ -342,11 +342,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         }
 
         vm.startPrank(manager);
-        for (uint256 i = 0; i < 4; ++i) {
+        for (uint256 i = 0; i < 3; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[5]);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[4]);
         vm.stopPrank();
     }
 

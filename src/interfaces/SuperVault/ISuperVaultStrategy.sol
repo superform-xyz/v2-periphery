@@ -223,7 +223,7 @@ interface ISuperVaultStrategy {
 
     /// @notice Fulfills pending redeem requests by executing specific fulfill hooks.
     /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
-    function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
+    function fulfillRedeemRequests(FulfillArgs calldata args) external;
 
 
     /// @notice Fulfills pending deposit requests.

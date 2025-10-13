@@ -957,6 +957,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function getValidators() external view returns (address[] memory) {
         return _validators.values();
     }
+    
+    /// @inheritdoc ISuperGovernor
+    function getValidatorsCount() external view returns (uint256) {
+        return _validators.length();
+    }
 
     /// @inheritdoc ISuperGovernor
     function getRelayers() external view returns (address[] memory) {
@@ -1144,6 +1149,15 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _protectedKeepers.length();
     }
 
+    /// @dev Advertise ISuperGovernor support for ERC-165 detection
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(AccessControl) returns (bool) {
+        return
+            interfaceId == type(ISuperGovernor).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -1154,10 +1168,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (upToken == address(0)) revert UP_NOT_FOUND();
 
         // Step 1: convert gas to ETH
-        (uint256 ethAmount,,,) =
+        (uint256 weiAmount,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
+        uint256 ethAmount = weiAmount * 1e9;
         (uint256 ethToUsd,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(ethAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
