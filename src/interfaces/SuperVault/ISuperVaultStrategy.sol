@@ -175,7 +175,6 @@ interface ISuperVaultStrategy {
         bool success;
         address targetedYieldSource;
         address svAsset;
-        uint256 outAmount;
         uint256 superVaultShares;
         uint256 amountOfAssets;
         uint256 assetsWithdrawn;

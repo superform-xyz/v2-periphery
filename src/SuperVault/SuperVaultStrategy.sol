@@ -685,16 +685,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
         ISuperHook(address(vars.hookContract)).resetExecutionState(address(this));
 
-        vars.assetsWithdrawn = _getTokenBalance(vars.svAsset, address(this));
-
-        vars.outAmount = vars.assetsWithdrawn - vars.balanceAssetBefore;
-        if (vars.outAmount == 0) revert ZERO_OUTPUT_AMOUNT();
-        if (vars.outAmount < expectedAssetOutput) {
+        vars.assetsWithdrawn = _getTokenBalance(vars.svAsset, address(this)) - vars.balanceAssetBefore;
+        if (vars.assetsWithdrawn == 0) revert ZERO_OUTPUT_AMOUNT();
+        if (vars.assetsWithdrawn < expectedAssetOutput) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
 
         emit FulfillHookExecuted(hook, vars.targetedYieldSource, hookCalldata);
-        return (vars.superVaultShares, vars.outAmount);
+        return (vars.superVaultShares, vars.assetsWithdrawn);
     }
 
     /// @notice Process redeem fulfillments for multiple controllers
