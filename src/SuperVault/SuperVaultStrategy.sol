@@ -344,7 +344,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _processFulfillHooks(args.hooks, args.hookCalldata, args.expectedAssetsOrSharesOut);
 
         // Post-condition: processed shares must match intended shares
-        if (processedShares < intendedShares) revert INVALID_REDEEM_FILL();
+        if (processedShares != intendedShares) revert INVALID_REDEEM_FILL();
 
         _processRedeemFulfillments(args.controllers, controllersLength, processedShares, assetsWithdrawn);
 
