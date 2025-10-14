@@ -5791,7 +5791,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // perform deposit operations
         _completeDepositFlow(depositAmount);
-        return;
 
         uint256 totalRedeemShares;
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
@@ -8003,7 +8002,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 3: Try to claim the full amount
         // This should trigger the dust collection logic and give the user the remaining balance
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
 
         vm.startPrank(accountEth);
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
@@ -8120,8 +8119,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(claimableAmount - escrowBalanceAfter <= 10, "Difference should be within tolerance");
 
         // Step 3: Try to claim - this will trigger the dust bug
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        console2.log("userBalanceBefore:", userBalanceBefore);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //console2.log("userBalanceBefore:", userBalanceBefore);
 
         vm.startPrank(accountEth);
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
@@ -8200,8 +8199,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Claim the full amount
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
         console2.log("----E");
 
         vm.startPrank(accountEth);
@@ -8286,7 +8285,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Directly call the strategy's claim function
-        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
+        //uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
         console2.log("-----G");
 
         // Call the strategy directly (this is what vault.withdraw calls internally)
