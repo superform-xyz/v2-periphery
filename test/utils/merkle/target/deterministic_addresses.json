@@ -4,15 +4,15 @@
   "addresses": {
     "vaults": {
       "test1_DynamicAllocation_MockVault": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
-      "test3_UnderlyingVaults_StressTest": "0xb572b235901669b98E23920B161530f6191037d3",
+      "test3_UnderlyingVaults_StressTest": "0x2220F3471780384325932c69aAC6A83Dd480A850",
       "test6_yieldAccumulation_vault1": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D",
       "test6_yieldAccumulation_vault2": "0x13C43599b83d0080624711B4c112307e44E98727",
       "test6_yieldAccumulation_vault3": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32",
       "test6_yieldAccumulation_WithRebalancing_vault1": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4",
       "test6_yieldAccumulation_WithRebalancing_vault2": "0x021210aD662B08fb81a53a560d9a03De8098C4f5",
       "test6_yieldAccumulation_WithRebalancing_vault3": "0xa44982Ae9000894BD2D66ff3365d914658295c0E",
-      "test10_RuggableVault_Deposit": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6",
-      "test10_RuggableVault_Withdraw": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA",
+      "test10_RuggableVault_Deposit": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8",
+      "test10_RuggableVault_Withdraw": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576",
       "test10_RuggableVault_Withdraw_ConvertDistortion": "0x92bd9b2Fb1E55283452760e369979EDa4C180286",
       "test11_Allocate_NewYieldSource": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
       "MOCK_ETH_RECEIVER": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da",

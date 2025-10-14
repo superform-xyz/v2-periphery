@@ -155,7 +155,7 @@ contract SuperVault is
         revert NOT_IMPLEMENTED();
     }
 
-    function requestMint(uint256 requestedShares, uint256 maxAssets, address receiver) external nonReentrant returns (uint256 requestId) {
+    function requestMint(uint256 /*requestedShares*/, uint256 /*maxAssets*/, address /*receiver*/) external nonReentrant returns (uint256 /*requestId*/) {
         revert NOT_IMPLEMENTED();
     }
 
