@@ -920,4 +920,114 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         console2.log("Final new vault balance:", vars.finalNewVaultBalance);
         console2.log("Total assets after reallocation:", vars.totalAssetsAfter);
     }
+
+
+    function test_SuperVault_4626_ReAllocate4626ToPendle() public {
+        vm.selectFork(FORKS[ETH]);
+        _setup5115Vault();
+
+        ReallocationVars memory vars;
+        vars.depositAmount = 1000e6;
+
+        // initial vault
+        // Deploy using Create2.deploy() instead of new{salt} syntax for consistent prediction
+        Mock4626Vault newVault = Mock4626Vault(
+            Create2.deploy(
+                0,
+                keccak256(abi.encodePacked(TEST_SALT)),
+                abi.encodePacked(type(Mock4626Vault).creationCode, abi.encode(address(asset), "New Vault", "NV"))
+            )
+        );
+        assertEq(address(newVault), address(test11_Allocate_NewYieldSource), "new vault address does not match");
+        // add the 4626 vault as a new yield source
+        vm.startPrank(MANAGER);
+        strategy5115SuperVault.manageYieldSource(
+            address(test11_Allocate_NewYieldSource), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0
+        );
+        vm.stopPrank();
+
+        newVault.setAsset(address(asset5115));
+
+        // deposit 1
+        deal(address(asset5115), accountEth, vars.depositAmount);
+        _deposit(vars.depositAmount, address(sv5115), address(asset5115));
+        _depositFreeAssetsFromSingleAmount5115(vars.depositAmount, address(strategy5115SuperVault), address(newVault));
+
+        
+        vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
+        assertGt(vars.shares1, 0, "no shares minted for ` 1");
+
+        vm.warp(block.timestamp + 4 weeks);
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        
+        // initial balances
+        // 4626 balances - re-using already defined variables
+        vars.initial5115Balance = Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
+        vars.initialNewVaultBalance = newVault.balanceOf(address(strategy5115SuperVault));
+        assertGt(vars.initial5115Balance, 0, "initial 4626 balance is 0");
+        assertGt(vars.initialNewVaultBalance, 0, "initial new vault balance is 0");
+        console2.log("Initial 4626 balance:", vars.initial5115Balance);
+        console2.log("Initial new vault balance:", vars.initialNewVaultBalance);
+
+        // re-allocate to pendle
+        // amount to reallocate (50% of 4626 vault); re-using variables
+        vars.amountToReallocateFrom5115 = vars.initialNewVaultBalance * 50 / 100;
+        vars.assetAmountToReallocateFrom5115 = newVault.previewRedeem(vars.amountToReallocateFrom5115);
+        console2.log("Asset amount to reallocate from 4626 vault:", vars.assetAmountToReallocateFrom5115);
+        console2.log("Amount to reallocate from 4626:", vars.amountToReallocateFrom5115);
+
+        // prepare hooks
+        // withdraw from 4626; deposit to 5115; re-using variables
+        vars.withdraw5115HookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+        vars.deposit4626HookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY);
+
+        vars.hooksAddresses = new address[](2);
+        vars.hooksAddresses[0] = vars.withdraw5115HookAddress;
+        vars.hooksAddresses[1] = vars.deposit4626HookAddress;
+
+        vars.hooksData = new bytes[](2);
+
+        console2.log(" accountEth ", accountEth);
+        // redeem from 4626
+        newVault.setAsset(address(asset5115));
+        vars.hooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            address(newVault),
+            address(strategy5115SuperVault),
+            vars.amountToReallocateFrom5115,
+            false
+        );
+        
+        // deposit to 5115 vault
+        vars.hooksData[1] = _createApproveAndDeposit5115VaultHookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC5115_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            test11_Allocate_NewYieldSource,
+            address(asset5115),
+            vars.assetAmountToReallocateFrom5115,
+            0,
+            false,
+            address(0),
+            0
+        );
+
+        vars.expectedAssetsOrSharesOut = new uint256[](2);
+        vars.expectedAssetsOrSharesOut[0] = vars.assetAmountToReallocateFrom5115; // Expected assets from 4626 redeem
+        vars.expectedAssetsOrSharesOut[1] = pendleEthena.previewDeposit(address(asset5115), vars.assetAmountToReallocateFrom5115); // Expected shares from 5115 deposit
+
+        vars.argsForProofs = new bytes[](2);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.hooksAddresses[0]).inspect(vars.hooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.hooksAddresses[1]).inspect(vars.hooksData[1]);
+        vm.startPrank(MANAGER);
+        strategy5115SuperVault.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: vars.hooksAddresses,
+                hookCalldata: vars.hooksData,
+                expectedAssetsOrSharesOut: vars.expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(vars.hooksAddresses, vars.argsForProofs),
+                strategyProofs: new bytes32[][](vars.hooksAddresses.length)
+            })
+        );
+        vm.stopPrank();
+
+    }
 }
