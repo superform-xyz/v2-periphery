@@ -1360,6 +1360,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vm.stopPrank();
     }
 
+    /// @notice Fulfill redeem requests for a single yield source
+    /// @param redeemShares The number of shares to redeem
+    /// @param underlyingVault The underlying vault to redeem from
     function _fulfillRedeem_Single_YieldSource(uint256 redeemShares, address underlyingVault) internal {
         address[] memory fulfillHooksAddresses = new address[](1);
         fulfillHooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
@@ -1394,6 +1397,49 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
         vm.stopPrank();
+    }
+
+    /// @notice Fulfill redeem requests for a single yield source
+    /// @param redeemShares The number of shares to redeem
+    /// @param underlyingVault The underlying vault to redeem from
+    /// @return withdrawnAssets The number of assets withdrawn
+    function _fulfillRedeem_Single_YieldSource_WithWithdrawnAssets(address[] memory requestingUsers, address underlyingVault, uint256 redeemShares) internal returns (uint256 withdrawnAssets) {
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+        uint256 shareBalance = IERC4626(address(underlyingVault)).balanceOf(address(strategy));
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+        fulfillHooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            underlyingVault,
+            address(strategy),
+            shareBalance,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(underlyingVault)).previewRedeem(shareBalance);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        uint256 strategyBalanceBeforeRedeem = asset.balanceOf(address(strategy));
+
+        vm.prank(MANAGER);
+        strategy.fulfillRedeemRequests(
+            ISuperVaultStrategy.FulfillArgs({
+                controllers: requestingUsers,
+                hooks: fulfillHooksAddresses,
+                hookCalldata: fulfillHooksData,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+        vm.stopPrank();
+
+        withdrawnAssets = asset.balanceOf(address(strategy)) - strategyBalanceBeforeRedeem;
     }
 
     function _fulfillRedeem5115(uint256 redeemShares, address svAddr, address strat) internal {
