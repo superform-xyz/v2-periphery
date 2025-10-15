@@ -40,7 +40,7 @@ contract MockGainsVault is ERC4626 {
     }
 
     function previewRedeem(uint256 shares) public pure override returns (uint256 assets) {
-        return shares;
+        return shares * 400;
     }
 
     function convertToAssets(uint256 shares) public view override returns (uint256 assets) {
