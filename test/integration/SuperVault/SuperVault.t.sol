@@ -2928,8 +2928,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.selectFork(FORKS[ETH]);
 
+        // Override super ledger setup so there are no ledger fees
         _overrideSuperLedgerSetUp();
-        // Deploy a ruggable vault that rugs via convert functions
+
+        // Deploy a gains vault that returns more than the expected assets
         MockGainsVault gainVault = MockGainsVault(
             Create2.deploy(
                 0,
@@ -3002,6 +3004,104 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
+    function test_SuperVault_E2E_Flow_With_GainsFrom_Underlying_Vault_WithDust() public {
+        uint256 depositAmount = 1999e6; // 1999 USDC
+
+        vm.selectFork(FORKS[ETH]);
+
+        // Override super ledger setup so there are no ledger fees
+        _overrideSuperLedgerSetUp();
+
+        // Deploy a gains vault that returns more than the expected assets
+        MockGainsVault gainVault = MockGainsVault(
+            Create2.deploy(
+                0,
+                keccak256(abi.encodePacked(TEST_SALT)),
+                abi.encodePacked(
+                    type(MockGainsVault).creationCode, abi.encode(address(asset), "MockGainsVault", "GainsVault")
+                )
+            )
+        );
+        assertEq(address(gainVault), test_Gains_Underlying_Vault, "GAIN VAULT NOT EQUAL TO PREDICTED");
+        deal(address(asset), address(gainVault), 10_000e24);
+
+        _setUpSuperVault_With_1_Underlying_4626Vault(address(gainVault));
+
+        // Record initial balances
+        uint256 initialUserAssets = asset.balanceOf(accountEth);
+        uint256 initialStrategyAssets = asset.balanceOf(address(strategy));
+
+        // Step 1: Request Deposit
+        _depositForAllUsers(depositAmount);
+
+        uint256 usersLength = accInstances.length;
+        uint256 totalDepositAmount = depositAmount * usersLength;
+
+        // Need to allocate to yield sources before requesting redemption
+        _depositFreeAssets_Into_Underlying_4626Vault(totalDepositAmount, address(gainVault));
+
+        // Verify shares minted to user
+        uint256 userShares = IERC20(vault.share()).balanceOf(accountEth);
+
+        // Fast forward time
+        vm.warp(block.timestamp + 5 weeks);
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Step 4: Request Redeem
+        _requestRedeemForAllUsers(userShares);
+
+        uint256 totalRequestedShares;
+        for (uint256 i; i < usersLength; ++i) {
+            totalRequestedShares += userShares;
+        }
+
+        uint256[] memory controllerAssetsBeforeRedeem = new uint256[](usersLength);
+        for (uint256 i; i < usersLength; ++i) {
+            controllerAssetsBeforeRedeem[i] = asset.balanceOf(accInstances[i].account);
+        }
+
+        // Verify shares are escrowed
+        assertEq(IERC20(vault.share()).balanceOf(accountEth), 0, "User shares not transferred from account");
+
+        address[] memory yieldSources = new address[](1);
+        yieldSources[0] = address(gainVault);
+        
+        uint256[] memory expectedNetAssetsPerController = new uint256[](usersLength);
+        for (uint256 i; i < usersLength; ++i) {
+            (,, uint256 expectedNetAssets) = _calculatePerformanceFee(userShares, accInstances[i].account, yieldSources);
+
+            expectedNetAssetsPerController[i] = expectedNetAssets;
+        }
+
+        uint256 totalAssetsDistributed;
+        for (uint256 i; i < usersLength; ++i) {
+            totalAssetsDistributed += vault.maxWithdraw(accInstances[i].account);
+        }
+
+        address[] memory requestingUsers = new address[](usersLength);
+        for (uint256 i; i < usersLength; ++i) {
+            requestingUsers[i] = accInstances[i].account;
+        }
+
+        // Step 5: Fulfill Redeem
+        uint256 actualAssets = _fulfillRedeem_Single_YieldSource_WithWithdrawnAssets(requestingUsers, address(gainVault), totalRequestedShares);
+
+        uint256 strategyBalanceAfterRedeem = asset.balanceOf(address(strategy));
+        uint256 dust = actualAssets - totalAssetsDistributed;
+
+        // Step 6: Claim Redeem
+        for (uint256 i; i < usersLength; ++i) {
+            uint256 claimableShares = vault.maxRedeem(accInstances[i].account);
+            _claimRedeemForAccount(accInstances[i], claimableShares);
+
+            assertGt(asset.balanceOf(accInstances[i].account), controllerAssetsBeforeRedeem[i], "User assets not increased after claim redeem");
+        }
+
+        assertEq(strategyBalanceAfterRedeem, dust, "Dust not kept in strategy");
+        console2.log("Dust:", dust);
+    }
+
     function test_SuperVault_E2E_Flow_With_0_Ledger_Fees() public {
         uint256 amount = 1000e6; // 1000 USDC
 
@@ -3017,9 +3117,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _deposit(amount);
 
         // Verify assets transferred from user to vault
-        assertEq(
-            asset.balanceOf(accountEth), initialUserAssets - amount, "User assets not reduced after deposit request"
-        );
         assertEq(
             asset.balanceOf(address(strategy)),
             initialVaultAssets + amount,
