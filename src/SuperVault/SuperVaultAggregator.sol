@@ -391,7 +391,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function requestStakeWithdrawal(uint256 amount) external {
-        if (amount == 0) revert ZERO_ADDRESS(); // Reusing error code for consistency
+        if (amount == 0) revert ZERO_AMOUNT();
 
         // Check sufficient balance
         if (_managerStakeBalance[msg.sender] < amount) {
