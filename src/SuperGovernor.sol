@@ -84,6 +84,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     mapping(address _oracle => uint256 _entryGas) private _gasPerEntry;
 
+    uint256 private constant REVENUE_SHARE = 2000; // 20% revenue share
+    uint256 private constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
+    uint256 private constant SUPER_ASSET_SWAP_FEE = 4000; // 40% swap fee
+
     // Upkeep control
     bool private _upkeepPaymentsEnabled;
     bool private _proposedUpkeepPaymentsEnabled;
@@ -173,12 +177,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
-        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, 2000);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, 2000);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, 4000);
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
+        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
+        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = SUPER_ASSET_SWAP_FEE; // 40% swap fee
+        emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, SUPER_ASSET_SWAP_FEE);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
