@@ -153,8 +153,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
-                || unpauser == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -595,7 +594,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
     function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
-
         if (oracle == address(0)) revert INVALID_ADDRESS();
         if (gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
