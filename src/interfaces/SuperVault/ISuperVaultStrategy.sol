@@ -77,7 +77,7 @@ interface ISuperVaultStrategy {
     event MaxPPSSlippageUpdated(uint256 maxSlippageBps);
     event HooksExecuted(address[] hooks);
     event RedeemRequestPlaced(address indexed controller, address indexed owner, uint256 shares);
-    event RedeemRequestFulfilled(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
+    event RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
     event RedeemRequestsFulfilled(address[] hooks, address[] controllers, uint256 processedShares, uint256 currentPPS);
     event RedeemRequestCanceled(address indexed controller, uint256 shares);
     event HookExecuted(

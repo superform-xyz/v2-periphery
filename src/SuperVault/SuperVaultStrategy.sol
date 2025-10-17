@@ -1143,7 +1143,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (state.maxWithdraw < assetsToClaim) revert INVALID_REDEEM_CLAIM();
         ISuperVault(_vault).extractAndSendAssets(receiver, assetsToClaim);
         state.maxWithdraw -= assetsToClaim;
-        emit RedeemRequestFulfilled(receiver, controller, assetsToClaim, 0);
+        emit RedeemRequestClaimed(receiver, controller, assetsToClaim, 0);
     }
 
     /// @notice Internal function to safely transfer tokens
