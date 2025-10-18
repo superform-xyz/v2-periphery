@@ -109,72 +109,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(symbol, "SV_USDC");
     }
 
-    function test_Deposit() public {
+    function test_DepositXQ() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
-
 
         // Verify state
         uint256 userShares = vault.balanceOf(accountEth);
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
-    }
-
-    function test_Deposit_Async() public {
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
-
-        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
-        assertEq(escrowBalanceBefore, 0, "Escrow should be empty");
-
-        address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
-
-        bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            address(vault),
-            address(asset),
-            depositAmount,
-            false
-        );
-
-        ISuperExecutor.ExecutorEntry memory entry =
-            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
-        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
-        executeOp(userOpData);
-        
-    }
-
-    function test_Deposit_StalePPS() public {
-        vm.startPrank(MANAGER);
-        strategy.setFulfillTimestampThreshold(1);
-        vm.stopPrank();
-        
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
-
-        address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
-
-        bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            address(vault),
-            address(asset),
-            depositAmount,
-            false
-        );
-
-        ISuperExecutor.ExecutorEntry memory entry =
-            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
-        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
-        executeOp(userOpData);
-
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = address(accInstances[0].account);
-        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
     }
 
     function test_Deposit_And_Emergency_Withdraw() public {
@@ -202,7 +144,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(strategy.emergencyWithdrawableEffectiveTime(), block.timestamp + 1 weeks, "Wrong effective time");
 
         vm.warp(block.timestamp + 1 weeks);
-        strategy.manageEmergencyWithdraw(2, MANAGER, depositAmount); // action 2 = Withdraw 
+        strategy.manageEmergencyWithdraw(2, MANAGER, depositAmount); // action 2 = Withdraw
         vm.stopPrank();
 
         assertEq(asset.balanceOf(address(escrow)), 0, "Wrong escrow balance after emergency withdrawal");
@@ -449,22 +391,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.startPrank(users.user2);
         asset.approve(address(vault), initialDeposit);
-        vault.requestDeposit(initialDeposit, users.user2, users.user2);
-        vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = users.user2;
-        strategy.fulfillDepositRequest(controllers);
+        vault.deposit(initialDeposit, users.user2);
         vm.stopPrank();
 
         vm.startPrank(users.user3);
         asset.approve(address(vault), initialDeposit);
-        vault.requestDeposit(initialDeposit, users.user3, users.user3);
-        vm.stopPrank();
-        vm.startPrank(MANAGER);
-        controllers = new address[](1);
-        controllers[0] = users.user3;
-        strategy.fulfillDepositRequest(controllers);
+        vault.deposit(initialDeposit, users.user3);
         vm.stopPrank();
 
         // Allocate assets to yield sources to simulate real vault operations
@@ -683,12 +615,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accountEth);
         asset.approve(address(vault), postEmergencyDeposit);
         uint256 sharesReceived = vault.previewDeposit(postEmergencyDeposit);
-        vault.requestDeposit(postEmergencyDeposit, accountEth, accountEth);
-        vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = accountEth;
-        strategy.fulfillDepositRequest(controllers);
+        vault.deposit(postEmergencyDeposit, accountEth);
         vm.stopPrank();
 
         uint256 sharesAfter = vault.balanceOf(accountEth);
@@ -793,7 +720,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Direct deposit to the new vault
         _deposit(depositAmount, newVaultAddr, address(newStrategy), address(asset));
-
 
         // Verify deposit state
         uint256 userShares = newVault.balanceOf(accountEth);
@@ -1517,7 +1443,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Deposit should revert with STRATEGY_PAUSED when PPS is 0
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        vault.requestDeposit(testAssets, address(this), address(this));
+        vault.deposit(testAssets, address(this));
     }
 
     function test_MaxMint() public view {
@@ -1783,7 +1709,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.burnShares(burnAmount);
     }
 
-
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULTSTRATEGY.SOL
     //////////////////////////////////////////////////////////////*/
@@ -2021,7 +1946,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 allocationAmountVault1 = redeemAmount / 2;
         uint256 allocationAmountVault2 = redeemAmount - allocationAmountVault1;
-     
+
         _fulfillRedeemForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
@@ -2229,7 +2154,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.fluidVaultSharesDecrease = vars.initialFluidVaultBalance - fluidVault.balanceOf(address(strategy));
         vars.aaveVaultSharesDecrease = vars.initialAaveVaultBalance - aaveVault.balanceOf(address(strategy));
-        vars.strategyAssetBalanceIncrease = asset.balanceOf(address(escrow)) - vars.initialStrategyAssetBalance; // escrow balance
+        vars.strategyAssetBalanceIncrease = asset.balanceOf(address(escrow)) - vars.initialStrategyAssetBalance; // escrow
+            // balance
 
         vars.fluidVaultAssetsValue = fluidVault.convertToAssets(vars.fluidVaultSharesDecrease);
         vars.aaveVaultAssetsValue = aaveVault.convertToAssets(vars.aaveVaultSharesDecrease);
@@ -2237,9 +2163,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalAssetsRedeemed = vars.fluidVaultAssetsValue + vars.aaveVaultAssetsValue;
 
         vars.totalRedeemedAssets = vault.convertToAssets(vars.totalRedeemAmount);
-        assertApproxEqRel(vars.totalAssetsRedeemed, vars.totalRedeemedAssets, 0.01e18, "Total assets redeemed should be equal to total redeemed assets");
+        assertApproxEqRel(
+            vars.totalAssetsRedeemed,
+            vars.totalRedeemedAssets,
+            0.01e18,
+            "Total assets redeemed should be equal to total redeemed assets"
+        );
 
-        assertApproxEqRel(vars.strategyAssetBalanceIncrease, vars.totalRedeemedAssets, 0.01e18, "Escrow asset balance increase should be equal to total redeemed assets");
+        assertApproxEqRel(
+            vars.strategyAssetBalanceIncrease,
+            vars.totalRedeemedAssets,
+            0.01e18,
+            "Escrow asset balance increase should be equal to total redeemed assets"
+        );
 
         _verifyRedeemSharesAndAssets(vars);
     }
@@ -4141,12 +4077,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(receiver);
         asset.approve(address(vault), depositAmount);
         uint256 shares = vault.previewDeposit(depositAmount);
-        vault.requestDeposit(depositAmount, receiver, receiver);
-        vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = receiver;
-        strategy.fulfillDepositRequest(controllers);
+        vault.deposit(depositAmount, receiver);
         vm.stopPrank();
 
         // Verify shares were minted to receiver, not sender
@@ -4172,47 +4103,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_Fix10_ReceiverCanRedeemAfterReceivingDeposit() public {
         uint256 depositAmount = 1000e6;
 
+        // Setup: get tokens for user A (sender)
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+
         // User A will be the sender/controller, User B will be the receiver
         address sender = accInstances[0].account;
         address receiver = accInstances[1].account;
 
-        _getTokens(address(asset), receiver, depositAmount);
-
-
-        console2.log("sender", sender);
-        console2.log("receiver", receiver);
-
-        // Try to find the correct storage slot for isOperator mapping
-        // Let's test different slot numbers
-        bool operatorSet = false;
-        for (uint256 i = 0; i < 200; i++) {
-            bytes32 innerSlot = keccak256(abi.encode(receiver, i));
-            bytes32 slot = keccak256(abi.encode(address(this), innerSlot));
-            
-            vm.store(address(vault), slot, bytes32(uint256(1)));
-            
-            bool isOperatorValue = vault.isOperator(receiver, address(this));
-            if (isOperatorValue) {
-                console2.log("Found correct storage slot:", i);
-                operatorSet = true;
-                break;
-            }
-            
-            // Reset the slot if it wasn't the right one
-            vm.store(address(vault), slot, bytes32(uint256(0)));
-        }
-        
-        require(operatorSet, "Failed to find and set operator storage slot");
-
-        vm.startPrank(receiver);
+        // User A deposits but specifies User B as receiver
+        vm.startPrank(sender);
         asset.approve(address(vault), depositAmount);
-        vm.stopPrank();
-        uint256 shares = vault.previewDeposit(depositAmount);
-        vault.requestDeposit(depositAmount, receiver, receiver);
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = receiver;
-        strategy.fulfillDepositRequest(controllers);
+        uint256 shares = vault.deposit(depositAmount, receiver);
         vm.stopPrank();
 
         // Allocate assets to yield sources
@@ -4228,7 +4129,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), shares, "Shares should be in escrow");
 
         // Fulfill the redeem request
-        controllers = new address[](1);
+        address[] memory controllers = new address[](1);
         controllers[0] = receiver;
         _fulfillRedeemForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
@@ -5753,12 +5654,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
 
         vm.warp(vars.initialTimestamp + 1 days);
 
@@ -5991,7 +5889,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // perform deposit operations
         _completeDepositFlow(depositAmount);
-        return;
 
         uint256 totalRedeemShares;
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
@@ -6920,12 +6817,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
 
         // Simulate time passing
         vm.warp(vars.initialTimestamp + 1 days);
@@ -7637,12 +7531,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
 
         // Fulfill deposit requests
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
@@ -8202,40 +8093,40 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 3: Try to claim the full amount
         // This should trigger the dust collection logic and give the user the remaining balance
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
+        //uint256 userBalanceBefore = asset.balanceOf(accountEth);
 
         vm.startPrank(accountEth);
         // cannot withdraw anymore without the TOLERANCE_CONSTANT
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         vault.withdraw(claimableAmount, accountEth, accountEth);
         /**
-        vm.stopPrank();
-
-        uint256 userBalanceAfter = asset.balanceOf(accountEth);
-        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
-
-        console2.log("User balance before claim:", userBalanceBefore);
-        console2.log("User balance after claim:", userBalanceAfter);
-        console2.log("Actual amount received:", actualReceived);
-        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
-
-        // The bug: User receives less than they should have been able to claim
-        // but the strategy balance is now 0, making the vault insolvent
-        assertEq(actualReceived, escrowBalanceAfter, "User should receive remaining escrow balance");
-        assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should be empty");
-
-        // This is problematic because:
-        // 1. The user's maxWithdraw is not updated to reflect the actual amount received
-        // 2. The vault becomes insolvent (strategy balance < 0 in accounting terms)
-        // 3. Other users might not be able to claim their rightful amounts
-
-        // Verify that the user's maxWithdraw is not properly updated
-        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
-        console2.log("Remaining maxWithdraw:", remainingMaxWithdraw);
-
-        // The user still has a positive maxWithdraw even though the strategy is empty
-        assertGt(remainingMaxWithdraw, 0, "User should still have positive maxWithdraw");
-        */
+         * vm.stopPrank();
+         *
+         *     uint256 userBalanceAfter = asset.balanceOf(accountEth);
+         *     uint256 actualReceived = userBalanceAfter - userBalanceBefore;
+         *
+         *     console2.log("User balance before claim:", userBalanceBefore);
+         *     console2.log("User balance after claim:", userBalanceAfter);
+         *     console2.log("Actual amount received:", actualReceived);
+         *     console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
+         *
+         *     // The bug: User receives less than they should have been able to claim
+         *     // but the strategy balance is now 0, making the vault insolvent
+         *     assertEq(actualReceived, escrowBalanceAfter, "User should receive remaining escrow balance");
+         *     assertEq(asset.balanceOf(address(escrow)), 0, "Escrow should be empty");
+         *
+         *     // This is problematic because:
+         *     // 1. The user's maxWithdraw is not updated to reflect the actual amount received
+         *     // 2. The vault becomes insolvent (strategy balance < 0 in accounting terms)
+         *     // 3. Other users might not be able to claim their rightful amounts
+         *
+         *     // Verify that the user's maxWithdraw is not properly updated
+         *     uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
+         *     console2.log("Remaining maxWithdraw:", remainingMaxWithdraw);
+         *
+         *     // The user still has a positive maxWithdraw even though the strategy is empty
+         *     assertGt(remainingMaxWithdraw, 0, "User should still have positive maxWithdraw");
+         */
     }
 
     /// @notice Test the dust bug with emergency withdrawal scenario
@@ -8272,14 +8163,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 initialShares = vault.balanceOf(accountEth);
         uint256 redeemShares = initialShares / 2;
 
-        console2.log("----A");
         // Request redeem
         _requestRedeem(redeemShares);
-        console2.log("----B");
 
         // Fulfill the redeem request
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
-        console2.log("----C");
 
         // ^ at this point assets are in escrow
 
@@ -8297,13 +8185,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageEmergencyWithdraw(1, address(0), 0);
         vm.warp(block.timestamp + 1 weeks);
 
-        console2.log("----D");
         // Withdraw most assets, leaving just enough to trigger dust collection
         uint256 withdrawalAmount = escrowBalanceBefore - claimableAmount + 5; // 5 wei less than tolerance
         console2.log("Withdrawal amount:", withdrawalAmount);
 
         strategy.manageEmergencyWithdraw(2, address(this), withdrawalAmount);
-        console2.log("----E");
 
         vm.stopPrank();
 
@@ -8318,36 +8204,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
         assertTrue(claimableAmount - escrowBalanceAfter <= 10, "Difference should be within tolerance");
 
-        // Step 3: Try to claim - this will trigger the dust bug
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        console2.log("userBalanceBefore:", userBalanceBefore);
-
+        // Step 3: Try to claim
         vm.startPrank(accountEth);
-        // cannot withdraw anymore without the TOLERANCE_CONSTANT
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         vault.withdraw(claimableAmount, accountEth, accountEth);
-
-        /**
-        vm.stopPrank();
-        console2.log("----F");
-
-        uint256 userBalanceAfter = asset.balanceOf(accountEth);
-        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
-
-        console2.log("Actual amount received:", actualReceived);
-        console2.log("Strategy balance after claim:", asset.balanceOf(address(strategy)));
-        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
-        // The dust bug occurs here
-        assertEq(actualReceived, escrowBalanceAfter, "User receives remaining balance due to dust collection");
-        assertEq(asset.balanceOf(address(escrow)), 0, "Strategy becomes empty");
-
-        // The vault is now insolvent
-        uint256 remainingMaxWithdraw = strategy.claimableWithdraw(accountEth);
-        assertGt(remainingMaxWithdraw, 0, "User still has positive maxWithdraw despite empty strategy");
-         */
     }
-
-
 
     /// @notice Test the specific dust bug in maxWithdraw accounting
     /// @dev This test demonstrates the core issue: maxWithdraw is reduced by actualAmountToClaim
@@ -8362,14 +8223,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 initialShares = vault.balanceOf(accountEth);
         uint256 redeemShares = initialShares / 2;
 
-        console2.log("----A");
         // Request redeem
         _requestRedeem(redeemShares);
-        console2.log("----B");
 
         // Fulfill the redeem request
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
-        console2.log("----C");
 
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
         uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
@@ -8399,41 +8257,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Claim the full amount
-        uint256 userBalanceBefore = asset.balanceOf(accountEth);
-        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
-        console2.log("----E");
-
         vm.startPrank(accountEth);
-        // cannot withdraw anymore without the TOLERANCE_CONSTANT
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         vault.withdraw(claimableAmount, accountEth, accountEth);
-        
-        /**
-        vm.stopPrank();
-        console2.log("----F");
-
-        uint256 userBalanceAfter = asset.balanceOf(accountEth);
-        uint256 actualReceived = userBalanceAfter - userBalanceBefore;
-        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
-
-        console2.log("User received:", actualReceived);
-        console2.log("MaxWithdraw before:", maxWithdrawBefore);
-        console2.log("MaxWithdraw after:", maxWithdrawAfter);
-        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
-
-        // The bug: maxWithdraw is reduced by actualReceived (escrowBalanceAfter)
-        // instead of claimableAmount, leaving the user with extra claimable balance
-        assertEq(actualReceived, escrowBalanceAfter, "User should receive remaining escrow balance");
-        assertEq(maxWithdrawBefore - maxWithdrawAfter, escrowBalanceAfter, "MaxWithdraw reduced by actual received");
-
-        // The user still has claimable balance even though strategy is empty
-        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
-        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw should equal the dust amount");
-
-        // This creates an insolvent state where the user can claim more than the strategy has
-        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
-        assertGt(maxWithdrawAfter, 0, "But user still has claimable balance");
-        */
     }
 
     /// @notice Test the dust bug by directly calling the strategy function
@@ -8451,28 +8277,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redeem
         _requestRedeem(redeemShares);
 
-        console2.log("-----A");
         // Fulfill the redeem request
         _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
 
-        console2.log("-----B");
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
         uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
-        console2.log("-----C");
 
         // Step 2: Reduce strategy balance to trigger dust collection
         uint256 reductionAmount = claimableAmount - escrowBalanceBefore + 5; // 5 wei less than tolerance
-        console2.log("-----D");
 
         // Transfer assets out of strategy
         vm.startPrank(address(escrow));
         asset.transfer(address(this), reductionAmount);
         vm.stopPrank();
-        console2.log("-----E");
 
         uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
         uint256 difference = claimableAmount - escrowBalanceAfter;
-        console2.log("-----F");
 
         console2.log("=== Dust Bug Test ===");
         console2.log("Claimable amount:", claimableAmount);
@@ -8485,46 +8305,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertTrue(difference <= 10, "Difference should be within tolerance");
 
         // Step 3: Directly call the strategy's claim function
-        uint256 maxWithdrawBefore = strategy.claimableWithdraw(accountEth);
-        console2.log("-----G");
-
         // Call the strategy directly (this is what vault.withdraw calls internally)
         vm.startPrank(address(vault));
-
-        // cannot withdraw anymore without the TOLERANCE_CONSTANT
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         strategy.handleOperations7540(
             ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
         );
-
-        /**
-        vm.stopPrank();
-        console2.log("-----G");
-
-        uint256 maxWithdrawAfter = strategy.claimableWithdraw(accountEth);
-        uint256 userBalanceAfter = asset.balanceOf(accountEth);
-        console2.log("-----H");
-
-        console2.log("User balance after claim:", userBalanceAfter);
-        console2.log("MaxWithdraw before:", maxWithdrawBefore);
-        console2.log("MaxWithdraw after:", maxWithdrawAfter);
-        console2.log("MaxWithdraw reduction:", maxWithdrawBefore - maxWithdrawAfter);
-        console2.log("Escrow balance after claim:", asset.balanceOf(address(escrow)));
-
-        // The bug: maxWithdraw is reduced by the actual amount received (strategyBalanceAfter)
-        // instead of the requested amount (claimableAmount)
-        assertEq(maxWithdrawBefore - maxWithdrawAfter, escrowBalanceAfter, "MaxWithdraw reduced by actual received");
-        assertEq(maxWithdrawAfter, difference, "Remaining maxWithdraw equals dust amount");
-
-        // The user still has claimable balance even though strategy is empty
-        assertGt(maxWithdrawAfter, 0, "User should still have positive maxWithdraw");
-        assertEq(asset.balanceOf(address(strategy)), 0, "Strategy should be empty");
-
-        console2.log("=== Bug Confirmed ===");
-        console2.log("User can still claim:", maxWithdrawAfter);
-        console2.log("But escrow has:", asset.balanceOf(address(escrow)));
-        console2.log("Vault is insolvent!");
-         */
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -8751,13 +8537,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accInstances[0].account);
         asset.approve(address(vault), type(uint256).max);
         uint256 shares = vault.previewDeposit(assets);
-        vault.requestDeposit(assets, accInstances[0].account, accInstances[0].account);
+        vault.deposit(assets, accInstances[0].account);
         vm.stopPrank();
         vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = accInstances[0].account;
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
 
         // Fee = ceil(1% of 1000) = 10
         assertEq(asset.balanceOf(TREASURY), 10e6, "fee skimmed to recipient");

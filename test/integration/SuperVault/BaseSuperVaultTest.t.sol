@@ -459,15 +459,17 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
     function __deposit(AccountInstance memory accInst, uint256 depositAmount) internal {
         address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
         bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            //_getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        hooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             address(vault),
             address(asset),
             depositAmount,
-            false
+            false,
+            address(0),
+            0
         );
 
         ISuperExecutor.ExecutorEntry memory entry =
@@ -475,11 +477,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         UserOpData memory userOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(entry));
         executeOp(userOpData);
 
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = address(accInst.account);
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
     }
 
     function __deposit(
@@ -491,60 +488,52 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         internal
     {
         address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
         bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            //_getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        hooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             superVault,
             asset_,
             depositAmount,
-            false
+            false,
+            address(0),
+            0
         );
 
         ISuperExecutor.ExecutorEntry memory entry =
             ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
         UserOpData memory userOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(entry));
         executeOp(userOpData);
-
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = address(accInst.account);
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
     }
 
     function __deposit(
         AccountInstance memory accInst,
         uint256 depositAmount,
         address superVault,
-        address strat,
+        address,
         address asset_
     )
         internal
     {
         address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
+        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
         bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            //_getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        hooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             superVault,
             asset_,
             depositAmount,
-            false
+            false,
+            address(0),
+            0
         );
 
         ISuperExecutor.ExecutorEntry memory entry =
             ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
         UserOpData memory userOpData = _getExecOps(accInst, superExecutorOnEth, abi.encode(entry));
         executeOp(userOpData);
-
-        vm.startPrank(aggregator.getMainManager(strat));
-        address[] memory controllers = new address[](1);
-        controllers[0] = address(accInst.account);
-        SuperVaultStrategy(payable(strat)).fulfillDepositRequest(controllers);
-        vm.stopPrank();
     }
     /*
     Leaving commented for now
