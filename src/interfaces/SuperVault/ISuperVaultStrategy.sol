@@ -55,6 +55,7 @@ interface ISuperVaultStrategy {
     error NO_PROPOSAL();
     error STALE_PPS();
     error INSUFFICIENT_GROSS(uint256 assetsGross, uint256 requiredGross, uint256 sharesNet);
+    error REQUEST_IS_LOCKED();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -81,6 +82,8 @@ interface ISuperVaultStrategy {
     event RedeemRequestPlaced(address indexed controller, address indexed owner, uint256 shares);
     event RedeemRequestFulfilled(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
     event RedeemRequestCanceled(address indexed controller, uint256 shares);
+    event RedeemRequestLocked(address indexed controller, uint256 shares);
+    event RedeemRequestUnlocked(address indexed controller, uint256 shares);
     event HookExecuted(
         address indexed hook,
         address indexed prevHook,
@@ -88,12 +91,10 @@ interface ISuperVaultStrategy {
         bool usePrevHookAmount,
         bytes hookCalldata
     );
-    event FulfillHookExecuted(address indexed hook, address indexed targetedYieldSource, bytes hookCalldata);
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
 
-    event RedeemRequestsFulfilled(address[] hooks, address[] controllers, uint256 processedShares, uint256 currentPPS);
-    event RedeemRequestsFulfilledFromLiquidity(address[] controllers, uint256 processedShares, uint256 currentPPS);
+    event RedeemRequestsFulfilled(address[] controllers, uint256 processedShares, uint256 currentPPS);
 
     event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
@@ -104,7 +105,14 @@ interface ISuperVaultStrategy {
 
     event MintRequestPlaced(address indexed receiver, uint256 shares, uint256 maxAssets);
     event MintRequestCancelled(address indexed receiver, uint256 assets, uint256 shares);
-    event RedeemClaimable(address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice, uint256 accumulatorShares, uint256 accumulatorCostBasis);
+    event RedeemClaimable(
+        address indexed controller,
+        uint256 assetsFulfilled,
+        uint256 sharesFulfilled,
+        uint256 averageWithdrawPrice,
+        uint256 accumulatorShares,
+        uint256 accumulatorCostBasis
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -130,15 +138,6 @@ interface ISuperVaultStrategy {
         bytes32[][] strategyProofs;
     }
 
-    struct FulfillArgs {
-        address[] controllers;
-        address[] hooks;
-        bytes[] hookCalldata;
-        uint256[] expectedAssetsOrSharesOut;
-        bytes32[][] globalProofs;
-        bytes32[][] strategyProofs;
-    }
-
     struct YieldSource {
         address oracle; // Associated yield source oracle address
     }
@@ -161,6 +160,7 @@ interface ISuperVaultStrategy {
         uint256 accumulatorShares;
         uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice; // Average price for claimable assets
+        bool isLocked; // Whether the redeem request is locked to prevent cancellation
     }
 
     struct ExecutionVars {
@@ -222,16 +222,20 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing hooks, calldata, proofs, expectations.
     function executeHooks(ExecuteArgs calldata args) external payable;
 
-    /// @notice Fulfills pending redeem requests by executing specific fulfill hooks.
-    /// @param args Execution arguments containing fulfill hooks, calldata, and expected outputs (proofs ignored).
-    function fulfillRedeemRequests(FulfillArgs calldata args) external payable;
-
-    /// @notice Fulfills pending redeem requests from assets already present in the strategy
+    /// @notice Fulfills pending redeem requests from assets already present in the strategy (async-only flow)
     /// @param controllers Array of controller addresses to fulfill redeem requests for
-    function fulfillRedeemsFromLiquidity(address[] memory controllers) external payable;
+    function fulfillRedeemRequests(address[] memory controllers) external payable;
+
+    /// @notice Locks redeem requests to prevent cancellation during async rebalancing
+    /// @param controllers Array of controller addresses whose requests to lock
+    function lockRedeemRequests(address[] calldata controllers) external;
+
+    /// @notice Unlocks redeem requests to allow cancellation again
+    /// @param controllers Array of controller addresses whose requests to unlock
+    function unlockRedeemRequests(address[] calldata controllers) external;
 
     /// @notice Fulfills pending deposit requests.
-    /// @param controllers Array of controller addresses    
+    /// @param controllers Array of controller addresses
     function fulfillDepositRequest(address[] memory controllers) external;
 
     /*//////////////////////////////////////////////////////////////
