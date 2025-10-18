@@ -10,6 +10,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { LibSort } from "solady/utils/LibSort.sol";
 
 // Core Interfaces
 import {
@@ -34,6 +35,8 @@ import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggre
 /// @author Superform Labs
 /// @notice Strategy implementation for SuperVault that executes strategies
 contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGuardUpgradeable {
+    using LibSort for address[];
+
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -307,6 +310,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
+
+        // make sure controllers are sorted and unique
+        args.controllers.insertionSort();
+        args.controllers.uniquifySorted();
+
 
         // Pre-calculate totals to ensure no overburn of escrowed shares
         uint256 totalRequestedShares;
