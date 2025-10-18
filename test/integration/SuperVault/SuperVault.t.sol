@@ -108,7 +108,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(symbol, "SV_USDC");
     }
 
-    function test_Deposit() public {
+    function test_DepositXQ() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
 
@@ -117,63 +117,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userShares = vault.balanceOf(accountEth);
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
-    }
-
-    function test_Deposit_Async() public {
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
-
-        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
-        assertEq(escrowBalanceBefore, 0, "Escrow should be empty");
-
-        address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
-
-        bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            address(vault),
-            address(asset),
-            depositAmount,
-            false
-        );
-
-        ISuperExecutor.ExecutorEntry memory entry =
-            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
-        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
-        executeOp(userOpData);
-        
-    }
-
-    function test_Deposit_StalePPS() public {
-        vm.startPrank(MANAGER);
-        strategy.setFulfillTimestampThreshold(1);
-        vm.stopPrank();
-        
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _getTokens(address(asset), accInstances[0].account, depositAmount);
-
-        address[] memory hooksAddresses = new address[](1);
-        hooksAddresses[0] = _getHookAddress(ETH, APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY);
-
-        bytes[] memory hooksData = new bytes[](1);
-        hooksData[0] = _createApproveAndRequestDeposit7540HookData(
-            address(vault),
-            address(asset),
-            depositAmount,
-            false
-        );
-
-        ISuperExecutor.ExecutorEntry memory entry =
-            ISuperExecutor.ExecutorEntry({ hooksAddresses: hooksAddresses, hooksData: hooksData });
-        UserOpData memory userOpData = _getExecOps(accInstances[0], superExecutorOnEth, abi.encode(entry));
-        executeOp(userOpData);
-
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = address(accInstances[0].account);
-        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
     }
 
     function test_Deposit_And_Emergency_Withdraw() public {
@@ -448,22 +391,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         
         vm.startPrank(users.user2);
         asset.approve(address(vault), initialDeposit);
-        vault.requestDeposit(initialDeposit, users.user2, users.user2);
+        vault.deposit(initialDeposit, users.user2);
         vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = users.user2;
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
+
         
         vm.startPrank(users.user3);
         asset.approve(address(vault), initialDeposit);
-        vault.requestDeposit(initialDeposit, users.user3, users.user3);
-        vm.stopPrank();
-        vm.startPrank(MANAGER);
-        controllers = new address[](1);
-        controllers[0] = users.user3;
-        strategy.fulfillDepositRequest(controllers);
+        vault.deposit(initialDeposit, users.user3);
         vm.stopPrank();
 
         // Allocate assets to yield sources to simulate real vault operations
@@ -669,13 +603,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accountEth);
         asset.approve(address(vault), postEmergencyDeposit);
         uint256 sharesReceived = vault.previewDeposit(postEmergencyDeposit);
-        vault.requestDeposit(postEmergencyDeposit, accountEth, accountEth);
+        vault.deposit(postEmergencyDeposit, accountEth);
         vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = accountEth;
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
+ 
         
         uint256 sharesAfter = vault.balanceOf(accountEth);
         uint256 assetsAfter = IERC20(address(asset)).balanceOf(accountEth);
@@ -1496,7 +1426,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Deposit should revert with STRATEGY_PAUSED when PPS is 0
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        vault.requestDeposit(testAssets, address(this), address(this));
+        vault.deposit(testAssets, address(this));
     }
 
     function test_MaxMint() public view {
@@ -4120,13 +4050,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(receiver);
         asset.approve(address(vault), depositAmount);
         uint256 shares = vault.previewDeposit(depositAmount);
-        vault.requestDeposit(depositAmount, receiver, receiver);
+        vault.deposit(depositAmount, receiver);
         vm.stopPrank();
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = receiver;
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
+    
 
         // Verify shares were minted to receiver, not sender
         assertEq(vault.balanceOf(receiver), shares, "Receiver should have all shares");
@@ -4151,47 +4077,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_Fix10_ReceiverCanRedeemAfterReceivingDeposit() public {
         uint256 depositAmount = 1000e6;
 
+        // Setup: get tokens for user A (sender)
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+
         // User A will be the sender/controller, User B will be the receiver
         address sender = accInstances[0].account;
         address receiver = accInstances[1].account;
 
-        _getTokens(address(asset), receiver, depositAmount);
-
-
-        console2.log("sender", sender);
-        console2.log("receiver", receiver);
-
-        // Try to find the correct storage slot for isOperator mapping
-        // Let's test different slot numbers
-        bool operatorSet = false;
-        for (uint256 i = 0; i < 200; i++) {
-            bytes32 innerSlot = keccak256(abi.encode(receiver, i));
-            bytes32 slot = keccak256(abi.encode(address(this), innerSlot));
-            
-            vm.store(address(vault), slot, bytes32(uint256(1)));
-            
-            bool isOperatorValue = vault.isOperator(receiver, address(this));
-            if (isOperatorValue) {
-                console2.log("Found correct storage slot:", i);
-                operatorSet = true;
-                break;
-            }
-            
-            // Reset the slot if it wasn't the right one
-            vm.store(address(vault), slot, bytes32(uint256(0)));
-        }
-        
-        require(operatorSet, "Failed to find and set operator storage slot");
-
-        vm.startPrank(receiver);
+        // User A deposits but specifies User B as receiver
+        vm.startPrank(sender);
         asset.approve(address(vault), depositAmount);
-        vm.stopPrank();
-        uint256 shares = vault.previewDeposit(depositAmount);
-        vault.requestDeposit(depositAmount, receiver, receiver);
-        vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = receiver;
-        strategy.fulfillDepositRequest(controllers);
+        uint256 shares = vault.deposit(depositAmount, receiver);
         vm.stopPrank();
 
         // Allocate assets to yield sources
@@ -4207,7 +4103,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), shares, "Shares should be in escrow");
 
         // Fulfill the redeem request
-        controllers = new address[](1);
+        address[] memory controllers = new address[](1);
         controllers[0] = receiver;
         _fulfillRedeemForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
@@ -5484,12 +5380,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
+      
 
         vm.warp(vars.initialTimestamp + 1 days);
 
@@ -6720,12 +6614,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
+ 
 
         // Simulate time passing
         vm.warp(vars.initialTimestamp + 1 days);
@@ -7437,12 +7329,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _getTokens(address(asset), vars.depositUsers[i], vars.depositAmounts[i]);
             vm.startPrank(vars.depositUsers[i]);
             asset.approve(address(vault), vars.depositAmounts[i]);
-            vault.requestDeposit(vars.depositAmounts[i], vars.depositUsers[i], vars.depositUsers[i]);
+            vault.deposit(vars.depositAmounts[i], vars.depositUsers[i]);
             vm.stopPrank();
         }
-        vm.startPrank(MANAGER);
-        strategy.fulfillDepositRequest(vars.depositUsers);
-        vm.stopPrank();
 
         // Fulfill deposit requests
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
@@ -8448,13 +8337,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accInstances[0].account);
         asset.approve(address(vault), type(uint256).max);
         uint256 shares = vault.previewDeposit(assets);
-        vault.requestDeposit(assets, accInstances[0].account, accInstances[0].account);
+        vault.deposit(assets, accInstances[0].account);
         vm.stopPrank();
         vm.startPrank(MANAGER);
-        address[] memory controllers = new address[](1);
-        controllers[0] = accInstances[0].account;
-        strategy.fulfillDepositRequest(controllers);
-        vm.stopPrank();
+ 
 
         // Fee = ceil(1% of 1000) = 10
         assertEq(asset.balanceOf(TREASURY), 10e6, "fee skimmed to recipient");
