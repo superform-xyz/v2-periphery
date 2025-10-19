@@ -77,7 +77,7 @@ coverage :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage for
 
 coverage-genhtml :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt,unused --exclude 'src/libraries/*' --exclude 'src/oracles/SuperOracleBase.sol' --exclude 'src/oracles/SuperOracle.sol' --exclude 'src/oracles/SuperOracleL2.sol' --exclude 'src/SuperAsset/*' --exclude 'src/UP/*' --exclude 'src/VaultBank/*' --exclude 'src/vendor/*' --exclude 'src/BundlerRegistry.sol' --exclude 'test/*'
 
-test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_MultipleUsers_Redeem_From_Liquidity_WithAllocation -vvvv --jobs 10
+test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_ClaimRedeem -vvvv --jobs 10
 
 test-integration :; $(MAKE) ensure-merkle-cache && forge test --match-test test_DeBridgeCancelOrderHook -vvvv --jobs 10
 

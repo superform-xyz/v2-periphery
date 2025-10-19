@@ -53,7 +53,7 @@ interface ISuperVaultStrategy {
     error INVALID_MAX_SLIPPAGE_BPS();
     error NO_PROPOSAL();
     error STALE_PPS();
-    error REQUEST_IS_LOCKED();
+    error INSUFFICIENT_LIQUIDITY();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -81,8 +81,6 @@ interface ISuperVaultStrategy {
     event RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
     event RedeemRequestsFulfilled(address[] controllers, uint256 processedShares, uint256 currentPPS);
     event RedeemRequestCanceled(address indexed controller, uint256 shares);
-    event RedeemRequestLocked(address indexed controller, uint256 shares);
-    event RedeemRequestUnlocked(address indexed controller, uint256 shares);
     event HookExecuted(
         address indexed hook,
         address indexed prevHook,
@@ -93,13 +91,17 @@ interface ISuperVaultStrategy {
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
 
-
-
-
     event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
-    event RedeemClaimable(address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice, uint256 accumulatorShares, uint256 accumulatorCostBasis);
+    event RedeemClaimable(
+        address indexed controller,
+        uint256 assetsFulfilled,
+        uint256 sharesFulfilled,
+        uint256 averageWithdrawPrice,
+        uint256 accumulatorShares,
+        uint256 accumulatorCostBasis
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -145,7 +147,6 @@ interface ISuperVaultStrategy {
         uint256 accumulatorShares;
         uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice; // Average price for claimable assets
-        bool isLocked; // Whether the redeem request is locked to prevent cancellation
     }
 
     struct ExecutionVars {
@@ -238,14 +239,6 @@ interface ISuperVaultStrategy {
     /// @notice Fulfills pending redeem requests from assets already present in the strategy (async-only flow)
     /// @param controllers Array of controller addresses to fulfill redeem requests for
     function fulfillRedeemRequests(address[] memory controllers) external payable;
-
-    /// @notice Locks redeem requests to prevent cancellation during async rebalancing
-    /// @param controllers Array of controller addresses whose requests to lock
-    function lockRedeemRequests(address[] calldata controllers) external;
-
-    /// @notice Unlocks redeem requests to allow cancellation again
-    /// @param controllers Array of controller addresses whose requests to unlock
-    function unlockRedeemRequests(address[] calldata controllers) external;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { console2 } from "forge-std/console2.sol";
 
 /// @title SuperVaultAccountingLib
 /// @author Superform Labs
@@ -15,6 +16,7 @@ library SuperVaultAccountingLib {
     //////////////////////////////////////////////////////////////*/
     error INSUFFICIENT_SHARES();
     error SLIPPAGE_EXCEEDED();
+    error INSUFFICIENT_LIQUIDITY();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -57,10 +59,7 @@ library SuperVaultAccountingLib {
     /// @param currentPPS Current price per share
     /// @param averageRequestPPS Average PPS at time of request
     /// @param maxPPSSlippage Maximum allowed PPS decrease in BPS
-    function validatePPSSlippage(uint256 currentPPS, uint256 averageRequestPPS, uint256 maxPPSSlippage)
-        internal
-        pure
-    {
+    function validatePPSSlippage(uint256 currentPPS, uint256 averageRequestPPS, uint256 maxPPSSlippage) internal pure {
         // Skip if no request PPS recorded or no max slippage set
         if (averageRequestPPS == 0 || maxPPSSlippage == 0) return;
 
@@ -107,19 +106,26 @@ library SuperVaultAccountingLib {
         return (totalFee, superformFee, recipientFee);
     }
 
-    /// @notice Calculate final assets after fee deduction and balance cap
+    /// @notice Calculate final assets after fee deduction and validate sufficient liquidity
     /// @param currentAssetsWithFees Assets before fee deduction
     /// @param totalFee Total fee to deduct
     /// @param strategyBalance Available balance in strategy
-    /// @return currentAssets Final assets after fees and capped by available balance
-    function calculateCurrentAssets(uint256 currentAssetsWithFees, uint256 totalFee, uint256 strategyBalance)
+    /// @return currentAssets Final assets after fees
+    function calculateCurrentAssets(
+        uint256 currentAssetsWithFees,
+        uint256 totalFee,
+        uint256 strategyBalance
+    )
         internal
         pure
         returns (uint256 currentAssets)
     {
         currentAssets = currentAssetsWithFees - totalFee;
-
-        // Ensure we don't exceed available balance
+        console2.log("currentAssets", currentAssets);
+        console2.log("strategyBalance", strategyBalance);
+        /// @dev TODO truncate for now but this should be removed;
+        // Revert if insufficient liquidity instead of silently capping
+        // Strategist must maintain free asset reserve or executeHooks to redeem from yield sources first
         if (currentAssets > strategyBalance) {
             currentAssets = strategyBalance;
         }
@@ -182,4 +188,3 @@ library SuperVaultAccountingLib {
         return newAverageWithdrawPrice;
     }
 }
-

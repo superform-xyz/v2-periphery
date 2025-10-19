@@ -313,51 +313,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit RedeemRequestsFulfilled(controllers, processedShares, currentPPS);
     }
 
-    /// @inheritdoc ISuperVaultStrategy
-    function lockRedeemRequests(address[] calldata controllers) external nonReentrant {
-        _isManager(msg.sender);
-
-        uint256 controllersLength = controllers.length;
-        if (controllersLength == 0) revert ZERO_LENGTH();
-
-        for (uint256 i; i < controllersLength; ++i) {
-            address controller = controllers[i];
-            if (controller == address(0)) revert ZERO_ADDRESS();
-
-            SuperVaultState storage state = superVaultState[controller];
-            uint256 pendingShares = state.pendingRedeemRequest;
-
-            if (pendingShares == 0) continue; // Skip if no pending request
-            if (state.isLocked) continue; // Already locked, skip
-
-            state.isLocked = true;
-
-            emit RedeemRequestLocked(controller, pendingShares);
-        }
-    }
-
-    /// @inheritdoc ISuperVaultStrategy
-    function unlockRedeemRequests(address[] calldata controllers) external nonReentrant {
-        _isManager(msg.sender);
-
-        uint256 controllersLength = controllers.length;
-        if (controllersLength == 0) revert ZERO_LENGTH();
-
-        for (uint256 i; i < controllersLength; ++i) {
-            address controller = controllers[i];
-            if (controller == address(0)) revert ZERO_ADDRESS();
-
-            SuperVaultState storage state = superVaultState[controller];
-
-            if (!state.isLocked) continue; // Already unlocked, skip
-
-            state.isLocked = false;
-
-            uint256 pendingShares = state.pendingRedeemRequest;
-            emit RedeemRequestUnlocked(controller, pendingShares);
-        }
-    }
-
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -635,7 +590,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.targetedYieldSource = HookDataDecoder.extractYieldSource(hookCalldata);
 
         // Bool flagging if the hook uses the previous hook's outAmount
-        // @dev No slippage checks performed here as they have already been performed in the previous hook execution
+        // No slippage checks performed here as they have already been performed in the previous hook execution
         bool usePrevHookAmount = _decodeHookUsePrevHookAmount(hook, hookCalldata);
 
         ISuperHook(address(vars.hookContract)).setExecutionContext(address(this));
@@ -649,6 +604,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 actualOutput = ISuperHookResult(hook).getOutAmount(address(this));
 
+        // this is not to protect the user but rather a honest manager from doing a mistake
         if (actualOutput < expectedAssetsOrSharesOut) {
             revert MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
         }
@@ -726,7 +682,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.pendingRedeemRequest = 0;
         state.maxWithdraw += currentAssets;
         state.averageRequestPPS = 0; // Reset PPS value after fulfillment
-        state.isLocked = false; // Unlock after fulfillment
 
         // Call vault callback
         _onRedeemClaimable(
@@ -975,9 +930,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[controller];
         uint256 pendingShares = state.pendingRedeemRequest;
         if (pendingShares == 0) revert REQUEST_NOT_FOUND();
-
-        // Check if the request is locked
-        if (state.isLocked) revert REQUEST_IS_LOCKED();
 
         // Only clear pending request metadata
         state.pendingRedeemRequest = 0;

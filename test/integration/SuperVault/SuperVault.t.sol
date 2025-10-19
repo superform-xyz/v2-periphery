@@ -130,7 +130,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 vaultBalance = vault.balanceOf(accountEth);
         _requestRedeem(vaultBalance);
-        _fulfillRedeem(vaultBalance, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(vaultBalance, address(fluidVault), address(aaveVault), new address[](0));
 
         vm.startPrank(MANAGER);
 
@@ -749,7 +749,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 vaultBalance = vault.balanceOf(accountEth);
         uint256 redeemShares = vaultBalance - (vaultBalance * 2e4 / 1e5);
         _requestRedeem(redeemShares);
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Verify state
         assertEq(strategy.pendingRedeemRequest(accountEth), 0, "Pending redeem request not cleared");
@@ -766,7 +766,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redemption
         uint256 vaultBalance = vault.balanceOf(accountEth);
         _requestRedeem(vaultBalance);
-        _fulfillRedeem(vaultBalance, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(vaultBalance, address(fluidVault), address(aaveVault), new address[](0));
 
         // Verify state
         assertEq(strategy.pendingRedeemRequest(accountEth), 0, "Pending redeem request not cleared");
@@ -821,7 +821,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 vaultBalance = vault.balanceOf(accountEth);
         uint256 redeemShares = vaultBalance - (vaultBalance * 2e4 / 1e5);
         _requestRedeem(redeemShares);
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Verify state
         assertEq(strategy.pendingRedeemRequest(accountEth), 0, "Pending redeem request not cleared");
@@ -849,7 +849,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redeem of half the shares
         uint256 redeemShares = initialShares / 2;
         _requestRedeem(redeemShares);
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         console2.log("-------------- balance strategy after redeem ", asset.balanceOf(address(strategy)));
         // Get claimable assets
@@ -1035,7 +1035,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("  Vault 2 allocation:", allocationAmountVault2);
         console2.log("  Total allocation:", allocationAmountVault1 + allocationAmountVault2);
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -1473,7 +1473,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Make and fulfill redeem request
         _requestRedeem(userBalance);
-        _fulfillRedeem(userBalance, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(userBalance, address(fluidVault), address(aaveVault), new address[](0));
 
         // After fulfillment, maxWithdraw should match claimable amount
         uint256 claimable = strategy.claimableWithdraw(accountEth);
@@ -1495,7 +1495,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userShares = vault.balanceOf(accountEth);
         uint256 redeemAmount = userShares / 2;
         _requestRedeem(redeemAmount);
-        _fulfillRedeem(redeemAmount, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemAmount, address(fluidVault), address(aaveVault), new address[](0));
 
         // After fulfillment, maxRedeem should match the shares equivalent to claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
@@ -1552,7 +1552,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Make and fulfill redemption request to get claimable assets
         uint256 userShares = vault.balanceOf(accountEth);
         _requestRedeem(userShares);
-        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Get claimable amount
         uint256 maxRedeem = vault.maxRedeem(accountEth);
@@ -1753,7 +1753,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         // fulfill redeem
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -1795,7 +1795,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 allocationAmountVault1 = totalRedeemShares / 2;
         uint256 allocationAmountVault2 = totalRedeemShares - allocationAmountVault1;
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -1838,7 +1838,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         (uint256 allocationAmountVault1, uint256 allocationAmountVault2) = _calculateVaultShares(totalRedeemShares);
 
         // fulfill redeem for half the users
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
         console2.log("fulfilled redeem for half the users");
@@ -1873,7 +1873,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         allocationAmountVault2 = totalRedeemShares - allocationAmountVault1;
 
         // fulfill remaining users
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
     }
@@ -1920,7 +1920,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 allocationAmountVault1 = redeemAmount / 2;
         uint256 allocationAmountVault2 = redeemAmount - allocationAmountVault1;
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
@@ -1947,7 +1947,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 allocationAmountVault1 = redeemAmount / 2;
         uint256 allocationAmountVault2 = redeemAmount - allocationAmountVault1;
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
         console2.log("------fulfilled redeem");
@@ -2080,7 +2080,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         address[] memory requestingUsers = new address[](1);
         requestingUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, vars.firstHalf, vars.secondHalf, address(fluidVault), address(aaveVault)
         );
 
@@ -2144,7 +2144,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.allocationAmountVault1 = vars.totalRedeemAmount / 2;
         vars.allocationAmountVault2 = vars.totalRedeemAmount - vars.allocationAmountVault1;
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers,
             vars.allocationAmountVault1,
             vars.allocationAmountVault2,
@@ -2206,7 +2206,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 allocationAmountVault1 = totalRedeemAmount / 2;
         uint256 allocationAmountVault2 = totalRedeemAmount - allocationAmountVault1;
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -2284,7 +2284,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Redeem allocation vault1:", allocationAmountVault1 * 100 / totalRedeemAmount, "%");
         console2.log("Redeem allocation vault2:", allocationAmountVault2 * 100 / totalRedeemAmount, "%");
 
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -2400,7 +2400,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redeem of half the shares
         uint256 redeemShares = initialShares / 2;
         _requestRedeem(redeemShares);
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Get claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
@@ -2724,7 +2724,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
 
         // Step 5: Fulfill Redeem
-        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Calculate expected assets based on shares
         uint256 claimableAssets = vault.maxWithdraw(accountEth);
@@ -2825,7 +2825,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
 
         // Step 5: Fulfill Redeem
-        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Calculate expected assets based on shares
         uint256 claimableAssets = vault.maxWithdraw(accountEth);
@@ -2907,7 +2907,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
 
         // Step 5: Fulfill Redeem
-        _fulfillRedeem(userShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Calculate expected assets based on shares
         uint256 claimableShares = vault.maxRedeem(accountEth);
@@ -3025,7 +3025,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(vars.redeemAmount1);
 
         // Step 2: Fulfill first Redeem
-        _fulfillRedeem(vars.redeemAmount1, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(vars.redeemAmount1, address(fluidVault), address(aaveVault), new address[](0));
 
         // Step 3: Claim first Withdraw
         vars.claimableShares1 = vault.maxRedeem(accountEth);
@@ -3066,7 +3066,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(vars.redeemAmount2);
 
         // Step 2: Fulfill second Redeem
-        _fulfillRedeem(vars.redeemAmount2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(vars.redeemAmount2, address(fluidVault), address(aaveVault), new address[](0));
 
         // Step 3: Claim second Withdraw
         vars.claimableShares2 = vault.maxRedeem(accountEth);
@@ -3106,7 +3106,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(vars.finalShares);
 
         // Step 2: Fulfill third Redeem
-        _fulfillRedeem(vars.finalShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(vars.finalShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Step 3: Claim third Withdraw
         vars.claimableShares3 = vault.maxRedeem(accountEth);
@@ -3395,7 +3395,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             strategyGearSuperVault.previewPerformanceFee(accountEth, userShares);
 
         // Step 5: Fulfill Redeem
-        _fulfillRedeem_Gearbox_SV();
+        _executeRedeemHooks4626_Gearbox_SV();
 
         uint256 claimableAssets = gearSuperVault.maxWithdraw(accountEth);
         uint256 claimableShares = gearSuperVault.maxRedeem(accountEth);
@@ -3565,7 +3565,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
-    function _fulfillRedeem_Gearbox_SV() internal {
+    function _executeRedeemHooks4626_Gearbox_SV() internal {
         /// @dev with preserve percentages based on USD value allocation
         address[] memory requestingUsers = new address[](1);
         requestingUsers[0] = accountEth;
@@ -3574,29 +3574,32 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory fulfillHooksAddresses = new address[](1);
         fulfillHooksAddresses[0] = withdrawHookAddress;
 
-        uint256 shares = strategyGearSuperVault.pendingRedeemRequest(accountEth);
+        uint256 svShares = strategyGearSuperVault.pendingRedeemRequest(accountEth);
+
+        // Convert SuperVault shares to underlying vault shares
+        uint256 assets = gearSuperVault.convertToAssets(svShares);
+        uint256 underlyingShares = gearboxVault.convertToShares(assets);
 
         bytes[] memory fulfillHooksData = new bytes[](1);
         fulfillHooksData[0] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             address(gearboxVault),
             address(strategyGearSuperVault),
-            shares,
+            underlyingShares,
             false
         );
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        uint256 assets = gearSuperVault.convertToAssets(shares);
-        uint256 underlyingShares = gearboxVault.previewDeposit(assets);
-        expectedAssetsOrSharesOut[0] = underlyingShares - underlyingShares * 1e3 / 1e5;
+        expectedAssetsOrSharesOut[0] = gearboxVault.convertToAssets(underlyingShares);
+        expectedAssetsOrSharesOut[0] = expectedAssetsOrSharesOut[0] - expectedAssetsOrSharesOut[0] * 1e3 / 1e5;
 
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
 
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.fulfillRedeemRequests(
-            ISuperVaultStrategy.FulfillArgs({
-                controllers: requestingUsers,
+        // Execute hooks first
+        strategyGearSuperVault.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
                 hooks: fulfillHooksAddresses,
                 hookCalldata: fulfillHooksData,
                 expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
@@ -3604,6 +3607,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 strategyProofs: new bytes32[][](1)
             })
         );
+
+        // Then fulfill redemption requests from liquidity
+        strategyGearSuperVault.fulfillRedeemRequests(requestingUsers);
         vm.stopPrank();
     }
 
@@ -4021,7 +4027,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[1].account;
 
-        _fulfillRedeemForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
         assertGt(IERC7540Redeem(address(vault)).claimableRedeemRequest(0, accInstances[1].account), 0);
         assertEq(IERC7540Redeem(address(vault)).pendingRedeemRequest(0, accInstances[1].account), 0);
@@ -4051,7 +4057,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[1].account;
 
-        _fulfillRedeemForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
         assertGt(IERC7540Redeem(address(vault)).claimableRedeemRequest(0, accInstances[1].account), 0);
         assertEq(IERC7540Redeem(address(vault)).pendingRedeemRequest(0, accInstances[1].account), 0);
@@ -4131,7 +4137,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Fulfill the redeem request
         address[] memory controllers = new address[](1);
         controllers[0] = receiver;
-        _fulfillRedeemForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
         // Verify redemption was fulfilled
         assertEq(strategy.pendingRedeemRequest(receiver), 0, "Pending redeem should be cleared");
@@ -4223,7 +4229,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Fulfill the redeem request - should not revert with INSUFFICIENT_SHARES
         address[] memory controllers = new address[](1);
         controllers[0] = ownerController;
-        _fulfillRedeemForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(controllers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
 
         // Verify fulfillment was successful
         assertEq(strategy.pendingRedeemRequest(ownerController), 0, "Pending redeem should be cleared");
@@ -4264,7 +4270,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Fulfill redeem to create claimable state
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(
+            redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault)
+        );
 
         // Record state before transfer
         uint256 pendingBefore = strategy.pendingRedeemRequest(accInstances[0].account);
@@ -4460,7 +4468,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             redeemUsers, remainingSharesA / 2, remainingSharesA / 2, address(fluidVault), address(aaveVault)
         );
 
@@ -4546,7 +4554,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 4: Fulfill redeem (should work without errors)
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(
+            redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault)
+        );
 
         // Verify fulfillment worked
         uint256 claimableAssets = strategy.claimableWithdraw(accInstances[0].account);
@@ -4576,7 +4586,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAccount(accInstances[0], firstRedeemShares);
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             redeemUsers, firstRedeemShares / 2, firstRedeemShares / 2, address(fluidVault), address(aaveVault)
         );
 
@@ -4709,7 +4719,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAccount(accInstances[0], redeemShares);
         address[] memory redeemUsers = new address[](1);
         redeemUsers[0] = accInstances[0].account;
-        _fulfillRedeemForUsers(redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(
+            redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault)
+        );
 
         // Verify final fulfillment worked
         uint256 claimableAssets = strategy.claimableWithdraw(accInstances[0].account);
@@ -4803,7 +4815,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         users[0] = account;
 
         vm.startPrank(MANAGER);
-        strategy.fulfillRedeemsFromLiquidity(users);
+        strategy.fulfillRedeemRequests(users);
         vm.stopPrank();
 
         // Verify balances
@@ -4844,7 +4856,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         vm.startPrank(MANAGER);
-        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers);
         vm.stopPrank();
 
         // Verify SuperVaultState is properly cleared for all users after fulfillment
@@ -4882,22 +4894,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 redeemShares;
         uint256 totalRedeemShares;
+        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
         for (uint256 i; i < ACCOUNT_COUNT; i++) {
             redeemShares = vault.balanceOf(accInstances[i].account);
             _requestRedeemForAccount(accInstances[i], redeemShares);
             totalRedeemShares += redeemShares;
-        }
-
-        _executeRedeemHooks4626(totalRedeemShares, address(fluidVault), address(aaveVault));
-
-        address[] memory requestingUsers = new address[](ACCOUNT_COUNT);
-        for (uint256 i; i < ACCOUNT_COUNT; i++) {
             requestingUsers[i] = accInstances[i].account;
         }
 
-        vm.startPrank(MANAGER);
-        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
-        vm.stopPrank();
+        // Execute redeem hooks and fulfill requests in one call
+        _executeRedeemHooks4626(totalRedeemShares, address(fluidVault), address(aaveVault), requestingUsers);
 
         // Verify SuperVaultState is properly cleared for all users after fulfillment
         for (uint256 i; i < ACCOUNT_COUNT; i++) {
@@ -4975,7 +4981,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         vm.startPrank(MANAGER);
-        strategy.fulfillRedeemsFromLiquidity(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers);
         vm.stopPrank();
 
         // Verify SuperVaultState is properly cleared for all users after fulfillment
@@ -5591,7 +5597,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Fulfill redemptions
         vars.redeemSharesVault1 = vars.totalRedeemShares / 2;
         vars.redeemSharesVault2 = vars.totalRedeemShares - vars.redeemSharesVault1;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             vars.redeemUsers, vars.redeemSharesVault1, vars.redeemSharesVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -5725,7 +5731,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = vars.assetsVault1;
         vars.expectedAssetsOrSharesOut[1] = vars.assetsVault2;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             vars.redeemUsers,
             vars.redeemSharesVault1,
             vars.redeemSharesVault2,
@@ -5873,7 +5879,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         // fulfill redeem
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -5908,7 +5914,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         // fulfill redeem
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
@@ -7299,7 +7305,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
     //     address[] memory redeemUsers = new address[](1);
     //     redeemUsers[0] = accInstances[1].account;
 
-    //     _fulfillRedeemForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault), address(aaveVault));
+    //     _executeRedeemHooks4626ForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault),
+    // address(aaveVault));
 
     //     // console2.log("asset balance ofuser2", IERC20(address(asset)).balanceOf(accInstances[1].account));
 
@@ -7612,7 +7619,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             // revert
 
         // this should revert
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             vars.redeemUsers,
             vars.redeemSharesVault1,
             vars.redeemSharesVault2,
@@ -7624,7 +7631,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.expectedAssetsOrSharesOut[0] = vars.assetsVault1 / 2;
         vars.expectedAssetsOrSharesOut[1] = vars.assetsVault2 / 2;
-        _fulfillRedeemForUsers(
+        _executeRedeemHooks4626ForUsers(
             vars.redeemUsers,
             vars.redeemSharesVault1,
             vars.redeemSharesVault2,
@@ -8058,7 +8065,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(redeemShares);
 
         // Fulfill the redeem request
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Get the claimable amount
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
@@ -8167,7 +8174,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(redeemShares);
 
         // Fulfill the redeem request
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // ^ at this point assets are in escrow
 
@@ -8227,7 +8234,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(redeemShares);
 
         // Fulfill the redeem request
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
         uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
@@ -8278,7 +8285,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(redeemShares);
 
         // Fulfill the redeem request
-        _fulfillRedeem(redeemShares, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
         uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
         uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
@@ -8754,7 +8761,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
 
         // Step 5: Fulfill Redeem
-        _fulfillRedeem7540Underlying(userShares, address(aaveVault), address(centrifugeVault), account);
+        _executeRedeemHooks7540(userShares, address(aaveVault), address(centrifugeVault), account);
 
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
@@ -8835,7 +8842,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 allocationVault1 = totalPendingShares / 2;
         uint256 allocationVault2 = totalPendingShares - allocationVault1;
 
-        _fulfillRedeemForUsers(redeemUsers, allocationVault1, allocationVault2, address(fluidVault), address(aaveVault));
+        _executeRedeemHooks4626ForUsers(
+            redeemUsers, allocationVault1, allocationVault2, address(fluidVault), address(aaveVault)
+        );
 
         console2.log("\n=== PHASE 6: CLAIMING FINAL ASSETS ===");
 
