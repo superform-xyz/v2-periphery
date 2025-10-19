@@ -51,6 +51,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
 
+    /// @dev Default redeem slippage tolerance when user hasn't set their own (0.5%)
+    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 50;
+
     uint256 public PRECISION;
 
     /*//////////////////////////////////////////////////////////////
@@ -429,6 +432,18 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /*//////////////////////////////////////////////////////////////
+                        USER OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVaultStrategy
+    function setRedeemSlippage(uint16 slippageBps) external {
+        if (slippageBps > BPS_PRECISION) revert INVALID_REDEEM_SLIPPAGE_BPS();
+
+        superVaultState[msg.sender].redeemSlippageBps = slippageBps;
+
+        emit RedeemSlippageSet(msg.sender, slippageBps);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         PPS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     // @inheritdoc ISuperVaultStrategy
@@ -642,11 +657,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, requestedShares);
 
         // Calculate current value of shares
-        uint256 currentAssetsWithFees = requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
+        uint256 claimableAssetsWithFees = requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
         // Calculate performance fee using library
         (uint256 totalFee, uint256 superformFee, uint256 recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
-            currentAssetsWithFees,
+            claimableAssetsWithFees,
             historicalAssets,
             feeConfig.performanceFeeBps,
             superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
@@ -666,27 +681,38 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             emit FeePaid(recipient, recipientFee, feeConfig.performanceFeeBps);
         }
 
-        // Calculate final assets using library
+        // Get user's slippage tolerance (or use default if not set)
+        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
+
+        // Calculate final assets using library with slippage protection
+        // Slippage is anchored to REQUEST PPS to protect user from PPS drops
         uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
-        uint256 currentAssets =
-            SuperVaultAccountingLib.calculateCurrentAssets(currentAssetsWithFees, totalFee, strategyBalance);
+        uint256 claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
+            claimableAssetsWithFees,
+            totalFee,
+            strategyBalance,
+            slippageBps,
+            requestedShares,
+            state.averageRequestPPS,
+            PRECISION
+        );
 
         // Update average withdraw price using library
         if (requestedShares > 0) {
             state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-                state.maxWithdraw, state.averageWithdrawPrice, requestedShares, currentAssetsWithFees, PRECISION
+                state.maxWithdraw, state.averageWithdrawPrice, requestedShares, claimableAssetsWithFees, PRECISION
             );
         }
 
         // Update user state, no partial redeems allowed
         state.pendingRedeemRequest = 0;
-        state.maxWithdraw += currentAssets;
+        state.maxWithdraw += claimableAssets;
         state.averageRequestPPS = 0; // Reset PPS value after fulfillment
 
         // Call vault callback
         _onRedeemClaimable(
             controller,
-            currentAssets,
+            claimableAssets,
             requestedShares,
             state.averageWithdrawPrice,
             state.accumulatorShares,

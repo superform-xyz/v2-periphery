@@ -1835,8 +1835,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             requestingUsers[i] = accInstances[i].account;
         }
 
-        (uint256 allocationAmountVault1, uint256 allocationAmountVault2) = _calculateVaultShares(totalRedeemShares);
-
+        uint256 allocationAmountVault1 = totalRedeemShares / 2;
+        uint256 allocationAmountVault2 = totalRedeemShares - allocationAmountVault1;
         // fulfill redeem for half the users
         _executeRedeemHooks4626ForUsers(
             requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
@@ -5865,6 +5865,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
             uint256 vaultBalance = vault.balanceOf(accInstances[i].account);
             totalRedeemShares += vaultBalance;
+            // Set slippage tolerance to 5% for all users
+            vm.prank(accInstances[i].account);
+            strategy.setRedeemSlippage(500); // 500 BPS = 5%
         }
 
         // request redeem for all users

@@ -1257,7 +1257,14 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
         hooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
+        console2.log("Redeem Shares", redeemShares);
         (uint256 vault1SharesOut, uint256 vault2SharesOut) = _convertSVStoUnderlyingShares(redeemShares, vault1, vault2);
+
+        vault1SharesOut = _truncateToActualBalance(vault1SharesOut, vault1);
+        vault2SharesOut = _truncateToActualBalance(vault2SharesOut, vault2);
+
+        console2.log("Vault 1 Shares Out", vault1SharesOut);
+        console2.log("Vault 2 Shares Out", vault2SharesOut);
 
         bytes[] memory hooksData = new bytes[](2);
         hooksData[0] = _createRedeem4626HookData(
@@ -1356,6 +1363,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
         uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
+        // Truncate to actual balance if needed (reverts if more than 1% below expected)
+        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1);
+        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2);
+
         address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
         address[] memory fulfillHooksAddresses = new address[](2);
@@ -1429,6 +1440,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         // Convert SuperVault shares to underlying vault shares
         uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
         uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
+
+        // Truncate to actual balance if needed (reverts if more than 1% below expected)
+        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1);
+        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
             expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
@@ -1515,6 +1530,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
         (vars.aaveSharesOut, vars.centrifugeSharesOut) =
             _calculateVaultShares7540Underlying(redeemShares, vault1, vault2);
+
+        // Truncate to actual balance if needed (reverts if more than 1% below expected)
+        vars.aaveSharesOut = _truncateToActualBalance(vars.aaveSharesOut, vault1);
+        vars.centrifugeSharesOut = _truncateToActualBalance(vars.centrifugeSharesOut, IERC7540(vault2).share());
 
         uint256 aaveShares = IERC4626(address(vault1)).balanceOf(address(strategy));
         uint256 centrifugeShares = IERC20Metadata(centrifugeVault.share()).balanceOf(address(strategy));
@@ -2330,36 +2349,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         return pps;
     }
 
-    function _calculateVaultShares(uint256 redeemShares)
-        internal
-        view
-        returns (uint256 fluidSharesOut, uint256 aaveSharesOut)
-    {
-        // Get current shares in each vault
-        uint256 fluidShares = fluidVault.balanceOf(address(strategy));
-        uint256 aaveShares = aaveVault.balanceOf(address(strategy));
-
-        // Convert shares to underlying asset values
-        uint256 fluidUsdcValue = fluidVault.convertToAssets(fluidShares);
-        uint256 aaveUsdcValue = aaveVault.convertToAssets(aaveShares);
-
-        console2.log("fluidUsdcValue", fluidUsdcValue);
-        console2.log("aaveUsdcValue", aaveUsdcValue);
-
-        // Calculate proportional split based on USD values
-        uint256 totalUsdValue = fluidUsdcValue + aaveUsdcValue;
-
-        if (totalUsdValue > 0) {
-            fluidSharesOut = (redeemShares * fluidUsdcValue) / totalUsdValue;
-            aaveSharesOut = redeemShares - fluidSharesOut; // Use subtraction to avoid rounding errors
-
-            console2.log("fluidSharesOut", fluidSharesOut);
-            console2.log("aaveSharesOut", aaveSharesOut);
-        }
-
-        return (fluidSharesOut, aaveSharesOut);
-    }
-
     function _calculateVaultShares7540Underlying(
         uint256 redeemShares,
         address vault1,
@@ -2369,32 +2358,20 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         view
         returns (uint256 vault1SharesOut, uint256 vault2SharesOut)
     {
-        // Get current shares in each vault
-        uint256 vault1Shares = IERC4626(vault1).balanceOf(address(strategy));
-        uint256 vault2Shares = IERC20Metadata(IERC7540(vault2).share()).balanceOf(address(strategy));
+        console2.log("Redeem Shares", redeemShares);
+        uint256 sharesAsAssetsFromSV = vault.convertToAssets(redeemShares);
+        console2.log("Assets From SV", sharesAsAssetsFromSV);
 
-        // Convert shares to underlying asset values
-        uint256 vault1UsdcValue = IERC4626(vault1).convertToAssets(vault1Shares);
-        uint256 vault2UsdcValue = IERC7540(vault2).convertToAssets(vault2Shares);
+        uint256 vault1Assets = sharesAsAssetsFromSV / 2;
+        uint256 vault2Assets = sharesAsAssetsFromSV - vault1Assets;
+        console2.log("Vault 1 assets", vault1Assets);
+        console2.log("Vault 2 assets", vault2Assets);
 
-        console2.log("---vault1SharesBalance", vault1Shares);
-        console2.log("---vault2SharesBalance", vault2Shares);
+        vault1SharesOut = IERC4626(vault1).previewWithdraw(vault1Assets);
+        vault2SharesOut = IERC7540(vault2).convertToShares(vault2Assets);
 
-        console2.log("---vault1UsdcValue", vault1UsdcValue);
-        console2.log("---vault2UsdcValue", vault2UsdcValue);
-
-        // Calculate proportional split based on USD values
-        uint256 totalUsdValue = vault1UsdcValue + vault2UsdcValue;
-
-        if (totalUsdValue > 0) {
-            vault1SharesOut = (redeemShares * vault1UsdcValue) / totalUsdValue;
-            vault2SharesOut = redeemShares - vault1SharesOut;
-
-            console2.log("---vault1SharesOut", vault1SharesOut);
-            console2.log("---vault2SharesOut", vault2SharesOut);
-        }
-
-        return (vault1SharesOut, vault2SharesOut);
+        console2.log("---vault1SharesOut", vault1SharesOut);
+        console2.log("---vault2SharesOut", vault2SharesOut);
     }
 
     function _convertSVStoUnderlyingShares(
@@ -2406,13 +2383,17 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         view
         returns (uint256 vault1SharesOut, uint256 vault2SharesOut)
     {
+        console2.log("Redeem Shares", redeemShares);
         uint256 sharesAsAssetsFromSV = vault.convertToAssets(redeemShares);
+        console2.log("Assets From SV", sharesAsAssetsFromSV);
 
         uint256 vault1Assets = sharesAsAssetsFromSV / 2;
         uint256 vault2Assets = sharesAsAssetsFromSV - vault1Assets;
+        console2.log("Vault 1 assets", vault1Assets);
+        console2.log("Vault 2 assets", vault2Assets);
 
-        vault1SharesOut = IERC4626(vault1).convertToShares(vault1Assets);
-        vault2SharesOut = IERC4626(vault2).convertToShares(vault2Assets);
+        vault1SharesOut = IERC4626(vault1).previewWithdraw(vault1Assets);
+        vault2SharesOut = IERC4626(vault2).previewWithdraw(vault2Assets);
     }
 
     /**
@@ -2430,7 +2411,48 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         returns (uint256 underlyingShares)
     {
         uint256 assets = vault.convertToAssets(svShares);
-        underlyingShares = IERC4626(underlyingVault).convertToShares(assets);
+        underlyingShares = IERC4626(underlyingVault).previewWithdraw(assets);
+    }
+
+    /**
+     * @notice Truncates expected underlying shares to actual balance if needed
+     * @dev Reverts if actual balance is more than 1% lower than expected
+     * @param expectedShares The expected underlying vault shares
+     * @param underlyingVault The underlying ERC4626 vault address
+     * @return adjustedShares The adjusted shares (truncated to balance if necessary)
+     */
+    function _truncateToActualBalance(
+        uint256 expectedShares,
+        address underlyingVault
+    )
+        internal
+        view
+        returns (uint256 adjustedShares)
+    {
+        uint256 actualBalance = IERC4626(underlyingVault).balanceOf(address(strategy));
+
+        if (actualBalance >= expectedShares) {
+            // Balance is sufficient, no truncation needed
+            return expectedShares;
+        }
+
+        // Calculate minimum acceptable balance (99% of expected)
+        uint256 minAcceptableBalance = expectedShares * 99 / 100;
+        console2.log("vault", underlyingVault);
+        console2.log("minAcceptableBalance", minAcceptableBalance);
+        console2.log("actualBalance", actualBalance);
+        if (actualBalance < minAcceptableBalance) {
+            revert("Vault balance too low: more than 1% below expected");
+        }
+
+        uint256 truncatedValue = expectedShares - actualBalance;
+
+        console2.log("truncated value", truncatedValue);
+
+        assertLe(truncatedValue, 1);
+
+        // Balance is lower but within 1% tolerance, truncate to actual
+        return actualBalance;
     }
 
     /**

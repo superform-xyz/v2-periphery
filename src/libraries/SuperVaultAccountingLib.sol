@@ -106,31 +106,62 @@ library SuperVaultAccountingLib {
         return (totalFee, superformFee, recipientFee);
     }
 
-    /// @notice Calculate final assets after fee deduction and validate sufficient liquidity
-    /// @param currentAssetsWithFees Assets before fee deduction
-    /// @param totalFee Total fee to deduct
-    /// @param strategyBalance Available balance in strategy
-    /// @return currentAssets Final assets after fees
-    function calculateCurrentAssets(
-        uint256 currentAssetsWithFees,
+    /// @notice Calculate final assets with dual-bound slippage protection
+    /// @dev Implements dual-bound check:
+    ///      - Lower bound: User's slippage protection against total losses (anchored to REQUEST PPS)
+    ///      - Upper bound: Vault PPS preservation (never overpay)
+    /// @param claimableAssetsWithFees Assets before fee deduction (theoretical amount at current PPS)
+    /// @param totalFee Total performance fee to deduct
+    /// @param strategyBalance Total available balance in strategy
+    /// @param slippageBps User's slippage tolerance in basis points
+    /// @param requestedShares Number of shares being redeemed
+    /// @param averageRequestPPS PPS at the time of request
+    /// @param precision Precision constant for PPS calculations
+    /// @return claimableAssets Final assets user will receive (actual payout)
+    function calculateClaimableAssets(
+        uint256 claimableAssetsWithFees,
         uint256 totalFee,
-        uint256 strategyBalance
+        uint256 strategyBalance,
+        uint256 slippageBps,
+        uint256 requestedShares,
+        uint256 averageRequestPPS,
+        uint256 precision
     )
         internal
         pure
-        returns (uint256 currentAssets)
+        returns (uint256 claimableAssets)
     {
-        currentAssets = currentAssetsWithFees - totalFee;
-        console2.log("currentAssets", currentAssets);
-        console2.log("strategyBalance", strategyBalance);
-        /// @dev TODO truncate for now but this should be removed;
-        // Revert if insufficient liquidity instead of silently capping
-        // Strategist must maintain free asset reserve or executeHooks to redeem from yield sources first
-        if (currentAssets > strategyBalance) {
-            currentAssets = strategyBalance;
+        // Step 1: Calculate expected assets based on REQUEST PPS
+        // This is what user expected to receive when they submitted the request
+        uint256 expectedAssetsAtRequest = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
+
+        // Step 2: Apply user's slippage to REQUEST expectations, then subtract fees
+        // This protects against ALL losses: PPS drops, rounding, and UYS slippage combined
+        uint256 minAssetOut =
+            expectedAssetsAtRequest.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
+        // Subtract fees from minimum (fees are already transferred out of strategyBalance)
+        if (minAssetOut > totalFee) {
+            minAssetOut -= totalFee;
+        } else {
+            minAssetOut = 0;
         }
 
-        return currentAssets;
+        // Step 3: Check lower bound - ensure strategy has enough to meet user's minimum
+        // Fees have already been transferred out, so strategyBalance is post-fee
+        if (strategyBalance < minAssetOut) {
+            revert SLIPPAGE_EXCEEDED();
+        }
+
+        // Step 4: Calculate theoretical assets at current PPS (after fees)
+        uint256 theoreticalAssets = claimableAssetsWithFees - totalFee;
+
+        // Step 5: Pay user the minimum of (strategyBalance, theoreticalAssets)
+        // - If strategyBalance < theoretical: user absorbs the loss (within their slippage tolerance)
+        // - If strategyBalance >= theoretical: user gets exactly what they're entitled to (never overpay)
+        // This preserves vault PPS: paying out <= theoretical means PPS doesn't decrease
+        claimableAssets = strategyBalance < theoreticalAssets ? strategyBalance : theoreticalAssets;
+
+        return claimableAssets;
     }
 
     /// @notice Validate redemption share amounts are within tolerance bounds

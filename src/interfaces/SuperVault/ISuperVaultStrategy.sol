@@ -54,6 +54,7 @@ interface ISuperVaultStrategy {
     error NO_PROPOSAL();
     error STALE_PPS();
     error INSUFFICIENT_LIQUIDITY();
+    error INVALID_REDEEM_SLIPPAGE_BPS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -102,6 +103,7 @@ interface ISuperVaultStrategy {
         uint256 accumulatorShares,
         uint256 accumulatorCostBasis
     );
+    event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -147,6 +149,7 @@ interface ISuperVaultStrategy {
         uint256 accumulatorShares;
         uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice; // Average price for claimable assets
+        uint16 redeemSlippageBps; // User-defined slippage tolerance in BPS for redeem fulfillment
     }
 
     struct ExecutionVars {
@@ -293,6 +296,13 @@ interface ISuperVaultStrategy {
     /// @param to The address receiving shares
     /// @param shares The amount of shares being transferred
     function moveAccumulatorOnTransfer(address from, address to, uint256 shares) external;
+
+    /*//////////////////////////////////////////////////////////////
+                        USER OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Set the slippage tolerance for redeem fulfillment
+    /// @param slippageBps Slippage tolerance in basis points (e.g., 50 = 0.5%)
+    function setRedeemSlippage(uint16 slippageBps) external;
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
