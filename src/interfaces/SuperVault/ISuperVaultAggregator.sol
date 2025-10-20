@@ -364,9 +364,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a strategy is unknown
     event UnknownStrategy(address indexed strategy);
 
-    /// @notice Emitted when a strategy is managed by Superform
-    event SuperformManager(address indexed strategy, address indexed manager);
-
     /// @notice Emitted when the caller is authorized
     event AuthorizedCaller(address indexed strategy, address indexed caller);
 

@@ -255,8 +255,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit PaymentSkippedForPausedStrategy(strategy);
                 } else if (block.timestamp - ts > data.maxStaleness) {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
-                } else if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                    emit SuperformManager(strategy, manager);
                 } else {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
