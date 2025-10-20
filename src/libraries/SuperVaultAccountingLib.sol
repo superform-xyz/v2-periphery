@@ -134,7 +134,7 @@ library SuperVaultAccountingLib {
         // Step 1: Calculate expected assets based on REQUEST PPS
         // This is what user expected to receive when they submitted the request
         uint256 expectedAssetsAtRequest = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
-
+        console2.log("slippagebps", slippageBps);
         // Step 2: Apply user's slippage to REQUEST expectations, then subtract fees
         // This protects against ALL losses: PPS drops, rounding, and UYS slippage combined
         uint256 minAssetOut =
@@ -146,6 +146,8 @@ library SuperVaultAccountingLib {
             minAssetOut = 0;
         }
 
+        console2.log("strategyBalance:", strategyBalance);
+        console2.log("minAssetOut:", minAssetOut);
         // Step 3: Check lower bound - ensure strategy has enough to meet user's minimum
         // Fees have already been transferred out, so strategyBalance is post-fee
         if (strategyBalance < minAssetOut) {
