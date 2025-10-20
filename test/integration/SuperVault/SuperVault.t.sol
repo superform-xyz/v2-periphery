@@ -2792,8 +2792,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        // Update max PPS slippage to BPS_PRECISION (100%)
-        _updateMaxPPSSlippageToMax();
 
         uint256 BPS_PRECISION = 10_000;
 

@@ -50,7 +50,6 @@ interface ISuperVaultStrategy {
     error OPERATIONS_BLOCKED_BY_VETO();
     error HOOK_VALIDATION_FAILED();
     error STRATEGY_PAUSED();
-    error INVALID_MAX_SLIPPAGE_BPS();
     error NO_PROPOSAL();
     error STALE_PPS();
     error INSUFFICIENT_LIQUIDITY();
@@ -76,7 +75,6 @@ interface ISuperVaultStrategy {
     event VaultFeeConfigProposed(
         uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient, uint256 effectiveTime
     );
-    event MaxPPSSlippageUpdated(uint256 maxSlippageBps);
     event HooksExecuted(address[] hooks);
     event RedeemRequestPlaced(address indexed controller, address indexed owner, uint256 shares);
     event RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
@@ -278,9 +276,6 @@ interface ISuperVaultStrategy {
     /// @notice Execute the proposed vault fee configuration update after timelock
     function executeVaultFeeConfigUpdate() external;
 
-    /// @notice Update the maximum allowed PPS slippage for redemptions
-    /// @param maxSlippageBps Maximum slippage in basis points (e.g., 100 = 1%)
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) external;
 
     /// @notice Manage emergency withdrawals
     /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal

@@ -64,7 +64,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint8 private _vaultDecimals;
 
     // Global configuration
-    uint256 private _maxPPSSlippage;
 
     // Fee configuration
     FeeConfig private feeConfig;
@@ -119,7 +118,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
-        _maxPPSSlippage = 500; // 5% as a start, configurable later
 
         emit Initialized(_vault);
     }
@@ -372,13 +370,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
     }
 
-    // @inheritdoc ISuperVaultStrategy
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) external {
-        _isPrimaryManager(msg.sender);
-        if (maxSlippageBps > BPS_PRECISION) revert INVALID_MAX_SLIPPAGE_BPS();
-        _maxPPSSlippage = maxSlippageBps;
-        emit MaxPPSSlippageUpdated(maxSlippageBps);
-    }
 
     /// @inheritdoc ISuperVaultStrategy
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external {
@@ -538,7 +529,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Get the current price per share
         uint256 currentPPS = getStoredPPS();
 
-        // Calculate historical assets (cost basis)
+        // Calculate historical assets (cost basis) proportionally
         uint256 historicalAssets = 0;
         if (state.accumulatorShares > 0) {
             historicalAssets =
@@ -548,22 +539,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Calculate current value of shares in asset terms
         uint256 currentAssetsWithFees = sharesToRedeem.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
-        // Calculate fee (if any) using same logic as _calculateAndTransferFee
-        if (currentAssetsWithFees > historicalAssets) {
-            uint256 profit = currentAssetsWithFees - historicalAssets;
-            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-
-            if (totalFee > 0) {
-                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                superformFee = totalFee.mulDiv(
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
-                );
-                recipientFee = totalFee - superformFee;
-            }
-        }
-
-        return (totalFee, superformFee, recipientFee);
+        // Use the stateless library function for fee calculation - makes it easier to audit
+        return SuperVaultAccountingLib.calculatePerformanceFee(
+            currentAssetsWithFees,
+            historicalAssets,
+            feeConfig.performanceFeeBps,
+            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -634,8 +616,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 requestedShares = state.pendingRedeemRequest;
 
-        // Validate PPS slippage using library
-        SuperVaultAccountingLib.validatePPSSlippage(currentPPS, state.averageRequestPPS, _maxPPSSlippage);
 
         // Calculate cost basis using library
         uint256 historicalAssets;
@@ -1017,17 +997,5 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 strategyProof: strategyProof
             })
         );
-    }
-
-    function _createNamespacedSlot(string memory _name) internal returns (bytes32) {
-        bytes32 _NS_COUNTER = keccak256(bytes(_name));
-        uint256 _callId;
-        assembly ("memory-safe") {
-            let c := add(tload(_NS_COUNTER), 1)
-            tstore(_NS_COUNTER, c)
-            _callId := c
-        }
-        bytes32 _ns = keccak256(abi.encodePacked(_name, ".seen", address(this), _callId));
-        return _ns;
     }
 }

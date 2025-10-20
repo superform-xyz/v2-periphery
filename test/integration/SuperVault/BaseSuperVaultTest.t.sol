@@ -2559,14 +2559,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         return newArray;
     }
 
-    /**
-     * @notice Updates max PPS slippage to BPS_PRECISION (100%)
-     */
-    function _updateMaxPPSSlippageToMax() internal {
-        uint256 BPS_PRECISION = 10_000;
-        vm.prank(MANAGER);
-        strategy.updateMaxPPSSlippage(BPS_PRECISION);
-    }
 
     /// @notice Updates redeem slippages for all accounts
     function _updateRedeemSlippages(uint16 slippageBps) internal {
