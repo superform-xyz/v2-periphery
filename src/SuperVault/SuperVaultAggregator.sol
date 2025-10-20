@@ -199,7 +199,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         for (uint256 i; i < secondaryLen; ++i) {
             _strategyData[strategy].secondaryManagers.add(params.secondaryManagers[i]);
         }
-        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
+        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -347,13 +347,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Allow only the main manager or UNPAUSER_ROLE to unpause
-        bool isUnpauser = IAccessControl(address(SUPER_GOVERNOR)).hasRole(
-            SUPER_GOVERNOR.UNPAUSER_ROLE(),
-            msg.sender
-        );
- 
-        if (msg.sender != _strategyData[strategy].mainManager && !isUnpauser) {
+        // Allow only the UNPAUSER_ROLE to unpause
+        if (!_isUnpauser(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
@@ -524,13 +519,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check if manager is already the primary manager
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
-        // Add as secondary manager using EnumerableSet
-        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
-
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
-        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
+        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
+
+        // Add as secondary manager using EnumerableSet
+        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
 
         emit SecondaryManagerAdded(strategy, manager);
     }

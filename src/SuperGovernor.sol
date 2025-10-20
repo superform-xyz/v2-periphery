@@ -1172,9 +1172,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
-        uint256 ethAmount = weiAmount * 1e9;
+        uint256 gweiAmount = weiAmount * 1e9;
         (uint256 ethToUsd,,,) =
-            ISuperOracle(oracle).getQuoteFromProvider(ethAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
+            ISuperOracle(oracle).getQuoteFromProvider(gweiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
         (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
