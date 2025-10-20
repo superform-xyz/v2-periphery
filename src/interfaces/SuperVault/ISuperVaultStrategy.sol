@@ -54,6 +54,7 @@ interface ISuperVaultStrategy {
     error STALE_PPS();
     error INSUFFICIENT_LIQUIDITY();
     error INVALID_REDEEM_SLIPPAGE_BPS();
+    error ZERO_REQUEST_PPS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -172,6 +173,19 @@ interface ISuperVaultStrategy {
         ISuperHook.HookType hookType;
     }
 
+    struct LiquidityRedeemVars {
+        uint256 requestedShares;
+        uint256 historicalAssets;
+        uint256 claimableAssetsWithFees;
+        uint256 totalFee;
+        uint256 superformFee;
+        uint256 recipientFee;
+        uint16 slippageBps;
+        uint256 strategyBalance;
+        uint256 avgRequestPPS;
+        uint256 claimableAssets;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
@@ -275,7 +289,6 @@ interface ISuperVaultStrategy {
 
     /// @notice Execute the proposed vault fee configuration update after timelock
     function executeVaultFeeConfigUpdate() external;
-
 
     /// @notice Manage emergency withdrawals
     /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal

@@ -16,7 +16,6 @@ library SuperVaultAccountingLib {
     error INSUFFICIENT_SHARES();
     error SLIPPAGE_EXCEEDED();
     error INSUFFICIENT_LIQUIDITY();
-    error ZERO_REQUEST_PPS();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -113,8 +112,6 @@ library SuperVaultAccountingLib {
         pure
         returns (uint256 claimableAssets)
     {
-        if (averageRequestPPS == 0) revert ZERO_REQUEST_PPS();
-
         // Step 1: Calculate expected assets based on REQUEST PPS
         // This is what user expected to receive when they submitted the request
         uint256 expectedAssetsAtRequest = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);

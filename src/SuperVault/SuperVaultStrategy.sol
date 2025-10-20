@@ -286,8 +286,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
 
-        // make sure controllers are sorted and unique
-        controllers.insertionSort();
+        // make sure controllers are unique
         controllers.uniquifySorted();
 
         // Pre-calculate totals to ensure no overburn of escrowed shares
@@ -612,78 +611,86 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         returns (uint256 processedShares)
     {
         SuperVaultState storage state = superVaultState[controller];
+        LiquidityRedeemVars memory vars;
 
-        uint256 requestedShares = state.pendingRedeemRequest;
+        vars.requestedShares = state.pendingRedeemRequest;
 
         // Calculate cost basis using library
-        uint256 historicalAssets;
-        (historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
-            .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, requestedShares);
+        (vars.historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
+            .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, vars.requestedShares);
 
         // Calculate current value of shares
-        uint256 claimableAssetsWithFees = requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
+        vars.claimableAssetsWithFees = vars.requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
         // Calculate performance fee using library
-        (uint256 totalFee, uint256 superformFee, uint256 recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
-            claimableAssetsWithFees,
-            historicalAssets,
+        (vars.totalFee, vars.superformFee, vars.recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
+            vars.claimableAssetsWithFees,
+            vars.historicalAssets,
             feeConfig.performanceFeeBps,
             superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
         );
 
         // Transfer fees if applicable
-        if (superformFee > 0) {
+        if (vars.superformFee > 0) {
             address treasury = superGovernor.getAddress(superGovernor.TREASURY());
-            _safeTokenTransfer(address(_asset), treasury, superformFee);
-            emit FeePaid(treasury, superformFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), treasury, vars.superformFee);
+            emit FeePaid(treasury, vars.superformFee, feeConfig.performanceFeeBps);
         }
 
-        if (recipientFee > 0) {
+        if (vars.recipientFee > 0) {
             address recipient = feeConfig.recipient;
             if (recipient == address(0)) revert ZERO_ADDRESS();
-            _safeTokenTransfer(address(_asset), recipient, recipientFee);
-            emit FeePaid(recipient, recipientFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), recipient, vars.recipientFee);
+            emit FeePaid(recipient, vars.recipientFee, feeConfig.performanceFeeBps);
         }
 
         // Get user's slippage tolerance (or use default if not set)
-        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
+        vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
 
         // Calculate final assets using library with slippage protection
         // Slippage is anchored to REQUEST PPS to protect user from PPS drops
-        uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
-        uint256 claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
-            claimableAssetsWithFees,
-            totalFee,
-            strategyBalance,
-            slippageBps,
-            requestedShares,
-            state.averageRequestPPS,
+        vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
+
+        vars.avgRequestPPS = state.averageRequestPPS;
+        if (vars.avgRequestPPS == 0) revert ZERO_REQUEST_PPS();
+
+        vars.claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
+            vars.claimableAssetsWithFees,
+            vars.totalFee,
+            vars.strategyBalance,
+            vars.slippageBps,
+            vars.requestedShares,
+            vars.avgRequestPPS,
             PRECISION
         );
 
         // Update average withdraw price using library
-        if (requestedShares > 0) {
+        if (vars.requestedShares > 0) {
             state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-                state.maxWithdraw, state.averageWithdrawPrice, requestedShares, claimableAssetsWithFees, PRECISION
+                state.maxWithdraw,
+                state.averageWithdrawPrice,
+                vars.requestedShares,
+                vars.claimableAssetsWithFees,
+                PRECISION
             );
         }
 
         // Update user state, no partial redeems allowed
         state.pendingRedeemRequest = 0;
-        state.maxWithdraw += claimableAssets;
+        state.maxWithdraw += vars.claimableAssets;
         state.averageRequestPPS = 0; // Reset PPS value after fulfillment
 
         // Call vault callback
         _onRedeemClaimable(
             controller,
-            claimableAssets,
-            requestedShares,
+            vars.claimableAssets,
+            vars.requestedShares,
             state.averageWithdrawPrice,
             state.accumulatorShares,
             state.accumulatorCostBasis
         );
 
-        processedShares = requestedShares;
+        processedShares = vars.requestedShares;
     }
 
     /*//////////////////////////////////////////////////////////////
