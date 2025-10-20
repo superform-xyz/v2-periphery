@@ -45,8 +45,6 @@ interface ISuperVault {
 
     event NonceInvalidated(address indexed sender, bytes32 indexed nonce);
 
-    event RedeemRequestCancelled(address indexed controller, address indexed sender);
-
     event SuperGovernorSet(address indexed superGovernor);
     
     event DepositRequestCancelled(address indexed receiver, address indexed caller, uint256 assets);
@@ -59,8 +57,6 @@ interface ISuperVault {
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
-
-    function cancelRedeem(address controller) external;
 
     /// @notice Mint shares, only callable by strategy
     /// @param to The address to mint shares to

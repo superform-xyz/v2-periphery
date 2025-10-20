@@ -1619,7 +1619,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Cancel redeem
         vm.prank(accountEth);
-        vault.cancelRedeem(accountEth);
+        vault.cancelRedeemRequest(0, accountEth);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accountEth);
+        vault.claimCancelRedeemRequest(0, accountEth, accountEth);
+
 
         // Verify state after cancellation
         assertEq(vault.pendingRedeemRequest(0, accountEth), 0, "Pending request should be cleared");
@@ -1631,7 +1641,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Try to cancel when there's no request
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
-        vault.cancelRedeem(accountEth);
+        vault.cancelRedeemRequest(0, accountEth);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -4524,7 +4534,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 2: Cancel redeem
         vm.prank(accInstances[0].account);
-        vault.cancelRedeem(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accInstances[0].account);
+        vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify cancel cleared pending fields but preserved accumulators
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
@@ -4607,7 +4626,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Cancel the second request
         vm.prank(accInstances[0].account);
-        vault.cancelRedeem(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accInstances[0].account);
+        vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify claimable state is preserved
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
@@ -4658,8 +4686,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAccount(accInstances[0], redeemShares);
 
         // Cancel redeem
+         vm.prank(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
         vm.prank(accInstances[0].account);
-        vault.cancelRedeem(accInstances[0].account);
+        vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify accumulators are exactly the same
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
@@ -4696,7 +4733,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Cycle 1: Request → Cancel
         _requestRedeemForAccount(accInstances[0], redeemShares);
         vm.prank(accInstances[0].account);
-        vault.cancelRedeem(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accInstances[0].account);
+        vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify state after first cancel
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel1 =
@@ -4707,7 +4753,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Cycle 2: Request → Cancel
         _requestRedeemForAccount(accInstances[0], redeemShares);
         vm.prank(accInstances[0].account);
-        vault.cancelRedeem(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        vm.startPrank(MANAGER);
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accInstances[0].account);
+        vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify state after second cancel
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel2 =

@@ -245,6 +245,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _handleCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
+        } else if (operation == Operation.CancelRedeemRequest) {
+            _handleCancelRedeemRequest(controller);
         } else {
             revert ACTION_TYPE_DISALLOWED();
         }
@@ -278,6 +280,29 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 _processSingleHookExecution(hook, prevHook, args.hookCalldata[i], args.expectedAssetsOrSharesOut[i]);
         }
         emit HooksExecuted(args.hooks);
+    }
+
+    function fulfillCancelRedeemRequests(address[] memory controllers) external nonReentrant {
+        _isManager(msg.sender);
+
+        // Check if strategy is paused
+        if (_isPaused()) revert STRATEGY_PAUSED();
+
+        uint256 controllersLength = controllers.length;
+        if (controllersLength == 0) revert ZERO_LENGTH();
+
+        // make sure controllers are sorted and unique
+        controllers.insertionSort();
+        controllers.uniquifySorted();
+
+        for (uint256 i; i < controllersLength; ++i) {
+            SuperVaultState storage state = superVaultState[controllers[i]];
+            if (state.pendingCancellationRedeemRequest) {
+                state.pendingCancellationRedeemRequest = false;
+                state.pendingCancellationRedeemRequestFulfilled = true;
+                emit RedeemCancelRequestFulfilled(controllers[i], state.pendingRedeemRequest);
+            }
+        }
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -525,6 +550,17 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // @inheritdoc ISuperVaultStrategy
     function claimableWithdraw(address controller) external view returns (uint256 claimableAssets) {
         return superVaultState[controller].maxWithdraw;
+    }
+
+    // @inheritdoc ISuperVaultStrategy
+    function pendingCancellationRedeemRequest(address controller) external view returns (bool) {
+        return superVaultState[controller].pendingCancellationRedeemRequest;
+    }
+
+    // @inheritdoc ISuperVaultStrategy
+    function claimableCancelRedeemRequest(address controller) external view returns (uint256 claimableShares) {
+        if (!superVaultState[controller].pendingCancellationRedeemRequestFulfilled) return 0;
+        return superVaultState[controller].pendingRedeemRequest;
     }
 
     // @inheritdoc ISuperVaultStrategy
@@ -949,7 +985,19 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit RedeemRequestPlaced(controller, controller, shares);
     }
 
-    /// @notice Internal function to handle a redeem cancellation
+    /// @notice Internal function to handle a redeem cancellation request
+    /// @param controller Address of the controller
+    function _handleCancelRedeemRequest(address controller) private {
+        if (controller == address(0)) revert ZERO_ADDRESS();
+        SuperVaultState storage state = superVaultState[controller];
+        if (state.pendingRedeemRequest == 0) revert REQUEST_NOT_FOUND();
+        if (state.pendingCancellationRedeemRequest || state.pendingCancellationRedeemRequestFulfilled) revert CANCELLATION_REDEEM_REQUEST_PENDING();
+        
+        state.pendingCancellationRedeemRequest = true;
+        emit RedeemCancelRequestPlaced(controller);
+    }
+
+    /// @notice Internal function to handle a claim redeem cancellation
     /// @param controller Address of the controller
     function _handleCancelRedeem(address controller) private {
         if (controller == address(0)) revert ZERO_ADDRESS();
@@ -957,9 +1005,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 pendingShares = state.pendingRedeemRequest;
         if (pendingShares == 0) revert REQUEST_NOT_FOUND();
 
-        // Only clear pending request metadata
+        if (!state.pendingCancellationRedeemRequestFulfilled) revert CANCELLATION_REDEEM_REQUEST_PENDING();
+
+        // Clear pending request metadata
         state.pendingRedeemRequest = 0;
         state.averageRequestPPS = 0;
+        state.pendingCancellationRedeemRequest = false;
+        state.pendingCancellationRedeemRequestFulfilled = false;
         emit RedeemRequestCanceled(controller, pendingShares);
     }
 

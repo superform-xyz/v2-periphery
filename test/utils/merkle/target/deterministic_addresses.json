@@ -1,18 +1,18 @@
 {
-  "timestamp": 1760682124271,
-  "addressHash": "[\"0x01d1cf44a0a7c83457f5db373b3a01a95a4853da\",\"0x021210ad662b08fb81a53a560d9a03de8098c4f5\",\"0x04d27192ee5dc3699a8058ff1d34a31adbae368c\",\"0x08efaf0eb3662cacb0b30fe11d794a10f6f78d01\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x13c43599b83d0080624711b4c112307e44e98727\",\"0x1d10385bc2585e178d07918b820eab124a328cc2\",\"0x1fb1f544cfa43eba145bdab5aae306ea310238c4\",\"0x28c9c5f7c31438380e22b03b12fd1345b3b2bf37\",\"0x2e61fd42b7d5b2a882cb32dbe605f23d2b570e32\",\"0x3514f3c1a4ea412ff4ebfe410ddfa6e451d6ad80\",\"0x395055c952e907d7dc0e48b8b0c27dd0460cc5c6\",\"0x4bcd88abde29e42a66c661596fdef3aa9337be7f\",\"0x54ad48ca6a2b3d5c6f2875ced3221637028b7caa\",\"0x742f73a782f2d63735d94a117dba7eb73590df2b\",\"0x92bd9b2fb1e55283452760e369979eda4c180286\",\"0xa44982ae9000894bd2d66ff3365d914658295c0e\",\"0xb572b235901669b98e23920b161530f6191037d3\",\"0xb642cbd3e599c6c3946c56a6bcd712a9dfed408d\",\"0xca5060d3b853771d75fdb3ecaecdc020eef5ac45\",\"0xd4ca32fb524ede8faea6f0ab3b32fd366187875d\",\"0xef9e49285ea5deca9248cdbbe77aa7442359feea\",\"0xf032836827c0fb2c5bc07cc1ee96c4e3a3e27adb\",\"0xfdcecfc913fb31c98835697ab52705e2b1dde17d\"]",
+  "timestamp": 1760955613929,
+  "addressHash": "[\"0x01d1cf44a0a7c83457f5db373b3a01a95a4853da\",\"0x021210ad662b08fb81a53a560d9a03de8098c4f5\",\"0x04d27192ee5dc3699a8058ff1d34a31adbae368c\",\"0x08efaf0eb3662cacb0b30fe11d794a10f6f78d01\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x0d73a464b722bf807fb4163ebb5e487658620dce\",\"0x13c43599b83d0080624711b4c112307e44e98727\",\"0x1a55ca1a782a1aca84504de1536b8cda58a05576\",\"0x1d10385bc2585e178d07918b820eab124a328cc2\",\"0x1fb1f544cfa43eba145bdab5aae306ea310238c4\",\"0x2220f3471780384325932c69aac6a83dd480a850\",\"0x28c9c5f7c31438380e22b03b12fd1345b3b2bf37\",\"0x2e61fd42b7d5b2a882cb32dbe605f23d2b570e32\",\"0x2f2abf8909fb64c13ecf6e99fa67e926cc10c3b8\",\"0x3514f3c1a4ea412ff4ebfe410ddfa6e451d6ad80\",\"0x4bcd88abde29e42a66c661596fdef3aa9337be7f\",\"0x742f73a782f2d63735d94a117dba7eb73590df2b\",\"0x92bd9b2fb1e55283452760e369979eda4c180286\",\"0xa44982ae9000894bd2d66ff3365d914658295c0e\",\"0xb642cbd3e599c6c3946c56a6bcd712a9dfed408d\",\"0xca5060d3b853771d75fdb3ecaecdc020eef5ac45\",\"0xd4ca32fb524ede8faea6f0ab3b32fd366187875d\",\"0xef9e49285ea5deca9248cdbbe77aa7442359feea\",\"0xf032836827c0fb2c5bc07cc1ee96c4e3a3e27adb\",\"0xfdcecfc913fb31c98835697ab52705e2b1dde17d\"]",
   "addresses": {
     "vaults": {
       "test1_DynamicAllocation_MockVault": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
-      "test3_UnderlyingVaults_StressTest": "0xb572b235901669b98E23920B161530f6191037d3",
+      "test3_UnderlyingVaults_StressTest": "0x2220F3471780384325932c69aAC6A83Dd480A850",
       "test6_yieldAccumulation_vault1": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D",
       "test6_yieldAccumulation_vault2": "0x13C43599b83d0080624711B4c112307e44E98727",
       "test6_yieldAccumulation_vault3": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32",
       "test6_yieldAccumulation_WithRebalancing_vault1": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4",
       "test6_yieldAccumulation_WithRebalancing_vault2": "0x021210aD662B08fb81a53a560d9a03De8098C4f5",
       "test6_yieldAccumulation_WithRebalancing_vault3": "0xa44982Ae9000894BD2D66ff3365d914658295c0E",
-      "test10_RuggableVault_Deposit": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6",
-      "test10_RuggableVault_Withdraw": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA",
+      "test10_RuggableVault_Deposit": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8",
+      "test10_RuggableVault_Withdraw": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576",
       "test10_RuggableVault_Withdraw_ConvertDistortion": "0x92bd9b2Fb1E55283452760e369979EDa4C180286",
       "test11_Allocate_NewYieldSource": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
       "MOCK_ETH_RECEIVER": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"

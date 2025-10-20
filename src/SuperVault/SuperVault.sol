@@ -21,7 +21,7 @@ import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Operator, IERC7540Redeem, IERC7741 } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7540Operator, IERC7540Redeem, IERC7741, IERC7540CancelRedeem } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
 
@@ -38,6 +38,7 @@ contract SuperVault is
     IERC7540Redeem,
     IERC7741,
     IERC4626,
+    IERC7540CancelRedeem,
     ISuperVault,
     ReentrancyGuardUpgradeable,
     EIP712Upgradeable
@@ -194,19 +195,31 @@ contract SuperVault is
         return REQUEST_ID;
     }
 
-    /// @inheritdoc ISuperVault
-    function cancelRedeem(address controller) external {
+    /// @inheritdoc IERC7540CancelRedeem
+    function cancelRedeemRequest(uint256 /*requestId*/, address controller) external {
         _validateController(controller);
 
-        uint256 shares = strategy.pendingRedeemRequest(controller);
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeemRequest, controller, address(0), 0);
+
+        emit CancelRedeemRequest(controller, REQUEST_ID, msg.sender);
+    }
+
+    /// @inheritdoc IERC7540CancelRedeem
+    function claimCancelRedeemRequest(uint256 /*requestId*/, address receiver, address controller) external returns (uint256 shares) {
+        _validateController(controller);
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
+        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
+
+        shares = strategy.pendingRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
 
         // Return shares to controller
-        ISuperVaultEscrow(escrow).returnShares(controller, shares);
+        ISuperVaultEscrow(escrow).returnShares(receiver, shares);
 
-        emit RedeemRequestCancelled(controller, msg.sender);
+        emit CancelRedeemClaim(receiver, controller, REQUEST_ID, msg.sender, shares);
     }
 
     /// @inheritdoc IERC7540Operator
@@ -279,6 +292,16 @@ contract SuperVault is
         returns (uint256 claimableShares)
     {
         return maxRedeem(controller);
+    }
+
+    /// @inheritdoc IERC7540CancelRedeem
+    function pendingCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (bool isPending) {
+        isPending = strategy.pendingCancellationRedeemRequest(controller);
+    }
+
+    /// @inheritdoc IERC7540CancelRedeem
+    function claimableCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (uint256 claimableShares) {
+        return strategy.claimableCancelRedeemRequest(controller);
     }
 
     //--Operator Management--

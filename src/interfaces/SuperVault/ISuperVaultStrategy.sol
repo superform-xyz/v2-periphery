@@ -55,6 +55,7 @@ interface ISuperVaultStrategy {
     error STALE_PPS();
     error INSUFFICIENT_LIQUIDITY();
     error INVALID_REDEEM_SLIPPAGE_BPS();
+    error CANCELLATION_REDEEM_REQUEST_PENDING();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -82,6 +83,8 @@ interface ISuperVaultStrategy {
     event RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
     event RedeemRequestsFulfilled(address[] controllers, uint256 processedShares, uint256 currentPPS);
     event RedeemRequestCanceled(address indexed controller, uint256 shares);
+    event RedeemCancelRequestPlaced(address indexed controller);
+    event RedeemCancelRequestFulfilled(address indexed controller, uint256 shares);
     event HookExecuted(
         address indexed hook,
         address indexed prevHook,
@@ -141,6 +144,9 @@ interface ISuperVaultStrategy {
 
     /// @notice State specific to asynchronous redeem requests
     struct SuperVaultState {
+        // Cancellation
+        bool pendingCancellationRedeemRequest;
+        bool pendingCancellationRedeemRequestFulfilled;
         // Redeems
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
@@ -179,6 +185,7 @@ interface ISuperVaultStrategy {
     //////////////////////////////////////////////////////////////*/
     enum Operation {
         RedeemRequest,
+        CancelRedeemRequest,
         CancelRedeem,
         ClaimRedeem,
         Claim,
@@ -367,6 +374,16 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @return pendingShares The amount of shares pending redemption
     function pendingRedeemRequest(address controller) external view returns (uint256 pendingShares);
+
+    /// @notice Get the pending cancellation for a redeem request for a controller
+    /// @param controller The controller address
+    /// @return isPending True if the redeem request is pending cancellation
+    function pendingCancellationRedeemRequest(address controller) external view returns (bool isPending);
+
+    /// @notice Get the claimable cancel redeem request amount (shares) for a controller
+    /// @param controller The controller address
+    /// @return claimableShares The amount of shares claimable
+    function claimableCancelRedeemRequest(address controller) external view returns (uint256 claimableShares);
 
     /// @notice Get the claimable withdraw amount (assets) for a controller
     /// @param controller The controller address
