@@ -90,9 +90,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
-        vm.startPrank(MANAGER);
-        strategy.setFulfillTimestampThreshold(100 days);
-        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -3448,9 +3445,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearSuperVault = SuperVault(gearSuperVaultAddr);
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
-        vm.startPrank(MANAGER);
-        strategyGearSuperVault.setFulfillTimestampThreshold(100 days);
-        vm.stopPrank();
 
         // Add a new yield source as manager
         vm.startPrank(MANAGER);

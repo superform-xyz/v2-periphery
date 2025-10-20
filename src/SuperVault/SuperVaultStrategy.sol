@@ -66,9 +66,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Global configuration
     uint256 private _maxPPSSlippage;
 
-    // Fulfill deposit timestamp threshold
-    uint256 private _fulfillTimestampThreshold;
-
     // Fee configuration
     FeeConfig private feeConfig;
     FeeConfig private proposedFeeConfig;
@@ -91,8 +88,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
-
-        _fulfillTimestampThreshold = 1 days;
 
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
@@ -446,19 +441,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         PPS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
-    function setFulfillTimestampThreshold(uint256 timestampThreshold) external {
-        _isPrimaryManager(msg.sender);
-        _fulfillTimestampThreshold = timestampThreshold;
-    }
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
-    function getFulfillTimestampThreshold() external view returns (uint256) {
-        return _fulfillTimestampThreshold;
-    }
     // @inheritdoc ISuperVaultStrategy
 
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {

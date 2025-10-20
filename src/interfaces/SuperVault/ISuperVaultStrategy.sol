@@ -307,8 +307,6 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Get the fulfill timestamp threshold
-    function getFulfillTimestampThreshold() external view returns (uint256);
 
     /// @notice Get the vault info
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals);
