@@ -51,8 +51,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
 
-    /// @dev Default redeem slippage tolerance when user hasn't set their own (0.5%)
-    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 50;
+    /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
+    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
     uint256 public PRECISION;
 
@@ -370,7 +370,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
     }
 
-
     /// @inheritdoc ISuperVaultStrategy
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external {
         if (action == 1) {
@@ -615,7 +614,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[controller];
 
         uint256 requestedShares = state.pendingRedeemRequest;
-
 
         // Calculate cost basis using library
         uint256 historicalAssets;

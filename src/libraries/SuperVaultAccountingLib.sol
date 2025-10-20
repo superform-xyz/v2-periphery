@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { console2 } from "forge-std/console2.sol";
 
 /// @title SuperVaultAccountingLib
 /// @author Superform Labs
@@ -17,6 +16,7 @@ library SuperVaultAccountingLib {
     error INSUFFICIENT_SHARES();
     error SLIPPAGE_EXCEEDED();
     error INSUFFICIENT_LIQUIDITY();
+    error ZERO_REQUEST_PPS();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -54,7 +54,6 @@ library SuperVaultAccountingLib {
 
         return (costBasis, newAccumulatorShares, newAccumulatorCostBasis);
     }
-
 
     /// @notice Calculate performance fee on profit
     /// @param currentAssetsWithFees Current value of shares in assets
@@ -114,10 +113,12 @@ library SuperVaultAccountingLib {
         pure
         returns (uint256 claimableAssets)
     {
+        if (averageRequestPPS == 0) revert ZERO_REQUEST_PPS();
+
         // Step 1: Calculate expected assets based on REQUEST PPS
         // This is what user expected to receive when they submitted the request
         uint256 expectedAssetsAtRequest = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
-        console2.log("slippagebps", slippageBps);
+
         // Step 2: Apply user's slippage to REQUEST expectations, then subtract fees
         // This protects against ALL losses: PPS drops, rounding, and UYS slippage combined
         uint256 minAssetOut =
@@ -129,8 +130,6 @@ library SuperVaultAccountingLib {
             minAssetOut = 0;
         }
 
-        console2.log("strategyBalance:", strategyBalance);
-        console2.log("minAssetOut:", minAssetOut);
         // Step 3: Check lower bound - ensure strategy has enough to meet user's minimum
         // Fees have already been transferred out, so strategyBalance is post-fee
         if (strategyBalance < minAssetOut) {
