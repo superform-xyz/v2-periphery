@@ -293,7 +293,7 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                         USER OPERATIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Set the slippage tolerance for redeem fulfillment
+    /// @notice Set the slippage tolerance for all future redeem request fulfillments, until reset using this function
     /// @param slippageBps Slippage tolerance in basis points (e.g., 50 = 0.5%)
     function setRedeemSlippage(uint16 slippageBps) external;
 
