@@ -118,5 +118,17 @@
                 "type": "yieldSource"
             }
         ]
+    },
+    "MerklClaimRewardHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
     }
 }
