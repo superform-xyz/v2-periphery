@@ -37,7 +37,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Hook registry
     EnumerableSet.AddressSet private _registeredHooks;
-    EnumerableSet.AddressSet private _registeredFulfillRequestsHooks;
 
     // SuperBank Hook Target validation
     mapping(address hook => ISuperGovernor.HookMerkleRootData merkleData) private superBankHooksMerkleRoots;
@@ -415,12 +414,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                             HOOK MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function registerHook(address hook, bool isFulfillRequestsHook) external onlyRole(_GOVERNOR_ROLE) {
+    function registerHook(address hook) external onlyRole(_GOVERNOR_ROLE) {
         if (hook == address(0)) revert INVALID_ADDRESS();
 
-        if (isFulfillRequestsHook && _registeredFulfillRequestsHooks.add(hook)) {
-            emit FulfillRequestsHookRegistered(hook);
-        }
         if (_registeredHooks.add(hook)) {
             emit HookApproved(hook);
         }
@@ -428,9 +424,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function unregisterHook(address hook) external onlyRole(_GOVERNOR_ROLE) {
-        if (_registeredFulfillRequestsHooks.remove(hook)) {
-            emit FulfillRequestsHookUnregistered(hook);
-        }
         if (_registeredHooks.remove(hook)) {
             // Clear merkle root data for the unregistered hook to prevent stale data
             delete superBankHooksMerkleRoots[hook];
@@ -918,20 +911,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _registeredHooks.contains(hook);
     }
 
-    /// @inheritdoc ISuperGovernor
-    function isFulfillRequestsHookRegistered(address hook) external view returns (bool) {
-        return _registeredFulfillRequestsHooks.contains(hook);
-    }
 
     /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
     }
 
-    /// @inheritdoc ISuperGovernor
-    function getRegisteredFulfillRequestsHooks() external view returns (address[] memory) {
-        return _registeredFulfillRequestsHooks.values();
-    }
 
     /// @inheritdoc ISuperGovernor
     function isValidator(address validator) external view returns (bool) {

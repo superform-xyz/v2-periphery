@@ -157,7 +157,7 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockHook = new MockHook(ISuperHook.HookType.NONACCOUNTING, address(token));
         vm.prank(governor);
-        superGovernor.registerHook(address(mockHook), false);
+        superGovernor.registerHook(address(mockHook));
     }
 
     function test_lockAsset_Amount0() public {
