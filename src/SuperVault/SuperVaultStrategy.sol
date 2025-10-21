@@ -42,7 +42,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
-    uint256 private constant ONE_WEEK = 7 days;
     uint256 private constant BPS_PRECISION = 10_000;
     /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge)
     ///      can be lower by 1 or 2 wei than the `totalRequestedAmount`in SuperVault shares
@@ -286,7 +285,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
 
-        // make sure controllers are unique
+        // make sure controllers are sorted and unique
+        controllers.insertionSort();
         controllers.uniquifySorted();
 
         // Pre-calculate totals to ensure no overburn of escrowed shares
@@ -355,7 +355,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             managementFeeBps: managementFeeBps,
             recipient: recipient
         });
-        feeConfigEffectiveTime = block.timestamp + ONE_WEEK;
+        feeConfigEffectiveTime = block.timestamp + 1 weeks;
         emit VaultFeeConfigProposed(performanceFeeBps, managementFeeBps, recipient, feeConfigEffectiveTime);
     }
 
@@ -782,7 +782,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (proposedEmergencyWithdrawable) revert ALREADY_PROPOSED();
 
         proposedEmergencyWithdrawable = true;
-        emergencyWithdrawableEffectiveTime = block.timestamp + ONE_WEEK;
+        emergencyWithdrawableEffectiveTime = block.timestamp + 1 weeks;
 
         emit EmergencyWithdrawableProposed(true, emergencyWithdrawableEffectiveTime);
     }
