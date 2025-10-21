@@ -139,7 +139,6 @@ contract SuperVault is
     function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256 shares) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (assets == 0) revert ZERO_AMOUNT();
-        if (strategy.pendingCancelRedeemRequest(receiver)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         // Forward assets from msg-sender to strategy
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);

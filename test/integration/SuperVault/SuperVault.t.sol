@@ -4915,6 +4915,78 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(newPendingRedeem, newRedeemShares, "Should be able to make new redeem requests after cancellation");
     }
 
+    /// @notice Test race condition: redeem fulfilled before cancellation can be processed
+    /// @dev When redemption is fulfilled first, cancellation fulfillment should fail/be ineffective
+    function test_RedeemFulfilledBeforeCancellation() public {
+        uint256 depositAmount = 1000e6;
+
+        // Setup: User deposits and gets shares
+        _getTokens(address(asset), accInstances[0].account, depositAmount);
+        __deposit(accInstances[0], depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 userShares = vault.balanceOf(accInstances[0].account);
+        uint256 redeemShares = userShares / 4;
+
+        // Step 1: User requests redemption
+        _requestRedeemForAccount(accInstances[0], redeemShares);
+        
+        // Verify redeem request was recorded
+        uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
+        assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
+
+        // Step 2: User requests cancellation (but manager hasn't processed it yet)
+        vm.prank(accInstances[0].account);
+        vault.cancelRedeemRequest(0, accInstances[0].account);
+
+        // Verify cancellation is pending
+        bool hasPendingCancel = strategy.pendingCancelRedeemRequest(accInstances[0].account);
+        assertTrue(hasPendingCancel, "Should have pending cancel request");
+
+        // Step 3: Manager fulfills the original redemption BEFORE processing cancellation
+        address[] memory redeemUsers = new address[](1);
+        redeemUsers[0] = accInstances[0].account;
+        _executeRedeemHooks4626ForUsers(
+            redeemUsers, redeemShares / 2, redeemShares / 2, address(fluidVault), address(aaveVault)
+        );
+
+        // Verify redemption was fulfilled successfully
+        uint256 claimableAssets = strategy.claimableWithdraw(accInstances[0].account);
+        assertGt(claimableAssets, 0, "Should have claimable assets after redemption fulfillment");
+
+        // Verify pending redeem request is cleared by fulfillment
+        uint256 pendingRedeemAfter = strategy.pendingRedeemRequest(accInstances[0].account);
+        assertEq(pendingRedeemAfter, 0, "Pending redeem should be cleared after fulfillment");
+
+        // Step 4: Manager tries to fulfill cancellation (should be ineffective since redeem was already fulfilled)
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accInstances[0].account;
+        
+        // This should not revert, but should be ineffective since there's no pending redeem to cancel
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        // Step 5: Verify cancellation fulfillment had no effect
+        // Since the original redeem was already fulfilled, there should be no claimable cancel shares
+        uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accInstances[0].account);
+        assertEq(claimableCancelShares, 0, "Should have no claimable cancel shares since redeem was already fulfilled");
+
+        // Verify pending cancel is cleared (since there was nothing to cancel)
+        bool hasPendingCancelAfter = strategy.pendingCancelRedeemRequest(accInstances[0].account);
+        assertFalse(hasPendingCancelAfter, "Pending cancel should be cleared after ineffective fulfillment");
+
+        // Step 6: User tries to claim cancellation (should return 0 shares since there was nothing to cancel)
+        uint256 sharesBefore = vault.balanceOf(accInstances[0].account);
+        vm.prank(accInstances[0].account);
+        vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
+        uint256 claimedShares = vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
+        
+        uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
+        assertEq(claimedShares, 0, "Should claim 0 shares since cancellation was ineffective");
+        assertEq(sharesAfter, sharesBefore, "User balance should not change when claiming ineffective cancellation");
+    }
+
     function _rebalanceFromAaveToFluid(
         RebalanceVars memory vars,
         address[] memory hooksAddresses,
