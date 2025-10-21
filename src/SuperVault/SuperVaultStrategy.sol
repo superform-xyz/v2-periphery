@@ -287,7 +287,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         for (uint256 i; i < controllersLength; ++i) {
             SuperVaultState storage state = superVaultState[controllers[i]];
             if (state.pendingCancelRedeemRequest) {
-                state.pendingCancelRedeemRequest = true;
                 state.claimableCancelRedeemRequest += state.pendingRedeemRequest;
                 state.pendingRedeemRequest = 0;
                 state.averageRequestPPS = 0;
@@ -713,6 +712,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.pendingRedeemRequest = 0;
         state.maxWithdraw += vars.claimableAssets;
         state.averageRequestPPS = 0; // Reset PPS value after fulfillment
+        state.pendingCancelRedeemRequest = false;
+        state.claimableCancelRedeemRequest = 0;
 
         // Call vault callback
         _onRedeemClaimable(
