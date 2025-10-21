@@ -157,7 +157,6 @@ contract SuperVault is
     function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256 assets) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (shares == 0) revert ZERO_AMOUNT();
-        if (strategy.pendingCancelRedeemRequest(receiver)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         uint256 assetsNet;
         (assets, assetsNet) = strategy.quoteMintAssetsGross(shares);
