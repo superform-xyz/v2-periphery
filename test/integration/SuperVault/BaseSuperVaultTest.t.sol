@@ -1550,7 +1550,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vars.aaveSharesOut = _truncateToActualBalance(vars.aaveSharesOut, vault1, 100);
         vars.centrifugeSharesOut = _truncateToActualBalance(vars.centrifugeSharesOut, IERC7540(vault2).share(), 250);
 
-        uint256 aaveShares = IERC4626(address(vault1)).balanceOf(address(strategy));
         uint256 centrifugeShares = IERC20Metadata(centrifugeVault.share()).balanceOf(address(strategy));
         _requestRedeemFrom7540Underlying(centrifugeShares, vault2);
 
@@ -2558,7 +2557,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         }
         return newArray;
     }
-
 
     /// @notice Updates redeem slippages for all accounts
     function _updateRedeemSlippages(uint16 slippageBps) internal {

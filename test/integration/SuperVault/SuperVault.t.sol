@@ -89,7 +89,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("gearboxStakingAddr: ", gearboxStakingAddr);
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
-
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1627,7 +1626,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
 
-
         // Verify state after cancellation
         assertEq(vault.pendingRedeemRequest(0, accountEth), 0, "Pending request should be cleared");
         assertEq(vault.balanceOf(accountEth), userShares, "User should have original shares back");
@@ -2801,7 +2799,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
-
 
         uint256 BPS_PRECISION = 10_000;
 
@@ -4789,7 +4786,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4843,7 +4840,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: Request redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4860,7 +4857,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify cancellation is pending
         bool hasPendingCancel = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancel, "Should have pending cancel request");
-        
+
         // Verify original redeem request is still there (not cleared until fulfillment)
         uint256 pendingRedeemAfterCancel = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterCancel, redeemShares, "Original redeem should still be pending");
@@ -4880,10 +4877,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify states after fulfillment
         uint256 pendingRedeemAfterFulfill = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterFulfill, 0, "Pending redeem should be cleared after cancel fulfillment");
-        
+
         bool hasPendingCancelAfterFulfill = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancelAfterFulfill, "Pending cancel should remain true until claim");
-        
+
         uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelShares, redeemShares, "Should have claimable cancel shares equal to original request");
 
@@ -4891,26 +4888,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 sharesBefore = vault.balanceOf(accInstances[0].account);
         vm.prank(accInstances[0].account);
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(sharesAfter, sharesBefore + redeemShares, "User should get their shares back");
 
         // Verify all pending states are cleared after claim
         bool hasPendingCancelAfterClaim = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertFalse(hasPendingCancelAfterClaim, "Pending cancel should be cleared after claim");
-        
+
         uint256 claimableCancelAfterClaim = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelAfterClaim, 0, "Claimable cancel should be cleared after claim");
 
         // Verify accumulator states are preserved (key invariant)
         ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
         assertEq(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved");
+        assertEq(
+            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved"
+        );
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
         _requestRedeemForAccount(accInstances[0], newRedeemShares);
-        
+
         uint256 newPendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(newPendingRedeem, newRedeemShares, "Should be able to make new redeem requests after cancellation");
     }
@@ -4930,7 +4929,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4962,7 +4961,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(MANAGER);
         address[] memory controllers = new address[](1);
         controllers[0] = accInstances[0].account;
-        
+
         // This should not revert, but should be ineffective since there's no pending redeem to cancel
         strategy.fulfillCancelRedeemRequests(controllers);
         vm.stopPrank();
@@ -4981,7 +4980,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accInstances[0].account);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
         uint256 claimedShares = vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(claimedShares, 0, "Should claim 0 shares since cancellation was ineffective");
         assertEq(sharesAfter, sharesBefore, "User balance should not change when claiming ineffective cancellation");
@@ -6578,6 +6577,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultPPS(address(strategy), address(vault));
 
+        // Trigger vesting update after PPS change
+        strategy.updateVesting();
+
+        vm.warp(block.timestamp + 1 days);
+
         uint256[] memory midUserAssets = new uint256[](ACCOUNT_COUNT);
         uint256[] memory midUserShares = new uint256[](ACCOUNT_COUNT);
 
@@ -6784,6 +6788,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.warp(block.timestamp + 20 days);
 
         _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Trigger vesting update after PPS change
+        strategy.updateVesting();
+
+        vm.warp(block.timestamp + 1 days);
 
         uint256[] memory midUserAssets = new uint256[](ACCOUNT_COUNT);
         uint256[] memory midUserShares = new uint256[](ACCOUNT_COUNT);

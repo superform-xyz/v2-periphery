@@ -56,6 +56,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint256 public PRECISION;
 
     /*//////////////////////////////////////////////////////////////
+                        MEV PROTECTION VESTING STATE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Single storage slot for all vesting data (uses struct from interface)
+    ISuperVaultStrategy.VestingData public vestingData;
+
+    /*//////////////////////////////////////////////////////////////
                                 STATE
     //////////////////////////////////////////////////////////////*/
     address private _vault;
@@ -118,6 +125,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
 
+        // Initialize vesting with 10 days default duration
+        vestingData.duration = 10 days;
+
         emit Initialized(_vault);
     }
 
@@ -138,28 +148,36 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (assetsGross == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
 
+        // Cache aggregator to reduce external calls
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+
         // Check if strategy is paused or if global hooks root is vetoed
         if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_getSuperVaultAggregator().isGlobalHooksRootVetoed()) {
+        if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        // Fee skim in ASSETS (asset-side entry fee)
-        uint256 feeBps = feeConfig.managementFeeBps;
+        // Cache fee config to avoid multiple storage reads
+        FeeConfig memory cachedFeeConfig = feeConfig;
+        uint256 feeBps = cachedFeeConfig.managementFeeBps;
         uint256 feeAssets = feeBps == 0 ? 0 : Math.mulDiv(assetsGross, feeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
-        uint256 assetsNet = assetsGross - feeAssets;
+        uint256 assetsNet;
+        unchecked {
+            assetsNet = assetsGross - feeAssets; // Safe: feeAssets <= assetsGross
+        }
         if (assetsNet == 0) revert INVALID_AMOUNT();
 
         if (feeAssets != 0) {
-            address recipient = feeConfig.recipient;
+            address recipient = cachedFeeConfig.recipient;
             if (recipient == address(0)) revert ZERO_ADDRESS();
             _safeTokenTransfer(address(_asset), recipient, feeAssets);
             emit ManagementFeePaid(controller, recipient, feeAssets, feeBps);
         }
 
-        // Compute shares on NET using current PPS
-        uint256 pps = getStoredPPS();
+        // Update vesting and get effective PPS in one optimized call
+        (uint256 currentPPS, VestingData memory vData) = updateVesting();
+        uint256 pps = _calculateEffectivePPS(currentPPS, vData);
         if (pps == 0) revert INVALID_PPS();
         sharesNet = Math.mulDiv(assetsNet, PRECISION, pps, Math.Rounding.Floor);
         if (sharesNet == 0) revert INVALID_AMOUNT();
@@ -192,6 +210,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
+        // Update vesting state before processing mint
+        updateVesting();
+
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
         if (feeBps != 0) {
@@ -213,7 +234,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @inheritdoc ISuperVaultStrategy
     function quoteMintAssetsGross(uint256 shares) external view returns (uint256 assetsGross, uint256 assetsNet) {
-        uint256 pps = getStoredPPS();
+        uint256 pps = getEffectivePPS();
         if (pps == 0) revert INVALID_PPS();
         assetsNet = Math.mulDiv(shares, pps, PRECISION, Math.Rounding.Ceil);
         if (assetsNet == 0) revert INVALID_AMOUNT();
@@ -271,6 +292,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             prevHook =
                 _processSingleHookExecution(hook, prevHook, args.hookCalldata[i], args.expectedAssetsOrSharesOut[i]);
         }
+
+        // Update vesting after hooks as they may have compounded rewards
+        updateVesting();
+
         emit HooksExecuted(args.hooks);
     }
 
@@ -304,8 +329,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
 
-        uint256 currentPPS = getStoredPPS();
-        if (currentPPS == 0) revert INVALID_PPS();
+        // Update vesting and get effective PPS in one call
+        (uint256 currentPPS, VestingData memory vData) = updateVesting();
+        uint256 effectivePPS = _calculateEffectivePPS(currentPPS, vData);
+        if (effectivePPS == 0) revert INVALID_PPS();
 
         // make sure controllers are sorted and unique
         controllers.insertionSort();
@@ -319,7 +346,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 processedShares;
         for (uint256 i; i < controllersLength; ++i) {
-            processedShares += _processLiquidityRedeemFulfillment(controllers[i], currentPPS);
+            processedShares += _processLiquidityRedeemFulfillment(controllers[i], effectivePPS);
         }
 
         // Post-condition: processed shares must match intended shares
@@ -474,6 +501,168 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return _getSuperVaultAggregator().getPPS(address(this));
     }
 
+    /// @inheritdoc ISuperVaultStrategy
+    function getLastUpdateTimestamp() public view returns (uint256) {
+        return _getSuperVaultAggregator().getLastUpdateTimestamp(address(this));
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function updateVesting() public returns (uint256 currentPPS, VestingData memory vData) {
+        // Cache aggregator to avoid multiple external calls
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        currentPPS = aggregator.getPPS(address(this));
+
+        // Load entire struct into memory (single SLOAD)
+        vData = vestingData;
+
+        // Only update if PPS increased
+        if (currentPPS > vData.targetPPS) {
+            uint256 currentTs = aggregator.getLastUpdateTimestamp(address(this));
+
+            // Update memory struct
+            vData.startPPS = vData.targetPPS > 0 ? vData.targetPPS : uint128(currentPPS);
+            vData.targetPPS = uint128(currentPPS);
+            vData.startTime = uint64(currentTs);
+            vData.lastUpdateTime = uint32(block.timestamp);
+
+            // Single SSTORE to update all values
+            vestingData = vData;
+
+            emit VestingUpdated(currentPPS, vData.duration, currentTs);
+        }
+
+        return (currentPPS, vData);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function getEffectivePPS() public view returns (uint256) {
+        // Cache aggregator to save gas
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        uint256 currentPPS = aggregator.getPPS(address(this));
+
+        // Load entire struct into memory (single SLOAD)
+        VestingData memory vData = vestingData;
+
+        return _calculateEffectivePPS(currentPPS, vData);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function setVestingDuration(uint256 newDuration) external {
+        _isPrimaryManager(msg.sender);
+        if (newDuration == 0 || newDuration > type(uint32).max) revert INVALID_AMOUNT();
+
+        // Load and update only the duration field
+        VestingData memory vData = vestingData;
+        vData.duration = uint32(newDuration);
+        vestingData = vData;
+
+        emit VestingDurationUpdated(newDuration);
+    }
+
+    /// @dev Internal helper to calculate effective PPS with cached data
+    /// 
+    /// EFFECTIVE PPS CALCULATION:
+    /// This function calculates the "effective" (vested) PPS at any point in time.
+    /// It handles both active vesting and simulates future vesting for view functions.
+    /// 
+    /// KEY CONCEPTS:
+    /// - currentPPS: The latest PPS from the aggregator (real yield)
+    /// - vData.targetPPS: The target PPS we're vesting towards (from last updateVesting)
+    /// - vData.startPPS: The PPS we started vesting from
+    /// - effectivePPS: The PPS users actually see (linearly interpolated)
+    /// 
+    /// SIMULATION MODE (View Functions):
+    /// When currentPPS > vData.targetPPS, a new jump has occurred but updateVesting()
+    /// hasn't been called yet. We simulate what would happen if it were called now.
+    /// This ensures view functions (like getEffectivePPS) return accurate values.
+    /// 
+    /// EXAMPLE 1 - NORMAL VESTING:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1100000 (no new jump)
+    /// At T0+3 days:
+    ///   elapsed = 3 days
+    ///   vestedAmount = (1100000 - 1000000) * 3/10 = 30000
+    ///   effectivePPS = 1000000 + 30000 = 1030000
+    /// 
+    /// EXAMPLE 2 - NEW JUMP SIMULATION:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1200000 (NEW JUMP detected!)
+    /// At T0+15 days (5 days after first vesting completed):
+    ///   Simulation kicks in: targetPPS > vData.targetPPS
+    ///   New simulated vesting: 1100000 -> 1200000 starting at T0+10days
+    ///   elapsed = 5 days (from simulated start)
+    ///   vestedAmount = (1200000 - 1100000) * 5/10 = 50000
+    ///   effectivePPS = 1100000 + 50000 = 1150000
+    /// 
+    /// EXAMPLE 3 - CONCURRENT OPERATIONS:
+    /// T0: Initial state, PPS = 1.0
+    /// T1: Harvest, PPS jumps to 1.2, vesting starts (1.0 -> 1.2 over 10 days)
+    /// T1+2d: User A deposits
+    ///        effectivePPS = 1.04 (20% vested)
+    ///        User gets shares = deposit / 1.04
+    /// T1+5d: User B requests redeem
+    ///        effectivePPS = 1.10 (50% vested)
+    ///        Request locked at PPS = 1.10
+    /// T1+6d: New harvest, aggregator PPS jumps to 1.3
+    ///        This function simulates: would vest 1.2 -> 1.3
+    ///        But actual vesting won't start until T1+10d
+    /// T1+8d: User C deposits
+    ///        effectivePPS = 1.16 (80% of first vesting)
+    ///        New jump (1.3) NOT included yet
+    /// T1+10d: First vesting completes
+    ///         effectivePPS = 1.20
+    ///         If updateVesting() called, new vesting 1.2 -> 1.3 starts
+    /// T1+12d: User B's redeem fulfills
+    ///         effectivePPS = 1.24 (20% of second vesting)
+    ///         User B gets assets based on 1.24 (not their request PPS of 1.10)
+    /// 
+    /// SLIPPAGE PROTECTION:
+    /// Request/fulfill flows store the request PPS for slippage checks.
+    /// Users are protected from PPS drops but benefit from increases.
+    /// 
+    function _calculateEffectivePPS(uint256 currentPPS, VestingData memory vData) internal view returns (uint256) {
+        uint256 targetPPS = currentPPS;
+        uint256 startPPS = vData.startPPS;
+        uint256 startTime = vData.startTime;
+
+        // SIMULATION MODE: Detect if a new jump occurred that hasn't been processed
+        // This happens when aggregator PPS exceeds our stored target
+        // We simulate the vesting that WOULD occur if updateVesting() were called
+        if (targetPPS > vData.targetPPS) {
+            // Start new vesting from the previous target (or current if first time)
+            startPPS = vData.targetPPS > 0 ? vData.targetPPS : targetPPS;
+            startTime = block.timestamp; // Simulate starting vesting now
+        }
+
+        // EARLY RETURNS:
+        // Case 1: No increase (PPS unchanged or decreased)
+        if (targetPPS <= startPPS) {
+            return targetPPS;
+        }
+
+        // Case 2: Vesting hasn't started yet (time at or before start)
+        if (block.timestamp <= startTime) {
+            return startPPS;
+        }
+
+        uint256 elapsed = block.timestamp - startTime;
+        uint256 duration = vData.duration;
+
+        // Case 3: Vesting complete (elapsed >= duration)
+        if (elapsed >= duration) {
+            return targetPPS;
+        }
+
+        // LINEAR VESTING CALCULATION:
+        // effectivePPS = startPPS + (targetPPS - startPPS) * (elapsed / duration)
+        // Example: start=1.0, target=1.1, elapsed=3days, duration=10days
+        // effectivePPS = 1.0 + (0.1) * (3/10) = 1.03
+        unchecked {
+            uint256 vestedAmount = (targetPPS - startPPS).mulDiv(elapsed, duration, Math.Rounding.Floor);
+            return startPPS + vestedAmount;
+        }
+    }
+
     // @inheritdoc ISuperVaultStrategy
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state) {
         return superVaultState[controller];
@@ -557,8 +746,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Check if controller has enough shares
         if (sharesToRedeem > state.accumulatorShares) return (0, 0, 0);
 
-        // Get the current price per share
-        uint256 currentPPS = getStoredPPS();
+        // Get the current effective price per share
+        uint256 currentPPS = getEffectivePPS();
 
         // Calculate historical assets (cost basis) proportionally
         uint256 historicalAssets = 0;
@@ -930,9 +1119,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Defense-in-depth: assert controller has accumulator shares
         if (state.accumulatorShares == 0) revert INSUFFICIENT_SHARES();
 
-        // Get current PPS from aggregator to use as baseline for slippage protection
-        uint256 currentPPS = getStoredPPS();
-        if (currentPPS == 0) revert INVALID_PPS();
+        (uint256 currentPPS, VestingData memory vData) = updateVesting();
+        uint256 effectivePPS = _calculateEffectivePPS(currentPPS, vData);
+        if (effectivePPS == 0) revert INVALID_PPS();
 
         // Calculate weighted average of PPS if there's an existing request
         if (state.pendingRedeemRequest > 0) {
@@ -940,16 +1129,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             uint256 existingSharesInRequest = state.pendingRedeemRequest;
             uint256 newTotalSharesInRequest = existingSharesInRequest + shares;
 
-            // Use weighted average formula: (existingShares * existingPPS + newShares * currentPPS) / totalShares
-            state.averageRequestPPS =
-                ((existingSharesInRequest * state.averageRequestPPS) + (shares * currentPPS)) / newTotalSharesInRequest;
+            // Use weighted average formula: (existingShares * existingPPS + newShares * effectivePPS) / totalShares
+            state.averageRequestPPS = ((existingSharesInRequest * state.averageRequestPPS) + (shares * effectivePPS))
+                / newTotalSharesInRequest;
 
             // Update total shares
             state.pendingRedeemRequest = newTotalSharesInRequest;
         } else {
             // First request for this controller
             state.pendingRedeemRequest = shares;
-            state.averageRequestPPS = currentPPS;
+            state.averageRequestPPS = effectivePPS;
         }
 
         emit RedeemRequestPlaced(controller, controller, shares);
@@ -962,7 +1151,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[controller];
         if (state.pendingRedeemRequest == 0) revert REQUEST_NOT_FOUND();
         if (state.pendingCancelRedeemRequest) revert CANCELLATION_REDEEM_REQUEST_PENDING();
-        
+
         state.pendingCancelRedeemRequest = true;
         emit RedeemCancelRequestPlaced(controller);
     }

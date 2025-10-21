@@ -555,7 +555,7 @@ contract SuperVault is
     }
 
     function _getStoredPPS() internal view returns (uint256) {
-        return strategy.getStoredPPS();
+        return strategy.getEffectivePPS();
     }
 
     /// @notice Checks if the vault is currently paused
