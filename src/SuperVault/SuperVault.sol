@@ -139,6 +139,7 @@ contract SuperVault is
     function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256 shares) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (assets == 0) revert ZERO_AMOUNT();
+        if (strategy.pendingCancelRedeemRequest(receiver)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         // Forward assets from msg-sender to strategy
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);
@@ -157,6 +158,7 @@ contract SuperVault is
     function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256 assets) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (shares == 0) revert ZERO_AMOUNT();
+        if (strategy.pendingCancelRedeemRequest(receiver)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         uint256 assetsNet;
         (assets, assetsNet) = strategy.quoteMintAssetsGross(shares);
@@ -180,6 +182,7 @@ contract SuperVault is
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (balanceOf(owner) < shares) revert INVALID_AMOUNT();
+        if (strategy.pendingCancelRedeemRequest(owner)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         // Enforce auditor's invariant for current accounting model
         if (controller != owner) revert CONTROLLER_MUST_EQUAL_OWNER();
@@ -211,7 +214,7 @@ contract SuperVault is
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
 
-        shares = strategy.pendingRedeemRequest(controller);
+        shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
@@ -296,7 +299,7 @@ contract SuperVault is
 
     /// @inheritdoc IERC7540CancelRedeem
     function pendingCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (bool isPending) {
-        isPending = strategy.pendingCancellationRedeemRequest(controller);
+        isPending = strategy.pendingCancelRedeemRequest(controller);
     }
 
     /// @inheritdoc IERC7540CancelRedeem

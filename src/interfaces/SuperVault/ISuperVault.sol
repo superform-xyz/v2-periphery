@@ -28,6 +28,7 @@ interface ISuperVault {
     error INVALID_CONTROLLER();
     error CONTROLLER_MUST_EQUAL_OWNER();
     error NOT_ENOUGH_ASSETS();
+    error CANCELLATION_REDEEM_REQUEST_PENDING();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

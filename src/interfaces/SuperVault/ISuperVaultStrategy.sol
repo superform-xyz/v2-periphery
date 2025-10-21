@@ -50,12 +50,12 @@ interface ISuperVaultStrategy {
     error OPERATIONS_BLOCKED_BY_VETO();
     error HOOK_VALIDATION_FAILED();
     error STRATEGY_PAUSED();
-    error INVALID_MAX_SLIPPAGE_BPS();
     error NO_PROPOSAL();
     error STALE_PPS();
     error INSUFFICIENT_LIQUIDITY();
     error INVALID_REDEEM_SLIPPAGE_BPS();
     error CANCELLATION_REDEEM_REQUEST_PENDING();
+    error ZERO_REQUEST_PPS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -77,7 +77,6 @@ interface ISuperVaultStrategy {
     event VaultFeeConfigProposed(
         uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient, uint256 effectiveTime
     );
-    event MaxPPSSlippageUpdated(uint256 maxSlippageBps);
     event HooksExecuted(address[] hooks);
     event RedeemRequestPlaced(address indexed controller, address indexed owner, uint256 shares);
     event RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares);
@@ -145,8 +144,8 @@ interface ISuperVaultStrategy {
     /// @notice State specific to asynchronous redeem requests
     struct SuperVaultState {
         // Cancellation
-        bool pendingCancellationRedeemRequest;
-        bool pendingCancellationRedeemRequestFulfilled;
+        bool pendingCancelRedeemRequest;
+        uint256 claimableCancelRedeemRequest;
         // Redeems
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
@@ -178,6 +177,19 @@ interface ISuperVaultStrategy {
         Execution[] executions;
         ISuperHook hookContract;
         ISuperHook.HookType hookType;
+    }
+
+    struct LiquidityRedeemVars {
+        uint256 requestedShares;
+        uint256 historicalAssets;
+        uint256 claimableAssetsWithFees;
+        uint256 totalFee;
+        uint256 superformFee;
+        uint256 recipientFee;
+        uint16 slippageBps;
+        uint256 strategyBalance;
+        uint256 avgRequestPPS;
+        uint256 claimableAssets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -285,10 +297,6 @@ interface ISuperVaultStrategy {
     /// @notice Execute the proposed vault fee configuration update after timelock
     function executeVaultFeeConfigUpdate() external;
 
-    /// @notice Update the maximum allowed PPS slippage for redemptions
-    /// @param maxSlippageBps Maximum slippage in basis points (e.g., 100 = 1%)
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) external;
-
     /// @notice Manage emergency withdrawals
     /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal
     /// @param recipient The recipient of the withdrawn assets (for action 3)
@@ -314,8 +322,6 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Get the fulfill timestamp threshold
-    function getFulfillTimestampThreshold() external view returns (uint256);
 
     /// @notice Get the vault info
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals);
@@ -378,7 +384,7 @@ interface ISuperVaultStrategy {
     /// @notice Get the pending cancellation for a redeem request for a controller
     /// @param controller The controller address
     /// @return isPending True if the redeem request is pending cancellation
-    function pendingCancellationRedeemRequest(address controller) external view returns (bool isPending);
+    function pendingCancelRedeemRequest(address controller) external view returns (bool isPending);
 
     /// @notice Get the claimable cancel redeem request amount (shares) for a controller
     /// @param controller The controller address

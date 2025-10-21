@@ -51,8 +51,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
 
-    /// @dev Default redeem slippage tolerance when user hasn't set their own (0.5%)
-    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 50;
+    /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
+    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
     uint256 public PRECISION;
 
@@ -64,10 +64,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint8 private _vaultDecimals;
 
     // Global configuration
-    uint256 private _maxPPSSlippage;
-
-    // Fulfill deposit timestamp threshold
-    uint256 private _fulfillTimestampThreshold;
 
     // Fee configuration
     FeeConfig private feeConfig;
@@ -91,8 +87,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
-
-        _fulfillTimestampThreshold = 1 days;
 
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
@@ -124,7 +118,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
-        _maxPPSSlippage = 500; // 5% as a start, configurable later
 
         emit Initialized(_vault);
     }
@@ -291,16 +284,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
 
-        // make sure controllers are sorted and unique
-        controllers.insertionSort();
-        controllers.uniquifySorted();
-
         for (uint256 i; i < controllersLength; ++i) {
             SuperVaultState storage state = superVaultState[controllers[i]];
-            if (state.pendingCancellationRedeemRequest) {
-                state.pendingCancellationRedeemRequest = false;
-                state.pendingCancellationRedeemRequestFulfilled = true;
-                emit RedeemCancelRequestFulfilled(controllers[i], state.pendingRedeemRequest);
+            if (state.pendingCancelRedeemRequest) {
+                state.pendingCancelRedeemRequest = true;
+                state.claimableCancelRedeemRequest += state.pendingRedeemRequest;
+                state.pendingRedeemRequest = 0;
+                state.averageRequestPPS = 0;
+                emit RedeemCancelRequestFulfilled(controllers[i], state.claimableCancelRedeemRequest);
             }
         }
     }
@@ -318,8 +309,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
 
-        // make sure controllers are sorted and unique
-        controllers.insertionSort();
+        // make sure controllers are unique
         controllers.uniquifySorted();
 
         // Pre-calculate totals to ensure no overburn of escrowed shares
@@ -402,14 +392,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
     }
 
-    // @inheritdoc ISuperVaultStrategy
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) external {
-        _isPrimaryManager(msg.sender);
-        if (maxSlippageBps > BPS_PRECISION) revert INVALID_MAX_SLIPPAGE_BPS();
-        _maxPPSSlippage = maxSlippageBps;
-        emit MaxPPSSlippageUpdated(maxSlippageBps);
-    }
-
     /// @inheritdoc ISuperVaultStrategy
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external {
         if (action == 1) {
@@ -471,19 +453,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         PPS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
-    function setFulfillTimestampThreshold(uint256 timestampThreshold) external {
-        _isPrimaryManager(msg.sender);
-        _fulfillTimestampThreshold = timestampThreshold;
-    }
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
-    function getFulfillTimestampThreshold() external view returns (uint256) {
-        return _fulfillTimestampThreshold;
-    }
     // @inheritdoc ISuperVaultStrategy
 
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {
@@ -553,14 +526,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     // @inheritdoc ISuperVaultStrategy
-    function pendingCancellationRedeemRequest(address controller) external view returns (bool) {
-        return superVaultState[controller].pendingCancellationRedeemRequest;
+    function pendingCancelRedeemRequest(address controller) external view returns (bool) {
+        return superVaultState[controller].pendingCancelRedeemRequest;
     }
 
     // @inheritdoc ISuperVaultStrategy
     function claimableCancelRedeemRequest(address controller) external view returns (uint256 claimableShares) {
-        if (!superVaultState[controller].pendingCancellationRedeemRequestFulfilled) return 0;
-        return superVaultState[controller].pendingRedeemRequest;
+        if (!superVaultState[controller].pendingCancelRedeemRequest) return 0;
+        return superVaultState[controller].claimableCancelRedeemRequest;
     }
 
     // @inheritdoc ISuperVaultStrategy
@@ -588,7 +561,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Get the current price per share
         uint256 currentPPS = getStoredPPS();
 
-        // Calculate historical assets (cost basis)
+        // Calculate historical assets (cost basis) proportionally
         uint256 historicalAssets = 0;
         if (state.accumulatorShares > 0) {
             historicalAssets =
@@ -598,22 +571,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Calculate current value of shares in asset terms
         uint256 currentAssetsWithFees = sharesToRedeem.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
-        // Calculate fee (if any) using same logic as _calculateAndTransferFee
-        if (currentAssetsWithFees > historicalAssets) {
-            uint256 profit = currentAssetsWithFees - historicalAssets;
-            uint256 performanceFeeBps = feeConfig.performanceFeeBps;
-            totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-
-            if (totalFee > 0) {
-                // Calculate Superform's portion of the fee using revenueShare from SuperGovernor
-                superformFee = totalFee.mulDiv(
-                    superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
-                );
-                recipientFee = totalFee - superformFee;
-            }
-        }
-
-        return (totalFee, superformFee, recipientFee);
+        // Use the stateless library function for fee calculation - makes it easier to audit
+        return SuperVaultAccountingLib.calculatePerformanceFee(
+            currentAssetsWithFees,
+            historicalAssets,
+            feeConfig.performanceFeeBps,
+            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -681,81 +645,86 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         returns (uint256 processedShares)
     {
         SuperVaultState storage state = superVaultState[controller];
+        LiquidityRedeemVars memory vars;
 
-        uint256 requestedShares = state.pendingRedeemRequest;
-
-        // Validate PPS slippage using library
-        SuperVaultAccountingLib.validatePPSSlippage(currentPPS, state.averageRequestPPS, _maxPPSSlippage);
+        vars.requestedShares = state.pendingRedeemRequest;
 
         // Calculate cost basis using library
-        uint256 historicalAssets;
-        (historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
-            .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, requestedShares);
+        (vars.historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
+            .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, vars.requestedShares);
 
         // Calculate current value of shares
-        uint256 claimableAssetsWithFees = requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
+        vars.claimableAssetsWithFees = vars.requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
         // Calculate performance fee using library
-        (uint256 totalFee, uint256 superformFee, uint256 recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
-            claimableAssetsWithFees,
-            historicalAssets,
+        (vars.totalFee, vars.superformFee, vars.recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
+            vars.claimableAssetsWithFees,
+            vars.historicalAssets,
             feeConfig.performanceFeeBps,
             superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
         );
 
         // Transfer fees if applicable
-        if (superformFee > 0) {
+        if (vars.superformFee > 0) {
             address treasury = superGovernor.getAddress(superGovernor.TREASURY());
-            _safeTokenTransfer(address(_asset), treasury, superformFee);
-            emit FeePaid(treasury, superformFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), treasury, vars.superformFee);
+            emit FeePaid(treasury, vars.superformFee, feeConfig.performanceFeeBps);
         }
 
-        if (recipientFee > 0) {
+        if (vars.recipientFee > 0) {
             address recipient = feeConfig.recipient;
             if (recipient == address(0)) revert ZERO_ADDRESS();
-            _safeTokenTransfer(address(_asset), recipient, recipientFee);
-            emit FeePaid(recipient, recipientFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), recipient, vars.recipientFee);
+            emit FeePaid(recipient, vars.recipientFee, feeConfig.performanceFeeBps);
         }
 
         // Get user's slippage tolerance (or use default if not set)
-        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
+        vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
 
         // Calculate final assets using library with slippage protection
         // Slippage is anchored to REQUEST PPS to protect user from PPS drops
-        uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
-        uint256 claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
-            claimableAssetsWithFees,
-            totalFee,
-            strategyBalance,
-            slippageBps,
-            requestedShares,
-            state.averageRequestPPS,
+        vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
+
+        vars.avgRequestPPS = state.averageRequestPPS;
+        if (vars.avgRequestPPS == 0) revert ZERO_REQUEST_PPS();
+
+        vars.claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
+            vars.claimableAssetsWithFees,
+            vars.totalFee,
+            vars.strategyBalance,
+            vars.slippageBps,
+            vars.requestedShares,
+            vars.avgRequestPPS,
             PRECISION
         );
 
         // Update average withdraw price using library
-        if (requestedShares > 0) {
+        if (vars.requestedShares > 0) {
             state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-                state.maxWithdraw, state.averageWithdrawPrice, requestedShares, claimableAssetsWithFees, PRECISION
+                state.maxWithdraw,
+                state.averageWithdrawPrice,
+                vars.requestedShares,
+                vars.claimableAssetsWithFees,
+                PRECISION
             );
         }
 
         // Update user state, no partial redeems allowed
         state.pendingRedeemRequest = 0;
-        state.maxWithdraw += claimableAssets;
+        state.maxWithdraw += vars.claimableAssets;
         state.averageRequestPPS = 0; // Reset PPS value after fulfillment
 
         // Call vault callback
         _onRedeemClaimable(
             controller,
-            claimableAssets,
-            requestedShares,
+            vars.claimableAssets,
+            vars.requestedShares,
             state.averageWithdrawPrice,
             state.accumulatorShares,
             state.accumulatorCostBasis
         );
 
-        processedShares = requestedShares;
+        processedShares = vars.requestedShares;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -991,9 +960,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
         if (state.pendingRedeemRequest == 0) revert REQUEST_NOT_FOUND();
-        if (state.pendingCancellationRedeemRequest || state.pendingCancellationRedeemRequestFulfilled) revert CANCELLATION_REDEEM_REQUEST_PENDING();
+        if (state.pendingCancelRedeemRequest) revert CANCELLATION_REDEEM_REQUEST_PENDING();
         
-        state.pendingCancellationRedeemRequest = true;
+        state.pendingCancelRedeemRequest = true;
         emit RedeemCancelRequestPlaced(controller);
     }
 
@@ -1002,16 +971,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function _handleCancelRedeem(address controller) private {
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
-        uint256 pendingShares = state.pendingRedeemRequest;
+        uint256 pendingShares = state.claimableCancelRedeemRequest;
         if (pendingShares == 0) revert REQUEST_NOT_FOUND();
 
-        if (!state.pendingCancellationRedeemRequestFulfilled) revert CANCELLATION_REDEEM_REQUEST_PENDING();
+        if (!state.pendingCancelRedeemRequest) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         // Clear pending request metadata
-        state.pendingRedeemRequest = 0;
-        state.averageRequestPPS = 0;
-        state.pendingCancellationRedeemRequest = false;
-        state.pendingCancellationRedeemRequestFulfilled = false;
+        state.pendingCancelRedeemRequest = false;
+        state.claimableCancelRedeemRequest = 0;
         emit RedeemRequestCanceled(controller, pendingShares);
     }
 
@@ -1083,17 +1050,5 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 strategyProof: strategyProof
             })
         );
-    }
-
-    function _createNamespacedSlot(string memory _name) internal returns (bytes32) {
-        bytes32 _NS_COUNTER = keccak256(bytes(_name));
-        uint256 _callId;
-        assembly ("memory-safe") {
-            let c := add(tload(_NS_COUNTER), 1)
-            tstore(_NS_COUNTER, c)
-            _callId := c
-        }
-        bytes32 _ns = keccak256(abi.encodePacked(_name, ".seen", address(this), _callId));
-        return _ns;
     }
 }

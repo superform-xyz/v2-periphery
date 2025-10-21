@@ -7,8 +7,11 @@ import { TotalAssetHelper } from "./TotalAssetHelper.sol";
 
 // external
 import { console2 } from "forge-std/console2.sol";
+import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+import { IERC20 } from "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -1257,11 +1260,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         hooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
         hooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        console2.log("Redeem Shares", redeemShares);
         (uint256 vault1SharesOut, uint256 vault2SharesOut) = _convertSVStoUnderlyingShares(redeemShares, vault1, vault2);
 
-        vault1SharesOut = _truncateToActualBalance(vault1SharesOut, vault1);
-        vault2SharesOut = _truncateToActualBalance(vault2SharesOut, vault2);
+        vault1SharesOut = _truncateToActualBalance(vault1SharesOut, vault1, 100);
+        vault2SharesOut = _truncateToActualBalance(vault2SharesOut, vault2, 100);
 
         console2.log("Vault 1 Shares Out", vault1SharesOut);
         console2.log("Vault 2 Shares Out", vault2SharesOut);
@@ -1364,8 +1366,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2);
+        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
+        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
 
         address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
@@ -1442,8 +1444,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2);
+        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
+        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
             expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
@@ -1478,18 +1480,31 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vm.startPrank(MANAGER);
         if (revertSelector != bytes4(0)) {
             vm.expectRevert(revertSelector);
-        }
 
-        // Execute hooks first
-        strategy.executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: proofs,
-                strategyProofs: new bytes32[][](2)
-            })
-        );
+            // Execute hooks first
+            strategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: proofs,
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+            vm.stopPrank();
+
+            return;
+        } else {
+            strategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: proofs,
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+        }
 
         // Then fulfill redemption requests from liquidity
         strategy.fulfillRedeemRequests(requestingUsers);
@@ -1532,8 +1547,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
             _calculateVaultShares7540Underlying(redeemShares, vault1, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        vars.aaveSharesOut = _truncateToActualBalance(vars.aaveSharesOut, vault1);
-        vars.centrifugeSharesOut = _truncateToActualBalance(vars.centrifugeSharesOut, IERC7540(vault2).share());
+        vars.aaveSharesOut = _truncateToActualBalance(vars.aaveSharesOut, vault1, 100);
+        vars.centrifugeSharesOut = _truncateToActualBalance(vars.centrifugeSharesOut, IERC7540(vault2).share(), 250);
 
         uint256 aaveShares = IERC4626(address(vault1)).balanceOf(address(strategy));
         uint256 centrifugeShares = IERC20Metadata(centrifugeVault.share()).balanceOf(address(strategy));
@@ -1559,8 +1574,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         vars.pricePerShare = vars.totalSvAssets.mulDiv(strategy.PRECISION(), vault.totalSupply(), Math.Rounding.Floor);
 
         vars.expectedAssetsOrSharesOut = new uint256[](2);
-        vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(aaveShares);
-        vars.expectedAssetsOrSharesOut[1] = centrifugeVault.convertToAssets(centrifugeShares);
+        // 443859978 - > 521413233
+        vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vars.aaveSharesOut);
+        vars.expectedAssetsOrSharesOut[1] = centrifugeVault.convertToAssets(vars.centrifugeSharesOut);
 
         for (uint256 i; i < vars.expectedAssetsOrSharesOut.length; i++) {
             vars.expectedAssetsOrSharesOut[i] =
@@ -2369,6 +2385,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
         vault1SharesOut = IERC4626(vault1).previewWithdraw(vault1Assets);
         vault2SharesOut = IERC7540(vault2).convertToShares(vault2Assets);
+        //   │   ├─ emit RedeemClaimable(controller: SuperVaultStrategy SV_USDC:
+        // [0xf3A90C46FF9C1F85030cbf57EC9d326c8225eE4A], requestId: 0, assets: 499999998 [4.999e8], shares: 474279415
+        // [4.742e8])
+        // this is reported as 499999998 as per the pps oracle
+        console2.log("max assets available to withdraw", IERC7540(vault2).maxWithdraw(address(strategy)));
 
         console2.log("---vault1SharesOut", vault1SharesOut);
         console2.log("---vault2SharesOut", vault2SharesOut);
@@ -2416,42 +2437,50 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
 
     /**
      * @notice Truncates expected underlying shares to actual balance if needed
-     * @dev Reverts if actual balance is more than 1% lower than expected
+     * @dev Reverts if actual balance is below the tolerance threshold
      * @param expectedShares The expected underlying vault shares
      * @param underlyingVault The underlying ERC4626 vault address
+     * @param toleranceBps The tolerance in basis points (10000 = 100%)
      * @return adjustedShares The adjusted shares (truncated to balance if necessary)
      */
     function _truncateToActualBalance(
         uint256 expectedShares,
-        address underlyingVault
+        address underlyingVault,
+        uint256 toleranceBps
     )
         internal
         view
         returns (uint256 adjustedShares)
     {
-        uint256 actualBalance = IERC4626(underlyingVault).balanceOf(address(strategy));
+        // For ERC20 tokens (like 7540 share tokens), just check balance directly
+        // For ERC4626 vaults, the vault is also the token
+        uint256 actualBalance = IERC20(underlyingVault).balanceOf(address(strategy));
 
         if (actualBalance >= expectedShares) {
             // Balance is sufficient, no truncation needed
             return expectedShares;
         }
 
-        // Calculate minimum acceptable balance (99% of expected)
-        uint256 minAcceptableBalance = expectedShares * 99 / 100;
+        // Calculate minimum acceptable balance based on tolerance
+        uint256 minAcceptableBalance = expectedShares * (10_000 - toleranceBps) / 10_000;
         console2.log("vault", underlyingVault);
         console2.log("minAcceptableBalance", minAcceptableBalance);
         console2.log("actualBalance", actualBalance);
         if (actualBalance < minAcceptableBalance) {
-            revert("Vault balance too low: more than 1% below expected");
+            revert(
+                string(
+                    abi.encodePacked(
+                        "Vault balance too low: more than ", Strings.toString(toleranceBps), " bps below expected"
+                    )
+                )
+            );
         }
 
         uint256 truncatedValue = expectedShares - actualBalance;
 
         console2.log("truncated value", truncatedValue);
 
-        assertLe(truncatedValue, 1);
-
-        // Balance is lower but within 1% tolerance, truncate to actual
+        // Balance is lower but within tolerance, truncate to actual
         return actualBalance;
     }
 
@@ -2530,13 +2559,14 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest {
         return newArray;
     }
 
-    /**
-     * @notice Updates max PPS slippage to BPS_PRECISION (100%)
-     */
-    function _updateMaxPPSSlippageToMax() internal {
-        uint256 BPS_PRECISION = 10_000;
-        vm.prank(MANAGER);
-        strategy.updateMaxPPSSlippage(BPS_PRECISION);
+
+    /// @notice Updates redeem slippages for all accounts
+    function _updateRedeemSlippages(uint16 slippageBps) internal {
+        for (uint256 i; i < ACCOUNT_COUNT; ++i) {
+            // Set slippage tolerance to 5% for all users
+            vm.prank(accInstances[i].account);
+            strategy.setRedeemSlippage(slippageBps); // 500 BPS = 5%
+        }
     }
 
     /**

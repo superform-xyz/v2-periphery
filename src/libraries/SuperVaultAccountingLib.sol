@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { console2 } from "forge-std/console2.sol";
 
 /// @title SuperVaultAccountingLib
 /// @author Superform Labs
@@ -53,24 +52,6 @@ library SuperVaultAccountingLib {
         newAccumulatorCostBasis = accumulatorCostBasis - costBasis;
 
         return (costBasis, newAccumulatorShares, newAccumulatorCostBasis);
-    }
-
-    /// @notice Validate PPS slippage is within acceptable bounds
-    /// @param currentPPS Current price per share
-    /// @param averageRequestPPS Average PPS at time of request
-    /// @param maxPPSSlippage Maximum allowed PPS decrease in BPS
-    function validatePPSSlippage(uint256 currentPPS, uint256 averageRequestPPS, uint256 maxPPSSlippage) internal pure {
-        // Skip if no request PPS recorded or no max slippage set
-        if (averageRequestPPS == 0 || maxPPSSlippage == 0) return;
-
-        // Calculate the percentage decrease from request PPS to current PPS
-        if (currentPPS < averageRequestPPS) {
-            uint256 decrease =
-                ((averageRequestPPS - currentPPS).mulDiv(BPS_PRECISION, averageRequestPPS, Math.Rounding.Floor));
-
-            // If decrease exceeds maximum allowed slippage, revert
-            if (decrease > maxPPSSlippage) revert SLIPPAGE_EXCEEDED();
-        }
     }
 
     /// @notice Calculate performance fee on profit

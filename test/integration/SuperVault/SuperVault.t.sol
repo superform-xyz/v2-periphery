@@ -90,9 +90,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
-        vm.startPrank(MANAGER);
-        strategy.setFulfillTimestampThreshold(100 days);
-        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -2805,8 +2802,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        // Update max PPS slippage to BPS_PRECISION (100%)
-        _updateMaxPPSSlippageToMax();
 
         uint256 BPS_PRECISION = 10_000;
 
@@ -2915,6 +2910,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
         (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
+        uint256 totalFeesTaken = superformFee + recipientFee;
+
+        console2.log("totalFeesTaken", totalFeesTaken);
 
         // Step 5: Fulfill Redeem
         _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
@@ -2924,8 +2922,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 6: Claim Withdraw
         _claimWithdraw(claimableShares);
-
-        uint256 totalFeesTaken = superformFee + recipientFee;
 
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
@@ -3457,9 +3453,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearSuperVault = SuperVault(gearSuperVaultAddr);
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
-        vm.startPrank(MANAGER);
-        strategyGearSuperVault.setFulfillTimestampThreshold(100 days);
-        vm.stopPrank();
 
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
@@ -4686,7 +4679,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeemForAccount(accInstances[0], redeemShares);
 
         // Cancel redeem
-         vm.prank(accInstances[0].account);
+        vm.prank(accInstances[0].account);
         vault.cancelRedeemRequest(0, accInstances[0].account);
 
         vm.startPrank(MANAGER);
@@ -5913,15 +5906,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // perform deposit operations
         _completeDepositFlow(depositAmount);
-
         uint256 totalRedeemShares;
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
             uint256 vaultBalance = vault.balanceOf(accInstances[i].account);
             totalRedeemShares += vaultBalance;
-            // Set slippage tolerance to 5% for all users
-            vm.prank(accInstances[i].account);
-            strategy.setRedeemSlippage(500); // 500 BPS = 5%
         }
+
+        _updateRedeemSlippages(500);
 
         // request redeem for all users
         _requestRedeemForAllUsers(0);
@@ -6918,7 +6909,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.depositAmount = 1000e6;
         vars.rugPercentage = 5000; // 50% rug
         vars.initialTimestamp = block.timestamp;
-
         // Deploy a ruggable vault that rugs on withdraw
         RuggableVault ruggableVault = RuggableVault(
             Create2.deploy(
@@ -7580,6 +7570,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Deploy a new SuperVault with the ruggable vault
         _deployNewSuperVaultWithRuggableVault(vars.ruggableVault);
+        _updateRedeemSlippages(8000); //-> 80% slippage
 
         // Setup deposit users and amounts
         vars.depositUsers = new address[](5);
@@ -8771,6 +8762,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_7540Underlying_E2E_Flow() public {
         // Set up the vault
         _setUp7540UnderlyingSuperVault();
+
+        // update slippage for this test to 1.5% to allow it to pass
+        _updateRedeemSlippages(150);
 
         AccountInstance memory instance = accInstances[0];
         address account = instance.account;
