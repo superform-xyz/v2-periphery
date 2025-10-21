@@ -340,67 +340,67 @@ contract ConfigureV2Periphery is DeployV2Base {
         console2.log("All hooks currently allowed as fulfill request hooks! WARNING...");
 
         // Register each hook (skip zero addresses)
-        successCount += _registerHook(governor, hooks.approveErc20Hook, true, "approveErc20Hook");
-        successCount += _registerHook(governor, hooks.transferErc20Hook, true, "transferErc20Hook");
-        successCount += _registerHook(governor, hooks.batchTransferHook, true, "batchTransferHook");
-        successCount += _registerHook(governor, hooks.batchTransferFromHook, true, "batchTransferFromHook");
-        successCount += _registerHook(governor, hooks.offrampTokensHook, true, "offrampTokensHook");
+        successCount += _registerHook(governor, hooks.approveErc20Hook, "approveErc20Hook");
+        successCount += _registerHook(governor, hooks.transferErc20Hook, "transferErc20Hook");
+        successCount += _registerHook(governor, hooks.batchTransferHook, "batchTransferHook");
+        successCount += _registerHook(governor, hooks.batchTransferFromHook, "batchTransferFromHook");
+        successCount += _registerHook(governor, hooks.offrampTokensHook, "offrampTokensHook");
 
         // Vault hooks
-        successCount += _registerHook(governor, hooks.deposit4626VaultHook, true, "deposit4626VaultHook");
+        successCount += _registerHook(governor, hooks.deposit4626VaultHook, "deposit4626VaultHook");
         successCount +=
-            _registerHook(governor, hooks.approveAndDeposit4626VaultHook, true, "approveAndDeposit4626VaultHook");
-        successCount += _registerHook(governor, hooks.redeem4626VaultHook, true, "redeem4626VaultHook");
-        successCount += _registerHook(governor, hooks.deposit5115VaultHook, true, "deposit5115VaultHook");
-        successCount += _registerHook(governor, hooks.redeem5115VaultHook, true, "redeem5115VaultHook");
+            _registerHook(governor, hooks.approveAndDeposit4626VaultHook, "approveAndDeposit4626VaultHook");
+        successCount += _registerHook(governor, hooks.redeem4626VaultHook, "redeem4626VaultHook");
+        successCount += _registerHook(governor, hooks.deposit5115VaultHook, "deposit5115VaultHook");
+        successCount += _registerHook(governor, hooks.redeem5115VaultHook, "redeem5115VaultHook");
         successCount +=
-            _registerHook(governor, hooks.approveAndDeposit5115VaultHook, true, "approveAndDeposit5115VaultHook");
-        successCount += _registerHook(governor, hooks.deposit7540VaultHook, true, "deposit7540VaultHook");
-        successCount += _registerHook(governor, hooks.redeem7540VaultHook, true, "redeem7540VaultHook");
+            _registerHook(governor, hooks.approveAndDeposit5115VaultHook, "approveAndDeposit5115VaultHook");
+        successCount += _registerHook(governor, hooks.deposit7540VaultHook, "deposit7540VaultHook");
+        successCount += _registerHook(governor, hooks.redeem7540VaultHook, "redeem7540VaultHook");
         successCount += _registerHook(
-            governor, hooks.approveAndRequestDeposit7540VaultHook, true, "approveAndRequestDeposit7540VaultHook"
+            governor, hooks.approveAndRequestDeposit7540VaultHook, "approveAndRequestDeposit7540VaultHook"
         );
 
         // Async request hooks (isFulfillRequestsHook = true)
-        successCount += _registerHook(governor, hooks.requestDeposit7540VaultHook, true, "requestDeposit7540VaultHook");
-        successCount += _registerHook(governor, hooks.requestRedeem7540VaultHook, true, "requestRedeem7540VaultHook");
+        successCount += _registerHook(governor, hooks.requestDeposit7540VaultHook, "requestDeposit7540VaultHook");
+        successCount += _registerHook(governor, hooks.requestRedeem7540VaultHook, "requestRedeem7540VaultHook");
         successCount +=
-            _registerHook(governor, hooks.claimCancelDepositRequest7540Hook, true, "claimCancelDepositRequest7540Hook");
+            _registerHook(governor, hooks.claimCancelDepositRequest7540Hook, "claimCancelDepositRequest7540Hook");
         successCount +=
-            _registerHook(governor, hooks.claimCancelRedeemRequest7540Hook, true, "claimCancelRedeemRequest7540Hook");
+            _registerHook(governor, hooks.claimCancelRedeemRequest7540Hook, "claimCancelRedeemRequest7540Hook");
 
         // Other vault hooks
         successCount +=
-            _registerHook(governor, hooks.cancelDepositRequest7540Hook, true, "cancelDepositRequest7540Hook");
-        successCount += _registerHook(governor, hooks.cancelRedeemRequest7540Hook, true, "cancelRedeemRequest7540Hook");
+            _registerHook(governor, hooks.cancelDepositRequest7540Hook, "cancelDepositRequest7540Hook");
+        successCount += _registerHook(governor, hooks.cancelRedeemRequest7540Hook, "cancelRedeemRequest7540Hook");
 
         // Bridge hooks
         successCount += _registerHook(
-            governor, hooks.acrossSendFundsAndExecuteOnDstHook, true, "acrossSendFundsAndExecuteOnDstHook"
+            governor, hooks.acrossSendFundsAndExecuteOnDstHook, "acrossSendFundsAndExecuteOnDstHook"
         );
         successCount += _registerHook(
-            governor, hooks.deBridgeSendOrderAndExecuteOnDstHook, true, "deBridgeSendOrderAndExecuteOnDstHook"
+            governor, hooks.deBridgeSendOrderAndExecuteOnDstHook, "deBridgeSendOrderAndExecuteOnDstHook"
         );
-        successCount += _registerHook(governor, hooks.deBridgeCancelOrderHook, true, "deBridgeCancelOrderHook");
+        successCount += _registerHook(governor, hooks.deBridgeCancelOrderHook, "deBridgeCancelOrderHook");
 
         // Swap hooks
-        successCount += _registerHook(governor, hooks.swap1InchHook, true, "swap1InchHook");
-        successCount += _registerHook(governor, hooks.swapOdosHook, true, "swapOdosHook");
-        successCount += _registerHook(governor, hooks.approveAndSwapOdosHook, true, "approveAndSwapOdosHook");
+        successCount += _registerHook(governor, hooks.swap1InchHook, "swap1InchHook");
+        successCount += _registerHook(governor, hooks.swapOdosHook, "swapOdosHook");
+        successCount += _registerHook(governor, hooks.approveAndSwapOdosHook, "approveAndSwapOdosHook");
 
         // Protocol-specific hooks
-        successCount += _registerHook(governor, hooks.ethenaCooldownSharesHook, true, "ethenaCooldownSharesHook");
-        successCount += _registerHook(governor, hooks.ethenaUnstakeHook, true, "ethenaUnstakeHook");
-        successCount += _registerHook(governor, hooks.markRootAsUsedHook, true, "markRootAsUsedHook");
-        successCount += _registerHook(governor, hooks.merklClaimRewardHook, true, "merklClaimRewardHook");
+        successCount += _registerHook(governor, hooks.ethenaCooldownSharesHook, "ethenaCooldownSharesHook");
+        successCount += _registerHook(governor, hooks.ethenaUnstakeHook, "ethenaUnstakeHook");
+        successCount += _registerHook(governor, hooks.markRootAsUsedHook, "markRootAsUsedHook");
+        successCount += _registerHook(governor, hooks.merklClaimRewardHook, "merklClaimRewardHook");
 
         // Circle Gateway hooks
-        successCount += _registerHook(governor, hooks.circleGatewayWalletHook, true, "circleGatewayWalletHook");
-        successCount += _registerHook(governor, hooks.circleGatewayMinterHook, true, "circleGatewayMinterHook");
+        successCount += _registerHook(governor, hooks.circleGatewayWalletHook, "circleGatewayWalletHook");
+        successCount += _registerHook(governor, hooks.circleGatewayMinterHook, "circleGatewayMinterHook");
         successCount +=
-            _registerHook(governor, hooks.circleGatewayAddDelegateHook, true, "circleGatewayAddDelegateHook");
+            _registerHook(governor, hooks.circleGatewayAddDelegateHook, "circleGatewayAddDelegateHook");
         successCount +=
-            _registerHook(governor, hooks.circleGatewayRemoveDelegateHook, true, "circleGatewayRemoveDelegateHook");
+            _registerHook(governor, hooks.circleGatewayRemoveDelegateHook, "circleGatewayRemoveDelegateHook");
 
         console2.log("Hook registration complete:");
         console2.log("- Successfully registered:", successCount);
@@ -411,7 +411,6 @@ contract ConfigureV2Periphery is DeployV2Base {
     function _registerHook(
         ISuperGovernor governor,
         address hookAddress,
-        bool isFulfillRequestsHook,
         string memory hookName
     )
         internal
@@ -422,12 +421,11 @@ contract ConfigureV2Periphery is DeployV2Base {
             return 0;
         }
 
-        try governor.registerHook(hookAddress, isFulfillRequestsHook) {
+        try governor.registerHook(hookAddress) {
             console2.log(
-                "SUCCESS: Registered %s at %s (fulfillRequests: %s)",
+                "SUCCESS: Registered %s at %s",
                 hookName,
-                hookAddress,
-                isFulfillRequestsHook ? "true" : "false"
+                hookAddress
             );
             return 1;
         } catch Error(string memory reason) {
