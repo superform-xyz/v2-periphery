@@ -61,84 +61,160 @@
       "address": "0xda00000035fef4082F78dEF6A8903bee419FbF8E"
     },
     {
+      "symbol": "Mock4626Vault1",
+      "address": "0xc7550B7Ce6B9c4514dF66bD927dE578Cb2a2d123"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
-      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "address": "0x190d48857707cD8440cFb281B6cE5687d270292B"
     },
     {
       "symbol": "test_1_DynamicAllocation_MockVault_Coverage",
-      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "address": "0x190d48857707cD8440cFb281B6cE5687d270292B"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest",
-      "address": "0xb572b235901669b98E23920B161530f6191037d3"
+      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest_Coverage",
-      "address": "0xb572b235901669b98E23920B161530f6191037d3"
+      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1",
-      "address": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D"
+      "address": "0x5dE9dD054C80af1b821289105DAdC26dF8616AE3"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1_Coverage",
-      "address": "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D"
+      "address": "0x5dE9dD054C80af1b821289105DAdC26dF8616AE3"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault2",
-      "address": "0x13C43599b83d0080624711B4c112307e44E98727"
+      "address": "0x4A325DFf8416611d327Ae1c4C60b5BCd90Ba04e9"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault2_Coverage",
-      "address": "0x13C43599b83d0080624711B4c112307e44E98727"
+      "address": "0x4A325DFf8416611d327Ae1c4C60b5BCd90Ba04e9"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault3",
-      "address": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32"
+      "address": "0x8427135C6F01aD7AB67A5B7A2ed81628b0d04FB3"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault3_Coverage",
-      "address": "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32"
+      "address": "0x8427135C6F01aD7AB67A5B7A2ed81628b0d04FB3"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault1",
-      "address": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4"
+      "address": "0x6750bC8d77E75822DAA15DcC522CbE1AD03fb4a9"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault1_Coverage",
-      "address": "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4"
+      "address": "0x6750bC8d77E75822DAA15DcC522CbE1AD03fb4a9"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault2",
-      "address": "0x021210aD662B08fb81a53a560d9a03De8098C4f5"
+      "address": "0x5Bb34cBaFB889c4CF3811045bcEfc92F8dD12400"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault2_Coverage",
-      "address": "0x021210aD662B08fb81a53a560d9a03De8098C4f5"
+      "address": "0x5Bb34cBaFB889c4CF3811045bcEfc92F8dD12400"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault3",
-      "address": "0xa44982Ae9000894BD2D66ff3365d914658295c0E"
+      "address": "0x592EcfbAFB315871fF535cbe0f8D97E4ed3083Bd"
     },
     {
       "symbol": "test_6_yieldAccumulation_WithRebalancing_vault3_Coverage",
-      "address": "0xa44982Ae9000894BD2D66ff3365d914658295c0E"
+      "address": "0x592EcfbAFB315871fF535cbe0f8D97E4ed3083Bd"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit",
-      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
+      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit_Coverage",
-      "address": "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6"
+      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw",
-      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
+      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_Coverage",
-      "address": "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA"
+      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_ConvertDistortion",
@@ -150,11 +226,11 @@
     },
     {
       "symbol": "test_11_Allocate_NewYieldSource",
-      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "address": "0x190d48857707cD8440cFb281B6cE5687d270292B"
     },
     {
       "symbol": "test_11_Allocate_NewYieldSource_Coverage",
-      "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "address": "0x190d48857707cD8440cFb281B6cE5687d270292B"
     },
     {
       "symbol": "MOCK_ETH_RECEIVER",
@@ -163,6 +239,14 @@
     {
       "symbol": "MOCK_ETH_RECEIVER_Coverage",
       "address": "0x01d1cf44A0A7C83457F5dB373B3a01A95A4853da"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy_Coverage",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     }
   ],
   "10": [

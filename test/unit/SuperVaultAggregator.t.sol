@@ -342,7 +342,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         }
 
         vm.startPrank(manager);
-        for (uint256 i = 0; i < 4; ++i) {
+        for (uint256 i = 0; i < 5; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);

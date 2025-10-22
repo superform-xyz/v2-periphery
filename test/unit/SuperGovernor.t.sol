@@ -282,48 +282,31 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
         emit ISuperGovernor.HookApproved(hook1);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
-        assertFalse(
-            superGovernor.isFulfillRequestsHookRegistered(hook1),
-            "Hook should not be registered as fulfill requests hook"
-        );
     }
 
-    /// @notice Tests registering a fulfill requests hook
-    function test_HookManagement_RegisterFulfillRequestsHook() public {
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.FulfillRequestsHookRegistered(fulfillHook1);
-        superGovernor.registerHook(fulfillHook1, true);
-
-        assertTrue(
-            superGovernor.isFulfillRequestsHookRegistered(fulfillHook1),
-            "Hook should be registered as fulfill requests hook"
-        );
-        assertTrue(superGovernor.isHookRegistered(fulfillHook1));
-    }
 
     /// @notice Tests reverting when registering a hook with zero address
     function test_HookManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.registerHook(address(0), false);
+        superGovernor.registerHook(address(0));
     }
 
     /// @notice Tests that registering an already registered hook doesn't emit events
     function test_HookManagement_AlreadyRegistered_NoEvent() public {
         // Register hook first
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Verify it's registered
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
 
         // Try to register again - should not revert
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Hook should still be registered
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should still be registered");
@@ -333,28 +316,24 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_HookManagement_FulfillHookAlreadyRegistered_NoEvent() public {
         // Register fulfill hook first
         vm.prank(governor);
-        superGovernor.registerHook(fulfillHook1, true);
+        superGovernor.registerHook(fulfillHook1);
 
         // Verify it's registered in both sets
         assertTrue(superGovernor.isHookRegistered(fulfillHook1), "Hook should be registered");
-        assertTrue(superGovernor.isFulfillRequestsHookRegistered(fulfillHook1), "Fulfill hook should be registered");
 
         // Try to register again - should not revert
         vm.prank(governor);
-        superGovernor.registerHook(fulfillHook1, true);
+        superGovernor.registerHook(fulfillHook1);
 
         // Hook should still be registered in both sets
         assertTrue(superGovernor.isHookRegistered(fulfillHook1), "Hook should still be registered");
-        assertTrue(
-            superGovernor.isFulfillRequestsHookRegistered(fulfillHook1), "Fulfill hook should still be registered"
-        );
     }
 
     /// @notice Tests unregistering a hook
     function test_HookManagement_UnregisterHook() public {
         // Register hook first
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Unregister hook
         vm.prank(governor);
@@ -365,58 +344,34 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be unregistered");
     }
 
-    /// @notice Tests unregistering a fulfill requests hook
-    function test_HookManagement_UnregisterFulfillRequestsHook() public {
-        // Register fulfill hook first
-        vm.prank(governor);
-        superGovernor.registerHook(fulfillHook1, true);
-
-        // Unregister fulfill hook
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.FulfillRequestsHookUnregistered(fulfillHook1);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.HookRemoved(fulfillHook1);
-        superGovernor.unregisterHook(fulfillHook1);
-        assertFalse(superGovernor.isHookRegistered(fulfillHook1), "Hook should be unregistered");
-
-        assertFalse(superGovernor.isFulfillRequestsHookRegistered(fulfillHook1), "Fulfill hook should be unregistered");
-    }
 
     /// @notice Tests the fix for the dangerous hook registration behavior where sets can get out of sync
     function test_HookManagement_FixedInvariantMaintenance() public {
         // Test case 1: Register a hook in regular set, then try to register it as fulfill request hook
         // This should work now and not revert
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be in regular set");
-        assertFalse(superGovernor.isFulfillRequestsHookRegistered(hook1), "Hook should not be in fulfill set yet");
 
-        // Now register the same hook as a fulfill request hook - this should work
+        // Now register the same hook again - should not revert
         vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.FulfillRequestsHookRegistered(hook1);
-        superGovernor.registerHook(hook1, true);
+        superGovernor.registerHook(hook1);
 
-        // Now it should be in both sets
+        // Should still be registered
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should still be in regular set");
-        assertTrue(superGovernor.isFulfillRequestsHookRegistered(hook1), "Hook should now be in fulfill set");
 
         // Test case 2: Unregister should remove from both sets
         vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.FulfillRequestsHookUnregistered(hook1);
         vm.expectEmit(true, false, false, false);
         emit ISuperGovernor.HookRemoved(hook1);
         superGovernor.unregisterHook(hook1);
 
         // Should be removed from both sets
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be removed from regular set");
-        assertFalse(superGovernor.isFulfillRequestsHookRegistered(hook1), "Hook should be removed from fulfill set");
 
         // Test case 3: Unregistering a hook that's only in regular set should work
         vm.prank(governor);
-        superGovernor.registerHook(hook2, false);
+        superGovernor.registerHook(hook2);
 
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
@@ -430,8 +385,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_HookManagement_GetRegisteredHooks() public {
         // Register two hooks
         vm.startPrank(governor);
-        superGovernor.registerHook(hook1, false);
-        superGovernor.registerHook(hook2, false);
+        superGovernor.registerHook(hook1);
+        superGovernor.registerHook(hook2);
         vm.stopPrank();
 
         address[] memory hooks = superGovernor.getRegisteredHooks();
@@ -440,19 +395,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
-    /// @notice Tests getting the list of registered fulfill requests hooks
-    function test_HookManagement_GetRegisteredFulfillRequestsHooks() public {
-        // Register two fulfill hooks
-        vm.startPrank(governor);
-        superGovernor.registerHook(fulfillHook1, true);
-        superGovernor.registerHook(fulfillHook2, true);
-        vm.stopPrank();
-
-        address[] memory hooks = superGovernor.getRegisteredFulfillRequestsHooks();
-        assertEq(hooks.length, 2, "Should have 2 registered fulfill hooks");
-        assertTrue(hooks[0] == fulfillHook1 || hooks[1] == fulfillHook1, "fulfillHook1 should be in the list");
-        assertTrue(hooks[0] == fulfillHook2 || hooks[1] == fulfillHook2, "fulfillHook2 should be in the list");
-    }
 
     // =============================================================
     // Validator Management Tests
@@ -621,7 +563,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256 expectedTime = block.timestamp + TIMELOCK;
 
         vm.prank(sGovernor);
-        vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, true);
         emit ISuperGovernor.FeeProposed(feeType, feeValue, expectedTime);
         superGovernor.proposeFee(feeType, feeValue);
 
@@ -835,7 +777,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // SuperGovernor slashes stake
         vm.prank(governor);
-        vm.expectEmit(true, false, false, true);
+        vm.expectEmit(true, false, false, false);
         emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
         superGovernor.slashStake(manager, slashAmount);
 
@@ -1023,14 +965,14 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_MerkleRoot_ProposeMerkleRoot() public {
         // First register the hook
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Propose a new merkle root
         bytes32 proposedRoot = keccak256("test_root");
         uint256 expectedTime = block.timestamp + TIMELOCK;
 
         vm.prank(governor);
-        vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, true);
         emit ISuperGovernor.SuperBankHookMerkleRootProposed(hook1, proposedRoot, expectedTime);
         superGovernor.proposeSuperBankHookMerkleRoot(hook1, proposedRoot);
 
@@ -1052,7 +994,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_MerkleRoot_ExecuteMerkleRootUpdate() public {
         // Register the hook
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Propose a new merkle root
         bytes32 proposedRoot = keccak256("test_root");
@@ -1080,7 +1022,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_MerkleRoot_Revert_ExecuteNoProposal() public {
         // Register the hook
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Try to execute without a proposal
         vm.expectRevert(ISuperGovernor.NO_PROPOSED_MERKLE_ROOT.selector);
@@ -1091,7 +1033,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_MerkleRoot_Revert_ExecuteBeforeTimelock() public {
         // Register the hook
         vm.prank(governor);
-        superGovernor.registerHook(hook1, false);
+        superGovernor.registerHook(hook1);
 
         // Propose a new merkle root
         bytes32 proposedRoot = keccak256("test_root");

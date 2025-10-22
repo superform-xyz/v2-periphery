@@ -46,10 +46,6 @@ interface ISuperGovernor is IAccessControl {
     error HOOK_ALREADY_APPROVED();
     /// @notice Thrown when a hook is not approved but expected to be
     error HOOK_NOT_APPROVED();
-    /// @notice Thrown when a fulfill requests hook is already registered
-    error FULFILL_REQUESTS_HOOK_ALREADY_REGISTERED();
-    /// @notice Thrown when a fulfill requests hook is not registered but expected to be
-    error FULFILL_REQUESTS_HOOK_NOT_REGISTERED();
     /// @notice Thrown when provided revenue share is invalid (exceeds 100%)
     error INVALID_REVENUE_SHARE();
     /// @notice Thrown when an invalid fee value is proposed (must be <= BPS_MAX)
@@ -134,13 +130,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
 
-    /// @notice Emitted when a fulfill requests hook is registered
-    /// @param hook The address of the registered fulfill requests hook
-    event FulfillRequestsHookRegistered(address indexed hook);
-
-    /// @notice Emitted when a fulfill requests hook is unregistered
-    /// @param hook The address of the unregistered fulfill requests hook
-    event FulfillRequestsHookUnregistered(address indexed hook);
 
     /// @notice Emitted when a validator is registered
     /// @param validator The address of the registered validator
@@ -407,8 +396,7 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Registers a hook for use in SuperVaults
     /// @param hook The address of the hook to register
-    /// @param isFulfillRequestsHook Whether the hook is a fulfill requests hook
-    function registerHook(address hook, bool isFulfillRequestsHook) external;
+    function registerHook(address hook) external;
 
     /// @notice Unregisters a hook from the approved list
     /// @param hook The address of the hook to unregister
@@ -617,18 +605,11 @@ interface ISuperGovernor is IAccessControl {
     /// @return True if the hook is registered, false otherwise
     function isHookRegistered(address hook) external view returns (bool);
 
-    /// @notice Checks if a hook is registered as a fulfill requests hook
-    /// @param hook The address of the hook to check
-    /// @return True if the hook is registered as a fulfill requests hook, false otherwise
-    function isFulfillRequestsHookRegistered(address hook) external view returns (bool);
 
     /// @notice Gets all registered hooks
     /// @return An array of registered hook addresses
     function getRegisteredHooks() external view returns (address[] memory);
 
-    /// @notice Gets all registered fulfill requests hooks
-    /// @return An array of registered fulfill requests hook addresses
-    function getRegisteredFulfillRequestsHooks() external view returns (address[] memory);
 
     /// @notice Checks if an address is an approved validator
     /// @param validator The address to check
@@ -653,6 +634,9 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Returns all registered validators
     /// @return List of validator addresses
     function getValidators() external view returns (address[] memory);
+
+    /// @notice Returns the number of registered validators (O(1))
+    function getValidatorsCount() external view returns (uint256);
 
     /// @notice Returns all registered relayers
     /// @return List of relayer addresses

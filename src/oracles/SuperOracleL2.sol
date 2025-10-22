@@ -45,7 +45,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         address[] calldata uptimeOracles,
         uint256[] calldata gracePeriods_
     )
-        external
+        external override
     {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
