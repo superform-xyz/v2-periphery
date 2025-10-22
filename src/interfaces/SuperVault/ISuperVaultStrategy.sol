@@ -94,18 +94,26 @@ interface ISuperVaultStrategy {
 
     event VestingUpdated(uint256 targetPPS, uint256 duration, uint256 startTime);
     event VestingDurationUpdated(uint256 newDuration);
+    event VestingProgress(
+        uint256 currentPPS, 
+        uint256 effectivePPS, 
+        uint256 startPPS, 
+        uint256 targetPPS, 
+        uint256 elapsed, 
+        uint256 duration
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Packed struct for vesting data to save gas
+    /// @dev Optimized to fit in a single storage slot (256 bits total)
     struct VestingData {
-        uint128 startPPS; // 128 bits for start PPS
-        uint128 targetPPS; // 128 bits for target PPS
-        uint64 startTime; // 64 bits for timestamp
-        uint32 duration; // 32 bits for duration
-        uint32 lastUpdateTime; // 32 bits for last update timestamp
+        uint80 startPPS; // 80 bits for start PPS (max ~1.2e24)
+        uint80 targetPPS; // 80 bits for target PPS
+        uint48 startTime; // 48 bits for timestamp (max year ~8.9 million)
+        uint48 duration; // 48 bits for duration (max ~8.9 million years)
     }
 
     struct FeeConfig {
@@ -238,7 +246,10 @@ interface ISuperVaultStrategy {
     /// @param shares The amount of shares to mint
     /// @return assetsGross The amount of gross assets that will be received
     /// @return assetsNet The amount of net assets that will be received
-    function quoteMintAssetsGross(uint256 shares) external view returns (uint256 assetsGross, uint256 assetsNet);
+    function quoteMintAssetsGross(uint256 shares, uint256 pps) 
+        external 
+        view 
+        returns (uint256 assetsGross, uint256 assetsNet);
 
     /// @notice Execute async redeem requests (redeem, cancel, claim).
     /// @param op The operation type (RedeemRequest, CancelRedeem, ClaimRedeem)
@@ -453,6 +464,31 @@ interface ISuperVaultStrategy {
     /// @return currentPPS The current PPS from the aggregator
     /// @return vData The vesting data after any updates
     function updateVesting() external returns (uint256 currentPPS, VestingData memory vData);
+
+    /// @notice Updates vesting data and returns effective PPS with progress tracking
+    /// @return effectivePPS Effective price per share after vesting calculation
+    function updateVestingAndGetPPS() external returns (uint256 effectivePPS);
+
+    /// @notice Returns current vesting progress without state changes (view function for UI)
+    /// @return currentPPS Current price per share from aggregator
+    /// @return effectivePPS Effective price per share after vesting calculation
+    /// @return startPPS Starting PPS for current vesting period
+    /// @return targetPPS Target PPS for current vesting period
+    /// @return elapsed Elapsed time in current vesting period (seconds)
+    /// @return duration Total duration of vesting period (seconds)
+    /// @return vestingComplete Whether vesting is complete (elapsed >= duration)
+    function getVestingProgress() 
+        external 
+        view 
+        returns (
+            uint256 currentPPS, 
+            uint256 effectivePPS, 
+            uint256 startPPS, 
+            uint256 targetPPS, 
+            uint256 elapsed, 
+            uint256 duration, 
+            bool vestingComplete
+        );
 
     /// @notice Sets the vesting duration (primary manager only)
     /// @param newDuration The new vesting duration in seconds

@@ -158,8 +158,11 @@ contract SuperVault is
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (shares == 0) revert ZERO_AMOUNT();
 
+        // Update vesting and get effective PPS for accurate quote
+        uint256 effectivePPS = strategy.updateVestingAndGetPPS();
+        
         uint256 assetsNet;
-        (assets, assetsNet) = strategy.quoteMintAssetsGross(shares);
+        (assets, assetsNet) = strategy.quoteMintAssetsGross(shares, effectivePPS);
 
         // Forward quoted gross assets from msg-sender to strategy
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 
 /// @title SuperVaultAccountingLib
 /// @author Superform Labs
@@ -195,6 +196,112 @@ library SuperVaultAccountingLib {
         claimableAssets = strategyBalance < theoreticalAssets ? strategyBalance : theoreticalAssets;
 
         return claimableAssets;
+    }
+
+    /// @dev Function to calculate effective PPS with cached data
+    ///
+    /// EFFECTIVE PPS CALCULATION:
+    /// This function calculates the "effective" (vested) PPS at any point in time.
+    /// It handles both active vesting and simulates future vesting for view functions.
+    ///
+    /// KEY CONCEPTS:
+    /// - currentPPS: The latest PPS from the aggregator (real yield)
+    /// - vData.targetPPS: The target PPS we're vesting towards (from last updateVesting)
+    /// - vData.startPPS: The PPS we started vesting from
+    /// - effectivePPS: The PPS users actually see (linearly interpolated)
+    ///
+    /// SIMULATION MODE (View Functions):
+    /// When currentPPS > vData.targetPPS, a new jump has occurred but updateVesting()
+    /// hasn't been called yet. We simulate what would happen if it were called now.
+    /// This ensures view functions (like getEffectivePPS) return accurate values.
+    ///
+    /// EXAMPLE 1 - NORMAL VESTING:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1100000 (no new jump)
+    /// At T0+3 days:
+    ///   elapsed = 3 days
+    ///   vestedAmount = (1100000 - 1000000) * 3/10 = 30000
+    ///   effectivePPS = 1000000 + 30000 = 1030000
+    ///
+    /// EXAMPLE 2 - NEW JUMP SIMULATION:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1200000 (NEW JUMP detected!)
+    /// At T0+15 days (5 days after first vesting completed):
+    ///   Simulation kicks in: targetPPS > vData.targetPPS
+    ///   New simulated vesting: 1100000 -> 1200000 starting at T0+10days
+    ///   elapsed = 5 days (from simulated start)
+    ///   vestedAmount = (1200000 - 1100000) * 5/10 = 50000
+    ///   effectivePPS = 1100000 + 50000 = 1150000
+    ///
+    /// EXAMPLE 3 - CONCURRENT OPERATIONS:
+    /// T0: Initial state, PPS = 1.0
+    /// T1: Harvest, PPS jumps to 1.2, vesting starts (1.0 -> 1.2 over 10 days)
+    /// T1+2d: User A deposits
+    ///        effectivePPS = 1.04 (20% vested)
+    ///        User gets shares = deposit / 1.04
+    /// T1+5d: User B requests redeem
+    ///        effectivePPS = 1.10 (50% vested)
+    ///        Request locked at PPS = 1.10
+    /// T1+6d: New harvest, aggregator PPS jumps to 1.3
+    ///        This function simulates: would vest 1.2 -> 1.3
+    ///        But actual vesting won't start until T1+10d
+    /// T1+8d: User C deposits
+    ///        effectivePPS = 1.16 (80% of first vesting)
+    ///        New jump (1.3) NOT included yet
+    /// T1+10d: First vesting completes
+    ///         effectivePPS = 1.20
+    ///         If updateVesting() called, new vesting 1.2 -> 1.3 starts
+    /// T1+12d: User B's redeem fulfills
+    ///         effectivePPS = 1.24 (20% of second vesting)
+    ///         User B gets assets based on 1.24 (not their request PPS of 1.10)
+    ///
+    /// SLIPPAGE PROTECTION:
+    /// Request/fulfill flows store the request PPS for slippage checks.
+    /// Users are protected from PPS drops but benefit from increases.
+    ///
+    function calculateEffectivePPS(
+        uint256 currentPPS,
+        ISuperVaultStrategy.VestingData memory vData,
+        uint256 currentBlockTimestamp
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 targetPPS = currentPPS;
+        uint256 startPPS = vData.startPPS;
+        uint256 startTime = vData.startTime;
+        // SIMULATION MODE: Detect if a new jump occurred that hasn't been processed
+        // This happens when aggregator PPS exceeds our stored target
+        // We simulate the vesting that WOULD occur if updateVesting() were called
+        if (targetPPS > vData.targetPPS) {
+            // Start new vesting from the previous target (or current if first time)
+            startPPS = vData.targetPPS > 0 ? vData.targetPPS : targetPPS;
+            startTime = currentBlockTimestamp; // Simulate starting vesting now
+        }
+        // EARLY RETURNS:
+        // Case 1: No increase (PPS unchanged or decreased)
+        if (targetPPS <= startPPS) {
+            return targetPPS;
+        }
+        // Case 2: Vesting hasn't started yet (time at or before start)
+        if (currentBlockTimestamp <= startTime) {
+            return startPPS;
+        }
+        uint256 elapsed = currentBlockTimestamp - startTime;
+        uint256 duration = vData.duration;
+        // Case 3: Vesting complete (elapsed >= duration)
+        if (elapsed >= duration) {
+            return targetPPS;
+        }
+        // LINEAR VESTING CALCULATION:
+        // effectivePPS = startPPS + (targetPPS - startPPS) * (elapsed / duration)
+        // Example: start=1.0, target=1.1, elapsed=3days, duration=10days
+        // effectivePPS = 1.0 + (0.1) * (3/10) = 1.03
+        unchecked {
+            uint256 vestedAmount = (targetPPS - startPPS).mulDiv(elapsed, duration, Math.Rounding.Floor);
+            return startPPS + vestedAmount;
+        }
     }
 
     /// @notice Validate redemption share amounts are within tolerance bounds
