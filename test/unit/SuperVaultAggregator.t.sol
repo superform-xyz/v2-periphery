@@ -1795,7 +1795,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake deposit reverts with zero amount
     function test_DepositStake_RevertZeroAmount() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.depositStake(manager, 0);
     }
 
