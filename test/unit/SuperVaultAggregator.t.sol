@@ -2592,7 +2592,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(isPaused, "Strategy should be paused after invalid update");
 
         // Now unpause the strategy by pranking as the main manager
-        vm.prank(mainManager);
+        vm.startPrank(governor);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify strategy is unpaused
@@ -2690,7 +2690,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should still be paused");
 
-        vm.prank(mainManager);
+        vm.prank(governor);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify strategy is unpaused

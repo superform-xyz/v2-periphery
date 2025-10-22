@@ -1255,6 +1255,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     function _isUnpauser(address account) internal view returns (bool) {
-        return !IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
+        return IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
     }
 }
