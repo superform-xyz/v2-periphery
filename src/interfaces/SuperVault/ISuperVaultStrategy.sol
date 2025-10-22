@@ -91,7 +91,7 @@ interface ISuperVaultStrategy {
         uint256 accumulatorCostBasis
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
-    
+
     event VestingUpdated(uint256 targetPPS, uint256 duration, uint256 startTime);
     event VestingDurationUpdated(uint256 newDuration);
 
@@ -101,10 +101,10 @@ interface ISuperVaultStrategy {
 
     /// @notice Packed struct for vesting data to save gas
     struct VestingData {
-        uint128 startPPS;      // 128 bits for start PPS
-        uint128 targetPPS;     // 128 bits for target PPS
-        uint64 startTime;      // 64 bits for timestamp
-        uint32 duration;       // 32 bits for duration
+        uint128 startPPS; // 128 bits for start PPS
+        uint128 targetPPS; // 128 bits for target PPS
+        uint64 startTime; // 64 bits for timestamp
+        uint32 duration; // 32 bits for duration
         uint32 lastUpdateTime; // 32 bits for last update timestamp
     }
 
@@ -407,7 +407,7 @@ interface ISuperVaultStrategy {
 
     /// @notice Updates vesting state if a PPS jump is detected
     /// @dev Optimized to reduce external calls and storage operations
-    /// 
+    ///
     /// VESTING MECHANICS & MEV PROTECTION:
     /// This function detects PPS jumps and initiates linear vesting to prevent MEV attacks.
     /// When a yield event occurs (e.g., rewards harvested), the PPS jumps instantly.
@@ -415,10 +415,10 @@ interface ISuperVaultStrategy {
     /// 1. Front-run the harvest tx with a large deposit
     /// 2. Capture the instant PPS increase
     /// 3. Back-run with an immediate withdrawal for risk-free profit
-    /// 
+    ///
     /// With vesting, the PPS increase is spread over time (default 10 days), making
     /// MEV unprofitable as attackers must hold positions through the vesting period.
-    /// 
+    ///
     /// EXAMPLE SCENARIO - YIELD HARVEST:
     /// Time T0: PPS = 1.0, no vesting active
     /// Time T1: Harvest occurs, aggregator reports PPS = 1.1 (10% yield)
@@ -430,10 +430,10 @@ interface ISuperVaultStrategy {
     /// Time T1+1day: Effective PPS = 1.01 (10% of increase vested)
     /// Time T1+5days: Effective PPS = 1.05 (50% vested)
     /// Time T1+10days: Effective PPS = 1.1 (fully vested)
-    /// 
+    ///
     /// CONCURRENT OPERATIONS HANDLING:
     /// Multiple user operations (deposits/redeems) can occur during vesting:
-    /// 
+    ///
     /// Example with concurrent requests during vesting:
     /// T1: Harvest, PPS jumps 1.0 -> 1.2, vesting starts
     /// T1+2days: User A requests redeem at effectivePPS = 1.04
@@ -444,13 +444,12 @@ interface ISuperVaultStrategy {
     /// T1+10days: First vesting completes, effectivePPS = 1.2
     ///            New vesting starts automatically: 1.2 -> 1.3
     /// T1+12days: User A's redeem fulfills at current effectivePPS = 1.24
-    /// 
+    ///
     /// RETARGETING ON NEW JUMPS:
     /// When a new PPS jump occurs during active vesting:
     /// 1. Current vesting continues to completion
     /// 2. New jump is "queued" - will start from the current target when done
     /// 3. This prevents gaming by ensuring all yield is vested properly
-    /// 
     /// @return currentPPS The current PPS from the aggregator
     /// @return vData The vesting data after any updates
     function updateVesting() external returns (uint256 currentPPS, VestingData memory vData);
