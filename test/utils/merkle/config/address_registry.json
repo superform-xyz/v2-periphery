@@ -117,6 +117,21 @@
         "symbol": "GearboxVault",
         "address": "0xda00000035fef4082F78dEF6A8903bee419FbF8E",
         "category": "leverage"
+      },
+      {
+        "symbol": "Mock4626Vault1",
+        "address": "0xc7550B7Ce6B9c4514dF66bD927dE578Cb2a2d123",
+        "category": "lending"
+      },
+      {
+        "symbol": "Mock4626Vault2",
+        "address": "0x03E3ef5a57272b4C00a6aF11E85655d63dB6709B",
+        "category": "lending"
+      },
+      {
+        "symbol": "test11_Allocate_NewYieldSource",
+        "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+        "category": "lending"
       }
     ],
     "10": [
@@ -160,7 +175,9 @@
       "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6",
       "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA",
       "0x92bd9b2Fb1E55283452760e369979EDa4C180286",
-      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce"
+      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+      "0x258b7ae9141d9f85e9f56bebb94cd6750b7873fc",
+      "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     ],
     "10": [],
     "8453": []

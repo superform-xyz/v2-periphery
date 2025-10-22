@@ -289,13 +289,13 @@ interface ISuperVaultStrategy {
     function executeVaultFeeConfigUpdate() external;
 
     /// @notice Manage emergency withdrawals
-    /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal
+    /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
     /// @param recipient The recipient of the withdrawn assets (for action 3)
     /// @param amount The amount of assets to withdraw (for action 3)
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external;
 
     /// @notice Manage PPS staleness threshold
-    /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal
+    /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
     /// @param ppsStalenessThreshold The new PPS staleness threshold
     function managePPSStalenessThreshold(uint8 action, uint256 ppsStalenessThreshold) external;
 

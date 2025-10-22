@@ -329,6 +329,7 @@ Key Points for Auditors:
 #### SuperBank
 
 Executes protocol revenue distribution and hook-based operations under governance control. Extends the base Bank contract with Merkle-verified hook execution.
+In comparison with SuperVault, the leaves part of the merkle tree is the hash of the target address.
 
 Key Points for Auditors:
 

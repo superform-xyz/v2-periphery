@@ -200,9 +200,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Check if strategy is paused or if global hooks root is vetoed
         if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_getSuperVaultAggregator().isGlobalHooksRootVetoed()) {
+        
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
+
+        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
