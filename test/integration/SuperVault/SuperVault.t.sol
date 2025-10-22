@@ -9359,6 +9359,220 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    PPS STALENESS THRESHOLD TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test complete flow of managePPSStalenessThreshold function
+    /// @dev Tests all three actions: propose, execute, and cancel with proper timelock and access control
+    function test_ManagePPSStalenessThreshold_CompleteFlow() public {
+        // Initial setup - deposit some funds to have a working strategy
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _deposit(depositAmount);
+
+        // Get initial staleness threshold
+        uint256 initialThreshold = strategy.ppsStalenessThreshold();
+        console2.log("Initial PPS staleness threshold:", initialThreshold);
+
+        // Test data
+        uint256 newThreshold = 3600; // 1 hour in seconds
+        uint256 expectedEffectiveTime = block.timestamp + 1 weeks;
+
+        vm.startPrank(MANAGER);
+
+        /*//////////////////////////////////////////////////////////////
+                            ACTION 1: PROPOSE THRESHOLD
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Propose new PPS staleness threshold
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(newThreshold, expectedEffectiveTime);
+        strategy.managePPSStalenessThreshold(1, newThreshold);
+
+        // Verify proposal state
+        assertEq(strategy.proposedPPSStalenessThreshold(), newThreshold, "Proposed threshold should be set");
+        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be set");
+        assertEq(strategy.ppsStalenessThreshold(), initialThreshold, "Current threshold should remain unchanged");
+
+        /*//////////////////////////////////////////////////////////////
+                        ACTION 2: EXECUTE BEFORE TIMELOCK
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Try to execute before timelock expires (should revert)
+        vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        /*//////////////////////////////////////////////////////////////
+                            ACTION 3: CANCEL PROPOSAL
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Cancel the proposal
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposalCanceled();
+        strategy.managePPSStalenessThreshold(3, 0);
+
+        // Verify cancellation state
+        assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
+        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
+        assertEq(strategy.ppsStalenessThreshold(), initialThreshold, "Current threshold should remain unchanged");
+
+        /*//////////////////////////////////////////////////////////////
+                        COMPLETE PROPOSAL-EXECUTION FLOW
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Complete flow - propose again and execute after timelock
+        uint256 finalThreshold = 7200; // 2 hours in seconds
+        expectedEffectiveTime = block.timestamp + 1 weeks;
+
+        // Propose again
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(finalThreshold, expectedEffectiveTime);
+        strategy.managePPSStalenessThreshold(1, finalThreshold);
+
+        // Verify proposal state
+        assertEq(strategy.proposedPPSStalenessThreshold(), finalThreshold, "Proposed threshold should be set");
+        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be set");
+
+        // Fast forward past timelock
+        vm.warp(block.timestamp + 1 weeks);
+
+        // Execute the proposal
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(finalThreshold);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        // Verify execution state
+        assertEq(strategy.ppsStalenessThreshold(), finalThreshold, "Current threshold should be updated");
+        assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
+        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
+
+        vm.stopPrank();
+
+        console2.log("Final PPS staleness threshold:", strategy.ppsStalenessThreshold());
+    }
+
+    /// @notice Test error conditions for managePPSStalenessThreshold
+    function test_ManagePPSStalenessThreshold_ErrorConditions() public {
+        vm.startPrank(MANAGER);
+
+        /*//////////////////////////////////////////////////////////////
+                            INVALID ACTION TYPE
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Invalid action type (should revert)
+        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
+        strategy.managePPSStalenessThreshold(4, 3600); // Invalid action
+
+        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
+        strategy.managePPSStalenessThreshold(0, 3600); // Invalid action
+
+        /*//////////////////////////////////////////////////////////////
+                            ZERO THRESHOLD PROPOSAL
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Propose zero threshold (should revert)
+        vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_STALENESS_THRESHOLD.selector);
+        strategy.managePPSStalenessThreshold(1, 0);
+
+        /*//////////////////////////////////////////////////////////////
+                        EXECUTE WITHOUT PROPOSAL
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Try to execute without proposal (should revert)
+        vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_STALENESS_THRESHOLD.selector);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        /*//////////////////////////////////////////////////////////////
+                        CANCEL WITHOUT PROPOSAL
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Try to cancel without proposal (should revert)
+        vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
+        strategy.managePPSStalenessThreshold(3, 0);
+
+        vm.stopPrank();
+
+        /*//////////////////////////////////////////////////////////////
+                            ACCESS CONTROL TESTS
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Non-manager trying to manage threshold (should revert)
+        address nonManager = address(0x1234567890);
+        vm.startPrank(nonManager);
+
+        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
+        strategy.managePPSStalenessThreshold(1, 3600);
+
+        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
+        strategy.managePPSStalenessThreshold(3, 0);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test edge cases and boundary conditions for PPS staleness threshold management
+    function test_ManagePPSStalenessThreshold_EdgeCases() public {
+        vm.startPrank(MANAGER);
+
+        /*//////////////////////////////////////////////////////////////
+                        MULTIPLE PROPOSALS OVERRIDE
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Multiple proposals should override previous ones
+        uint256 firstThreshold = 1800; // 30 minutes
+        uint256 secondThreshold = 3600; // 1 hour
+
+        // First proposal
+        strategy.managePPSStalenessThreshold(1, firstThreshold);
+        assertEq(strategy.proposedPPSStalenessThreshold(), firstThreshold, "First proposal should be set");
+
+        // Second proposal should override first
+        uint256 expectedEffectiveTime = block.timestamp + 1 weeks;
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(secondThreshold, expectedEffectiveTime);
+        strategy.managePPSStalenessThreshold(1, secondThreshold);
+
+        assertEq(strategy.proposedPPSStalenessThreshold(), secondThreshold, "Second proposal should override first");
+        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be updated");
+
+        /*//////////////////////////////////////////////////////////////
+                        EXECUTION AT EXACT TIMELOCK
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Execute exactly when timelock expires
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(secondThreshold);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        assertEq(strategy.ppsStalenessThreshold(), secondThreshold, "Threshold should be updated");
+
+        /*//////////////////////////////////////////////////////////////
+                        LARGE THRESHOLD VALUES
+        //////////////////////////////////////////////////////////////*/
+
+        // Test: Very large threshold value
+        uint256 largeThreshold = type(uint256).max;
+        expectedEffectiveTime = block.timestamp + 1 weeks;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(largeThreshold, expectedEffectiveTime);
+        strategy.managePPSStalenessThreshold(1, largeThreshold);
+
+        // Fast forward and execute
+        vm.warp(block.timestamp + 1 weeks);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(largeThreshold);
+        strategy.managePPSStalenessThreshold(2, 0);
+
+        assertEq(strategy.ppsStalenessThreshold(), largeThreshold, "Large threshold should be set");
+
+        vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
