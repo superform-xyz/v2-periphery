@@ -105,16 +105,6 @@ interface IECDSAPPSOracle {
         uint256 timestamp;
     }
 
-    /// @notice Cache for validation parameters
-    /// @param totalValidators Total number of validators in the network
-    /// @param requiredQuorum Required quorum for validation
-    /// @param isValidator Mapping of validator addresses to their validation status
-    struct ValidationCache {
-        uint128 totalValidators;
-        uint128 requiredQuorum;
-        mapping(address => bool) isValidator;
-    }
-
     /// @notice Arguments for batch updating PPS for multiple strategies
     /// @param strategies Array of strategy addresses
     /// @param proofsArray Array of arrays of cryptographic proofs (one array of proofs per strategy)

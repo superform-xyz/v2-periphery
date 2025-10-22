@@ -32,9 +32,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
-    /// @notice Cache for batch validations
-    IECDSAPPSOracle.ValidationCache internal _validationCache;
-
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -89,7 +86,15 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function validateProofs(IECDSAPPSOracle.ValidationParams memory params) public view {
-        _validateProofs(params);
+        // derive transient values just like in _processBatchStrategies()
+        uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
+        uint256 requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
+        address[] memory validators = SUPER_GOVERNOR.getValidators();
+
+        // sort validators once
+        _sortAscending(validators);
+
+        _validateProofs(params, cachedTotalValidators, requiredQuorum, validators);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -99,21 +104,28 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
     /// @param params Validation parameters
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
+    function _validateProofs(
+        IECDSAPPSOracle.ValidationParams memory params,
+        uint256 cachedTotalValidators,
+        uint256 requiredQuorum,
+        address[] memory validators // sorted ascending
+    )
+        internal
+        view
+    {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
-        // Validate that validatorSet matches actual number of valid signatures
+        // Claimed set size must match number of signatures
         if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
 
-        // Validate that totalValidators matches actual total number of validators
-        if (params.totalValidators != SUPER_GOVERNOR.getValidatorsCount()) revert INVALID_TOTAL_VALIDATORS();
+        // Total validator count must match batch-snapshot
+        if (params.totalValidators != cachedTotalValidators) revert INVALID_TOTAL_VALIDATORS();
 
-        // Ensure we have enough valid signatures to meet quorum
-        if (proofsLength < _validationCache.requiredQuorum) revert QUORUM_NOT_MET();
+        // Quorum from batch-snapshot
+        if (proofsLength < requiredQuorum) revert QUORUM_NOT_MET();
 
-        // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
-        // derived signer address will be incorrect- resulting in a revert
+        // Build EIP-712 digest
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encodePacked(
@@ -129,18 +141,27 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             )
         );
 
+        // Merge-like membership check using sorted validators + strictly increasing signers
         address lastSigner;
-        // Process each proof
-        for (uint256 i; i < proofsLength; i++) {
-            // Recover the signer from the proof
+        uint256 vlen = validators.length;
+        uint256 j; // validators index
+
+        for (uint256 i; i < proofsLength; ++i) {
             address signer = ECDSA.recover(digest, params.proofs[i]);
 
-            // Verify the signer is a registered validator
-            if (!_validationCache.isValidator[signer]) revert INVALID_VALIDATOR();
-
-            // Check for duplicates or improper ordering - signers must be in ascending order
+            // Enforce strictly increasing signer order (prevents dups)
             if (signer <= lastSigner) revert INVALID_PROOF();
             lastSigner = signer;
+
+            // Advance validators pointer until validators[j] >= signer
+            while (j < vlen && validators[j] < signer) {
+                unchecked {
+                    ++j;
+                }
+            }
+
+            // Not found or ran out → invalid
+            if (j == vlen || validators[j] != signer) revert INVALID_VALIDATOR();
         }
     }
 
@@ -167,18 +188,17 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             uint256[] memory validTimestamps
         )
     {
-        // Cache Governor values
-        uint256 validatorsCount = SUPER_GOVERNOR.getValidatorsCount();
-        _validationCache.totalValidators = validatorsCount;
-        _validationCache.requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
+        // -------- transient snapshot (memory only) --------
+        uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
+        address[] memory validators = SUPER_GOVERNOR.getValidators(); // may be unsorted
 
-        address[] memory validators = SUPER_GOVERNOR.getValidators();
-        uint256 vlen = validators.length;
-        for (uint256 i; i < vlen; ++i) {
-            _validationCache.isValidator[validators[i]] = true;
-        }
+        // Sort once; extremely cheap for small N
+        _sortAscending(validators);
 
-        // Arrays to collect valid entries
+        // (cheap sanity) If governor ever misreports count vs list length
+        if (validators.length != cachedTotalValidators) revert INVALID_TOTAL_VALIDATORS();
+
+        // -------- existing collection logic --------
         validStrategies = new address[](strategiesLength);
         validPpss = new uint256[](strategiesLength);
         validPpsStdevs = new uint256[](strategiesLength);
@@ -187,22 +207,22 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         validTimestamps = new uint256[](strategiesLength);
         uint256 validCount;
 
-        // Process each strategy update
-        for (uint256 i; i < strategiesLength; i++) {
+        for (uint256 i; i < strategiesLength; ++i) {
             bool isValid = _processIndividualStrategy(args, i);
             if (isValid) {
-                // Add to valid entries
                 validStrategies[validCount] = args.strategies[i];
                 validPpss[validCount] = args.ppss[i];
                 validPpsStdevs[validCount] = args.ppsStdevs[i];
                 validValidatorSets[validCount] = args.validatorSets[i];
                 validTotalValidators[validCount] = args.totalValidators[i];
                 validTimestamps[validCount] = args.timestamps[i];
-                validCount++;
+                unchecked {
+                    ++validCount;
+                }
             }
         }
 
-        // Resize arrays to actual valid count
+        // Resize to validCount
         assembly {
             mstore(validStrategies, validCount)
             mstore(validPpss, validCount)
@@ -211,23 +231,22 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             mstore(validTotalValidators, validCount)
             mstore(validTimestamps, validCount)
         }
-
-        // cleanup cached validators to avoid stale state
-        for (uint256 i; i < vlen; ++i) {
-            _validationCache.isValidator[validators[i]] = false;
-        }
-        _validationCache.totalValidators = 0;
-        _validationCache.requiredQuorum = 0;
     }
 
     /// @notice Processes an individual strategy in the batch
     /// @param args Batch update arguments
     /// @param index Index of the strategy to process
     /// @return isValid True if the strategy was processed successfully
-    function _processIndividualStrategy(UpdatePPSArgs calldata args, uint256 index) internal returns (bool isValid) {
+    function _processIndividualStrategy(
+        UpdatePPSArgs calldata args,
+        uint256 index
+    )
+        internal
+        returns (bool isValid)
+    {
         address _strategy = args.strategies[index];
 
-        // Validate proofs and check quorum requirement
+        // Use self-call + interface for try/catch (update interface signature accordingly)
         try IECDSAPPSOracle(address(this)).validateProofs(
             IECDSAPPSOracle.ValidationParams({
                 strategy: _strategy,
@@ -308,6 +327,27 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                 if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
                 emit BatchForwardPPSFailedLowLevel(lowLevelData);
+            }
+        }
+    }
+
+    /// @notice In-place insertion sort (ascending). Cheapest for smaller N
+    /// @param a Array to sort
+    function _sortAscending(address[] memory a) internal pure {
+        uint256 n = a.length;
+        for (uint256 i = 1; i < n;) {
+            address key = a[i];
+            uint256 j = i;
+            // Move larger elements one position ahead
+            while (j > 0 && a[j - 1] > key) {
+                a[j] = a[j - 1];
+                unchecked {
+                    --j;
+                }
+            }
+            a[j] = key;
+            unchecked {
+                ++i;
             }
         }
     }
