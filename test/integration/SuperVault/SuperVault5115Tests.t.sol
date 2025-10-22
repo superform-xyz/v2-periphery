@@ -17,7 +17,6 @@ import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptog
 // superform
 import { IStandardizedYield } from "@superform-v2-core/src/vendor/pendle/IStandardizedYield.sol";
 
-
 import { ISuperVault } from "../../../src/interfaces/SuperVault/ISuperVault.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
@@ -45,7 +44,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE;
-    address userAddress; 
+    address userAddress;
 
     // super vaults
     ERC5115YieldSourceOracle public oracle5115;
@@ -94,7 +93,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vm.stopPrank();
     }
 
-     function test_5115_Name() public {
+    function test_5115_Name() public {
         _setup5115Vault();
         string memory name = sv5115.name();
         assertEq(name, "SuperVault");
@@ -114,10 +113,8 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         _setup5115Vault();
 
-
         uint256 sharesBefore = sv5115.balanceOf(accountEth);
         assertEq(sharesBefore, 0, "User has shares before deposit");
-
 
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount, address(sv5115), address(asset5115));
@@ -132,7 +129,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertGt(sharesAfter, 0, "No shares minted to user");
     }
 
-     function test_Deposit5115_AndAllocate() public {
+    function test_Deposit5115_AndAllocate() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
 
@@ -157,13 +154,12 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Deploy vault with smart account manager
         (address newVaultAddr, address newStrategyAddr,) =
             _deployVaultWithSmartAccountManager(managerAccount.account, address(asset5115), "SA-5115", "SA-5115");
-        
+
         string memory _name = SuperVault(newVaultAddr).name();
         assertEq(_name, "SA-5115");
 
         string memory _symbol = SuperVault(newVaultAddr).symbol();
         assertEq(_symbol, "SA-5115");
-
 
         SuperVault newVault = SuperVault(newVaultAddr);
         SuperVaultStrategy newStrategy = SuperVaultStrategy(payable(newStrategyAddr));
@@ -190,7 +186,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Verify that the strategy has no free assets left
         assertEq(asset5115.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
     }
-    
+
     function test_DepositAndAllocateTo5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
@@ -208,7 +204,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Verify allocation
         assertGt(pendleEthena.balanceOf(address(strategy5115SuperVault)), 0, "No shares allocated");
     }
-    
+
     /*//////////////////////////////////////////////////////////////
                         REDEEM TESTS
     //////////////////////////////////////////////////////////////*/
@@ -231,12 +227,12 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertEq(strategy5115SuperVault.pendingRedeemRequest(accountEth), redeemShares, "Wrong pending redeem amount");
         assertEq(sv5115.balanceOf(address(escrow5115SuperVault)), redeemShares, "Wrong escrow balance");
     }
-    
+
     function test_FulfillRedeem_FullAmountWithThreshold5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
 
-        uint256 depositAmount = 1000e6; 
+        uint256 depositAmount = 1000e6;
 
         // Deposit and allocate to yield
         _deposit(depositAmount, address(sv5115), address(asset5115));
@@ -271,8 +267,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertGt(strategy5115SuperVault.claimableWithdraw(accountEth), 0, "No assets available to withdraw");
     }
 
-
-     function test_ClaimRedeem5115() public {
+    function test_ClaimRedeem5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
 
@@ -283,20 +278,26 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Deposit and allocate to yield
         _deposit(depositAmount, address(sv5115), address(asset5115));
         _depositFreeAssetsFromSingleAmount5115(depositAmount, address(strategy5115SuperVault), pendleEthenaAddress);
-        console2.log("-------------- balance strategy after deposit ", asset5115.balanceOf(address(strategy5115SuperVault)));
+        console2.log(
+            "-------------- balance strategy after deposit ", asset5115.balanceOf(address(strategy5115SuperVault))
+        );
 
         // Get balances after deposit
         uint256 assetBalanceAfterDeposit = asset5115.balanceOf(accountEth);
         uint256 initialShares = sv5115.balanceOf(accountEth);
         console2.log("-------------- initialAssetBalance user", assetBalanceAfterDeposit);
         console2.log("-------------- initialShares user", initialShares);
-        console2.log("-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault)));
+        console2.log(
+            "-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault))
+        );
 
         // Request redeem of half the shares
         uint256 redeemShares = initialShares / 2;
         _requestRedeem(redeemShares, address(sv5115));
         _fulfillRedeem5115(redeemShares, address(sv5115), address(strategy5115SuperVault));
-        console2.log("-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault)));
+        console2.log(
+            "-------------- balance strategy after redeem ", asset5115.balanceOf(address(strategy5115SuperVault))
+        );
 
         // Get claimable assets
         uint256 claimableAssets = strategy5115SuperVault.claimableWithdraw(accountEth);
@@ -334,7 +335,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertApproxEqRel(sharesAfter, assetsAmount, 0.01e18, "Share conversion should be close to 1:1");
     }
 
-     function test_ConvertToAssets5115() public {
+    function test_ConvertToAssets5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
 
@@ -380,8 +381,12 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         // Test with large values to ensure no overflow issues
         uint256 largeValue = type(uint128).max; // Use uint128 max to avoid potential overflow
-        assertEq(sv5115.convertToShares(largeValue), 0, "convertToShares should return 0 for large values when PPS is 0");
-        assertEq(sv5115.convertToAssets(largeValue), 0, "convertToAssets should return 0 for large values when PPS is 0");
+        assertEq(
+            sv5115.convertToShares(largeValue), 0, "convertToShares should return 0 for large values when PPS is 0"
+        );
+        assertEq(
+            sv5115.convertToAssets(largeValue), 0, "convertToAssets should return 0 for large values when PPS is 0"
+        );
 
         // Verify that operations requiring valid PPS should fail
         deal(address(asset5115), address(this), testAssets);
@@ -569,13 +574,11 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertEq(previewAssets, expectedAssets, "previewMint should match convertToAssets");
     }
 
-
     /*//////////////////////////////////////////////////////////////
                         PPS TESTS
     //////////////////////////////////////////////////////////////*/
     struct PositiveAndNegativePpsVars {
         uint256 feeBalanceBefore;
-        
         // PPS
         uint256 ppsBefore;
         uint256 ppsAfter;
@@ -608,19 +611,22 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         uint256 claimableAssets2;
         uint256 userAssetsAfterRedeem2;
     }
+
     function test_SuperVault_5115_PositivePPS() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
 
         PositiveAndNegativePpsVars memory vars;
         vars.deposit1Amount = 1000e6;
-        vars.deposit2Amount = 2000e6; 
+        vars.deposit2Amount = 2000e6;
         vars.deposit3Amount = 3000e6; // 3000 USDC
 
         // deposit 1
         deal(address(asset5115), accountEth, vars.deposit1Amount);
         _deposit(vars.deposit1Amount, address(sv5115), address(asset5115));
-        _depositFreeAssetsFromSingleAmount5115(vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+        _depositFreeAssetsFromSingleAmount5115(
+            vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress
+        );
 
         vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
         assertGt(vars.shares1, 0, "no shares minted for deposit 1");
@@ -634,8 +640,10 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // deposit 2
         deal(address(asset5115), accountEth, vars.deposit2Amount);
         _deposit(vars.deposit2Amount, address(sv5115), address(asset5115));
-        _depositFreeAssetsFromSingleAmount5115(vars.deposit2Amount, address(strategy5115SuperVault), pendleEthenaAddress);
-        
+        _depositFreeAssetsFromSingleAmount5115(
+            vars.deposit2Amount, address(strategy5115SuperVault), pendleEthenaAddress
+        );
+
         vars.shares2 = IERC20(sv5115.share()).balanceOf(accountEth) - vars.shares1;
         assertGt(vars.shares2, 0, "no shares minted for deposit 2");
         assertGt(vars.shares2, vars.shares1, "less shares than it should - deposit 2");
@@ -649,8 +657,10 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // deposit 3
         deal(address(asset5115), accountEth, vars.deposit3Amount);
         _deposit(vars.deposit3Amount, address(sv5115), address(asset5115));
-        _depositFreeAssetsFromSingleAmount5115(vars.deposit3Amount, address(strategy5115SuperVault), pendleEthenaAddress);
-        
+        _depositFreeAssetsFromSingleAmount5115(
+            vars.deposit3Amount, address(strategy5115SuperVault), pendleEthenaAddress
+        );
+
         vars.shares3 = IERC20(sv5115.share()).balanceOf(accountEth) - vars.shares1 - vars.shares2;
         assertGt(vars.shares3, 0, "no shares minted for deposit 3");
         assertGt(vars.shares3, vars.shares2, "less shares than it should - deposit 3");
@@ -660,7 +670,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
         vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
         assertGt(vars.ppsAfter, vars.ppsBefore);
-    }   
+    }
 
     function test_SuperVault_5115_NegativePPS() public {
         vm.selectFork(FORKS[ETH]);
@@ -672,7 +682,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // deposit 1
         deal(address(asset5115), accountEth, vars.deposit1Amount);
         _deposit(vars.deposit1Amount, address(sv5115), address(asset5115));
-        _depositFreeAssetsFromSingleAmount5115(vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress);
+        _depositFreeAssetsFromSingleAmount5115(
+            vars.deposit1Amount, address(strategy5115SuperVault), pendleEthenaAddress
+        );
 
         vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
         assertGt(vars.shares1, 0, "no shares minted for deposit 1");
@@ -683,11 +695,16 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
         assertGt(vars.ppsAfter, vars.ppsBefore);
 
+        strategy5115SuperVault.updateVesting();
+
         //redeem 1
         vars.totalShares = IERC20(sv5115.share()).balanceOf(accountEth);
-        vars.redeemAmount1 = vars.totalShares / 4; 
+        vars.redeemAmount1 = vars.totalShares / 4;
 
-        (, vars.superformFee1, vars.recipientFee1) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount1);
+        // Small warp to allow minimal vesting progress for fee calculation
+        // Using 1 hour instead of 1 day to minimize fee impact while still allowing some vesting
+        vm.warp(block.timestamp + 1 hours);
+
         vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
         vars.userBalanceBeforeRedeem1 = asset5115.balanceOf(accountEth);
 
@@ -696,16 +713,13 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.claimableAssets1 = sv5115.maxWithdraw(accountEth);
 
-        uint256 pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(sv5115), vars.claimableAssets1, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
-        );
-        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
-        assertGt(vars.totalFee1, 0, "no fee");
-
         _claimWithdraw5115(vars.claimableAssets1, address(sv5115));
 
         vars.treasuryBalanceAfterRedeem1 = asset5115.balanceOf(TREASURY);
+
+        // Calculate actual fee collected rather than previewing it
+        vars.totalFee1 = vars.treasuryBalanceAfterRedeem1 - vars.feeBalanceBefore;
+        assertGt(vars.totalFee1, 0, "no fee");
         vars.userAssetsAfterRedeem1 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem1;
         assertGt(vars.userAssetsAfterRedeem1, 0, "no assets received - redeem 1");
 
@@ -713,16 +727,16 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vm.warp(block.timestamp + 4 weeks);
         vars.ppsBefore = aggregator.getPPS(address(strategy5115SuperVault));
-        
+
         // Simulate a loss in the underlying Pendle vault by reducing its balance
         // This will cause the PPS to decrease when recalculated
         uint256 currentPendleBalance = pendleEthena.balanceOf(address(strategy5115SuperVault));
         uint256 lossAmount = currentPendleBalance / 10; // 10% loss
-        
+
         // Transfer some Pendle tokens away to simulate loss
         vm.prank(address(strategy5115SuperVault));
         pendleEthena.transfer(address(0xdead), lossAmount);
-        
+
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
         vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
         assertLt(vars.ppsAfter, vars.ppsBefore, "pps did not decrease - redeem 1");
@@ -730,7 +744,6 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         //redeem 2
         vars.remainingShares = IERC20(sv5115.share()).balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 2;
-        (, vars.superformFee2, vars.recipientFee2) = strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount2);
 
         vars.userBalanceBeforeRedeem2 = asset5115.balanceOf(accountEth);
 
@@ -739,16 +752,13 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.claimableAssets2 = sv5115.maxWithdraw(accountEth);
 
-        pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
-        expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(sv5115), vars.claimableAssets2, sv5115.maxRedeem(accountEth), 100, pps, sv5115.decimals()
-        );
-        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
-        assertGt(vars.totalFee2, 0, "no fee - redeem 2");
-
         _claimWithdraw5115(vars.claimableAssets2, address(sv5115));
 
         vars.treasuryBalanceAfterRedeem2 = asset5115.balanceOf(TREASURY);
+
+        // Calculate actual fee collected rather than previewing it
+        vars.totalFee2 = vars.treasuryBalanceAfterRedeem2 - vars.treasuryBalanceAfterRedeem1;
+        assertGt(vars.totalFee2, 0, "no fee - redeem 2");
 
         vars.userAssetsAfterRedeem2 = asset5115.balanceOf(accountEth) - vars.userBalanceBeforeRedeem2;
         assertGt(vars.userAssetsAfterRedeem2, 0, "no assets received - redeem 2");
@@ -760,7 +770,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
         vars.ppsAfter = aggregator.getPPS(address(strategy5115SuperVault));
         assertLt(vars.ppsAfter, vars.ppsBefore, "pps did not decrease - redeem 2");
-    }   
+    }
 
     /*//////////////////////////////////////////////////////////////
                         REALLOCATION TESTS
@@ -784,7 +794,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         uint256 finalNewVaultBalance;
         uint256 totalAssetsAfter;
     }
-    
+
     function test_SuperVault_5115_ReAllocate5115To4626() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
@@ -830,16 +840,18 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         // initial balances
         vars.initial5115Balance = pendleEthena.balanceOf(address(strategy5115SuperVault));
-        vars.initialNewVaultBalance = Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
-        
+        vars.initialNewVaultBalance =
+            Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
+
         // amount to reallocate (50% of 5115 vault)
         vars.amountToReallocateFrom5115 = vars.initial5115Balance * 50 / 100;
-        vars.assetAmountToReallocateFrom5115 = pendleEthena.previewRedeem(address(asset5115), vars.amountToReallocateFrom5115);
-        
+        vars.assetAmountToReallocateFrom5115 =
+            pendleEthena.previewRedeem(address(asset5115), vars.amountToReallocateFrom5115);
+
         console2.log("Asset amount to reallocate from 5115 vault:", vars.assetAmountToReallocateFrom5115);
         console2.log("Initial 5115 balance:", vars.initial5115Balance);
         console2.log("Amount to reallocate from 5115:", vars.amountToReallocateFrom5115);
-        
+
         // Get hook addresses
         vars.withdraw5115HookAddress = _getHookAddress(ETH, REDEEM_5115_VAULT_HOOK_KEY);
         vars.deposit4626HookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
@@ -849,7 +861,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vars.hooksAddresses[1] = vars.deposit4626HookAddress;
 
         vars.hooksData = new bytes[](2);
-        
+
         // redeem from 5115 vault (Pendle)
         console2.log("pendleEthenaAddress: ", pendleEthenaAddress);
         console2.log("address(strategy5115SuperVault): ", address(strategy5115SuperVault));
@@ -863,7 +875,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
             0,
             false
         );
-        
+
         // deposit to 4626 vault
         vars.hooksData[1] = _createApproveAndDeposit4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
@@ -877,7 +889,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = vars.assetAmountToReallocateFrom5115; // Expected assets from 5115 redeem
-        vars.expectedAssetsOrSharesOut[1] = Mock4626Vault(test11_Allocate_NewYieldSource).convertToShares(vars.assetAmountToReallocateFrom5115); // Expected shares from 4626 deposit
+        vars.expectedAssetsOrSharesOut[1] =
+            Mock4626Vault(test11_Allocate_NewYieldSource).convertToShares(vars.assetAmountToReallocateFrom5115); // Expected
+            // shares from 4626 deposit
 
         vars.argsForProofs = new bytes[](2);
         vars.argsForProofs[0] = ISuperHookInspector(vars.hooksAddresses[0]).inspect(vars.hooksData[0]);
@@ -897,7 +911,8 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         // Verify reallocation results
         vars.final5115Balance = pendleEthena.balanceOf(address(strategy5115SuperVault));
-        vars.finalNewVaultBalance = Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
+        vars.finalNewVaultBalance =
+            Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
 
         // Assert that 5115 vault balance decreased
         assertApproxEqRel(
@@ -908,8 +923,19 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         );
 
         // Assert that 4626 vault balance increased
-        assertGt(vars.finalNewVaultBalance, vars.initialNewVaultBalance, "4626 vault balance should increase after reallocation");
-        
+        assertGt(
+            vars.finalNewVaultBalance,
+            vars.initialNewVaultBalance,
+            "4626 vault balance should increase after reallocation"
+        );
+
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+
+        // Trigger vesting update after PPS change
+        strategy5115SuperVault.updateVesting();
+
+        vm.warp(block.timestamp + 1 days); // Allow some vesting time
+
         // Verify total assets have increased due to yield accumulation (we warped 4 weeks)
         // The total assets should be greater than initial deposit due to yield from the 5115 vault
         vars.totalAssetsAfter = sv5115.totalAssets();
@@ -918,7 +944,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
             vars.depositAmount,
             "Total assets should increase due to yield accumulation during 4-week period"
         );
-        
+
         // Ensure the increase is reasonable (not more than 50% which would indicate an error)
         assertLt(
             vars.totalAssetsAfter,
@@ -930,7 +956,6 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         console2.log("Final new vault balance:", vars.finalNewVaultBalance);
         console2.log("Total assets after reallocation:", vars.totalAssetsAfter);
     }
-
 
     function test_SuperVault_4626_ReAllocate4626ToPendle() public {
         vm.selectFork(FORKS[ETH]);
@@ -963,16 +988,16 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _deposit(vars.depositAmount, address(sv5115), address(asset5115));
         _depositFreeAssetsFromSingleAmount5115(vars.depositAmount, address(strategy5115SuperVault), address(newVault));
 
-        
         vars.shares1 = IERC20(sv5115.share()).balanceOf(accountEth);
         assertGt(vars.shares1, 0, "no shares minted for ` 1");
 
         vm.warp(block.timestamp + 4 weeks);
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
-        
+
         // initial balances
         // 4626 balances - re-using already defined variables
-        vars.initial5115Balance = Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
+        vars.initial5115Balance =
+            Mock4626Vault(test11_Allocate_NewYieldSource).balanceOf(address(strategy5115SuperVault));
         vars.initialNewVaultBalance = newVault.balanceOf(address(strategy5115SuperVault));
         assertGt(vars.initial5115Balance, 0, "initial 4626 balance is 0");
         assertGt(vars.initialNewVaultBalance, 0, "initial new vault balance is 0");
@@ -1007,7 +1032,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
             vars.amountToReallocateFrom5115,
             false
         );
-        
+
         // deposit to 5115 vault
         vars.hooksData[1] = _createApproveAndDeposit5115VaultHookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC5115_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
@@ -1022,7 +1047,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = vars.assetAmountToReallocateFrom5115; // Expected assets from 4626 redeem
-        vars.expectedAssetsOrSharesOut[1] = pendleEthena.previewDeposit(address(asset5115), vars.assetAmountToReallocateFrom5115); // Expected shares from 5115 deposit
+        vars.expectedAssetsOrSharesOut[1] =
+            pendleEthena.previewDeposit(address(asset5115), vars.assetAmountToReallocateFrom5115); // Expected shares from
+            // 5115 deposit
 
         vars.argsForProofs = new bytes[](2);
         vars.argsForProofs[0] = ISuperHookInspector(vars.hooksAddresses[0]).inspect(vars.hooksData[0]);
@@ -1038,6 +1065,5 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
             })
         );
         vm.stopPrank();
-
     }
 }

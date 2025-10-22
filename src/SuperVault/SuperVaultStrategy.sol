@@ -130,6 +130,17 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         // Initialize vesting with 10 days default duration
         vestingData.duration = 10 days;
 
+        // Initialize with base PPS to prevent immediate first jump
+        // Problem: When targetPPS == 0 (uninitialized), first jump would set startPPS = targetPPS = currentPPS
+        // This causes immediate application (no vesting) for first yield event, creating unfairness:
+        // - Early adopters get instant yield
+        // - Later users get vested yield
+        // Solution: Initialize both startPPS and targetPPS to 1.0 (PRECISION), so first jump creates proper delta
+        // Example: PPS jumps to 1.1 -> startPPS=1.0, targetPPS=1.1, proper 10-day vesting occurs
+        vestingData.startPPS = uint80(PRECISION); // Base 1.0 equivalent
+        vestingData.targetPPS = uint80(PRECISION); // Base 1.0 equivalent
+        vestingData.startTime = uint48(block.timestamp);
+
         emit Initialized(_vault);
     }
 
@@ -233,10 +244,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function quoteMintAssetsGross(uint256 shares, uint256 pps) 
-        external 
-        view 
-        returns (uint256 assetsGross, uint256 assetsNet) 
+    function quoteMintAssetsGross(
+        uint256 shares,
+        uint256 pps
+    )
+        external
+        view
+        returns (uint256 assetsGross, uint256 assetsNet)
     {
         if (pps == 0) revert INVALID_PPS();
         assetsNet = Math.mulDiv(shares, pps, PRECISION, Math.Rounding.Ceil);
@@ -506,26 +520,37 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @inheritdoc ISuperVaultStrategy
     function updateVesting() public returns (uint256 currentPPS, VestingData memory vData) {
-        // Cache aggregator to avoid multiple external calls
+        // Get aggregator reference and fetch required data
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         currentPPS = aggregator.getPPS(address(this));
+        uint256 currentTs = aggregator.getLastUpdateTimestamp(address(this));
 
-        // Load entire struct into memory (single SLOAD)
+        // Load current vesting state from storage
         vData = vestingData;
 
-        // Only update if PPS increased
-        if (currentPPS > vData.targetPPS) {
-            uint256 currentTs = aggregator.getLastUpdateTimestamp(address(this));
+        // Early return if vesting is disabled
+        if (vData.duration == 0) return (currentPPS, vData);
 
-            // Update memory struct with SafeCast
-            vData.startPPS = vData.targetPPS > 0 ? vData.targetPPS : currentPPS.toUint80();
-            vData.targetPPS = currentPPS.toUint80();
-            vData.startTime = currentTs.toUint48();
+        // Use pure library function for all vesting calculations
+        // This separates state management from algorithmic logic for better testing/auditing
+        (uint256 newStartPPS, uint256 newTargetPPS, uint256 newStartTime, uint256 newDuration, bool shouldEmitDecrease)
+        = SuperVaultAccountingLib.computeUpdatedVestingData(currentPPS, vData, currentTs);
 
-            // Single SSTORE to update all values
-            vestingData = vData;
+        // Apply calculated values to storage state
+        vData.startPPS = uint80(newStartPPS);
+        vData.targetPPS = uint80(newTargetPPS);
+        vData.startTime = uint48(newStartTime);
+        vData.duration = uint48(newDuration);
 
-            emit VestingUpdated(currentPPS, vData.duration, currentTs);
+        // Save updated vesting state to storage
+        vestingData = vData;
+
+        // Emit events for off-chain monitoring
+        emit VestingUpdated(currentPPS, vData.duration, currentTs);
+
+        // Emit decrease event if dilution/loss was handled
+        if (shouldEmitDecrease) {
+            emit VestingDecreaseHandled(currentPPS, newTargetPPS, newDuration);
         }
 
         return (currentPPS, vData);
@@ -534,13 +559,27 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Updates vesting data and returns effective PPS with progress tracking
     /// @return effectivePPS Effective price per share after vesting calculation
     function updateVestingAndGetPPS() public returns (uint256 effectivePPS) {
-        // First update vesting data
+        // First update vesting data to get the correct state
         (uint256 currentPPS, VestingData memory vData) = updateVesting();
 
-        // Calculate effective PPS
-        effectivePPS = _calculateEffectivePPS(currentPPS, vData);
+        // INSTANT VESTING: Skip all calculations if duration == 0
+        // When vesting is disabled, effective PPS equals raw aggregator PPS
+        if (vData.duration == 0) {
+            effectivePPS = currentPPS;
+            // Emit simplified progress event for instant vesting (no vesting in progress)
+            emit VestingProgress(currentPPS, currentPPS, 0, 0, 0, 0);
+            return effectivePPS;
+        }
 
-        // Calculate elapsed time for event
+        // NORMAL VESTING: Calculate effective PPS using current block timestamp
+        // This ensures real-time vesting progress for better UX and DeFi integration
+        // Calculate effective PPS directly using updated vesting data
+        // No simulation needed - we have the actual updated vesting parameters
+        effectivePPS = SuperVaultAccountingLib.calculateLinearVesting(
+            currentPPS, vData.startPPS, vData.targetPPS, vData.startTime, vData.duration, block.timestamp
+        );
+
+        // Calculate elapsed time for event (using block.timestamp for event timing)
         uint256 elapsed = block.timestamp > vData.startTime ? block.timestamp - vData.startTime : 0;
 
         // Emit progress event for off-chain tracking
@@ -551,50 +590,64 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @inheritdoc ISuperVaultStrategy
     function getEffectivePPS() public view returns (uint256) {
-        // Cache aggregator to save gas
+        // Get aggregator reference for consistent external calls
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+
+        // Get current PPS from aggregator (latest yield source data)
         uint256 currentPPS = aggregator.getPPS(address(this));
 
-        // Load entire struct into memory (single SLOAD)
+        // Load current vesting state
         VestingData memory vData = vestingData;
 
-        return _calculateEffectivePPS(currentPPS, vData);
+        // INSTANT VESTING: Return raw PPS immediately if duration == 0
+        // When vesting is disabled, effective PPS always equals aggregator PPS
+        if (vData.duration == 0) {
+            return currentPPS;
+        }
+
+        // NORMAL VESTING: Calculate effective PPS using current block timestamp
+        // For view functions, we use block.timestamp to show current vesting progress
+        uint256 effective = SuperVaultAccountingLib.calculateEffectivePPS(currentPPS, vData, block.timestamp);
+
+        // Safety cap: prevent effective PPS from exceeding real PPS
+        // This protects against edge cases in simulation logic
+        return Math.min(effective, currentPPS);
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function getVestingProgress() 
-        external 
-        view 
+    function getVestingProgress()
+        external
+        view
         returns (
-            uint256 currentPPS, 
-            uint256 effectivePPS, 
-            uint256 startPPS, 
-            uint256 targetPPS, 
-            uint256 elapsed, 
-            uint256 duration, 
+            uint256 currentPPS,
+            uint256 effectivePPS,
+            uint256 startPPS,
+            uint256 targetPPS,
+            uint256 elapsed,
+            uint256 duration,
             bool vestingComplete
-        ) 
+        )
     {
-        // Cache aggregator to save gas
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         currentPPS = aggregator.getPPS(address(this));
-
-        // Load entire struct into memory (single SLOAD)
         VestingData memory vData = vestingData;
 
-        // Calculate effective PPS
-        effectivePPS = _calculateEffectivePPS(currentPPS, vData);
+        // INSTANT VESTING: Return current state with no vesting progress
+        // When duration == 0, effective PPS equals raw PPS and vesting is "complete"
+        if (vData.duration == 0) {
+            return (currentPPS, currentPPS, 0, 0, 0, 0, true);
+        }
+
+        // NORMAL VESTING: Calculate progress and effective PPS
+        // For view functions, use block.timestamp to show current vesting progress
+        effectivePPS = SuperVaultAccountingLib.calculateEffectivePPS(currentPPS, vData, block.timestamp);
+        effectivePPS = Math.min(effectivePPS, currentPPS); // Cap for safety
         
-        // Extract progress data
         startPPS = vData.startPPS;
         targetPPS = vData.targetPPS;
-        duration = vData.duration;
-        
-        // Calculate elapsed time
         elapsed = block.timestamp > vData.startTime ? block.timestamp - vData.startTime : 0;
-        
-        // Check if vesting is complete
-        vestingComplete = elapsed >= duration;
+        duration = vData.duration;
+        vestingComplete = (elapsed >= duration);
         
         return (currentPPS, effectivePPS, startPPS, targetPPS, elapsed, duration, vestingComplete);
     }
@@ -602,13 +655,21 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @inheritdoc ISuperVaultStrategy
     function setVestingDuration(uint256 newDuration) external {
         _isPrimaryManager(msg.sender);
-        if (newDuration == 0 || newDuration > type(uint48).max) revert INVALID_AMOUNT();
+        if (newDuration > type(uint48).max) revert INVALID_AMOUNT();
 
-        // Load and update only the duration field
+        // Load current vesting data
         VestingData memory vData = vestingData;
         vData.duration = newDuration.toUint48();
-        vestingData = vData;
 
+        // Clean state reset when enabling instant vesting (duration == 0)
+        // This prevents stale vesting data from interfering with future operations
+        if (newDuration == 0) {
+            vData.startPPS = 0;
+            vData.targetPPS = 0;
+            vData.startTime = 0;
+        }
+
+        vestingData = vData;
         emit VestingDurationUpdated(newDuration);
     }
 
@@ -869,14 +930,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                     INTERNAL HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Internal function to calculate effective PPS with vesting
-    /// @param currentPPS Current price per share
-    /// @param vData Vesting data
-    /// @return Effective PPS
-    function _calculateEffectivePPS(uint256 currentPPS, VestingData memory vData) internal view returns (uint256) {
-        return SuperVaultAccountingLib.calculateEffectivePPS(currentPPS, vData, block.timestamp);
-    }
 
     /// @notice Internal function to get the SuperVaultAggregator
     /// @return The SuperVaultAggregator

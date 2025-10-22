@@ -27,6 +27,287 @@ library SuperVaultAccountingLib {
                         ACCOUNTING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /*//////////////////////////////////////////////////////////////
+                        VESTING CALCULATION HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Compute vested amount from delta and elapsed time (shared helper)
+    /// @param delta Total amount to vest over duration
+    /// @param elapsed Time elapsed since vesting start
+    /// @param duration Total vesting duration
+    /// @return vested Amount that has vested so far
+    function computeVested(uint256 delta, uint256 elapsed, uint256 duration) internal pure returns (uint256 vested) {
+        if (delta == 0) return 0;
+        if (elapsed >= duration) return delta;
+        return delta.mulDiv(elapsed, duration, Math.Rounding.Floor);
+    }
+
+    /// @dev Handle merge logic for PPS increases during active vesting
+    /// @param currentPPS New higher PPS from aggregator
+    /// @param oldStartPPS Original starting PPS
+    /// @param oldTargetPPS Original target PPS
+    /// @param vested Amount already vested from original delta
+    /// @param ts Timestamp for reset
+    /// @return newStartPPS Updated start PPS (includes vested amount)
+    /// @return newTargetPPS Updated target PPS (preserves all yield)
+    /// @return newStartTime Updated start time (reset to current)
+    function computeMergedIncrease(
+        uint256 currentPPS,
+        uint256 oldStartPPS,
+        uint256 oldTargetPPS,
+        uint256 vested,
+        uint256 ts
+    )
+        internal
+        pure
+        returns (uint256 newStartPPS, uint256 newTargetPPS, uint256 newStartTime)
+    {
+        // New start includes already vested amount
+        newStartPPS = oldStartPPS + vested;
+
+        // Calculate remaining unvested from original jump
+        uint256 oldDelta = oldTargetPPS - oldStartPPS;
+        uint256 remainingUnvested = oldDelta - vested;
+
+        // Calculate new jump delta
+        uint256 newDelta = currentPPS - oldTargetPPS;
+
+        // Merge: new target = effective start + remaining old + new jump
+        newTargetPPS = newStartPPS + remainingUnvested + newDelta;
+
+        // Reset timer to current timestamp
+        newStartTime = ts;
+
+        return (newStartPPS, newTargetPPS, newStartTime);
+    }
+
+    /// @dev Handle capping logic for PPS decreases during vesting (dilution protection)
+    /// @param currentPPS New lower PPS from aggregator
+    /// @param currentEffective Current effective PPS based on vesting progress
+    /// @param elapsed Time elapsed in current vesting period
+    /// @param duration Original vesting duration
+    /// @param ts Timestamp for reset
+    /// @return newStartPPS Capped start PPS (never exceeds real PPS)
+    /// @return newStartTime Updated start time (reset to current)
+    /// @return newDuration Adjusted duration (remaining time)
+    function computeCappedDecrease(
+        uint256 currentPPS,
+        uint256 currentEffective,
+        uint256 elapsed,
+        uint256 duration,
+        uint256 ts
+    )
+        internal
+        pure
+        returns (uint256 newStartPPS, uint256 newStartTime, uint256 newDuration)
+    {
+        // Cap effective PPS to never exceed real PPS (prevents over-redemption)
+        newStartPPS = Math.min(currentEffective, currentPPS);
+
+        // Reset timer
+        newStartTime = ts;
+
+        // Adjust duration to remaining time (maintains vesting smoothness)
+        newDuration = elapsed < duration ? duration - elapsed : 1; // Avoid div0
+
+        return (newStartPPS, newStartTime, newDuration);
+    }
+
+    /// @dev Compute new vesting data values for updateVesting to apply to storage
+    /// @dev This is the main pure function that encapsulates all vesting logic
+    /// @param currentPPS Current PPS from aggregator
+    /// @param vData Current vesting data from storage
+    /// @param ts Current timestamp (lastUpdateTimestamp)
+    /// @return newStartPPS New start PPS to store
+    /// @return newTargetPPS New target PPS to store
+    /// @return newStartTime New start time to store
+    /// @return newDuration New duration to store
+    /// @return shouldEmitDecrease Whether decrease event should be emitted
+    function computeUpdatedVestingData(
+        uint256 currentPPS,
+        ISuperVaultStrategy.VestingData memory vData,
+        uint256 ts
+    )
+        internal
+        pure
+        returns (
+            uint256 newStartPPS,
+            uint256 newTargetPPS,
+            uint256 newStartTime,
+            uint256 newDuration,
+            bool shouldEmitDecrease
+        )
+    {
+        // Early return if vesting is disabled
+        if (vData.duration == 0) {
+            return (0, 0, 0, 0, false);
+        }
+
+        // Calculate elapsed time and vested amount using shared helper
+        uint256 elapsed = ts > vData.startTime ? ts - vData.startTime : 0;
+        uint256 delta = uint256(vData.targetPPS) - uint256(vData.startPPS);
+        uint256 vested = computeVested(delta, elapsed, vData.duration);
+
+        // Base values (after applying vested amount)
+        newStartPPS = uint256(vData.startPPS) + vested;
+        newTargetPPS = vData.targetPPS;
+        newStartTime = vData.startTime;
+        newDuration = vData.duration;
+        shouldEmitDecrease = false;
+
+        if (currentPPS > vData.targetPPS) {
+            // HANDLE PPS INCREASES: Merge new jumps with ongoing vesting
+            // This preserves all yield by combining remaining unvested with new increases
+            (newStartPPS, newTargetPPS, newStartTime) =
+                computeMergedIncrease(currentPPS, vData.startPPS, vData.targetPPS, vested, ts);
+        } else if (currentPPS < vData.targetPPS) {
+            // HANDLE PPS DECREASES: Cap effective PPS for dilution protection
+            // This prevents effective PPS from exceeding real PPS while preserving full yield unlock
+            uint256 currentEffective = newStartPPS; // After vested amount added
+            (newStartPPS, newStartTime, newDuration) =
+                computeCappedDecrease(currentPPS, currentEffective, elapsed, vData.duration, ts);
+            // Preserve original targetPPS to unlock full yield later
+            // newTargetPPS remains unchanged
+            shouldEmitDecrease = true;
+        } else {
+            // No PPS change: Just update target to include remaining unvested amount
+            newTargetPPS = newStartPPS + (delta - vested);
+        }
+
+        return (newStartPPS, newTargetPPS, newStartTime, newDuration, shouldEmitDecrease);
+    }
+
+    /// @notice Performs linear vesting calculation between start and target PPS over time
+    /// @dev Pure function for linear interpolation of PPS values during vesting periods
+    /// @dev This is the core mathematical formula used by both simulation and update paths
+    /// @param currentPPS Current PPS from aggregator (used for safety capping)
+    /// @param startPPS Starting PPS value for vesting period
+    /// @param targetPPS Target PPS value to vest towards
+    /// @param startTime Timestamp when vesting period began
+    /// @param duration Total vesting duration in seconds
+    /// @param ts Current timestamp to calculate elapsed time
+    /// @return effectivePPS Linearly interpolated PPS value, capped to currentPPS
+    function calculateLinearVesting(
+        uint256 currentPPS,
+        uint256 startPPS,
+        uint256 targetPPS,
+        uint256 startTime,
+        uint256 duration,
+        uint256 ts
+    )
+        internal
+        pure
+        returns (uint256 effectivePPS)
+    {
+        // Early returns for edge cases
+        if (targetPPS <= startPPS) return targetPPS;
+        if (ts <= startTime) return startPPS;
+
+        // Calculate elapsed time from consistent timestamp
+        uint256 elapsed = ts - startTime;
+
+        // Return full target if vesting complete
+        if (elapsed >= duration) return targetPPS;
+
+        // Linear interpolation: startPPS + (progress * delta)
+        uint256 vested = (targetPPS - startPPS).mulDiv(elapsed, duration, Math.Rounding.Floor);
+        uint256 effective = startPPS + vested;
+
+        // Safety cap: prevent effective PPS from exceeding real PPS
+        return Math.min(effective, currentPPS);
+    }
+
+    /// @dev Function to calculate effective PPS with cached data
+    ///
+    /// EFFECTIVE PPS CALCULATION:
+    /// This function calculates the "effective" (vested) PPS at any point in time.
+    /// It handles both active vesting and simulates future vesting for view functions.
+    ///
+    /// KEY CONCEPTS:
+    /// - currentPPS: The latest PPS from the aggregator (real yield)
+    /// - vData.targetPPS: The target PPS we're vesting towards (from last updateVesting)
+    /// - vData.startPPS: The PPS we started vesting from
+    /// - effectivePPS: The PPS users actually see (linearly interpolated)
+    ///
+    /// SIMULATION MODE (View Functions):
+    /// When currentPPS > vData.targetPPS, a new jump has occurred but updateVesting()
+    /// hasn't been called yet. We simulate what would happen if it were called now.
+    /// This ensures view functions (like getEffectivePPS) return accurate values.
+    ///
+    /// EXAMPLE 1 - NORMAL VESTING:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1100000 (no new jump)
+    /// At T0+3 days:
+    ///   elapsed = 3 days
+    ///   vestedAmount = (1100000 - 1000000) * 3/10 = 30000
+    ///   effectivePPS = 1000000 + 30000 = 1030000
+    ///
+    /// EXAMPLE 2 - NEW JUMP SIMULATION:
+    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
+    /// currentPPS: 1200000 (NEW JUMP detected!)
+    /// At T0+15 days (5 days after first vesting completed):
+    ///   Simulation kicks in: targetPPS > vData.targetPPS
+    ///   New simulated vesting: 1100000 -> 1200000 starting at T0+10days
+    ///   elapsed = 5 days (from simulated start)
+    ///   vestedAmount = (1200000 - 1100000) * 5/10 = 50000
+    ///   effectivePPS = 1100000 + 50000 = 1150000
+    ///
+    /// EXAMPLE 3 - CONCURRENT OPERATIONS:
+    /// T0: Initial state, PPS = 1.0
+    /// T1: Harvest, PPS jumps to 1.2, vesting starts (1.0 -> 1.2 over 10 days)
+    /// T1+2d: User A deposits
+    ///        effectivePPS = 1.04 (20% vested)
+    ///        User gets shares = deposit / 1.04
+    /// T1+5d: User B requests redeem
+    ///        effectivePPS = 1.10 (50% vested)
+    ///        Request locked at PPS = 1.10
+    /// T1+6d: New harvest, aggregator PPS jumps to 1.3
+    ///        This function simulates: would vest 1.2 -> 1.3
+    ///        But actual vesting won't start until T1+10d
+    /// T1+8d: User C deposits
+    ///        effectivePPS = 1.16 (80% of first vesting)
+    ///        New jump (1.3) NOT included yet
+    /// T1+10d: First vesting completes
+    ///         effectivePPS = 1.20
+    ///         If updateVesting() called, new vesting 1.2 -> 1.3 starts
+    /// T1+12d: User B's redeem fulfills
+    ///         effectivePPS = 1.24 (20% of second vesting)
+    ///         User B gets assets based on 1.24 (not their request PPS of 1.10)
+    ///
+    /// SLIPPAGE PROTECTION:
+    /// Request/fulfill flows store the request PPS for slippage checks.
+    /// Users are protected from PPS drops but benefit from increases.
+    ///
+
+    function calculateEffectivePPS(
+        uint256 currentPPS,
+        ISuperVaultStrategy.VestingData memory vData,
+        uint256 ts
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        // REFACTORED: Use shared computation function for consistency
+        // This ensures view functions and updateVesting use identical logic
+
+        if (vData.duration == 0) return currentPPS;
+
+        // Use the same pure computation function as updateVesting
+        // but only extract the effective PPS (simulation mode)
+        (
+            uint256 simStartPPS,
+            uint256 simTargetPPS,
+            uint256 simStartTime,
+            uint256 simDuration,
+            // bool shouldEmitDecrease - ignore for simulation
+        ) = computeUpdatedVestingData(currentPPS, vData, ts);
+
+        // Use shared linear vesting calculation function
+        // This ensures identical math between simulation and update paths
+        return calculateLinearVesting(currentPPS, simStartPPS, simTargetPPS, simStartTime, simDuration, ts);
+    }
+
     /// @notice Calculate cost basis for requested shares using proportional approach
     /// @param accumulatorShares Total shares in accumulator
     /// @param accumulatorCostBasis Total cost basis in accumulator
@@ -196,112 +477,6 @@ library SuperVaultAccountingLib {
         claimableAssets = strategyBalance < theoreticalAssets ? strategyBalance : theoreticalAssets;
 
         return claimableAssets;
-    }
-
-    /// @dev Function to calculate effective PPS with cached data
-    ///
-    /// EFFECTIVE PPS CALCULATION:
-    /// This function calculates the "effective" (vested) PPS at any point in time.
-    /// It handles both active vesting and simulates future vesting for view functions.
-    ///
-    /// KEY CONCEPTS:
-    /// - currentPPS: The latest PPS from the aggregator (real yield)
-    /// - vData.targetPPS: The target PPS we're vesting towards (from last updateVesting)
-    /// - vData.startPPS: The PPS we started vesting from
-    /// - effectivePPS: The PPS users actually see (linearly interpolated)
-    ///
-    /// SIMULATION MODE (View Functions):
-    /// When currentPPS > vData.targetPPS, a new jump has occurred but updateVesting()
-    /// hasn't been called yet. We simulate what would happen if it were called now.
-    /// This ensures view functions (like getEffectivePPS) return accurate values.
-    ///
-    /// EXAMPLE 1 - NORMAL VESTING:
-    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
-    /// currentPPS: 1100000 (no new jump)
-    /// At T0+3 days:
-    ///   elapsed = 3 days
-    ///   vestedAmount = (1100000 - 1000000) * 3/10 = 30000
-    ///   effectivePPS = 1000000 + 30000 = 1030000
-    ///
-    /// EXAMPLE 2 - NEW JUMP SIMULATION:
-    /// vData: {startPPS: 1000000, targetPPS: 1100000, startTime: T0, duration: 10 days}
-    /// currentPPS: 1200000 (NEW JUMP detected!)
-    /// At T0+15 days (5 days after first vesting completed):
-    ///   Simulation kicks in: targetPPS > vData.targetPPS
-    ///   New simulated vesting: 1100000 -> 1200000 starting at T0+10days
-    ///   elapsed = 5 days (from simulated start)
-    ///   vestedAmount = (1200000 - 1100000) * 5/10 = 50000
-    ///   effectivePPS = 1100000 + 50000 = 1150000
-    ///
-    /// EXAMPLE 3 - CONCURRENT OPERATIONS:
-    /// T0: Initial state, PPS = 1.0
-    /// T1: Harvest, PPS jumps to 1.2, vesting starts (1.0 -> 1.2 over 10 days)
-    /// T1+2d: User A deposits
-    ///        effectivePPS = 1.04 (20% vested)
-    ///        User gets shares = deposit / 1.04
-    /// T1+5d: User B requests redeem
-    ///        effectivePPS = 1.10 (50% vested)
-    ///        Request locked at PPS = 1.10
-    /// T1+6d: New harvest, aggregator PPS jumps to 1.3
-    ///        This function simulates: would vest 1.2 -> 1.3
-    ///        But actual vesting won't start until T1+10d
-    /// T1+8d: User C deposits
-    ///        effectivePPS = 1.16 (80% of first vesting)
-    ///        New jump (1.3) NOT included yet
-    /// T1+10d: First vesting completes
-    ///         effectivePPS = 1.20
-    ///         If updateVesting() called, new vesting 1.2 -> 1.3 starts
-    /// T1+12d: User B's redeem fulfills
-    ///         effectivePPS = 1.24 (20% of second vesting)
-    ///         User B gets assets based on 1.24 (not their request PPS of 1.10)
-    ///
-    /// SLIPPAGE PROTECTION:
-    /// Request/fulfill flows store the request PPS for slippage checks.
-    /// Users are protected from PPS drops but benefit from increases.
-    ///
-    function calculateEffectivePPS(
-        uint256 currentPPS,
-        ISuperVaultStrategy.VestingData memory vData,
-        uint256 currentBlockTimestamp
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        uint256 targetPPS = currentPPS;
-        uint256 startPPS = vData.startPPS;
-        uint256 startTime = vData.startTime;
-        // SIMULATION MODE: Detect if a new jump occurred that hasn't been processed
-        // This happens when aggregator PPS exceeds our stored target
-        // We simulate the vesting that WOULD occur if updateVesting() were called
-        if (targetPPS > vData.targetPPS) {
-            // Start new vesting from the previous target (or current if first time)
-            startPPS = vData.targetPPS > 0 ? vData.targetPPS : targetPPS;
-            startTime = currentBlockTimestamp; // Simulate starting vesting now
-        }
-        // EARLY RETURNS:
-        // Case 1: No increase (PPS unchanged or decreased)
-        if (targetPPS <= startPPS) {
-            return targetPPS;
-        }
-        // Case 2: Vesting hasn't started yet (time at or before start)
-        if (currentBlockTimestamp <= startTime) {
-            return startPPS;
-        }
-        uint256 elapsed = currentBlockTimestamp - startTime;
-        uint256 duration = vData.duration;
-        // Case 3: Vesting complete (elapsed >= duration)
-        if (elapsed >= duration) {
-            return targetPPS;
-        }
-        // LINEAR VESTING CALCULATION:
-        // effectivePPS = startPPS + (targetPPS - startPPS) * (elapsed / duration)
-        // Example: start=1.0, target=1.1, elapsed=3days, duration=10days
-        // effectivePPS = 1.0 + (0.1) * (3/10) = 1.03
-        unchecked {
-            uint256 vestedAmount = (targetPPS - startPPS).mulDiv(elapsed, duration, Math.Rounding.Floor);
-            return startPPS + vestedAmount;
-        }
     }
 
     /// @notice Validate redemption share amounts are within tolerance bounds

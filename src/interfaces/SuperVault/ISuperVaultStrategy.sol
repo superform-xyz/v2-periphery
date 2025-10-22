@@ -102,6 +102,7 @@ interface ISuperVaultStrategy {
         uint256 elapsed, 
         uint256 duration
     );
+    event VestingDecreaseHandled(uint256 newPPS, uint256 preservedTarget, uint256 remainingDuration);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
