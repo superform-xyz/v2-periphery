@@ -110,8 +110,8 @@ interface IECDSAPPSOracle {
     /// @param requiredQuorum Required quorum for validation
     /// @param isValidator Mapping of validator addresses to their validation status
     struct ValidationCache {
-        uint256 totalValidators;
-        uint256 requiredQuorum;
+        uint128 totalValidators;
+        uint128 requiredQuorum;
         mapping(address => bool) isValidator;
     }
 
