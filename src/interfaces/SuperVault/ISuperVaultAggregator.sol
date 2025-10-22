@@ -63,6 +63,7 @@ interface ISuperVaultAggregator {
         uint256 lastUpdateTimestamp;
         uint256 minUpdateInterval;
         uint256 maxStaleness;
+        bool ppsStale;
         bool isPaused;
         address mainManager;
         EnumerableSet.AddressSet secondaryManagers;
@@ -376,6 +377,12 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when the strategy's PPS unpause timelock is updated
     event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
+
+    /// @notice Emitted when a strategy's PPS is stale
+    event StrategyPPSStale(address indexed strategy);
+    
+    /// @notice Emitted when a strategy's PPS is reset
+    event StrategyPPSStaleReset(address indexed strategy);
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
