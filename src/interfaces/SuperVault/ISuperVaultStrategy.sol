@@ -41,6 +41,8 @@ interface ISuperVaultStrategy {
     error INVALID_REDEEM_SLIPPAGE_BPS();
     error CANCELLATION_REDEEM_REQUEST_PENDING();
     error ZERO_REQUEST_PPS();
+    error STALE_PPS();
+    error INVALID_PPS_STALENESS_THRESHOLD();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -91,6 +93,10 @@ interface ISuperVaultStrategy {
         uint256 accumulatorCostBasis
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
+
+    event PPSStalenessThresholdProposed(uint256 ppsStalenessThreshold, uint256 effectiveTime);
+    event PPSStalenessThresholdUpdated(uint256 ppsStalenessThreshold);
+    event PPSStalenessThresholdProposalCanceled();
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -287,6 +293,11 @@ interface ISuperVaultStrategy {
     /// @param recipient The recipient of the withdrawn assets (for action 3)
     /// @param amount The amount of assets to withdraw (for action 3)
     function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external;
+
+    /// @notice Manage PPS staleness threshold
+    /// @param action Type of action: 1=Propose, 2=ExecuteActivation, 3=Withdraw, 4=CancelProposal
+    /// @param ppsStalenessThreshold The new PPS staleness threshold
+    function managePPSStalenessThreshold(uint8 action, uint256 ppsStalenessThreshold) external;
 
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT

@@ -90,6 +90,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
+        vm.startPrank(MANAGER);
+        strategy.managePPSStalenessThreshold(1, 99999999999999999999);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategy.managePPSStalenessThreshold(2, 0);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -3453,6 +3460,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearSuperVault = SuperVault(gearSuperVaultAddr);
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
+
+        vm.startPrank(MANAGER);
+        strategyGearSuperVault.managePPSStalenessThreshold(1, 99999999999999999999);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategyGearSuperVault.managePPSStalenessThreshold(2, 0);
+        vm.stopPrank();
 
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
@@ -8059,6 +8074,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
             // ruggableVault
+        vm.stopPrank();
+
+        vm.startPrank(MANAGER);
+        strategy.managePPSStalenessThreshold(1, 99999999999999999999);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategy.managePPSStalenessThreshold(2, 0);
         vm.stopPrank();
     }
 

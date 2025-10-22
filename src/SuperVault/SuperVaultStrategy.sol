@@ -77,6 +77,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     bool public proposedEmergencyWithdrawable;
     uint256 public emergencyWithdrawableEffectiveTime;
 
+    // PPS staleness threshold
+    uint256 public proposedPPSStalenessThreshold;
+    uint256 public ppsStalenessThresholdEffectiveTime;
+    uint256 public ppsStalenessThreshold;
+
     // Yield source configuration - simplified mapping from source to oracle
     mapping(address source => address oracle) private yieldSources;
     EnumerableSet.AddressSet private yieldSourcesList;
@@ -87,6 +92,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
+        ppsStalenessThreshold = 1 days;
+
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
         _disableInitializers();
@@ -94,7 +101,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @notice Allows the contract to receive native ETH
     /// @dev Required for hooks that may send ETH back to the strategy
-    receive() external payable { }
+    receive() external payable { }  
 
     /*//////////////////////////////////////////////////////////////
                             INITIALIZATION
@@ -140,9 +147,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Check if strategy is paused or if global hooks root is vetoed
         if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_getSuperVaultAggregator().isGlobalHooksRootVetoed()) {
+
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
+
+        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -307,6 +319,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
 
+        uint256 lastPPSUpdateTimestamp = _getSuperVaultAggregator().getLastUpdateTimestamp(address(this));
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
+
         // make sure controllers are sorted and unique
         controllers.insertionSort();
         controllers.uniquifySorted();
@@ -399,6 +414,19 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _performEmergencyWithdraw(recipient, amount);
         } else if (action == 3) {
             _cancelEmergencyWithdrawProposal();
+        } else {
+            revert ACTION_TYPE_DISALLOWED();
+        }
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function managePPSStalenessThreshold(uint8 action, uint256 staleness_) external {
+        if (action == 1) {
+            _proposePPSStalenessThreshold(staleness_);
+        } else if (action == 2) {
+            _updatePPSStalenessThreshold();
+        } else if (action == 3) {
+            _cancelPPSStalenessThresholdProposalUpdate();
         } else {
             revert ACTION_TYPE_DISALLOWED();
         }
@@ -865,6 +893,48 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _safeTokenTransfer(address(_asset), recipient, amount);
 
         emit EmergencyWithdrawal(recipient, amount);
+    }
+
+    /// @notice Internal function to propose a PPS staleness threshold
+    /// @param _threshold The new PPS staleness threshold
+    function _proposePPSStalenessThreshold(uint256 _threshold) internal {
+        _isPrimaryManager(msg.sender);
+
+        if (_threshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
+
+        proposedPPSStalenessThreshold = _threshold;
+        ppsStalenessThresholdEffectiveTime = block.timestamp + 1 weeks;
+
+        emit PPSStalenessThresholdProposed(_threshold, ppsStalenessThresholdEffectiveTime);
+    }
+
+    /// @notice Internal function to perform a PPS staleness threshold
+    function _updatePPSStalenessThreshold() internal {
+        _isPrimaryManager(msg.sender);
+
+        // Must have a valid proposal
+        if (block.timestamp < ppsStalenessThresholdEffectiveTime) revert INVALID_TIMESTAMP();
+
+        if (proposedPPSStalenessThreshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
+
+        uint256 _proposed = proposedPPSStalenessThreshold;
+        ppsStalenessThreshold = _proposed;
+        ppsStalenessThresholdEffectiveTime = 0;
+        proposedPPSStalenessThreshold = 0;
+
+        emit PPSStalenessThresholdUpdated(_proposed);
+    }
+
+    /// @notice Internal function to cancel a PPS staleness threshold proposal
+    function _cancelPPSStalenessThresholdProposalUpdate() internal {
+        _isPrimaryManager(msg.sender);
+
+        if (ppsStalenessThresholdEffectiveTime == 0) revert NO_PROPOSAL();
+
+        proposedPPSStalenessThreshold = 0;
+        ppsStalenessThresholdEffectiveTime = 0;
+
+        emit PPSStalenessThresholdProposalCanceled();
     }
 
     /// @notice Internal function to check if a hook is registered
