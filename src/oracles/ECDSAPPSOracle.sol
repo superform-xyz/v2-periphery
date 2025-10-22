@@ -115,7 +115,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
 
         // Validate that totalValidators matches actual total number of validators
-        if (params.totalValidators != SUPER_GOVERNOR.getValidators().length) revert INVALID_TOTAL_VALIDATORS();
+        if (params.totalValidators != SUPER_GOVERNOR.getValidatorsCount()) revert INVALID_TOTAL_VALIDATORS();
 
         // Ensure we have enough valid signatures to meet quorum
         if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
