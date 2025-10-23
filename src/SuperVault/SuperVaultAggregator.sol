@@ -373,7 +373,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param manager Address of the manager to deposit stake for
     /// @param amount Amount of UP tokens to deposit as stake
     function depositStake(address manager, uint256 amount) external {
-        if (amount == 0) revert ZERO_ADDRESS(); // Reusing error code for consistency
+        if (amount == 0) revert ZERO_AMOUNT();
         if (manager == address(0)) revert ZERO_ADDRESS();
 
         // Get the UP token address from SUPER_GOVERNOR
@@ -390,7 +390,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function requestStakeWithdrawal(uint256 amount) external {
-        if (amount == 0) revert ZERO_ADDRESS(); // Reusing error code for consistency
+        if (amount == 0) revert ZERO_AMOUNT();
 
         // Check sufficient balance
         if (_managerStakeBalance[msg.sender] < amount) {
@@ -447,7 +447,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Validate inputs
         if (manager == address(0)) revert ZERO_ADDRESS();
-        if (amount == 0) revert ZERO_ADDRESS(); // Reusing error code for consistency
+        if (amount == 0) revert ZERO_AMOUNT();
 
         // Check if manager has sufficient stake balance to slash
         if (_managerStakeBalance[manager] < amount) {

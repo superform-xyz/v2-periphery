@@ -1795,7 +1795,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake deposit reverts with zero amount
     function test_DepositStake_RevertZeroAmount() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.depositStake(manager, 0);
     }
 
@@ -1863,7 +1863,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake withdrawal reverts with zero amount
     function test_WithdrawStake_RevertZeroAmount() public {
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.requestStakeWithdrawal(0);
     }
 
@@ -2086,7 +2086,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests slashing reverts with zero amount
     function test_SlashStake_RevertZeroAmount() public {
         vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.slashStake(manager, 0);
     }
 
