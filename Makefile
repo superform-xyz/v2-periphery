@@ -92,5 +92,5 @@ test-cache :; $(MAKE) ensure-merkle-cache && forge test --cache-tests
 .PHONY: generate
 generate:
 	rm -rf contract_bindings/*
-	./script/run/retrieve-abis.sh
+	./lib/v2-core/script/run/retrieve-abis.sh
 	./script/run/generate-contract-bindings.sh
