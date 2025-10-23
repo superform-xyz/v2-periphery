@@ -362,7 +362,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Unpause the strategy
         _strategyData[strategy].isPaused = false;
-        _strategyData[strategy].ppsStale = false;
+        _strategyData[strategy].ppsStale = true;
         emit StrategyUnpaused(strategy);
     }
 
@@ -1143,9 +1143,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Pause strategy if any check failed
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
-            _strategyData[args.strategy].ppsStale = true;
             emit StrategyPaused(args.strategy);
-            emit StrategyPPSStale(args.strategy);
         }
 
         // Handle upkeep costs unless exempt
@@ -1175,7 +1173,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[args.strategy].ppsStdev = args.ppsStdev;
         _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
         if (!checksFailed && args.pps > 0) {
-            // reset `ppsStale` in case PPS is valid
             _strategyData[args.strategy].ppsStale = false;
             emit StrategyPPSStaleReset(args.strategy);
         }
