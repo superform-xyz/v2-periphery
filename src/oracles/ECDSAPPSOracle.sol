@@ -191,10 +191,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // -------- transient snapshot (memory only) --------
         uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
         uint256 requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
-        address[] memory validators = SUPER_GOVERNOR.getValidators();
-
-        // (cheap sanity) If governor ever misreports count vs list length
-        if (validators.length != cachedTotalValidators) revert INVALID_TOTAL_VALIDATORS();
 
         // -------- existing collection logic --------
         validStrategies = new address[](strategiesLength);
