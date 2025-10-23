@@ -1153,6 +1153,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!args.isExempt) {
             // Check if manager has sufficient upkeep balance
             if (managerUpkeepBalance < args.upkeepCost) {
+                _strategyData[args.strategy].isPaused = true;
+                _strategyData[args.strategy].ppsStale = true;
+                emit StrategyPaused(args.strategy);
+                emit StrategyPPSStale(args.strategy);
                 emit InsufficientUpkeep(args.strategy, manager, managerUpkeepBalance, args.upkeepCost);
                 return;
             }
