@@ -128,6 +128,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 public constant ECDSAPPSORACLE = keccak256("ECDSAPPSORACLE");
     bytes32 public constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
+    // Fee constants
+    uint256 public constant REVENUE_SHARE = 2000; // 20% revenue share
+    uint256 public constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
+    uint256 public constant SUPER_ASSET_SWAP_FEE = 4000; // 40% swap fee
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -148,8 +153,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
-                || unpauser == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -172,12 +176,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
-        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, 2000);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, 2000);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, 4000);
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
+        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
+        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = SUPER_ASSET_SWAP_FEE; // 40% swap fee
+        emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, SUPER_ASSET_SWAP_FEE);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
@@ -584,7 +588,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
     function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
-
         if (oracle == address(0)) revert INVALID_ADDRESS();
         if (gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
@@ -911,12 +914,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _registeredHooks.contains(hook);
     }
 
-
     /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
     }
-
 
     /// @inheritdoc ISuperGovernor
     function isValidator(address validator) external view returns (bool) {
@@ -942,7 +943,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function getValidators() external view returns (address[] memory) {
         return _validators.values();
     }
-    
+
     /// @inheritdoc ISuperGovernor
     function getValidatorsCount() external view returns (uint256) {
         return _validators.length();
@@ -1135,12 +1136,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(AccessControl) returns (bool) {
-        return
-            interfaceId == type(ISuperGovernor).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
+        return interfaceId == type(ISuperGovernor).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /*//////////////////////////////////////////////////////////////

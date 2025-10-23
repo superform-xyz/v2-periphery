@@ -141,8 +141,19 @@ interface IECDSAPPSOracle {
 
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @param params Validation parameters
-    /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function validateProofs(IECDSAPPSOracle.ValidationParams memory params) external view;
+
+    /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @param params Validation parameters
+    /// @param cachedTotalValidators Total number of validators in the network
+    /// @param requiredQuorum Required quorum for validation
+    function validateProofs(
+        IECDSAPPSOracle.ValidationParams memory params,
+        uint256 cachedTotalValidators,
+        uint256 requiredQuorum
+    )
+        external
+        view;
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
