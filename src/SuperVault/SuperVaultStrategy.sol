@@ -43,9 +43,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint256 private constant BPS_PRECISION = 10_000;
-    /// @dev The following is needed because the `processedShares` for some vaults (for example Centrifuge)
-    ///      can be lower by 1 or 2 wei than the `totalRequestedAmount`in SuperVault shares
-    uint256 private constant TOLERANCE_CONSTANT = 10 wei;
 
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
@@ -72,10 +69,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Core contracts
     ISuperGovernor public immutable superGovernor;
 
-    // Emergency withdrawable configuration
-    bool public emergencyWithdrawable;
-    bool public proposedEmergencyWithdrawable;
-    uint256 public emergencyWithdrawableEffectiveTime;
 
     // Yield source configuration - simplified mapping from source to oracle
     mapping(address source => address oracle) private yieldSources;
@@ -391,18 +384,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
     }
 
-    /// @inheritdoc ISuperVaultStrategy
-    function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) external {
-        if (action == 1) {
-            _proposeEmergencyWithdraw();
-        } else if (action == 2) {
-            _performEmergencyWithdraw(recipient, amount);
-        } else if (action == 3) {
-            _cancelEmergencyWithdrawProposal();
-        } else {
-            revert ACTION_TYPE_DISALLOWED();
-        }
-    }
 
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
@@ -810,62 +791,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit YieldSourceRemoved(source);
     }
 
-    /// @notice Internal function to propose an emergency withdraw
-    function _proposeEmergencyWithdraw() internal {
-        _isPrimaryManager(msg.sender);
-
-        if (proposedEmergencyWithdrawable) revert ALREADY_PROPOSED();
-
-        proposedEmergencyWithdrawable = true;
-        emergencyWithdrawableEffectiveTime = block.timestamp + 1 weeks;
-
-        emit EmergencyWithdrawableProposed(true, emergencyWithdrawableEffectiveTime);
-    }
-
-    /// @notice Internal function to cancel an emergency withdraw proposal
-    function _cancelEmergencyWithdrawProposal() internal {
-        _isPrimaryManager(msg.sender);
-
-        if (emergencyWithdrawableEffectiveTime == 0) revert NO_PROPOSAL();
-
-        proposedEmergencyWithdrawable = false;
-        emergencyWithdrawableEffectiveTime = 0;
-
-        emit EmergencyWithdrawableProposalCanceled();
-    }
-
-    /// @notice Internal function to perform an emergency withdraw
-    /// @param recipient Address to receive the assets
-    /// @param amount Amount of assets to withdraw
-    function _performEmergencyWithdraw(address recipient, uint256 amount) internal {
-        _isPrimaryManager(msg.sender);
-
-        // Must have a valid proposal
-        if (!proposedEmergencyWithdrawable) revert NO_PROPOSAL();
-        if (block.timestamp < emergencyWithdrawableEffectiveTime) revert INVALID_TIMESTAMP();
-
-        if (recipient == address(0)) revert ZERO_ADDRESS();
-        if (amount == 0) revert INVALID_AMOUNT();
-
-        uint256 freeStrategyAssets = _getTokenBalance(address(_asset), address(this));
-
-        ISuperVault v = ISuperVault(_vault);
-        uint256 escrowedAssets = v.getEscrowedAssets();
-
-        uint256 requiredFromEscrow =
-            amount > freeStrategyAssets ? Math.min(amount - freeStrategyAssets, escrowedAssets) : 0;
-        if (requiredFromEscrow > 0) {
-            v.extractAndSendAssets(address(this), requiredFromEscrow);
-        }
-
-        uint256 totalAssets = freeStrategyAssets + requiredFromEscrow;
-        if (amount > totalAssets + TOLERANCE_CONSTANT) revert INSUFFICIENT_FUNDS();
-        amount = Math.min(amount, totalAssets);
-
-        _safeTokenTransfer(address(_asset), recipient, amount);
-
-        emit EmergencyWithdrawal(recipient, amount);
-    }
 
     /// @notice Internal function to check if a hook is registered
     /// @param hook Address of the hook
