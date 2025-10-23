@@ -254,8 +254,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit PaymentSkippedForPausedStrategy(strategy);
                 } else if (block.timestamp - ts > data.maxStaleness) {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
-                } else if (SUPER_GOVERNOR.isSuperformManager(manager)) {
-                    emit SuperformManager(strategy, manager);
                 } else {
                     // Query cost directly per entry
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
@@ -363,6 +361,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Unpause the strategy
         _strategyData[strategy].isPaused = false;
+        _strategyData[strategy].ppsStale = true;
         emit StrategyUnpaused(strategy);
     }
 
@@ -1151,6 +1150,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!args.isExempt) {
             // Check if manager has sufficient upkeep balance
             if (managerUpkeepBalance < args.upkeepCost) {
+                _strategyData[args.strategy].isPaused = true;
+                _strategyData[args.strategy].ppsStale = true;
+                emit StrategyPaused(args.strategy);
+                emit StrategyPPSStale(args.strategy);
                 emit InsufficientUpkeep(args.strategy, manager, managerUpkeepBalance, args.upkeepCost);
                 return;
             }
@@ -1164,10 +1167,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
         }
 
-        // Update PPS, ppsStdev and timestamp in StrategyData
+        // Update PPS, ppsStdev, timestamp and ppsStale in StrategyData
         _strategyData[args.strategy].pps = args.pps;
         _strategyData[args.strategy].ppsStdev = args.ppsStdev;
         _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+        if (!checksFailed && args.pps > 0) {
+            _strategyData[args.strategy].ppsStale = false;
+            emit StrategyPPSStaleReset(args.strategy);
+        }
 
         emit PPSUpdated(args.strategy, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp);
     }

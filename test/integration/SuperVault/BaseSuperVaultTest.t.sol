@@ -1224,7 +1224,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
     function _fulfillRedeem5115(
         uint256 redeemShares,
-        address svAddr,
+        address,
         address strat
     ) internal {
         address[] memory requestingUsers = new address[](1);
