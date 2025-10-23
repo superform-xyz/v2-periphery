@@ -1830,7 +1830,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vars.aaveSharesOut = _truncateToActualBalance(vars.aaveSharesOut, vault1, 100);
         vars.centrifugeSharesOut = _truncateToActualBalance(vars.centrifugeSharesOut, IERC7540(vault2).share(), 250);
 
-        uint256 aaveShares = IERC4626(address(vault1)).balanceOf(address(strategy));
         uint256 centrifugeShares = IERC20Metadata(centrifugeVault.share()).balanceOf(address(strategy));
         _requestRedeemFrom7540Underlying(centrifugeShares, vault2);
 

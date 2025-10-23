@@ -57,15 +57,14 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @inheritdoc IECDSAPPSOracle
     function updatePPS(UpdatePPSArgs calldata args) external {
         uint256 strategiesLength = args.strategies.length;
-        
+
         if (strategiesLength == 0) revert ZERO_LENGTH_ARRAY();
         // Validate input array lengths
-        if (    strategiesLength != args.proofsArray.length
-                || strategiesLength != args.ppss.length
+        if (
+            strategiesLength != args.proofsArray.length || strategiesLength != args.ppss.length
                 || strategiesLength != args.ppsStdevs.length || strategiesLength != args.validatorSets.length
                 || strategiesLength != args.timestamps.length || strategiesLength != args.totalValidators.length
         ) revert ARRAY_LENGTH_MISMATCH();
-
 
         // Process strategies and collect valid entries
         (
@@ -79,25 +78,31 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
         // Forward valid entries if any exist
         _forwardValidEntries(
-            validStrategies,
-            validPpss,
-            validPpsStdevs,
-            validValidatorSets,
-            validTotalValidators,
-            validTimestamps
+            validStrategies, validPpss, validPpsStdevs, validValidatorSets, validTotalValidators, validTimestamps
         );
     }
 
-    
-
-    /// @notice Validates an array of proofs for a strategy's PPS update
-    /// @param params Validation parameters
+    /// @inheritdoc IECDSAPPSOracle
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function validateProofs(IECDSAPPSOracle.ValidationParams memory params)
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params) external view {
+        // derive transient values
+        uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
+        uint256 requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
+
+        _validateProofs(params, cachedTotalValidators, requiredQuorum);
+    }
+
+    /// @inheritdoc IECDSAPPSOracle
+    /// @dev Reverts immediately if duplicate signers are found or quorum is not met
+    function validateProofs(
+        IECDSAPPSOracle.ValidationParams memory params,
+        uint256 cachedTotalValidators,
+        uint256 requiredQuorum
+    )
         public
         view
     {
-        _validateProofs(params);
+        _validateProofs(params, cachedTotalValidators, requiredQuorum);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -106,22 +111,30 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
     /// @param params Validation parameters
+    /// @param cachedTotalValidators Total number of validators in the network
+    /// @param requiredQuorum Required quorum for validation
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function _validateProofs(IECDSAPPSOracle.ValidationParams memory params) internal view {
+    function _validateProofs(
+        IECDSAPPSOracle.ValidationParams memory params,
+        uint256 cachedTotalValidators,
+        uint256 requiredQuorum 
+    )
+        internal
+        view
+    {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
-        // Validate that validatorSet matches actual number of valid signatures
+        // Claimed set size must match number of signatures
         if (params.validatorSet != proofsLength) revert INVALID_VALIDATOR_SET();
 
-        // Validate that totalValidators matches actual total number of validators
-        if (params.totalValidators != SUPER_GOVERNOR.getValidatorsCount()) revert INVALID_TOTAL_VALIDATORS();
+        // Total validator count must match batch-snapshot
+        if (params.totalValidators != cachedTotalValidators) revert INVALID_TOTAL_VALIDATORS();
 
-        // Ensure we have enough valid signatures to meet quorum
-        if (proofsLength < SUPER_GOVERNOR.getPPSOracleQuorum()) revert QUORUM_NOT_MET();
+        // Quorum from batch-snapshot
+        if (proofsLength < requiredQuorum) revert QUORUM_NOT_MET();
 
-        // Create message hash with all parameters- If anyare incorrect, the message hash will be different and the
-        // derived signer address will be incorrect- resulting in a revert
+        // Build EIP-712 digest
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encodePacked(
@@ -175,7 +188,11 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             uint256[] memory validTimestamps
         )
     {
-        // Arrays to collect valid entries
+        // -------- transient snapshot (memory only) --------
+        uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
+        uint256 requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
+
+        // -------- existing collection logic --------
         validStrategies = new address[](strategiesLength);
         validPpss = new uint256[](strategiesLength);
         validPpsStdevs = new uint256[](strategiesLength);
@@ -184,22 +201,22 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         validTimestamps = new uint256[](strategiesLength);
         uint256 validCount;
 
-        // Process each strategy update
-        for (uint256 i; i < strategiesLength; i++) {
-            bool isValid = _processIndividualStrategy(args, i);
+        for (uint256 i; i < strategiesLength; ++i) {
+            bool isValid = _processIndividualStrategy(args, i, cachedTotalValidators, requiredQuorum);
             if (isValid) {
-                // Add to valid entries
                 validStrategies[validCount] = args.strategies[i];
                 validPpss[validCount] = args.ppss[i];
                 validPpsStdevs[validCount] = args.ppsStdevs[i];
                 validValidatorSets[validCount] = args.validatorSets[i];
                 validTotalValidators[validCount] = args.totalValidators[i];
                 validTimestamps[validCount] = args.timestamps[i];
-                validCount++;
+                unchecked {
+                    ++validCount;
+                }
             }
         }
 
-        // Resize arrays to actual valid count
+        // Resize to validCount
         assembly {
             mstore(validStrategies, validCount)
             mstore(validPpss, validCount)
@@ -216,11 +233,16 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @return isValid True if the strategy was processed successfully
     function _processIndividualStrategy(
         UpdatePPSArgs calldata args,
-        uint256 index
-    ) internal returns (bool isValid) {
+        uint256 index,
+        uint256 cachedTotalValidators,
+        uint256 requiredQuorum
+    )
+        internal
+        returns (bool isValid)
+    {
         address _strategy = args.strategies[index];
 
-         // Validate proofs and check quorum requirement
+        // Use self-call + interface for try/catch (update interface signature accordingly)
         try IECDSAPPSOracle(address(this)).validateProofs(
             IECDSAPPSOracle.ValidationParams({
                 strategy: _strategy,
@@ -230,7 +252,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                 validatorSet: args.validatorSets[index],
                 totalValidators: args.totalValidators[index],
                 timestamp: args.timestamps[index]
-            })
+            }),
+            cachedTotalValidators,
+            requiredQuorum
         ) {
             emit PPSValidated(
                 _strategy,
@@ -248,7 +272,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             emit ProofValidationFailedLowLevel(_strategy, lowLevelData);
             return false;
         }
-        
+
         noncePerStrategy[_strategy]++;
         return true;
     }
@@ -267,7 +291,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         uint256[] memory validValidatorSets,
         uint256[] memory validTotalValidators,
         uint256[] memory validTimestamps
-    ) internal {
+    )
+        internal
+    {
         uint256 count = validStrategies.length;
 
         uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
@@ -289,8 +315,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     timestamps: validTimestamps,
                     updateAuthority: msg.sender
                 })
-            ) {
-            } catch Error(string memory reason) {
+            ) { } catch Error(string memory reason) {
                 // Require that enough gas was provided to prevent an OOG revert
                 if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
@@ -303,5 +328,4 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             }
         }
     }
-
 }
