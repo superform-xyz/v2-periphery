@@ -722,8 +722,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -798,8 +798,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -893,8 +893,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     strategies: strategies,
                     ppss: ppss,
                     ppsStdevs: ppsStdevs,
-                    validatorSets: validatorSets,
-                    totalValidators: totalValidators,
+                    validatorSet: validatorSets[0],
+                    totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
                 })
@@ -1042,8 +1042,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2405,8 +2405,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: vars.strategies,
                 ppss: vars.ppss,
                 ppsStdevs: vars.ppsStdevs,
-                validatorSets: vars.validatorSets,
-                totalValidators: vars.totalValidators,
+                validatorSet: vars.validatorSets[0],
+                totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
                 updateAuthority: address(this)
             })
@@ -2490,8 +2490,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2536,8 +2536,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2580,8 +2580,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2645,8 +2645,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2680,8 +2680,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                validatorSet: validatorSets[0],
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
