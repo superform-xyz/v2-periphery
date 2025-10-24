@@ -235,7 +235,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
                 performanceFeeBps: 1000, // 10% performance fee
                 managementFeeBps: 100, // 1% management fee
                 recipient: feeRecipient
-            })
+            }),
+            maxUnpauseTimeLock: 0
         });
 
         (address vaultAddr, address strategyAddr, address escrowAddr) = superVaultAggregator.createVault(params);
