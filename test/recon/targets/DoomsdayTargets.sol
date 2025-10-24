@@ -118,10 +118,10 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 3. Fulfill Withdrawal
-        ISuperVaultStrategy.ExecuteArgs memory executeArgs = _createExecuteRedeemArgs(shares);
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) = _createExecuteRedeemArgs(shares);
         // execute and fulfill as admin (address(this))
         superVaultStrategy.executeHooks(executeArgs);
-        address[] memory controllers = new address[](1);
+        controllers = new address[](1);
         controllers[0] = _getActor();
         superVaultStrategy.fulfillRedeemRequests(controllers);
 
@@ -633,7 +633,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0);
 
-        return ISuperVaultStrategy.ExecuteArgs({
+        executeArgs = ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
