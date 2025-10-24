@@ -14,9 +14,13 @@ import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { IDistributor } from "@superform-v2-core/src/vendor/merkl/IDistributor.sol";
+import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
+
+import { ClaimsMerkleHelper } from "../../../test/utils/merkle/helper/ClaimsMerkleHelper.sol";
 
 // we need to `useLatestFork` on true
-contract SuperVaultSwapTest is BaseSuperVaultTest {
+contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
     using Math for uint256;
 
     address operator = address(0x123);
@@ -36,7 +40,6 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         uint256 swapAmount;
     }
 
-
     function setUp() public override {
         useLatestFork = true;
 
@@ -49,7 +52,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                        SWAP TESTS
     //////////////////////////////////////////////////////////////*/
-    function test_Deposit_Allocate_And_SwapX() public {
+    function test_Deposit_Allocate_And_Swap() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
         // Direct deposit
@@ -129,6 +132,112 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         // Verify the amounts are correct
         uint256 expectedSwapAmount = depositAmount * 30 / 100; // 300 USDC worth of USDT
         assertApproxEqRel(balanceOfUsdt, expectedSwapAmount, 0.05e18, "USDT amount should be ~300 USDC equivalent");
+    }
+
+    //tests idea
+    // - T1.MERKL claim and deposit
+    // - T2.MERKL claim, swap and deposit
+    // - T3.MERKL claim, use prev and deposit to fluid
+    // T1.MERKL
+    function test_MerklHook_And_Swap() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        _deposit(depositAmount);
+
+        uint256 userShares = vault.balanceOf(accountEth);
+        assertGt(userShares, 0, "No shares minted to user");
+        assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 fluidBalanceBeforeClaim = fluidVault.balanceOf(address(strategy));
+        uint256 aaveBalanceBeforeClaim = aaveVault.balanceOf(address(strategy));
+
+        assertGt(fluidBalanceBeforeClaim, 0, "No fluid shares allocated");
+        assertGt(aaveBalanceBeforeClaim, 0, "No aave shares allocated");
+
+        // add some funds to merkle hook
+        // prank and mock the tree
+        address[] memory users = new address[](1);
+        users[0] = address(strategy);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset); //assume we claim the same token to avoid a swap
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 10e6;
+        (bytes32[][] memory proofs, bytes32 root,) = _createClaimsTree(users, tokens, amounts);
+        // set the tree
+        vm.startPrank(CHAIN_1_MERKL_TREE_UPDATER_EOA);
+        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({merkleRoot: root, ipfsHash: ""}));
+        vm.stopPrank();
+        // advance time for the new tree to become active
+        vm.warp(block.timestamp + 100 days);
+
+        // deal some tokens
+        deal(address(asset), address(MERKL_DISTRIBUTOR), 10e6);
+
+        // execute hooks
+        // - claim
+        // - deposit usdc
+        address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+        address claimHookAddress =  _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
+
+        address[] memory hooksAddresses = new address[](3);
+        bytes[] memory hooksData = new bytes[](3);
+
+        // Setup hooks
+        hooksAddresses[0] = claimHookAddress;
+        hooksAddresses[1] = depositHookAddress;
+        hooksAddresses[2] = depositHookAddress;
+
+    
+        hooksData[0] = _createMerklClaimRewardHookData(
+            tokens,
+            amounts,
+            proofs
+        );
+        hooksData[1] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+            address(fluidVault),
+            address(asset),
+            5e6,
+            false,
+            address(0),
+            0
+        );
+        hooksData[2] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+            address(aaveVault),
+            address(asset),
+            5e6,
+            false,
+            address(0),
+            0
+        );
+
+
+        vm.mockCall(
+            address(aggregator),
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        vm.startPrank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](3),
+                globalProofs: new bytes32[][](3),
+                strategyProofs: new bytes32[][](3)
+            })
+        );
+        vm.stopPrank();
+
+        uint256 fluidBalanceAfterClaim = fluidVault.balanceOf(address(strategy));
+        uint256 aaveBalanceAfterClaim = aaveVault.balanceOf(address(strategy));
+
+        assertGt(fluidBalanceAfterClaim, fluidBalanceBeforeClaim, "Fluid vault balance should have increased");
+        assertGt(aaveBalanceAfterClaim, aaveBalanceBeforeClaim, "Aave vault balance should have increased");
     }
 
     /*//////////////////////////////////////////////////////////////
