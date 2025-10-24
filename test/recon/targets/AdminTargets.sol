@@ -426,7 +426,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
     /// Helpers
 
-    function _requestedSharesForControllers(address[] memory controllers) internal returns (uint256) {
+    function _requestedSharesForControllers(address[] memory controllers) internal view returns (uint256) {
         uint256 totalRequested;
         for (uint256 i; i < controllers.length; i++) {
             totalRequested += superVault.pendingRedeemRequest(0, controllers[i]);
@@ -446,7 +446,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function _claimableMoreThanInvested(uint256 totalAmountToDeposit) internal returns (bool) {
+    function _claimableMoreThanInvested(uint256 totalAmountToDeposit) internal view returns (bool) {
         address[] memory actors = _getActors();
         uint256 totalClaimable;
         for (uint256 i; i < actors.length; i++) {

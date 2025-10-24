@@ -89,7 +89,7 @@ abstract contract BeforeAfter is Setup {
     // Helpers
 
     /// @dev total shares in the system is the sum of shares in the escrow and held by all users
-    function _sumTotalShares() internal returns (uint256) {
+    function _sumTotalShares() internal view returns (uint256) {
         address[] memory actors = _getActors();
         uint256 totalShares;
 
@@ -104,7 +104,7 @@ abstract contract BeforeAfter is Setup {
     /// @notice Calculates the naive price per share by summing all assets across strategy and yield sources
     /// @dev inspired by the share price calculation from BaseSuperVaultTest::_updateSuperVaultPPS
     /// @return naivePPS The calculated price per share (scaled by 1e18)
-    function _calculateNaivePPS() internal returns (uint256 naivePPS) {
+    function _calculateNaivePPS() internal view returns (uint256 naivePPS) {
         // Get total supply of SuperVault shares
         uint256 totalSupply = superVault.totalSupply();
 
@@ -156,7 +156,7 @@ abstract contract BeforeAfter is Setup {
         }
     }
 
-    function _sumRequestedRedemptions() internal returns (uint256) {
+    function _sumRequestedRedemptions() internal view returns (uint256) {
         address[] memory actors = _getActors();
         uint256 totalRequested;
         for (uint256 i; i < actors.length; i++) {
@@ -166,14 +166,14 @@ abstract contract BeforeAfter is Setup {
         return totalRequested;
     }
 
-    function _getPendingAsAssets() internal returns (uint256) {
+    function _getPendingAsAssets() internal view returns (uint256) {
         uint256 pendingRedemptions = superVault.pendingRedeemRequest(0, _getActor());
         uint256 pendingRedemptionsAsAssets = superVault.convertToAssets(pendingRedemptions);
 
         return pendingRedemptionsAsAssets;
     }
 
-    function _getClaimableAsAssets() internal returns (uint256) {
+    function _getClaimableAsAssets() internal view returns (uint256) {
         uint256 claimableRedemptions = superVault.claimableRedeemRequest(0, _getActor());
         uint256 claimableRedemptionsAsAssets = superVault.convertToAssets(claimableRedemptions);
 

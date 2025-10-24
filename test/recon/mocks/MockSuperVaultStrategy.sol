@@ -324,7 +324,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of getAverageWithdrawPrice
-    function getAverageWithdrawPrice(address controller) public view returns (uint256) {
+    function getAverageWithdrawPrice(address /*controller*/) public view returns (uint256) {
         return _getAverageWithdrawPriceReturn_0;
     }
 
@@ -339,7 +339,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of getSuperVaultState
-    function getSuperVaultState(address controller) public view returns (ISuperVaultStrategy_SuperVaultState memory) {
+    function getSuperVaultState(address /*controller*/) public view returns (ISuperVaultStrategy_SuperVaultState memory) {
         return _getSuperVaultStateReturn_0;
     }
 
@@ -349,7 +349,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of getYieldSource
-    function getYieldSource(address source) public view returns (ISuperVaultStrategy_YieldSource memory) {
+    function getYieldSource(address /*source*/) public view returns (ISuperVaultStrategy_YieldSource memory) {
         return _getYieldSourceReturn_0;
     }
 
@@ -369,19 +369,19 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of handleOperations4626Deposit
-    function handleOperations4626Deposit(address controller, uint256 assetsGross) public view returns (uint256) {
+    function handleOperations4626Deposit(address /*controller*/, uint256 /*assetsGross*/) public view returns (uint256) {
         return _handleOperations4626DepositReturn_0;
     }
 
     // Mock implementation of pendingRedeemRequest
-    function pendingRedeemRequest(address controller) public view returns (uint256) {
+    function pendingRedeemRequest(address /*controller*/) public view returns (uint256) {
         return _pendingRedeemRequestReturn_0;
     }
 
     // Mock implementation of previewPerformanceFee
     function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
+        address /*controller*/,
+        uint256 /*sharesToRedeem*/
     )
         public
         view
@@ -396,7 +396,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of quoteMintAssetsGross
-    function quoteMintAssetsGross(uint256 shares) public view returns (uint256, uint256) {
+    function quoteMintAssetsGross(uint256 /*shares*/) public view returns (uint256, uint256) {
         return (_quoteMintAssetsGrossReturn_0, _quoteMintAssetsGrossReturn_1);
     }
 

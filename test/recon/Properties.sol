@@ -418,7 +418,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    function setFulfilledDifference() public {
+    function setFulfilledDifference() public view {
         if (_currentOp == OpType.FULFILL) {
             uint256 pendingRedeemDelta = _before.summedPendingRedeem - _after.summedPendingRedeem;
             uint256 totalSupplyDelta = _before.summedTotalShares - _after.summedTotalShares;
