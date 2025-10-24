@@ -14,7 +14,7 @@ contract MockSuperVaultStrategy {
     function executeVaultFeeConfigUpdate() public { }
 
     // Mock implementation of fulfillRedeemRequests
-    function fulfillRedeemRequests(ISuperVaultStrategy_FulfillArgs memory args) public { }
+    function fulfillRedeemRequests(address[] memory controllers) public { }
 
     // Mock implementation of handleOperations4626Mint
     function handleOperations4626Mint(
@@ -197,16 +197,6 @@ contract MockSuperVaultStrategy {
     //<>=============================================================<>
     // Struct definition for ISuperVaultStrategy_ExecuteArgs
     struct ISuperVaultStrategy_ExecuteArgs {
-        address[] hooks;
-        bytes[] hookCalldata;
-        uint256[] expectedAssetsOrSharesOut;
-        bytes32[][] globalProofs;
-        bytes32[][] strategyProofs;
-    }
-
-    // Struct definition for ISuperVaultStrategy_FulfillArgs
-    struct ISuperVaultStrategy_FulfillArgs {
-        address[] controllers;
         address[] hooks;
         bytes[] hookCalldata;
         uint256[] expectedAssetsOrSharesOut;

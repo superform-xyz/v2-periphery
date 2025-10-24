@@ -319,7 +319,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             );
         }
 
-        // Create arrays for FulfillArgs
+        // Create arrays for ExecuteArgs
         address[] memory hooks = new address[](1);
         hooks[0] = redeemHook;
 
@@ -335,18 +335,18 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0); // Empty proof
 
-        // Create the FulfillArgs struct
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
-            hooks: hooks,
-            hookCalldata: hookCalldata,
-            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-            globalProofs: globalProofs,
-            strategyProofs: strategyProofs
-        });
+        // !Refactor!
+        // // Create the ExecuteArgs struct
+        // ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
+        //     hooks: hooks,
+        //     hookCalldata: hookCalldata,
+        //     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+        //     globalProofs: globalProofs,
+        //     strategyProofs: strategyProofs
+        // });
 
         // Execute the function
-        superVaultStrategy_fulfillRedeemRequests(fulfillArgs);
+        superVaultStrategy_fulfillRedeemRequests(controllers);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -358,7 +358,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(ISuperVaultStrategy.FulfillArgs memory args)
+    function superVaultStrategy_fulfillRedeemRequests(address[] memory controllers)
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {
@@ -368,7 +368,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
 
         // no need to prank because called as admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(args);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 

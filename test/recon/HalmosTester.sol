@@ -141,8 +141,7 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
             strategyProofs[i][0] = svm.createBytes32("strategyProof");
         }
 
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
@@ -150,11 +149,15 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
             strategyProofs: strategyProofs
         });
 
-        bytes memory args = abi.encode(fulfillArgs);
+        bytes memory executeArgsBytes = abi.encode(executeArgs);
 
-        (bool success,) =
-            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.fulfillRedeemRequests.selector, args));
-        vm.assume(success);
+        (bool executeSuccess,) =
+            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.executeHooks.selector, executeArgsBytes));
+        vm.assume(executeSuccess);
+
+        (bool fulfillSuccess,) =
+            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.fulfillRedeemRequests.selector, controllers));
+        vm.assume(fulfillSuccess);
     }
 
     function check_strategySolvency(uint256 arrayLength) public {
