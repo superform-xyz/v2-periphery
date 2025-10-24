@@ -32,9 +32,6 @@ contract MockSuperVaultStrategy {
     // Mock implementation of initialize
     function initialize(address vaultAddress, ISuperVaultStrategy_FeeConfig memory feeConfigData) public { }
 
-    // Mock implementation of manageEmergencyWithdraw
-    function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) public { }
-
     // Mock implementation of manageYieldSource
     function manageYieldSource(address source, address oracle, uint8 actionType) public { }
 
@@ -58,9 +55,6 @@ contract MockSuperVaultStrategy {
     )
         public
     { }
-
-    // Mock implementation of updateMaxPPSSlippage
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) public { }
 
     // Mock implementation of receive function
     receive() external payable { }
