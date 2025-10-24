@@ -722,7 +722,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
@@ -798,7 +798,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
@@ -893,7 +893,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     strategies: strategies,
                     ppss: ppss,
                     ppsStdevs: ppsStdevs,
-                    validatorSet: validatorSets[0],
+                    validatorSets: validatorSets,
                     totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
@@ -1042,7 +1042,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
@@ -2405,7 +2405,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: vars.strategies,
                 ppss: vars.ppss,
                 ppsStdevs: vars.ppsStdevs,
-                validatorSet: vars.validatorSets[0],
+                validatorSets: vars.validatorSets,
                 totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
                 updateAuthority: address(this)
@@ -2490,7 +2490,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
@@ -2536,7 +2536,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
@@ -2580,7 +2580,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
@@ -2645,7 +2645,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
@@ -2680,7 +2680,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSet: validatorSets[0],
+                validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user

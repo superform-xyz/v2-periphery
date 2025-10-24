@@ -69,21 +69,11 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // Early validation checks
         if (cachedTotalValidators == 0) revert INVALID_TOTAL_VALIDATORS();
 
-        // Calculate validatorSet (same for all strategies - proof array length)
-        uint256 validatorSet = args.proofsArray[0].length;
-
         // Process strategies and collect valid entries
-        (
-            address[] memory validStrategies,
-            uint256[] memory validPpss,
-            uint256[] memory validPpsStdevs,
-            uint256[] memory validTimestamps
-        ) = _processBatchStrategies(args, strategiesLength);
+        ValidatedBatchData memory validatedData = _processBatchStrategies(args, strategiesLength);
 
         // Forward valid entries if any exist
-        _forwardValidEntries(
-            validStrategies, validPpss, validPpsStdevs, validTimestamps, validatorSet, cachedTotalValidators
-        );
+        _forwardValidEntries(validatedData, cachedTotalValidators);
     }
 
     /// @inheritdoc IECDSAPPSOracle
@@ -160,51 +150,53 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice Processes batch strategies and returns valid entries
     /// @param args Batch update arguments
     /// @param strategiesLength Length of strategies array
-    /// @return validStrategies Array of valid strategy addresses
-    /// @return validPpss Array of valid PPS values
-    /// @return validPpsStdevs Array of valid PPS standard deviations
-    /// @return validTimestamps Array of valid timestamps
+    /// @return validatedData Struct containing all validated batch data
     function _processBatchStrategies(
         UpdatePPSArgs calldata args,
         uint256 strategiesLength
     )
         internal
-        returns (
-            address[] memory validStrategies,
-            uint256[] memory validPpss,
-            uint256[] memory validPpsStdevs,
-            uint256[] memory validTimestamps
-        )
+        returns (ValidatedBatchData memory validatedData)
     {
-        // Get required quorum for validation
         uint256 requiredQuorum = SUPER_GOVERNOR.getPPSOracleQuorum();
+        uint256 validCount; // Plain local, starts at 0
 
         // -------- existing collection logic --------
-        validStrategies = new address[](strategiesLength);
-        validPpss = new uint256[](strategiesLength);
-        validPpsStdevs = new uint256[](strategiesLength);
-        validTimestamps = new uint256[](strategiesLength);
-        uint256 validCount;
+        validatedData.strategies = new address[](strategiesLength);
+        validatedData.ppss = new uint256[](strategiesLength);
+        validatedData.ppsStdevs = new uint256[](strategiesLength);
+        validatedData.timestamps = new uint256[](strategiesLength);
+        validatedData.validatorSets = new uint256[](strategiesLength);
 
         for (uint256 i; i < strategiesLength; ++i) {
             bool isValid = _processIndividualStrategy(args, i, requiredQuorum);
             if (isValid) {
-                validStrategies[validCount] = args.strategies[i];
-                validPpss[validCount] = args.ppss[i];
-                validPpsStdevs[validCount] = args.ppsStdevs[i];
-                validTimestamps[validCount] = args.timestamps[i];
+                validatedData.strategies[validCount] = args.strategies[i];
+                validatedData.ppss[validCount] = args.ppss[i];
+                validatedData.ppsStdevs[validCount] = args.ppsStdevs[i];
+                validatedData.timestamps[validCount] = args.timestamps[i];
+                validatedData.validatorSets[validCount] = args.proofsArray[i].length;
                 unchecked {
                     ++validCount;
                 }
             }
         }
 
-        // Resize to validCount
-        assembly {
-            mstore(validStrategies, validCount)
-            mstore(validPpss, validCount)
-            mstore(validPpsStdevs, validCount)
-            mstore(validTimestamps, validCount)
+        // Resize to validCount - split into separate assembly blocks to avoid stack depth issues
+        assembly ("memory-safe") {
+            mstore(mload(add(validatedData, 0x00)), validCount) // strategies.length = validCount
+        }
+        assembly ("memory-safe") {
+            mstore(mload(add(validatedData, 0x20)), validCount) // ppss.length = validCount
+        }
+        assembly ("memory-safe") {
+            mstore(mload(add(validatedData, 0x40)), validCount) // ppsStdevs.length = validCount
+        }
+        assembly ("memory-safe") {
+            mstore(mload(add(validatedData, 0x60)), validCount) // timestamps.length = validCount
+        }
+        assembly ("memory-safe") {
+            mstore(mload(add(validatedData, 0x80)), validCount) // validatorSets.length = validCount
         }
     }
 
@@ -249,23 +241,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     }
 
     /// @notice Forwards valid entries to SuperVaultAggregator
-    /// @param validStrategies Array of valid strategy addresses
-    /// @param validPpss Array of valid PPS values
-    /// @param validPpsStdevs Array of valid PPS standard deviations
-    /// @param validTimestamps Array of valid timestamps
-    /// @param validatorSet Number of validators who signed (same for all strategies)
+    /// @param validatedData Struct containing validated batch data
     /// @param totalValidators Total number of validators in the network
-    function _forwardValidEntries(
-        address[] memory validStrategies,
-        uint256[] memory validPpss,
-        uint256[] memory validPpsStdevs,
-        uint256[] memory validTimestamps,
-        uint256 validatorSet,
-        uint256 totalValidators
-    )
-        internal
-    {
-        uint256 count = validStrategies.length;
+    function _forwardValidEntries(ValidatedBatchData memory validatedData, uint256 totalValidators) internal {
+        uint256 count = validatedData.strategies.length;
 
         uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
         uint256 gasBefore = gasleft();
@@ -279,12 +258,12 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR))
                 .forwardPPS(
                     ISuperVaultAggregator.ForwardPPSArgs({
-                        strategies: validStrategies,
-                        ppss: validPpss,
-                        ppsStdevs: validPpsStdevs,
-                        validatorSet: validatorSet,
+                        strategies: validatedData.strategies,
+                        ppss: validatedData.ppss,
+                        ppsStdevs: validatedData.ppsStdevs,
+                        validatorSets: validatedData.validatorSets,
                         totalValidator: totalValidators,
-                        timestamps: validTimestamps,
+                        timestamps: validatedData.timestamps,
                         updateAuthority: msg.sender
                     })
                 ) { }

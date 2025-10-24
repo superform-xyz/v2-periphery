@@ -487,14 +487,14 @@ interface ISuperVaultAggregator {
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
     /// @param ppsStdevs Array of standard deviations of price-per-share values
-    /// @param validatorSet Number of validators who calculated the PPS (same for all strategies)
+    /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
     /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
         uint256[] ppsStdevs;
-        uint256 validatorSet;
+        uint256[] validatorSets;
         uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;

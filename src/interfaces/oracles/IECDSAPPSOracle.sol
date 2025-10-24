@@ -50,11 +50,7 @@ interface IECDSAPPSOracle {
     /// @param timestamp Timestamp when the value was generated
     /// @param sender Address that submitted the update
     event PPSValidated(
-        address indexed strategy,
-        uint256 pps,
-        uint256 ppsStdev,
-        uint256 timestamp,
-        address indexed sender
+        address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender
     );
 
     /// @notice Emitted when proof validation failed
@@ -109,6 +105,15 @@ interface IECDSAPPSOracle {
         uint256[] ppss;
         uint256[] ppsStdevs;
         uint256[] timestamps;
+    }
+
+    /// @notice Struct to avoid stack too deep errors in batch processing
+    struct ValidatedBatchData {
+        address[] strategies;
+        uint256[] ppss;
+        uint256[] ppsStdevs;
+        uint256[] timestamps;
+        uint256[] validatorSets;
     }
 
     /*//////////////////////////////////////////////////////////////
