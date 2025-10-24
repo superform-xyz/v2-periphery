@@ -50,7 +50,8 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
                 performanceFeeBps: performanceFeeBps,
                 managementFeeBps: managementFeeBps,
                 recipient: address(this)
-            })
+            }),
+            maxUnpauseTimeLock: 0
         });
 
         superVaultAggregator_createVault(params);
