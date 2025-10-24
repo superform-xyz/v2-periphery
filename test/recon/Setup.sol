@@ -276,30 +276,30 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
 
         // Register all hooks with SuperGovernor
         // ERC4626 Hooks (deposit hooks are regular hooks, redeem hooks are fulfill request hooks)
-        superGovernor.registerHook(address(approveAndDeposit4626Hook), false);
-        superGovernor.registerHook(address(deposit4626Hook), false);
-        superGovernor.registerHook(address(redeem4626Hook), true); // fulfill request hook
+        superGovernor.registerHook(address(approveAndDeposit4626Hook));
+        superGovernor.registerHook(address(deposit4626Hook));
+        superGovernor.registerHook(address(redeem4626Hook)); // fulfill request hook
 
         // ERC5115 Hooks
-        superGovernor.registerHook(address(approveAndDeposit5115Hook), false);
-        superGovernor.registerHook(address(deposit5115Hook), false);
-        superGovernor.registerHook(address(redeem5115Hook), true); // fulfill request hook
+        superGovernor.registerHook(address(approveAndDeposit5115Hook));
+        superGovernor.registerHook(address(deposit5115Hook));
+        superGovernor.registerHook(address(redeem5115Hook)); // fulfill request hook
 
         // ERC7540 Hooks (deposit/request hooks are regular hooks, redeem/withdraw hooks are fulfill request hooks)
-        superGovernor.registerHook(address(deposit7540Hook), false);
-        superGovernor.registerHook(address(redeem7540Hook), true); // fulfill request hook
-        superGovernor.registerHook(address(requestDeposit7540Hook), false);
-        superGovernor.registerHook(address(requestRedeem7540Hook), false);
-        superGovernor.registerHook(address(approveAndRequestDeposit7540Hook), false);
-        superGovernor.registerHook(address(cancelDepositRequest7540Hook), false);
-        superGovernor.registerHook(address(cancelRedeemRequest7540Hook), false);
-        superGovernor.registerHook(address(claimCancelDepositRequest7540Hook), false);
-        superGovernor.registerHook(address(claimCancelRedeemRequest7540Hook), false);
-        superGovernor.registerHook(address(withdraw7540Hook), true); // fulfill request hook
+        superGovernor.registerHook(address(deposit7540Hook));
+        superGovernor.registerHook(address(redeem7540Hook)); // fulfill request hook
+        superGovernor.registerHook(address(requestDeposit7540Hook));
+        superGovernor.registerHook(address(requestRedeem7540Hook));
+        superGovernor.registerHook(address(approveAndRequestDeposit7540Hook));
+        superGovernor.registerHook(address(cancelDepositRequest7540Hook));
+        superGovernor.registerHook(address(cancelRedeemRequest7540Hook));
+        superGovernor.registerHook(address(claimCancelDepositRequest7540Hook));
+        superGovernor.registerHook(address(claimCancelRedeemRequest7540Hook));
+        superGovernor.registerHook(address(withdraw7540Hook)); // fulfill request hook
 
         // Super Vault Hooks
-        superGovernor.registerHook(address(cancelRedeemHook), false);
-        superGovernor.registerHook(address(superVaultWithdraw7540Hook), true); // fulfill request hook
+        superGovernor.registerHook(address(cancelRedeemHook));
+        superGovernor.registerHook(address(superVaultWithdraw7540Hook)); // fulfill request hook
 
         // 12. Set up approval array for contracts that need token access
         address[] memory approvalArray = new address[](6);
