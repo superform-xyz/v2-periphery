@@ -366,10 +366,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     /// @dev Helper function to clamp the values for the function call
     function _executeRedeemRequestsArgs(uint256 redeemAmount)
         public
-        returns (
-            ISuperVaultStrategy.ExecuteArgs memory executeArgs,
-            address[] memory controllers
-        )
+        returns (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers)
     {
         // Find a controller that has pending redeem requests
         address selectedController = _getActor();
