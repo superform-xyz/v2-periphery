@@ -1,5 +1,17 @@
 {
+  "lib/chimera": {
+    "rev": "d5cf52bc5bbf75f988f8aada23fd12d0bcf7798a"
+  },
+  "lib/forge-std": {
+    "rev": "8bbcf6e3f8f62f419e5429a0bd89331c85c37824"
+  },
   "lib/openzeppelin-contracts-upgradeable": {
     "rev": "e725abddf1e01cf05ace496e950fc8e243cc7cab"
+  },
+  "lib/setup-helpers": {
+    "rev": "0f7abac8f096768817cc7a1d2dcdb01ee8fb278e"
+  },
+  "lib/v2-core": {
+    "rev": "3f137427e6aded879542bb6c8269be181126becb"
   }
 }

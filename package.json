@@ -1,0 +1,13 @@
+{
+  "name": "v2-periphery-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm run install:all",
+    "install:all": "npm run install:forge && npm run install:modulekit && npm run install:safe7579 && npm run install:nexus",
+    "install:forge": "forge install",
+    "install:modulekit": "cd lib/v2-core/lib/modulekit/ && yarn",
+    "install:safe7579": "cd lib/v2-core/lib/safe7579 && yarn",
+    "install:nexus": "cd lib/v2-core/lib/nexus && yarn"
+  }
+}
