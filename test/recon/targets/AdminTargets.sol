@@ -346,7 +346,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         // Execute the function
         superVaultStrategy_executeHooks(executeArgs);
-        superVaultStrategy_fulfillRedeemRequests(controllers);
+        superVaultStrategy_fulfillRedeemRequests(expectedAssetsOrSharesOut, controllers);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -358,10 +358,18 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(address[] memory controllers)
+    function superVaultStrategy_fulfillRedeemRequests(
+        uint256[] memory expectedAssetsOrSharesOut,
+        address[] memory controllers
+    )
         public
         updateGhostsWithOpType(OpType.FULFILL)
-    {
+    {   
+        uint256 summedExpectedAssets;
+        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
+            summedExpectedAssets += expectedAssetsOrSharesOut[i];
+        }
+
         // no need to prank because called as admin address(this)
         superVaultStrategy.fulfillRedeemRequests(controllers);
 
