@@ -65,17 +65,6 @@ abstract contract SuperVaultStrategyTargets is BaseTargetFunctions, Properties {
         superVaultStrategy.handleOperations7540(operation, controller, receiver, amount);
     }
 
-    function superVaultStrategy_manageEmergencyWithdraw(
-        uint8 action,
-        address recipient,
-        uint256 amount
-    )
-        public
-        asActor
-    {
-        superVaultStrategy.manageEmergencyWithdraw(action, recipient, amount);
-    }
-
     function superVaultStrategy_manageYieldSource(address source, address oracle, uint8 actionType) public asActor {
         superVaultStrategy.manageYieldSource(source, oracle, actionType);
     }
