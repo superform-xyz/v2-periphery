@@ -50,6 +50,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
     uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
+    uint256 private constant MIN_PPS_STALENESS_THRESHOLD = 1 hours;
+    uint256 private constant MAX_PPS_STALENESS_THRESHOLD = 1 weeks;
+
     uint256 public PRECISION;
 
     /*//////////////////////////////////////////////////////////////
@@ -830,7 +833,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function _proposePPSStalenessThreshold(uint256 _threshold) internal {
         _isPrimaryManager(msg.sender);
 
-        if (_threshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
+        if (_threshold < MIN_PPS_STALENESS_THRESHOLD || _threshold > MAX_PPS_STALENESS_THRESHOLD) revert INVALID_PPS_STALENESS_THRESHOLD();
 
         proposedPPSStalenessThreshold = _threshold;
         ppsStalenessThresholdEffectiveTime = block.timestamp + 1 weeks;
