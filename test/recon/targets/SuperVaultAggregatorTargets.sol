@@ -163,7 +163,9 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
     }
 
     function superVaultAggregator_withdrawStake(uint256 amount) public asActor {
-        superVaultAggregator.withdrawStake(amount);
+        superVaultAggregator.requestStakeWithdrawal(amount);
+        vm.warp(block.timestamp + 8 days);
+        superVaultAggregator.completeStakeWithdrawal();
     }
 
     function superVaultAggregator_withdrawUpkeep(uint256 amount) public asActor {
