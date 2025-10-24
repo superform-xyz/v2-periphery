@@ -248,7 +248,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
                 StrategyData storage data = _strategyData[strategy];
-                address manager = data.mainManager;
                 // Check staleness
                 if (data.isPaused) {
                     emit PaymentSkippedForPausedStrategy(strategy);
@@ -1032,11 +1031,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (
-                _validateSingleHook(
+            if (_validateSingleHook(
                     argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
-                )
-            ) {
+                )) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root
