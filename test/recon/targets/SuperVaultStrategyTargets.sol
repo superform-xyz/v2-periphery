@@ -94,8 +94,4 @@ abstract contract SuperVaultStrategyTargets is BaseTargetFunctions, Properties {
     {
         superVaultStrategy.proposeVaultFeeConfigUpdate(performanceFeeBps, managementFeeBps, recipient);
     }
-
-    function superVaultStrategy_updateMaxPPSSlippage(uint256 maxSlippageBps) public asActor {
-        superVaultStrategy.updateMaxPPSSlippage(maxSlippageBps);
-    }
 }
