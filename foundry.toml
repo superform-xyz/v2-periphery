@@ -48,7 +48,8 @@ remappings = [
   "test/mock_fiattoken/=lib/v2-core/lib/evm-gateway-contracts/test/mock_fiattoken/",
   "@rhinestone/erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/",
   "erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/src/",
-  "forge-std/=lib/v2-core/lib/modulekit/node_modules/forge-std/src/"
+  "forge-std/=lib/v2-core/lib/modulekit/node_modules/forge-std/src/",
+  "halmos-cheatcodes/=/lib/halmos-cheatcodes/src/"
 ]
 dynamic_test_linking = true
 gas_limit = "18446744073709551615"

@@ -13,6 +13,10 @@ All hooks are currenlty deployed in the `Setup` contract and can be fetched for 
 Any functions related to modifying hook roots have been removed from the set of target functions because the hook bypassing of the hook validation step makes testing these waste fuzzing calls.
 
 
+## Findings 
+
+
+
 ### Property Testing
 This test suite uses assertion property tests defined for the system contracts in the [`Properties`](https://github.com/superform-xyz/v2-periphery/blob/recon-invariants/test/recon/Properties.sol) contract and in the function handlers in the [targets/ directory](https://github.com/superform-xyz/v2-periphery/tree/recon-invariants/test/recon/targets).  
 

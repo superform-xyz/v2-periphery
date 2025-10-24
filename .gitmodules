@@ -16,3 +16,6 @@
 [submodule "lib/erc7540-reusable-properties"]
 	path = lib/erc7540-reusable-properties
 	url = https://github.com/Recon-Fuzz/erc7540-reusable-properties
+[submodule "lib/halmos-cheatcodes"]
+	path = lib/halmos-cheatcodes
+	url = https://github.com/a16z/halmos-cheatcodes
