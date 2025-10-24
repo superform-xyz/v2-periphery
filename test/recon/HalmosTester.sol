@@ -2,14 +2,14 @@
 pragma solidity ^0.8.0;
 
 // External dependencies
-import {BaseSetup} from "@chimera/BaseSetup.sol";
-import {vm} from "@chimera/Hevm.sol";
-import {ActorManager} from "@recon/ActorManager.sol";
-import {AssetManager} from "@recon/AssetManager.sol";
-import {Utils} from "@recon/Utils.sol";
-import {SymTest} from "halmos-cheatcodes/SymTest.sol";
-import {Test} from "forge-std/Test.sol";
-import {MockERC20} from "@recon/MockERC20.sol";
+import { BaseSetup } from "@chimera/BaseSetup.sol";
+import { vm } from "@chimera/Hevm.sol";
+import { ActorManager } from "@recon/ActorManager.sol";
+import { AssetManager } from "@recon/AssetManager.sol";
+import { Utils } from "@recon/Utils.sol";
+import { SymTest } from "halmos-cheatcodes/SymTest.sol";
+import { Test } from "forge-std/Test.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
 // Source dependencies
 import "src/SuperVault/SuperVault.sol";
@@ -17,22 +17,22 @@ import "src/SuperVault/SuperVaultAggregator.sol";
 import "src/SuperVault/SuperVaultEscrow.sol";
 import "src/SuperVault/SuperVaultStrategy.sol";
 import "src/SuperGovernor.sol";
-import {ISuperVaultAggregator} from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
-import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import {MockYieldSourceOracle} from "test/mocks/MockYieldSourceOracle.sol";
+import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { MockYieldSourceOracle } from "test/mocks/MockYieldSourceOracle.sol";
 
 // Test suite dependencies
-import {YieldManager, YieldSourceType} from "test/recon/managers/YieldManager.sol";
-import {MerkleTestHelper} from "test/recon/helpers/MerkleTestHelper.sol";
-import {UnsafeSuperVaultAggregator} from "test/recon/helpers/UnsafeSuperVaultAggregator.sol";
-import {MockERC4626YieldSourceOracle} from "test/recon/mocks/MockERC4626YieldSourceOracle.sol";
-import {MockERC5115YieldSourceOracle} from "test/recon/mocks/MockERC5115YieldSourceOracle.sol";
-import {MockERC7540YieldSourceOracle} from "test/recon/mocks/MockERC7540YieldSourceOracle.sol";
-import {MockECDSAPPSOracle} from "test/recon/mocks/MockECDSAPPSOracle.sol";
-import {MockSuperGovernor} from "test/recon/mocks/MockSuperGovernor.sol";
-import {MockSuperVault} from "test/recon/mocks/MockSuperVault.sol";
-import {MockSuperVaultStrategy} from "test/recon/mocks/MockSuperVaultStrategy.sol";
-import {MockSuperVaultEscrow} from "test/recon/mocks/MockSuperVaultEscrow.sol";
+import { YieldManager, YieldSourceType } from "test/recon/managers/YieldManager.sol";
+import { MerkleTestHelper } from "test/recon/helpers/MerkleTestHelper.sol";
+import { UnsafeSuperVaultAggregator } from "test/recon/helpers/UnsafeSuperVaultAggregator.sol";
+import { MockERC4626YieldSourceOracle } from "test/recon/mocks/MockERC4626YieldSourceOracle.sol";
+import { MockERC5115YieldSourceOracle } from "test/recon/mocks/MockERC5115YieldSourceOracle.sol";
+import { MockERC7540YieldSourceOracle } from "test/recon/mocks/MockERC7540YieldSourceOracle.sol";
+import { MockECDSAPPSOracle } from "test/recon/mocks/MockECDSAPPSOracle.sol";
+import { MockSuperGovernor } from "test/recon/mocks/MockSuperGovernor.sol";
+import { MockSuperVault } from "test/recon/mocks/MockSuperVault.sol";
+import { MockSuperVaultStrategy } from "test/recon/mocks/MockSuperVaultStrategy.sol";
+import { MockSuperVaultEscrow } from "test/recon/mocks/MockSuperVaultEscrow.sol";
 
 contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
     // Configuration constants
@@ -72,34 +72,26 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
         // 5. Deploy SuperVaultAggregator with implementation contracts
         // NOTE: can't be mocked because it deploys the SuperVaultStrategy
         superVaultAggregator = new UnsafeSuperVaultAggregator(
-            address(superGovernor),
-            address(vaultImpl),
-            address(strategyImpl),
-            address(escrowImpl)
+            address(superGovernor), address(vaultImpl), address(strategyImpl), address(escrowImpl)
         );
 
         // 6. Create a vault trio using the aggregator
-        ISuperVaultAggregator.VaultCreationParams
-            memory params = ISuperVaultAggregator.VaultCreationParams({
-                asset: _getAsset(), // Use the token created by AssetManager
-                name: "SuperVault",
-                symbol: "SV",
-                mainManager: address(this), // CONFIGURABLE: This parameter can be modified via target functions
-                secondaryManagers: new address[](0), // CONFIGURABLE: This parameter can be modified via target functions
-                minUpdateInterval: 5, // CONFIGURABLE: This parameter can be modified via target functions
-                maxStaleness: 300, // CONFIGURABLE: This parameter can be modified via target functions
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000, // 10% performance fee
-                    managementFeeBps: 100, // 1% management fee
-                    recipient: address(this)
-                })
-            });
+        ISuperVaultAggregator.VaultCreationParams memory params = ISuperVaultAggregator.VaultCreationParams({
+            asset: _getAsset(), // Use the token created by AssetManager
+            name: "SuperVault",
+            symbol: "SV",
+            mainManager: address(this), // CONFIGURABLE: This parameter can be modified via target functions
+            secondaryManagers: new address[](0), // CONFIGURABLE: This parameter can be modified via target functions
+            minUpdateInterval: 5, // CONFIGURABLE: This parameter can be modified via target functions
+            maxStaleness: 300, // CONFIGURABLE: This parameter can be modified via target functions
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 1000, // 10% performance fee
+                managementFeeBps: 100, // 1% management fee
+                recipient: address(this)
+            })
+        });
 
-        (
-            address vaultAddr,
-            address strategyAddr,
-            address escrowAddr
-        ) = superVaultAggregator.createVault(params);
+        (address vaultAddr, address strategyAddr, address escrowAddr) = superVaultAggregator.createVault(params);
 
         // 7. Store the deployed contracts
         superVault = SuperVault(vaultAddr);
@@ -116,7 +108,8 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
     }
 
     function _callSuperVaultStrategy(uint256 arrayLength) internal {
-        // we only care about fulfilling redemption requests and determining if it's ever possible to reach a state where user fulfillments can make the strategy insolvent
+        // we only care about fulfilling redemption requests and determining if it's ever possible to reach a state
+        // where user fulfillments can make the strategy insolvent
 
         address[] memory controllers = new address[](arrayLength);
         address[] memory hooks = new address[](arrayLength);
@@ -148,24 +141,19 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
             strategyProofs[i][0] = svm.createBytes32("strategyProof");
         }
 
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy
-            .FulfillArgs({
-                controllers: controllers,
-                hooks: hooks,
-                hookCalldata: hookCalldata,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: globalProofs,
-                strategyProofs: strategyProofs
-            });
+        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy.FulfillArgs({
+            controllers: controllers,
+            hooks: hooks,
+            hookCalldata: hookCalldata,
+            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+            globalProofs: globalProofs,
+            strategyProofs: strategyProofs
+        });
 
         bytes memory args = abi.encode(fulfillArgs);
 
-        (bool success, ) = address(superVaultStrategy).call(
-            abi.encodePacked(
-                superVaultStrategy.fulfillRedeemRequests.selector,
-                args
-            )
-        );
+        (bool success,) =
+            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.fulfillRedeemRequests.selector, args));
         vm.assume(success);
     }
 
@@ -181,9 +169,7 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
         for (uint256 i; i < actors.length; i++) {
             summedMaxWithdraw += superVault.maxWithdraw(actors[i]);
         }
-        uint256 strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(
-            address(superVaultStrategy)
-        );
+        uint256 strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
         assert(strategyAssetBalance >= summedMaxWithdraw);
     }
 }

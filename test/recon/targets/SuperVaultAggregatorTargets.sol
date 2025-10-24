@@ -1,32 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {vm} from "@chimera/Hevm.sol";
-import {Panic} from "@recon/Panic.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { vm } from "@chimera/Hevm.sol";
+import { Panic } from "@recon/Panic.sol";
 
-import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import "src/SuperVault/SuperVaultAggregator.sol";
 
-import {BeforeAfter} from "../BeforeAfter.sol";
-import {Properties} from "../Properties.sol";
+import { BeforeAfter } from "../BeforeAfter.sol";
+import { Properties } from "../Properties.sol";
 
-abstract contract SuperVaultAggregatorTargets is
-    BaseTargetFunctions,
-    Properties
-{
+abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
     function superVaultAggregator_proposeChangePrimaryManager_clamped() public {
-        superVaultAggregator_proposeChangePrimaryManager(
-            address(superVaultStrategy),
-            _getActor()
-        );
+        superVaultAggregator_proposeChangePrimaryManager(address(superVaultStrategy), _getActor());
     }
 
     function superVaultAggregator_executeChangePrimaryManager_clamped() public {
-        superVaultAggregator_executeChangePrimaryManager(
-            address(superVaultStrategy)
-        );
+        superVaultAggregator_executeChangePrimaryManager(address(superVaultStrategy));
     }
 
     function superVaultAggregator_createVault_clamped(
@@ -34,48 +26,43 @@ abstract contract SuperVaultAggregatorTargets is
         uint256 maxStaleness,
         uint256 performanceFeeBps,
         uint256 managementFeeBps
-    ) public {
+    )
+        public
+    {
         // Clamp values to reasonable ranges
         minUpdateInterval = minUpdateInterval % 3601; // Max 1 hour
-        maxStaleness = (maxStaleness % 86400) + 301; // Between 5 minutes and 1 day
+        maxStaleness = (maxStaleness % 86_400) + 301; // Between 5 minutes and 1 day
         performanceFeeBps = performanceFeeBps % 9001; // Max 90%
         managementFeeBps = managementFeeBps % 5001; // Max 50%
 
         // Create secondary managers array
         address[] memory secondaryManagers = new address[](1);
 
-        ISuperVaultAggregator.VaultCreationParams
-            memory params = ISuperVaultAggregator.VaultCreationParams({
-                asset: _getAsset(),
-                name: "SuperVault",
-                symbol: "SV",
-                mainManager: address(this),
-                secondaryManagers: secondaryManagers,
-                minUpdateInterval: minUpdateInterval,
-                maxStaleness: maxStaleness,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: performanceFeeBps,
-                    managementFeeBps: managementFeeBps,
-                    recipient: address(this)
-                })
-            });
+        ISuperVaultAggregator.VaultCreationParams memory params = ISuperVaultAggregator.VaultCreationParams({
+            asset: _getAsset(),
+            name: "SuperVault",
+            symbol: "SV",
+            mainManager: address(this),
+            secondaryManagers: secondaryManagers,
+            minUpdateInterval: minUpdateInterval,
+            maxStaleness: maxStaleness,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: performanceFeeBps,
+                managementFeeBps: managementFeeBps,
+                recipient: address(this)
+            })
+        });
 
         superVaultAggregator_createVault(params);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
-    function superVaultAggregator_addAuthorizedCaller(
-        address strategy,
-        address caller
-    ) public asAdmin {
+    function superVaultAggregator_addAuthorizedCaller(address strategy, address caller) public asAdmin {
         superVaultAggregator.addAuthorizedCaller(strategy, caller);
     }
 
-    function superVaultAggregator_addSecondaryManager(
-        address strategy,
-        address manager
-    ) public asActor {
+    function superVaultAggregator_addSecondaryManager(address strategy, address manager) public asActor {
         superVaultAggregator.addSecondaryManager(strategy, manager);
     }
 
@@ -103,14 +90,8 @@ abstract contract SuperVaultAggregatorTargets is
         superVaultAggregator.claimUpkeep(amount);
     }
 
-    function superVaultAggregator_createVault(
-        ISuperVaultAggregator.VaultCreationParams memory params
-    ) public asActor {
-        (
-            address _superVault,
-            address _strategy,
-            address _escrow
-        ) = superVaultAggregator.createVault(params);
+    function superVaultAggregator_createVault(ISuperVaultAggregator.VaultCreationParams memory params) public asActor {
+        (address _superVault, address _strategy, address _escrow) = superVaultAggregator.createVault(params);
 
         superVault = SuperVault(_superVault);
         superVaultStrategy = SuperVaultStrategy(payable(_strategy));
@@ -119,10 +100,7 @@ abstract contract SuperVaultAggregatorTargets is
         hasDeployedNewVault = true;
     }
 
-    function superVaultAggregator_depositStake(
-        address manager,
-        uint256 amount
-    ) public asActor {
+    function superVaultAggregator_depositStake(address manager, uint256 amount) public asActor {
         superVaultAggregator.depositStake(manager, amount);
     }
 
@@ -130,9 +108,7 @@ abstract contract SuperVaultAggregatorTargets is
         superVaultAggregator.depositUpkeep(_getActor(), amount);
     }
 
-    function superVaultAggregator_executeChangePrimaryManager(
-        address strategy
-    ) public asActor {
+    function superVaultAggregator_executeChangePrimaryManager(address strategy) public asActor {
         superVaultAggregator.executeChangePrimaryManager(strategy);
     }
 
@@ -151,10 +127,7 @@ abstract contract SuperVaultAggregatorTargets is
     //     superVaultAggregator.forwardPPS(updateAuthority, args);
     // }
 
-    function superVaultAggregator_proposeChangePrimaryManager(
-        address strategy,
-        address newManager
-    ) public asActor {
+    function superVaultAggregator_proposeChangePrimaryManager(address strategy, address newManager) public asActor {
         superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
     }
 
@@ -166,17 +139,11 @@ abstract contract SuperVaultAggregatorTargets is
     //     superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
     // }
 
-    function superVaultAggregator_removeAuthorizedCaller(
-        address strategy,
-        address caller
-    ) public asActor {
+    function superVaultAggregator_removeAuthorizedCaller(address strategy, address caller) public asActor {
         superVaultAggregator.removeAuthorizedCaller(strategy, caller);
     }
 
-    function superVaultAggregator_removeSecondaryManager(
-        address strategy,
-        address manager
-    ) public asActor {
+    function superVaultAggregator_removeSecondaryManager(address strategy, address manager) public asActor {
         superVaultAggregator.removeSecondaryManager(strategy, manager);
     }
 
@@ -185,12 +152,12 @@ abstract contract SuperVaultAggregatorTargets is
         uint256 dispersionThreshold_,
         uint256 deviationThreshold_,
         uint256 mnThreshold_
-    ) public asActor {
+    )
+        public
+        asActor
+    {
         superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            dispersionThreshold_,
-            deviationThreshold_,
-            mnThreshold_
+            strategy, dispersionThreshold_, deviationThreshold_, mnThreshold_
         );
     }
 
@@ -198,9 +165,7 @@ abstract contract SuperVaultAggregatorTargets is
         superVaultAggregator.withdrawStake(amount);
     }
 
-    function superVaultAggregator_withdrawUpkeep(
-        uint256 amount
-    ) public asActor {
+    function superVaultAggregator_withdrawUpkeep(uint256 amount) public asActor {
         superVaultAggregator.withdrawUpkeep(amount);
     }
 }

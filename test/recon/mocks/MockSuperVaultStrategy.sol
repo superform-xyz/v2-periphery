@@ -8,17 +8,13 @@ contract MockSuperVaultStrategy {
     //||                                                             ||
     //<>=============================================================<>
     // Mock implementation of executeHooks
-    function executeHooks(
-        ISuperVaultStrategy_ExecuteArgs memory args
-    ) public payable {}
+    function executeHooks(ISuperVaultStrategy_ExecuteArgs memory args) public payable { }
 
     // Mock implementation of executeVaultFeeConfigUpdate
-    function executeVaultFeeConfigUpdate() public {}
+    function executeVaultFeeConfigUpdate() public { }
 
     // Mock implementation of fulfillRedeemRequests
-    function fulfillRedeemRequests(
-        ISuperVaultStrategy_FulfillArgs memory args
-    ) public {}
+    function fulfillRedeemRequests(ISuperVaultStrategy_FulfillArgs memory args) public { }
 
     // Mock implementation of handleOperations4626Mint
     function handleOperations4626Mint(
@@ -26,62 +22,48 @@ contract MockSuperVaultStrategy {
         uint256 sharesNet,
         uint256 assetsGross,
         uint256 assetsNet
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of handleOperations7540
-    function handleOperations7540(
-        uint8 operation,
-        address controller,
-        address receiver,
-        uint256 amount
-    ) public {}
+    function handleOperations7540(uint8 operation, address controller, address receiver, uint256 amount) public { }
 
     // Mock implementation of initialize
-    function initialize(
-        address vaultAddress,
-        ISuperVaultStrategy_FeeConfig memory feeConfigData
-    ) public {}
+    function initialize(address vaultAddress, ISuperVaultStrategy_FeeConfig memory feeConfigData) public { }
 
     // Mock implementation of manageEmergencyWithdraw
-    function manageEmergencyWithdraw(
-        uint8 action,
-        address recipient,
-        uint256 amount
-    ) public {}
+    function manageEmergencyWithdraw(uint8 action, address recipient, uint256 amount) public { }
 
     // Mock implementation of manageYieldSource
-    function manageYieldSource(
-        address source,
-        address oracle,
-        uint8 actionType
-    ) public {}
+    function manageYieldSource(address source, address oracle, uint8 actionType) public { }
 
     // Mock implementation of manageYieldSources
     function manageYieldSources(
         address[] memory sources,
         address[] memory oracles,
         uint8[] memory actionTypes
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of moveAccumulatorOnTransfer
-    function moveAccumulatorOnTransfer(
-        address from,
-        address to,
-        uint256 shares
-    ) public {}
+    function moveAccumulatorOnTransfer(address from, address to, uint256 shares) public { }
 
     // Mock implementation of proposeVaultFeeConfigUpdate
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
         address recipient
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of updateMaxPPSSlippage
-    function updateMaxPPSSlippage(uint256 maxSlippageBps) public {}
+    function updateMaxPPSSlippage(uint256 maxSlippageBps) public { }
 
     // Mock implementation of receive function
-    receive() external payable {}
+    receive() external payable { }
 
     //<>=============================================================<>
     //||                                                             ||
@@ -109,9 +91,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for emergencyWithdrawableEffectiveTime
-    function setEmergencyWithdrawableEffectiveTimeReturn(
-        uint256 _value0
-    ) public {
+    function setEmergencyWithdrawableEffectiveTimeReturn(uint256 _value0) public {
         _emergencyWithdrawableEffectiveTimeReturn_0 = _value0;
     }
 
@@ -121,9 +101,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for getConfigInfo
-    function setGetConfigInfoReturn(
-        ISuperVaultStrategy_FeeConfig memory _value0
-    ) public {
+    function setGetConfigInfoReturn(ISuperVaultStrategy_FeeConfig memory _value0) public {
         _getConfigInfoReturn_0 = _value0;
     }
 
@@ -133,34 +111,26 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for getSuperVaultState
-    function setGetSuperVaultStateReturn(
-        ISuperVaultStrategy_SuperVaultState memory _value0
-    ) public {
+    function setGetSuperVaultStateReturn(ISuperVaultStrategy_SuperVaultState memory _value0) public {
         _getSuperVaultStateReturn_0 = _value0;
     }
 
     // Function to set return values for getVaultInfo
-    function setGetVaultInfoReturn(
-        address _value0,
-        address _value1,
-        uint8 _value2
-    ) public {
+    function setGetVaultInfoReturn(address _value0, address _value1, uint8 _value2) public {
         _getVaultInfoReturn_0 = _value0;
         _getVaultInfoReturn_1 = _value1;
         _getVaultInfoReturn_2 = _value2;
     }
 
     // Function to set return values for getYieldSource
-    function setGetYieldSourceReturn(
-        ISuperVaultStrategy_YieldSource memory _value0
-    ) public {
+    function setGetYieldSourceReturn(ISuperVaultStrategy_YieldSource memory _value0) public {
         _getYieldSourceReturn_0 = _value0;
     }
 
     // Function to set return values for getYieldSources
     function setGetYieldSourcesReturn(address[] memory _value0) public {
         delete _getYieldSourcesReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getYieldSourcesReturn_0.push(_value0[i]);
         }
     }
@@ -171,11 +141,9 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for getYieldSourcesList
-    function setGetYieldSourcesListReturn(
-        ISuperVaultStrategy_YieldSourceInfo[] memory _value0
-    ) public {
+    function setGetYieldSourcesListReturn(ISuperVaultStrategy_YieldSourceInfo[] memory _value0) public {
         delete _getYieldSourcesListReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getYieldSourcesListReturn_0.push(_value0[i]);
         }
     }
@@ -191,11 +159,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for previewPerformanceFee
-    function setPreviewPerformanceFeeReturn(
-        uint256 _value0,
-        uint256 _value1,
-        uint256 _value2
-    ) public {
+    function setPreviewPerformanceFeeReturn(uint256 _value0, uint256 _value1, uint256 _value2) public {
         _previewPerformanceFeeReturn_0 = _value0;
         _previewPerformanceFeeReturn_1 = _value1;
         _previewPerformanceFeeReturn_2 = _value2;
@@ -207,10 +171,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Function to set return values for quoteMintAssetsGross
-    function setQuoteMintAssetsGrossReturn(
-        uint256 _value0,
-        uint256 _value1
-    ) public {
+    function setQuoteMintAssetsGrossReturn(uint256 _value0, uint256 _value1) public {
         _quoteMintAssetsGrossReturn_0 = _value0;
         _quoteMintAssetsGrossReturn_1 = _value1;
     }
@@ -220,12 +181,14 @@ contract MockSuperVaultStrategy {
         _superGovernorReturn_0 = _value0;
     }
 
-    /*******************************************************************
+    /**
+     *
      *   ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️  *
-     *-----------------------------------------------------------------*
+     * -----------------------------------------------------------------*
      *      Generally you only need to modify the sections above.      *
      *          The code below handles system operations.              *
-     *******************************************************************/
+     *
+     */
 
     //<>=============================================================<>
     //||                                                             ||
@@ -286,74 +249,33 @@ contract MockSuperVaultStrategy {
     //<>=============================================================<>
     event DepositHandled(address controller, uint256 assets, uint256 shares);
     event EmergencyWithdrawableProposalCanceled();
-    event EmergencyWithdrawableProposed(
-        bool newWithdrawable,
-        uint256 effectiveTime
-    );
+    event EmergencyWithdrawableProposed(bool newWithdrawable, uint256 effectiveTime);
     event EmergencyWithdrawableUpdated(bool withdrawable);
     event EmergencyWithdrawal(address recipient, uint256 assets);
     event FeePaid(address recipient, uint256 amount, uint256 performanceFeeBps);
-    event FulfillHookExecuted(
-        address hook,
-        address targetedYieldSource,
-        bytes hookCalldata
-    );
+    event FulfillHookExecuted(address hook, address targetedYieldSource, bytes hookCalldata);
     event HookExecuted(
-        address hook,
-        address prevHook,
-        address targetedYieldSource,
-        bool usePrevHookAmount,
-        bytes hookCalldata
+        address hook, address prevHook, address targetedYieldSource, bool usePrevHookAmount, bytes hookCalldata
     );
     event HookRootProposed(bytes32 proposedRoot, uint256 effectiveTime);
     event HookRootUpdated(bytes32 newRoot);
     event HooksExecuted(address[] hooks);
     event Initialized(uint64 version);
     event Initialized(address vault);
-    event ManagementFeePaid(
-        address controller,
-        address recipient,
-        uint256 feeAssets,
-        uint256 feeBps
-    );
+    event ManagementFeePaid(address controller, address recipient, uint256 feeAssets, uint256 feeBps);
     event MaxPPSSlippageUpdated(uint256 maxSlippageBps);
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
     event RedeemRequestCanceled(address controller, uint256 shares);
-    event RedeemRequestFulfilled(
-        address controller,
-        address receiver,
-        uint256 assets,
-        uint256 shares
-    );
-    event RedeemRequestPlaced(
-        address controller,
-        address owner,
-        uint256 shares
-    );
-    event RedeemRequestsFulfilled(
-        address[] hooks,
-        address[] controllers,
-        uint256 processedShares,
-        uint256 currentPPS
-    );
+    event RedeemRequestFulfilled(address controller, address receiver, uint256 assets, uint256 shares);
+    event RedeemRequestPlaced(address controller, address owner, uint256 shares);
+    event RedeemRequestsFulfilled(address[] hooks, address[] controllers, uint256 processedShares, uint256 currentPPS);
     event SuperGovernorSet(address superGovernor);
     event VaultFeeConfigProposed(
-        uint256 performanceFeeBps,
-        uint256 managementFeeBps,
-        address recipient,
-        uint256 effectiveTime
+        uint256 performanceFeeBps, uint256 managementFeeBps, address recipient, uint256 effectiveTime
     );
-    event VaultFeeConfigUpdated(
-        uint256 performanceFeeBps,
-        uint256 managementFeeBps,
-        address recipient
-    );
+    event VaultFeeConfigUpdated(uint256 performanceFeeBps, uint256 managementFeeBps, address recipient);
     event YieldSourceAdded(address source, address oracle);
-    event YieldSourceOracleUpdated(
-        address source,
-        address oldOracle,
-        address newOracle
-    );
+    event YieldSourceOracleUpdated(address source, address oldOracle, address newOracle);
     event YieldSourceRemoved(address source);
 
     //<>=============================================================<>
@@ -398,9 +320,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of claimableWithdraw
-    function claimableWithdraw(
-        address controller
-    ) public view returns (uint256) {
+    function claimableWithdraw(address controller) public view returns (uint256) {
         return _claimableWithdrawReturn_0;
     }
 
@@ -415,27 +335,17 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of emergencyWithdrawableEffectiveTime
-    function emergencyWithdrawableEffectiveTime()
-        public
-        view
-        returns (uint256)
-    {
+    function emergencyWithdrawableEffectiveTime() public view returns (uint256) {
         return _emergencyWithdrawableEffectiveTimeReturn_0;
     }
 
     // Mock implementation of getAverageWithdrawPrice
-    function getAverageWithdrawPrice(
-        address controller
-    ) public view returns (uint256) {
+    function getAverageWithdrawPrice(address controller) public view returns (uint256) {
         return _getAverageWithdrawPriceReturn_0;
     }
 
     // Mock implementation of getConfigInfo
-    function getConfigInfo()
-        public
-        view
-        returns (ISuperVaultStrategy_FeeConfig memory)
-    {
+    function getConfigInfo() public view returns (ISuperVaultStrategy_FeeConfig memory) {
         return _getConfigInfoReturn_0;
     }
 
@@ -445,25 +355,17 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of getSuperVaultState
-    function getSuperVaultState(
-        address controller
-    ) public view returns (ISuperVaultStrategy_SuperVaultState memory) {
+    function getSuperVaultState(address controller) public view returns (ISuperVaultStrategy_SuperVaultState memory) {
         return _getSuperVaultStateReturn_0;
     }
 
     // Mock implementation of getVaultInfo
     function getVaultInfo() public view returns (address, address, uint8) {
-        return (
-            _getVaultInfoReturn_0,
-            _getVaultInfoReturn_1,
-            _getVaultInfoReturn_2
-        );
+        return (_getVaultInfoReturn_0, _getVaultInfoReturn_1, _getVaultInfoReturn_2);
     }
 
     // Mock implementation of getYieldSource
-    function getYieldSource(
-        address source
-    ) public view returns (ISuperVaultStrategy_YieldSource memory) {
+    function getYieldSource(address source) public view returns (ISuperVaultStrategy_YieldSource memory) {
         return _getYieldSourceReturn_0;
     }
 
@@ -478,26 +380,17 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of getYieldSourcesList
-    function getYieldSourcesList()
-        public
-        view
-        returns (ISuperVaultStrategy_YieldSourceInfo[] memory)
-    {
+    function getYieldSourcesList() public view returns (ISuperVaultStrategy_YieldSourceInfo[] memory) {
         return _getYieldSourcesListReturn_0;
     }
 
     // Mock implementation of handleOperations4626Deposit
-    function handleOperations4626Deposit(
-        address controller,
-        uint256 assetsGross
-    ) public view returns (uint256) {
+    function handleOperations4626Deposit(address controller, uint256 assetsGross) public view returns (uint256) {
         return _handleOperations4626DepositReturn_0;
     }
 
     // Mock implementation of pendingRedeemRequest
-    function pendingRedeemRequest(
-        address controller
-    ) public view returns (uint256) {
+    function pendingRedeemRequest(address controller) public view returns (uint256) {
         return _pendingRedeemRequestReturn_0;
     }
 
@@ -505,12 +398,12 @@ contract MockSuperVaultStrategy {
     function previewPerformanceFee(
         address controller,
         uint256 sharesToRedeem
-    ) public view returns (uint256, uint256, uint256) {
-        return (
-            _previewPerformanceFeeReturn_0,
-            _previewPerformanceFeeReturn_1,
-            _previewPerformanceFeeReturn_2
-        );
+    )
+        public
+        view
+        returns (uint256, uint256, uint256)
+    {
+        return (_previewPerformanceFeeReturn_0, _previewPerformanceFeeReturn_1, _previewPerformanceFeeReturn_2);
     }
 
     // Mock implementation of proposedEmergencyWithdrawable
@@ -519,9 +412,7 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of quoteMintAssetsGross
-    function quoteMintAssetsGross(
-        uint256 shares
-    ) public view returns (uint256, uint256) {
+    function quoteMintAssetsGross(uint256 shares) public view returns (uint256, uint256) {
         return (_quoteMintAssetsGrossReturn_0, _quoteMintAssetsGrossReturn_1);
     }
 

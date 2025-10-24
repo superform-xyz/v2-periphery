@@ -1,24 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MockERC20} from "@recon/MockERC20.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 abstract contract ERC7575 is MockERC20 {
     MockERC20 public immutable asset;
 
-    event Deposit(
-        address indexed sender,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
     event Withdraw(
-        address indexed sender,
-        address indexed receiver,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
+        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
     );
 
     constructor(MockERC20 _asset) MockERC20("MockERC7540Tester", "M7540", 18) {
@@ -33,16 +24,12 @@ abstract contract ERC7575 is MockERC20 {
         return asset.balanceOf(address(this));
     }
 
-    function convertToShares(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function convertToShares(uint256 assets) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? assets : (assets * supply) / totalAssets();
     }
 
-    function convertToAssets(
-        uint256 shares
-    ) public view virtual returns (uint256) {
+    function convertToAssets(uint256 shares) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? shares : (shares * totalAssets()) / supply;
     }
@@ -63,9 +50,7 @@ abstract contract ERC7575 is MockERC20 {
         return balanceOf[owner];
     }
 
-    function previewDeposit(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function previewDeposit(uint256 assets) public view virtual returns (uint256) {
         return convertToShares(assets);
     }
 
@@ -74,33 +59,23 @@ abstract contract ERC7575 is MockERC20 {
         return supply == 0 ? shares : (shares * totalAssets()) / supply;
     }
 
-    function previewWithdraw(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function previewWithdraw(uint256 assets) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? assets : (assets * supply) / totalAssets();
     }
 
-    function previewRedeem(
-        uint256 shares
-    ) public view virtual returns (uint256) {
+    function previewRedeem(uint256 shares) public view virtual returns (uint256) {
         return convertToAssets(shares);
     }
 
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public virtual returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256 shares) {
         shares = previewDeposit(assets);
         asset.transferFrom(msg.sender, address(this), assets);
         _mint(receiver, shares);
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public virtual returns (uint256 assets) {
+    function mint(uint256 shares, address receiver) public virtual returns (uint256 assets) {
         assets = previewMint(shares);
         asset.transferFrom(msg.sender, address(this), assets);
         _mint(receiver, shares);
@@ -110,24 +85,12 @@ abstract contract ERC7575 is MockERC20 {
 
 contract MockERC7540Tester is ERC7575, IERC165 {
     event DepositRequest(
-        address indexed controller,
-        address indexed owner,
-        uint256 indexed requestId,
-        address sender,
-        uint256 assets
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 assets
     );
     event RedeemRequest(
-        address indexed controller,
-        address indexed owner,
-        uint256 indexed requestId,
-        address sender,
-        uint256 shares
+        address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 shares
     );
-    event OperatorSet(
-        address indexed controller,
-        address indexed operator,
-        bool approved
-    );
+    event OperatorSet(address indexed controller, address indexed operator, bool approved);
 
     struct DepositRequestStruct {
         uint256 assets;
@@ -153,37 +116,27 @@ contract MockERC7540Tester is ERC7575, IERC165 {
     mapping(uint256 => bool) public pendingCancelDeposit;
     mapping(uint256 => bool) public pendingCancelRedeem;
 
-    uint256 public yieldMultiplier = 10000; // 100% in basis points
-    uint256 private constant MAX_BPS = 10000;
+    uint256 public yieldMultiplier = 10_000; // 100% in basis points
+    uint256 private constant MAX_BPS = 10_000;
     uint256 public totalLosses;
     uint256 public totalGains;
     uint256 public lossOnWithdraw;
 
-    constructor(address _asset) ERC7575(MockERC20(_asset)) {}
+    constructor(address _asset) ERC7575(MockERC20(_asset)) { }
 
     // Operator Management
-    function setOperator(
-        address operator,
-        bool approved
-    ) external returns (bool) {
+    function setOperator(address operator, bool approved) external returns (bool) {
         operators[msg.sender][operator] = approved;
         emit OperatorSet(msg.sender, operator, approved);
         return true;
     }
 
-    function isOperator(
-        address controller,
-        address operator
-    ) external view returns (bool) {
+    function isOperator(address controller, address operator) external view returns (bool) {
         return operators[controller][operator];
     }
 
     // Async Deposit Flow
-    function requestDeposit(
-        uint256 assets,
-        address controller,
-        address owner
-    ) external returns (uint256 requestId) {
+    function requestDeposit(uint256 assets, address controller, address owner) external returns (uint256 requestId) {
         requestId = _nextRequestId++;
         depositRequests[requestId] = DepositRequestStruct({
             assets: assets,
@@ -197,65 +150,36 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         emit DepositRequest(controller, owner, requestId, msg.sender, assets);
     }
 
-    function pendingDepositRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256) {
+    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256) {
         DepositRequestStruct storage request = depositRequests[requestId];
-        if (
-            request.controller != controller ||
-            request.fulfilled ||
-            request.canceled
-        ) {
+        if (request.controller != controller || request.fulfilled || request.canceled) {
             return 0;
         }
         return request.assets;
     }
 
-    function claimableDepositRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256) {
+    function claimableDepositRequest(uint256 requestId, address controller) external view returns (uint256) {
         DepositRequestStruct storage request = depositRequests[requestId];
-        if (
-            request.controller != controller ||
-            request.fulfilled ||
-            request.canceled
-        ) {
+        if (request.controller != controller || request.fulfilled || request.canceled) {
             return 0;
         }
         return request.assets;
     }
 
-    function pendingCancelDepositRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (bool) {
+    function pendingCancelDepositRequest(uint256 requestId, address controller) external view returns (bool) {
         DepositRequestStruct storage request = depositRequests[requestId];
-        return
-            request.controller == controller && pendingCancelDeposit[requestId];
+        return request.controller == controller && pendingCancelDeposit[requestId];
     }
 
     // Override deposit to handle async requests
-    function deposit(
-        uint256 assets,
-        address receiver,
-        address controller
-    ) public returns (uint256 shares) {
-        require(
-            msg.sender == controller || operators[controller][msg.sender],
-            "Not authorized"
-        );
+    function deposit(uint256 assets, address receiver, address controller) public returns (uint256 shares) {
+        require(msg.sender == controller || operators[controller][msg.sender], "Not authorized");
 
         // Find and fulfill a matching deposit request
         for (uint256 i = 1; i < _nextRequestId; i++) {
             DepositRequestStruct storage request = depositRequests[i];
-            if (
-                request.controller == controller &&
-                !request.fulfilled &&
-                !request.canceled &&
-                request.assets >= assets
-            ) {
+            if (request.controller == controller && !request.fulfilled && !request.canceled && request.assets >= assets)
+            {
                 shares = previewDeposit(assets);
                 request.fulfilled = true;
                 _mint(receiver, shares);
@@ -274,11 +198,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         return super.deposit(assets, receiver);
     }
 
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) public returns (uint256 shares) {
         shares = previewWithdraw(assets);
         if (msg.sender != owner) {
             allowance[owner][msg.sender] -= shares;
@@ -290,11 +210,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         emit Withdraw(msg.sender, receiver, owner, lossyAssets, shares);
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner) public returns (uint256 assets) {
         assets = previewRedeem(shares);
         if (msg.sender != owner) {
             allowance[owner][msg.sender] -= shares;
@@ -307,11 +223,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
     }
 
     // Async Redeem Flow
-    function requestRedeem(
-        uint256 shares,
-        address controller,
-        address owner
-    ) external returns (uint256 requestId) {
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 requestId) {
         requestId = _nextRequestId++;
         redeemRequests[requestId] = RedeemRequestStruct({
             shares: shares,
@@ -324,59 +236,32 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         emit RedeemRequest(controller, owner, requestId, msg.sender, shares);
     }
 
-    function pendingRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256) {
+    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256) {
         RedeemRequestStruct storage request = redeemRequests[requestId];
-        if (
-            request.controller != controller ||
-            request.fulfilled ||
-            request.canceled
-        ) {
+        if (request.controller != controller || request.fulfilled || request.canceled) {
             return 0;
         }
         return request.shares;
     }
 
-    function claimableRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (uint256) {
+    function claimableRedeemRequest(uint256 requestId, address controller) external view returns (uint256) {
         RedeemRequestStruct storage request = redeemRequests[requestId];
-        if (
-            request.controller != controller ||
-            request.fulfilled ||
-            request.canceled
-        ) {
+        if (request.controller != controller || request.fulfilled || request.canceled) {
             return 0;
         }
         return request.shares;
     }
 
-    function pendingCancelRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external view returns (bool) {
+    function pendingCancelRedeemRequest(uint256 requestId, address controller) external view returns (bool) {
         RedeemRequestStruct storage request = redeemRequests[requestId];
-        return
-            request.controller == controller && pendingCancelRedeem[requestId];
+        return request.controller == controller && pendingCancelRedeem[requestId];
     }
 
     // Cancel Operations
-    function cancelDepositRequest(
-        uint256 requestId,
-        address controller
-    ) external {
-        require(
-            msg.sender == controller || operators[controller][msg.sender],
-            "Not authorized"
-        );
+    function cancelDepositRequest(uint256 requestId, address controller) external {
+        require(msg.sender == controller || operators[controller][msg.sender], "Not authorized");
         DepositRequestStruct storage request = depositRequests[requestId];
-        require(
-            request.controller == controller && !request.fulfilled,
-            "Invalid request"
-        );
+        require(request.controller == controller && !request.fulfilled, "Invalid request");
 
         pendingCancelDeposit[requestId] = true;
     }
@@ -385,7 +270,10 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         uint256 requestId,
         address receiver,
         address controller
-    ) external returns (uint256 assets) {
+    )
+        external
+        returns (uint256 assets)
+    {
         DepositRequestStruct storage request = depositRequests[requestId];
 
         assets = request.assets;
@@ -395,10 +283,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         asset.transfer(receiver, assets);
     }
 
-    function cancelRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) external {
+    function cancelRedeemRequest(uint256 requestId, address controller) external {
         RedeemRequestStruct storage request = redeemRequests[requestId];
 
         pendingCancelRedeem[requestId] = true;
@@ -408,7 +293,10 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         uint256 requestId,
         address receiver,
         address controller
-    ) external returns (uint256 shares) {
+    )
+        external
+        returns (uint256 shares)
+    {
         RedeemRequestStruct storage request = redeemRequests[requestId];
 
         shares = request.shares;
@@ -428,7 +316,8 @@ contract MockERC7540Tester is ERC7575, IERC165 {
     }
 
     // Yield simulation functions (similar to MockERC4626Tester)
-    // Primary way that 7540 vaults receive losses is on rounding in redemptions so we just simulate a loss that reduces total asset balance
+    // Primary way that 7540 vaults receive losses is on rounding in redemptions so we just simulate a loss that reduces
+    // total asset balance
     function increaseYield(uint256 increasePercentageFP4) external {
         uint256 amount = (totalAssets() * increasePercentageFP4) / MAX_BPS;
         MockERC20(asset).transferFrom(msg.sender, address(this), amount);
@@ -456,9 +345,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
     }
 
     /// @notice ERC165 interface detection
-    function supportsInterface(
-        bytes4 interfaceId
-    ) external pure override returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 }

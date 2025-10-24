@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {MockERC20} from "@recon/MockERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
-import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
-import {Setup} from "./Setup.sol";
+import { Setup } from "./Setup.sol";
 
 enum OpType {
     DEFAULT,
@@ -55,10 +55,7 @@ abstract contract BeforeAfter is Setup {
     }
 
     function __before() internal {
-        (
-            _before.summedAccumulatorShares,
-            _before.summedAccumulatorCostBasis
-        ) = _sumSuperVaultValues();
+        (_before.summedAccumulatorShares, _before.summedAccumulatorCostBasis) = _sumSuperVaultValues();
         _before.naivePPS = _calculateNaivePPS();
         _before.summedTotalShares = _sumTotalShares();
         _before.summedTotalAssets = _sumStrategyAssets();
@@ -66,26 +63,15 @@ abstract contract BeforeAfter is Setup {
 
         _before.pendingUserAssets[_getActor()] = _getPendingAsAssets();
         _before.claimableUserAssets[_getActor()] = _getClaimableAsAssets();
-        _before.state[_getActor()] = superVaultStrategy.getSuperVaultState(
-            _getActor()
-        );
-        _before.superVaultShares[_getActor()] = superVault.balanceOf(
-            _getActor()
-        );
+        _before.state[_getActor()] = superVaultStrategy.getSuperVaultState(_getActor());
+        _before.superVaultShares[_getActor()] = superVault.balanceOf(_getActor());
 
-        _before.strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(
-            address(superVaultStrategy)
-        );
-        _before.oraclePPS = superVaultAggregator.getPPS(
-            address(superVaultStrategy)
-        );
+        _before.strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        _before.oraclePPS = superVaultAggregator.getPPS(address(superVaultStrategy));
     }
 
     function __after() internal {
-        (
-            _after.summedAccumulatorShares,
-            _after.summedAccumulatorCostBasis
-        ) = _sumSuperVaultValues();
+        (_after.summedAccumulatorShares, _after.summedAccumulatorCostBasis) = _sumSuperVaultValues();
         _after.naivePPS = _calculateNaivePPS();
         _after.summedTotalShares = _sumTotalShares();
         _after.summedTotalAssets = _sumStrategyAssets();
@@ -93,19 +79,11 @@ abstract contract BeforeAfter is Setup {
 
         _after.pendingUserAssets[_getActor()] = _getPendingAsAssets();
         _after.claimableUserAssets[_getActor()] = _getClaimableAsAssets();
-        _after.state[_getActor()] = superVaultStrategy.getSuperVaultState(
-            _getActor()
-        );
-        _after.superVaultShares[_getActor()] = superVault.balanceOf(
-            _getActor()
-        );
+        _after.state[_getActor()] = superVaultStrategy.getSuperVaultState(_getActor());
+        _after.superVaultShares[_getActor()] = superVault.balanceOf(_getActor());
 
-        _after.strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(
-            address(superVaultStrategy)
-        );
-        _after.oraclePPS = superVaultAggregator.getPPS(
-            address(superVaultStrategy)
-        );
+        _after.strategyAssetBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        _after.oraclePPS = superVaultAggregator.getPPS(address(superVaultStrategy));
     }
 
     // Helpers
@@ -173,12 +151,8 @@ abstract contract BeforeAfter is Setup {
         address[] memory actors = _getActors();
 
         for (uint256 i; i < actors.length; i++) {
-            sumAccumulatorShares += superVaultStrategy
-                .getSuperVaultState(actors[i])
-                .accumulatorShares;
-            sumAccumulatorCostBasis += superVaultStrategy
-                .getSuperVaultState(actors[i])
-                .accumulatorCostBasis;
+            sumAccumulatorShares += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorShares;
+            sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorCostBasis;
         }
     }
 
@@ -193,25 +167,15 @@ abstract contract BeforeAfter is Setup {
     }
 
     function _getPendingAsAssets() internal returns (uint256) {
-        uint256 pendingRedemptions = superVault.pendingRedeemRequest(
-            0,
-            _getActor()
-        );
-        uint256 pendingRedemptionsAsAssets = superVault.convertToAssets(
-            pendingRedemptions
-        );
+        uint256 pendingRedemptions = superVault.pendingRedeemRequest(0, _getActor());
+        uint256 pendingRedemptionsAsAssets = superVault.convertToAssets(pendingRedemptions);
 
         return pendingRedemptionsAsAssets;
     }
 
     function _getClaimableAsAssets() internal returns (uint256) {
-        uint256 claimableRedemptions = superVault.claimableRedeemRequest(
-            0,
-            _getActor()
-        );
-        uint256 claimableRedemptionsAsAssets = superVault.convertToAssets(
-            claimableRedemptions
-        );
+        uint256 claimableRedemptions = superVault.claimableRedeemRequest(0, _getActor());
+        uint256 claimableRedemptionsAsAssets = superVault.convertToAssets(claimableRedemptions);
 
         return claimableRedemptionsAsAssets;
     }

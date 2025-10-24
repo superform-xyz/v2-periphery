@@ -8,10 +8,10 @@ contract MockSuperVault {
     //||                                                             ||
     //<>=============================================================<>
     // Mock implementation of burnShares
-    function burnShares(uint256 amount) public {}
+    function burnShares(uint256 amount) public { }
 
     // Mock implementation of cancelRedeem
-    function cancelRedeem(address controller) public {}
+    function cancelRedeem(address controller) public { }
 
     // Mock implementation of initialize
     function initialize(
@@ -20,10 +20,12 @@ contract MockSuperVault {
         string memory symbol_,
         address strategy_,
         address escrow_
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of invalidateNonce
-    function invalidateNonce(bytes32 nonce) public {}
+    function invalidateNonce(bytes32 nonce) public { }
 
     // Mock implementation of onRedeemClaimable
     function onRedeemClaimable(
@@ -33,7 +35,9 @@ contract MockSuperVault {
         uint256 averageWithdrawPrice,
         uint256 accumulatorShares,
         uint256 accumulatorCostBasis
-    ) public {}
+    )
+        public
+    { }
 
     //<>=============================================================<>
     //||                                                             ||
@@ -119,7 +123,9 @@ contract MockSuperVault {
         address _value4,
         bytes32 _value5,
         uint256[] memory _value6
-    ) public {
+    )
+        public
+    {
         _eip712DomainReturn_0 = _value0;
         _eip712DomainReturn_1 = _value1;
         _eip712DomainReturn_2 = _value2;
@@ -127,7 +133,7 @@ contract MockSuperVault {
         _eip712DomainReturn_4 = _value4;
         _eip712DomainReturn_5 = _value5;
         delete _eip712DomainReturn_6;
-        for (uint i = 0; i < _value6.length; i++) {
+        for (uint256 i = 0; i < _value6.length; i++) {
             _eip712DomainReturn_6.push(_value6[i]);
         }
     }
@@ -262,12 +268,14 @@ contract MockSuperVault {
         _withdrawReturn_0 = _value0;
     }
 
-    /*******************************************************************
+    /**
+     *
      *   ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️  *
-     *-----------------------------------------------------------------*
+     * -----------------------------------------------------------------*
      *      Generally you only need to modify the sections above.      *
      *          The code below handles system operations.              *
-     *******************************************************************/
+     *
+     */
 
     //<>=============================================================<>
     //||                                                             ||
@@ -281,12 +289,7 @@ contract MockSuperVault {
     //||                                                             ||
     //<>=============================================================<>
     event Approval(address owner, address spender, uint256 value);
-    event Deposit(
-        address sender,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Deposit(address sender, address owner, uint256 assets, uint256 shares);
     event EIP712DomainChanged();
     event Initialized(uint64 version);
     event NonceInvalidated(address sender, bytes32 nonce);
@@ -300,23 +303,11 @@ contract MockSuperVault {
         uint256 accumulatorShares,
         uint256 accumulatorCostBasis
     );
-    event RedeemRequest(
-        address controller,
-        address owner,
-        uint256 requestId,
-        address sender,
-        uint256 assets
-    );
+    event RedeemRequest(address controller, address owner, uint256 requestId, address sender, uint256 assets);
     event RedeemRequestCancelled(address controller, address sender);
     event SuperGovernorSet(address superGovernor);
     event Transfer(address from, address to, uint256 value);
-    event Withdraw(
-        address sender,
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Withdraw(address sender, address receiver, address owner, uint256 assets, uint256 shares);
 
     //<>=============================================================<>
     //||                                                             ||
@@ -392,18 +383,12 @@ contract MockSuperVault {
     }
 
     // Mock implementation of allowance
-    function allowance(
-        address owner,
-        address spender
-    ) public view returns (uint256) {
+    function allowance(address owner, address spender) public view returns (uint256) {
         return _allowanceReturn_0;
     }
 
     // Mock implementation of approve
-    function approve(
-        address spender,
-        uint256 value
-    ) public view returns (bool) {
+    function approve(address spender, uint256 value) public view returns (bool) {
         return _approveReturn_0;
     }
 
@@ -413,10 +398,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of authorizations
-    function authorizations(
-        address controller,
-        bytes32 nonce
-    ) public view returns (bool) {
+    function authorizations(address controller, bytes32 nonce) public view returns (bool) {
         return _authorizationsReturn_0;
     }
 
@@ -428,7 +410,11 @@ contract MockSuperVault {
         bytes32 nonce,
         uint256 deadline,
         bytes memory signature
-    ) public view returns (bool) {
+    )
+        public
+        view
+        returns (bool)
+    {
         return _authorizeOperatorReturn_0;
     }
 
@@ -438,10 +424,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of claimableRedeemRequest
-    function claimableRedeemRequest(
-        uint256 arg0,
-        address controller
-    ) public view returns (uint256) {
+    function claimableRedeemRequest(uint256 arg0, address controller) public view returns (uint256) {
         return _claimableRedeemRequestReturn_0;
     }
 
@@ -461,10 +444,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of deposit
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public view returns (uint256) {
+    function deposit(uint256 assets, address receiver) public view returns (uint256) {
         return _depositReturn_0;
     }
 
@@ -472,15 +452,7 @@ contract MockSuperVault {
     function eip712Domain()
         public
         view
-        returns (
-            bytes1,
-            string memory,
-            string memory,
-            uint256,
-            address,
-            bytes32,
-            uint256[] memory
-        )
+        returns (bytes1, string memory, string memory, uint256, address, bytes32, uint256[] memory)
     {
         return (
             _eip712DomainReturn_0,
@@ -499,10 +471,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of isOperator
-    function isOperator(
-        address owner,
-        address operator
-    ) public view returns (bool) {
+    function isOperator(address owner, address operator) public view returns (bool) {
         return _isOperatorReturn_0;
     }
 
@@ -527,10 +496,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of mint
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public view returns (uint256) {
+    function mint(uint256 shares, address receiver) public view returns (uint256) {
         return _mintReturn_0;
     }
 
@@ -540,10 +506,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of pendingRedeemRequest
-    function pendingRedeemRequest(
-        uint256 arg0,
-        address controller
-    ) public view returns (uint256) {
+    function pendingRedeemRequest(uint256 arg0, address controller) public view returns (uint256) {
         return _pendingRedeemRequestReturn_0;
     }
 
@@ -568,28 +531,17 @@ contract MockSuperVault {
     }
 
     // Mock implementation of redeem
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address controller
-    ) public view returns (uint256) {
+    function redeem(uint256 shares, address receiver, address controller) public view returns (uint256) {
         return _redeemReturn_0;
     }
 
     // Mock implementation of requestRedeem
-    function requestRedeem(
-        uint256 shares,
-        address controller,
-        address owner
-    ) public view returns (uint256) {
+    function requestRedeem(uint256 shares, address controller, address owner) public view returns (uint256) {
         return _requestRedeemReturn_0;
     }
 
     // Mock implementation of setOperator
-    function setOperator(
-        address operator,
-        bool approved
-    ) public view returns (bool) {
+    function setOperator(address operator, bool approved) public view returns (bool) {
         return _setOperatorReturn_0;
     }
 
@@ -634,20 +586,12 @@ contract MockSuperVault {
     }
 
     // Mock implementation of transferFrom
-    function transferFrom(
-        address from,
-        address to,
-        uint256 value
-    ) public view returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public view returns (bool) {
         return _transferFromReturn_0;
     }
 
     // Mock implementation of withdraw
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address controller
-    ) public view returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address controller) public view returns (uint256) {
         return _withdrawReturn_0;
     }
 }

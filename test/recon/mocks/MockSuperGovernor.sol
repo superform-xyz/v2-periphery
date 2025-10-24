@@ -8,113 +8,103 @@ contract MockSuperGovernor {
     //||                                                             ||
     //<>=============================================================<>
     // Mock implementation of addExecutor
-    function addExecutor(address executor) public {}
+    function addExecutor(address executor) public { }
 
     // Mock implementation of addICCToWhitelist
-    function addICCToWhitelist(address icc) public {}
+    function addICCToWhitelist(address icc) public { }
 
     // Mock implementation of addRelayer
-    function addRelayer(address relayer) public {}
+    function addRelayer(address relayer) public { }
 
     // Mock implementation of addSuperformManager
-    function addSuperformManager(address manager) public {}
+    function addSuperformManager(address manager) public { }
 
     // Mock implementation of addValidator
-    function addValidator(address validator) public {}
+    function addValidator(address validator) public { }
 
     // Mock implementation of addVaultBank
-    function addVaultBank(uint64 chainId, address vaultBank) public {}
+    function addVaultBank(uint64 chainId, address vaultBank) public { }
 
     // Mock implementation of batchSetEmergencyPrices
-    function batchSetEmergencyPrices(
-        address[] memory tokens_,
-        uint256[] memory prices_
-    ) public {}
+    function batchSetEmergencyPrices(address[] memory tokens_, uint256[] memory prices_) public { }
 
     // Mock implementation of batchSetOracleUptimeFeed
     function batchSetOracleUptimeFeed(
         address[] memory dataOracles_,
         address[] memory uptimeOracles_,
         uint256[] memory gracePeriods_
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of changeHooksRootUpdateTimelock
-    function changeHooksRootUpdateTimelock(uint256 newTimelock) public {}
+    function changeHooksRootUpdateTimelock(uint256 newTimelock) public { }
 
     // Mock implementation of changePrimaryManager
-    function changePrimaryManager(
-        address strategy,
-        address newManager
-    ) public {}
+    function changePrimaryManager(address strategy, address newManager) public { }
 
     // Mock implementation of executeActivePPSOracleChange
-    function executeActivePPSOracleChange() public {}
+    function executeActivePPSOracleChange() public { }
 
     // Mock implementation of executeAddIncentiveTokens
-    function executeAddIncentiveTokens() public {}
+    function executeAddIncentiveTokens() public { }
 
     // Mock implementation of executeFeeUpdate
-    function executeFeeUpdate(uint8 feeType) public {}
+    function executeFeeUpdate(uint8 feeType) public { }
 
     // Mock implementation of executeMinStalenesChange
-    function executeMinStalenesChange() public {}
+    function executeMinStalenesChange() public { }
 
     // Mock implementation of executeRemoveIncentiveTokens
-    function executeRemoveIncentiveTokens() public {}
+    function executeRemoveIncentiveTokens() public { }
 
     // Mock implementation of executeSuperBankHookMerkleRootUpdate
-    function executeSuperBankHookMerkleRootUpdate(address hook) public {}
+    function executeSuperBankHookMerkleRootUpdate(address hook) public { }
 
     // Mock implementation of executeUpkeepClaim
-    function executeUpkeepClaim(uint256 amount) public {}
+    function executeUpkeepClaim(uint256 amount) public { }
 
     // Mock implementation of executeUpkeepPaymentsChange
-    function executeUpkeepPaymentsChange() public {}
+    function executeUpkeepPaymentsChange() public { }
 
     // Mock implementation of executeVaultBankHookMerkleRootUpdate
-    function executeVaultBankHookMerkleRootUpdate(address hook) public {}
+    function executeVaultBankHookMerkleRootUpdate(address hook) public { }
 
     // Mock implementation of freezeManagerTakeover
-    function freezeManagerTakeover() public {}
+    function freezeManagerTakeover() public { }
 
     // Mock implementation of grantRole
-    function grantRole(bytes32 role, address account) public {}
+    function grantRole(bytes32 role, address account) public { }
 
     // Mock implementation of proposeActivePPSOracle
-    function proposeActivePPSOracle(address oracle) public {}
+    function proposeActivePPSOracle(address oracle) public { }
 
     // Mock implementation of proposeAddIncentiveTokens
-    function proposeAddIncentiveTokens(address[] memory tokens) public {}
+    function proposeAddIncentiveTokens(address[] memory tokens) public { }
 
     // Mock implementation of proposeFee
-    function proposeFee(uint8 feeType, uint256 value) public {}
+    function proposeFee(uint8 feeType, uint256 value) public { }
 
     // Mock implementation of proposeGlobalHooksRoot
-    function proposeGlobalHooksRoot(bytes32 newRoot) public {}
+    function proposeGlobalHooksRoot(bytes32 newRoot) public { }
 
     // Mock implementation of proposeMinStaleness
-    function proposeMinStaleness(uint256 newMinStaleness) public {}
+    function proposeMinStaleness(uint256 newMinStaleness) public { }
 
     // Mock implementation of proposeRemoveIncentiveTokens
-    function proposeRemoveIncentiveTokens(address[] memory tokens) public {}
+    function proposeRemoveIncentiveTokens(address[] memory tokens) public { }
 
     // Mock implementation of proposeSuperBankHookMerkleRoot
-    function proposeSuperBankHookMerkleRoot(
-        address hook,
-        bytes32 proposedRoot
-    ) public {}
+    function proposeSuperBankHookMerkleRoot(address hook, bytes32 proposedRoot) public { }
 
     // Mock implementation of proposeUpkeepPaymentsChange
-    function proposeUpkeepPaymentsChange(bool enabled) public {}
+    function proposeUpkeepPaymentsChange(bool enabled) public { }
 
     // Mock implementation of proposeVaultBankHookMerkleRoot
-    function proposeVaultBankHookMerkleRoot(
-        address hook,
-        bytes32 proposedRoot
-    ) public {}
+    function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) public { }
 
     // Mock implementation of queueOracleProviderRemoval
-    function queueOracleProviderRemoval(bytes32[] memory providers) public {}
+    function queueOracleProviderRemoval(bytes32[] memory providers) public { }
 
     // Mock implementation of queueOracleUpdate
     function queueOracleUpdate(
@@ -122,92 +112,78 @@ contract MockSuperGovernor {
         address[] memory quotes_,
         bytes32[] memory providers_,
         address[] memory feeds_
-    ) public {}
+    )
+        public
+    { }
 
     // Mock implementation of registerHook
-    function registerHook(address hook, bool isFulfillRequestsHook) public {}
+    function registerHook(address hook, bool isFulfillRequestsHook) public { }
 
     // Mock implementation of registerProtectedKeeper
-    function registerProtectedKeeper(address keeper) public {}
+    function registerProtectedKeeper(address keeper) public { }
 
     // Mock implementation of removeExecutor
-    function removeExecutor(address executor) public {}
+    function removeExecutor(address executor) public { }
 
     // Mock implementation of removeICCFromWhitelist
-    function removeICCFromWhitelist(address icc) public {}
+    function removeICCFromWhitelist(address icc) public { }
 
     // Mock implementation of removeRelayer
-    function removeRelayer(address relayer) public {}
+    function removeRelayer(address relayer) public { }
 
     // Mock implementation of removeSuperformManager
-    function removeSuperformManager(address manager) public {}
+    function removeSuperformManager(address manager) public { }
 
     // Mock implementation of removeValidator
-    function removeValidator(address validator) public {}
+    function removeValidator(address validator) public { }
 
     // Mock implementation of renounceRole
-    function renounceRole(bytes32 role, address callerConfirmation) public {}
+    function renounceRole(bytes32 role, address callerConfirmation) public { }
 
     // Mock implementation of revokeRole
-    function revokeRole(bytes32 role, address account) public {}
+    function revokeRole(bytes32 role, address account) public { }
 
     // Mock implementation of setActivePPSOracle
-    function setActivePPSOracle(address oracle) public {}
+    function setActivePPSOracle(address oracle) public { }
 
     // Mock implementation of setAddress
-    function setAddress(bytes32 key, address value) public {}
+    function setAddress(bytes32 key, address value) public { }
 
     // Mock implementation of setEmergencyPrice
-    function setEmergencyPrice(address token, uint256 price) public {}
+    function setEmergencyPrice(address token, uint256 price) public { }
 
     // Mock implementation of setGasInfo
-    function setGasInfo(
-        address oracle,
-        uint256 baseGasBatch,
-        uint256 gasIncreasePerEntryBatch
-    ) public {}
+    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) public { }
 
     // Mock implementation of setGlobalHooksRootVetoStatus
-    function setGlobalHooksRootVetoStatus(bool vetoed) public {}
+    function setGlobalHooksRootVetoStatus(bool vetoed) public { }
 
     // Mock implementation of setOracleFeedMaxStaleness
-    function setOracleFeedMaxStaleness(
-        address feed,
-        uint256 newMaxStaleness
-    ) public {}
+    function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) public { }
 
     // Mock implementation of setOracleFeedMaxStalenessBatch
-    function setOracleFeedMaxStalenessBatch(
-        address[] memory feeds_,
-        uint256[] memory newMaxStalenessList_
-    ) public {}
+    function setOracleFeedMaxStalenessBatch(address[] memory feeds_, uint256[] memory newMaxStalenessList_) public { }
 
     // Mock implementation of setOracleMaxStaleness
-    function setOracleMaxStaleness(uint256 newMaxStaleness) public {}
+    function setOracleMaxStaleness(uint256 newMaxStaleness) public { }
 
     // Mock implementation of setPPSOracleQuorum
-    function setPPSOracleQuorum(uint256 quorum) public {}
+    function setPPSOracleQuorum(uint256 quorum) public { }
 
     // Mock implementation of setProver
-    function setProver(address prover) public {}
+    function setProver(address prover) public { }
 
     // Mock implementation of setStrategyHooksRootVetoStatus
-    function setStrategyHooksRootVetoStatus(
-        address strategy,
-        bool vetoed
-    ) public {}
+    function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) public { }
 
     // Mock implementation of setSuperAssetManager
-    function setSuperAssetManager(
-        address superAsset,
-        address superAssetManager
-    ) public {}
+    function setSuperAssetManager(address superAsset, address superAssetManager) public { }
 
     // Mock implementation of unregisterHook
-    function unregisterHook(address hook) public {}
+    function unregisterHook(address hook) public { }
 
     // Mock implementation of unregisterProtectedKeeper
-    function unregisterProtectedKeeper(address keeper) public {}
+    function unregisterProtectedKeeper(address keeper) public { }
 
     //<>=============================================================<>
     //||                                                             ||
@@ -307,7 +283,7 @@ contract MockSuperGovernor {
     // Function to set return values for getAllSuperformManagers
     function setGetAllSuperformManagersReturn(address[] memory _value0) public {
         delete _getAllSuperformManagersReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getAllSuperformManagersReturn_0.push(_value0[i]);
         }
     }
@@ -315,7 +291,7 @@ contract MockSuperGovernor {
     // Function to set return values for getExecutors
     function setGetExecutorsReturn(address[] memory _value0) public {
         delete _getExecutorsReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getExecutorsReturn_0.push(_value0[i]);
         }
     }
@@ -331,12 +307,9 @@ contract MockSuperGovernor {
     }
 
     // Function to set return values for getManagersPaginated
-    function setGetManagersPaginatedReturn(
-        address[] memory _value0,
-        uint256 _value1
-    ) public {
+    function setGetManagersPaginatedReturn(address[] memory _value0, uint256 _value1) public {
         delete _getManagersPaginatedReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getManagersPaginatedReturn_0.push(_value0[i]);
         }
         _getManagersPaginatedReturn_1 = _value1;
@@ -353,46 +326,31 @@ contract MockSuperGovernor {
     }
 
     // Function to set return values for getProposedActivePPSOracle
-    function setGetProposedActivePPSOracleReturn(
-        address _value0,
-        uint256 _value1
-    ) public {
+    function setGetProposedActivePPSOracleReturn(address _value0, uint256 _value1) public {
         _getProposedActivePPSOracleReturn_0 = _value0;
         _getProposedActivePPSOracleReturn_1 = _value1;
     }
 
     // Function to set return values for getProposedMinStaleness
-    function setGetProposedMinStalenessReturn(
-        uint256 _value0,
-        uint256 _value1
-    ) public {
+    function setGetProposedMinStalenessReturn(uint256 _value0, uint256 _value1) public {
         _getProposedMinStalenessReturn_0 = _value0;
         _getProposedMinStalenessReturn_1 = _value1;
     }
 
     // Function to set return values for getProposedSuperBankHookMerkleRoot
-    function setGetProposedSuperBankHookMerkleRootReturn(
-        bytes32 _value0,
-        uint256 _value1
-    ) public {
+    function setGetProposedSuperBankHookMerkleRootReturn(bytes32 _value0, uint256 _value1) public {
         _getProposedSuperBankHookMerkleRootReturn_0 = _value0;
         _getProposedSuperBankHookMerkleRootReturn_1 = _value1;
     }
 
     // Function to set return values for getProposedUpkeepPaymentsStatus
-    function setGetProposedUpkeepPaymentsStatusReturn(
-        bool _value0,
-        uint256 _value1
-    ) public {
+    function setGetProposedUpkeepPaymentsStatusReturn(bool _value0, uint256 _value1) public {
         _getProposedUpkeepPaymentsStatusReturn_0 = _value0;
         _getProposedUpkeepPaymentsStatusReturn_1 = _value1;
     }
 
     // Function to set return values for getProposedVaultBankHookMerkleRoot
-    function setGetProposedVaultBankHookMerkleRootReturn(
-        bytes32 _value0,
-        uint256 _value1
-    ) public {
+    function setGetProposedVaultBankHookMerkleRootReturn(bytes32 _value0, uint256 _value1) public {
         _getProposedVaultBankHookMerkleRootReturn_0 = _value0;
         _getProposedVaultBankHookMerkleRootReturn_1 = _value1;
     }
@@ -400,7 +358,7 @@ contract MockSuperGovernor {
     // Function to set return values for getProtectedKeepers
     function setGetProtectedKeepersReturn(address[] memory _value0) public {
         delete _getProtectedKeepersReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getProtectedKeepersReturn_0.push(_value0[i]);
         }
     }
@@ -416,11 +374,9 @@ contract MockSuperGovernor {
     }
 
     // Function to set return values for getRegisteredFulfillRequestsHooks
-    function setGetRegisteredFulfillRequestsHooksReturn(
-        address[] memory _value0
-    ) public {
+    function setGetRegisteredFulfillRequestsHooksReturn(address[] memory _value0) public {
         delete _getRegisteredFulfillRequestsHooksReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getRegisteredFulfillRequestsHooksReturn_0.push(_value0[i]);
         }
     }
@@ -428,7 +384,7 @@ contract MockSuperGovernor {
     // Function to set return values for getRegisteredHooks
     function setGetRegisteredHooksReturn(address[] memory _value0) public {
         delete _getRegisteredHooksReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getRegisteredHooksReturn_0.push(_value0[i]);
         }
     }
@@ -436,7 +392,7 @@ contract MockSuperGovernor {
     // Function to set return values for getRelayers
     function setGetRelayersReturn(address[] memory _value0) public {
         delete _getRelayersReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getRelayersReturn_0.push(_value0[i]);
         }
     }
@@ -464,7 +420,7 @@ contract MockSuperGovernor {
     // Function to set return values for getValidators
     function setGetValidatorsReturn(address[] memory _value0) public {
         delete _getValidatorsReturn_0;
-        for (uint i = 0; i < _value0.length; i++) {
+        for (uint256 i = 0; i < _value0.length; i++) {
             _getValidatorsReturn_0.push(_value0[i]);
         }
     }
@@ -549,12 +505,14 @@ contract MockSuperGovernor {
         _supportsInterfaceReturn_0 = _value0;
     }
 
-    /*******************************************************************
+    /**
+     *
      *   ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️  *
-     *-----------------------------------------------------------------*
+     * -----------------------------------------------------------------*
      *      Generally you only need to modify the sections above.      *
      *          The code below handles system operations.              *
-     *******************************************************************/
+     *
+     */
 
     //<>=============================================================<>
     //||                                                             ||
@@ -582,11 +540,7 @@ contract MockSuperGovernor {
     event FeeUpdated(uint8 feeType, uint256 value);
     event FulfillRequestsHookRegistered(address hook);
     event FulfillRequestsHookUnregistered(address hook);
-    event GasInfoSet(
-        address oracle,
-        uint256 baseGasBatch,
-        uint256 gasIncreasePerEntryBatch
-    );
+    event GasInfoSet(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch);
     event HookApproved(address hook);
     event HookRemoved(address hook);
     event ManagerTakeoversFrozen();
@@ -599,18 +553,10 @@ contract MockSuperGovernor {
     event RelayerAdded(address relayer);
     event RelayerRemoved(address relayer);
     event RevenueShareUpdated(uint256 share);
-    event RoleAdminChanged(
-        bytes32 role,
-        bytes32 previousAdminRole,
-        bytes32 newAdminRole
-    );
+    event RoleAdminChanged(bytes32 role, bytes32 previousAdminRole, bytes32 newAdminRole);
     event RoleGranted(bytes32 role, address account, address sender);
     event RoleRevoked(bytes32 role, address account, address sender);
-    event SuperBankHookMerkleRootProposed(
-        address hook,
-        bytes32 newRoot,
-        uint256 effectiveTime
-    );
+    event SuperBankHookMerkleRootProposed(address hook, bytes32 newRoot, uint256 effectiveTime);
     event SuperBankHookMerkleRootUpdated(address hook, bytes32 newRoot);
     event SuperformManagerAdded(address manager);
     event SuperformManagerRemoved(address manager);
@@ -619,17 +565,10 @@ contract MockSuperGovernor {
     event ValidatorAdded(address validator);
     event ValidatorRemoved(address validator);
     event VaultBankAddressAdded(uint64 chainId, address vaultBank);
-    event VaultBankHookMerkleRootProposed(
-        address hook,
-        bytes32 newRoot,
-        uint256 effectiveTime
-    );
+    event VaultBankHookMerkleRootProposed(address hook, bytes32 newRoot, uint256 effectiveTime);
     event VaultBankHookMerkleRootUpdated(address hook, bytes32 newRoot);
     event WhitelistedIncentiveTokensAdded(address[] tokens);
-    event WhitelistedIncentiveTokensProposed(
-        address[] tokens,
-        uint256 effectiveTime
-    );
+    event WhitelistedIncentiveTokensProposed(address[] tokens, uint256 effectiveTime);
     event WhitelistedIncentiveTokensRemoved(address[] tokens);
 
     //<>=============================================================<>
@@ -812,17 +751,12 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getGasInfo
-    function getGasInfo(
-        address oracle_
-    ) public view returns (ISuperGovernor_GasInfo memory) {
+    function getGasInfo(address oracle_) public view returns (ISuperGovernor_GasInfo memory) {
         return _getGasInfoReturn_0;
     }
 
     // Mock implementation of getManagersPaginated
-    function getManagersPaginated(
-        uint256 cursor,
-        uint256 limit
-    ) public view returns (address[] memory, uint256) {
+    function getManagersPaginated(uint256 cursor, uint256 limit) public view returns (address[] memory, uint256) {
         return (_getManagersPaginatedReturn_0, _getManagersPaginatedReturn_1);
     }
 
@@ -837,55 +771,28 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getProposedActivePPSOracle
-    function getProposedActivePPSOracle()
-        public
-        view
-        returns (address, uint256)
-    {
-        return (
-            _getProposedActivePPSOracleReturn_0,
-            _getProposedActivePPSOracleReturn_1
-        );
+    function getProposedActivePPSOracle() public view returns (address, uint256) {
+        return (_getProposedActivePPSOracleReturn_0, _getProposedActivePPSOracleReturn_1);
     }
 
     // Mock implementation of getProposedMinStaleness
     function getProposedMinStaleness() public view returns (uint256, uint256) {
-        return (
-            _getProposedMinStalenessReturn_0,
-            _getProposedMinStalenessReturn_1
-        );
+        return (_getProposedMinStalenessReturn_0, _getProposedMinStalenessReturn_1);
     }
 
     // Mock implementation of getProposedSuperBankHookMerkleRoot
-    function getProposedSuperBankHookMerkleRoot(
-        address hook
-    ) public view returns (bytes32, uint256) {
-        return (
-            _getProposedSuperBankHookMerkleRootReturn_0,
-            _getProposedSuperBankHookMerkleRootReturn_1
-        );
+    function getProposedSuperBankHookMerkleRoot(address hook) public view returns (bytes32, uint256) {
+        return (_getProposedSuperBankHookMerkleRootReturn_0, _getProposedSuperBankHookMerkleRootReturn_1);
     }
 
     // Mock implementation of getProposedUpkeepPaymentsStatus
-    function getProposedUpkeepPaymentsStatus()
-        public
-        view
-        returns (bool, uint256)
-    {
-        return (
-            _getProposedUpkeepPaymentsStatusReturn_0,
-            _getProposedUpkeepPaymentsStatusReturn_1
-        );
+    function getProposedUpkeepPaymentsStatus() public view returns (bool, uint256) {
+        return (_getProposedUpkeepPaymentsStatusReturn_0, _getProposedUpkeepPaymentsStatusReturn_1);
     }
 
     // Mock implementation of getProposedVaultBankHookMerkleRoot
-    function getProposedVaultBankHookMerkleRoot(
-        address hook
-    ) public view returns (bytes32, uint256) {
-        return (
-            _getProposedVaultBankHookMerkleRootReturn_0,
-            _getProposedVaultBankHookMerkleRootReturn_1
-        );
+    function getProposedVaultBankHookMerkleRoot(address hook) public view returns (bytes32, uint256) {
+        return (_getProposedVaultBankHookMerkleRootReturn_0, _getProposedVaultBankHookMerkleRootReturn_1);
     }
 
     // Mock implementation of getProtectedKeepers
@@ -904,11 +811,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getRegisteredFulfillRequestsHooks
-    function getRegisteredFulfillRequestsHooks()
-        public
-        view
-        returns (address[] memory)
-    {
+    function getRegisteredFulfillRequestsHooks() public view returns (address[] memory) {
         return _getRegisteredFulfillRequestsHooksReturn_0;
     }
 
@@ -928,9 +831,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getSuperBankHookMerkleRoot
-    function getSuperBankHookMerkleRoot(
-        address hook
-    ) public view returns (bytes32) {
+    function getSuperBankHookMerkleRoot(address hook) public view returns (bytes32) {
         return _getSuperBankHookMerkleRootReturn_0;
     }
 
@@ -940,10 +841,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getUpkeepCostPerBatchUpdate
-    function getUpkeepCostPerBatchUpdate(
-        address oracle_,
-        uint256 chargeableEntries_
-    ) public view returns (uint256) {
+    function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) public view returns (uint256) {
         return _getUpkeepCostPerBatchUpdateReturn_0;
     }
 
@@ -958,9 +856,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getVaultBankHookMerkleRoot
-    function getVaultBankHookMerkleRoot(
-        address hook
-    ) public view returns (bytes32) {
+    function getVaultBankHookMerkleRoot(address hook) public view returns (bytes32) {
         return _getVaultBankHookMerkleRootReturn_0;
     }
 
@@ -980,9 +876,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of isFulfillRequestsHookRegistered
-    function isFulfillRequestsHookRegistered(
-        address hook
-    ) public view returns (bool) {
+    function isFulfillRequestsHookRegistered(address hook) public view returns (bool) {
         return _isFulfillRequestsHookRegisteredReturn_0;
     }
 
@@ -1027,9 +921,7 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of isWhitelistedIncentiveToken
-    function isWhitelistedIncentiveToken(
-        address token
-    ) public view returns (bool) {
+    function isWhitelistedIncentiveToken(address token) public view returns (bool) {
         return _isWhitelistedIncentiveTokenReturn_0;
     }
 

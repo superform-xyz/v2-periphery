@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {FoundryAsserts} from "@chimera/FoundryAsserts.sol";
-import {MockERC20} from "@recon/MockERC20.sol";
-import {MockERC4626Tester} from "test/recon/mocks/MockERC4626Tester.sol";
-import {Test, console2} from "forge-std/Test.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {Deposit4626VaultHook} from "lib/v2-core/src/hooks/vaults/4626/Deposit4626VaultHook.sol";
-import {ApproveAndDeposit4626VaultHook} from "lib/v2-core/src/hooks/vaults/4626/ApproveAndDeposit4626VaultHook.sol";
-import {Redeem4626VaultHook} from "lib/v2-core/src/hooks/vaults/4626/Redeem4626VaultHook.sol";
-import {ISuperGovernor, FeeType} from "src/interfaces/ISuperGovernor.sol";
+import { FoundryAsserts } from "@chimera/FoundryAsserts.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
+import { MockERC4626Tester } from "test/recon/mocks/MockERC4626Tester.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { Deposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/Deposit4626VaultHook.sol";
+import { ApproveAndDeposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/ApproveAndDeposit4626VaultHook.sol";
+import { Redeem4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/Redeem4626VaultHook.sol";
+import { ISuperGovernor, FeeType } from "src/interfaces/ISuperGovernor.sol";
 
-import {IECDSAPPSOracle} from "src/interfaces/oracles/IECDSAPPSOracle.sol";
-import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import {ISuperVaultAggregator} from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
-import {YieldSourceType} from "test/recon/managers/YieldManager.sol";
+import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
+import { YieldSourceType } from "test/recon/managers/YieldManager.sol";
 
-import {MerkleTestHelper} from "./helpers/MerkleTestHelper.sol";
-import {TargetFunctions} from "./TargetFunctions.sol";
-import {MockERC4626Tester} from "./mocks/MockERC4626Tester.sol";
-import {YieldSourceType} from "./managers/YieldManager.sol";
+import { MerkleTestHelper } from "./helpers/MerkleTestHelper.sol";
+import { TargetFunctions } from "./TargetFunctions.sol";
+import { MockERC4626Tester } from "./mocks/MockERC4626Tester.sol";
+import { YieldSourceType } from "./managers/YieldManager.sol";
 
 // forge test --match-contract CryticToFoundry -vv
 contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
@@ -35,18 +35,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_13 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_comparePreviewMintAndConvertToAssets_13() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(
-            0,
-            10000,
-            0x00000000000000000000000000000000DeaDBeef
-        );
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 237093);
+        vm.warp(block.timestamp + 237_093);
 
         vm.roll(block.number + 1);
 
         vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 367768);
+        vm.warp(block.timestamp + 367_768);
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
         property_comparePreviewMintAndConvertToAssets(1);
@@ -55,13 +51,9 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_previewEquivalenceFromAssets_1 -vvv
     // NOTE: same as above, see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_previewEquivalenceFromAssets_1() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(
-            0,
-            10000,
-            0x00000000000000000000000000000000DeaDBeef
-        );
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 605012);
+        vm.warp(block.timestamp + 605_012);
 
         vm.roll(block.number + 1);
 
@@ -94,10 +86,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 5);
         ECDSAPPSOracle_updatePPS_clamped(
-            45875423970713493951589436881765514280565129916122376120788407117094766
+            45_875_423_970_713_493_951_589_436_881_765_514_280_565_129_916_122_376_120_788_407_117_094_766
         );
 
-        yieldSource_simulateGain(157404);
+        yieldSource_simulateGain(157_404);
 
         doomsday_mintRedeemSymmetrical(2);
     }
@@ -136,16 +128,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 1);
 
         ECDSAPPSOracle_updatePPS_clamped(
-            700960855099362077226925743595804258294593977845093495232344554
+            700_960_855_099_362_077_226_925_743_595_804_258_294_593_977_845_093_495_232_344_554
         );
 
-        yieldSource_simulateGain(973782);
+        yieldSource_simulateGain(973_782);
 
         superVaultStrategy_fulfillRedeemRequests_clamped(1);
 
         superVault_requestRedeem_clamped(1);
 
-        doomsday_maxWithdrawResetsAfterFullWithdrawal(988620);
+        doomsday_maxWithdrawResetsAfterFullWithdrawal(988_620);
     }
 
     // forge test --match-test test_property_sumOfClaimable_5 -vvv
@@ -166,10 +158,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 1);
 
         ECDSAPPSOracle_updatePPS_clamped(
-            700960855099362077226925743595804258294593977845093495232344554
+            700_960_855_099_362_077_226_925_743_595_804_258_294_593_977_845_093_495_232_344_554
         );
 
-        yieldSource_simulateGain(973782);
+        yieldSource_simulateGain(973_782);
 
         superVaultStrategy_fulfillRedeemRequests_clamped(1);
 
@@ -200,14 +192,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 1);
 
         ECDSAPPSOracle_updatePPS_clamped(
-            115792089237316195423570985008687907853269984665640564039457584007913129639931
+            115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_931
         );
 
-        yieldSource_simulateGain(100000003);
+        yieldSource_simulateGain(100_000_003);
 
         superVaultStrategy_fulfillRedeemRequests_clamped(4);
 
-        superVault_withdraw(87234118);
+        superVault_withdraw(87_234_118);
 
         int256 difference = optimize_assetBackingDifference();
         console2.log("difference: ", difference);
@@ -219,7 +211,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_crytic_erc7540_4_redeem_1 -vvv
     // see issue here: https://github.com/Recon-Fuzz/superform-review/issues/76
-    // NOTE: incorrect return value in maxRedeem causes the property to break but fundamentally is an issue with the share calculation in maxRedeem because user doesn't end up redeeming more than their max available
+    // NOTE: incorrect return value in maxRedeem causes the property to break but fundamentally is an issue with the
+    // share calculation in maxRedeem because user doesn't end up redeeming more than their max available
     function test_crytic_erc7540_4_redeem_1() public {
         yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
 
@@ -231,26 +224,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 5);
         superVault_requestRedeem_clamped(2);
 
-        console2.log(
-            "PPS before: %e",
-            superVaultAggregator.getPPS(address(superVaultStrategy))
-        );
-        ECDSAPPSOracle_updatePPS_clamped(950051690458586526);
-        console2.log(
-            "PPS after: %e",
-            superVaultAggregator.getPPS(address(superVaultStrategy))
-        );
+        console2.log("PPS before: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
+        ECDSAPPSOracle_updatePPS_clamped(950_051_690_458_586_526);
+        console2.log("PPS after: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
 
-        console2.log(
-            "avg withdraw price before fulfill: %e",
-            superVaultStrategy.getAverageWithdrawPrice(_getActor())
-        );
+        console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
         superVaultStrategy_fulfillRedeemRequests_clamped(2);
 
-        console2.log(
-            "avg withdraw price after fulfill: %e",
-            superVaultStrategy.getAverageWithdrawPrice(_getActor())
-        );
+        console2.log("avg withdraw price after fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
         crytic_erc7540_4_redeem(1);
     }
 
@@ -271,7 +252,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // }
 
     // NOTE: naive PPS isn't used anywhere but useful to know
-    // NOTE: shares are burned on fulfillment but assets only get transferred on withdraw/redeem so implied PPS changes after assets get transferred to user
+    // NOTE: shares are burned on fulfillment but assets only get transferred on withdraw/redeem so implied PPS changes
+    // after assets get transferred to user
     // function test_property_naivePPSDoesntChangeOnRedeemOrWithdraw() public {
     //     superVault_deposit(4);
     //     superVault_requestRedeem_clamped(2);
@@ -297,18 +279,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
     function test_property_previewEquivalenceFromAssets_() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(
-            0,
-            10000,
-            0x00000000000000000000000000000000DeaDBeef
-        );
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 577107);
+        vm.warp(block.timestamp + 577_107);
 
         vm.roll(block.number + 1);
 
         vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 27732);
+        vm.warp(block.timestamp + 27_732);
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
         property_previewEquivalenceFromAssets(1);
@@ -320,20 +298,18 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         vm.roll(block.number + 1);
 
-        ECDSAPPSOracle_updatePPS_clamped(100000); /// @audit Something dangerous tied to how prices work!?
+        ECDSAPPSOracle_updatePPS_clamped(100_000);
+
+        /// @audit Something dangerous tied to how prices work!?
 
         property_previewEquivalenceFromShares(1);
     }
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_ -vvv
     function test_property_comparePreviewMintAndConvertToAssets_() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(
-            0,
-            10000,
-            0x00000000000000000000000000000000DeaDBeef
-        );
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 604912);
+        vm.warp(block.timestamp + 604_912);
 
         vm.roll(block.number + 1);
 
@@ -344,20 +320,9 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     /// @dev Test: Multi-actor deposit, withdrawal request, loss simulation, and distribution validation
     function test_multiActorDepositWithdrawLossDistribution() public {
-        console2.log(
-            "Assets in Strategy B4",
-            MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy))
-        );
-        console2.log(
-            "Shares in vault B4",
-            MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy))
-        );
-        console2.log(
-            "Max Redeem B4",
-            MockERC4626Tester(_getYieldSource()).maxRedeem(
-                address(superVaultStrategy)
-            )
-        );
+        console2.log("Assets in Strategy B4", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
+        console2.log("Shares in vault B4", MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy)));
+        console2.log("Max Redeem B4", MockERC4626Tester(_getYieldSource()).maxRedeem(address(superVaultStrategy)));
 
         // Deposit
         superVault_deposit(1000e18);
@@ -374,33 +339,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         hookTypeInts[0] = 0; // ApproveAndDeposit4626
 
         uint256[] memory amountsToInvest = new uint256[](1);
-        amountsToInvest[0] = MockERC20(superVault.asset()).balanceOf(
-            address(superVaultStrategy)
-        );
+        amountsToInvest[0] = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         bool[] memory usePrevAmounts = new bool[](1);
         usePrevAmounts[0] = false;
 
-        superVaultStrategy_executeHooks_clamped(
-            hookTypeInts,
-            amountsToInvest,
-            usePrevAmounts
-        );
+        superVaultStrategy_executeHooks_clamped(hookTypeInts, amountsToInvest, usePrevAmounts);
 
-        console2.log(
-            "Assets in Strategy",
-            MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy))
-        );
-        console2.log(
-            "Shares in vault",
-            MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy))
-        );
-        console2.log(
-            "Max Redeem",
-            MockERC4626Tester(_getYieldSource()).maxRedeem(
-                address(superVaultStrategy)
-            )
-        );
+        console2.log("Assets in Strategy", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
+        console2.log("Shares in vault", MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy)));
+        console2.log("Max Redeem", MockERC4626Tester(_getYieldSource()).maxRedeem(address(superVaultStrategy)));
 
         // // Set loss on withdraw for ERC4626
         MockERC4626Tester(_getYieldSource()).setLossOnWithdraw(1000);
@@ -411,14 +359,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_requestRedeem_clamped(superVault.balanceOf(_getActor()));
 
         switchActor(0);
-        superVaultStrategy_fulfillRedeemRequests_clamped(
-            superVaultStrategy.pendingRedeemRequest(_getActor())
-        );
+        superVaultStrategy_fulfillRedeemRequests_clamped(superVaultStrategy.pendingRedeemRequest(_getActor()));
         console2.log("pendingRedeemRequest", "0");
         switchActor(1);
-        superVaultStrategy_fulfillRedeemRequests_clamped(
-            superVaultStrategy.pendingRedeemRequest(_getActor())
-        );
+        superVaultStrategy_fulfillRedeemRequests_clamped(superVaultStrategy.pendingRedeemRequest(_getActor()));
         console2.log("pendingRedeemRequest", "1");
         switchActor(0);
 
@@ -429,10 +373,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         }
 
         console2.log("Max Withdraw Acc", maxWithdrawAcc);
-        console2.log(
-            "Strategy Balance Solvency",
-            MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy))
-        );
+        console2.log("Strategy Balance Solvency", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
 
         // Show the revert
         console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));

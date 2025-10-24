@@ -2,19 +2,19 @@
 pragma solidity ^0.8.0;
 
 // External dependencies
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {vm} from "@chimera/Hevm.sol";
-import {Panic} from "@recon/Panic.sol";
-import {MockERC20} from "@recon/MockERC20.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { vm } from "@chimera/Hevm.sol";
+import { Panic } from "@recon/Panic.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
 // System dependencies
-import {ISuperVaultStrategy} from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 // Test dependencies
-import {YieldSourceType} from "test/recon/managers/YieldManager.sol";
-import {BeforeAfter, OpType} from "../BeforeAfter.sol";
-import {Properties} from "../Properties.sol";
+import { YieldSourceType } from "test/recon/managers/YieldManager.sol";
+import { BeforeAfter, OpType } from "../BeforeAfter.sol";
+import { Properties } from "../Properties.sol";
 
 abstract contract AdminTargets is BaseTargetFunctions, Properties {
     enum HookType {
@@ -47,7 +47,10 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         uint256[] memory hookTypeInts,
         uint256[] memory amountsToInvest,
         bool[] memory usePrevHookAmounts
-    ) public payable {
+    )
+        public
+        payable
+    {
         // Limit the number of hooks to 10 maximum
         uint256 numHooks = hookTypeInts.length;
         if (numHooks > 10) {
@@ -68,14 +71,13 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
 
         // Create ExecuteArgs for the hooks
-        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy
-            .ExecuteArgs({
-                hooks: new address[](numHooks),
-                hookCalldata: new bytes[](numHooks),
-                expectedAssetsOrSharesOut: new uint256[](numHooks),
-                globalProofs: new bytes32[][](numHooks),
-                strategyProofs: new bytes32[][](numHooks)
-            });
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
+            hooks: new address[](numHooks),
+            hookCalldata: new bytes[](numHooks),
+            expectedAssetsOrSharesOut: new uint256[](numHooks),
+            globalProofs: new bytes32[][](numHooks),
+            strategyProofs: new bytes32[][](numHooks)
+        });
 
         // Process each hook
         uint256 totalAmountToDeposit;
@@ -84,20 +86,12 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             HookType hookType = HookType(hookTypeInts[i] % 17); // 17 is the total number of hooks
 
             // Clamp to the strategy's asset balance (not SuperVault's balance)
-            uint256 clampedAmount = amountsToInvest[i] %
-                (MockERC20(superVault.asset()).balanceOf(
-                    address(superVaultStrategy)
-                ) + 1);
+            uint256 clampedAmount =
+                amountsToInvest[i] % (MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)) + 1);
 
             // Get the hook address and calldata
-            (
-                address hookAddress,
-                bytes memory hookCalldata
-            ) = _getHookAddressAndCalldata(
-                    hookType,
-                    clampedAmount,
-                    usePrevHookAmounts[i]
-                );
+            (address hookAddress, bytes memory hookCalldata) =
+                _getHookAddressAndCalldata(hookType, clampedAmount, usePrevHookAmounts[i]);
 
             executeArgs.hooks[i] = hookAddress;
             executeArgs.hookCalldata[i] = hookCalldata;
@@ -108,18 +102,23 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             totalAmountToDeposit += clampedAmount;
         }
 
-        // Check that amount to be invested is less than the claimable assets so that it doesn't reinvest and prevent users from claiming
+        // Check that amount to be invested is less than the claimable assets so that it doesn't reinvest and prevent
+        // users from claiming
         if (_claimableMoreThanInvested(totalAmountToDeposit)) return;
 
         // Execute all hooks
-        this.superVaultStrategy_executeHooks{value: msg.value}(executeArgs);
+        this.superVaultStrategy_executeHooks{ value: msg.value }(executeArgs);
     }
 
     function _getHookAddressAndCalldata(
         HookType hookType,
         uint256 amountToInvest,
         bool usePrevHookAmount
-    ) internal view returns (address hookAddress, bytes memory hookCalldata) {
+    )
+        internal
+        view
+        returns (address hookAddress, bytes memory hookCalldata)
+    {
         if (hookType == HookType.ApproveAndDeposit4626) {
             hookAddress = address(approveAndDeposit4626Hook);
             hookCalldata = abi.encodePacked(
@@ -282,14 +281,10 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function superVaultStrategy_fulfillRedeemRequests_clamped(
-        uint256 redeemAmount
-    ) public {
+    function superVaultStrategy_fulfillRedeemRequests_clamped(uint256 redeemAmount) public {
         // Find a controller that has pending redeem requests
         address selectedController = _getActor();
-        uint256 pendingAmount = superVaultStrategy.pendingRedeemRequest(
-            selectedController
-        );
+        uint256 pendingAmount = superVaultStrategy.pendingRedeemRequest(selectedController);
 
         // Clamp using the actor's pending amount
         uint256 actualRedeemAmount = redeemAmount % (pendingAmount + 1);
@@ -298,19 +293,15 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         controllers[0] = selectedController;
 
         // Determine yield source type from currently active yield source
-        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(
-            _getYieldSource()
-        );
+        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(_getYieldSource());
         address redeemHook = _getRedeemHookForType(activeYieldSourceType);
 
         // Create realistic hook calldata for redeem operation
         bytes memory redeemHookCalldata;
 
-        if (
-            activeYieldSourceType == YieldSourceType.ERC4626 ||
-            activeYieldSourceType == YieldSourceType.ERC5115
-        ) {
-            // ERC4626/ERC5115 Layout: bytes32 oracleId, address yieldSource, address owner, uint256 shares, bool usePrevAmount
+        if (activeYieldSourceType == YieldSourceType.ERC4626 || activeYieldSourceType == YieldSourceType.ERC5115) {
+            // ERC4626/ERC5115 Layout: bytes32 oracleId, address yieldSource, address owner, uint256 shares, bool
+            // usePrevAmount
             redeemHookCalldata = abi.encodePacked(
                 bytes32(0), // yieldSourceOracleId placeholder
                 _getYieldSource(), // Current active yield source
@@ -345,15 +336,14 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         strategyProofs[0] = new bytes32[](0); // Empty proof
 
         // Create the FulfillArgs struct
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy
-            .FulfillArgs({
-                controllers: controllers,
-                hooks: hooks,
-                hookCalldata: hookCalldata,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: globalProofs,
-                strategyProofs: strategyProofs
-            });
+        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = ISuperVaultStrategy.FulfillArgs({
+            controllers: controllers,
+            hooks: hooks,
+            hookCalldata: hookCalldata,
+            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+            globalProofs: globalProofs,
+            strategyProofs: strategyProofs
+        });
 
         // Execute the function
         superVaultStrategy_fulfillRedeemRequests(fulfillArgs);
@@ -361,18 +351,17 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
-    function superVaultStrategy_executeHooks(
-        ISuperVaultStrategy.ExecuteArgs memory args
-    ) public payable asAdmin {
-        superVaultStrategy.executeHooks{value: msg.value}(args);
+    function superVaultStrategy_executeHooks(ISuperVaultStrategy.ExecuteArgs memory args) public payable asAdmin {
+        superVaultStrategy.executeHooks{ value: msg.value }(args);
 
         executeHooksSuccess = true;
     }
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(
-        ISuperVaultStrategy.FulfillArgs memory args
-    ) public updateGhostsWithOpType(OpType.FULFILL) {
+    function superVaultStrategy_fulfillRedeemRequests(ISuperVaultStrategy.FulfillArgs memory args)
+        public
+        updateGhostsWithOpType(OpType.FULFILL)
+    {
         uint256 summedExpectedAssets;
         for (uint256 i; i < args.expectedAssetsOrSharesOut.length; i++) {
             summedExpectedAssets += args.expectedAssetsOrSharesOut[i];
@@ -381,15 +370,9 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         // no need to prank because called as admin address(this)
         superVaultStrategy.fulfillRedeemRequests(args);
 
-        uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(
-            address(superVaultStrategy)
-        );
+        uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
-        gte(
-            assetBalanceAfter,
-            summedExpectedAssets,
-            "strategy incurs loss on fulfillment"
-        );
+        gte(assetBalanceAfter, summedExpectedAssets, "strategy incurs loss on fulfillment");
     }
 
     // Functions that require SuperGovernor access
@@ -430,72 +413,48 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     //     superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, vetoed);
     // }
 
-    function superVaultAggregator_changePrimaryManager(
-        address strategy,
-        address newManager
-    ) public asAdmin {
+    function superVaultAggregator_changePrimaryManager(address strategy, address newManager) public asAdmin {
         superVaultAggregator.changePrimaryManager(strategy, newManager);
     }
 
-    /// @dev won't achieve coverage until issue outlined here is resolved: https://github.com/Recon-Fuzz/superform-review/issues/5
-    function superVaultAggregator_slashStake(
-        address manager,
-        uint256 amount
-    ) public asAdmin {
+    /// @dev won't achieve coverage until issue outlined here is resolved:
+    /// https://github.com/Recon-Fuzz/superform-review/issues/5
+    function superVaultAggregator_slashStake(address manager, uint256 amount) public asAdmin {
         superVaultAggregator.slashStake(manager, amount);
     }
 
     /// Helpers
 
-    function _requestedSharesForControllers(
-        address[] memory controllers
-    ) internal returns (uint256) {
+    function _requestedSharesForControllers(address[] memory controllers) internal returns (uint256) {
         uint256 totalRequested;
         for (uint256 i; i < controllers.length; i++) {
-            totalRequested += superVault.pendingRedeemRequest(
-                0,
-                controllers[i]
-            );
+            totalRequested += superVault.pendingRedeemRequest(0, controllers[i]);
         }
 
         return totalRequested;
     }
 
-    function _sumSuperVaultValsForControllers(
-        address[] memory controllers
-    )
+    function _sumSuperVaultValsForControllers(address[] memory controllers)
         internal
         view
         returns (uint256 sumAccumulatorShares, uint256 sumAccumulatorCostBasis)
     {
         for (uint256 i; i < controllers.length; i++) {
-            sumAccumulatorShares += superVaultStrategy
-                .getSuperVaultState(controllers[i])
-                .accumulatorShares;
-            sumAccumulatorCostBasis += superVaultStrategy
-                .getSuperVaultState(controllers[i])
-                .accumulatorCostBasis;
+            sumAccumulatorShares += superVaultStrategy.getSuperVaultState(controllers[i]).accumulatorShares;
+            sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(controllers[i]).accumulatorCostBasis;
         }
     }
 
-    function _claimableMoreThanInvested(
-        uint256 totalAmountToDeposit
-    ) internal returns (bool) {
+    function _claimableMoreThanInvested(uint256 totalAmountToDeposit) internal returns (bool) {
         address[] memory actors = _getActors();
         uint256 totalClaimable;
         for (uint256 i; i < actors.length; i++) {
-            uint256 claimableRedemptions = superVault.claimableRedeemRequest(
-                0,
-                actors[i]
-            );
-            uint256 claimableRedemptionsAsAssets = superVault.convertToAssets(
-                claimableRedemptions
-            );
+            uint256 claimableRedemptions = superVault.claimableRedeemRequest(0, actors[i]);
+            uint256 claimableRedemptionsAsAssets = superVault.convertToAssets(claimableRedemptions);
             totalClaimable += claimableRedemptionsAsAssets;
         }
 
-        uint256 currentStrategyBalance = MockERC20(superVault.asset())
-            .balanceOf(address(superVaultStrategy));
+        uint256 currentStrategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         // Don't allow investing more than the claimable amount
         if (totalAmountToDeposit > totalClaimable) {
@@ -503,8 +462,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
 
         // Ensure strategy has sufficient assets remaining after investment to cover claimable amounts
-        uint256 remainingStrategyBalance = currentStrategyBalance -
-            totalAmountToDeposit;
+        uint256 remainingStrategyBalance = currentStrategyBalance - totalAmountToDeposit;
         if (remainingStrategyBalance < totalClaimable) {
             return true;
         }

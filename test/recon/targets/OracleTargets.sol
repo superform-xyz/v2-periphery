@@ -2,20 +2,20 @@
 pragma solidity ^0.8.0;
 
 // External dependencies
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {vm} from "@chimera/Hevm.sol";
-import {Panic} from "@recon/Panic.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { vm } from "@chimera/Hevm.sol";
+import { Panic } from "@recon/Panic.sol";
 
 // Source dependencies
-import {IECDSAPPSOracle} from "src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
 import "test/mocks/MockYieldSourceOracle.sol";
 import "../mocks/MockERC4626YieldSourceOracle.sol";
 import "../mocks/MockERC5115YieldSourceOracle.sol";
 import "../mocks/MockERC7540YieldSourceOracle.sol";
 
 // Test suite dependencies
-import {BeforeAfter} from "../BeforeAfter.sol";
-import {Properties} from "../Properties.sol";
+import { BeforeAfter } from "../BeforeAfter.sol";
+import { Properties } from "../Properties.sol";
 
 abstract contract OracleTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
@@ -23,28 +23,16 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         mockERC4626YieldSourceOracle_setValidAsset(superVault.asset(), true);
     }
 
-    function mockERC4626YieldSourceOracle_setValidAsset(
-        address asset,
-        bool isValid
-    ) public asActor {
-        MockERC4626YieldSourceOracle(address(erc4626YieldSourceOracle))
-            .setValidAsset(asset, isValid);
+    function mockERC4626YieldSourceOracle_setValidAsset(address asset, bool isValid) public asActor {
+        MockERC4626YieldSourceOracle(address(erc4626YieldSourceOracle)).setValidAsset(asset, isValid);
     }
 
-    function mockERC5115YieldSourceOracle_setValidAsset(
-        address asset,
-        bool isValid
-    ) public asActor {
-        MockERC5115YieldSourceOracle(address(erc5115YieldSourceOracle))
-            .setValidAsset(asset, isValid);
+    function mockERC5115YieldSourceOracle_setValidAsset(address asset, bool isValid) public asActor {
+        MockERC5115YieldSourceOracle(address(erc5115YieldSourceOracle)).setValidAsset(asset, isValid);
     }
 
-    function mockERC7540YieldSourceOracle_setValidAsset(
-        address asset,
-        bool isValid
-    ) public asActor {
-        MockERC7540YieldSourceOracle(address(erc7540YieldSourceOracle))
-            .setValidAsset(asset, isValid);
+    function mockERC7540YieldSourceOracle_setValidAsset(address asset, bool isValid) public asActor {
+        MockERC7540YieldSourceOracle(address(erc7540YieldSourceOracle)).setValidAsset(asset, isValid);
     }
 
     function ECDSAPPSOracle_updatePPS_clamped(uint256 pps) public {
@@ -71,24 +59,21 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
 
-        IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle
-            .UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
-                timestamps: timestamps
-            });
+        IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
+            strategies: strategies,
+            proofsArray: proofsArray,
+            ppss: ppss,
+            ppsStdevs: ppsStdevs,
+            validatorSets: validatorSets,
+            totalValidators: totalValidators,
+            timestamps: timestamps
+        });
 
         ECDSAPPSOracle_updatePPS(args);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
-    function ECDSAPPSOracle_updatePPS(
-        IECDSAPPSOracle.UpdatePPSArgs memory args
-    ) public asActor {
+    function ECDSAPPSOracle_updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public asActor {
         ECDSAPPSOracle.updatePPS(args);
 
         hasUpdatedPPS = true;

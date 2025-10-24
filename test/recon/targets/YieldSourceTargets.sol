@@ -2,27 +2,24 @@
 pragma solidity ^0.8.0;
 
 // Chimera deps
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {vm} from "@chimera/Hevm.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { vm } from "@chimera/Hevm.sol";
 
 // Helpers
-import {Panic} from "@recon/Panic.sol";
+import { Panic } from "@recon/Panic.sol";
 
-import {Properties} from "../Properties.sol";
-import {MockERC4626Tester, FunctionType, RevertType} from "../mocks/MockERC4626Tester.sol";
-import {MockERC5115Tester, RevertType as RevertType5115} from "../mocks/MockERC5115Tester.sol";
-import {MockERC7540Tester} from "../mocks/MockERC7540Tester.sol";
-import {YieldSourceType} from "../managers/YieldManager.sol";
+import { Properties } from "../Properties.sol";
+import { MockERC4626Tester, FunctionType, RevertType } from "../mocks/MockERC4626Tester.sol";
+import { MockERC5115Tester, RevertType as RevertType5115 } from "../mocks/MockERC5115Tester.sol";
+import { MockERC7540Tester } from "../mocks/MockERC7540Tester.sol";
+import { YieldSourceType } from "../managers/YieldManager.sol";
 
 /// @dev Target functions for yield source testers which are used as yield sources in SuperVaultStrategy
 abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
     /// ERC20 functions (available across all types as they inherit from MockERC20) ///
-    function yieldSource_approve(
-        address spender,
-        uint256 value
-    ) public asActor {
+    function yieldSource_approve(address spender, uint256 value) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -35,16 +32,12 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function yieldSource_setDecimalsOffset(
-        uint8 targetDecimalsOffset
-    ) public asActor {
+    function yieldSource_setDecimalsOffset(uint8 targetDecimalsOffset) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC4626) {
-            MockERC4626Tester(yieldSource).setDecimalsOffset(
-                targetDecimalsOffset
-            );
+            MockERC4626Tester(yieldSource).setDecimalsOffset(targetDecimalsOffset);
         }
         // Note: ERC5115 and ERC7540 don't have setDecimalsOffset function
     }
@@ -62,11 +55,7 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function yieldSource_transferFrom(
-        address from,
-        address to,
-        uint256 value
-    ) public asActor {
+    function yieldSource_transferFrom(address from, address to, uint256 value) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -80,10 +69,7 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
     }
 
     /// Core Vault Functions (ERC4626/ERC4626-like) ///
-    function yieldSource_deposit(
-        uint256 assets,
-        address receiver
-    ) public asActor {
+    function yieldSource_deposit(uint256 assets, address receiver) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -106,11 +92,7 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         // Note: ERC5115 doesn't have mint function
     }
 
-    function yieldSource_withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public asActor {
+    function yieldSource_withdraw(uint256 assets, address receiver, address owner) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -122,11 +104,7 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         // Note: ERC5115 doesn't have withdraw function
     }
 
-    function yieldSource_redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public asActor {
+    function yieldSource_redeem(uint256 shares, address receiver, address owner) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -145,17 +123,16 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         uint256 amountTokenToDeposit,
         uint256 minSharesOut,
         bool depositFromInternalBalance
-    ) public asActor {
+    )
+        public
+        asActor
+    {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC5115) {
             MockERC5115Tester(yieldSource).deposit(
-                receiver,
-                tokenIn,
-                amountTokenToDeposit,
-                minSharesOut,
-                depositFromInternalBalance
+                receiver, tokenIn, amountTokenToDeposit, minSharesOut, depositFromInternalBalance
             );
         }
     }
@@ -166,26 +143,22 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         address tokenOut,
         uint256 minTokenOut,
         bool burnFromInternalBalance
-    ) public asActor {
+    )
+        public
+        asActor
+    {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC5115) {
             MockERC5115Tester(yieldSource).redeem(
-                receiver,
-                amountSharesToRedeem,
-                tokenOut,
-                minTokenOut,
-                burnFromInternalBalance
+                receiver, amountSharesToRedeem, tokenOut, minTokenOut, burnFromInternalBalance
             );
         }
     }
 
     /// ERC7540-specific functions ///
-    function yieldSource_setOperator(
-        address operator,
-        bool approved
-    ) public asActor {
+    function yieldSource_setOperator(address operator, bool approved) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
@@ -194,67 +167,39 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function yieldSource_requestDeposit(
-        uint256 assets,
-        address controller,
-        address owner
-    ) public asActor {
+    function yieldSource_requestDeposit(uint256 assets, address controller, address owner) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).requestDeposit(
-                assets,
-                controller,
-                owner
-            );
+            MockERC7540Tester(yieldSource).requestDeposit(assets, controller, owner);
         }
     }
 
-    function yieldSource_requestRedeem(
-        uint256 shares,
-        address controller,
-        address owner
-    ) public asActor {
+    function yieldSource_requestRedeem(uint256 shares, address controller, address owner) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).requestRedeem(
-                shares,
-                controller,
-                owner
-            );
+            MockERC7540Tester(yieldSource).requestRedeem(shares, controller, owner);
         }
     }
 
-    function yieldSource_cancelDepositRequest(
-        uint256 requestId,
-        address controller
-    ) public asActor {
+    function yieldSource_cancelDepositRequest(uint256 requestId, address controller) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).cancelDepositRequest(
-                requestId,
-                controller
-            );
+            MockERC7540Tester(yieldSource).cancelDepositRequest(requestId, controller);
         }
     }
 
-    function yieldSource_cancelRedeemRequest(
-        uint256 requestId,
-        address controller
-    ) public asActor {
+    function yieldSource_cancelRedeemRequest(uint256 requestId, address controller) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).cancelRedeemRequest(
-                requestId,
-                controller
-            );
+            MockERC7540Tester(yieldSource).cancelRedeemRequest(requestId, controller);
         }
     }
 
@@ -262,16 +207,15 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         uint256 requestId,
         address receiver,
         address controller
-    ) public asActor {
+    )
+        public
+        asActor
+    {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).claimCancelDepositRequest(
-                requestId,
-                receiver,
-                controller
-            );
+            MockERC7540Tester(yieldSource).claimCancelDepositRequest(requestId, receiver, controller);
         }
     }
 
@@ -279,63 +223,44 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         uint256 requestId,
         address receiver,
         address controller
-    ) public asActor {
+    )
+        public
+        asActor
+    {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).claimCancelRedeemRequest(
-                requestId,
-                receiver,
-                controller
-            );
+            MockERC7540Tester(yieldSource).claimCancelRedeemRequest(requestId, receiver, controller);
         }
     }
 
-    function yieldSource_deposit7540(
-        uint256 assets,
-        address receiver,
-        address controller
-    ) public asActor {
+    function yieldSource_deposit7540(uint256 assets, address receiver, address controller) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC7540) {
-            MockERC7540Tester(yieldSource).deposit(
-                assets,
-                receiver,
-                controller
-            );
+            MockERC7540Tester(yieldSource).deposit(assets, receiver, controller);
         }
     }
 
     /// Testing-specific functions (ERC4626 only) ///
-    function yieldSource_setRevertBehavior4626(
-        uint8 functionType,
-        uint8 revertType
-    ) public asActor {
+    function yieldSource_setRevertBehavior4626(uint8 functionType, uint8 revertType) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC4626) {
-            MockERC4626Tester(yieldSource).setRevertBehavior(
-                FunctionType(functionType),
-                RevertType(revertType)
-            );
+            MockERC4626Tester(yieldSource).setRevertBehavior(FunctionType(functionType), RevertType(revertType));
         }
     }
 
     /// Testing-specific functions (ERC5115 only) ///
-    function yieldSource_setRevertBehavior5115(
-        uint8 revertType
-    ) public asActor {
+    function yieldSource_setRevertBehavior5115(uint8 revertType) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC5115) {
-            MockERC5115Tester(yieldSource).setRevertBehavior(
-                RevertType5115(revertType)
-            );
+            MockERC5115Tester(yieldSource).setRevertBehavior(RevertType5115(revertType));
         }
     }
 
@@ -367,9 +292,7 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    function yieldSource_setLossOnWithdraw(
-        uint256 lossOnWithdraw
-    ) public asActor {
+    function yieldSource_setLossOnWithdraw(uint256 lossOnWithdraw) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
         address yieldSource = _getYieldSource();
 

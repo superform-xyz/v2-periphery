@@ -1,63 +1,41 @@
 // SPDX-License-Identifier: MIT
-// Heavily inspired by https://github.com/liquity/V2-gov/blob/9632de9a988522775336d9b60cdf2542efc600db/test/mocks/MaliciousInitiative.sol
+// Heavily inspired by
+// https://github.com/liquity/V2-gov/blob/9632de9a988522775336d9b60cdf2542efc600db/test/mocks/MaliciousInitiative.sol
 pragma solidity ^0.8.0;
 
-import {MockERC20} from "@recon/MockERC20.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
 abstract contract ERC4626 is MockERC20 {
     MockERC20 public immutable asset;
 
-    event Deposit(
-        address indexed caller,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
     event Withdraw(
-        address indexed caller,
-        address indexed receiver,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
+        address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
     );
 
     constructor(MockERC20 _asset) MockERC20("MockERC4626Tester", "MCT", 18) {
         asset = _asset;
     }
 
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public virtual returns (uint256) {
+    function deposit(uint256 assets, address receiver) public virtual returns (uint256) {
         uint256 shares = previewDeposit(assets);
         _deposit(msg.sender, receiver, assets, shares);
         return shares;
     }
 
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public virtual returns (uint256) {
+    function mint(uint256 shares, address receiver) public virtual returns (uint256) {
         uint256 assets = previewMint(shares);
         _deposit(msg.sender, receiver, assets, shares);
         return assets;
     }
 
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public virtual returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address owner) public virtual returns (uint256) {
         uint256 shares = previewWithdraw(assets);
         _withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual returns (uint256) {
+    function redeem(uint256 shares, address receiver, address owner) public virtual returns (uint256) {
         uint256 assets = previewRedeem(shares);
         _withdraw(msg.sender, receiver, owner, assets, shares);
         return assets;
@@ -67,23 +45,17 @@ abstract contract ERC4626 is MockERC20 {
         return asset.balanceOf(address(this));
     }
 
-    function convertToShares(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function convertToShares(uint256 assets) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? assets : (assets * supply) / totalAssets();
     }
 
-    function convertToAssets(
-        uint256 shares
-    ) public view virtual returns (uint256) {
+    function convertToAssets(uint256 shares) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? shares : (shares * totalAssets()) / supply;
     }
 
-    function previewDeposit(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function previewDeposit(uint256 assets) public view virtual returns (uint256) {
         return convertToShares(assets);
     }
 
@@ -92,16 +64,12 @@ abstract contract ERC4626 is MockERC20 {
         return supply == 0 ? shares : (shares * totalAssets()) / supply;
     }
 
-    function previewWithdraw(
-        uint256 assets
-    ) public view virtual returns (uint256) {
+    function previewWithdraw(uint256 assets) public view virtual returns (uint256) {
         uint256 supply = totalSupply;
         return supply == 0 ? assets : (assets * supply) / totalAssets();
     }
 
-    function previewRedeem(
-        uint256 shares
-    ) public view virtual returns (uint256) {
+    function previewRedeem(uint256 shares) public view virtual returns (uint256) {
         return convertToAssets(shares);
     }
 
@@ -121,12 +89,7 @@ abstract contract ERC4626 is MockERC20 {
         return balanceOf[owner];
     }
 
-    function _deposit(
-        address caller,
-        address receiver,
-        uint256 assets,
-        uint256 shares
-    ) internal virtual {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual {
         asset.transferFrom(caller, address(this), assets);
         _mint(receiver, shares);
         emit Deposit(caller, receiver, assets, shares);
@@ -138,7 +101,10 @@ abstract contract ERC4626 is MockERC20 {
         address owner,
         uint256 assets,
         uint256 shares
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         if (caller != owner) {
             allowance[owner][caller] -= shares;
         }
@@ -164,8 +130,10 @@ enum RevertType {
     REVERT_BOMB
 }
 
-/// @dev This will use the simplest possible implementation initially to allow getting coverage and will be expanded on as necessary for testing potentially more interesting behaviors
-/// @dev Note that blindspots not testable with this current implementation are covered in the ERC4626-integrations.md file
+/// @dev This will use the simplest possible implementation initially to allow getting coverage and will be expanded on
+/// as necessary for testing potentially more interesting behaviors
+/// @dev Note that blindspots not testable with this current implementation are covered in the ERC4626-integrations.md
+/// file
 contract MockERC4626Tester is ERC4626 {
     mapping(FunctionType => RevertType) public revertBehaviours;
 
@@ -176,34 +144,24 @@ contract MockERC4626Tester is ERC4626 {
     uint256 public lossOnWithdraw;
     uint256 public MAX_BPS = 10_000;
 
-    constructor(address _asset) ERC4626(MockERC20(_asset)) {}
+    constructor(address _asset) ERC4626(MockERC20(_asset)) { }
 
     /// Standard ERC4626 functions ///
 
     /// @dev Deposit assets, reverts as specified
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public override returns (uint256) {
+    function deposit(uint256 assets, address receiver) public override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.DEPOSIT]);
         return super.deposit(assets, receiver);
     }
 
     /// @dev Mint shares, reverts as specified
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public override returns (uint256) {
+    function mint(uint256 shares, address receiver) public override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.MINT]);
         return super.mint(shares, receiver);
     }
 
     /// @dev Withdraw assets, reverts as specified
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public override returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.WITHDRAW]);
 
         uint256 shares = previewWithdraw(assets);
@@ -214,11 +172,7 @@ contract MockERC4626Tester is ERC4626 {
     }
 
     /// @dev Redeem shares, reverts as specified
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public override returns (uint256) {
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.REDEEM]);
 
         uint256 assets = previewRedeem(shares);
@@ -229,33 +183,25 @@ contract MockERC4626Tester is ERC4626 {
     }
 
     /// @dev Preview deposit, reverts as specified
-    function previewDeposit(
-        uint256 assets
-    ) public view override returns (uint256) {
+    function previewDeposit(uint256 assets) public view override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.DEPOSIT]);
         return super.previewDeposit(assets);
     }
 
     /// @dev Preview mint, reverts as specified
-    function previewMint(
-        uint256 shares
-    ) public view override returns (uint256) {
+    function previewMint(uint256 shares) public view override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.MINT]);
         return super.previewMint(shares);
     }
 
     /// @dev Preview withdraw, reverts as specified
-    function previewWithdraw(
-        uint256 assets
-    ) public view override returns (uint256) {
+    function previewWithdraw(uint256 assets) public view override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.WITHDRAW]);
         return super.previewWithdraw(assets);
     }
 
     /// @dev Preview redeem, reverts as specified
-    function previewRedeem(
-        uint256 shares
-    ) public view override returns (uint256) {
+    function previewRedeem(uint256 shares) public view override returns (uint256) {
         _performRevertBehaviour(revertBehaviours[FunctionType.REDEEM]);
         return super.previewRedeem(shares);
     }

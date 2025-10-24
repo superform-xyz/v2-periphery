@@ -1,29 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {BeforeAfter} from "../BeforeAfter.sol";
-import {Properties} from "../Properties.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { BeforeAfter } from "../BeforeAfter.sol";
+import { Properties } from "../Properties.sol";
 // Chimera deps
-import {vm} from "@chimera/Hevm.sol";
+import { vm } from "@chimera/Hevm.sol";
 
 // Helpers
-import {Panic} from "@recon/Panic.sol";
+import { Panic } from "@recon/Panic.sol";
 
 import "src/SuperGovernor.sol";
 
 abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
-    function superGovernor_proposeGlobalHooksRoot_clamped(
-        bytes32 newRoot
-    ) public {
-        (bytes32 testRoot, bytes32[][] memory testProofs) = merkleHelper
-            .generateTestHooksRoot(
-                address(approveAndDeposit4626Hook),
-                address(redeem4626Hook),
-                _getYieldSource(),
-                superVault.asset()
-            );
+    function superGovernor_proposeGlobalHooksRoot_clamped(bytes32 newRoot) public {
+        (bytes32 testRoot, bytes32[][] memory testProofs) = merkleHelper.generateTestHooksRoot(
+            address(approveAndDeposit4626Hook), address(redeem4626Hook), _getYieldSource(), superVault.asset()
+        );
 
         superGovernor_proposeGlobalHooksRoot(testRoot);
     }
@@ -32,27 +26,19 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor_proposeUpkeepPaymentsChange(true);
     }
 
-    function superGovernor_proposeFee_clamped(
-        uint256 feeTypeAsUint,
-        uint256 value
-    ) public {
+    function superGovernor_proposeFee_clamped(uint256 feeTypeAsUint, uint256 value) public {
         feeTypeAsUint %= 3;
         superGovernor_proposeFee(FeeType(feeTypeAsUint), value);
     }
 
-    function superGovernor_executeFeeUpdate_clamped(
-        uint256 feeTypeAsUint
-    ) public {
+    function superGovernor_executeFeeUpdate_clamped(uint256 feeTypeAsUint) public {
         feeTypeAsUint %= 3;
         superGovernor_executeFeeUpdate(FeeType(feeTypeAsUint));
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
-    function superGovernor_proposeFee(
-        FeeType feeType,
-        uint256 value
-    ) public asAdmin {
+    function superGovernor_proposeFee(FeeType feeType, uint256 value) public asAdmin {
         superGovernor.proposeFee(feeType, value);
     }
 
@@ -60,9 +46,7 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeFeeUpdate(feeType);
     }
 
-    function superGovernor_proposeMinStaleness(
-        uint256 newMinStaleness
-    ) public asAdmin {
+    function superGovernor_proposeMinStaleness(uint256 newMinStaleness) public asAdmin {
         superGovernor.proposeMinStaleness(newMinStaleness);
     }
 
@@ -78,9 +62,7 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeUpkeepClaim(amount);
     }
 
-    function superGovernor_proposeUpkeepPaymentsChange(
-        bool enabled
-    ) public asAdmin {
+    function superGovernor_proposeUpkeepPaymentsChange(bool enabled) public asAdmin {
         superGovernor.proposeUpkeepPaymentsChange(enabled);
     }
 
@@ -88,9 +70,7 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeUpkeepPaymentsChange();
     }
 
-    function superGovernor_proposeAddIncentiveTokens(
-        address[] memory tokens
-    ) public asAdmin {
+    function superGovernor_proposeAddIncentiveTokens(address[] memory tokens) public asAdmin {
         superGovernor.proposeAddIncentiveTokens(tokens);
     }
 
@@ -98,9 +78,7 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeAddIncentiveTokens();
     }
 
-    function superGovernor_proposeGlobalHooksRoot(
-        bytes32 newRoot
-    ) public asAdmin {
+    function superGovernor_proposeGlobalHooksRoot(bytes32 newRoot) public asAdmin {
         superGovernor.proposeGlobalHooksRoot(newRoot);
     }
 }

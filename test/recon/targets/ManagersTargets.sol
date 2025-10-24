@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
-import {BeforeAfter} from "../BeforeAfter.sol";
-import {Properties} from "../Properties.sol";
-import {vm} from "@chimera/Hevm.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
+import { BeforeAfter } from "../BeforeAfter.sol";
+import { Properties } from "../Properties.sol";
+import { vm } from "@chimera/Hevm.sol";
 
-import {MockERC20} from "@recon/MockERC20.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
 // Target functions that are effectively inherited from the Actor and AssetManagers
 // Once properly standardized, managers will expose these by default
@@ -49,10 +49,7 @@ abstract contract ManagersTargets is BaseTargetFunctions, Properties {
 
     /// @dev Approve to arbitrary address, uses Actor by default
     /// NOTE: You're almost always better off setting approvals in `Setup`
-    function asset_approve(
-        address to,
-        uint128 amt
-    ) public updateGhosts asActor {
+    function asset_approve(address to, uint128 amt) public updateGhosts asActor {
         MockERC20(superVault.asset()).approve(to, amt);
     }
 

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
 pragma solidity ^0.8.0;
 
-import {BaseSetup} from "@chimera/BaseSetup.sol";
-import {vm} from "@chimera/Hevm.sol";
+import { BaseSetup } from "@chimera/BaseSetup.sol";
+import { vm } from "@chimera/Hevm.sol";
 
-import {EnumerableSet} from "@recon/EnumerableSet.sol";
-import {MockERC20} from "@recon/MockERC20.sol";
+import { EnumerableSet } from "@recon/EnumerableSet.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
-import {MockERC4626Tester} from "../mocks/MockERC4626Tester.sol";
-import {MockERC5115Tester} from "../mocks/MockERC5115Tester.sol";
-import {MockERC7540Tester} from "../mocks/MockERC7540Tester.sol";
+import { MockERC4626Tester } from "../mocks/MockERC4626Tester.sol";
+import { MockERC5115Tester } from "../mocks/MockERC5115Tester.sol";
+import { MockERC7540Tester } from "../mocks/MockERC7540Tester.sol";
 
 /// @dev Source of truth for the yield sources being used in the test
 /// @notice No yield sources should be used in the test suite without being added from here first
@@ -66,7 +66,7 @@ abstract contract YieldManager {
     /// @return The address of the new yield source
     function _newYieldSource(address asset, YieldSourceType yieldSourceType) internal returns (address) {
         address yieldSource_;
-        
+
         if (yieldSourceType == YieldSourceType.ERC4626) {
             yieldSource_ = address(new MockERC4626Tester(asset));
         } else if (yieldSourceType == YieldSourceType.ERC5115) {
@@ -76,7 +76,7 @@ abstract contract YieldManager {
         } else {
             revert InvalidYieldSourceType();
         }
-        
+
         _addYieldSource(yieldSource_);
         __yieldSource = yieldSource_; // sets the yield source as the current yield source
         __currentYieldSourceType = yieldSourceType;

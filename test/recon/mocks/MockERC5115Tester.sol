@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MockERC20} from "@recon/MockERC20.sol";
+import { MockERC20 } from "@recon/MockERC20.sol";
 
 abstract contract ERC5115 is MockERC20 {
     MockERC20 public immutable yieldToken;
@@ -24,9 +24,7 @@ abstract contract ERC5115 is MockERC20 {
         uint256 amountTokenOut
     );
 
-    constructor(
-        MockERC20 _yieldToken
-    ) MockERC20("MockERC5115Tester", "SY5115", 18) {
+    constructor(MockERC20 _yieldToken) MockERC20("MockERC5115Tester", "SY5115", 18) {
         yieldToken = _yieldToken;
         tokensIn.push(address(_yieldToken));
         tokensOut.push(address(_yieldToken));
@@ -38,23 +36,17 @@ abstract contract ERC5115 is MockERC20 {
         uint256 amountTokenToDeposit,
         uint256 minSharesOut,
         bool depositFromInternalBalance
-    ) public virtual returns (uint256 amountSharesOut) {
+    )
+        public
+        virtual
+        returns (uint256 amountSharesOut)
+    {
         amountSharesOut = previewDeposit(tokenIn, amountTokenToDeposit);
 
-        MockERC20(tokenIn).transferFrom(
-            msg.sender,
-            address(this),
-            amountTokenToDeposit
-        );
+        MockERC20(tokenIn).transferFrom(msg.sender, address(this), amountTokenToDeposit);
         _mint(receiver, amountSharesOut);
 
-        emit Deposit(
-            msg.sender,
-            receiver,
-            tokenIn,
-            amountTokenToDeposit,
-            amountSharesOut
-        );
+        emit Deposit(msg.sender, receiver, tokenIn, amountTokenToDeposit, amountSharesOut);
     }
 
     function exchangeRate() public view virtual returns (uint256) {
@@ -74,29 +66,35 @@ abstract contract ERC5115 is MockERC20 {
     function previewDeposit(
         address tokenIn,
         uint256 amountTokenToDeposit
-    ) public view virtual returns (uint256 amountSharesOut) {
+    )
+        public
+        view
+        virtual
+        returns (uint256 amountSharesOut)
+    {
         require(tokenIn == address(yieldToken), "Invalid token");
         uint256 supply = totalSupply;
         if (supply == 0) {
             return amountTokenToDeposit;
         }
-        return
-            (amountTokenToDeposit * supply) /
-            yieldToken.balanceOf(address(this));
+        return (amountTokenToDeposit * supply) / yieldToken.balanceOf(address(this));
     }
 
     function previewRedeem(
         address tokenOut,
         uint256 amountSharesToRedeem
-    ) public view virtual returns (uint256 amountTokenOut) {
+    )
+        public
+        view
+        virtual
+        returns (uint256 amountTokenOut)
+    {
         require(tokenOut == address(yieldToken), "Invalid token");
         uint256 supply = totalSupply;
         if (supply == 0) {
             return amountSharesToRedeem;
         }
-        return
-            (amountSharesToRedeem * yieldToken.balanceOf(address(this))) /
-            supply;
+        return (amountSharesToRedeem * yieldToken.balanceOf(address(this))) / supply;
     }
 }
 
@@ -115,7 +113,7 @@ contract MockERC5115Tester is ERC5115 {
     uint256 public lossOnWithdraw;
     uint256 public MAX_BPS = 10_000;
 
-    constructor(address _yieldToken) ERC5115(MockERC20(_yieldToken)) {}
+    constructor(address _yieldToken) ERC5115(MockERC20(_yieldToken)) { }
 
     function deposit(
         address receiver,
@@ -123,16 +121,13 @@ contract MockERC5115Tester is ERC5115 {
         uint256 amountTokenToDeposit,
         uint256 minSharesOut,
         bool depositFromInternalBalance
-    ) public override returns (uint256 amountSharesOut) {
+    )
+        public
+        override
+        returns (uint256 amountSharesOut)
+    {
         _performRevertBehaviour(revertBehaviour);
-        return
-            super.deposit(
-                receiver,
-                tokenIn,
-                amountTokenToDeposit,
-                minSharesOut,
-                depositFromInternalBalance
-            );
+        return super.deposit(receiver, tokenIn, amountTokenToDeposit, minSharesOut, depositFromInternalBalance);
     }
 
     function redeem(
@@ -141,21 +136,18 @@ contract MockERC5115Tester is ERC5115 {
         address tokenOut,
         uint256 minTokenOut,
         bool burnFromInternalBalance
-    ) public virtual returns (uint256 amountTokenOut) {
+    )
+        public
+        virtual
+        returns (uint256 amountTokenOut)
+    {
         amountTokenOut = previewRedeem(tokenOut, amountSharesToRedeem);
 
         _burn(msg.sender, amountSharesToRedeem);
-        uint256 lossyAmountTokenOut = amountTokenOut -
-            ((amountTokenOut * lossOnWithdraw) / MAX_BPS);
+        uint256 lossyAmountTokenOut = amountTokenOut - ((amountTokenOut * lossOnWithdraw) / MAX_BPS);
         MockERC20(tokenOut).transfer(receiver, lossyAmountTokenOut);
 
-        emit Redeem(
-            msg.sender,
-            receiver,
-            tokenOut,
-            amountSharesToRedeem,
-            amountTokenOut
-        );
+        emit Redeem(msg.sender, receiver, tokenOut, amountSharesToRedeem, amountTokenOut);
     }
 
     function _performRevertBehaviour(RevertType action) internal pure {
@@ -197,11 +189,7 @@ contract MockERC5115Tester is ERC5115 {
     }
 
     function simulateGain(uint256 gainAmount) external {
-        MockERC20(yieldToken).transferFrom(
-            msg.sender,
-            address(this),
-            gainAmount
-        );
+        MockERC20(yieldToken).transferFrom(msg.sender, address(this), gainAmount);
         totalGains += gainAmount;
     }
 
@@ -212,16 +200,14 @@ contract MockERC5115Tester is ERC5115 {
     }
 
     function increaseYield(uint256 increasePercentageFP4) public {
-        require(increasePercentageFP4 <= 10000, "Invalid percentage");
-        uint256 amount = (yieldToken.balanceOf(address(this)) *
-            increasePercentageFP4) / 10000;
+        require(increasePercentageFP4 <= 10_000, "Invalid percentage");
+        uint256 amount = (yieldToken.balanceOf(address(this)) * increasePercentageFP4) / 10_000;
         MockERC20(yieldToken).transferFrom(msg.sender, address(this), amount);
     }
 
     function decreaseYield(uint256 decreasePercentageFP4) public {
-        require(decreasePercentageFP4 <= 10000, "Invalid percentage");
-        uint256 amount = (yieldToken.balanceOf(address(this)) *
-            decreasePercentageFP4) / 10000;
+        require(decreasePercentageFP4 <= 10_000, "Invalid percentage");
+        uint256 amount = (yieldToken.balanceOf(address(this)) * decreasePercentageFP4) / 10_000;
         MockERC20(yieldToken).transfer(address(0xbeef), amount);
         totalLosses += amount;
     }

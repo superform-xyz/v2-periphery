@@ -8,13 +8,13 @@ contract MockSuperVaultEscrow {
     //||                                                             ||
     //<>=============================================================<>
     // Mock implementation of escrowShares
-    function escrowShares(address from, uint256 amount) public {}
+    function escrowShares(address from, uint256 amount) public { }
 
     // Mock implementation of initialize
-    function initialize(address vaultAddress, address strategyAddress) public {}
+    function initialize(address vaultAddress, address strategyAddress) public { }
 
     // Mock implementation of returnShares
-    function returnShares(address to, uint256 amount) public {}
+    function returnShares(address to, uint256 amount) public { }
 
     //<>=============================================================<>
     //||                                                             ||
@@ -36,12 +36,14 @@ contract MockSuperVaultEscrow {
         _vaultReturn_0 = _value0;
     }
 
-    /*******************************************************************
+    /**
+     *
      *   ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️  *
-     *-----------------------------------------------------------------*
+     * -----------------------------------------------------------------*
      *      Generally you only need to modify the sections above.      *
      *          The code below handles system operations.              *
-     *******************************************************************/
+     *
+     */
 
     //<>=============================================================<>
     //||                                                             ||

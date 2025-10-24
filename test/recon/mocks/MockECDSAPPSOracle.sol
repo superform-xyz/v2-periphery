@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {ISuperVaultAggregator} from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
-import {IECDSAPPSOracle} from "src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
+import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
 
 contract MockECDSAPPSOracle {
     //<>=============================================================<>
@@ -12,16 +12,15 @@ contract MockECDSAPPSOracle {
     //<>=============================================================<>
     // Mock implementation of updatePPS
     function updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public {
-        ISuperVaultAggregator.ForwardPPSArgs
-            memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: args.strategies,
-                ppss: args.ppss,
-                ppsStdevs: args.ppsStdevs,
-                validatorSets: args.validatorSets,
-                totalValidators: args.totalValidators,
-                timestamps: args.timestamps,
-                updateAuthority: msg.sender
-            });
+        ISuperVaultAggregator.ForwardPPSArgs memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
+            strategies: args.strategies,
+            ppss: args.ppss,
+            ppsStdevs: args.ppsStdevs,
+            validatorSets: args.validatorSets,
+            totalValidators: args.totalValidators,
+            timestamps: args.timestamps,
+            updateAuthority: msg.sender
+        });
 
         ISuperVaultAggregator(_SUPER_GOVERNORReturn_0).forwardPPS(forwardArgs);
     }
@@ -46,12 +45,14 @@ contract MockECDSAPPSOracle {
         _domainSeparatorReturn_0 = _value0;
     }
 
-    /*******************************************************************
+    /**
+     *
      *   ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️ WARNING ⚠️  *
-     *-----------------------------------------------------------------*
+     * -----------------------------------------------------------------*
      *      Generally you only need to modify the sections above.      *
      *          The code below handles system operations.              *
-     *******************************************************************/
+     *
+     */
 
     //<>=============================================================<>
     //||                                                             ||
@@ -117,15 +118,7 @@ contract MockECDSAPPSOracle {
     function eip712Domain()
         public
         view
-        returns (
-            bytes1,
-            string memory,
-            string memory,
-            uint256,
-            address,
-            bytes32,
-            uint256[] memory
-        )
+        returns (bytes1, string memory, string memory, uint256, address, bytes32, uint256[] memory)
     {
         return (
             _eip712DomainReturn_0,
