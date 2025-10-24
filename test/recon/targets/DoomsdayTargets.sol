@@ -121,6 +121,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         ISuperVaultStrategy.ExecuteArgs memory executeArgs = _createExecuteRedeemArgs(shares);
         // execute and fulfill as admin (address(this))
         superVaultStrategy.executeHooks(executeArgs);
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
         superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 4. Claim Withdrawal
@@ -259,7 +261,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // 4. Fulfill all redemption requests at once
         // fulfill as address(this)
         superVaultStrategy.executeHooks(executeArgs);
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+        superVaultStrategy.fulfillRedeemRequests(testActors);
 
         // 5. Calculate total pending after
         uint256 totalPendingAfter;
@@ -315,7 +317,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             _switchActor(i);
 
             (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
-                _executeRedeemArgs(redeemableShares);
+                _executeRedeemRequestsArgs(redeemableShares);
             superVaultStrategy.executeHooks(executeArgs);
             superVaultStrategy.fulfillRedeemRequests(controllers);
         }
