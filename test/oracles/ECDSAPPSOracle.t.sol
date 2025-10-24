@@ -148,8 +148,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             address(svStrategy),
             PPS,
             PPS_STDEV,
-            2, // validatorSet
-            3, // totalValidators
             block.timestamp,
             new uint256[](0)
         );
@@ -182,8 +180,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -195,8 +191,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             address(svStrategy),
             PPS,
             PPS_STDEV,
-            2, // validatorSet
-            3, // totalValidators
             block.timestamp,
             new uint256[](0)
         );
@@ -229,8 +223,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -245,8 +237,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -315,8 +305,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -331,8 +319,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             address(svStrategy),
             PPS,
             PPS_STDEV,
-            1, // validatorSet - only 1 validator signing
-            3, // totalValidators
             block.timestamp,
             signerKeys
         );
@@ -369,8 +355,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -432,8 +416,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -510,8 +492,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -575,81 +555,34 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
     }
 
-    function test_UpdatePPS_InvalidValidatorSetReverts() public {
-        // Create proofs from 2 validators but claim validatorSet = 3
-        bytes[] memory proofs = _createValidProofs(
-            address(svStrategy),
-            PPS,
-            PPS_STDEV,
-            3, // Claim 3 validators signed
-            3, // totalValidators
-            block.timestamp,
-            new uint256[](0)
+    function test_UpdatePPS_InsufficientQuorumReverts() public {
+        // Create only 1 proof when we need at least 2 for quorum
+        bytes[] memory proofs = new bytes[](1);
+        
+        // Create a valid signature from validator1
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                address(svStrategy),
+                PPS,
+                PPS_STDEV,
+                block.timestamp,
+                oracleECDSA.noncePerStrategy(address(svStrategy))
+            )
         );
-
-        // Remove one proof to create mismatch
-        bytes[] memory shorterProofs = new bytes[](2);
-        shorterProofs[0] = proofs[0];
-        shorterProofs[1] = proofs[1];
+        bytes32 domainSeparator = oracleECDSA.domainSeparator();
+        bytes32 digest = MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(validator1PrivateKey, digest);
+        proofs[0] = abi.encodePacked(r, s, v);
 
         vm.expectEmit(true, false, false, false);
-        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.INVALID_VALIDATOR_SET.selector));
-        
-        address[] memory strategies = new address[](1);
-        strategies[0] = address(svStrategy);
-        
-        bytes[][] memory proofsArray = new bytes[][](1);
-        proofsArray[0] = shorterProofs;
-        
-        uint256[] memory ppss = new uint256[](1);
-        ppss[0] = PPS;
-        
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = PPS_STDEV;
-        
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 3;
-        
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = 3;
-        
-        uint256[] memory timestamps = new uint256[](1);
-        timestamps[0] = block.timestamp;
-        
-        oracleECDSA.updatePPS(
-            IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
-                timestamps: timestamps
-            })
-        );
-    }
-
-    function test_UpdatePPS_InvalidTotalValidatorsReverts() public {
-        // Create valid proofs but with incorrect totalValidators count
-        bytes[] memory proofs = _createValidProofs(
-            address(svStrategy),
-            PPS,
-            PPS_STDEV,
-            2, // validatorSet
-            5, // Claim 5 total validators (but we only have 3 registered)
-            block.timestamp,
-            new uint256[](0)
-        );
-
-        vm.expectEmit(true, false, false, false);
-        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.INVALID_TOTAL_VALIDATORS.selector));
+        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.QUORUM_NOT_MET.selector));
         
         address[] memory strategies = new address[](1);
         strategies[0] = address(svStrategy);
@@ -663,11 +596,38 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = PPS_STDEV;
         
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 2;
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = block.timestamp;
         
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = 5;
+        oracleECDSA.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                timestamps: timestamps
+            })
+        );
+    }
+
+    function test_UpdatePPS_EmptyProofsArrayReverts() public {
+        // Create empty proof array to trigger ZERO_LENGTH_ARRAY error
+        bytes[] memory emptyProofs = new bytes[](0);
+
+        vm.expectEmit(true, false, false, false);
+        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.ZERO_LENGTH_ARRAY.selector));
+        
+        address[] memory strategies = new address[](1);
+        strategies[0] = address(svStrategy);
+        
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = emptyProofs;
+        
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = PPS;
+        
+        uint256[] memory ppsStdevs = new uint256[](1);
+        ppsStdevs[0] = PPS_STDEV;
         
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
@@ -678,8 +638,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -721,8 +679,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -744,8 +700,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             address(svStrategy),
             PPS,
             PPS_STDEV,
-            2, // validatorSet
-            3, // totalValidators
             block.timestamp,
             new uint256[](0)
         );
@@ -777,8 +731,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -863,10 +815,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         data.proofsArray = new bytes[][](2);
         data.proofsArray[0] = _createValidProofs(
-            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.validatorSets[0], data.totalValidatorsList[0], data.timestamps[0], new uint256[](0)
+            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.timestamps[0], new uint256[](0)
         );
         data.proofsArray[1] = _createValidProofs(
-            data.strategy2, data.ppss[1], data.ppsStdevs[1], data.validatorSets[1], data.totalValidatorsList[1], data.timestamps[1], new uint256[](0)
+            data.strategy2, data.ppss[1], data.ppsStdevs[1], data.timestamps[1], new uint256[](0)
         );
 
         data.updateAuthorities = new address[](2);
@@ -881,8 +833,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: data.proofsArray,
                 ppss: data.ppss,
                 ppsStdevs: data.ppsStdevs,
-                validatorSets: data.validatorSets,
-                totalValidators: data.totalValidatorsList,
                 timestamps: data.timestamps
             })
         );
@@ -938,10 +888,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         data.proofsArray = new bytes[][](2);
         data.proofsArray[0] = _createValidProofs(
-            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.validatorSets[0], data.totalValidatorsList[0], data.timestamps[0], new uint256[](0)
+            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.timestamps[0], new uint256[](0)
         );
         data.proofsArray[1] = _createValidProofs(
-            data.strategy2, data.ppss[1], data.ppsStdevs[1], data.validatorSets[1], data.totalValidatorsList[1], data.timestamps[1], new uint256[](0)
+            data.strategy2, data.ppss[1], data.ppsStdevs[1], data.timestamps[1], new uint256[](0)
         );
 
         // Set an extremely high gas cost per strategy to trigger the insufficient gas check
@@ -964,8 +914,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: data.proofsArray,
                 ppss: data.ppss,
                 ppsStdevs: data.ppsStdevs,
-                validatorSets: data.validatorSets,
-                totalValidators: data.totalValidatorsList,
                 timestamps: data.timestamps
             })
         );
@@ -1101,8 +1049,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         bytes[][] memory proofsArray = new bytes[][](0);
         uint256[] memory ppss = new uint256[](0);
         uint256[] memory ppsStdevs = new uint256[](0);
-        uint256[] memory validatorSets = new uint256[](0);
-        uint256[] memory totalValidatorsList = new uint256[](0);
+        // Note: validatorSets and totalValidators are no longer needed for UpdatePPSArgs
         uint256[] memory timestamps = new uint256[](0);
 
         // Call should revert because arrays are empty
@@ -1114,8 +1061,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidatorsList,
                 timestamps: timestamps
             })
         );
@@ -1141,7 +1086,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         data.strategies[1] = address(0x222);
 
         data.proofsArray = new bytes[][](1); // Only one proof set
-        data.proofsArray[0] = _createValidProofs(data.strategies[0], PPS, PPS_STDEV, 2, 3, block.timestamp, new uint256[](0));
+        data.proofsArray[0] = _createValidProofs(data.strategies[0], PPS, PPS_STDEV, block.timestamp, new uint256[](0));
 
         data.ppss = new uint256[](2);
         data.ppss[0] = PPS;
@@ -1176,8 +1121,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: data.proofsArray,
                 ppss: data.ppss,
                 ppsStdevs: data.ppsStdevs,
-                validatorSets: data.validatorSets,
-                totalValidators: data.totalValidatorsList,
                 timestamps: data.timestamps
             })
         );
@@ -1234,7 +1177,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // First strategy has valid proofs
         data.proofsArray = new bytes[][](2);
         data.proofsArray[0] = _createValidProofs(
-            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.validatorSets[0], data.totalValidatorsList[0], data.timestamps[0], new uint256[](0)
+            data.strategy1, data.ppss[0], data.ppsStdevs[0], data.timestamps[0], new uint256[](0)
         );
 
         // Second strategy has empty proofs array (should trigger ZERO_LENGTH_ARRAY error)
@@ -1252,8 +1195,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 proofsArray: data.proofsArray,
                 ppss: data.ppss,
                 ppsStdevs: data.ppsStdevs,
-                validatorSets: data.validatorSets,
-                totalValidators: data.totalValidatorsList,
                 timestamps: data.timestamps
             })
         );
@@ -1286,8 +1227,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
      * @param strategy_ The address of the strategy
      * @param pps The price per share
      * @param ppsStdev The standard deviation of the price per share
-     * @param validatorSet The number of validators in the validator set
-     * @param totalValidators The total number of validators
      * @param timestamp The timestamp of the PPS update
      * @param specificSignerKeys An optional array of specific signer keys to use
      * @return proofs An array of valid proofs
@@ -1296,8 +1235,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         address strategy_,
         uint256 pps,
         uint256 ppsStdev,
-        uint256 validatorSet,
-        uint256 totalValidators,
         uint256 timestamp,
         uint256[] memory specificSignerKeys
     )
@@ -1305,15 +1242,13 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         view
         returns (bytes[] memory)
     {
-        // Create digest with all parameters
+        // Create digest with all parameters (updated for simplified typehash)
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 oracleECDSA.UPDATE_PPS_TYPEHASH(),
                 strategy_,
                 pps,
                 ppsStdev,
-                validatorSet,
-                totalValidators,
                 timestamp,
                 oracleECDSA.noncePerStrategy(address(svStrategy))
             )
@@ -1326,15 +1261,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         if (specificSignerKeys.length > 0) {
             signerKeys = specificSignerKeys;
         } else {
-            // Use as many validators as needed based on validatorSet
-            signerKeys = new uint256[](validatorSet);
-
-            // Assign default validator keys based on the validatorSet count
-            for (uint256 i = 0; i < validatorSet; i++) {
-                if (i == 0) signerKeys[i] = validator1PrivateKey;
-                else if (i == 1) signerKeys[i] = validator2PrivateKey;
-                else if (i == 2) signerKeys[i] = validator3PrivateKey;
-            }
+            // Use 2 validators by default (matching the quorum setting in setUp)
+            signerKeys = new uint256[](2);
+            signerKeys[0] = validator1PrivateKey;
+            signerKeys[1] = validator2PrivateKey;
         }
 
         // Sort signer keys by their corresponding addresses to ensure ascending order

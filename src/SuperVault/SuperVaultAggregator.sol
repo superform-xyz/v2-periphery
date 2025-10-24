@@ -224,8 +224,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Validate input array lengths
         if (
             strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
-                || strategiesLength != args.validatorSets.length || strategiesLength != args.timestamps.length
-                || strategiesLength != args.totalValidators.length
+                || strategiesLength != args.timestamps.length || strategiesLength != args.validatorSets.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
@@ -268,7 +267,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     pps: args.ppss[i],
                     ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidators[i],
+                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
