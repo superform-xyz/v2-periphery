@@ -36,6 +36,30 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         uint256 swapAmount;
     }
 
+    struct RatioCalculationVars {
+        uint256 totalRatio;
+        uint256 vaultAllocation;
+        uint256 vault1Amount;
+        uint256 vault2Amount;
+        bytes32 yieldSourceOracleId;
+    }
+
+    struct SwapProcessingVars {
+        string path;
+        string requestBody;
+        OdosDecodedSwap odosDecodedSwap;
+        bytes odosCalldata;
+        QuoteInputToken[] quoteInputTokens;
+        QuoteOutputToken[] quoteOutputTokens;
+    }
+
+    struct ExecutionArrays {
+        address[] executeHookAddresses;
+        bytes[] executeHooksData;
+        uint256[] expectedAssetsOrSharesOut;
+        bytes[] argsForProofs;
+    }
+
 
     function setUp() public override {
         useLatestFork = true;
@@ -135,12 +159,12 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
                        PRIVATE
     //////////////////////////////////////////////////////////////*/
     function _depositAndSwapWithCustomRatios(uint256 fullAmount, address assetToDeposit, address strat, address vault1, address vault2, uint256 ratio1, uint256 ratio2) private {
-        // Calculate amounts based on ratios
-        uint256 totalRatio = ratio1 + ratio2;
-        uint256 vaultAllocation = fullAmount * 70 / 100; // Reserve 70% for vaults, 30% for swap
-        uint256 vault1Amount = vaultAllocation * ratio1 / totalRatio;
-        uint256 vault2Amount = vaultAllocation * ratio2 / totalRatio;
-        uint256 swapAmount = fullAmount - vaultAllocation; // 30% for swap
+        RatioCalculationVars memory ratioVars;
+        ratioVars.totalRatio = ratio1 + ratio2;
+        ratioVars.vaultAllocation = fullAmount * 70 / 100; // Reserve 70% for vaults, 30% for swap
+        ratioVars.vault1Amount = ratioVars.vaultAllocation * ratio1 / ratioVars.totalRatio;
+        ratioVars.vault2Amount = ratioVars.vaultAllocation * ratio2 / ratioVars.totalRatio;
+        ratioVars.yieldSourceOracleId = _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -150,75 +174,54 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
             vault2: vault2,
             depositHookAddress: _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY),
             approveAndSwapOdos: approveAndSwapOdosHookAddressETH,
-            fullDepositAmount: vault1Amount,
-            halfAmount: vault2Amount,
-            swapAmount: swapAmount
+            fullDepositAmount: ratioVars.vault1Amount,
+            halfAmount: ratioVars.vault2Amount,
+            swapAmount: fullAmount - ratioVars.vaultAllocation
         });
 
-        address[] memory executeHookAddresses = new address[](3);
-        executeHookAddresses[0] = params.depositHookAddress;
-        executeHookAddresses[1] = params.depositHookAddress;
-        executeHookAddresses[2] = params.approveAndSwapOdos;
-
-        bytes[] memory executeHooksData = new bytes[](3);
+        ExecutionArrays memory arrays = ExecutionArrays({
+            executeHookAddresses: new address[](3),
+            executeHooksData: new bytes[](3),
+            expectedAssetsOrSharesOut: new uint256[](3),
+            argsForProofs: new bytes[](3)
+        });
         
-        executeHooksData[0] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        arrays.executeHookAddresses[0] = params.depositHookAddress;
+        arrays.executeHookAddresses[1] = params.depositHookAddress;
+        arrays.executeHookAddresses[2] = params.approveAndSwapOdos;
+        
+        arrays.executeHooksData[0] = _createApproveAndDeposit4626HookData(
+            ratioVars.yieldSourceOracleId,
             params.vault1,
             params.assetToDeposit,
-            vault1Amount,
+            ratioVars.vault1Amount,
             false,
             address(0),
             0
         );
 
-        executeHooksData[1] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        arrays.executeHooksData[1] = _createApproveAndDeposit4626HookData(
+            ratioVars.yieldSourceOracleId,
             params.vault2,
             params.assetToDeposit,
-            vault2Amount,
+            ratioVars.vault2Amount,
             false,
             address(0),
             0
         );
 
-        // --swap data
-        QuoteInputToken[] memory quoteInputTokens = new QuoteInputToken[](1);
-        quoteInputTokens[0] = QuoteInputToken({ tokenAddress: params.assetToDeposit, amount: params.swapAmount });
-        QuoteOutputToken[] memory quoteOutputTokens = new QuoteOutputToken[](1);
-        quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: CHAIN_1_USDT, proportion: 1 });
+        _processSwapData(params, arrays);
+        
+        arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
+        arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
-        string memory path = surlCallQuoteV2(quoteInputTokens, quoteOutputTokens, params.strat, ETH, true);
-        string memory requestBody = surlCallAssemble(path, params.strat);
-
-        OdosDecodedSwap memory odosDecodedSwap = decodeOdosSwapCalldata(fromHex(requestBody));
-        bytes memory odosCalldata = _createOdosSwapHookData(
-            odosDecodedSwap.tokenInfo.inputToken,
-            odosDecodedSwap.tokenInfo.inputAmount,
-            odosDecodedSwap.tokenInfo.inputReceiver,
-            odosDecodedSwap.tokenInfo.outputToken,
-            odosDecodedSwap.tokenInfo.outputQuote,
-            odosDecodedSwap.tokenInfo.outputMin - odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
-            odosDecodedSwap.pathDefinition,
-            odosDecodedSwap.executor,
-            odosDecodedSwap.referralCode,
-            false
-        );
-        executeHooksData[2] = odosCalldata;
-
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](3);
-        expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(vault1Amount);
-        expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(vault2Amount);
-        expectedAssetsOrSharesOut[2] = odosDecodedSwap.tokenInfo.outputQuote;
-
-        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3/1e5;
+        for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
+            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3/1e5;
         }
         
-        bytes[] memory argsForProofs = new bytes[](3);
-        argsForProofs[0] = ISuperHookInspector(executeHookAddresses[0]).inspect(executeHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(executeHookAddresses[1]).inspect(executeHooksData[1]);
-        argsForProofs[2] = ISuperHookInspector(executeHookAddresses[2]).inspect(executeHooksData[2]);
+        arrays.argsForProofs[0] = ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
+        arrays.argsForProofs[1] = ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
+        arrays.argsForProofs[2] = ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
 
         vm.mockCall(
             address(aggregator),
@@ -229,9 +232,9 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         vm.startPrank(MANAGER);
         ISuperVaultStrategy(payable(params.strat)).executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
-                hooks: executeHookAddresses,
-                hookCalldata: executeHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                hooks: arrays.executeHookAddresses,
+                hookCalldata: arrays.executeHooksData,
+                expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
                 globalProofs: new bytes32[][](3),
                 strategyProofs: new bytes32[][](3)
             })
@@ -240,6 +243,12 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
     }
 
     function _depositAndSwap(uint256 fullAmount, address assetToDeposit, address strat, address vault1, address vault2) private {
+        RatioCalculationVars memory ratioVars;
+        ratioVars.vaultAllocation = fullAmount / 2;
+        ratioVars.vault1Amount = ratioVars.vaultAllocation / 2;
+        ratioVars.vault2Amount = ratioVars.vaultAllocation - ratioVars.vault1Amount;
+        ratioVars.yieldSourceOracleId = _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
+
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
             assetToDeposit: assetToDeposit,
@@ -248,75 +257,54 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
             vault2: vault2,
             depositHookAddress: _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY),
             approveAndSwapOdos: approveAndSwapOdosHookAddressETH,
-            fullDepositAmount: fullAmount / 2,
-            halfAmount: (fullAmount / 2) / 2,
-            swapAmount: fullAmount - (fullAmount / 2)
+            fullDepositAmount: ratioVars.vaultAllocation,
+            halfAmount: ratioVars.vault1Amount,
+            swapAmount: fullAmount - ratioVars.vaultAllocation
         });
 
-        address[] memory executeHookAddresses = new address[](3);
-        executeHookAddresses[0] = params.depositHookAddress;
-        executeHookAddresses[1] = params.depositHookAddress;
-        executeHookAddresses[2] = params.approveAndSwapOdos;
-
-        bytes[] memory executeHooksData = new bytes[](3);
+        ExecutionArrays memory arrays = ExecutionArrays({
+            executeHookAddresses: new address[](3),
+            executeHooksData: new bytes[](3),
+            expectedAssetsOrSharesOut: new uint256[](3),
+            argsForProofs: new bytes[](3)
+        });
         
-        executeHooksData[0] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        arrays.executeHookAddresses[0] = params.depositHookAddress;
+        arrays.executeHookAddresses[1] = params.depositHookAddress;
+        arrays.executeHookAddresses[2] = params.approveAndSwapOdos;
+        
+        arrays.executeHooksData[0] = _createApproveAndDeposit4626HookData(
+            ratioVars.yieldSourceOracleId,
             params.vault1,
             params.assetToDeposit,
-            params.halfAmount,
+            ratioVars.vault1Amount,
             false,
             address(0),
             0
         );
 
-        executeHooksData[1] = _createApproveAndDeposit4626HookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+        arrays.executeHooksData[1] = _createApproveAndDeposit4626HookData(
+            ratioVars.yieldSourceOracleId,
             params.vault2,
             params.assetToDeposit,
-            params.fullDepositAmount - params.halfAmount,
+            ratioVars.vault2Amount,
             false,
             address(0),
             0
         );
 
-        // --swap data
-        QuoteInputToken[] memory quoteInputTokens = new QuoteInputToken[](1);
-        quoteInputTokens[0] = QuoteInputToken({ tokenAddress: params.assetToDeposit, amount: params.swapAmount });
-        QuoteOutputToken[] memory quoteOutputTokens = new QuoteOutputToken[](1);
-        quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: CHAIN_1_USDT, proportion: 1 });
+        _processSwapData(params, arrays);
+        
+        arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
+        arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
-        string memory path = surlCallQuoteV2(quoteInputTokens, quoteOutputTokens, params.strat, ETH, true);
-        string memory requestBody = surlCallAssemble(path, params.strat);
-
-        OdosDecodedSwap memory odosDecodedSwap = decodeOdosSwapCalldata(fromHex(requestBody));
-        bytes memory odosCalldata = _createOdosSwapHookData(
-            odosDecodedSwap.tokenInfo.inputToken,
-            odosDecodedSwap.tokenInfo.inputAmount,
-            odosDecodedSwap.tokenInfo.inputReceiver,
-            odosDecodedSwap.tokenInfo.outputToken,
-            odosDecodedSwap.tokenInfo.outputQuote,
-            odosDecodedSwap.tokenInfo.outputMin - odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
-            odosDecodedSwap.pathDefinition,
-            odosDecodedSwap.executor,
-            odosDecodedSwap.referralCode,
-            false
-        );
-        executeHooksData[2] = odosCalldata;
-
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](3);
-        expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(params.halfAmount);
-        expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(params.fullDepositAmount - params.halfAmount);
-        expectedAssetsOrSharesOut[2] = odosDecodedSwap.tokenInfo.outputQuote;
-
-        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3/1e5;
+        for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
+            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3/1e5;
         }
 
-        bytes[] memory argsForProofs = new bytes[](3);
-        argsForProofs[0] = ISuperHookInspector(executeHookAddresses[0]).inspect(executeHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(executeHookAddresses[1]).inspect(executeHooksData[1]);
-        argsForProofs[2] = ISuperHookInspector(executeHookAddresses[2]).inspect(executeHooksData[2]);
+        arrays.argsForProofs[0] = ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
+        arrays.argsForProofs[1] = ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
+        arrays.argsForProofs[2] = ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
 
         vm.mockCall(
             address(aggregator),
@@ -327,13 +315,41 @@ contract SuperVaultSwapTest is BaseSuperVaultTest {
         vm.startPrank(MANAGER);
         ISuperVaultStrategy(payable(params.strat)).executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
-                hooks: executeHookAddresses,
-                hookCalldata: executeHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                hooks: arrays.executeHookAddresses,
+                hookCalldata: arrays.executeHooksData,
+                expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
                 globalProofs: new bytes32[][](3),
                 strategyProofs: new bytes32[][](3)
             })
         );
         vm.stopPrank();
+    }
+
+    function _processSwapData(DepositAndSwapParams memory params, ExecutionArrays memory arrays) private {
+        SwapProcessingVars memory swapVars;
+        
+        swapVars.quoteInputTokens = new QuoteInputToken[](1);
+        swapVars.quoteInputTokens[0] = QuoteInputToken({ tokenAddress: params.assetToDeposit, amount: params.swapAmount });
+        swapVars.quoteOutputTokens = new QuoteOutputToken[](1);
+        swapVars.quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: CHAIN_1_USDT, proportion: 1 });
+
+        swapVars.path = surlCallQuoteV2(swapVars.quoteInputTokens, swapVars.quoteOutputTokens, params.strat, ETH, true);
+        swapVars.requestBody = surlCallAssemble(swapVars.path, params.strat);
+
+        swapVars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(swapVars.requestBody));
+        swapVars.odosCalldata = _createOdosSwapHookData(
+            swapVars.odosDecodedSwap.tokenInfo.inputToken,
+            swapVars.odosDecodedSwap.tokenInfo.inputAmount,
+            swapVars.odosDecodedSwap.tokenInfo.inputReceiver,
+            swapVars.odosDecodedSwap.tokenInfo.outputToken,
+            swapVars.odosDecodedSwap.tokenInfo.outputQuote,
+            swapVars.odosDecodedSwap.tokenInfo.outputMin - swapVars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+            swapVars.odosDecodedSwap.pathDefinition,
+            swapVars.odosDecodedSwap.executor,
+            swapVars.odosDecodedSwap.referralCode,
+            false
+        );
+        arrays.executeHooksData[2] = swapVars.odosCalldata;
+        arrays.expectedAssetsOrSharesOut[2] = swapVars.odosDecodedSwap.tokenInfo.outputQuote;
     }
 }
