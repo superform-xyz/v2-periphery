@@ -67,7 +67,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
-    // Maximum number of strategies to process in `batchForwardPPS`
+    // Maximum number of strategies to process
     uint256 public constant MAX_STRATEGIES = 300;
 
     // Time lock for stake withdrawal requests
@@ -229,8 +229,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
 
+        // Get total validators and validate
+        uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
+        if (cachedTotalValidators == 0) revert INVALID_TOTAL_VALIDATORS();
+
         for (uint256 i; i < strategiesLength; ++i) {
             address strategy = args.strategies[i];
+
+            if (strategy == address(0)) {
+                // Skip invalid strategy marked during validation
+                // Note: events for this are emitted already in _processIndividualStrategy in the PPS Oracle
+                continue;
+            }
 
             // Skip invalid strategy
             if (!_superVaultStrategies.contains(strategy)) {
@@ -267,7 +277,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     pps: args.ppss[i],
                     ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidator,
+                    totalValidators: cachedTotalValidators,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -1032,11 +1042,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (
-                _validateSingleHook(
+            if (_validateSingleHook(
                     argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
-                )
-            ) {
+                )) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root

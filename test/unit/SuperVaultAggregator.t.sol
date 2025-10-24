@@ -107,6 +107,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
         vm.stopPrank();
+        
+        // Add a validator so getValidatorsCount() returns non-zero
+        // This is required because forwardPPS now calculates totalValidators internally
+        vm.prank(governor);
+        superGovernor.addValidator(makeAddr("validator1"));
     }
 
     // =============================================================
@@ -723,7 +728,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -799,7 +803,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -894,8 +897,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     ppss: ppss,
                     ppsStdevs: ppsStdevs,
                     validatorSets: validatorSets,
-                    totalValidator: totalValidators[0],
-                    timestamps: timestamps,
+                        timestamps: timestamps,
                     updateAuthority: address(this)
                 })
             );
@@ -1043,7 +1045,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2406,7 +2407,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: vars.ppss,
                 ppsStdevs: vars.ppsStdevs,
                 validatorSets: vars.validatorSets,
-                totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
                 updateAuthority: address(this)
             })
@@ -2491,7 +2491,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2537,7 +2536,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2581,7 +2579,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2646,7 +2643,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2681,7 +2677,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })

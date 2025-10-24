@@ -467,6 +467,8 @@ interface ISuperVaultAggregator {
     error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
     /// @notice Thrown when PPS is too stale to unpause a strategy
     error UNPAUSE_TIMELOCK_NOT_MET();
+    /// @notice Thrown when the total validator count is invalid (zero)
+    error INVALID_TOTAL_VALIDATORS();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -488,14 +490,12 @@ interface ISuperVaultAggregator {
     /// @param ppss Array of price-per-share values
     /// @param ppsStdevs Array of standard deviations of price-per-share values
     /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
-    /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
         uint256[] ppsStdevs;
         uint256[] validatorSets;
-        uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;
     }

@@ -35,8 +35,6 @@ interface IECDSAPPSOracle {
     error VALIDATOR_COUNT_MISMATCH();
     /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures
     error INVALID_VALIDATOR_SET();
-    /// @notice Thrown when the totalValidators doesn't match the actual total number of validators
-    error INVALID_TOTAL_VALIDATORS();
     /// @notice Thrown when the gas provided is insufficient for external calls
     error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
@@ -116,6 +114,14 @@ interface IECDSAPPSOracle {
         uint256[] validatorSets;
     }
 
+    /// @notice Struct to consolidate local variables in proof validation
+    struct ProofValidationVars {
+        uint256 proofsLength;
+        bytes32 digest;
+        address signer;
+        address lastSigner;
+    }
+
     /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -151,5 +157,5 @@ interface IECDSAPPSOracle {
     //////////////////////////////////////////////////////////////*/
     /// @notice Updates the PPS for multiple strategies in a batch
     /// @param args Struct containing all parameters for batch PPS update
-    function updatePPS(UpdatePPSArgs calldata args) external;
+    function updatePPS(UpdatePPSArgs memory args) external;
 }
