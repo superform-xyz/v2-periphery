@@ -335,17 +335,17 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0); // Empty proof
 
-        // !Refactor!
-        // // Create the ExecuteArgs struct
-        // ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
-        //     hooks: hooks,
-        //     hookCalldata: hookCalldata,
-        //     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-        //     globalProofs: globalProofs,
-        //     strategyProofs: strategyProofs
-        // });
+        // Create the ExecuteArgs struct
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
+            hooks: hooks,
+            hookCalldata: hookCalldata,
+            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+            globalProofs: globalProofs,
+            strategyProofs: strategyProofs
+        });
 
         // Execute the function
+        superVaultStrategy_executeHooks(executeArgs);
         superVaultStrategy_fulfillRedeemRequests(controllers);
     }
 
@@ -362,11 +362,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {
-        uint256 summedExpectedAssets;
-        for (uint256 i; i < args.expectedAssetsOrSharesOut.length; i++) {
-            summedExpectedAssets += args.expectedAssetsOrSharesOut[i];
-        }
-
         // no need to prank because called as admin address(this)
         superVaultStrategy.fulfillRedeemRequests(controllers);
 

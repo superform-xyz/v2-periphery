@@ -72,11 +72,14 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         uint256 feeBalanceBefore = MockERC20(superVault.asset()).balanceOf(feeRecipient);
 
         // 4. Fulfill Redemption from yield strategy
-        // Now we need to redeem from the yield strategy to get assets back
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _createFulfillRedeemFromStrategyArgs(shares);
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemFromArgs(shares);
+
+        // 4. Execute the redeem from the yield strategy to get assets back
+        superVaultStrategy.executeHooks(executeArgs);
 
         // called by admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 5. Claim Redemption
         uint256 sharesToRedeem = superVault.maxRedeem(_getActor());
@@ -115,9 +118,10 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 3. Fulfill Withdrawal
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _createFulfillRedeemArgs(shares);
-        // fulfills as admin (address(this))
-        superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = _createExecuteRedeemArgs(shares);
+        // execute and fulfill as admin (address(this))
+        superVaultStrategy.executeHooks(executeArgs);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 4. Claim Withdrawal
         uint256 withdrawableAssets = superVault.maxWithdraw(_getActor());
@@ -148,9 +152,11 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 3. Fulfill the redemption request
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _createFulfillRedeemArgs(shares);
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemArgs(shares);
         // fulfill as address(this)
-        superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+        superVaultStrategy.executeHooks(executeArgs);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 4. Check maxRedeem before claiming
         uint256 maxRedeemBeforeClaim = superVault.maxRedeem(_getActor());
@@ -181,9 +187,11 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 3. Fulfill the redemption request
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _createFulfillRedeemArgs(shares);
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemArgs(shares);
         // called as admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+        superVaultStrategy.executeHooks(executeArgs);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 4. Check maxWithdraw after fulfillment and use that value
         uint256 maxWithdrawBefore = superVault.maxWithdraw(_getActor());
@@ -239,8 +247,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             totalRequestedShares += requestedShares[i];
         }
 
-        // 2. Create multi-actor FulfillArgs
-        ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _createMultiActorFulfillArgs(testActors, requestedShares);
+        // 2. Create multi-actor ExecuteArgs
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = _createMultiActorExecuteArgs(testActors, requestedShares);
 
         // 3. Calculate total pending before
         uint256 totalPendingBefore;
@@ -250,7 +258,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
         // 4. Fulfill all redemption requests at once
         // fulfill as address(this)
-        superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+        superVaultStrategy.executeHooks(executeArgs);
+        superVaultStrategy.fulfillRedeemRequests(controllers);
 
         // 5. Calculate total pending after
         uint256 totalPendingAfter;
@@ -305,8 +314,10 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             // switch the actor
             _switchActor(i);
 
-            ISuperVaultStrategy.FulfillArgs memory fulfillArgs = _fulfillRedeemRequestsArgs(redeemableShares);
-            superVaultStrategy.fulfillRedeemRequests(fulfillArgs);
+            (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+                _executeRedeemArgs(redeemableShares);
+            superVaultStrategy.executeHooks(executeArgs);
+            superVaultStrategy.fulfillRedeemRequests(controllers);
         }
 
         // try to withdraw max possible for all actors
@@ -353,9 +364,12 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     // Helpers
 
     /// @dev Helper function to clamp the values for the function call
-    function _fulfillRedeemRequestsArgs(uint256 redeemAmount)
+    function _executeRedeemRequestsArgs(uint256 redeemAmount)
         public
-        returns (ISuperVaultStrategy.FulfillArgs memory fulfillArgs)
+        returns (
+            ISuperVaultStrategy.ExecuteArgs memory executeArgs,
+            address[] memory controllers
+        )
     {
         // Find a controller that has pending redeem requests
         address selectedController = _getActor();
@@ -364,7 +378,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // Clamp using the actor's pending amount
         uint256 actualRedeemAmount = redeemAmount % (pendingAmount + 1);
 
-        address[] memory controllers = new address[](1);
+        controllers = new address[](1);
         controllers[0] = selectedController;
 
         // Determine yield source type from currently active yield source
@@ -394,7 +408,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             );
         }
 
-        // Create arrays for FulfillArgs
+        // Create arrays for ExecuteArgs
         address[] memory hooks = new address[](1);
         hooks[0] = redeemHook;
 
@@ -410,27 +424,24 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0); // Empty proof
 
-        // Create the FulfillArgs struct
-        fulfillArgs = ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
+        // Create the ExecuteArgs struct
+        executeArgs = ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
             globalProofs: globalProofs,
             strategyProofs: strategyProofs
         });
-
-        return fulfillArgs;
     }
 
-    /// @dev Helper function to create FulfillArgs for multiple actors
-    function _createMultiActorFulfillArgs(
+    /// @dev Helper function to create ExecuteArgs for multiple actors
+    function _createMultiActorExecuteArgs(
         address[] memory controllers,
         uint256[] memory amounts
     )
         internal
         view
-        returns (ISuperVaultStrategy.FulfillArgs memory)
+        returns (ISuperVaultStrategy.ExecuteArgs memory)
     {
         uint256 numActors = controllers.length;
 
@@ -455,8 +466,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             strategyProofs[i] = new bytes32[](0);
         }
 
-        return ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
+        return ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
@@ -465,9 +475,13 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         });
     }
 
-    /// @dev Helper function to create FulfillArgs for redeem requests
-    function _createFulfillRedeemArgs(uint256 amount) internal view returns (ISuperVaultStrategy.FulfillArgs memory) {
-        address[] memory controllers = new address[](1);
+    /// @dev Helper function to create ExecuteArgs for redeem requests
+    function _createExecuteRedeemArgs(uint256 amount)
+        internal
+        view
+        returns (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers)
+    {
+        controllers = new address[](1);
         controllers[0] = _getActor();
 
         address[] memory hooks = new address[](1);
@@ -490,8 +504,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0);
 
-        return ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
+        executeArgs = ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
@@ -562,13 +575,13 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         });
     }
 
-    /// @dev Helper function to create FulfillArgs for redeeming from yield strategy
-    function _createFulfillRedeemFromStrategyArgs(uint256 sharesToRedeem)
+    /// @dev Helper function to create ExecuteArgs for redeeming from yield strategy
+    function _createExecuteRedeemFromArgs(uint256 sharesToRedeem)
         internal
         view
-        returns (ISuperVaultStrategy.FulfillArgs memory)
+        returns (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers)
     {
-        address[] memory controllers = new address[](1);
+        controllers = new address[](1);
         controllers[0] = _getActor();
 
         // Get the actual share balance that the SuperVaultStrategy holds in the yield source
@@ -621,8 +634,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         bytes32[][] memory strategyProofs = new bytes32[][](1);
         strategyProofs[0] = new bytes32[](0);
 
-        return ISuperVaultStrategy.FulfillArgs({
-            controllers: controllers,
+        return ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
             hookCalldata: hookCalldata,
             expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
