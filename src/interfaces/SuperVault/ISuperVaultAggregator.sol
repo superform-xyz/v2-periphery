@@ -63,6 +63,7 @@ interface ISuperVaultAggregator {
         uint256 lastUpdateTimestamp;
         uint256 minUpdateInterval;
         uint256 maxStaleness;
+        bool ppsStale;
         bool isPaused;
         address mainManager;
         EnumerableSet.AddressSet secondaryManagers;
@@ -364,9 +365,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a strategy is unknown
     event UnknownStrategy(address indexed strategy);
 
-    /// @notice Emitted when a strategy is managed by Superform
-    event SuperformManager(address indexed strategy, address indexed manager);
-
     /// @notice Emitted when the caller is authorized
     event AuthorizedCaller(address indexed strategy, address indexed caller);
 
@@ -379,6 +377,12 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when the strategy's PPS unpause timelock is updated
     event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
+
+    /// @notice Emitted when a strategy's PPS is stale
+    event StrategyPPSStale(address indexed strategy);
+    
+    /// @notice Emitted when a strategy's PPS is reset
+    event StrategyPPSStaleReset(address indexed strategy);
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
@@ -483,15 +487,15 @@ interface ISuperVaultAggregator {
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
     /// @param ppsStdevs Array of standard deviations of price-per-share values
-    /// @param validatorSets Array of numbers of validators who calculated each PPS
-    /// @param totalValidators Total number of validators in the network
+    /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
+    /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
         uint256[] ppsStdevs;
         uint256[] validatorSets;
-        uint256[] totalValidators;
+        uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;
     }

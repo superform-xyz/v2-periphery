@@ -723,7 +723,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -799,7 +799,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -894,7 +894,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     ppss: ppss,
                     ppsStdevs: ppsStdevs,
                     validatorSets: validatorSets,
-                    totalValidators: totalValidators,
+                    totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
                 })
@@ -1043,7 +1043,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1795,7 +1795,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake deposit reverts with zero amount
     function test_DepositStake_RevertZeroAmount() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.depositStake(manager, 0);
     }
 
@@ -1863,7 +1863,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests stake withdrawal reverts with zero amount
     function test_WithdrawStake_RevertZeroAmount() public {
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.requestStakeWithdrawal(0);
     }
 
@@ -2086,7 +2086,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests slashing reverts with zero amount
     function test_SlashStake_RevertZeroAmount() public {
         vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.slashStake(manager, 0);
     }
 
@@ -2406,7 +2406,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: vars.ppss,
                 ppsStdevs: vars.ppsStdevs,
                 validatorSets: vars.validatorSets,
-                totalValidators: vars.totalValidators,
+                totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
                 updateAuthority: address(this)
             })
@@ -2491,7 +2491,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidators,
+                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2537,7 +2537,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2581,7 +2581,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2646,7 +2646,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -2681,7 +2681,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
-                totalValidators: totalValidatorsArray,
+                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
