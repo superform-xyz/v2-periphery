@@ -1,4 +1,4 @@
-/ SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import { MerkleTreeHelper } from "@superform-v2-core/test/utils/MerkleTreeHelper.sol";
