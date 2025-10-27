@@ -48,7 +48,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVault gearSuperVault;
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
-    
 
     struct UserPersona {
         address account;
@@ -92,7 +91,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
         vm.startPrank(MANAGER);
-        strategy.managePPSStalenessThreshold(1, 99999999999999999999);
+        strategy.managePPSStalenessThreshold(1, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
@@ -123,8 +122,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
-
-
 
     function test_DepositDirectlyMintsShares() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
@@ -1090,7 +1087,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
-
 
         // Verify state after cancellation
         assertEq(vault.pendingRedeemRequest(0, accountEth), 0, "Pending request should be cleared");
@@ -2266,7 +2262,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-
         uint256 BPS_PRECISION = 10_000;
 
         vm.warp(block.timestamp + 2 weeks);
@@ -2919,7 +2914,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
 
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.managePPSStalenessThreshold(1, 99999999999999999999);
+        strategyGearSuperVault.managePPSStalenessThreshold(1, 99_999_999_999_999_999_999);
 
         vm.warp(block.timestamp + 2 weeks);
 
@@ -4261,7 +4256,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4315,7 +4310,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: Request redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4332,7 +4327,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify cancellation is pending
         bool hasPendingCancel = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancel, "Should have pending cancel request");
-        
+
         // Verify original redeem request is still there (not cleared until fulfillment)
         uint256 pendingRedeemAfterCancel = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterCancel, redeemShares, "Original redeem should still be pending");
@@ -4352,10 +4347,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify states after fulfillment
         uint256 pendingRedeemAfterFulfill = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterFulfill, 0, "Pending redeem should be cleared after cancel fulfillment");
-        
+
         bool hasPendingCancelAfterFulfill = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancelAfterFulfill, "Pending cancel should remain true until claim");
-        
+
         uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelShares, redeemShares, "Should have claimable cancel shares equal to original request");
 
@@ -4363,26 +4358,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 sharesBefore = vault.balanceOf(accInstances[0].account);
         vm.prank(accInstances[0].account);
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(sharesAfter, sharesBefore + redeemShares, "User should get their shares back");
 
         // Verify all pending states are cleared after claim
         bool hasPendingCancelAfterClaim = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertFalse(hasPendingCancelAfterClaim, "Pending cancel should be cleared after claim");
-        
+
         uint256 claimableCancelAfterClaim = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelAfterClaim, 0, "Claimable cancel should be cleared after claim");
 
         // Verify accumulator states are preserved (key invariant)
         ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
         assertEq(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved");
+        assertEq(
+            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved"
+        );
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
         _requestRedeemForAccount(accInstances[0], newRedeemShares);
-        
+
         uint256 newPendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(newPendingRedeem, newRedeemShares, "Should be able to make new redeem requests after cancellation");
     }
@@ -4402,7 +4399,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4434,7 +4431,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(MANAGER);
         address[] memory controllers = new address[](1);
         controllers[0] = accInstances[0].account;
-        
+
         // This should not revert, but should be ineffective since there's no pending redeem to cancel
         strategy.fulfillCancelRedeemRequests(controllers);
         vm.stopPrank();
@@ -4453,7 +4450,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accInstances[0].account);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
         uint256 claimedShares = vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(claimedShares, 0, "Should claim 0 shares since cancellation was ineffective");
         assertEq(sharesAfter, sharesBefore, "User balance should not change when claiming ineffective cancellation");
@@ -7534,7 +7531,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
-        strategy.managePPSStalenessThreshold(1, 99999999999999999999);
+        strategy.managePPSStalenessThreshold(1, 86_400); // 1 day
 
         vm.warp(block.timestamp + 2 weeks);
 
@@ -7903,7 +7900,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
         );
     }
-
 
     /*//////////////////////////////////////////////////////////////
                        MANAGEMENT FEE TESTS
@@ -8478,7 +8474,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Test: Propose new PPS staleness threshold
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(newThreshold, expectedEffectiveTime);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, newThreshold, expectedEffectiveTime);
         strategy.managePPSStalenessThreshold(1, newThreshold);
 
         // Verify proposal state
@@ -8518,7 +8514,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Propose again
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(finalThreshold, expectedEffectiveTime);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, finalThreshold, expectedEffectiveTime);
         strategy.managePPSStalenessThreshold(1, finalThreshold);
 
         // Verify proposal state
@@ -8613,8 +8609,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         //////////////////////////////////////////////////////////////*/
 
         // Test: Multiple proposals should override previous ones
-        uint256 firstThreshold = 1800; // 30 minutes
-        uint256 secondThreshold = 3600; // 1 hour
+        uint256 firstThreshold = 3600; // 1 hour
+        uint256 secondThreshold = 7200; // 2 hours
 
         // First proposal
         strategy.managePPSStalenessThreshold(1, firstThreshold);
@@ -8623,11 +8619,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Second proposal should override first
         uint256 expectedEffectiveTime = block.timestamp + 1 weeks;
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(secondThreshold, expectedEffectiveTime);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(firstThreshold, secondThreshold, expectedEffectiveTime);
         strategy.managePPSStalenessThreshold(1, secondThreshold);
 
         assertEq(strategy.proposedPPSStalenessThreshold(), secondThreshold, "Second proposal should override first");
-        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be updated");
+        assertEq(
+            strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be updated"
+        );
 
         /*//////////////////////////////////////////////////////////////
                         EXECUTION AT EXACT TIMELOCK
@@ -8647,11 +8645,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         //////////////////////////////////////////////////////////////*/
 
         // Test: Very large threshold value
-        uint256 largeThreshold = type(uint256).max;
+        uint256 largeThreshold = 604_800; // 1 week
         expectedEffectiveTime = block.timestamp + 1 weeks;
 
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(largeThreshold, expectedEffectiveTime);
+        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, largeThreshold, expectedEffectiveTime);
         strategy.managePPSStalenessThreshold(1, largeThreshold);
 
         // Fast forward and execute

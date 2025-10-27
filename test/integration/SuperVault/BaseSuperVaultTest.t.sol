@@ -319,7 +319,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 mainManager: MANAGER,
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
-                maxStaleness: 300,
+                maxStaleness: 1 weeks,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000,
                     managementFeeBps: 0,

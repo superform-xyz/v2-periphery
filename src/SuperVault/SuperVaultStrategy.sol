@@ -50,6 +50,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
     uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
+    uint256 private constant MIN_PPS_STALENESS_THRESHOLD = 1 hours;
+    uint256 private constant MAX_PPS_STALENESS_THRESHOLD = 1 weeks;
+
     uint256 public PRECISION;
 
     /*//////////////////////////////////////////////////////////////
@@ -68,7 +71,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     // Core contracts
     ISuperGovernor public immutable superGovernor;
-
 
     // PPS staleness threshold
     uint256 public proposedPPSStalenessThreshold;
@@ -94,7 +96,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @notice Allows the contract to receive native ETH
     /// @dev Required for hooks that may send ETH back to the strategy
-    receive() external payable { }  
+    receive() external payable { }
 
     /*//////////////////////////////////////////////////////////////
                             INITIALIZATION
@@ -147,7 +149,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -193,14 +195,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Check if strategy is paused or if global hooks root is vetoed
         if (_isPaused()) revert STRATEGY_PAUSED();
-        
+
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
@@ -318,7 +320,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentPPS == 0) revert INVALID_PPS();
 
         uint256 lastPPSUpdateTimestamp = _getSuperVaultAggregator().getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold ) revert STALE_PPS();
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
 
         // make sure controllers are sorted and unique
         controllers.insertionSort();
@@ -403,7 +405,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         feeConfigEffectiveTime = 0;
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
     }
-
 
     /// @inheritdoc ISuperVaultStrategy
     function managePPSStalenessThreshold(uint8 action, uint256 staleness_) external {
@@ -824,18 +825,20 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit YieldSourceRemoved(source);
     }
 
-
     /// @notice Internal function to propose a PPS staleness threshold
     /// @param _threshold The new PPS staleness threshold
     function _proposePPSStalenessThreshold(uint256 _threshold) internal {
         _isPrimaryManager(msg.sender);
 
-        if (_threshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
+        if (_threshold < MIN_PPS_STALENESS_THRESHOLD || _threshold > MAX_PPS_STALENESS_THRESHOLD) {
+            revert INVALID_PPS_STALENESS_THRESHOLD();
+        }
 
+        uint256 currentProposedThreshold = proposedPPSStalenessThreshold;
         proposedPPSStalenessThreshold = _threshold;
         ppsStalenessThresholdEffectiveTime = block.timestamp + 1 weeks;
 
-        emit PPSStalenessThresholdProposed(_threshold, ppsStalenessThresholdEffectiveTime);
+        emit PPSStalenessThresholdProposed(currentProposedThreshold, _threshold, ppsStalenessThresholdEffectiveTime);
     }
 
     /// @notice Internal function to perform a PPS staleness threshold
@@ -962,7 +965,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[controller];
         if (state.pendingRedeemRequest == 0) revert REQUEST_NOT_FOUND();
         if (state.pendingCancelRedeemRequest) revert CANCELLATION_REDEEM_REQUEST_PENDING();
-        
+
         state.pendingCancelRedeemRequest = true;
         emit RedeemCancelRequestPlaced(controller);
     }
