@@ -42,6 +42,7 @@ interface ISuperVaultStrategy {
     error CANCELLATION_REDEEM_REQUEST_PENDING();
     error ZERO_REQUEST_PPS();
     error STALE_PPS();
+    error PPS_TOO_OLD();
     error INVALID_PPS_STALENESS_THRESHOLD();
 
     /*//////////////////////////////////////////////////////////////

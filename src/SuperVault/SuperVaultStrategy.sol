@@ -50,7 +50,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
     uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
-    uint256 private constant MIN_PPS_STALENESS_THRESHOLD = 1 hours;
+    uint256 private constant MIN_PPS_STALENESS_THRESHOLD = 1 minutes;
     uint256 private constant MAX_PPS_STALENESS_THRESHOLD = 1 weeks;
 
     uint256 public PRECISION;
@@ -140,8 +140,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (assetsGross == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
 
-        // Check if strategy is paused or if global hooks root is vetoed
+        // Check if strategy is paused or pps is stale
         if (_isPaused()) revert STRATEGY_PAUSED();
+        if (_isPPSStale()) revert STALE_PPS();
 
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         if (aggregator.isGlobalHooksRootVetoed()) {
@@ -193,8 +194,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (sharesNet == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
 
-        // Check if strategy is paused or if global hooks root is vetoed
+        // Check if strategy is paused or PPS is stale
         if (_isPaused()) revert STRATEGY_PAUSED();
+        if (_isPPSStale()) revert STALE_PPS();
 
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         if (aggregator.isGlobalHooksRootVetoed()) {
@@ -241,7 +243,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
 
-        if (_isPaused()) revert STRATEGY_PAUSED();
+        if (operation != Operation.ClaimRedeem) {
+            if (_isPaused()) revert STRATEGY_PAUSED();
+            if (_isPPSStale()) revert STALE_PPS();
+        }
 
         if (operation == Operation.RedeemRequest) {
             _handleRequestRedeem(controller, amount); // amount = shares
@@ -289,8 +294,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function fulfillCancelRedeemRequests(address[] memory controllers) external nonReentrant {
         _isManager(msg.sender);
 
-        // Check if strategy is paused
+        // Check if strategy is paused or PPS is stale
         if (_isPaused()) revert STRATEGY_PAUSED();
+        if (_isPPSStale()) revert STALE_PPS();
 
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
@@ -310,8 +316,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function fulfillRedeemRequests(address[] memory controllers) external payable nonReentrant {
         _isManager(msg.sender);
 
-        // Check if strategy is paused
+        // Check if strategy is paused or PPS is stale
         if (_isPaused()) revert STRATEGY_PAUSED();
+        if (_isPPSStale()) revert STALE_PPS();
 
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
@@ -1027,6 +1034,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @return True if the strategy is paused, false otherwise
     function _isPaused() internal view returns (bool) {
         return _getSuperVaultAggregator().isStrategyPaused(address(this));
+    }
+
+    /// @notice Checks if the PPS is stale
+    /// @dev This calls SuperVaultAggregator.isPPSStale to determine stale status
+    /// @return True if the PPS is stale, false otherwise
+    function _isPPSStale() internal view returns (bool) {
+        return _getSuperVaultAggregator().isPPSStale(address(this));
     }
 
     /// @notice Validates a hook using the Merkle root system

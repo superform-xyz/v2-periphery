@@ -76,8 +76,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
-    // Default unpause timelock
-    uint256 private constant _MAX_UNPAUSE_TIMELOCK = 1 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
     // Global hooks Merkle root data
@@ -192,8 +190,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].maxStaleness = params.maxStaleness;
         _strategyData[strategy].isPaused = false;
         _strategyData[strategy].mainManager = params.mainManager;
-        _strategyData[strategy].maxUnpauseTimeLock =
-            params.maxUnpauseTimeLock > 0 ? params.maxUnpauseTimeLock : _MAX_UNPAUSE_TIMELOCK;
 
         uint256 secondaryLen = params.secondaryManagers.length;
         for (uint256 i; i < secondaryLen; ++i) {
@@ -351,11 +347,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check if strategy is currently paused
         if (!_strategyData[strategy].isPaused) {
             revert STRATEGY_NOT_PAUSED();
-        }
-
-        uint256 lastUpdateTimestamp = _strategyData[strategy].lastUpdateTimestamp;
-        if (block.timestamp - lastUpdateTimestamp >= _strategyData[strategy].maxUnpauseTimeLock) {
-            revert UNPAUSE_TIMELOCK_NOT_MET();
         }
 
         // Unpause the strategy
@@ -536,19 +527,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!_strategyData[strategy].secondaryManagers.remove(manager)) revert MANAGER_NOT_FOUND();
 
         emit SecondaryManagerRemoved(strategy, manager);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) external validStrategy(strategy) {
-        // Since this is a risky call, we only allow main managers as callers
-        if (msg.sender != _strategyData[strategy].mainManager) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
-
-        // Update the timelock
-        _strategyData[strategy].maxUnpauseTimeLock = newTimelock_;
-
-        emit StrategyUnpausePPSTimelockUpdated(strategy, newTimelock_);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -887,6 +865,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function isStrategyPaused(address strategy) external view returns (bool isPaused) {
         return _strategyData[strategy].isPaused;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function isPPSStale(address strategy) external view returns (bool isStale) {
+        return _strategyData[strategy].ppsStale;
     }
 
     /// @inheritdoc ISuperVaultAggregator
