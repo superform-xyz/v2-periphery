@@ -809,4 +809,7 @@ interface ISuperGovernor is IAccessControl {
     /// @param oracle_ The address of the oracle to get gas info for
     /// @return The gas info for the specified oracle
     function getGasInfo(address oracle_) external view returns (uint256);
+
+    /// @notice Executes a previously proposed oracle provider removal after timelock has expired
+    function executeOracleProviderRemoval() external;
 }

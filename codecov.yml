@@ -1,8 +1,9 @@
 ignore:
   - "src/interfaces/SuperAsset/**"
   - "src/interfaces/VaultBank/**"
-  - "src/libraries/**"
+  - "src/libraries/SuperAssetPriceLib.sol"
   - "src/SuperAsset/**"
+  - "src/UP/**"
   - "src/vendor/**"
   - "src/VaultBank/**"
   - "test/**"

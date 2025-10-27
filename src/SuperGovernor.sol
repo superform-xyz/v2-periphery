@@ -544,6 +544,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit PPSOracleQuorumUpdated(quorum);
     }
 
+    /// @inheritdoc ISuperGovernor
+    function executeOracleProviderRemoval()
+        external
+        onlyRole(_ORACLE_MANAGER_ROLE)
+    {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+ 
+        ISuperOracle(oracle).executeProviderRemoval();
+    }
+
     /*//////////////////////////////////////////////////////////////
                       REVENUE SHARE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
