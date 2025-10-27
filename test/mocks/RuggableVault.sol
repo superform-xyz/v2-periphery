@@ -25,6 +25,8 @@ contract RuggableVault is ERC20, IERC4626 {
     bool public rugOnWithdraw;
     uint256 public rugPercentage; // 0-10000, where 10000 = 100%
 
+    uint256 public constant PRECISION = 1e18;
+    
     // Events for testing
     event RugPull(string action, address user, uint256 amount, uint256 ruggedAmount);
 

@@ -101,6 +101,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         strategy5115SuperVault.managePPSStalenessThreshold(2, 0);
         strategy.managePPSStalenessThreshold(2, 0);
         vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     function test_5115_Name() public {
@@ -366,6 +369,8 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
     function test_Convert_VariousEdgeCases_AndInvalidPPS_5115() public {
         vm.selectFork(FORKS[ETH]);
         _setup5115Vault();
+
+        vm.warp(block.timestamp + 1 weeks);
 
         // First set PPS to 0 using the actual PPS update mechanism
         _updateSuperVaultPPS_ToZero(address(strategy5115SuperVault));

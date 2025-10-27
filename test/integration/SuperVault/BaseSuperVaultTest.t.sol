@@ -1224,7 +1224,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
     function _fulfillRedeem5115(
         uint256 redeemShares,
-        address svAddr,
+        address,
         address strat
     ) internal {
         address[] memory requestingUsers = new address[](1);
@@ -2533,8 +2533,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 precision;
         uint256 pps;
         uint256 ppsStdev;
-        uint256 validatorSet;
-        uint256 totalValidators;
         uint256 timestamp;
         bytes32 messageHash;
         bytes32 ethSignedMessageHash;
@@ -2572,20 +2570,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-        // Set the additional parameters as requested: ppsStdev=0, validatorSet=1, totalValidators=1
+        // Set the additional parameters as requested: ppsStdev=0
         vars.ppsStdev = 0;
-        vars.validatorSet = 1;
-        vars.totalValidators = 1;
 
-        // Create the message hash with all parameters
+        // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
             abi.encodePacked(
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
                 vars.ppsStdev,
-                vars.validatorSet,
-                vars.totalValidators,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2615,12 +2609,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = vars.ppsStdev;
 
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = vars.validatorSet;
-
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = vars.totalValidators;
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -2630,8 +2618,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
@@ -2892,8 +2878,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         // Set the additional parameters as in _updateSuperVaultPPS
         vars.ppsStdev = 0;
-        vars.validatorSet = 1;
-        vars.totalValidators = 1;
 
         // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
         bytes32 structHash = keccak256(
@@ -2902,8 +2886,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 strategyAddr,
                 vars.pps,
                 vars.ppsStdev,
-                vars.validatorSet,
-                vars.totalValidators,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2933,12 +2915,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = vars.ppsStdev;
         
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = vars.validatorSet;
-        
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = vars.totalValidators;
-        
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -2948,8 +2924,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );

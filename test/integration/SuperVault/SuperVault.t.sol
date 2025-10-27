@@ -65,6 +65,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemAmount;
         uint256 claimedAssets;
     }
+    
+    /**
+    * @notice Test focused on long-term holder behavior with single deposit and hold strategy
+    */
+    struct LongTermHolderTestData {
+        address holder;
+        uint256 depositAmount;
+        uint256 initialBalance;
+        uint256 shares;
+        uint256 redeemShares;
+        uint256 pendingRedeem;
+        uint256 allocationAmountVault1;
+        uint256 allocationAmountVault2;
+        uint256 claimableAssets;
+        uint256 maxWithdrawAmount;
+        uint256 assetsToWithdraw;
+        uint256 expectedPrincipal;
+        uint256 actualEarnings;
+        uint256 finalBalance;
+    }
 
     function setUp() public override {
         super.setUp();
@@ -97,6 +117,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         strategy.managePPSStalenessThreshold(2, 0);
         vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -384,7 +406,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("Holder initial balance:", holder.initialBalance / 1e6, "USDC");
         console2.log("Trader initial balance:", trader.initialBalance / 1e6, "USDC");
-
+        _updateSuperVaultPPS(address(strategy), address(vault));
         // Execute the full flow with equal total investments
         _executeEqualInvestmentDeposits(holder, trader);
         console2.log("--pps before---", aggregator.getPPS(address(strategy)));
@@ -396,8 +418,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
         _executeEqualInvestmentHolding(holder);
+        _updateSuperVaultPPS(address(strategy), address(vault));
         _executeFinalRedemptions(holder, trader);
 
+        _updateSuperVaultPPS(address(strategy), address(vault));
         // Complete the redemption process and calculate final yields
         _completeRedemptionsAndCalculateYield(holder, trader);
     }
@@ -439,93 +463,109 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("=== TEST COMPLETED SUCCESSFULLY ===");
     }
 
-    /**
-     * @notice Test focused on long-term holder behavior with single deposit and hold strategy
-     */
+
     function test_LongTermHolder_SingleDepositHold() public {
-        address holder = accInstances[0].account;
-        uint256 depositAmount = 50_000e6; // 50,000 USDC - large position
+        LongTermHolderTestData memory vars;
+        vars.holder = accInstances[0].account;
+        vars.depositAmount = 50_000e6; // 50,000 USDC - large position
 
         console2.log("=== LONG-TERM HOLDER TEST ===");
-        console2.log("Holder address:", holder);
-        console2.log("Deposit amount:", depositAmount);
+        console2.log("Holder address:", vars.holder);
+        console2.log("Deposit amount:", vars.depositAmount);
 
         // Setup
-        _getTokens(address(asset), holder, depositAmount * 2);
-        uint256 initialBalance = asset.balanceOf(holder);
+        _getTokens(address(asset), vars.holder, vars.depositAmount * 2);
+        vars.initialBalance = asset.balanceOf(vars.holder);
 
         // Single deposit
-        _depositForAccount(accInstances[0], depositAmount);
-        uint256 shares = vault.balanceOf(holder);
+        _depositForAccount(accInstances[0], vars.depositAmount);
+        vars.shares = vault.balanceOf(vars.holder);
 
         // Allocate to yield sources
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+        _depositFreeAssetsFromSingleAmount(vars.depositAmount, address(fluidVault), address(aaveVault));
 
-        console2.log("Shares received:", shares);
+        console2.log("Shares received:", vars.shares);
 
         // Hold for extended period (90 days)
         vm.warp(block.timestamp + 90 days);
-        shares = vault.balanceOf(holder);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        vars.shares = vault.balanceOf(vars.holder);
 
         // Verify shares haven't changed
-        assertEq(vault.balanceOf(holder), shares, "Shares should remain constant during hold period");
+        assertEq(vault.balanceOf(vars.holder), vars.shares, "Shares should remain constant during hold period");
 
-        uint256 redeemShares = shares; // 40B shares - round number
-        console2.log("Using fixed redeem shares:", redeemShares);
+        vars.redeemShares = vars.shares; // 40B shares - round number
+        console2.log("Using fixed redeem shares:", vars.redeemShares);
 
-        _requestRedeemForAccount(accInstances[0], redeemShares);
+        _requestRedeemForAccount(accInstances[0], vars.redeemShares);
 
         // Check pending redeem request
-        uint256 pendingRedeem = strategy.pendingRedeemRequest(holder);
-        console2.log("Pending redeem request:", pendingRedeem);
-        assertEq(pendingRedeem, redeemShares, "Pending redeem should match requested amount");
+        vars.pendingRedeem = strategy.pendingRedeemRequest(vars.holder);
+        console2.log("Pending redeem request:", vars.pendingRedeem);
+        assertEq(vars.pendingRedeem, vars.redeemShares, "Pending redeem should match requested amount");
 
         // Fulfill redeem using manual allocation to avoid INVALID_REDEEM_FILL precision issues
         console2.log("\n=== FULFILLING REDEEM WITH MANUAL ALLOCATION ===");
 
         address[] memory requestingUsers = new address[](1);
-        requestingUsers[0] = holder;
-        uint256 allocationAmountVault1 = redeemShares / 2;
-        uint256 allocationAmountVault2 = redeemShares / 2;
+        requestingUsers[0] = vars.holder;
+        vars.allocationAmountVault1 = vars.redeemShares / 2;
+        vars.allocationAmountVault2 = vars.redeemShares / 2;
 
         console2.log("Manual allocation:");
-        console2.log("  Vault 1 allocation:", allocationAmountVault1);
-        console2.log("  Vault 2 allocation:", allocationAmountVault2);
-        console2.log("  Total allocation:", allocationAmountVault1 + allocationAmountVault2);
+        console2.log("  Vault 1 allocation:", vars.allocationAmountVault1);
+        console2.log("  Vault 2 allocation:", vars.allocationAmountVault2);
+        console2.log("  Total allocation:", vars.allocationAmountVault1 + vars.allocationAmountVault2);
 
         _executeRedeemHooks4626ForUsers(
-            requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
+            requestingUsers, vars.allocationAmountVault1, vars.allocationAmountVault2, address(fluidVault), address(aaveVault)
         );
 
         console2.log("Redeem fulfillment successful!");
 
         // Now check claimable assets (this shows the actual earnings!)
-        uint256 claimableAssets = strategy.claimableWithdraw(holder);
-        console2.log("Claimable assets after 90 days:", claimableAssets);
+        vars.claimableAssets = strategy.claimableWithdraw(vars.holder);
+        vars.maxWithdrawAmount = vault.maxWithdraw(vars.holder);
+        uint256 maxRedeemShares = vault.maxRedeem(vars.holder);
+        uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(vars.holder);
+        
+        console2.log("Claimable assets after 90 days:", vars.claimableAssets);
+        console2.log("Max withdraw amount:", vars.maxWithdrawAmount);
+        console2.log("Max redeem shares:", maxRedeemShares);
+        console2.log("Average withdraw price:", averageWithdrawPrice);
+        console2.log("Current shares balance:", vault.balanceOf(vars.holder));
+
+        // Use maxRedeem to get the correct shares amount, then calculate assets from that
+        uint256 sharesToRedeem = maxRedeemShares > vault.balanceOf(vars.holder) ? vault.balanceOf(vars.holder) : maxRedeemShares;
+        vars.assetsToWithdraw = sharesToRedeem.mulDiv(averageWithdrawPrice, 1e6, Math.Rounding.Floor);
+        
+        console2.log("Shares to redeem:", sharesToRedeem);
+        console2.log("Calculated assets to withdraw:", vars.assetsToWithdraw);
 
         // Calculate actual earnings
-        uint256 expectedPrincipal = (depositAmount * redeemShares) / shares;
-        uint256 actualEarnings = claimableAssets > expectedPrincipal ? claimableAssets - expectedPrincipal : 0;
+        vars.expectedPrincipal = (vars.depositAmount * vars.redeemShares) / vars.shares;
+        vars.actualEarnings = vars.assetsToWithdraw > vars.expectedPrincipal ? vars.assetsToWithdraw - vars.expectedPrincipal : 0;
 
         console2.log("Actual earnings calculation:");
-        console2.log("  Expected principal:", expectedPrincipal);
-        console2.log("  Actual earnings:", actualEarnings);
-        if (expectedPrincipal > 0) {
-            console2.log("  Earnings percentage:", actualEarnings * 10_000 / expectedPrincipal, "basis points");
+        console2.log("  Expected principal:", vars.expectedPrincipal);
+        console2.log("  Assets to withdraw:", vars.assetsToWithdraw);
+        console2.log("  Actual earnings:", vars.actualEarnings);
+        if (vars.expectedPrincipal > 0) {
+            console2.log("  Earnings percentage:", vars.actualEarnings * 10_000 / vars.expectedPrincipal, "basis points");
         }
 
         // Claim the assets to see final balance
-        if (claimableAssets > 0) {
-            _claimWithdrawForAccount(accInstances[0], claimableAssets);
-            uint256 finalBalance = asset.balanceOf(holder);
-            console2.log("Final balance after claim:", finalBalance);
-            console2.log("Total return:", finalBalance > initialBalance ? finalBalance - initialBalance : 0);
+        if (vars.assetsToWithdraw > 0) {
+            _claimWithdrawForAccount(accInstances[0], vars.assetsToWithdraw);
+            vars.finalBalance = asset.balanceOf(vars.holder);
+            console2.log("Final balance after claim:", vars.finalBalance);
+            console2.log("Total return:", vars.finalBalance > vars.initialBalance ? vars.finalBalance - vars.initialBalance : 0);
         }
 
         console2.log("=== LONG-TERM HOLDER TEST COMPLETED ===");
-        console2.log("Initial balance:", initialBalance);
-        console2.log("Shares held for 90 days:", shares);
-        console2.log("Redeem request submitted for:", redeemShares);
+        console2.log("Initial balance:", vars.initialBalance);
+        console2.log("Shares held for 90 days:", vars.shares);
+        console2.log("Redeem request submitted for:", vars.redeemShares);
     }
 
     /**
@@ -567,6 +607,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
             // Hold for short period (simulate day trading to swing trading)
             vm.warp(block.timestamp + (1 + i) * 1 days);
+            _updateSuperVaultPPS(address(strategy), address(vault));
 
             // Redeem portion (vary between 30-50% to simulate different strategies)
             uint256 redeemPercentage = 30 + (i * 5); // 30%, 35%, 40%, 45%, 50%
@@ -865,6 +906,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// @notice Tests the zero PPS fix using the actual deployed vault
     /// @dev This verifies the fix by setting PPS to 0 on the real vault and testing conversion functions
     function test_ConvertFunctions_ZeroPPS_RealVault() public {
+        // Advance time to ensure timestamp is monotonic
+        vm.warp(block.timestamp +  1 weeks);
+        
         // First set PPS to 0 using the actual PPS update mechanism
         _updateSuperVaultPPS_ToZero(address(strategy));
 
@@ -2914,7 +2958,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
 
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.managePPSStalenessThreshold(1, 99_999_999_999_999_999_999);
+        strategyGearSuperVault.managePPSStalenessThreshold(1, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
@@ -2936,6 +2980,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.warp(block.timestamp + 1 weeks);
         strategyGearSuperVault.executeVaultFeeConfigUpdate();
         vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVaultAddr));
+
     }
 
     function _depositFreeAssetsFromSingleAmount_Gearbox(uint256 depositAmount) internal {
@@ -4980,6 +5027,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // warp again
         vm.warp(block.timestamp + 20 days);
+        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // create deposit requests for all users
         _depositForAllUsers(vars.depositAmount);
@@ -5393,6 +5441,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         vm.warp(vars.initialTimestamp + 1 days);
+        _updatePPSToTarget(address(strategy), address(vault), 1e18);
 
         uint256 totalAmount = vars.depositAmount * 2;
         uint256 allocationAmountVault1 = totalAmount / 2;
@@ -5424,6 +5473,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Ruggable Vault Balance:", RuggableVault(vars.ruggableVault).balanceOf(address(strategy)));
 
         vm.warp(block.timestamp + 12 weeks);
+        _updatePPSToTarget(address(strategy), address(vault), 1e18);
 
         uint256 prevPps = vars.initialPricePerShare;
         vars.initialTotalAssets = vault.totalAssets();
@@ -7537,6 +7587,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         strategy.managePPSStalenessThreshold(2, 0);
         vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /// @notice Test that maxDeposit returns 0 when vault is paused
@@ -7640,10 +7692,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
 
-        // Set the additional parameters: ppsStdev=0, validatorSet=1, totalValidators=1
+        // Set the additional parameters: ppsStdev=0
         vars.ppsStdev = 0;
-        vars.validatorSet = 1;
-        vars.totalValidators = 1;
 
         // Create the message hash with the deviating PPS
         bytes32 structHash = keccak256(
@@ -7652,8 +7702,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 strategyAddr,
                 newPPS,
                 vars.ppsStdev,
-                vars.validatorSet,
-                vars.totalValidators,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -7683,12 +7731,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = vars.ppsStdev;
 
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = vars.validatorSet;
-
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = vars.totalValidators;
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -7698,8 +7740,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidators: totalValidators,
                 timestamps: timestamps
             })
         );
