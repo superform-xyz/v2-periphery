@@ -222,7 +222,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
 
-        if (_isPaused()) revert STRATEGY_PAUSED();
+        // claim should be allowed even if paused
+        if (operation != Operation.ClaimRedeem && _isPaused()) revert STRATEGY_PAUSED();
 
         if (operation == Operation.RedeemRequest) {
             _handleRequestRedeem(controller, amount); // amount = shares
