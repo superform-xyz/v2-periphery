@@ -67,9 +67,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
-    // Maximum number of strategies to process in `batchForwardPPS`
-    uint256 public constant MAX_STRATEGIES = 300;
-
     // Time lock for stake withdrawal requests
     uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
     uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 10 days;

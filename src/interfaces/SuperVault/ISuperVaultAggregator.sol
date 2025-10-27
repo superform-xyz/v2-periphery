@@ -825,7 +825,4 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param timelock The new timelock value
     function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
-
-    /// @notice Gets the maximum number of strategies
-    function MAX_STRATEGIES() external view returns (uint256);
 }
