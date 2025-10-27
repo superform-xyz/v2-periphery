@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
 
-contract MockECDSAPPSOracle is Test {
+contract MockECDSAPPSOracle {
     //<>=============================================================<>
     //||                                                             ||
     //||                    NON-VIEW FUNCTIONS                       ||
