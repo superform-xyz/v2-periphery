@@ -75,7 +75,7 @@ ftest-quick :; forge test
 
 coverage :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov
 
-coverage-genhtml :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt,unused --exclude 'src/libraries/*' --exclude 'src/oracles/SuperOracleBase.sol' --exclude 'src/oracles/SuperOracle.sol' --exclude 'src/oracles/SuperOracleL2.sol' --exclude 'src/SuperAsset/*' --exclude 'src/UP/*' --exclude 'src/VaultBank/*' --exclude 'src/vendor/*' --exclude 'src/BundlerRegistry.sol' --exclude 'test/*'
+coverage-genhtml :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt,unused --exclude 'src/libraries/SuperAssetPriceLib.sol' --exclude 'src/SuperAsset/*' --exclude 'src/UP/*' --exclude 'src/VaultBank/*' --exclude 'src/vendor/*' --exclude 'test/*'
 
 test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_SuperVault_E2E_Flow_With_0_Ledger_Fees -vv --jobs 10
 
