@@ -64,6 +64,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                 || strategiesLength != args.ppsStdevs.length || strategiesLength != args.timestamps.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
+        uint256 maxStrategies = ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR)).MAX_STRATEGIES();
+        if (strategiesLength > maxStrategies) revert MAX_STRATEGIES_EXCEEDED();
+
         uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
 
         // Early validation checks

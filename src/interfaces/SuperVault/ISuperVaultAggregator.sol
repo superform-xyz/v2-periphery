@@ -457,8 +457,6 @@ interface ISuperVaultAggregator {
     error INVALID_TIMESTAMP(uint256 index);
     /// @notice Thrown when too many secondary managers are added
     error TOO_MANY_SECONDARY_MANAGERS();
-    /// @notice Thrown when the number of strategies exceeds the maximum allowed
-    error MAX_STRATEGIES_EXCEEDED();
     /// @notice Thrown when withdrawal request is expired
     error WITHDRAWAL_REQUEST_EXPIRED();
     /// @notice Thrown when withdrawal request is not ready
@@ -827,4 +825,7 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param timelock The new timelock value
     function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
+
+    /// @notice Gets the maximum number of strategies
+    function MAX_STRATEGIES() external view returns (uint256);
 }

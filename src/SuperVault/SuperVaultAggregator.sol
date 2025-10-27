@@ -218,17 +218,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
     function forwardPPS(ForwardPPSArgs calldata args) external onlyPPSOracle {
-        uint256 strategiesLength = args.strategies.length;
-        if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
-        if (strategiesLength == 0) revert ZERO_ARRAY_LENGTH();
-        // Validate input array lengths
-        if (
-            strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
-                || strategiesLength != args.timestamps.length || strategiesLength != args.validatorSets.length
-        ) revert ARRAY_LENGTH_MISMATCH();
-
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
 
+        uint256 strategiesLength = args.strategies.length;
         for (uint256 i; i < strategiesLength; ++i) {
             address strategy = args.strategies[i];
 
