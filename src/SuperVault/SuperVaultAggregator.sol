@@ -269,8 +269,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Validate input array lengths
         if (
             strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
-                || strategiesLength != args.validatorSets.length || strategiesLength != args.timestamps.length
-                || strategiesLength != args.totalValidators.length
+                || strategiesLength != args.timestamps.length || strategiesLength != args.validatorSets.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
@@ -294,7 +293,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
                 StrategyData storage data = _strategyData[strategy];
-                address manager = data.mainManager;
                 // Check staleness
                 if (data.isPaused) {
                     emit PaymentSkippedForPausedStrategy(strategy);
@@ -313,7 +311,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     pps: args.ppss[i],
                     ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidators[i],
+                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -1194,16 +1192,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (
-                _validateSingleHook(
-                    argsArray[i].hookAddress,
-                    argsArray[i].hookArgs,
-                    argsArray[i].globalProof,
-                    true,
-                    cache,
-                    strategy
-                )
-            ) {
+            if (_validateSingleHook(
+                    argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
+                )) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root

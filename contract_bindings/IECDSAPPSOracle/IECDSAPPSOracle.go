@@ -31,29 +31,25 @@ var (
 
 // IECDSAPPSOracleUpdatePPSArgs is an auto generated low-level Go binding around an user-defined struct.
 type IECDSAPPSOracleUpdatePPSArgs struct {
-	Strategies      []common.Address
-	ProofsArray     [][][]byte
-	Ppss            []*big.Int
-	PpsStdevs       []*big.Int
-	ValidatorSets   []*big.Int
-	TotalValidators []*big.Int
-	Timestamps      []*big.Int
+	Strategies  []common.Address
+	ProofsArray [][][]byte
+	Ppss        []*big.Int
+	PpsStdevs   []*big.Int
+	Timestamps  []*big.Int
 }
 
 // IECDSAPPSOracleValidationParams is an auto generated low-level Go binding around an user-defined struct.
 type IECDSAPPSOracleValidationParams struct {
-	Strategy        common.Address
-	Proofs          [][]byte
-	Pps             *big.Int
-	PpsStdev        *big.Int
-	ValidatorSet    *big.Int
-	TotalValidators *big.Int
-	Timestamp       *big.Int
+	Strategy  common.Address
+	Proofs    [][]byte
+	Pps       *big.Int
+	PpsStdev  *big.Int
+	Timestamp *big.Int
 }
 
 // IECDSAPPSOracleMetaData contains all meta data concerning the IECDSAPPSOracle contract.
 var IECDSAPPSOracleMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"UPDATE_PPS_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"domainSeparator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"noncePerStrategy\",\"inputs\":[{\"name\":\"strategy_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"updatePPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.UpdatePPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"proofsArray\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"ppsStdevs\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"validatorSets\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"totalValidators\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateProofs\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.ValidationParams\",\"components\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofs\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateProofs\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.ValidationParams\",\"components\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofs\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"cachedTotalValidators\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"requiredQuorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchForwardPPSFailed\",\"inputs\":[{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchForwardPPSFailedLowLevel\",\"inputs\":[{\"name\":\"lowLevelData\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InsufficientGasForForward\",\"inputs\":[{\"name\":\"gasLeft\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"requiredGas\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSValidated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProofValidationFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProofValidationFailedLowLevel\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HIGH_PPS_DEVIATION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HIGH_PPS_DISPERSION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_GAS_FOR_EXTERNAL_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_VALIDATOR_PARTICIPATION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TOTAL_VALIDATORS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_VALIDATOR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_VALIDATOR_SET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"QUORUM_NOT_MET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_COUNT_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_LENGTH_ARRAY\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"UPDATE_PPS_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"domainSeparator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"noncePerStrategy\",\"inputs\":[{\"name\":\"strategy_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"updatePPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.UpdatePPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"proofsArray\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"ppsStdevs\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateProofs\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.ValidationParams\",\"components\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofs\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateProofs\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIECDSAPPSOracle.ValidationParams\",\"components\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofs\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"requiredQuorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchForwardPPSFailed\",\"inputs\":[{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchForwardPPSFailedLowLevel\",\"inputs\":[{\"name\":\"lowLevelData\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InsufficientGasForForward\",\"inputs\":[{\"name\":\"gasLeft\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"requiredGas\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSValidated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProofValidationFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProofValidationFailedLowLevel\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HIGH_PPS_DEVIATION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HIGH_PPS_DISPERSION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_GAS_FOR_EXTERNAL_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_VALIDATOR_PARTICIPATION\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TOTAL_VALIDATORS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_VALIDATOR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_VALIDATOR_SET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"QUORUM_NOT_MET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_COUNT_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_LENGTH_ARRAY\",\"inputs\":[]}]",
 }
 
 // IECDSAPPSOracleABI is the input ABI used to generate the binding from.
@@ -295,9 +291,9 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleCallerSession) NoncePerStrategy(strategy_
 	return _IECDSAPPSOracle.Contract.NoncePerStrategy(&_IECDSAPPSOracle.CallOpts, strategy_)
 }
 
-// ValidateProofs is a free data retrieval call binding the contract method 0x047ff5ad.
+// ValidateProofs is a free data retrieval call binding the contract method 0x09a24073.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params) view returns()
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params) view returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleCaller) ValidateProofs(opts *bind.CallOpts, params IECDSAPPSOracleValidationParams) error {
 	var out []interface{}
 	err := _IECDSAPPSOracle.contract.Call(opts, &out, "validateProofs", params)
@@ -310,26 +306,26 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleCaller) ValidateProofs(opts *bind.CallOpt
 
 }
 
-// ValidateProofs is a free data retrieval call binding the contract method 0x047ff5ad.
+// ValidateProofs is a free data retrieval call binding the contract method 0x09a24073.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params) view returns()
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params) view returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleSession) ValidateProofs(params IECDSAPPSOracleValidationParams) error {
 	return _IECDSAPPSOracle.Contract.ValidateProofs(&_IECDSAPPSOracle.CallOpts, params)
 }
 
-// ValidateProofs is a free data retrieval call binding the contract method 0x047ff5ad.
+// ValidateProofs is a free data retrieval call binding the contract method 0x09a24073.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params) view returns()
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params) view returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleCallerSession) ValidateProofs(params IECDSAPPSOracleValidationParams) error {
 	return _IECDSAPPSOracle.Contract.ValidateProofs(&_IECDSAPPSOracle.CallOpts, params)
 }
 
-// ValidateProofs0 is a free data retrieval call binding the contract method 0xc5bd4aab.
+// ValidateProofs0 is a free data retrieval call binding the contract method 0x98b76ec1.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params, uint256 cachedTotalValidators, uint256 requiredQuorum) view returns()
-func (_IECDSAPPSOracle *IECDSAPPSOracleCaller) ValidateProofs0(opts *bind.CallOpts, params IECDSAPPSOracleValidationParams, cachedTotalValidators *big.Int, requiredQuorum *big.Int) error {
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params, uint256 requiredQuorum) view returns()
+func (_IECDSAPPSOracle *IECDSAPPSOracleCaller) ValidateProofs0(opts *bind.CallOpts, params IECDSAPPSOracleValidationParams, requiredQuorum *big.Int) error {
 	var out []interface{}
-	err := _IECDSAPPSOracle.contract.Call(opts, &out, "validateProofs0", params, cachedTotalValidators, requiredQuorum)
+	err := _IECDSAPPSOracle.contract.Call(opts, &out, "validateProofs0", params, requiredQuorum)
 
 	if err != nil {
 		return err
@@ -339,37 +335,37 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleCaller) ValidateProofs0(opts *bind.CallOp
 
 }
 
-// ValidateProofs0 is a free data retrieval call binding the contract method 0xc5bd4aab.
+// ValidateProofs0 is a free data retrieval call binding the contract method 0x98b76ec1.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params, uint256 cachedTotalValidators, uint256 requiredQuorum) view returns()
-func (_IECDSAPPSOracle *IECDSAPPSOracleSession) ValidateProofs0(params IECDSAPPSOracleValidationParams, cachedTotalValidators *big.Int, requiredQuorum *big.Int) error {
-	return _IECDSAPPSOracle.Contract.ValidateProofs0(&_IECDSAPPSOracle.CallOpts, params, cachedTotalValidators, requiredQuorum)
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params, uint256 requiredQuorum) view returns()
+func (_IECDSAPPSOracle *IECDSAPPSOracleSession) ValidateProofs0(params IECDSAPPSOracleValidationParams, requiredQuorum *big.Int) error {
+	return _IECDSAPPSOracle.Contract.ValidateProofs0(&_IECDSAPPSOracle.CallOpts, params, requiredQuorum)
 }
 
-// ValidateProofs0 is a free data retrieval call binding the contract method 0xc5bd4aab.
+// ValidateProofs0 is a free data retrieval call binding the contract method 0x98b76ec1.
 //
-// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256,uint256,uint256) params, uint256 cachedTotalValidators, uint256 requiredQuorum) view returns()
-func (_IECDSAPPSOracle *IECDSAPPSOracleCallerSession) ValidateProofs0(params IECDSAPPSOracleValidationParams, cachedTotalValidators *big.Int, requiredQuorum *big.Int) error {
-	return _IECDSAPPSOracle.Contract.ValidateProofs0(&_IECDSAPPSOracle.CallOpts, params, cachedTotalValidators, requiredQuorum)
+// Solidity: function validateProofs((address,bytes[],uint256,uint256,uint256) params, uint256 requiredQuorum) view returns()
+func (_IECDSAPPSOracle *IECDSAPPSOracleCallerSession) ValidateProofs0(params IECDSAPPSOracleValidationParams, requiredQuorum *big.Int) error {
+	return _IECDSAPPSOracle.Contract.ValidateProofs0(&_IECDSAPPSOracle.CallOpts, params, requiredQuorum)
 }
 
-// UpdatePPS is a paid mutator transaction binding the contract method 0xb2aaa967.
+// UpdatePPS is a paid mutator transaction binding the contract method 0x64e1c63c.
 //
-// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleTransactor) UpdatePPS(opts *bind.TransactOpts, args IECDSAPPSOracleUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.contract.Transact(opts, "updatePPS", args)
 }
 
-// UpdatePPS is a paid mutator transaction binding the contract method 0xb2aaa967.
+// UpdatePPS is a paid mutator transaction binding the contract method 0x64e1c63c.
 //
-// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleSession) UpdatePPS(args IECDSAPPSOracleUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.Contract.UpdatePPS(&_IECDSAPPSOracle.TransactOpts, args)
 }
 
-// UpdatePPS is a paid mutator transaction binding the contract method 0xb2aaa967.
+// UpdatePPS is a paid mutator transaction binding the contract method 0x64e1c63c.
 //
-// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
+// Solidity: function updatePPS((address[],bytes[][],uint256[],uint256[],uint256[]) args) returns()
 func (_IECDSAPPSOracle *IECDSAPPSOracleTransactorSession) UpdatePPS(args IECDSAPPSOracleUpdatePPSArgs) (*types.Transaction, error) {
 	return _IECDSAPPSOracle.Contract.UpdatePPS(&_IECDSAPPSOracle.TransactOpts, args)
 }
@@ -846,19 +842,17 @@ func (it *IECDSAPPSOraclePPSValidatedIterator) Close() error {
 
 // IECDSAPPSOraclePPSValidated represents a PPSValidated event raised by the IECDSAPPSOracle contract.
 type IECDSAPPSOraclePPSValidated struct {
-	Strategy        common.Address
-	Pps             *big.Int
-	PpsStdev        *big.Int
-	ValidatorSet    *big.Int
-	TotalValidators *big.Int
-	Timestamp       *big.Int
-	Sender          common.Address
-	Raw             types.Log // Blockchain specific contextual infos
+	Strategy  common.Address
+	Pps       *big.Int
+	PpsStdev  *big.Int
+	Timestamp *big.Int
+	Sender    common.Address
+	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterPPSValidated is a free log retrieval operation binding the contract event 0xfbdd9422833aff4d04333f008c0d33063458b4050c51fbd4f1eeb2cea915e954.
+// FilterPPSValidated is a free log retrieval operation binding the contract event 0x81f64b089c6d9d9b87f1743040bf5ae01b75b6ee0bc3a3064fb922abe59597a9.
 //
-// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 validatorSet, uint256 totalValidators, uint256 timestamp, address indexed sender)
+// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender)
 func (_IECDSAPPSOracle *IECDSAPPSOracleFilterer) FilterPPSValidated(opts *bind.FilterOpts, strategy []common.Address, sender []common.Address) (*IECDSAPPSOraclePPSValidatedIterator, error) {
 
 	var strategyRule []interface{}
@@ -878,9 +872,9 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleFilterer) FilterPPSValidated(opts *bind.F
 	return &IECDSAPPSOraclePPSValidatedIterator{contract: _IECDSAPPSOracle.contract, event: "PPSValidated", logs: logs, sub: sub}, nil
 }
 
-// WatchPPSValidated is a free log subscription operation binding the contract event 0xfbdd9422833aff4d04333f008c0d33063458b4050c51fbd4f1eeb2cea915e954.
+// WatchPPSValidated is a free log subscription operation binding the contract event 0x81f64b089c6d9d9b87f1743040bf5ae01b75b6ee0bc3a3064fb922abe59597a9.
 //
-// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 validatorSet, uint256 totalValidators, uint256 timestamp, address indexed sender)
+// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender)
 func (_IECDSAPPSOracle *IECDSAPPSOracleFilterer) WatchPPSValidated(opts *bind.WatchOpts, sink chan<- *IECDSAPPSOraclePPSValidated, strategy []common.Address, sender []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
@@ -925,9 +919,9 @@ func (_IECDSAPPSOracle *IECDSAPPSOracleFilterer) WatchPPSValidated(opts *bind.Wa
 	}), nil
 }
 
-// ParsePPSValidated is a log parse operation binding the contract event 0xfbdd9422833aff4d04333f008c0d33063458b4050c51fbd4f1eeb2cea915e954.
+// ParsePPSValidated is a log parse operation binding the contract event 0x81f64b089c6d9d9b87f1743040bf5ae01b75b6ee0bc3a3064fb922abe59597a9.
 //
-// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 validatorSet, uint256 totalValidators, uint256 timestamp, address indexed sender)
+// Solidity: event PPSValidated(address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender)
 func (_IECDSAPPSOracle *IECDSAPPSOracleFilterer) ParsePPSValidated(log types.Log) (*IECDSAPPSOraclePPSValidated, error) {
 	event := new(IECDSAPPSOraclePPSValidated)
 	if err := _IECDSAPPSOracle.contract.UnpackLog(event, "PPSValidated", log); err != nil {
