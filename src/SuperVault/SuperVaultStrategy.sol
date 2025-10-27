@@ -853,7 +853,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         SuperVaultState storage state = superVaultState[controller];
 
         // Defense-in-depth: assert controller has accumulator shares
-        if (state.accumulatorShares == 0) revert INSUFFICIENT_SHARES();
+        if (state.accumulatorShares == 0 || shares > state.accumulatorShares) revert INSUFFICIENT_SHARES();
 
         // Get current PPS from aggregator to use as baseline for slippage protection
         uint256 currentPPS = getStoredPPS();
