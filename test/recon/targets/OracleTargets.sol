@@ -50,12 +50,6 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         uint256[] memory ppsStdevs = new uint256[](1);
         ppsStdevs[0] = 0;
 
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 0;
-
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = 0;
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
 
@@ -64,8 +58,6 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
             proofsArray: proofsArray,
             ppss: ppss,
             ppsStdevs: ppsStdevs,
-            validatorSets: validatorSets,
-            totalValidators: totalValidators,
             timestamps: timestamps
         });
 

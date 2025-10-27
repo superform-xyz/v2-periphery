@@ -1,29 +1,46 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import { Test } from "forge-std/Test.sol";
 import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
 
-contract MockECDSAPPSOracle {
+contract MockECDSAPPSOracle is Test {
     //<>=============================================================<>
     //||                                                             ||
     //||                    NON-VIEW FUNCTIONS                       ||
     //||                                                             ||
     //<>=============================================================<>
-    // Mock implementation of updatePPS
+    //Mock implementation of updatePPS
     function updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public {
+        uint256[] memory validatorSets = new uint256[](1);
+        validatorSets[0] = 1;
+
+        uint256 totalValidator = 1;
         ISuperVaultAggregator.ForwardPPSArgs memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
             strategies: args.strategies,
             ppss: args.ppss,
             ppsStdevs: args.ppsStdevs,
-            validatorSets: args.validatorSets,
-            totalValidators: args.totalValidators,
+            validatorSets: validatorSets,
+            totalValidator: totalValidator,
             timestamps: args.timestamps,
             updateAuthority: msg.sender
         });
 
         ISuperVaultAggregator(_SUPER_GOVERNORReturn_0).forwardPPS(forwardArgs);
     }
+
+    // function updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public {
+    //     IECDSAPPSOracle.UpdatePPSArgs memory updateArgs = IECDSAPPSOracle.UpdatePPSArgs({
+    //         strategies: args.strategies,
+    //         proofsArray: args.proofsArray,
+    //         ppss: args.ppss,
+    //         ppsStdevs: args.ppsStdevs,
+    //         timestamps: args.timestamps
+    //     });
+
+    //     IECDSAPPSOracle(_SUPER_GOVERNORReturn_0).updatePPS(updateArgs);
+    // }
 
     //<>=============================================================<>
     //||                                                             ||
