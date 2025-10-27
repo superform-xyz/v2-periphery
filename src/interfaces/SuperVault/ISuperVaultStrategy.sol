@@ -90,7 +90,7 @@ interface ISuperVaultStrategy {
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
-    event PPSStalenessThresholdProposed(uint256 ppsStalenessThreshold, uint256 effectiveTime);
+    event PPSStalenessThresholdProposed(uint256 currentProposedThreshold, uint256 ppsStalenessThreshold, uint256 effectiveTime);
     event PPSStalenessThresholdUpdated(uint256 ppsStalenessThreshold);
     event PPSStalenessThresholdProposalCanceled();
 
