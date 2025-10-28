@@ -16,7 +16,7 @@ abstract contract ERC7575 is MockERC20 {
         asset = _asset;
     }
 
-    function share() external view returns (address shareTokenAddress) {
+    function share() external view returns (address /*shareTokenAddress*/) {
         return address(this);
     }
 
@@ -269,7 +269,7 @@ contract MockERC7540Tester is ERC7575, IERC165 {
     function claimCancelDepositRequest(
         uint256 requestId,
         address receiver,
-        address controller
+        address /*controller*/
     )
         external
         returns (uint256 assets)
@@ -283,16 +283,14 @@ contract MockERC7540Tester is ERC7575, IERC165 {
         asset.transfer(receiver, assets);
     }
 
-    function cancelRedeemRequest(uint256 requestId, address controller) external {
-        RedeemRequestStruct storage request = redeemRequests[requestId];
-
+    function cancelRedeemRequest(uint256 requestId, address /*controller*/) external {
         pendingCancelRedeem[requestId] = true;
     }
 
     function claimCancelRedeemRequest(
         uint256 requestId,
         address receiver,
-        address controller
+        address /*controller*/
     )
         external
         returns (uint256 shares)

@@ -418,21 +418,21 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    function setFulfilledDifference() public view {
-        if (_currentOp == OpType.FULFILL) {
-            uint256 pendingRedeemDelta = _before.summedPendingRedeem - _after.summedPendingRedeem;
-            uint256 totalSupplyDelta = _before.summedTotalShares - _after.summedTotalShares;
+    // function setFulfilledDifference() public view {
+    //     if (_currentOp == OpType.FULFILL) {
+    //         uint256 pendingRedeemDelta = _before.summedPendingRedeem - _after.summedPendingRedeem;
+    //         uint256 totalSupplyDelta = _before.summedTotalShares - _after.summedTotalShares;
 
-            // Check that burned amount is within tolerance of requested amount
-            if (totalSupplyDelta < pendingRedeemDelta) {
-                // Burned less than requested
-                int256 burnedLessThanRequested = int256(pendingRedeemDelta) - int256(totalSupplyDelta);
-            } else {
-                // Burned more than requested
-                int256 burnedMoreThanRequested = int256(totalSupplyDelta) - int256(pendingRedeemDelta);
-            }
-        }
-    }
+    //         // Check that burned amount is within tolerance of requested amount
+    //         if (totalSupplyDelta < pendingRedeemDelta) {
+    //             // Burned less than requested
+    //             int256 burnedLessThanRequested = int256(pendingRedeemDelta) - int256(totalSupplyDelta);
+    //         } else {
+    //             // Burned more than requested
+    //             int256 burnedMoreThanRequested = int256(totalSupplyDelta) - int256(pendingRedeemDelta);
+    //         }
+    //     }
+    // }
 
     /// Optimization Tests
 

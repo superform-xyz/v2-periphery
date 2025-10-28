@@ -10,14 +10,13 @@ contract MerkleTestHelper {
     /// @param depositHook Address of the Deposit4626VaultHook or ApproveAndDeposit4626VaultHook contract
     /// @param redeemHook Address of the Redeem4626VaultHook contract
     /// @param mockVault Address of the mock ERC4626 vault
-    /// @param mockToken Address of the mock token (unused but kept for compatibility)
     /// @return root The Merkle root for the tree
     /// @return proofs Array of proofs for each leaf [depositProof, redeemProof]
     function generateTestHooksRoot(
         address depositHook,
         address redeemHook,
         address mockVault,
-        address mockToken
+        address /*mockToken*/
     )
         public
         pure
@@ -46,7 +45,6 @@ contract MerkleTestHelper {
 
         // Store original leaf hashes for proof assignment
         bytes32 depositLeaf = keccak256(bytes.concat(keccak256(abi.encode(depositHook, depositArgs))));
-        bytes32 redeemLeaf = keccak256(bytes.concat(keccak256(abi.encode(redeemHook, redeemArgs))));
 
         // Generate proofs for each leaf
         proofs = new bytes32[][](2);

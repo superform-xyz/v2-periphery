@@ -34,8 +34,8 @@ abstract contract ERC5115 is MockERC20 {
         address receiver,
         address tokenIn,
         uint256 amountTokenToDeposit,
-        uint256 minSharesOut,
-        bool depositFromInternalBalance
+        uint256 /*minSharesOut*/,
+        bool /*depositFromInternalBalance*/
     )
         public
         virtual
@@ -134,8 +134,8 @@ contract MockERC5115Tester is ERC5115 {
         address receiver,
         uint256 amountSharesToRedeem,
         address tokenOut,
-        uint256 minTokenOut,
-        bool burnFromInternalBalance
+        uint256 /*minTokenOut*/,
+        bool /*burnFromInternalBalance*/
     )
         public
         virtual
