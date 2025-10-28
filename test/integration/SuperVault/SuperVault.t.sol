@@ -32,6 +32,7 @@ import { RuggableVault } from "../../mocks/RuggableVault.sol";
 import { RuggableConvertVault } from "../../mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "../../mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
+import { MockEmergencyVault } from "../../mocks/MockEmergencyVault.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
 
 contract SuperVaultTest is BaseSuperVaultTest {
@@ -267,6 +268,38 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify allocation
         assertGt(fluidVault.balanceOf(address(strategy)), 0, "No fluid shares allocated");
         assertGt(aaveVault.balanceOf(address(strategy)), 0, "No aave shares allocated");
+    }
+
+    function test_PauseAndUnpauseStrategy() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // First deposit should work normally
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), 0, "Initial deposit failed");
+
+        // Update PPS to set a recent lastUpdateTimestamp (required for unpause timelock)
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Pause the strategy (manager can pause)
+        vm.startPrank(MANAGER);
+        aggregator.pauseStrategy(address(strategy));
+        vm.stopPrank();
+
+        // Try to deposit when paused - should revert with STRATEGY_PAUSED
+        vm.startPrank(accountEth);
+        deal(address(asset), accountEth, depositAmount);
+        asset.approve(address(vault), depositAmount);
+        
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        vault.deposit(depositAmount, accountEth);
+        vm.stopPrank();
+
+        // Unpause the strategy (only UNPAUSER_ROLE can unpause)
+        aggregator.unpauseStrategy(address(strategy));
+
+        // Deposit should work again after unpause
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), depositAmount, "Deposit after unpause failed");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -8796,219 +8829,375 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                    PPS STALENESS THRESHOLD TESTS
+                    EMERGENCY ASSET RECOVERY TEST
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Test complete flow of managePPSStalenessThreshold function
-    /// @dev Tests all three actions: propose, execute, and cancel with proper timelock and access control
-    function test_ManagePPSStalenessThreshold_CompleteFlow() public {
-        // Initial setup - deposit some funds to have a working strategy
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _deposit(depositAmount);
-
-        // Get initial staleness threshold
-        uint256 initialThreshold = strategy.ppsExpiration();
-        console2.log("Initial PPS staleness threshold:", initialThreshold);
-
-        // Test data
-        uint256 newThreshold = 3600; // 1 hour in seconds
-        uint256 expectedEffectiveTime = block.timestamp + 1 weeks;
-
-        vm.startPrank(MANAGER);
-
-        /*//////////////////////////////////////////////////////////////
-                            ACTION 1: PROPOSE THRESHOLD
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Propose new PPS staleness threshold
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, newThreshold, expectedEffectiveTime);
-        strategy.managePPSStalenessThreshold(1, newThreshold);
-
-        // Verify proposal state
-        assertEq(strategy.proposedPPSStalenessThreshold(), newThreshold, "Proposed threshold should be set");
-        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be set");
-        assertEq(strategy.ppsExpiration(), initialThreshold, "Current threshold should remain unchanged");
-
-        /*//////////////////////////////////////////////////////////////
-                        ACTION 2: EXECUTE BEFORE TIMELOCK
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Try to execute before timelock expires (should revert)
-        vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
-        strategy.managePPSStalenessThreshold(2, 0);
-
-        /*//////////////////////////////////////////////////////////////
-                            ACTION 3: CANCEL PROPOSAL
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Cancel the proposal
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposalCanceled();
-        strategy.managePPSStalenessThreshold(3, 0);
-
-        // Verify cancellation state
-        assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
-        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
-        assertEq(strategy.ppsExpiration(), initialThreshold, "Current threshold should remain unchanged");
-
-        /*//////////////////////////////////////////////////////////////
-                        COMPLETE PROPOSAL-EXECUTION FLOW
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Complete flow - propose again and execute after timelock
-        uint256 finalThreshold = 7200; // 2 hours in seconds
-        expectedEffectiveTime = block.timestamp + 1 weeks;
-
-        // Propose again
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, finalThreshold, expectedEffectiveTime);
-        strategy.managePPSStalenessThreshold(1, finalThreshold);
-
-        // Verify proposal state
-        assertEq(strategy.proposedPPSStalenessThreshold(), finalThreshold, "Proposed threshold should be set");
-        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be set");
-
-        // Fast forward past timelock
-        vm.warp(block.timestamp + 1 weeks);
-
-        // Execute the proposal
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(finalThreshold);
-        strategy.managePPSStalenessThreshold(2, 0);
-
-        // Verify execution state
-        assertEq(strategy.ppsExpiration(), finalThreshold, "Current threshold should be updated");
-        assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
-        assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
-
-        vm.stopPrank();
-
-        console2.log("Final PPS staleness threshold:", strategy.ppsExpiration());
+    // Record user positions
+    struct UserAccounting {
+        address user;
+        uint256 shares;
+        uint256 assets;
     }
 
-    /// @notice Test error conditions for managePPSStalenessThreshold
-    function test_ManagePPSStalenessThreshold_ErrorConditions() public {
-        vm.startPrank(MANAGER);
-
-        /*//////////////////////////////////////////////////////////////
-                            INVALID ACTION TYPE
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Invalid action type (should revert)
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.managePPSStalenessThreshold(4, 3600); // Invalid action
-
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.managePPSStalenessThreshold(0, 3600); // Invalid action
-
-        /*//////////////////////////////////////////////////////////////
-                            ZERO THRESHOLD PROPOSAL
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Propose zero threshold (should revert)
-        vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_STALENESS_THRESHOLD.selector);
-        strategy.managePPSStalenessThreshold(1, 0);
-
-        /*//////////////////////////////////////////////////////////////
-                        EXECUTE WITHOUT PROPOSAL
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Try to execute without proposal (should revert)
-        vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_STALENESS_THRESHOLD.selector);
-        strategy.managePPSStalenessThreshold(2, 0);
-
-        /*//////////////////////////////////////////////////////////////
-                        CANCEL WITHOUT PROPOSAL
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Try to cancel without proposal (should revert)
-        vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.managePPSStalenessThreshold(3, 0);
-
-        vm.stopPrank();
-
-        /*//////////////////////////////////////////////////////////////
-                            ACCESS CONTROL TESTS
-        //////////////////////////////////////////////////////////////*/
-
-        // Test: Non-manager trying to manage threshold (should revert)
-        address nonManager = address(0x1234567890);
-        vm.startPrank(nonManager);
-
-        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSStalenessThreshold(1, 3600);
-
-        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSStalenessThreshold(2, 0);
-
-        vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSStalenessThreshold(3, 0);
-
-        vm.stopPrank();
+    struct EmergencyAssetRecoveryVars {
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        uint256 depositAmount;
+        address[] users;
+        uint256[] userShares;
+        uint256 totalFreeAssets;
+        uint256 halfAmount;
+        address depositHookAddress;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        uint256 currentPPS;
+        uint256 deviatingPPS;
+        uint256 fluidBalance;
+        uint256 aaveBalance;
+        address[] redeemHooksAddresses;
+        bytes[] redeemHooksData;
+        // Commented section variables
+        uint256 totalAssetsInStrategy;
+        UserAccounting[] userAccountingSnapshot;
+        uint256 totalShares;
+        address batchTransferHook;
+        address escrowRecipient;
+        bytes batchTransferInspectResult;
+        bytes32 batchTransferLeaf;
+        bytes32 newStrategistRoot;
+        uint256 timelockPeriod;
+        bytes32 currentStrategistRoot;
+        uint256 assetsToTransfer;
+        address[] tokens;
+        uint256[] amounts;
+        bytes batchTransferData;
+        address[] batchTransferHooks;
+        bytes[] batchTransferHooksData;
+        uint256[] expectedOut;
+        bytes32[][] strategyProofs;
+        bytes32[][] globalProofs;
+        uint256 recipientBalanceBefore;
+        uint256 recipientBalanceAfter;
+        uint256 strategyBalanceAfter;
+        address emergencyVault;
+        uint256 emergencyVaultBalance;
+        uint256 withdrawAmount;
+        uint256 balanceAfterWithdraw;
+        uint256 sharesBefore;
+        uint256 sharesAfter;
     }
 
-    /// @notice Test edge cases and boundary conditions for PPS staleness threshold management
-    function test_ManagePPSStalenessThreshold_EdgeCases() public {
+    /// @notice Test emergency asset recovery flow through pause, redeem, and batch transfer
+    /// @dev This test covers:
+    /// 1. Pause the vault with an extreme PPS outlier
+    /// 2. Redeem from all UYS into free assets
+    /// 3. Record user accounting at this point
+    /// 4. Perform a batch transfer to strip all assets from the vault to escrow address
+    function test_EmergencyAssetRecovery_PauseRedeemAndBatchTransfer() public {
+        console2.log("=== EMERGENCY ASSET RECOVERY TEST ===");
+        
+        EmergencyAssetRecoveryVars memory vars;
+        
+        // Setup: Deploy a fresh vault for this test
+        (vars.vaultAddr, vars.strategyAddr, vars.escrowAddr) = _deployVault("SV_EMERGENCY_RECOVERY_TEST");
+
+        SuperVault testVault = SuperVault(vars.vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(vars.strategyAddr));
+        SuperVaultEscrow testEscrow = SuperVaultEscrow(vars.escrowAddr);
+
+        vars.emergencyVault = address(new MockEmergencyVault(address(this)));
+
+        // Setup yield sources for this vault
         vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        vm.stopPrank();
 
-        /*//////////////////////////////////////////////////////////////
-                        MULTIPLE PROPOSALS OVERRIDE
-        //////////////////////////////////////////////////////////////*/
+        _updateSuperVaultPPS(vars.strategyAddr, vars.vaultAddr);
+        
+        // Setup: Create multiple users with deposits
+        vars.depositAmount = 10_000e6; // 10,000 USDC per user
+        vars.users = new address[](3);
+        vars.userShares = new uint256[](3);
+        
+        for (uint256 i = 0; i < 3; i++) {
+            vars.users[i] = accInstances[i].account;
+            _getTokens(address(asset), vars.users[i], vars.depositAmount);
+            
+            // Deposit for each user
+            vm.startPrank(vars.users[i]);
+            asset.approve(address(testVault), vars.depositAmount);
+            vars.userShares[i] = testVault.deposit(vars.depositAmount, vars.users[i]);
+            vm.stopPrank();
+            
+            console2.log("User", i, "deposited:", vars.depositAmount);
+            console2.log("User", i, "received shares:", vars.userShares[i]);
+        }
 
-        // Test: Multiple proposals should override previous ones
-        uint256 firstThreshold = 3600; // 1 hour
-        uint256 secondThreshold = 7200; // 2 hours
+        // Allocate deposits to yield sources
+        vars.totalFreeAssets = asset.balanceOf(address(testStrategy));
+        vars.halfAmount = vars.totalFreeAssets / 2;
 
-        // First proposal
-        strategy.managePPSStalenessThreshold(1, firstThreshold);
-        assertEq(strategy.proposedPPSStalenessThreshold(), firstThreshold, "First proposal should be set");
+        {
+            vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+            
+            vars.fulfillHooksAddresses = new address[](2);
+            vars.fulfillHooksAddresses[0] = vars.depositHookAddress;
+            vars.fulfillHooksAddresses[1] = vars.depositHookAddress;
 
-        // Second proposal should override first
-        uint256 expectedEffectiveTime = block.timestamp + 1 weeks;
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(firstThreshold, secondThreshold, expectedEffectiveTime);
-        strategy.managePPSStalenessThreshold(1, secondThreshold);
+            vars.fulfillHooksData = new bytes[](2);
+            vars.fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(fluidVault),
+                address(asset),
+                vars.halfAmount,
+                false,
+                address(0),
+                0
+            );
+            vars.fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(aaveVault),
+                address(asset),
+                vars.halfAmount,
+                false,
+                address(0),
+                0
+            );
 
-        assertEq(strategy.proposedPPSStalenessThreshold(), secondThreshold, "Second proposal should override first");
-        assertEq(
-            strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be updated"
+            vm.mockCall(
+                address(aggregator),
+                abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+                abi.encode(true)
+            );
+
+            vm.startPrank(MANAGER);
+            testStrategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
+                    expectedAssetsOrSharesOut: new uint256[](2),
+                    globalProofs: new bytes32[][](2),
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+            vm.stopPrank();
+        }
+
+        console2.log("\n=== STEP 1: PAUSE VAULT WITH EXTREME OUTLIER ===");
+        
+        // Set strict deviation threshold (5% = 0.05 * 1e18)
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            0.05e18, // mxThreshold: 5% max deviation
+            0, // mnThreshold: disabled
+            type(uint256).max // mnThreshold (disabled)
         );
 
-        /*//////////////////////////////////////////////////////////////
-                        EXECUTION AT EXACT TIMELOCK
-        //////////////////////////////////////////////////////////////*/
+        // Get current PPS and create extreme deviation (50% drop)
+        vars.currentPPS = aggregator.getPPS(address(testStrategy));
+        vars.deviatingPPS = vars.currentPPS * 50 / 100; // 50% drop - extreme outlier
+        console2.log("Current PPS:", vars.currentPPS);
+        console2.log("Deviating PPS (50% drop):", vars.deviatingPPS);
 
-        // Test: Execute exactly when timelock expires
-        vm.warp(block.timestamp + 1 weeks);
+        // Trigger pause with deviating PPS
+        vm.warp(block.timestamp + 10);
+        _createPPSUpdateThatTriggersDeviation(address(testStrategy), vars.deviatingPPS);
 
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(secondThreshold);
-        strategy.managePPSStalenessThreshold(2, 0);
+        // Verify strategy is paused
+        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation");
+        console2.log("Strategy successfully paused due to extreme outlier");
 
-        assertEq(strategy.ppsExpiration(), secondThreshold, "Threshold should be updated");
+        console2.log("\n=== STEP 2: REDEEM FROM ALL UYS INTO FREE ASSETS ===");
 
-        /*//////////////////////////////////////////////////////////////
-                        LARGE THRESHOLD VALUES
-        //////////////////////////////////////////////////////////////*/
+        // Get current balances in yield sources
+        vars.fluidBalance = fluidVault.balanceOf(address(testStrategy));
+        vars.aaveBalance = aaveVault.balanceOf(address(testStrategy));
+        console2.log("Fluid vault shares:", vars.fluidBalance);
+        console2.log("Aave vault shares:", vars.aaveBalance);
 
-        // Test: Very large threshold value
-        uint256 largeThreshold = 604_800; // 1 week
-        expectedEffectiveTime = block.timestamp + 1 weeks;
+        // Redeem all assets from yield sources back to strategy
+        {
+            vars.redeemHooksAddresses = new address[](2);
+            vars.redeemHooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+            vars.redeemHooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdProposed(0, largeThreshold, expectedEffectiveTime);
-        strategy.managePPSStalenessThreshold(1, largeThreshold);
+            vars.redeemHooksData = new bytes[](2);
+            vars.redeemHooksData[0] = _createRedeem4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(fluidVault),
+                address(testStrategy),
+                vars.fluidBalance,
+                false
+            );
 
-        // Fast forward and execute
-        vm.warp(block.timestamp + 1 weeks);
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(largeThreshold);
-        strategy.managePPSStalenessThreshold(2, 0);
+            vars.redeemHooksData[1] = _createRedeem4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(aaveVault),
+                address(testStrategy),
+                vars.aaveBalance,
+                false
+            );
 
-        assertEq(strategy.ppsExpiration(), largeThreshold, "Large threshold should be set");
+            vm.startPrank(MANAGER);
+            testStrategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: vars.redeemHooksAddresses,
+                    hookCalldata: vars.redeemHooksData,
+                    expectedAssetsOrSharesOut: new uint256[](2),
+                    globalProofs: new bytes32[][](2),
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+            vm.stopPrank();
+        }
 
+        console2.log("\n=== STEP 3: RECORD USER ACCOUNTING ===");
+
+        vars.totalAssetsInStrategy = asset.balanceOf(address(testStrategy));
+        console2.log("Total assets in strategy after redeem:", vars.totalAssetsInStrategy);
+        console2.log("Total assets in escrow:", asset.balanceOf(address(testEscrow)));
+
+        vars.userAccountingSnapshot = new UserAccounting[](3);
+        vars.totalShares = 0;
+        
+        for (uint256 i = 0; i < 3; i++) {
+            vars.userAccountingSnapshot[i].user = vars.users[i];
+            vars.userAccountingSnapshot[i].shares = testVault.balanceOf(vars.users[i]);
+            vars.userAccountingSnapshot[i].assets = testVault.convertToAssets(vars.userAccountingSnapshot[i].shares);
+            vars.totalShares += vars.userAccountingSnapshot[i].shares;
+            
+            console2.log("User", i, "shares:", vars.userAccountingSnapshot[i].shares);
+            console2.log("User", i, "asset value:", vars.userAccountingSnapshot[i].assets);
+        }
+
+        console2.log("\n=== STEP 4: ADD BATCH TRANSFER HOOK TO STRATEGIST MERKLE ROOT (VIA TIMELOCK) ===");
+
+        // Get the OFFRAMP_TOKENS_HOOK_KEY address from core
+        vars.batchTransferHook = _getHookAddress(ETH, OFFRAMP_TOKENS_HOOK_KEY);
+        console2.log("BatchTransferHook address:", vars.batchTransferHook);
+
+        // Create a simple merkle tree with batch transfer hook and users
+        // For this test, we'll create a merkle tree that allows:
+        // - BatchTransferHook with escrow as recipient and all users as senders
+        // - We'll use Merkle.sol from openzeppelin or create a simple tree
+        
+        // Build merkle tree nodes for batch transfer
+        vars.escrowRecipient = vars.emergencyVault; // Or any safe recipient
+        vars.batchTransferInspectResult = abi.encodePacked(
+            vars.escrowRecipient, 
+            address(asset) // Token being transferred
+        );
+        
+        console2.log("\n=== STEP 4: PERFORM BATCH TRANSFER TO STRIP ASSETS ===");
+
+        vars.assetsToTransfer = asset.balanceOf(address(testStrategy));
+        console2.log("Assets to transfer from strategy:", vars.assetsToTransfer);
+
+        // Prepare batch transfer hook data
+        vars.tokens = new address[](1);
+        vars.tokens[0] = address(asset);
+        
+        vars.batchTransferHooks = new address[](1);
+        vars.batchTransferHooks[0] = vars.batchTransferHook;
+
+        console2.log("vars.batchTransferHooks[0]: ", vars.batchTransferHooks[0]);
+
+        vars.batchTransferHooksData = new bytes[](1);
+        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(
+            vars.escrowRecipient,
+            vars.tokens
+        );
+        // Execute batch transfer
+        vars.recipientBalanceBefore = asset.balanceOf(vars.escrowRecipient);
+        console2.log("Recipient balance before transfer:", vars.recipientBalanceBefore);
+
+        vm.prank(MANAGER);
+        testStrategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: vars.batchTransferHooks,
+                hookCalldata: vars.batchTransferHooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        vars.recipientBalanceAfter = asset.balanceOf(vars.escrowRecipient);
+        console2.log("Recipient balance after transfer:", vars.recipientBalanceAfter);
+        
+        vars.strategyBalanceAfter = asset.balanceOf(address(testStrategy));
+        console2.log("Strategy balance after transfer:", vars.strategyBalanceAfter);
+
+        // Verify assets were transferred
+        assertApproxEqAbs(
+            vars.recipientBalanceAfter - vars.recipientBalanceBefore,
+            vars.assetsToTransfer,
+            1e6, // 1 USDC tolerance for rounding
+            "Assets not transferred to recipient"
+        );
+        assertLt(vars.strategyBalanceAfter, 1e6, "Strategy should have minimal assets left");
+
+        console2.log("\n=== STEP 5: VERIFY EMERGENCY VAULT BALANCE ===");
+        
+        vars.emergencyVaultBalance = MockEmergencyVault(vars.emergencyVault).getTokenBalance(address(asset));
+        console2.log("Emergency vault token balance:", vars.emergencyVaultBalance);
+        assertGt(vars.emergencyVaultBalance, 0, "Emergency vault should have received tokens");
+
+        console2.log("\n=== STEP 6: WITHDRAW FROM EMERGENCY VAULT AND REINVEST INTO SUPERVAULT ===");
+        
+        // Withdraw tokens from emergency vault back to this contract
+        vars.withdrawAmount = vars.emergencyVaultBalance;
+        MockEmergencyVault(vars.emergencyVault).withdrawTokens(address(asset), address(this));
+        
+        vars.balanceAfterWithdraw = asset.balanceOf(address(this));
+        console2.log("Balance after emergency vault withdrawal:", vars.balanceAfterWithdraw);
+        
+        // Reinvest tokens back into SuperVault using the emergency vault's reinvestIntoVault function
+        // First, transfer tokens back to emergency vault
+        asset.transfer(vars.emergencyVault, vars.withdrawAmount);
+        
+        // Approve and reinvest
+        vm.startPrank(vars.emergencyVault);
+        asset.approve(address(testVault), vars.withdrawAmount);
         vm.stopPrank();
+
+        vars.sharesBefore = testVault.totalSupply();
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+
+        aggregator.unpauseStrategy(address(testStrategy));
+        
+        // Update thresholds to disable deviation and validator participation checks
+        // This allows emergency PPS update to restore the strategy to a known state
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold: disabled
+            type(uint256).max, // deviationThreshold: disabled
+            0 // mnThreshold: disabled
+        );
+        
+        vm.warp(block.timestamp + 1 weeks);
+        _updatePPSToTarget(address(testStrategy), address(testVault), 1e18);
+
+        // Reinvest tokens back into SuperVault (don't update PPS before reinvesting as strategy has no assets)
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+        
+
+        vars.sharesAfter = testVault.totalSupply();
+        
+        console2.log("SuperVault shares before reinvestment:", vars.sharesBefore);
+        console2.log("SuperVault shares after reinvestment:", vars.sharesAfter);
+        console2.log("New shares minted:", vars.sharesAfter - vars.sharesBefore);
+        
+        // Verify reinvestment
+        assertGt(vars.sharesAfter, vars.sharesBefore, "Shares should increase after reinvestment");
+        console2.log("Successfully reinvested tokens from emergency vault back into SuperVault");
+
+        console2.log("\n=== EMERGENCY ASSET RECOVERY TEST COMPLETED ===");
+        console2.log("Successfully paused vault, redeemed from all UYS, transferred to safe recipient, and reinvested");
     }
 
     /*//////////////////////////////////////////////////////////////

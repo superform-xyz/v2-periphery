@@ -149,7 +149,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _verifyPPSUpdated(aggregator, aggregator.getLastUpdateTimestamp(address(this)), ppsExpiration);
+        _verifyPPSUpdated(aggregator);
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -202,7 +202,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _verifyPPSUpdated(aggregator, aggregator.getLastUpdateTimestamp(address(this)), ppsExpiration);
+        _verifyPPSUpdated(aggregator);
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
@@ -1070,7 +1070,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         );
     }
 
-    function _verifyPPSUpdated(ISuperVaultAggregator aggregator, uint256 lastPPSUpdateTimestamp, uint256 ppsExpiration) internal view returns (bool) {
+    function _verifyPPSUpdated(ISuperVaultAggregator aggregator) internal view {
         // The ppsValidity serves a different purpose: 
         //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the quorum is never reached) 
         //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the `ppsExpiration` logic controls

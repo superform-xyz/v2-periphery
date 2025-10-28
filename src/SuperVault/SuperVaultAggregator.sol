@@ -67,9 +67,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
-    // Maximum number of strategies to process in `batchForwardPPS`
-    uint256 public constant MAX_STRATEGIES = 300;
-
     // Time lock for stake withdrawal requests
     uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
     uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 10 days;
@@ -214,17 +211,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
     function forwardPPS(ForwardPPSArgs calldata args) external onlyPPSOracle {
-        uint256 strategiesLength = args.strategies.length;
-        if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
-        if (strategiesLength == 0) revert ZERO_ARRAY_LENGTH();
-        // Validate input array lengths
-        if (
-            strategiesLength != args.ppss.length || strategiesLength != args.ppsStdevs.length
-                || strategiesLength != args.timestamps.length || strategiesLength != args.validatorSets.length
-        ) revert ARRAY_LENGTH_MISMATCH();
-
         bool paymentsEnabled = SUPER_GOVERNOR.isUpkeepPaymentsEnabled();
 
+        uint256 strategiesLength = args.strategies.length;
         for (uint256 i; i < strategiesLength; ++i) {
             address strategy = args.strategies[i];
 
@@ -335,6 +324,25 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                         PAUSE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    /// @dev Only the main or secondary manager of the strategy can pause it
+    function pauseStrategy(address strategy) external validStrategy(strategy) {
+        // Either primary or secondary manager can pause
+        if (!isAnyManager(msg.sender, strategy)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if strategy is already paused
+        if (_strategyData[strategy].isPaused) {
+            revert STRATEGY_ALREADY_PAUSED();
+        }
+
+        // Pause the strategy
+        _strategyData[strategy].isPaused = true;
+        emit StrategyPaused(strategy);
+    }
+
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
@@ -354,6 +362,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].ppsStale = true;
         emit StrategyUnpaused(strategy);
     }
+
+
 
     /*//////////////////////////////////////////////////////////////
                         STAKE MANAGEMENT
