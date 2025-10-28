@@ -212,7 +212,8 @@ contract SuperVault is
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
-
+        if (receiver != controller) revert INVALID_CONTROLLER();
+        
         shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)

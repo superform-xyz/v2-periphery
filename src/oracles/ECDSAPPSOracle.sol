@@ -23,6 +23,9 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                                  STORAGE
     //////////////////////////////////////////////////////////////*/
     mapping(address _strategy => uint256 _nonce) public noncePerStrategy;
+    
+    // Maximum number of strategies to process in `batchForwardPPS`
+    uint256 public constant MAX_STRATEGIES = 300;
 
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
@@ -30,6 +33,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         keccak256("UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 timestamp,uint256 strategyNonce)");
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
+
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -63,6 +67,8 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             strategiesLength != args.proofsArray.length || strategiesLength != args.ppss.length
                 || strategiesLength != args.ppsStdevs.length || strategiesLength != args.timestamps.length
         ) revert ARRAY_LENGTH_MISMATCH();
+
+        if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
 
         uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
 

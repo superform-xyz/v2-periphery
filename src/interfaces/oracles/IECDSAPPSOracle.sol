@@ -39,6 +39,8 @@ interface IECDSAPPSOracle {
     error INVALID_TOTAL_VALIDATORS();
     /// @notice Thrown when the gas provided is insufficient for external calls
     error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+    /// @notice Thrown when the number of strategies exceeds the maximum allowed
+    error MAX_STRATEGIES_EXCEEDED();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

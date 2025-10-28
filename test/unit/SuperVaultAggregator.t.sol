@@ -10,6 +10,8 @@ import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { IECDSAPPSOracle } from "../../src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { ECDSAPPSOracle } from "../../src/oracles/ECDSAPPSOracle.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockUp } from "../mocks/MockUp.sol";
@@ -21,6 +23,7 @@ import "forge-std/console2.sol";
 contract SuperVaultAggregatorTest is PeripheryHelpers {
     SuperGovernor internal superGovernor;
     SuperVaultAggregator internal superVaultAggregator;
+    ECDSAPPSOracle internal ecdsaPPSOracle;
 
     // Roles & Addresses
     address internal sGovernor;
@@ -72,6 +75,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         superVaultAggregator = new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl);
 
+        // Deploy ECDSAPPSOracle
+        ecdsaPPSOracle = new ECDSAPPSOracle(address(superGovernor), "ECDSAPPSOracle", "1");
+
         // Create a vault and strategy for testing
         vm.prank(manager);
         (, address strategyAddress,) = superVaultAggregator.createVault(
@@ -106,6 +112,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setAddress(superGovernor.UP(), upToken);
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
+        superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
         vm.stopPrank();
     }
 
@@ -2457,43 +2464,33 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     /// @notice Tests that batch PPS updates revert when exceeding MAX_STRATEGIES limit
     function test_BatchForwardPPS_Revert_MaxStrategiesExceeded() public {
-        // Set up as PPS Oracle to be able to call batchForwardPPS
-        vm.prank(sGovernor);
-        superGovernor.setActivePPSOracle(address(this));
-
         // Create arrays with MAX_STRATEGIES + 1 entries (501 strategies)
         uint256 strategiesCount = 501; // MAX_STRATEGIES is 500
 
         address[] memory strategies = new address[](strategiesCount);
+        bytes[][] memory proofsArray = new bytes[][](strategiesCount);
         uint256[] memory ppss = new uint256[](strategiesCount);
         uint256[] memory ppsStdevs = new uint256[](strategiesCount);
-        uint256[] memory validatorSets = new uint256[](strategiesCount);
-        uint256[] memory totalValidators = new uint256[](strategiesCount);
         uint256[] memory timestamps = new uint256[](strategiesCount);
-        address[] memory updateAuthorities = new address[](strategiesCount);
 
         // Fill arrays with dummy data (we don't need valid strategies since it should revert before validation)
         for (uint256 i = 0; i < strategiesCount; i++) {
             strategies[i] = address(uint160(i + 1)); // Dummy addresses
+            proofsArray[i] = new bytes[](0); // Empty proofs array since it should revert before validation
             ppss[i] = 1e18;
             ppsStdevs[i] = 0;
-            validatorSets[i] = 1;
-            totalValidators[i] = 1;
             timestamps[i] = block.timestamp;
-            updateAuthorities[i] = user;
         }
 
         // Batch update should revert with MAX_STRATEGIES_EXCEEDED
-        vm.expectRevert(ISuperVaultAggregator.MAX_STRATEGIES_EXCEEDED.selector);
-        superVaultAggregator.forwardPPS(
-            ISuperVaultAggregator.ForwardPPSArgs({
+        vm.expectRevert(IECDSAPPSOracle.MAX_STRATEGIES_EXCEEDED.selector);
+        ecdsaPPSOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
                 strategies: strategies,
+                proofsArray: proofsArray,
                 ppss: ppss,
                 ppsStdevs: ppsStdevs,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
-                timestamps: timestamps,
-                updateAuthority: address(this)
+                timestamps: timestamps
             })
         );
     }
