@@ -2,19 +2,13 @@
 pragma solidity ^0.8.0;
 
 import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
-import { BeforeAfter } from "../BeforeAfter.sol";
 import { Properties } from "../Properties.sol";
-// Chimera deps
-import { vm } from "@chimera/Hevm.sol";
 
-// Helpers
-import { Panic } from "@recon/Panic.sol";
-
-import "src/SuperGovernor.sol";
+import { SuperGovernor, FeeType } from "src/SuperGovernor.sol";
 
 abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
-    function superGovernor_proposeGlobalHooksRoot_clamped(bytes32 newRoot) public {
+    function superGovernor_proposeGlobalHooksRoot_clamped(bytes32 /*newRoot*/) public {
         (bytes32 testRoot, ) = merkleHelper.generateTestHooksRoot(
             address(approveAndDeposit4626Hook), address(redeem4626Hook), _getYieldSource(), superVault.asset()
         );

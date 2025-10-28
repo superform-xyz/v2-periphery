@@ -69,8 +69,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         vm.prank(_getActor());
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
-        uint256 feeBalanceBefore = MockERC20(superVault.asset()).balanceOf(feeRecipient);
-
         // 4. Fulfill Redemption from yield strategy
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemFromArgs(shares);
@@ -576,7 +574,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Helper function to create ExecuteArgs for redeeming from yield strategy
-    function _createExecuteRedeemFromArgs(uint256 sharesToRedeem)
+    function _createExecuteRedeemFromArgs(uint256 /*sharesToRedeem*/)
         internal
         view
         returns (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers)
