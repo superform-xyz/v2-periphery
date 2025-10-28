@@ -15,7 +15,7 @@ import "src/SuperGovernor.sol";
 abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
     function superGovernor_proposeGlobalHooksRoot_clamped(bytes32 newRoot) public {
-        (bytes32 testRoot, bytes32[][] memory testProofs) = merkleHelper.generateTestHooksRoot(
+        (bytes32 testRoot, ) = merkleHelper.generateTestHooksRoot(
             address(approveAndDeposit4626Hook), address(redeem4626Hook), _getYieldSource(), superVault.asset()
         );
 

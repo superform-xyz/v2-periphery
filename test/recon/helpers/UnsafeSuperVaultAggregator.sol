@@ -19,7 +19,7 @@ contract UnsafeSuperVaultAggregator is SuperVaultAggregator {
         ValidateHookArgs calldata args
     )
         external
-        view
+        pure
         override
         returns (bool isValid)
     {
