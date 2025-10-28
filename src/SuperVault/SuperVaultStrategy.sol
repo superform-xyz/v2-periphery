@@ -243,6 +243,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
 
+        // claim should be allowed even if paused
         if (operation != Operation.ClaimRedeem) {
             if (_isPaused()) revert STRATEGY_PAUSED();
             if (_isPPSStale()) revert STALE_PPS();
@@ -939,6 +940,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Defense-in-depth: assert controller has accumulator shares
         if (state.accumulatorShares == 0) revert INSUFFICIENT_SHARES();
+        if (shares > state.accumulatorShares) revert INSUFFICIENT_FUNDS();
 
         // Get current PPS from aggregator to use as baseline for slippage protection
         uint256 currentPPS = getStoredPPS();
