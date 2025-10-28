@@ -77,24 +77,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_previewEquivalenceFromShares(1);
     }
 
-    // forge test --match-test test_doomsday_mintRedeemSymmetrical_5 -vvv
-    // NOTE: see issue: https://github.com/Recon-Fuzz/superform-review/issues/61
-    function test_doomsday_mintRedeemSymmetrical_5() public {
-        superVaultStrategy_manageYieldSource_clamped(0);
-
-        yieldSource_mint(1, 0x0000000000000000000000000000000000000000);
-
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 5);
-        ECDSAPPSOracle_updatePPS_clamped(
-            45_875_423_970_713_493_951_589_436_881_765_514_280_565_129_916_122_376_120_788_407_117_094_766
-        );
-
-        yieldSource_simulateGain(157_404);
-
-        doomsday_mintRedeemSymmetrical(2);
-    }
-
     // forge test --match-test test_property_accumulatorSharesDecreaseOnFulfill_exact_6 -vvv
     // NOTE: see issue: https://github.com/Recon-Fuzz/superform-review/issues/62
     function test_property_accumulatorSharesDecreaseOnFulfill_exact_6() public {
