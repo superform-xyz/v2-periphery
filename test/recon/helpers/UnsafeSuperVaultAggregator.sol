@@ -15,8 +15,8 @@ contract UnsafeSuperVaultAggregator is SuperVaultAggregator {
     { }
 
     function validateHook(
-        address strategy,
-        ValidateHookArgs calldata args
+        address /*strategy*/,
+        ValidateHookArgs calldata /*args*/
     )
         external
         pure
