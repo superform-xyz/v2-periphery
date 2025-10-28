@@ -457,8 +457,6 @@ interface ISuperVaultAggregator {
     error INVALID_TIMESTAMP(uint256 index);
     /// @notice Thrown when too many secondary managers are added
     error TOO_MANY_SECONDARY_MANAGERS();
-    /// @notice Thrown when the number of strategies exceeds the maximum allowed
-    error MAX_STRATEGIES_EXCEEDED();
     /// @notice Thrown when withdrawal request is expired
     error WITHDRAWAL_REQUEST_EXPIRED();
     /// @notice Thrown when withdrawal request is not ready
