@@ -14,15 +14,41 @@ import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { ClaimsMerkleHelper } from "../../../test/utils/merkle/helper/ClaimsMerkleHelper.sol";
 
 // we need to `useLatestFork` on true
-contract SuperVaultSwapTest is BaseSuperVaultTest {
+contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
     using Math for uint256;
 
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE; 
     address userAddress; 
 
+    struct MerklHookWithSwapVars {
+        uint256 depositAmount;
+        uint256 userShares;
+        uint256 fluidBalanceBeforeClaim;
+        uint256 aaveBalanceBeforeClaim;
+        address[] users;
+        address[] tokens;
+        uint256[] amounts;
+        bytes32[][] proofs;
+        bytes32 root;
+        bytes32[] leaves;
+        address depositHookAddress;
+        address claimHookAddress;
+        address[] hooksAddresses;
+        bytes[] hooksData;
+        QuoteInputToken[] quoteInputTokens;
+        QuoteOutputToken[] quoteOutputTokens;
+        string path;
+        string requestBody;
+        OdosDecodedSwap odosDecodedSwap;
+        bytes odosCalldata;
+        uint256 fluidBalanceAfterClaim;
+        uint256 aaveBalanceAfterClaim;
+    }
+    
     struct DepositAndSwapParams {
         uint256 fullAmount;
         address assetToDeposit;
