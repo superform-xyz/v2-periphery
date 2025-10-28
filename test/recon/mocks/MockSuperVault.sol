@@ -383,12 +383,12 @@ contract MockSuperVault {
     }
 
     // Mock implementation of allowance
-    function allowance(address owner, address spender) public view returns (uint256) {
+    function allowance(address /*owner*/, address /*spender*/) public view returns (uint256) {
         return _allowanceReturn_0;
     }
 
     // Mock implementation of approve
-    function approve(address spender, uint256 value) public view returns (bool) {
+    function approve(address /*spender*/, uint256 /*value*/) public view returns (bool) {
         return _approveReturn_0;
     }
 
@@ -398,18 +398,18 @@ contract MockSuperVault {
     }
 
     // Mock implementation of authorizations
-    function authorizations(address controller, bytes32 nonce) public view returns (bool) {
+    function authorizations(address /*controller*/, bytes32 /*nonce*/) public view returns (bool) {
         return _authorizationsReturn_0;
     }
 
     // Mock implementation of authorizeOperator
     function authorizeOperator(
-        address controller,
-        address operator,
-        bool approved,
-        bytes32 nonce,
-        uint256 deadline,
-        bytes memory signature
+        address /*controller*/,
+        address /*operator*/,
+        bool /*approved*/,
+        bytes32 /*nonce*/,
+        uint256 /*deadline*/,
+        bytes memory /*signature*/
     )
         public
         view
@@ -419,22 +419,22 @@ contract MockSuperVault {
     }
 
     // Mock implementation of balanceOf
-    function balanceOf(address account) public view returns (uint256) {
+    function balanceOf(address /*account*/) public view returns (uint256) {
         return _balanceOfReturn_0;
     }
 
     // Mock implementation of claimableRedeemRequest
-    function claimableRedeemRequest(uint256 arg0, address controller) public view returns (uint256) {
+    function claimableRedeemRequest(uint256 /*arg0*/, address /*controller*/) public view returns (uint256) {
         return _claimableRedeemRequestReturn_0;
     }
 
     // Mock implementation of convertToAssets
-    function convertToAssets(uint256 shares) public view returns (uint256) {
+    function convertToAssets(uint256 /*shares*/) public view returns (uint256) {
         return _convertToAssetsReturn_0;
     }
 
     // Mock implementation of convertToShares
-    function convertToShares(uint256 assets) public view returns (uint256) {
+    function convertToShares(uint256 /*assets*/) public view returns (uint256) {
         return _convertToSharesReturn_0;
     }
 
@@ -444,7 +444,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of deposit
-    function deposit(uint256 assets, address receiver) public view returns (uint256) {
+    function deposit(uint256 /*assets*/, address /*receiver*/) public view returns (uint256) {
         return _depositReturn_0;
     }
 
@@ -471,32 +471,32 @@ contract MockSuperVault {
     }
 
     // Mock implementation of isOperator
-    function isOperator(address owner, address operator) public view returns (bool) {
+    function isOperator(address /* owner */, address /* operator */) public view returns (bool) {
         return _isOperatorReturn_0;
     }
 
     // Mock implementation of maxDeposit
-    function maxDeposit(address arg0) public view returns (uint256) {
+    function maxDeposit(address /* arg0 */) public view returns (uint256) {
         return _maxDepositReturn_0;
     }
 
     // Mock implementation of maxMint
-    function maxMint(address arg0) public view returns (uint256) {
+    function maxMint(address /* arg0 */) public view returns (uint256) {
         return _maxMintReturn_0;
     }
 
     // Mock implementation of maxRedeem
-    function maxRedeem(address owner) public view returns (uint256) {
+    function maxRedeem(address /* owner */) public view returns (uint256) {
         return _maxRedeemReturn_0;
     }
 
     // Mock implementation of maxWithdraw
-    function maxWithdraw(address owner) public view returns (uint256) {
+    function maxWithdraw(address /* owner */) public view returns (uint256) {
         return _maxWithdrawReturn_0;
     }
 
     // Mock implementation of mint
-    function mint(uint256 shares, address receiver) public view returns (uint256) {
+    function mint(uint256 /*shares*/, address /*receiver*/) public view returns (uint256) {
         return _mintReturn_0;
     }
 
@@ -506,42 +506,42 @@ contract MockSuperVault {
     }
 
     // Mock implementation of pendingRedeemRequest
-    function pendingRedeemRequest(uint256 arg0, address controller) public view returns (uint256) {
+    function pendingRedeemRequest(uint256 /*arg0*/, address /*controller*/) public view returns (uint256) {
         return _pendingRedeemRequestReturn_0;
     }
 
     // Mock implementation of previewDeposit
-    function previewDeposit(uint256 assets) public view returns (uint256) {
+    function previewDeposit(uint256 /*assets*/) public view returns (uint256) {
         return _previewDepositReturn_0;
     }
 
     // Mock implementation of previewMint
-    function previewMint(uint256 shares) public view returns (uint256) {
+    function previewMint(uint256 /*shares*/) public view returns (uint256) {
         return _previewMintReturn_0;
     }
 
     // Mock implementation of previewRedeem
-    function previewRedeem(uint256 arg0) public view returns (uint256) {
+    function previewRedeem(uint256 /*arg0*/) public view returns (uint256) {
         return _previewRedeemReturn_0;
     }
 
     // Mock implementation of previewWithdraw
-    function previewWithdraw(uint256 arg0) public view returns (uint256) {
+    function previewWithdraw(uint256 /*arg0*/) public view returns (uint256) {
         return _previewWithdrawReturn_0;
     }
 
     // Mock implementation of redeem
-    function redeem(uint256 shares, address receiver, address controller) public view returns (uint256) {
+    function redeem(uint256 /*shares*/, address /*receiver*/, address /*controller*/) public view returns (uint256) {
         return _redeemReturn_0;
     }
 
     // Mock implementation of requestRedeem
-    function requestRedeem(uint256 shares, address controller, address owner) public view returns (uint256) {
+    function requestRedeem(uint256 /*shares*/, address /*controller*/, address /*owner*/) public view returns (uint256) {
         return _requestRedeemReturn_0;
     }
 
     // Mock implementation of setOperator
-    function setOperator(address operator, bool approved) public view returns (bool) {
+    function setOperator(address /*operator*/, bool /*approved*/) public view returns (bool) {
         return _setOperatorReturn_0;
     }
 
@@ -561,7 +561,7 @@ contract MockSuperVault {
     }
 
     // Mock implementation of supportsInterface
-    function supportsInterface(bytes4 interfaceId) public view returns (bool) {
+    function supportsInterface(bytes4 /*interfaceId*/) public view returns (bool) {
         return _supportsInterfaceReturn_0;
     }
 
@@ -581,17 +581,17 @@ contract MockSuperVault {
     }
 
     // Mock implementation of transfer
-    function transfer(address to, uint256 value) public view returns (bool) {
+    function transfer(address /*to*/, uint256 /*value*/) public view returns (bool) {
         return _transferReturn_0;
     }
 
     // Mock implementation of transferFrom
-    function transferFrom(address from, address to, uint256 value) public view returns (bool) {
+    function transferFrom(address /*from*/, address /*to*/, uint256 /*value*/) public view returns (bool) {
         return _transferFromReturn_0;
     }
 
     // Mock implementation of withdraw
-    function withdraw(uint256 assets, address receiver, address controller) public view returns (uint256) {
+    function withdraw(uint256 /*assets*/, address /*receiver*/, address /*controller*/) public view returns (uint256) {
         return _withdrawReturn_0;
     }
 }

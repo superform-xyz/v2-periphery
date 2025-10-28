@@ -304,12 +304,12 @@ contract MockSuperVaultStrategy {
     }
 
     // Mock implementation of claimableWithdraw
-    function claimableWithdraw(address controller) public view returns (uint256) {
+    function claimableWithdraw(address /*controller*/) public view returns (uint256) {
         return _claimableWithdrawReturn_0;
     }
 
     // Mock implementation of containsYieldSource
-    function containsYieldSource(address source) public view returns (bool) {
+    function containsYieldSource(address /*source*/) public view returns (bool) {
         return _containsYieldSourceReturn_0;
     }
 
