@@ -244,6 +244,38 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(aaveVault.balanceOf(address(strategy)), 0, "No aave shares allocated");
     }
 
+    function test_PauseAndUnpauseStrategy() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // First deposit should work normally
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), 0, "Initial deposit failed");
+
+        // Update PPS to set a recent lastUpdateTimestamp (required for unpause timelock)
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Pause the strategy (manager can pause)
+        vm.startPrank(MANAGER);
+        aggregator.pauseStrategy(address(strategy));
+        vm.stopPrank();
+
+        // Try to deposit when paused - should revert with STRATEGY_PAUSED
+        vm.startPrank(accountEth);
+        deal(address(asset), accountEth, depositAmount);
+        asset.approve(address(vault), depositAmount);
+        
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        vault.deposit(depositAmount, accountEth);
+        vm.stopPrank();
+
+        // Unpause the strategy (only UNPAUSER_ROLE can unpause)
+        aggregator.unpauseStrategy(address(strategy));
+
+        // Deposit should work again after unpause
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), depositAmount, "Deposit after unpause failed");
+    }
+
     /*//////////////////////////////////////////////////////////////
                         REDEEM FLOW TESTS
     //////////////////////////////////////////////////////////////*/

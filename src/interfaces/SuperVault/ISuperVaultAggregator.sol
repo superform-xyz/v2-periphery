@@ -415,6 +415,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_STAKE_BALANCE();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
+    /// @notice Thrown when trying to pause a strategy that is already paused
+    error STRATEGY_ALREADY_PAUSED();
     /// @notice Thrown when caller is already authorized
     error CALLER_ALREADY_AUTHORIZED();
     /// @notice Thrown when caller is not authorized
@@ -518,6 +520,18 @@ interface ISuperVaultAggregator {
     /// @notice Claims upkeep tokens from the contract
     /// @param amount Amount of UP tokens to claim
     function claimUpkeep(uint256 amount) external;
+
+    /*//////////////////////////////////////////////////////////////
+                        PAUSE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    function pauseStrategy(address strategy) external;
+
+    /// @notice Manually unpauses a strategy
+    /// @param strategy Address of the strategy to unpause
+    function unpauseStrategy(address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                         STAKE MANAGEMENT

@@ -328,6 +328,25 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                         PAUSE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    /// @dev Only the main or secondary manager of the strategy can pause it
+    function pauseStrategy(address strategy) external validStrategy(strategy) {
+        // Either primary or secondary manager can pause
+        if (!isAnyManager(msg.sender, strategy)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if strategy is already paused
+        if (_strategyData[strategy].isPaused) {
+            revert STRATEGY_ALREADY_PAUSED();
+        }
+
+        // Pause the strategy
+        _strategyData[strategy].isPaused = true;
+        emit StrategyPaused(strategy);
+    }
+
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
@@ -352,6 +371,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].ppsStale = true;
         emit StrategyUnpaused(strategy);
     }
+
+
 
     /*//////////////////////////////////////////////////////////////
                         STAKE MANAGEMENT
