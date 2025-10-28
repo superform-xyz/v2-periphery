@@ -50,12 +50,15 @@ import { MockERC20 } from "../../mocks/MockERC20.sol";
 import { ISuperLedgerConfiguration } from "@superform-v2-core/src/interfaces/accounting/ISuperLedgerConfiguration.sol";
 import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
+import { LibSort } from "solady/utils/LibSort.sol";
+import { AssetAdjustmentHelper } from "./AssetAdjustmentHelper.t.sol";
 
 
-contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
+contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjustmentHelper {
     using MessageHashUtils for bytes32;
     using ModuleKitHelpers for *;
     using Math for uint256;
+    using LibSort for address[];
 
     address public accountEth;
     AccountInstance public instanceOnEth;
@@ -1217,8 +1220,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vars.underlyingSharesForVault1);
         vars.expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(vars.underlyingSharesForVault2);
 
+        // Sort and unique controllers before fulfillment
+        vars.requestingUsers = _sortAndUniqueControllers(vars.requestingUsers);
+        
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        uint256[] memory netAssetsOut = calculateAdjustedFulfillment(
+            strategy,
+            vars.requestingUsers,
+            vars.expectedAssetsOrSharesOut
+        );
+
         vm.startPrank(MANAGER);
-        strategy.fulfillRedeemRequests(vars.requestingUsers);
+        strategy.fulfillRedeemRequests(vars.requestingUsers, netAssetsOut);
         vm.stopPrank();
     }
 
@@ -1266,8 +1279,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+        
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        uint256[] memory netAssetsOut = calculateAdjustedFulfillment(
+            ISuperVaultStrategy(strat),
+            requestingUsers,
+            expectedAssetsOrSharesOut
+        );
+
         // Fulfill the redemption requests from liquidity
-        SuperVaultStrategy(payable(strat)).fulfillRedeemRequests(requestingUsers);
+        SuperVaultStrategy(payable(strat)).fulfillRedeemRequests(requestingUsers, netAssetsOut);
         vm.stopPrank();
     }
 
@@ -1583,8 +1606,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+        
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        uint256[] memory netAssetsOut = calculateAdjustedFulfillment(
+            strategy,
+            requestingUsers,
+            expectedAssetsOrSharesOut
+        );
+
         // Fulfill the redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, netAssetsOut);
         vm.stopPrank();
     }
 
@@ -1641,71 +1674,92 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
+        ExecuteRedeemHooksVars memory vars;
+        
         // Convert SuperVault shares to underlying vault shares
-        uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
-        uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
+        vars.underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
+        vars.underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
+        vars.underlyingSharesVault1 = _truncateToActualBalance(vars.underlyingSharesVault1, vault1, 100);
+        vars.underlyingSharesVault2 = _truncateToActualBalance(vars.underlyingSharesVault2, vault2, 100);
 
         address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        address[] memory fulfillHooksAddresses = new address[](2);
-        fulfillHooksAddresses[0] = withdrawHookAddress;
-        fulfillHooksAddresses[1] = withdrawHookAddress;
+        vars.fulfillHooksAddresses = new address[](2);
+        vars.fulfillHooksAddresses[0] = withdrawHookAddress;
+        vars.fulfillHooksAddresses[1] = withdrawHookAddress;
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        vars.fulfillHooksData = new bytes[](2);
         // Withdraw proportionally from both vaults using underlying shares
-        fulfillHooksData[0] = _createRedeem4626HookData(
+        vars.fulfillHooksData[0] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault1,
             address(strategy),
-            underlyingSharesVault1,
+            vars.underlyingSharesVault1,
             false
         );
-        fulfillHooksData[1] = _createRedeem4626HookData(
+        vars.fulfillHooksData[1] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault2,
             address(strategy),
-            underlyingSharesVault2,
+            vars.underlyingSharesVault2,
             false
         );
 
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
-        expectedAssetsOrSharesOut[0] = IERC4626(vault1).convertToAssets(underlyingSharesVault1);
-        expectedAssetsOrSharesOut[1] = IERC4626(vault2).convertToAssets(underlyingSharesVault2);
+        vars.expectedAssetsOrSharesOut = new uint256[](2);
+        vars.expectedAssetsOrSharesOut[0] = IERC4626(vault1).convertToAssets(vars.underlyingSharesVault1);
+        vars.expectedAssetsOrSharesOut[1] = IERC4626(vault2).convertToAssets(vars.underlyingSharesVault2);
 
         // Apply slippage tolerance
-        expectedAssetsOrSharesOut[0] = expectedAssetsOrSharesOut[0] - expectedAssetsOrSharesOut[0] * 1e3 / 1e5;
-        expectedAssetsOrSharesOut[1] = expectedAssetsOrSharesOut[1] - expectedAssetsOrSharesOut[1] * 1e3 / 1e5;
+        vars.expectedAssetsOrSharesOut[0] = vars.expectedAssetsOrSharesOut[0] - vars.expectedAssetsOrSharesOut[0] * 1e3 / 1e5;
+        vars.expectedAssetsOrSharesOut[1] = vars.expectedAssetsOrSharesOut[1] - vars.expectedAssetsOrSharesOut[1] * 1e3 / 1e5;
 
         console2.log("----requestingUsersLength", requestingUsers.length);
         vm.startPrank(MANAGER);
-        bytes[] memory argsForProofs = new bytes[](2);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+        vars.argsForProofs = new bytes[](2);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
 
-        console2.log("----argsForProofsLength", argsForProofs.length);
+        console2.log("----argsForProofsLength", vars.argsForProofs.length);
         console2.log("----argsForProofs[0]");
-        console2.logBytes(argsForProofs[0]);
+        console2.logBytes(vars.argsForProofs[0]);
         console2.log("----argsForProofs[1]");
-        console2.logBytes(argsForProofs[1]);
+        console2.logBytes(vars.argsForProofs[1]);
 
         // Execute hooks first
         strategy.executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                hooks: vars.fulfillHooksAddresses,
+                hookCalldata: vars.fulfillHooksData,
+                expectedAssetsOrSharesOut: vars.expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(vars.fulfillHooksAddresses, vars.argsForProofs),
                 strategyProofs: new bytes32[][](2)
             })
         );
 
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        vars.netAssetsOut = calculateAdjustedFulfillment(
+            strategy,
+            requestingUsers,
+            vars.expectedAssetsOrSharesOut
+        );
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, vars.netAssetsOut);
         vm.stopPrank();
+    }
+
+    // Local variables struct for _executeRedeemHooks4626ForUsers
+    struct ExecuteRedeemHooks4626ForUsersVars {
+        uint256 underlyingSharesVault1;
+        uint256 underlyingSharesVault2;
+        address withdrawHookAddress;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        bytes[] argsForProofs;
+        bytes32[][] proofs;
+        uint256[] netAssetsOut;
     }
 
     function _executeRedeemHooks4626ForUsers(
@@ -1719,44 +1773,46 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
+        ExecuteRedeemHooks4626ForUsersVars memory vars;
+        
         // Convert SuperVault shares to underlying vault shares
-        uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
-        uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
+        vars.underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
+        vars.underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
+        vars.underlyingSharesVault1 = _truncateToActualBalance(vars.underlyingSharesVault1, vault1, 100);
+        vars.underlyingSharesVault2 = _truncateToActualBalance(vars.underlyingSharesVault2, vault2, 100);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
             expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
         }
-        address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+        vars.withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        address[] memory fulfillHooksAddresses = new address[](2);
-        fulfillHooksAddresses[0] = withdrawHookAddress;
-        fulfillHooksAddresses[1] = withdrawHookAddress;
+        vars.fulfillHooksAddresses = new address[](2);
+        vars.fulfillHooksAddresses[0] = vars.withdrawHookAddress;
+        vars.fulfillHooksAddresses[1] = vars.withdrawHookAddress;
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        vars.fulfillHooksData = new bytes[](2);
         // Withdraw proportionally from both vaults using underlying shares
-        fulfillHooksData[0] = _createRedeem4626HookData(
+        vars.fulfillHooksData[0] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault1,
             address(strategy),
-            underlyingSharesVault1,
+            vars.underlyingSharesVault1,
             false
         );
-        fulfillHooksData[1] = _createRedeem4626HookData(
+        vars.fulfillHooksData[1] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault2,
             address(strategy),
-            underlyingSharesVault2,
+            vars.underlyingSharesVault2,
             false
         );
-        bytes[] memory argsForProofs = new bytes[](2);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+        vars.argsForProofs = new bytes[](2);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
 
-        bytes32[][] memory proofs = _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs);
+        vars.proofs = _getMerkleProofsForHooks(vars.fulfillHooksAddresses, vars.argsForProofs);
         vm.startPrank(MANAGER);
         if (revertSelector != bytes4(0)) {
             vm.expectRevert(revertSelector);
@@ -1764,10 +1820,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             // Execute hooks first
             strategy.executeHooks(
                 ISuperVaultStrategy.ExecuteArgs({
-                    hooks: fulfillHooksAddresses,
-                    hookCalldata: fulfillHooksData,
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
                     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: proofs,
+                    globalProofs: vars.proofs,
                     strategyProofs: new bytes32[][](2)
                 })
             );
@@ -1777,17 +1833,24 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         } else {
             strategy.executeHooks(
                 ISuperVaultStrategy.ExecuteArgs({
-                    hooks: fulfillHooksAddresses,
-                    hookCalldata: fulfillHooksData,
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
                     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: proofs,
+                    globalProofs: vars.proofs,
                     strategyProofs: new bytes32[][](2)
                 })
             );
         }
 
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        vars.netAssetsOut = calculateAdjustedFulfillment(
+            strategy,
+            requestingUsers,
+            expectedAssetsOrSharesOut
+        );
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, vars.netAssetsOut);
         vm.stopPrank();
     }
 
@@ -1878,8 +1941,18 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        vars.requestingUsers = _sortAndUniqueControllers(vars.requestingUsers);
+        
+        // Calculate adjusted netAssetsOut accounting for execution losses
+        uint256[] memory netAssetsOut = calculateAdjustedFulfillment(
+            strategy,
+            vars.requestingUsers,
+            vars.expectedAssetsOrSharesOut
+        );
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(vars.requestingUsers);
+        strategy.fulfillRedeemRequests(vars.requestingUsers, netAssetsOut);
         vm.stopPrank();
     }
 
@@ -3106,5 +3179,31 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 shares = depositAmount.mulDiv(SuperVaultStrategy(payable(strat)).PRECISION(), pricePerShare);
 
         _trackDeposit(accountEth, shares, depositAmount);
+    }
+
+    /// @notice Struct to hold local variables for _executeRedeemHooks4626ForUsers to avoid stack too deep
+    struct ExecuteRedeemHooksVars {
+        uint256 underlyingSharesVault1;
+        uint256 underlyingSharesVault2;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        uint256[] expectedAssetsOrSharesOut;
+        bytes[] argsForProofs;
+        uint256[] netAssetsOut;
+    }
+
+    /// @notice Helper function to sort controllers and ensure uniqueness for fulfillRedeemRequests
+    /// @param controllers Array of controller addresses to sort and deduplicate
+    /// @return sortedControllers Sorted and deduplicated array
+    function _sortAndUniqueControllers(address[] memory controllers) internal pure returns (address[] memory sortedControllers) {
+        if (controllers.length == 0) return controllers;
+        
+        // Sort the array
+        controllers.insertionSort();
+        
+        // Remove duplicates
+        controllers.uniquifySorted();
+        
+        return controllers;
     }
 }

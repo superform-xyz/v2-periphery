@@ -29,6 +29,8 @@ import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { SuperVaultAccountingLib } from "../libraries/SuperVaultAccountingLib.sol";
 
+import "forge-std/console2.sol";
+
 /// @title SuperVaultStrategy
 /// @author Superform Labs
 /// @notice Strategy implementation for SuperVault that executes strategies
@@ -312,42 +314,51 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function fulfillRedeemRequests(address[] memory controllers) external payable nonReentrant {
+    /// @dev Replaces old fulfillRedeemRequests: Exact net assets per controller (post-fee).
+    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(netAssetsOut)) first.
+    /// @dev Social: netAssetsOut[i] = theoreticalNet[i] (full). Selective: netAssetsOut[i] < theo.
+    function fulfillRedeemRequests(
+        address[] calldata controllers,
+        uint256[] calldata netAssetsOut
+    )
+        external
+        payable
+        nonReentrant
+    {
         _isManager(msg.sender);
-
-        // Check if strategy is paused or PPS is stale
         if (_isPaused()) revert STRATEGY_PAUSED();
         if (_isPPSStale()) revert STALE_PPS();
 
-        uint256 controllersLength = controllers.length;
-        if (controllersLength == 0) revert ZERO_LENGTH();
+        uint256 len = controllers.length;
+        if (len == 0 || netAssetsOut.length != len) revert INVALID_ARRAY_LENGTH();
 
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        _verifyPPSUpdated(aggregator);
 
-        uint256 lastPPSUpdateTimestamp = _getSuperVaultAggregator().getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsExpiration) revert STALE_PPS();
+        uint256 lastPPSUpdate = aggregator.getLastUpdateTimestamp(address(this));
+        if (block.timestamp - lastPPSUpdate > ppsExpiration) revert STALE_PPS();
 
-        // make sure controllers are sorted and unique
-        controllers.insertionSort();
-        controllers.uniquifySorted();
+        // Validate controllers are sorted and unique
+        for (uint256 i = 1; i < len; ++i) {
+            if (controllers[i] <= controllers[i - 1]) revert CONTROLLERS_NOT_SORTED_UNIQUE();
+        }
 
-        // Pre-calculate totals to ensure no overburn of escrowed shares
+        // Pre-validate total shares (exact burn)
         uint256 totalRequestedShares;
-        for (uint256 i; i < controllersLength; ++i) {
+        for (uint256 i; i < len; ++i) {
             totalRequestedShares += superVaultState[controllers[i]].pendingRedeemRequest;
         }
 
         uint256 processedShares;
-        for (uint256 i; i < controllersLength; ++i) {
-            processedShares += _processLiquidityRedeemFulfillment(controllers[i], currentPPS);
+        for (uint256 i; i < len; ++i) {
+            processedShares += _processExactFulfillment(controllers[i], netAssetsOut[i], currentPPS);
         }
 
-        // Post-condition: processed shares must match intended shares
         if (processedShares != totalRequestedShares) revert INVALID_REDEEM_FILL();
 
         ISuperVault(_vault).burnShares(processedShares);
-
         emit RedeemRequestsFulfilled(controllers, processedShares, currentPPS);
     }
 
@@ -600,6 +611,38 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         );
     }
 
+    /// @inheritdoc ISuperVaultStrategy
+    function previewExactRedeem(address controller)
+        external
+        view
+        returns (uint256 shares, uint256 theoGross, uint256 totalFee, uint256 theoNet, uint256 minNet)
+    {
+        SuperVaultState memory state = superVaultState[controller];
+        shares = state.pendingRedeemRequest;
+        uint256 pps = getStoredPPS();
+        theoGross = shares.mulDiv(pps, PRECISION, Math.Rounding.Floor);
+
+        // Calculate cost basis for fee calculation
+        uint256 historicalAssets = 0;
+        if (state.accumulatorShares > 0) {
+            historicalAssets = shares.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+        }
+
+        // Calculate fees
+        (totalFee,,) = SuperVaultAccountingLib.calculatePerformanceFee(
+            theoGross,
+            historicalAssets,
+            feeConfig.performanceFeeBps,
+            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
+        );
+
+        theoNet = theoGross - totalFee;
+
+        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
+        minNet =
+            SuperVaultAccountingLib.computeMinNetOut(shares, state.averageRequestPPS, slippageBps, totalFee, PRECISION);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -653,30 +696,30 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                     INTERNAL REDEMPTION PROCESSING
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Process a single redemption from liquidity fulfillment
+    /// @notice Process exact fulfillment with specified net asset amount
     /// @param controller Controller address
+    /// @param netAssetsOut Exact POST-FEE assets to assign to controller
     /// @param currentPPS Current price per share
     /// @return processedShares Processed shares
-    function _processLiquidityRedeemFulfillment(
+    function _processExactFulfillment(
         address controller,
+        uint256 netAssetsOut,
         uint256 currentPPS
     )
         internal
         returns (uint256 processedShares)
     {
         SuperVaultState storage state = superVaultState[controller];
-        LiquidityRedeemVars memory vars;
-
+        LiquidityRedeemVars memory vars; // Reuse existing struct
         vars.requestedShares = state.pendingRedeemRequest;
+        if (vars.requestedShares == 0) return 0;
 
-        // Calculate cost basis using library
+        // 1. Cost basis update
         (vars.historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
             .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, vars.requestedShares);
 
-        // Calculate current value of shares
+        // 2. Theoretical @ currentPPS + Fees (profit on FULL theo)
         vars.claimableAssetsWithFees = vars.requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
-
-        // Calculate performance fee using library
         (vars.totalFee, vars.superformFee, vars.recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
             vars.claimableAssetsWithFees,
             vars.historicalAssets,
@@ -684,59 +727,54 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
         );
 
-        // Transfer fees if applicable
+        // Transfer fees FIRST
         if (vars.superformFee > 0) {
-            address treasury = superGovernor.getAddress(superGovernor.TREASURY());
-            _safeTokenTransfer(address(_asset), treasury, vars.superformFee);
-            emit FeePaid(treasury, vars.superformFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), vars.superformFee);
+            emit FeePaid(
+                superGovernor.getAddress(superGovernor.TREASURY()), vars.superformFee, feeConfig.performanceFeeBps
+            );
         }
-
         if (vars.recipientFee > 0) {
-            address recipient = feeConfig.recipient;
-            if (recipient == address(0)) revert ZERO_ADDRESS();
-            _safeTokenTransfer(address(_asset), recipient, vars.recipientFee);
-            emit FeePaid(recipient, vars.recipientFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(address(_asset), feeConfig.recipient, vars.recipientFee);
+            emit FeePaid(feeConfig.recipient, vars.recipientFee, feeConfig.performanceFeeBps);
         }
 
-        // Get user's slippage tolerance (or use default if not set)
+        uint256 theoNetOut = vars.claimableAssetsWithFees - vars.totalFee;
+
+        // STRICT BOUNDS
         vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
-
-        // Calculate final assets using library with slippage protection
-        // Slippage is anchored to REQUEST PPS to protect user from PPS drops
-        vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
-
-        vars.avgRequestPPS = state.averageRequestPPS;
-        if (vars.avgRequestPPS == 0) revert ZERO_REQUEST_PPS();
-
-        vars.claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
-            vars.claimableAssetsWithFees,
-            vars.totalFee,
-            vars.strategyBalance,
-            vars.slippageBps,
-            vars.requestedShares,
-            vars.avgRequestPPS,
-            PRECISION
+        uint256 minNetOut = SuperVaultAccountingLib.computeMinNetOut(
+            vars.requestedShares, state.averageRequestPPS, vars.slippageBps, vars.totalFee, PRECISION
         );
+        if (netAssetsOut < minNetOut || netAssetsOut > theoNetOut) revert BOUNDS_EXCEEDED();
 
-        // Update average withdraw price using library
+        // 4. LIQUIDITY CHECK (PER-USER, POST ALL PRIOR FEES)
+        uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
+        console2.log("Strategy balance:", strategyBalance);
+        console2.log("Net assets out:", netAssetsOut);
+        if (strategyBalance < netAssetsOut) console2.log("dif", netAssetsOut - strategyBalance);
+        if (strategyBalance < netAssetsOut) revert INSUFFICIENT_LIQUIDITY();
+
+        // 5. EXACT ASSIGN
+        vars.claimableAssets = netAssetsOut;
         if (vars.requestedShares > 0) {
             state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
                 state.maxWithdraw,
                 state.averageWithdrawPrice,
                 vars.requestedShares,
-                vars.claimableAssetsWithFees,
+                vars.claimableAssetsWithFees, // Use theo for avg price
                 PRECISION
             );
         }
 
-        // Update user state, no partial redeems allowed
+        // Reset state
         state.pendingRedeemRequest = 0;
         state.maxWithdraw += vars.claimableAssets;
-        state.averageRequestPPS = 0; // Reset PPS value after fulfillment
+        state.averageRequestPPS = 0;
         state.pendingCancelRedeemRequest = false;
         state.claimableCancelRedeemRequest = 0;
 
-        // Call vault callback
+        // Escrow transfer
         _onRedeemClaimable(
             controller,
             vars.claimableAssets,
@@ -1071,10 +1109,35 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     function _verifyPPSUpdated(ISuperVaultAggregator aggregator) internal view {
-        // The ppsValidity serves a different purpose: 
-        //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the quorum is never reached) 
-        //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the `ppsExpiration` logic controls
+        // The ppsValidity serves a different purpose:
+        //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the
+        // quorum is never reached)
+        //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the
+        // `ppsExpiration` logic controls
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
         if (block.timestamp - lastPPSUpdateTimestamp > ppsExpiration) revert PPS_EXPIRED();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        BATCH PREVIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ISuperVaultStrategy
+    function previewExactRedeemBatch(
+        address[] calldata controllers
+    ) external view returns (uint256 totalTheoNet, uint256[] memory individualNetAssets) {
+        if (controllers.length == 0) revert ZERO_LENGTH();
+        
+        individualNetAssets = new uint256[](controllers.length);
+        totalTheoNet = 0;
+        
+        for (uint256 i = 0; i < controllers.length; i++) {
+            // Get theoretical net assets for this controller using existing logic
+            (, , , uint256 theoNet, ) = this.previewExactRedeem(controllers[i]);
+            individualNetAssets[i] = theoNet;
+            totalTheoNet += theoNet;
+        }
+        
+        return (totalTheoNet, individualNetAssets);
     }
 }
