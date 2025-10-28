@@ -7683,6 +7683,314 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(maxMintAfterPause, 0, "maxMint should return 0 when paused");
     }
 
+    /// @notice Comprehensive test for pause/unpause functionality with stale PPS checks
+    function test_PauseUnpause_WithStalePPS_ComprehensiveCoverage() public {
+        // Setup: Deploy a fresh vault and perform initial deposit
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        (vaultAddr, strategyAddr, escrowAddr) = _deployVault("SV_USDC_PAUSE_UNPAUSE_TEST");
+
+        SuperVault testVault = SuperVault(vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(strategyAddr));
+
+        // Setup yield sources for the test strategy
+        vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        testStrategy.manageYieldSource(
+            address(aaveVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        vm.stopPrank();
+
+        // Perform initial deposit (no allocation needed for pause/unpause testing)
+        uint256 depositAmount = 10_000e6; // 10k USDC
+        _getTokens(address(asset), accountEth, depositAmount);
+        _deposit(depositAmount, vaultAddr, address(testStrategy), address(asset));
+
+        // ===== PHASE 1: Pause the strategy at t0 =====
+        console2.log("\n=== PHASE 1: Pausing Strategy ===");
+        uint256 t0 = block.timestamp;
+        
+        // Set strict deviation threshold to trigger pause (5%)
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold (disabled)
+            0.05e18,          // deviationThreshold (5%)
+            type(uint256).max // mnThreshold (disabled)
+        );
+
+        // Calculate a PPS that deviates by 10% to trigger pause
+        uint256 currentPPS = aggregator.getPPS(address(testStrategy));
+        uint256 deviatingPPS = currentPPS + (currentPPS * 10 / 100);
+        
+        vm.warp(t0 + 10);
+        _createPPSUpdateThatTriggersDeviation(address(testStrategy), deviatingPPS);
+
+        // Verify strategy is paused
+        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused");
+        console2.log("Strategy paused at t0:", t0);
+
+        // ===== PHASE 2: Test all functions revert with STRATEGY_PAUSED =====
+        console2.log("\n=== PHASE 2: Testing STRATEGY_PAUSED Reverts ===");
+        
+        // Test deposit reverts
+        _getTokens(address(asset), accountEth, 10000e6);
+        vm.startPrank(accountEth);
+        asset.approve(vaultAddr, type(uint256).max);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with STRATEGY_PAUSED");
+
+        // Test mint reverts
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with STRATEGY_PAUSED");
+
+        // Test requestRedeem reverts
+        uint256 userShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        console2.log("requestRedeem() reverts with STRATEGY_PAUSED");
+
+        // Test fulfillRedeemRequests reverts (requires manager)
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testStrategy.fulfillRedeemRequests(controllers);
+        console2.log("fulfillRedeemRequests() reverts with STRATEGY_PAUSED");
+
+        // Test fulfillCancelRedeemRequests reverts (requires manager)
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testStrategy.fulfillCancelRedeemRequests(controllers);
+        console2.log("fulfillCancelRedeemRequests() reverts with STRATEGY_PAUSED");
+
+        // Verify maxDeposit and maxMint return 0 when paused
+        assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when paused");
+        assertEq(testVault.maxMint(accountEth), 0, "maxMint should return 0 when paused");
+        console2.log("maxDeposit() and maxMint() return 0 when paused");
+
+        // ===== PHASE 3: Unpause after 20 hours =====
+        console2.log("\n=== PHASE 3: Unpausing Strategy ===");
+        uint256 t1 = t0 + 20 hours;
+        vm.warp(t1);
+
+        // Unpause the strategy (using the contract deployer who has UNPAUSER_ROLE)
+        vm.prank(address(this));
+        aggregator.unpauseStrategy(address(testStrategy));
+
+        // Verify strategy is unpaused but PPS is stale
+        assertFalse(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be unpaused");
+        assertTrue(aggregator.isPPSStale(address(testStrategy)), "PPS should be stale after unpause");
+        console2.log("Strategy unpaused at t1:", t1);
+        console2.log("PPS is now stale");
+
+        // ===== PHASE 4: Test all functions revert with STALE_PPS =====
+        console2.log("\n=== PHASE 4: Testing STALE_PPS Reverts ===");
+        
+        // Test deposit reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with STALE_PPS");
+
+        // Test mint reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with STALE_PPS");
+
+        // Test requestRedeem reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        console2.log("requestRedeem() reverts with STALE_PPS");
+
+        // Test fulfillRedeemRequests reverts with STALE_PPS (requires manager)
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testStrategy.fulfillRedeemRequests(controllers);
+        console2.log("fulfillRedeemRequests() reverts with STALE_PPS");
+
+        // Test fulfillCancelRedeemRequests reverts with STALE_PPS (requires manager)
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testStrategy.fulfillCancelRedeemRequests(controllers);
+        console2.log("fulfillCancelRedeemRequests() reverts with STALE_PPS");
+
+        // Verify maxDeposit and maxMint return 0 when PPS is stale
+        assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when PPS is stale");
+        assertEq(testVault.maxMint(accountEth), 0, "maxMint should return 0 when PPS is stale");
+        console2.log("maxDeposit() and maxMint() return 0 when PPS is stale");
+
+        // ===== PHASE 5: Update PPS and verify functionality is restored =====
+        console2.log("\n=== PHASE 5: Updating PPS and Restoring Functionality ===");
+        
+        // Reset deviation threshold to permissive value to avoid re-triggering pause
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold (disabled)
+            type(uint256).max, // deviationThreshold (disabled)
+            0                  // mnThreshold (0 = disabled, max would cause check to fail)
+        );
+        
+        // Update PPS to clear the stale flag
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+
+        // Verify PPS is no longer stale
+        assertFalse(aggregator.isPPSStale(address(testStrategy)), "PPS should not be stale after update");
+        console2.log("PPS updated successfully");
+
+        // Test that deposit now works
+        uint256 balanceBefore = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        assertGt(testVault.balanceOf(accountEth), balanceBefore, "Deposit should succeed after PPS update");
+        console2.log("deposit() works after PPS update");
+
+        // Test that requestRedeem now works
+        uint256 newShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.requestRedeem(newShares / 4, accountEth, accountEth);
+        vm.stopPrank();
+        assertGt(testStrategy.pendingRedeemRequest(accountEth), 0, "Redeem request should succeed after PPS update");
+        console2.log("requestRedeem() works after PPS update");
+
+        // Verify maxDeposit and maxMint return normal values
+        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit should return max value");
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint should return max value");
+        console2.log("maxDeposit() and maxMint() return normal values");
+
+        console2.log("\n=== Test Complete: All phases passed ===");
+    }
+
+    /// @notice Test PPS expiration - operations should revert with PPS_EXPIRED after validity period
+    function test_PPSExpiration_OperationsRevert() public {
+        // Setup: Deploy a fresh vault and perform initial deposit
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        (vaultAddr, strategyAddr, escrowAddr) = _deployVault("SV_USDC_PPS_EXPIRATION_TEST");
+
+        SuperVault testVault = SuperVault(vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(strategyAddr));
+
+        // Setup yield sources for the test strategy
+        vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        testStrategy.manageYieldSource(
+            address(aaveVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        vm.stopPrank();
+
+        // Perform initial deposit
+        uint256 depositAmount = 10_000e6; // 10k USDC
+        _getTokens(address(asset), accountEth, depositAmount);
+        _deposit(depositAmount, vaultAddr, address(testStrategy), address(asset));
+
+        // Update PPS to establish last update timestamp
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+        
+        uint256 lastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
+        uint256 ppsExpiration = testStrategy.ppsExpiration();
+        console2.log("Last PPS update:", lastUpdateTime);
+        console2.log("PPS expiration period:", ppsExpiration);
+        
+        // Warp time forward by ppsExpiration + 1 second to trigger expiration
+        vm.warp(lastUpdateTime + ppsExpiration + 1);
+        console2.log("Warped to:", block.timestamp);
+        console2.log("Time since last update:", block.timestamp - lastUpdateTime);
+
+        // ===== Test deposit/mint operations revert with PPS_EXPIRED =====
+        // Note: Only deposit and mint check PPS expiration. Redeem operations (which use existing shares)
+        // only check for pause and stale PPS, but not expiration.
+        console2.log("\n=== Testing PPS_EXPIRED Reverts (deposit/mint only) ===");
+
+        // Get fresh tokens for testing operations
+        _getTokens(address(asset), accountEth, 10000e6);
+        
+        // Test deposit reverts with PPS_EXPIRED
+        vm.startPrank(accountEth);
+        asset.approve(vaultAddr, type(uint256).max);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with PPS_EXPIRED");
+
+        // Test mint reverts with PPS_EXPIRED
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with PPS_EXPIRED");
+
+        // Note: maxDeposit and maxMint don't check PPS expiration, only pause and stale status
+        // They return max value, but actual deposit/mint operations will revert with PPS_EXPIRED
+        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit returns max (doesn't check expiration)");
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint returns max (doesn't check expiration)");
+        console2.log("maxDeposit() and maxMint() return max (don't check PPS expiration)");
+        
+        // Verify requestRedeem still works (redeem operations don't check PPS expiration)
+        uint256 userShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        assertGt(testStrategy.pendingRedeemRequest(accountEth), 0, "requestRedeem should work (doesn't check expiration)");
+        console2.log("requestRedeem() still works (doesn't check PPS expiration)");
+
+        // ===== Verify functionality is restored after PPS update =====
+        console2.log("\n=== Testing Functionality Restored After PPS Update ===");
+        
+        // Update PPS to clear expiration
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+        
+        uint256 newLastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
+        console2.log("New last PPS update:", newLastUpdateTime);
+        console2.log("Time since update:", block.timestamp - newLastUpdateTime);
+        
+        // Verify deposit now works
+        uint256 balanceBefore = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        assertGt(testVault.balanceOf(accountEth), balanceBefore, "Deposit should succeed after PPS update");
+        console2.log("deposit() works after PPS update");
+
+        // Verify maxDeposit and maxMint return normal values
+        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit should return max value");
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint should return max value");
+        console2.log("maxDeposit() and maxMint() return normal values");
+
+        console2.log("\n=== Test Complete: PPS expiration working as expected ===");
+    }
+
     /// @notice Helper function to create a PPS update that triggers deviation pause
     /// @param strategyAddr The strategy address to update
     /// @param newPPS The new PPS value that should trigger a deviation
@@ -8499,7 +8807,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _deposit(depositAmount);
 
         // Get initial staleness threshold
-        uint256 initialThreshold = strategy.ppsStalenessThreshold();
+        uint256 initialThreshold = strategy.ppsExpiration();
         console2.log("Initial PPS staleness threshold:", initialThreshold);
 
         // Test data
@@ -8520,7 +8828,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify proposal state
         assertEq(strategy.proposedPPSStalenessThreshold(), newThreshold, "Proposed threshold should be set");
         assertEq(strategy.ppsStalenessThresholdEffectiveTime(), expectedEffectiveTime, "Effective time should be set");
-        assertEq(strategy.ppsStalenessThreshold(), initialThreshold, "Current threshold should remain unchanged");
+        assertEq(strategy.ppsExpiration(), initialThreshold, "Current threshold should remain unchanged");
 
         /*//////////////////////////////////////////////////////////////
                         ACTION 2: EXECUTE BEFORE TIMELOCK
@@ -8542,7 +8850,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify cancellation state
         assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
         assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
-        assertEq(strategy.ppsStalenessThreshold(), initialThreshold, "Current threshold should remain unchanged");
+        assertEq(strategy.ppsExpiration(), initialThreshold, "Current threshold should remain unchanged");
 
         /*//////////////////////////////////////////////////////////////
                         COMPLETE PROPOSAL-EXECUTION FLOW
@@ -8570,13 +8878,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.managePPSStalenessThreshold(2, 0);
 
         // Verify execution state
-        assertEq(strategy.ppsStalenessThreshold(), finalThreshold, "Current threshold should be updated");
+        assertEq(strategy.ppsExpiration(), finalThreshold, "Current threshold should be updated");
         assertEq(strategy.proposedPPSStalenessThreshold(), 0, "Proposed threshold should be reset");
         assertEq(strategy.ppsStalenessThresholdEffectiveTime(), 0, "Effective time should be reset");
 
         vm.stopPrank();
 
-        console2.log("Final PPS staleness threshold:", strategy.ppsStalenessThreshold());
+        console2.log("Final PPS staleness threshold:", strategy.ppsExpiration());
     }
 
     /// @notice Test error conditions for managePPSStalenessThreshold
@@ -8678,7 +8986,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(secondThreshold);
         strategy.managePPSStalenessThreshold(2, 0);
 
-        assertEq(strategy.ppsStalenessThreshold(), secondThreshold, "Threshold should be updated");
+        assertEq(strategy.ppsExpiration(), secondThreshold, "Threshold should be updated");
 
         /*//////////////////////////////////////////////////////////////
                         LARGE THRESHOLD VALUES
@@ -8698,7 +9006,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         emit ISuperVaultStrategy.PPSStalenessThresholdUpdated(largeThreshold);
         strategy.managePPSStalenessThreshold(2, 0);
 
-        assertEq(strategy.ppsStalenessThreshold(), largeThreshold, "Large threshold should be set");
+        assertEq(strategy.ppsExpiration(), largeThreshold, "Large threshold should be set");
 
         vm.stopPrank();
     }

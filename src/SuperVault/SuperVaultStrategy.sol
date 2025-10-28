@@ -75,7 +75,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // PPS staleness threshold
     uint256 public proposedPPSStalenessThreshold;
     uint256 public ppsStalenessThresholdEffectiveTime;
-    uint256 public ppsStalenessThreshold;
+    uint256 public ppsExpiration;
 
     // Yield source configuration - simplified mapping from source to oracle
     mapping(address source => address oracle) private yieldSources;
@@ -87,7 +87,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
-        ppsStalenessThreshold = 1 days;
+        ppsExpiration = 1 days;
 
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
@@ -149,8 +149,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
+        _verifyPPSUpdated(aggregator, aggregator.getLastUpdateTimestamp(address(this)), ppsExpiration);
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -203,8 +202,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
+        _verifyPPSUpdated(aggregator, aggregator.getLastUpdateTimestamp(address(this)), ppsExpiration);
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
@@ -328,7 +326,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentPPS == 0) revert INVALID_PPS();
 
         uint256 lastPPSUpdateTimestamp = _getSuperVaultAggregator().getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsStalenessThreshold) revert STALE_PPS();
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsExpiration) revert STALE_PPS();
 
         // make sure controllers are sorted and unique
         controllers.insertionSort();
@@ -859,7 +857,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (proposedPPSStalenessThreshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
 
         uint256 _proposed = proposedPPSStalenessThreshold;
-        ppsStalenessThreshold = _proposed;
+        ppsExpiration = _proposed;
         ppsStalenessThresholdEffectiveTime = 0;
         proposedPPSStalenessThreshold = 0;
 
@@ -1070,5 +1068,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 strategyProof: strategyProof
             })
         );
+    }
+
+    function _verifyPPSUpdated(ISuperVaultAggregator aggregator, uint256 lastPPSUpdateTimestamp, uint256 ppsExpiration) internal view returns (bool) {
+        // The ppsValidity serves a different purpose: 
+        //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the quorum is never reached) 
+        //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the `ppsExpiration` logic controls
+        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
+        if (block.timestamp - lastPPSUpdateTimestamp > ppsExpiration) revert PPS_EXPIRED();
     }
 }

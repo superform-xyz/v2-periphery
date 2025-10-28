@@ -709,6 +709,8 @@ interface ISuperVaultAggregator {
     function isStrategyPaused(address strategy) external view returns (bool isPaused);
 
     /// @notice Checks if a strategy's PPS is stale
+    /// @dev PPS is automatically set to stale when the strategy is paused due to
+    ///      lack of upkeep payment in `SuperVaultAggregator`
     /// @param strategy Address of the strategy
     /// @return isStale True if stale, false otherwise
     function isPPSStale(address strategy) external view returns (bool isStale);

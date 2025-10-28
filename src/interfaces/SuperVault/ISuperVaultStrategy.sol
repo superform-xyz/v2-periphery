@@ -42,7 +42,7 @@ interface ISuperVaultStrategy {
     error CANCELLATION_REDEEM_REQUEST_PENDING();
     error ZERO_REQUEST_PPS();
     error STALE_PPS();
-    error PPS_TOO_OLD();
+    error PPS_EXPIRED();
     error INVALID_PPS_STALENESS_THRESHOLD();
 
     /*//////////////////////////////////////////////////////////////
@@ -91,8 +91,8 @@ interface ISuperVaultStrategy {
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
-    event PPSStalenessThresholdProposed(uint256 currentProposedThreshold, uint256 ppsStalenessThreshold, uint256 effectiveTime);
-    event PPSStalenessThresholdUpdated(uint256 ppsStalenessThreshold);
+    event PPSStalenessThresholdProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
+    event PPSStalenessThresholdUpdated(uint256 ppsExpiration);
     event PPSStalenessThresholdProposalCanceled();
 
     /*//////////////////////////////////////////////////////////////
@@ -287,8 +287,8 @@ interface ISuperVaultStrategy {
 
     /// @notice Manage PPS staleness threshold
     /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
-    /// @param ppsStalenessThreshold The new PPS staleness threshold
-    function managePPSStalenessThreshold(uint8 action, uint256 ppsStalenessThreshold) external;
+    /// @param ppsExpiration The new PPS staleness threshold
+    function managePPSStalenessThreshold(uint8 action, uint256 ppsExpiration) external;
 
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
