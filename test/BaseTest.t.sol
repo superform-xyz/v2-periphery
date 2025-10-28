@@ -434,6 +434,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_REDEEM_REQUEST_7540_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][MINT_SUPERPOSITIONS_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MERKL_CLAIM_REWARD_HOOK_KEY]);
 
             // Register MockNativeETHHook for testing - ETH only
             if (chainIds[i] == ETH) {
@@ -442,7 +443,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
 
                 // Initialize periphery-specific merkle hooks - include all hooks that can fulfill requests (true)
-                globalMerkleHooksPeriphery = new address[](15);
+                globalMerkleHooksPeriphery = new address[](16);
                 globalMerkleHooksPeriphery[0] = hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[1] = hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[2] = hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY];
@@ -459,9 +460,10 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHooksPeriphery[11] = hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[12] = hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[13] = hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY];
-                globalMerkleHooksPeriphery[14] = address(PA[i].approveAndSwapOdosHook);
+                globalMerkleHooksPeriphery[14] = hookAddresses[chainIds[i]][MERKL_CLAIM_REWARD_HOOK_KEY];
+                globalMerkleHooksPeriphery[15] = address(PA[i].approveAndSwapOdosHook);
 
-                globalMerkleHookNamesPeriphery = new string[](15);
+                globalMerkleHookNamesPeriphery = new string[](16);
                 globalMerkleHookNamesPeriphery[0] = "DEPOSIT_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[1] = "REDEEM_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[2] = "DEPOSIT_5115_VAULT_HOOK";
@@ -476,7 +478,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHookNamesPeriphery[11] = "WITHDRAW_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[12] = "REDEEM_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[13] = "REQUEST_REDEEM_7540_VAULT_HOOK";
-                globalMerkleHookNamesPeriphery[14] = "APPROVE_AND_SWAP_ODOSV2_HOOK";
+                globalMerkleHookNamesPeriphery[14] = "MERKL_CLAIM_REWARD_HOOK";
+                globalMerkleHookNamesPeriphery[15] = "APPROVE_AND_SWAP_ODOSV2_HOOK";
             }
 
             // EXPERIMENTAL HOOKS FROM HERE ONWARDS

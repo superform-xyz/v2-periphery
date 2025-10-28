@@ -32,6 +32,7 @@ import { RuggableVault } from "../../mocks/RuggableVault.sol";
 import { RuggableConvertVault } from "../../mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "../../mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
+import { MockEmergencyVault } from "../../mocks/MockEmergencyVault.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
 
 contract SuperVaultTest is BaseSuperVaultTest {
@@ -241,6 +242,38 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify allocation
         assertGt(fluidVault.balanceOf(address(strategy)), 0, "No fluid shares allocated");
         assertGt(aaveVault.balanceOf(address(strategy)), 0, "No aave shares allocated");
+    }
+
+    function test_PauseAndUnpauseStrategy() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // First deposit should work normally
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), 0, "Initial deposit failed");
+
+        // Update PPS to set a recent lastUpdateTimestamp (required for unpause timelock)
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Pause the strategy (manager can pause)
+        vm.startPrank(MANAGER);
+        aggregator.pauseStrategy(address(strategy));
+        vm.stopPrank();
+
+        // Try to deposit when paused - should revert with STRATEGY_PAUSED
+        vm.startPrank(accountEth);
+        deal(address(asset), accountEth, depositAmount);
+        asset.approve(address(vault), depositAmount);
+        
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        vault.deposit(depositAmount, accountEth);
+        vm.stopPrank();
+
+        // Unpause the strategy (only UNPAUSER_ROLE can unpause)
+        aggregator.unpauseStrategy(address(strategy));
+
+        // Deposit should work again after unpause
+        _deposit(depositAmount);
+        assertGt(vault.balanceOf(accountEth), depositAmount, "Deposit after unpause failed");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -8414,6 +8447,361 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Both users should have minimal remaining shares (1 each)
         assertEq(holderRemainingShares, 1, "Holder should have 1 remaining share");
         assertEq(traderRemainingShares, 1, "Trader should have 1 remaining share");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    EMERGENCY ASSET RECOVERY TEST
+    //////////////////////////////////////////////////////////////*/
+    // Record user positions
+    struct UserAccounting {
+        address user;
+        uint256 shares;
+        uint256 assets;
+    }
+
+    struct EmergencyAssetRecoveryVars {
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        uint256 depositAmount;
+        address[] users;
+        uint256[] userShares;
+        uint256 totalFreeAssets;
+        uint256 halfAmount;
+        address depositHookAddress;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        uint256 currentPPS;
+        uint256 deviatingPPS;
+        uint256 fluidBalance;
+        uint256 aaveBalance;
+        address[] redeemHooksAddresses;
+        bytes[] redeemHooksData;
+        // Commented section variables
+        uint256 totalAssetsInStrategy;
+        UserAccounting[] userAccountingSnapshot;
+        uint256 totalShares;
+        address batchTransferHook;
+        address escrowRecipient;
+        bytes batchTransferInspectResult;
+        bytes32 batchTransferLeaf;
+        bytes32 newStrategistRoot;
+        uint256 timelockPeriod;
+        bytes32 currentStrategistRoot;
+        uint256 assetsToTransfer;
+        address[] tokens;
+        uint256[] amounts;
+        bytes batchTransferData;
+        address[] batchTransferHooks;
+        bytes[] batchTransferHooksData;
+        uint256[] expectedOut;
+        bytes32[][] strategyProofs;
+        bytes32[][] globalProofs;
+        uint256 recipientBalanceBefore;
+        uint256 recipientBalanceAfter;
+        uint256 strategyBalanceAfter;
+        address emergencyVault;
+        uint256 emergencyVaultBalance;
+        uint256 withdrawAmount;
+        uint256 balanceAfterWithdraw;
+        uint256 sharesBefore;
+        uint256 sharesAfter;
+    }
+
+    /// @notice Test emergency asset recovery flow through pause, redeem, and batch transfer
+    /// @dev This test covers:
+    /// 1. Pause the vault with an extreme PPS outlier
+    /// 2. Redeem from all UYS into free assets
+    /// 3. Record user accounting at this point
+    /// 4. Perform a batch transfer to strip all assets from the vault to escrow address
+    function test_EmergencyAssetRecovery_PauseRedeemAndBatchTransfer() public {
+        console2.log("=== EMERGENCY ASSET RECOVERY TEST ===");
+        
+        EmergencyAssetRecoveryVars memory vars;
+        
+        // Setup: Deploy a fresh vault for this test
+        (vars.vaultAddr, vars.strategyAddr, vars.escrowAddr) = _deployVault("SV_EMERGENCY_RECOVERY_TEST");
+
+        SuperVault testVault = SuperVault(vars.vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(vars.strategyAddr));
+        SuperVaultEscrow testEscrow = SuperVaultEscrow(vars.escrowAddr);
+
+        vars.emergencyVault = address(new MockEmergencyVault(address(this)));
+
+        // Setup yield sources for this vault
+        vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        vm.stopPrank();
+
+        // Setup: Create multiple users with deposits
+        vars.depositAmount = 10_000e6; // 10,000 USDC per user
+        vars.users = new address[](3);
+        vars.userShares = new uint256[](3);
+        
+        for (uint256 i = 0; i < 3; i++) {
+            vars.users[i] = accInstances[i].account;
+            _getTokens(address(asset), vars.users[i], vars.depositAmount);
+            
+            // Deposit for each user
+            vm.startPrank(vars.users[i]);
+            asset.approve(address(testVault), vars.depositAmount);
+            vars.userShares[i] = testVault.deposit(vars.depositAmount, vars.users[i]);
+            vm.stopPrank();
+            
+            console2.log("User", i, "deposited:", vars.depositAmount);
+            console2.log("User", i, "received shares:", vars.userShares[i]);
+        }
+
+        // Allocate deposits to yield sources
+        vars.totalFreeAssets = asset.balanceOf(address(testStrategy));
+        vars.halfAmount = vars.totalFreeAssets / 2;
+
+        {
+            vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+            
+            vars.fulfillHooksAddresses = new address[](2);
+            vars.fulfillHooksAddresses[0] = vars.depositHookAddress;
+            vars.fulfillHooksAddresses[1] = vars.depositHookAddress;
+
+            vars.fulfillHooksData = new bytes[](2);
+            vars.fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(fluidVault),
+                address(asset),
+                vars.halfAmount,
+                false,
+                address(0),
+                0
+            );
+            vars.fulfillHooksData[1] = _createApproveAndDeposit4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(aaveVault),
+                address(asset),
+                vars.halfAmount,
+                false,
+                address(0),
+                0
+            );
+
+            vm.mockCall(
+                address(aggregator),
+                abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+                abi.encode(true)
+            );
+
+            vm.startPrank(MANAGER);
+            testStrategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
+                    expectedAssetsOrSharesOut: new uint256[](2),
+                    globalProofs: new bytes32[][](2),
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+            vm.stopPrank();
+        }
+
+        console2.log("\n=== STEP 1: PAUSE VAULT WITH EXTREME OUTLIER ===");
+        
+        // Set strict deviation threshold (5% = 0.05 * 1e18)
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            0.05e18, // mxThreshold: 5% max deviation
+            0, // mnThreshold: disabled
+            type(uint256).max // mnThreshold (disabled)
+        );
+
+        // Get current PPS and create extreme deviation (50% drop)
+        vars.currentPPS = aggregator.getPPS(address(testStrategy));
+        vars.deviatingPPS = vars.currentPPS * 50 / 100; // 50% drop - extreme outlier
+        console2.log("Current PPS:", vars.currentPPS);
+        console2.log("Deviating PPS (50% drop):", vars.deviatingPPS);
+
+        // Trigger pause with deviating PPS
+        vm.warp(block.timestamp + 10);
+        _createPPSUpdateThatTriggersDeviation(address(testStrategy), vars.deviatingPPS);
+
+        // Verify strategy is paused
+        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation");
+        console2.log("Strategy successfully paused due to extreme outlier");
+
+        console2.log("\n=== STEP 2: REDEEM FROM ALL UYS INTO FREE ASSETS ===");
+
+        // Get current balances in yield sources
+        vars.fluidBalance = fluidVault.balanceOf(address(testStrategy));
+        vars.aaveBalance = aaveVault.balanceOf(address(testStrategy));
+        console2.log("Fluid vault shares:", vars.fluidBalance);
+        console2.log("Aave vault shares:", vars.aaveBalance);
+
+        // Redeem all assets from yield sources back to strategy
+        {
+            vars.redeemHooksAddresses = new address[](2);
+            vars.redeemHooksAddresses[0] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+            vars.redeemHooksAddresses[1] = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
+
+            vars.redeemHooksData = new bytes[](2);
+            vars.redeemHooksData[0] = _createRedeem4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(fluidVault),
+                address(testStrategy),
+                vars.fluidBalance,
+                false
+            );
+
+            vars.redeemHooksData[1] = _createRedeem4626HookData(
+                _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
+                address(aaveVault),
+                address(testStrategy),
+                vars.aaveBalance,
+                false
+            );
+
+            vm.startPrank(MANAGER);
+            testStrategy.executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: vars.redeemHooksAddresses,
+                    hookCalldata: vars.redeemHooksData,
+                    expectedAssetsOrSharesOut: new uint256[](2),
+                    globalProofs: new bytes32[][](2),
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
+            vm.stopPrank();
+        }
+
+        console2.log("\n=== STEP 3: RECORD USER ACCOUNTING ===");
+
+        vars.totalAssetsInStrategy = asset.balanceOf(address(testStrategy));
+        console2.log("Total assets in strategy after redeem:", vars.totalAssetsInStrategy);
+        console2.log("Total assets in escrow:", asset.balanceOf(address(testEscrow)));
+
+        vars.userAccountingSnapshot = new UserAccounting[](3);
+        vars.totalShares = 0;
+        
+        for (uint256 i = 0; i < 3; i++) {
+            vars.userAccountingSnapshot[i].user = vars.users[i];
+            vars.userAccountingSnapshot[i].shares = testVault.balanceOf(vars.users[i]);
+            vars.userAccountingSnapshot[i].assets = testVault.convertToAssets(vars.userAccountingSnapshot[i].shares);
+            vars.totalShares += vars.userAccountingSnapshot[i].shares;
+            
+            console2.log("User", i, "shares:", vars.userAccountingSnapshot[i].shares);
+            console2.log("User", i, "asset value:", vars.userAccountingSnapshot[i].assets);
+        }
+
+        console2.log("\n=== STEP 4: ADD BATCH TRANSFER HOOK TO STRATEGIST MERKLE ROOT (VIA TIMELOCK) ===");
+
+        // Get the OFFRAMP_TOKENS_HOOK_KEY address from core
+        vars.batchTransferHook = _getHookAddress(ETH, OFFRAMP_TOKENS_HOOK_KEY);
+        console2.log("BatchTransferHook address:", vars.batchTransferHook);
+
+        // Create a simple merkle tree with batch transfer hook and users
+        // For this test, we'll create a merkle tree that allows:
+        // - BatchTransferHook with escrow as recipient and all users as senders
+        // - We'll use Merkle.sol from openzeppelin or create a simple tree
+        
+        // Build merkle tree nodes for batch transfer
+        vars.escrowRecipient = vars.emergencyVault; // Or any safe recipient
+        vars.batchTransferInspectResult = abi.encodePacked(
+            vars.escrowRecipient, 
+            address(asset) // Token being transferred
+        );
+        
+        console2.log("\n=== STEP 4: PERFORM BATCH TRANSFER TO STRIP ASSETS ===");
+
+        vars.assetsToTransfer = asset.balanceOf(address(testStrategy));
+        console2.log("Assets to transfer from strategy:", vars.assetsToTransfer);
+
+        // Prepare batch transfer hook data
+        vars.tokens = new address[](1);
+        vars.tokens[0] = address(asset);
+        
+        vars.batchTransferHooks = new address[](1);
+        vars.batchTransferHooks[0] = vars.batchTransferHook;
+
+        console2.log("vars.batchTransferHooks[0]: ", vars.batchTransferHooks[0]);
+
+        vars.batchTransferHooksData = new bytes[](1);
+        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(
+            vars.escrowRecipient,
+            vars.tokens
+        );
+        // Execute batch transfer
+        vars.recipientBalanceBefore = asset.balanceOf(vars.escrowRecipient);
+        console2.log("Recipient balance before transfer:", vars.recipientBalanceBefore);
+
+        vm.prank(MANAGER);
+        testStrategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: vars.batchTransferHooks,
+                hookCalldata: vars.batchTransferHooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        vars.recipientBalanceAfter = asset.balanceOf(vars.escrowRecipient);
+        console2.log("Recipient balance after transfer:", vars.recipientBalanceAfter);
+        
+        vars.strategyBalanceAfter = asset.balanceOf(address(testStrategy));
+        console2.log("Strategy balance after transfer:", vars.strategyBalanceAfter);
+
+        // Verify assets were transferred
+        assertApproxEqAbs(
+            vars.recipientBalanceAfter - vars.recipientBalanceBefore,
+            vars.assetsToTransfer,
+            1e6, // 1 USDC tolerance for rounding
+            "Assets not transferred to recipient"
+        );
+        assertLt(vars.strategyBalanceAfter, 1e6, "Strategy should have minimal assets left");
+
+        console2.log("\n=== STEP 5: VERIFY EMERGENCY VAULT BALANCE ===");
+        
+        vars.emergencyVaultBalance = MockEmergencyVault(vars.emergencyVault).getTokenBalance(address(asset));
+        console2.log("Emergency vault token balance:", vars.emergencyVaultBalance);
+        assertGt(vars.emergencyVaultBalance, 0, "Emergency vault should have received tokens");
+
+        console2.log("\n=== STEP 6: WITHDRAW FROM EMERGENCY VAULT AND REINVEST INTO SUPERVAULT ===");
+        
+        // Withdraw tokens from emergency vault back to this contract
+        vars.withdrawAmount = vars.emergencyVaultBalance;
+        MockEmergencyVault(vars.emergencyVault).withdrawTokens(address(asset), address(this));
+        
+        vars.balanceAfterWithdraw = asset.balanceOf(address(this));
+        console2.log("Balance after emergency vault withdrawal:", vars.balanceAfterWithdraw);
+        
+        // Reinvest tokens back into SuperVault using the emergency vault's reinvestIntoVault function
+        // First, transfer tokens back to emergency vault
+        asset.transfer(vars.emergencyVault, vars.withdrawAmount);
+        
+        // Approve and reinvest
+        vm.startPrank(vars.emergencyVault);
+        asset.approve(address(testVault), vars.withdrawAmount);
+        vm.stopPrank();
+        
+        vars.sharesBefore = testVault.totalSupply();
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+
+        aggregator.unpauseStrategy(address(testStrategy));
+        _updateSuperVaultPPS(address(testStrategy), address(testVault));
+
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+        vars.sharesAfter = testVault.totalSupply();
+        
+        console2.log("SuperVault shares before reinvestment:", vars.sharesBefore);
+        console2.log("SuperVault shares after reinvestment:", vars.sharesAfter);
+        console2.log("New shares minted:", vars.sharesAfter - vars.sharesBefore);
+        
+        // Verify reinvestment
+        assertGt(vars.sharesAfter, vars.sharesBefore, "Shares should increase after reinvestment");
+        console2.log("Successfully reinvested tokens from emergency vault back into SuperVault");
+
+        console2.log("\n=== EMERGENCY ASSET RECOVERY TEST COMPLETED ===");
+        console2.log("Successfully paused vault, redeemed from all UYS, transferred to safe recipient, and reinvested");
     }
 
     /*//////////////////////////////////////////////////////////////
