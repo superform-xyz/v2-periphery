@@ -2928,7 +2928,68 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
     }
+    function _forceUpdatePPSToTarget(address strategyAddr, uint256 targetPPS) internal {
+        UpdatePPSVars memory vars;
 
+        vars.pps = targetPPS;
+        // Get the current timestamp for the signature
+        vars.timestamp = block.timestamp;
+
+        // Set the additional parameters as requested: ppsStdev=0
+        vars.ppsStdev = 0;
+
+        // Create the message hash with all parameters (using simplified format)
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
+                strategyAddr,
+                vars.pps,
+                vars.ppsStdev,
+                vars.timestamp,
+                ecdsappsOracle.noncePerStrategy(strategyAddr)
+            )
+        );
+        vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(ecdsappsOracle.domainSeparator(), structHash);
+
+        // Create signature (r, s, v) components using the constant KEEPER address
+        (vars.v, vars.r, vars.s) = vm.sign(VALIDATOR_KEY, vars.ethSignedMessageHash);
+
+        // Combine the signature components into a single bytes signature
+        vars.signature = abi.encodePacked(vars.r, vars.s, vars.v);
+
+        // Create an array of proofs with the signature
+        vars.proofs = new bytes[](1);
+        vars.proofs[0] = vars.signature;
+
+        // Call batchUpdatePPS on the ECDSAPPSOracle with a single entry
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategyAddr;
+
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = vars.proofs;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = vars.pps;
+
+        uint256[] memory ppsStdevs = new uint256[](1);
+        ppsStdevs[0] = vars.ppsStdev;
+
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = vars.timestamp;
+
+        ecdsappsOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                timestamps: timestamps
+            })
+        );
+
+        // Log the updated PPS for debugging
+        console2.log("Updated PPS for strategy", strategyAddr, vars.pps);
+    }
     /**
      * @notice Updates PPS to a specific value by manipulating the underlying vaults
      * @param strategyAddr The strategy address
