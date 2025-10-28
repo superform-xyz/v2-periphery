@@ -464,6 +464,8 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
 
         if (summedClaimableRedemptionsAsAssets > totalAssets) {
             return int256(summedClaimableRedemptionsAsAssets) - int256(totalAssets);
+        } else {
+            return 0;
         }
     }
 
@@ -505,6 +507,8 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
 
         if (summedTotalAssets == 0 && totalSupply > 0) {
             return int256(totalSupply);
+        } else {
+            return 0;
         }
     }
 

@@ -350,6 +350,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         } else if (sourceType == YieldSourceType.ERC7540) {
             return address(erc7540YieldSourceOracle);
         }
+        return address(0);
     }
 
     /// @dev Helper function to determine yield source type from address
