@@ -14,7 +14,6 @@ import "../mocks/MockERC5115YieldSourceOracle.sol";
 import "../mocks/MockERC7540YieldSourceOracle.sol";
 
 // Test suite dependencies
-import { BeforeAfter } from "../BeforeAfter.sol";
 import { Properties } from "../Properties.sol";
 
 abstract contract OracleTargets is BaseTargetFunctions, Properties {

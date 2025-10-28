@@ -49,7 +49,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
         // 1. Mint
         vm.prank(_getActor());
-        uint256 assetsUsed = superVault.mint(sharesToMint, _getActor());
+        superVault.mint(sharesToMint, _getActor());
 
         // 2. Deposit assets into yield strategy via executeHooks
         // This is needed because the user's assets are currently in the strategy contract
@@ -62,7 +62,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         }
 
         // 3. Request Redemption
-        uint256 userShares = superVault.balanceOf(_getActor());
+        superVault.balanceOf(_getActor());
         // get shares of strategy in the deposited yield source
         uint256 shares = _getSuperVaultStrategyShares();
 
