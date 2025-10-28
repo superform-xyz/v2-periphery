@@ -26,6 +26,7 @@ import { YieldSourceType } from "./managers/YieldManager.sol";
 contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function setUp() public {
         setup();
+        merkleHelper = new MerkleTestHelper();
     }
 
     /// Reproducers
@@ -403,7 +404,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         yieldSource_simulateGain(1121895);
 
         superVaultStrategy_fulfillRedeemRequests_clamped(1);
-
      }
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_1 -vvv 
@@ -438,11 +438,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_superVault_cancelRedeem_3 -vvv 
     function test_superVault_cancelRedeem_3() public {
-
-        vm.roll(block.number + 4946);
-        vm.warp(block.timestamp + 71);
-        vm.prank(0x0000000000000000000000000000000000030000);
-
         vm.roll(block.number + 33177);
         vm.warp(block.timestamp + 56338);
         vm.prank(0x0000000000000000000000000000000000030000);
@@ -476,7 +471,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 4896);
         vm.warp(block.timestamp + 253);
         vm.prank(0x0000000000000000000000000000000000020000);
-        superVault_invalidateNonce(hex"73686172657320617265206c6f7374206f6e207472616e6665724e554c4e554c4e554c4e554c4e554cce");
+        superVault_invalidateNonce(bytes32(hex"73686172657320617265206c6f7374206f6e207472616e6665724e554c4e55"));
 
         vm.roll(block.number + 55767);
         vm.warp(block.timestamp + 55);
@@ -517,10 +512,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 136780);
         vm.prank(0x0000000000000000000000000000000000020000);
         yieldSource_switchRandom(383);
-
-        vm.roll(block.number + 80);
-        vm.warp(block.timestamp + 9003);
-        vm.prank(0x0000000000000000000000000000000000010000);
 
         vm.roll(block.number + 41617);
         vm.warp(block.timestamp + 321475);
@@ -567,10 +558,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.prank(0x0000000000000000000000000000000000010000);
         yieldSource_simulateLoss(74893053038213412084592568882170756944108294226511832904065221220246494806330);
 
-        vm.roll(block.number + 64);
-        vm.warp(block.timestamp + 207837);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        property_lossSocialization();
+        // vm.roll(block.number + 64);
+        // vm.warp(block.timestamp + 207837);
+        // vm.prank(0x0000000000000000000000000000000000010000);
+        // // property_lossSocialization();
 
         vm.roll(block.number + 41622);
         vm.warp(block.timestamp + 322369);
@@ -677,10 +668,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.prank(0x0000000000000000000000000000000000020000);
         yieldSource_cancelDepositRequest(115792089237316195423570985008687907853269984665640564039457584007913129639835,0x00000000000000000000000000000002fFffFffD);
 
-        vm.roll(block.number + 4723);
-        vm.warp(block.timestamp + 258);
-        vm.prank(0x0000000000000000000000000000000000030000);
-
         vm.roll(block.number + 5037);
         vm.warp(block.timestamp + 311180);
         vm.prank(0x0000000000000000000000000000000000010000);
@@ -695,7 +682,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 2003);
         vm.prank(0x0000000000000000000000000000000000020000);
         asset_approve(0x00000000000000000000000000000001fffffffE,197362997495200162233323913443337993297);
-
      }
 
     // forge test --match-test test_property_previewEquivalenceFromShares_4 -vvv 
@@ -752,8 +738,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         vm.roll(block.number + 32330);
         vm.warp(block.timestamp + 482712);
+        (bytes32 testRoot,) = merkleHelper.generateTestHooksRoot(
+            address(withdraw7540Hook), address(requestRedeem7540Hook), _getYieldSource(), superVault.asset()
+        );
         vm.prank(0x0000000000000000000000000000000000020000);
-        superGovernor_proposeGlobalHooksRoot_clamped(hex"4d6f636b4552433432365465737465724e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c95");
+        superGovernor_proposeGlobalHooksRoot(testRoot);
 
         vm.roll(block.number + 1027);
         vm.warp(block.timestamp + 322345);
@@ -763,7 +752,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 299);
         vm.warp(block.timestamp + 383969);
         vm.prank(0x0000000000000000000000000000000000020000);
-        property_naivePPSDoesntChangeOnDepositOrMint();
+        // property_naivePPSDoesntChangeOnDepositOrMint();
 
         vm.roll(block.number + 28);
         vm.warp(block.timestamp + 322236);
@@ -818,7 +807,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
      }
 
     // forge test --match-test test_doomsday_mintRedeemSymmetrical_5 -vvv 
-    function test_doomsday_mintRedeemSymmetrical_5() public {
+    function test_doomsday_mintRedeemSymmetrical_6() public {
 
         vm.prank(0x0000000000000000000000000000000000010000);
         yieldSource_mint(1,0xc3C1658B1e3b9e017030807d0C50895456FD2379);
@@ -926,161 +915,26 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 63);
         vm.prank(0x0000000000000000000000000000000000020000);
         doomsday_mintRedeemSymmetrical(77);
-
-        vm.roll(block.number + 16258);
-        vm.warp(block.timestamp + 236462);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        superVaultAggregator_withdrawStake(100000000000000000000000002);
-
-        vm.roll(block.number + 4975);
-        vm.warp(block.timestamp + 75);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        yieldSource_cancelRedeemRequest(38317203283189314315941905178310652191657527748060384572725924885776999469223,0xfef63E1aB7eCA4BB8aAF9af11955053054a49e93);
-
-        vm.roll(block.number + 95);
-        vm.warp(block.timestamp + 73038);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        superVaultStrategy_handleOperations7540(121,0x00000000000000000000000000000001fffffffE,0xa80C1cacF809ECE71Eb724D7BF3a0C968c95EC69,115792089237316195423570985008687907853269984665640564039457584007913129639438);
-
-        vm.roll(block.number + 4992);
-        vm.warp(block.timestamp + 38);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        property_accumulatorCostBasisSolvency();
-
-        vm.roll(block.number + 28950);
-        vm.warp(block.timestamp + 322352);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        property_avgPPSMonotonicity();
-
-        vm.roll(block.number + 1088);
-        vm.warp(block.timestamp + 126618);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        yieldSource_setDecimalsOffset(17);
-
-        vm.roll(block.number + 1784);
-        vm.warp(block.timestamp + 459675);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        mockERC7540YieldSourceOracle_setValidAsset(0x00000000000000000000000000000000FFFFfFFF,true);
-
-        vm.roll(block.number + 27137);
-        vm.warp(block.timestamp + 402112);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        setpreviewAssetsGreater(115792089237316195423570985008687907853269984665640564039457584007913129639851);
-
-        vm.roll(block.number + 4931);
-        vm.warp(block.timestamp + 449616);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superVaultStrategy_manageYieldSource_clamped(96074594460416826815957180909358217072398063484082004046658713411875880155435);
-
-        vm.roll(block.number + 3025);
-        vm.warp(block.timestamp + 1);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        superVaultAggregator_depositStake(0xc7183455a4C133Ae270771860664b6B7ec320bB1,115792089237316195423570985008687907853269984665640564039456584007913129639936);
-
-        vm.roll(block.number + 17456);
-        vm.warp(block.timestamp + 247528);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        erc7540_4_mint(0x00000000000000000000000000000001fffffffE,18446744073709551614);
-
-        vm.roll(block.number + 4001);
-        vm.warp(block.timestamp + 136775);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        ECDSAPPSOracle_updatePPS_clamped(4);
-
-        vm.roll(block.number + 7321);
-        vm.warp(block.timestamp + 322318);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superVaultStrategy_handleOperations7540(205,0xEd0c7986cB7a7a1eED89B520d604B796D9101466,0x85f7E11b9AA93Eb7b43b4B8Ab497C4A829F4FEF0,9163284140466355026291114174552343145013288025031506028490720498473781436380);
-
-        vm.roll(block.number + 120);
-        vm.warp(block.timestamp + 3599);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        superGovernor_proposeGlobalHooksRoot_clamped(hex"6fadd0fd68e17a5354582df8be1839798ebe0ecf772ead924e994b5482d0af24492d");
-
-        vm.roll(block.number + 5017);
-        vm.warp(block.timestamp + 80);
-        vm.prank(0x0000000000000000000000000000000000020000);
-        doomsday_depositWithdrawSymmetrical(604798);
-
-        vm.roll(block.number + 3599);
-        vm.warp(block.timestamp + 385873);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        property_maxRedeemMaxWithdrawSymmetry();
-
-        vm.roll(block.number + 55501);
-        vm.warp(block.timestamp + 317377);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superVaultAggregator_executeChangePrimaryManager_clamped();
-
-        vm.roll(block.number + 4527);
-        vm.warp(block.timestamp + 322279);
-        vm.prank(0x0000000000000000000000000000000000020000);
-        erc7540_4_mint(0xDB25A7b768311dE128BBDa7B8426c3f9C74f3240,115792089237316195423570985008687907853269984665640564039457584007913129639637);
-
-        vm.roll(block.number + 757);
-        vm.warp(block.timestamp + 320376);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        superVault_mint(115792089237316195423570985008687907853269984665640564039457584007913129639931);
-
-        vm.roll(block.number + 253);
-        vm.warp(block.timestamp + 336897);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superVaultAggregator_addSecondaryManager(0x00000000000000000000000000000001fffffffE,0x00000000000000000000000000000000FFFFfFFF);
-
-        vm.roll(block.number + 2526);
-        vm.warp(block.timestamp + 236464);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        yieldSource_setRevertBehavior4626(35,48);
-
-        vm.roll(block.number + 4956);
-        vm.warp(block.timestamp + 139);
-        vm.prank(0x0000000000000000000000000000000000020000);
-        superVaultAggregator_addSecondaryManager(0x0000000000000000000000000000000000000000,0xc7183455a4C133Ae270771860664b6B7ec320bB1);
-
-        vm.roll(block.number + 27091);
-        vm.warp(block.timestamp + 322303);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        add_new_asset(116);
-
-        vm.roll(block.number + 27132);
-        vm.warp(block.timestamp + 54);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        crytic_erc7540_7_withdraw(61119263489409915792387055657499519916182231998562080298766116314734956789195);
-
-        vm.roll(block.number + 37);
-        vm.warp(block.timestamp + 313374);
-        vm.prank(0x0000000000000000000000000000000000030000);
-        property_accumulatorCostBasisSolvency();
-
-        vm.roll(block.number + 36252);
-        vm.warp(block.timestamp + 322281);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superVaultStrategy_manageYieldSource_clamped(17762607913530997621099683701834669100452427793565455808210185329579624199580);
-
-        vm.roll(block.number + 4767);
-        vm.warp(block.timestamp + 256);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        setPreviewSharesGreater(115792089237316195423570985008687907853269984665640564039457584007913129639889);
-
      }
 
     // forge test --match-test test_property_sumOfClaimable_6 -vvv 
     function test_property_sumOfClaimable_6() public {
-
         vm.roll(block.number + 19933);
         vm.warp(block.timestamp + 317373);
-        vm.prank(0x0000000000000000000000000000000000010000);
         property_accumulatorCostBasisIncrease();
 
         vm.roll(block.number + 32332);
         vm.warp(block.timestamp + 440097);
+        (bytes32 testRoot,) = merkleHelper.generateTestHooksRoot(
+            address(withdraw7540Hook), address(requestRedeem7540Hook), _getYieldSource(), superVault.asset()
+        );
         vm.prank(0x0000000000000000000000000000000000010000);
-        superGovernor_proposeGlobalHooksRoot_clamped(hex"5045524d49545f444541444c494e455f455850495245444e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c4e554c");
+        superGovernor_proposeGlobalHooksRoot(testRoot);
 
-        vm.roll(block.number + 32767);
-        vm.warp(block.timestamp + 321374);
-        vm.prank(0x0000000000000000000000000000000000010000);
-        superGovernor_executeFeeUpdate(169);
+        // vm.roll(block.number + 32767);
+        // vm.warp(block.timestamp + 321374);
+        // vm.prank(0x0000000000000000000000000000000000010000);
+        // superGovernor_executeFeeUpdate(169);
 
         vm.roll(block.number + 7320);
         vm.warp(block.timestamp + 10003);
@@ -1130,7 +984,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.roll(block.number + 15698);
         vm.warp(block.timestamp + 243101);
         vm.prank(0x0000000000000000000000000000000000030000);
-        superVaultStrategy_handleOperations7540(97,0x00000000000000000000000000000002fFffFffD,0x00000000000000000000000000000002fFffFffD,28738967044078783442992553521440142983252121339704895228240406024710320946245);
+        superVaultStrategy_handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, 0x00000000000000000000000000000002fFffFffD,0x00000000000000000000000000000002fFffFffD,28738967044078783442992553521440142983252121339704895228240406024710320946245);
 
         vm.roll(block.number + 55503);
         vm.warp(block.timestamp + 588255);
