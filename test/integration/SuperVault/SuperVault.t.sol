@@ -112,11 +112,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
         vm.startPrank(MANAGER);
-        strategy.managePPSStalenessThreshold(1, 1 weeks);
+        strategy.managePPSExpiration(1, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy.managePPSStalenessThreshold(2, 0);
+        strategy.managePPSExpiration(2, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
@@ -277,7 +277,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // First deposit should work normally
         _deposit(depositAmount);
         assertGt(vault.balanceOf(accountEth), 0, "Initial deposit failed");
-return;
+
         // Pause the strategy (manager can pause)
         vm.startPrank(MANAGER);
         aggregator.pauseStrategy(address(strategy));
@@ -298,7 +298,8 @@ return;
         // Unpause the strategy (only UNPAUSER_ROLE can unpause)
         aggregator.unpauseStrategy(address(strategy));
 
-
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
         
         // Deposit should work again after unpause
         _deposit(depositAmount);
@@ -2994,11 +2995,11 @@ return;
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
 
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.managePPSStalenessThreshold(1, 1 weeks);
+        strategyGearSuperVault.managePPSExpiration(1, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategyGearSuperVault.managePPSStalenessThreshold(2, 0);
+        strategyGearSuperVault.managePPSExpiration(2, 0);
         vm.stopPrank();
 
         // Add a new yield source as manager
@@ -7617,11 +7618,11 @@ return;
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
-        strategy.managePPSStalenessThreshold(1, 86_400); // 1 day
+        strategy.managePPSExpiration(1, 86_400); // 1 day
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy.managePPSStalenessThreshold(2, 0);
+        strategy.managePPSExpiration(2, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
