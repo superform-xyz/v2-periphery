@@ -16,6 +16,7 @@ import { SuperVault } from "../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../src/SuperVault/SuperVaultEscrow.sol";
 import { ECDSAPPSOracle } from "../src/oracles/ECDSAPPSOracle.sol";
+import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
 // Mock contracts for address prediction
 import { Mock4626Vault } from "./mocks/Mock4626Vault.sol";
@@ -24,7 +25,6 @@ import { RuggableConvertVault } from "./mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "./mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "./mocks/MockETHReceiver.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
-
 import "forge-std/console2.sol";
 
 struct PeripheryAddresses {
@@ -35,6 +35,7 @@ struct PeripheryAddresses {
     ECDSAPPSOracle ecdsappsOracle;
     MockNativeETHHook mockNativeETHHook;
     MockETHReceiver mockETHReceiver;
+    ApproveAndSwapOdosV2Hook approveAndSwapOdosHook;
 }
 
 contract BaseTest is PeripheryHelpers, CoreBaseTest {
@@ -46,6 +47,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
     // Constants for test vault deployment
     string constant TEST_SALT = "TEST";
+    string constant PERIPHERY_HOOKS_SALT = "PERIPHERY_HOOKS";
 
     // Global addresses for SuperVault strategies
     address public globalSVStrategy;
@@ -75,6 +77,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     // Periphery-specific merkle hooks
     address[] public globalMerkleHooksPeriphery;
     string[] public globalMerkleHookNamesPeriphery;
+
+    address public approveAndSwapOdosHookAddressETH;
 
     /*//////////////////////////////////////////////////////////////
                                 SETUP
@@ -114,7 +118,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             }
 
             PA[i].superGovernor =
-                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), TREASURY, proverAddress);
+                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), address(this), TREASURY, proverAddress);
             vm.label(address(PA[i].superGovernor), SUPER_GOVERNOR_KEY);
             contractAddresses[chainIds[i]][SUPER_GOVERNOR_KEY] = address(PA[i].superGovernor);
 
@@ -199,6 +203,11 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 PA[i].mockNativeETHHook = new MockNativeETHHook{ salt: SALT }(address(PA[i].mockETHReceiver));
                 vm.label(address(PA[i].mockNativeETHHook), "MOCK_NATIVE_ETH_HOOK");
                 contractAddresses[ETH]["MOCK_NATIVE_ETH_HOOK"] = address(PA[i].mockNativeETHHook);
+
+                PA[i].approveAndSwapOdosHook = new ApproveAndSwapOdosV2Hook{ salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT)) }(CHAIN_1_ODOS_ROUTER);
+                vm.label(address(PA[i].approveAndSwapOdosHook), "ApproveAndSwapOdosV2Hook");
+                contractAddresses[ETH][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY] = address(PA[i].approveAndSwapOdosHook);
+                approveAndSwapOdosHookAddressETH = address(PA[i].approveAndSwapOdosHook);
 
                 // Predict test vault addresses
                 _predictTestVaultAddresses();
@@ -387,53 +396,54 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
             console2.log("Registering periphery hooks for chain", chainIds[i]);
 
-            // Register fulfillRequests hooks
-            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_5115_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY], true);
+            // Register hooks
+            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_5115_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY]);
 
             // Register remaining hooks
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(
-                hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], false
-            );
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_ERC20_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][TRANSFER_ERC20_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_1INCH_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_ODOSV2_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][ACROSS_SEND_FUNDS_AND_EXECUTE_ON_DST_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_CLAIM_REWARD_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_STAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_FLUID_STAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_UNSTAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_CLAIM_REWARD_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_STAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_APPROVE_AND_STAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_UNSTAKE_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][YEARN_CLAIM_ONE_REWARD_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_DEPOSIT_REQUEST_7540_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_REQUEST_7540_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_DEPOSIT_REQUEST_7540_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_REDEEM_REQUEST_7540_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][MINT_SUPERPOSITIONS_HOOK_KEY], false);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_DEPOSIT_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_ERC20_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][TRANSFER_ERC20_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][DEPOSIT_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_1INCH_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][SWAP_ODOSV2_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][ACROSS_SEND_FUNDS_AND_EXECUTE_ON_DST_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_CLAIM_REWARD_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_STAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][APPROVE_AND_FLUID_STAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][FLUID_UNSTAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_CLAIM_REWARD_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_STAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_APPROVE_AND_STAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][GEARBOX_UNSTAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][YEARN_CLAIM_ONE_REWARD_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_DEPOSIT_REQUEST_7540_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_REQUEST_7540_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_DEPOSIT_REQUEST_7540_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_REDEEM_REQUEST_7540_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MINT_SUPERPOSITIONS_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MERKL_CLAIM_REWARD_HOOK_KEY]);
 
             // Register MockNativeETHHook for testing - ETH only
             if (chainIds[i] == ETH) {
-                superGovernor.registerHook(address(PA[i].mockNativeETHHook), true);
+                superGovernor.registerHook(address(PA[i].mockNativeETHHook));
+                superGovernor.registerHook(address(PA[i].approveAndSwapOdosHook));
+
 
                 // Initialize periphery-specific merkle hooks - include all hooks that can fulfill requests (true)
-                globalMerkleHooksPeriphery = new address[](14);
+                globalMerkleHooksPeriphery = new address[](16);
                 globalMerkleHooksPeriphery[0] = hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[1] = hookAddresses[chainIds[i]][REDEEM_4626_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[2] = hookAddresses[chainIds[i]][DEPOSIT_5115_VAULT_HOOK_KEY];
@@ -450,8 +460,10 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHooksPeriphery[11] = hookAddresses[chainIds[i]][WITHDRAW_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[12] = hookAddresses[chainIds[i]][REDEEM_7540_VAULT_HOOK_KEY];
                 globalMerkleHooksPeriphery[13] = hookAddresses[chainIds[i]][REQUEST_REDEEM_7540_VAULT_HOOK_KEY];
+                globalMerkleHooksPeriphery[14] = hookAddresses[chainIds[i]][MERKL_CLAIM_REWARD_HOOK_KEY];
+                globalMerkleHooksPeriphery[15] = address(PA[i].approveAndSwapOdosHook);
 
-                globalMerkleHookNamesPeriphery = new string[](14);
+                globalMerkleHookNamesPeriphery = new string[](16);
                 globalMerkleHookNamesPeriphery[0] = "DEPOSIT_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[1] = "REDEEM_4626_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[2] = "DEPOSIT_5115_VAULT_HOOK";
@@ -466,16 +478,18 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 globalMerkleHookNamesPeriphery[11] = "WITHDRAW_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[12] = "REDEEM_7540_VAULT_HOOK";
                 globalMerkleHookNamesPeriphery[13] = "REQUEST_REDEEM_7540_VAULT_HOOK";
+                globalMerkleHookNamesPeriphery[14] = "MERKL_CLAIM_REWARD_HOOK";
+                globalMerkleHookNamesPeriphery[15] = "APPROVE_AND_SWAP_ODOSV2_HOOK";
             }
 
             // EXPERIMENTAL HOOKS FROM HERE ONWARDS
-            superGovernor.registerHook(hookAddresses[chainIds[i]][ETHENA_COOLDOWN_SHARES_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][ETHENA_UNSTAKE_HOOK_KEY], true);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_BORROW_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_REPAY_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_REPAY_AND_WITHDRAW_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][PENDLE_ROUTER_REDEEM_HOOK_KEY], false);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][OFFRAMP_TOKENS_HOOK_KEY], false);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][ETHENA_COOLDOWN_SHARES_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][ETHENA_UNSTAKE_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_BORROW_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_REPAY_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][MORPHO_REPAY_AND_WITHDRAW_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][PENDLE_ROUTER_REDEEM_HOOK_KEY]);
+            superGovernor.registerHook(hookAddresses[chainIds[i]][OFFRAMP_TOKENS_HOOK_KEY]);
         }
     }
 

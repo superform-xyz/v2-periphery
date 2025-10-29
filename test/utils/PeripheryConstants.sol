@@ -21,4 +21,10 @@ abstract contract PeripheryConstants {
     address public constant ORACLE_ETH_TO_USD = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address public constant ORACLE_USD_TO_UP = address(0);
     address public constant ORACLE_GAS_TO_ETH = address(0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C);
+
+    address public constant CHAIN_1_USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+
+
+    address public constant CHAIN_1_MERKL_CORE = 0x0E632a15EbCBa463151B5367B4fCF91313e389a6;
+    address public constant CHAIN_1_MERKL_TREE_UPDATER_EOA = 0x435046800Fb9149eE65159721A92cB7d50a7534b;
 }

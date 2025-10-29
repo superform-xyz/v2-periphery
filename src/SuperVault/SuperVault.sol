@@ -21,7 +21,7 @@ import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Operator, IERC7540Redeem, IERC7741 } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7540Operator, IERC7540Redeem, IERC7741, IERC7540CancelRedeem } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
 
@@ -38,6 +38,7 @@ contract SuperVault is
     IERC7540Redeem,
     IERC7741,
     IERC4626,
+    IERC7540CancelRedeem,
     ISuperVault,
     ReentrancyGuardUpgradeable,
     EIP712Upgradeable
@@ -134,7 +135,6 @@ contract SuperVault is
     /*//////////////////////////////////////////////////////////////
                         USER EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc IERC4626
     function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256 shares) {
         if (receiver == address(0)) revert ZERO_ADDRESS();
@@ -181,6 +181,7 @@ contract SuperVault is
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
 
         if (balanceOf(owner) < shares) revert INVALID_AMOUNT();
+        if (strategy.pendingCancelRedeemRequest(owner)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
 
         // Enforce auditor's invariant for current accounting model
         if (controller != owner) revert CONTROLLER_MUST_EQUAL_OWNER();
@@ -196,19 +197,32 @@ contract SuperVault is
         return REQUEST_ID;
     }
 
-    /// @inheritdoc ISuperVault
-    function cancelRedeem(address controller) external {
+    /// @inheritdoc IERC7540CancelRedeem
+    function cancelRedeemRequest(uint256 /*requestId*/, address controller) external {
         _validateController(controller);
 
-        uint256 shares = strategy.pendingRedeemRequest(controller);
+        // Forward to strategy (7540 path)
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeemRequest, controller, address(0), 0);
+
+        emit CancelRedeemRequest(controller, REQUEST_ID, msg.sender);
+    }
+
+    /// @inheritdoc IERC7540CancelRedeem
+    function claimCancelRedeemRequest(uint256 /*requestId*/, address receiver, address controller) external returns (uint256 shares) {
+        _validateController(controller);
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
+        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
+        if (receiver != controller) revert INVALID_CONTROLLER();
+        
+        shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimCancelRedeem, controller, address(0), 0);
 
         // Return shares to controller
-        ISuperVaultEscrow(escrow).returnShares(controller, shares);
+        ISuperVaultEscrow(escrow).returnShares(receiver, shares);
 
-        emit RedeemRequestCancelled(controller, msg.sender);
+        emit CancelRedeemClaim(receiver, controller, REQUEST_ID, msg.sender, shares);
     }
 
     /// @inheritdoc IERC7540Operator
@@ -252,9 +266,13 @@ contract SuperVault is
     /*//////////////////////////////////////////////////////////////
                     USER EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVault
+    function getEscrowedAssets() external view returns (uint256) {
+        return _asset.balanceOf(escrow);
+    }
+
 
     //--ERC7540--
-
     /// @inheritdoc IERC7540Redeem
     function pendingRedeemRequest(
         uint256, /*requestId*/
@@ -279,6 +297,16 @@ contract SuperVault is
         return maxRedeem(controller);
     }
 
+    /// @inheritdoc IERC7540CancelRedeem
+    function pendingCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (bool isPending) {
+        isPending = strategy.pendingCancelRedeemRequest(controller);
+    }
+
+    /// @inheritdoc IERC7540CancelRedeem
+    function claimableCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (uint256 claimableShares) {
+        return strategy.claimableCancelRedeemRequest(controller);
+    }
+
     //--Operator Management--
 
     /// @inheritdoc IERC7741
@@ -297,6 +325,19 @@ contract SuperVault is
         _authorizations[msg.sender][nonce] = true;
 
         emit NonceInvalidated(msg.sender, nonce);
+    }
+
+
+    /*//////////////////////////////////////////////////////////////
+                            STRATEGY RELATED
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVault
+    function extractAndSendAssets(address to, uint256 assets) external {
+        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
+
+        ISuperVaultEscrow(escrow).returnAssets(to, assets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -334,18 +375,19 @@ contract SuperVault is
 
     /// @inheritdoc IERC4626
     function maxDeposit(address) public view override returns (uint256) {
-        if (_isPaused()) return 0;
+        if (_isPaused() || _isPPSStale()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxMint(address) external view override returns (uint256) {
-        if (_isPaused()) return 0;
+        if (_isPaused() || _isPPSStale()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
+        if (_isPaused() || _isPPSStale()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
@@ -416,7 +458,10 @@ contract SuperVault is
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
 
         // Calculate shares based on assets and average withdraw price
-        shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Floor);
+        shares = assets.mulDiv(PRECISION, averageWithdrawPrice, Math.Rounding.Ceil);
+
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
@@ -447,6 +492,9 @@ contract SuperVault is
         uint256 maxWithdrawAmount = maxWithdraw(controller);
         if (assets > maxWithdrawAmount) revert INVALID_AMOUNT();
 
+        uint256 escrowBalance = _asset.balanceOf(escrow);
+        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
+
         // Take assets from strategy (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
 
@@ -460,20 +508,9 @@ contract SuperVault is
     }
 
     // @inheritdoc ISuperVault
-    function onRedeemClaimable(
-        address user,
-        uint256 assets,
-        uint256 shares,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        external
-    {
+    function mintShares(address to, uint256 amount) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
-        emit RedeemClaimable(
-            user, REQUEST_ID, assets, shares, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
-        );
+        _mint(to, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -529,6 +566,11 @@ contract SuperVault is
     function _isPaused() internal view returns (bool) {
         address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
         return ISuperVaultAggregator(aggregatorAddress).isStrategyPaused(address(strategy));
+    }
+
+    function _isPPSStale() internal view returns (bool) {
+        address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
+        return ISuperVaultAggregator(aggregatorAddress).isPPSStale(address(strategy));
     }
 
     /// @dev Read management fee config (view-only for previews)

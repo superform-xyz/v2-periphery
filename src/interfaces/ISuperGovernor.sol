@@ -29,13 +29,6 @@ interface ISuperGovernor is IAccessControl {
         uint256 effectiveTime; // Timestamp when the proposed root becomes effective
     }
 
-    struct GasInfo {
-        // `batchForwardPPS` base gas
-        uint256 baseGasBatch;
-        // `batchForwardPPS` gas increase per entry
-        uint256 gasIncreasePerEntryBatch;
-    }
-
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -53,10 +46,6 @@ interface ISuperGovernor is IAccessControl {
     error HOOK_ALREADY_APPROVED();
     /// @notice Thrown when a hook is not approved but expected to be
     error HOOK_NOT_APPROVED();
-    /// @notice Thrown when a fulfill requests hook is already registered
-    error FULFILL_REQUESTS_HOOK_ALREADY_REGISTERED();
-    /// @notice Thrown when a fulfill requests hook is not registered but expected to be
-    error FULFILL_REQUESTS_HOOK_NOT_REGISTERED();
     /// @notice Thrown when provided revenue share is invalid (exceeds 100%)
     error INVALID_REVENUE_SHARE();
     /// @notice Thrown when an invalid fee value is proposed (must be <= BPS_MAX)
@@ -129,8 +118,9 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Emitted when an address is set in the registry
     /// @param key The key used to reference the address
+    /// @param oldValue The old address value
     /// @param value The address value
-    event AddressSet(bytes32 indexed key, address indexed value);
+    event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value);
 
     /// @notice Emitted when a hook is approved
     /// @param hook The address of the approved hook
@@ -140,13 +130,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
 
-    /// @notice Emitted when a fulfill requests hook is registered
-    /// @param hook The address of the registered fulfill requests hook
-    event FulfillRequestsHookRegistered(address indexed hook);
-
-    /// @notice Emitted when a fulfill requests hook is unregistered
-    /// @param hook The address of the unregistered fulfill requests hook
-    event FulfillRequestsHookUnregistered(address indexed hook);
 
     /// @notice Emitted when a validator is registered
     /// @param validator The address of the registered validator
@@ -236,8 +219,9 @@ interface ISuperGovernor is IAccessControl {
     event ExecutorRemoved(address indexed executor);
 
     /// @notice Emitted when a prover is set
-    /// @param prover The address of the prover
-    event ProverSet(address indexed prover);
+    /// @param oldProver The address of the old prover
+    /// @param newProver The address of the new prover
+    event ProverSet(address indexed oldProver, address indexed newProver);
 
     /// @notice Emitted when a change to upkeep payments status is proposed
     /// @param enabled The proposed status (enabled/disabled)
@@ -288,9 +272,8 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    event GasInfoSet(address indexed oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch);
+    event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch);
 
     /*//////////////////////////////////////////////////////////////
                        CONTRACT REGISTRY FUNCTIONS
@@ -380,6 +363,9 @@ interface ISuperGovernor is IAccessControl {
     )
         external;
 
+    /// @notice Executes a previously queued oracle update after timelock has expired
+    function executeOracleUpdate() external;
+
     /// @notice Queues a provider removal for execution after timelock period
     /// @param providers The providers to remove
     function queueOracleProviderRemoval(bytes32[] calldata providers) external;
@@ -410,8 +396,7 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Registers a hook for use in SuperVaults
     /// @param hook The address of the hook to register
-    /// @param isFulfillRequestsHook Whether the hook is a fulfill requests hook
-    function registerHook(address hook, bool isFulfillRequestsHook) external;
+    function registerHook(address hook) external;
 
     /// @notice Unregisters a hook from the approved list
     /// @param hook The address of the hook to unregister
@@ -489,9 +474,8 @@ interface ISuperGovernor is IAccessControl {
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets gas info for an oracle
     /// @param oracle The address of the oracle
-    /// @param baseGasBatch The base gas for the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external;
+    function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external;
 
     /// @notice Proposes a change to upkeep payments enabled status
     /// @param enabled The proposed enabled status
@@ -513,7 +497,6 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                         SUPERFORM MANAGER MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Adds a manager to the superform managers list
     /// @param manager Address of the manager to add
     function addSuperformManager(address manager) external;
@@ -521,6 +504,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Removes a manager from the superform managers list
     /// @param manager Address of the manager to remove
     function removeSuperformManager(address manager) external;
+
+    /// @notice Slashes a manager's stake balance by a specified amount
+    /// @param manager The manager whose stake will be slashed
+    /// @param amount The amount of UP tokens to slash from the manager's stake balance
+    function slashStake(address manager, uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT
@@ -586,6 +574,12 @@ interface ISuperGovernor is IAccessControl {
     /// @notice The identifier of the role that grants access to gas management functions
     function GAS_MANAGER_ROLE() external view returns (bytes32);
 
+    /// @notice The identifier of the role that grants access to oracle management functions
+    function ORACLE_MANAGER_ROLE() external view returns (bytes32);
+
+    /// @notice The identifier of the role that grants access to unpauser functions
+    function UNPAUSER_ROLE() external view returns (bytes32);
+
     /// @notice The identifier of the role that grants access to guardian functions
     function GUARDIAN_ROLE() external view returns (bytes32);
 
@@ -611,18 +605,11 @@ interface ISuperGovernor is IAccessControl {
     /// @return True if the hook is registered, false otherwise
     function isHookRegistered(address hook) external view returns (bool);
 
-    /// @notice Checks if a hook is registered as a fulfill requests hook
-    /// @param hook The address of the hook to check
-    /// @return True if the hook is registered as a fulfill requests hook, false otherwise
-    function isFulfillRequestsHookRegistered(address hook) external view returns (bool);
 
     /// @notice Gets all registered hooks
     /// @return An array of registered hook addresses
     function getRegisteredHooks() external view returns (address[] memory);
 
-    /// @notice Gets all registered fulfill requests hooks
-    /// @return An array of registered fulfill requests hook addresses
-    function getRegisteredFulfillRequestsHooks() external view returns (address[] memory);
 
     /// @notice Checks if an address is an approved validator
     /// @param validator The address to check
@@ -647,6 +634,9 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Returns all registered validators
     /// @return List of validator addresses
     function getValidators() external view returns (address[] memory);
+
+    /// @notice Returns the number of registered validators (O(1))
+    function getValidatorsCount() external view returns (uint256);
 
     /// @notice Returns all registered relayers
     /// @return List of relayer addresses
@@ -679,11 +669,8 @@ interface ISuperGovernor is IAccessControl {
     /// @return The current fee value (in basis points)
     function getFee(FeeType feeType) external view returns (uint256);
 
-    /// @notice Gets the current upkeep cost per batch update for PPS updates
-    /// @param oracle The address of the PPS oracle
-    /// @param chargeableEntries The number of chargeable entries
-    /// @return The current upkeep cost per batch update in UP tokens
-    function getUpkeepCostPerBatchUpdate(address oracle, uint256 chargeableEntries) external view returns (uint256);
+    /// @notice Gets the current upkeep cost for an entry
+    function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256);
 
     /// @notice Gets the proposed upkeep cost per update and its effective time
     /// @notice Gets the current minimum staleness value
@@ -821,5 +808,8 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the gas info for a specific SuperVault PPS Oracle
     /// @param oracle_ The address of the oracle to get gas info for
     /// @return The gas info for the specified oracle
-    function getGasInfo(address oracle_) external view returns (GasInfo memory);
+    function getGasInfo(address oracle_) external view returns (uint256);
+
+    /// @notice Executes a previously proposed oracle provider removal after timelock has expired
+    function executeOracleProviderRemoval() external;
 }

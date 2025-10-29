@@ -51,7 +51,6 @@ dynamic_test_linking = true
 gas_limit = "18446744073709551615"
 gas_snapshot_emit= false # Added due to tests in test_extraGas in PaymasterPoC.t.sol
 evm_version = "prague"
-lint_on_build = false
 
 [profile.ci-sizes]
 script = "src"
@@ -84,7 +83,8 @@ wrap_comments = true
 11155420 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 84532 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 
-[lint]
+[profile.lint]
+lint_on_build = false
 exclude_lints = ["mixed-case-function"]
 ignore = [
     "src/vendor/**", 

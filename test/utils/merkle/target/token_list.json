@@ -129,6 +129,58 @@
       "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
     },
     {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
+      "symbol": "globalSV5115Strategy",
+      "address": "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    },
+    {
       "symbol": "test_1_DynamicAllocation_MockVault",
       "address": "0x190d48857707cD8440cFb281B6cE5687d270292B"
     },
@@ -138,11 +190,11 @@
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest",
-      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
+      "address": "0x13bE059c60Ce377CC07ee5045dD00a12DC11d365"
     },
     {
       "symbol": "test_3_UnderlyingVaults_StressTest_Coverage",
-      "address": "0x2220F3471780384325932c69aAC6A83Dd480A850"
+      "address": "0x13bE059c60Ce377CC07ee5045dD00a12DC11d365"
     },
     {
       "symbol": "test_6_yieldAccumulation_vault1",
@@ -194,19 +246,19 @@
     },
     {
       "symbol": "test_10_RuggableVault_Deposit",
-      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
+      "address": "0xC4c67BDdcdF8E2793775C99C6F3f64ed0eB468D3"
     },
     {
       "symbol": "test_10_RuggableVault_Deposit_Coverage",
-      "address": "0x2f2abf8909fb64c13Ecf6E99fA67E926Cc10C3b8"
+      "address": "0xC4c67BDdcdF8E2793775C99C6F3f64ed0eB468D3"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw",
-      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
+      "address": "0x0bBf52641e428C2E896c2Ae1f2D2a2c19ED39b89"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_Coverage",
-      "address": "0x1A55cA1a782A1Aca84504DE1536B8CdA58A05576"
+      "address": "0x0bBf52641e428C2E896c2Ae1f2D2a2c19ED39b89"
     },
     {
       "symbol": "test_10_RuggableVault_Withdraw_ConvertDistortion",

@@ -37,7 +37,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Hook registry
     EnumerableSet.AddressSet private _registeredHooks;
-    EnumerableSet.AddressSet private _registeredFulfillRequestsHooks;
 
     // SuperBank Hook Target validation
     mapping(address hook => ISuperGovernor.HookMerkleRootData merkleData) private superBankHooksMerkleRoots;
@@ -82,7 +81,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Effective times for proposed fee updates
     mapping(FeeType type_ => uint256 effectiveTime) private _feeEffectiveTimes;
 
-    mapping(address _oracle => GasInfo info) private _oracleGasInfo;
+    mapping(address _oracle => uint256 _entryGas) private _gasPerEntry;
 
     // Upkeep control
     bool private _upkeepPaymentsEnabled;
@@ -95,15 +94,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Min staleness configuration to prevent maxStaleness from being set too low
     uint256 private _minStaleness;
     uint256 private _proposedMinStaleness;
-    uint256 private _minStalenesEffectiveTime;
+    uint256 private _minStalenessEffectiveTime;
 
     // Oracle constants
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant USD_TOKEN = address(840);
-    address private constant GAS_QUOTE =
-        address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE =
-        address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
@@ -117,6 +114,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
+    bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
+    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -129,6 +128,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 public constant ECDSAPPSORACLE = keccak256("ECDSAPPSORACLE");
     bytes32 public constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
+    // Fee constants
+    uint256 public constant REVENUE_SHARE = 2000; // 20% revenue share
+    uint256 public constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
+    uint256 public constant SUPER_ASSET_SWAP_FEE = 4000; // 40% swap fee
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -138,18 +142,28 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param treasury_ Address of the treasury
     /// @param prover_ Address of the prover
-    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury_, address prover_) {
+    constructor(
+        address superGovernor,
+        address governor,
+        address bankManager,
+        address gasManager,
+        address unpauser,
+        address treasury_,
+        address prover_
+    ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, superGovernor);
         _grantRole(_SUPER_GOVERNOR_ROLE, superGovernor);
+        _grantRole(_ORACLE_MANAGER_ROLE, superGovernor);
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
+        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -158,25 +172,27 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = 2000; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = 2000; // 20% performance fee
-        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = 4000; // 40% swap fee
-        emit FeeUpdated(FeeType.REVENUE_SHARE, _feeValues[FeeType.REVENUE_SHARE]);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE]);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, _feeValues[FeeType.SUPER_ASSET_SWAP_FEE]);
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
+        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
+        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = SUPER_ASSET_SWAP_FEE; // 40% swap fee
+        emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
+        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
+        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, SUPER_ASSET_SWAP_FEE);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, treasury_);
+        emit AddressSet(TREASURY, address(0), treasury_);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
 
         // Initialize prover
         _prover = prover_;
-        emit ProverSet(prover_);
+        emit ProverSet(address(0), prover_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -186,8 +202,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setAddress(bytes32 key, address value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value == address(0)) revert INVALID_ADDRESS();
 
+        address oldValue = _addressRegistry[key];
+
         _addressRegistry[key] = value;
-        emit AddressSet(key, value);
+        emit AddressSet(key, oldValue, value);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -197,8 +215,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function setProver(address prover) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (prover == address(0)) revert INVALID_ADDRESS();
 
+        address oldProver = _prover;
+
         _prover = prover;
-        emit ProverSet(prover);
+        emit ProverSet(oldProver, prover);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -342,6 +362,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function executeOracleUpdate() external onlyRole(_ORACLE_MANAGER_ROLE) {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperOracle(oracle).executeOracleUpdate();
+    }
+
+    /// @inheritdoc ISuperGovernor
     function queueOracleProviderRemoval(bytes32[] calldata providers) external onlyRole(_GOVERNOR_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -390,12 +418,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                             HOOK MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function registerHook(address hook, bool isFulfillRequestsHook) external onlyRole(_GOVERNOR_ROLE) {
+    function registerHook(address hook) external onlyRole(_GOVERNOR_ROLE) {
         if (hook == address(0)) revert INVALID_ADDRESS();
 
-        if (isFulfillRequestsHook && _registeredFulfillRequestsHooks.add(hook)) {
-            emit FulfillRequestsHookRegistered(hook);
-        }
         if (_registeredHooks.add(hook)) {
             emit HookApproved(hook);
         }
@@ -403,9 +428,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function unregisterHook(address hook) external onlyRole(_GOVERNOR_ROLE) {
-        if (_registeredFulfillRequestsHooks.remove(hook)) {
-            emit FulfillRequestsHookUnregistered(hook);
-        }
         if (_registeredHooks.remove(hook)) {
             // Clear merkle root data for the unregistered hook to prevent stale data
             delete superBankHooksMerkleRoots[hook];
@@ -522,6 +544,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit PPSOracleQuorumUpdated(quorum);
     }
 
+    /// @inheritdoc ISuperGovernor
+    function executeOracleProviderRemoval()
+        external
+        onlyRole(_ORACLE_MANAGER_ROLE)
+    {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+ 
+        ISuperOracle(oracle).executeProviderRemoval();
+    }
+
     /*//////////////////////////////////////////////////////////////
                       REVENUE SHARE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -565,12 +598,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         UPKEEP COST MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
+    function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) external onlyRole(_GAS_MANAGER_ROLE) {
         if (oracle == address(0)) revert INVALID_ADDRESS();
-        if (baseGasBatch == 0 || gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
+        if (gasIncreasePerEntryBatch == 0) revert INVALID_GAS_INFO();
 
-        _oracleGasInfo[oracle] = GasInfo({baseGasBatch: baseGasBatch, gasIncreasePerEntryBatch: gasIncreasePerEntryBatch});
-        emit GasInfoSet(oracle, baseGasBatch, gasIncreasePerEntryBatch);
+        _gasPerEntry[oracle] = gasIncreasePerEntryBatch;
+        emit GasInfoSet(oracle, gasIncreasePerEntryBatch);
     }
 
     /// @notice Proposes a change to the upkeep payments enabled status
@@ -600,22 +633,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function proposeMinStaleness(uint256 newMinStaleness) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         _proposedMinStaleness = newMinStaleness;
-        _minStalenesEffectiveTime = block.timestamp + TIMELOCK;
+        _minStalenessEffectiveTime = block.timestamp + TIMELOCK;
 
-        emit MinStalenesProposed(newMinStaleness, _minStalenesEffectiveTime);
+        emit MinStalenesProposed(newMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
     function executeMinStalenesChange() external {
-        uint256 minStalenesEffectiveTime = _minStalenesEffectiveTime;
-        if (minStalenesEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
-        if (block.timestamp < minStalenesEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+        uint256 minStalenessEffectiveTime = _minStalenessEffectiveTime;
+        if (minStalenessEffectiveTime == 0) revert NO_PROPOSED_MIN_STALENESS();
+        if (block.timestamp < minStalenessEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
         _minStaleness = _proposedMinStaleness;
 
         // Reset proposal data
         _proposedMinStaleness = 0;
-        _minStalenesEffectiveTime = 0;
+        _minStalenessEffectiveTime = 0;
 
         emit MinStalenesChanged(_minStaleness);
     }
@@ -638,10 +671,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperformManagerRemoved(manager);
     }
 
+    /// @inheritdoc ISuperGovernor
+    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
+    }
+
     /*//////////////////////////////////////////////////////////////
                            VAULT HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc ISuperGovernor
     function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
@@ -849,8 +889,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function ORACLE_MANAGER_ROLE() external pure returns (bytes32) {
+        return _ORACLE_MANAGER_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
     function GUARDIAN_ROLE() external pure returns (bytes32) {
         return _GUARDIAN_ROLE;
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function UNPAUSER_ROLE() external pure returns (bytes32) {
+        return _UNPAUSER_ROLE;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -876,18 +926,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function isFulfillRequestsHookRegistered(address hook) external view returns (bool) {
-        return _registeredFulfillRequestsHooks.contains(hook);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getRegisteredFulfillRequestsHooks() external view returns (address[] memory) {
-        return _registeredFulfillRequestsHooks.values();
     }
 
     /// @inheritdoc ISuperGovernor
@@ -913,6 +953,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getValidators() external view returns (address[] memory) {
         return _validators.values();
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function getValidatorsCount() external view returns (uint256) {
+        return _validators.length();
     }
 
     /// @inheritdoc ISuperGovernor
@@ -952,17 +997,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getGasInfo(address oracle_) external view returns (GasInfo memory) {
-        return _oracleGasInfo[oracle_];
+    function getGasInfo(address oracle_) external view returns (uint256) {
+        return _gasPerEntry[oracle_];
     }
 
-     /// @inheritdoc ISuperGovernor
-    function getUpkeepCostPerBatchUpdate(address oracle_, uint256 chargeableEntries_) external view returns (uint256) {
-        // Calculate total gas cost
-        uint256 totalGas = _oracleGasInfo[oracle_].baseGasBatch + 
-            (_oracleGasInfo[oracle_].gasIncreasePerEntryBatch * chargeableEntries_);
-
-        return _convertGasToUp(totalGas);
+    /// @inheritdoc ISuperGovernor
+    function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256) {
+        return _convertGasToUp(_gasPerEntry[oracle_]);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -972,7 +1013,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getProposedMinStaleness() external view returns (uint256 proposedMinStaleness, uint256 effectiveTime) {
-        return (_proposedMinStaleness, _minStalenesEffectiveTime);
+        return (_proposedMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -1105,6 +1146,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _protectedKeepers.length();
     }
 
+    /// @dev Advertise ISuperGovernor support for ERC-165 detection
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
+        return interfaceId == type(ISuperGovernor).interfaceId || super.supportsInterface(interfaceId);
+    }
+
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -1115,20 +1161,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (upToken == address(0)) revert UP_NOT_FOUND();
 
         // Step 1: convert gas to ETH
-        (uint256 ethAmount,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            gasAmount,
-            GAS_QUOTE,
-            GWEI_QUOTE,
-            AVERAGE_PROVIDER
-        );
+        (uint256 weiAmount,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
-        (uint256 ethToUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            ethAmount,
-            NATIVE_TOKEN,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 ethToUsd,,,) =
+            ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
         (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(

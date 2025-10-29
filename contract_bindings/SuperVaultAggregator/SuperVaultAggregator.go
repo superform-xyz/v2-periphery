@@ -29,48 +29,48 @@ var (
 	_ = abi.ConvertType
 )
 
-// ISuperVaultAggregatorBatchForwardPPSArgs is an auto generated low-level Go binding around an user-defined struct.
-type ISuperVaultAggregatorBatchForwardPPSArgs struct {
+// ISuperVaultAggregatorForwardPPSArgs is an auto generated low-level Go binding around an user-defined struct.
+type ISuperVaultAggregatorForwardPPSArgs struct {
 	Strategies      []common.Address
 	Ppss            []*big.Int
 	PpsStdevs       []*big.Int
 	ValidatorSets   []*big.Int
-	TotalValidators []*big.Int
+	TotalValidator  *big.Int
 	Timestamps      []*big.Int
+	UpdateAuthority common.Address
 }
 
-// ISuperVaultAggregatorForwardPPSArgs is an auto generated low-level Go binding around an user-defined struct.
-type ISuperVaultAggregatorForwardPPSArgs struct {
-	Strategy        common.Address
-	IsExempt        bool
-	Pps             *big.Int
-	PpsStdev        *big.Int
-	ValidatorSet    *big.Int
-	TotalValidators *big.Int
-	Timestamp       *big.Int
-	UpkeepCost      *big.Int
+// ISuperVaultAggregatorValidateHookArgs is an auto generated low-level Go binding around an user-defined struct.
+type ISuperVaultAggregatorValidateHookArgs struct {
+	HookAddress   common.Address
+	HookArgs      []byte
+	GlobalProof   [][32]byte
+	StrategyProof [][32]byte
 }
 
 // ISuperVaultAggregatorVaultCreationParams is an auto generated low-level Go binding around an user-defined struct.
 type ISuperVaultAggregatorVaultCreationParams struct {
-	Asset             common.Address
-	Name              string
-	Symbol            string
-	MainStrategist    common.Address
-	MinUpdateInterval *big.Int
-	MaxStaleness      *big.Int
-	FeeConfig         ISuperVaultStrategyFeeConfig
+	Asset              common.Address
+	Name               string
+	Symbol             string
+	MainManager        common.Address
+	SecondaryManagers  []common.Address
+	MinUpdateInterval  *big.Int
+	MaxStaleness       *big.Int
+	FeeConfig          ISuperVaultStrategyFeeConfig
+	MaxUnpauseTimeLock *big.Int
 }
 
 // ISuperVaultStrategyFeeConfig is an auto generated low-level Go binding around an user-defined struct.
 type ISuperVaultStrategyFeeConfig struct {
 	PerformanceFeeBps *big.Int
+	ManagementFeeBps  *big.Int
 	Recipient         common.Address
 }
 
 // SuperVaultAggregatorMetaData contains all meta data concerning the SuperVaultAggregator contract.
 var SuperVaultAggregatorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategyImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrowImpl_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ESCROW_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"PPS_DECIMALS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"STRATEGY_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractISuperGovernor\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VAULT_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addAuthorizedCaller\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addSecondaryStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchForwardPPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.BatchForwardPPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"ppsStdevs\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"validatorSets\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"totalValidators\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newStrategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"createVault\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.VaultCreationParams\",\"components\":[{\"name\":\"asset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"mainStrategist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"minUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeConfig\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultStrategy.FeeConfig\",\"components\":[{\"name\":\"performanceFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"superVault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositUpkeep\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeChangePrimaryStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeGlobalHooksRootUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeStrategyHooksRootUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"forwardPPS\",\"inputs\":[{\"name\":\"updateAuthority\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ForwardPPSArgs\",\"components\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isExempt\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"upkeepCost\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultEscrows\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultStrategies\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaults\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAuthorizedCallers\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"callers\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentNonce\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getHooksRootUpdateTimelock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUpdateTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMainStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMaxStaleness\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"staleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"interval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPS\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSVerificationThresholds\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"dispersionThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"mnThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSWithStdDev\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSecondaryStrategists\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepBalance\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isAnyStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootActive\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootVetoed\",\"inputs\":[],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isMainStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSecondaryStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isPaused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeChangePrimaryStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newStrategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeAuthorizedCaller\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSecondaryStrategist\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"superVaultEscrows\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaultStrategies\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaults\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"updatePPSVerificationThresholds\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispersionThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"mnThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateHook\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateHooks\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hooksArgs\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"globalProofs\",\"type\":\"bytes32[][]\",\"internalType\":\"bytes32[][]\"},{\"name\":\"strategyProofs\",\"type\":\"bytes32[][]\",\"internalType\":\"bytes32[][]\"}],\"outputs\":[{\"name\":\"validHooks\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawUpkeep\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AuthorizedCallerAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AuthorizedCallerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdated\",\"inputs\":[{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HooksRootUpdateTimelockChanged\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSVerificationThresholdsUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"dispersionThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"mnThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryStrategistChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newStrategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryStrategistChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldStrategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newStrategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryStrategistChangedToSuperform\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldStrategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newStrategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryStrategistAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryStrategistRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyCheckFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepCostUpdated\",\"inputs\":[{\"name\":\"oldCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepDeposited\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepSpent\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawn\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeployed\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"asset\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"nonce\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_ALREADY_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_NOT_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CANNOT_REMOVE_LAST_STRATEGIST\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedDeployment\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_VALIDATION_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INDEX_OUT_OF_BOUNDS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP_BALANCE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ARRAY_LENGTH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"NOT_A_GUARDIAN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_GLOBAL_ROOT_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_ROOT_UPDATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_STRATEGIST_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ROOT_UPDATE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_ALREADY_EXISTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_CHANGE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_CALLER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_UPDATE_AUTHORITY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNKNOWN_STRATEGY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPDATE_TOO_FREQUENT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPDATE_TOO_STALE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ARRAY_LENGTH\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategyImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrowImpl_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ESCROW_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_SECONDARY_MANAGERS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_STRATEGIES\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"PPS_DECIMALS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"STRATEGY_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractISuperGovernor\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VAULT_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"WITHDRAWAL_REQUEST_TIMEOUT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"WITHDRAW_STAKE_TIMELOCK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addAuthorizedCaller\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeGlobalLeavesStatus\",\"inputs\":[{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimUpkeep\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimableUpkeep\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"completeStakeWithdrawal\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"createVault\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.VaultCreationParams\",\"components\":[{\"name\":\"asset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"mainManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"secondaryManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"minUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeConfig\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultStrategy.FeeConfig\",\"components\":[{\"name\":\"performanceFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"managementFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"maxUnpauseTimeLock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[{\"name\":\"superVault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositStake\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositUpkeep\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeGlobalHooksRootUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeStrategyHooksRootUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"forwardPPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ForwardPPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"ppsStdevs\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"validatorSets\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"totalValidator\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultEscrows\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultStrategies\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaults\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAuthorizedCallers\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"callers\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentNonce\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getHooksRootUpdateTimelock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUpdateTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMainManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMaxStaleness\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"staleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"interval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPS\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSVerificationThresholds\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"dispersionThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"mnThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSWithStdDev\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSecondaryManagers\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStakeBalance\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepBalance\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isAnyManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootActive\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootVetoed\",\"inputs\":[],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isMainManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSecondaryManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isPaused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"managerWithdrawalRequests\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeAuthorizedCaller\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestStakeWithdrawal\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashStake\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"superVaultEscrows\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaultStrategies\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaults\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpauseStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updatePPSVerificationThresholds\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispersionThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"mnThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateUnpausePPSTimelock\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newTimelock_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateHook\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateHooks\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"argsArray\",\"type\":\"tuple[]\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs[]\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"validHooks\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawUpkeep\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AuthorizedCaller\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AuthorizedCallerAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AuthorizedCallerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdated\",\"inputs\":[{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalLeavesStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"indexed\":false,\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"indexed\":false,\"internalType\":\"bool[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HooksRootUpdateTimelockChanged\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InsufficientUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"cost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OldPrimaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"ppsStdev\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSVerificationThresholdsUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"dispersionThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"mnThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PaymentSkippedForPausedStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangedToSuperform\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProvidedTimestampExceedsBlockTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"argsTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blockTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeDeposited\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeSlashed\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawRequested\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawn\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyCheckFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStale\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStaleReset\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpausePPSTimelockUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TimestampNotMonotonic\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnknownStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpdateTooFrequent\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepClaimed\",\"inputs\":[{\"name\":\"superBank\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepCostUpdated\",\"inputs\":[{\"name\":\"oldCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepDeposited\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepSpent\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"claimableUpkeep\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawn\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeployed\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"asset\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"nonce\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_ALREADY_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_NOT_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CANNOT_ADD_PROTECTED_KEEPER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CANNOT_REMOVE_LAST_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedDeployment\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_VALIDATION_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INDEX_OUT_OF_BOUNDS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_STAKE_BALANCE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP_BALANCE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ARRAY_LENGTH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_EXISTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_CHANGE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STRATEGIES_EXCEEDED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MISMATCHED_ARRAY_LENGTHS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NOT_A_GUARDIAN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_GLOBAL_ROOT_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_MANAGER_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_ROOT_UPDATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ROOT_UPDATE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_NOT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TOO_MANY_SECONDARY_MANAGERS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_CALLER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_UPDATE_AUTHORITY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNKNOWN_STRATEGY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNPAUSE_TIMELOCK_NOT_MET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPDATE_TOO_STALE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WITHDRAWAL_REQUEST_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WITHDRAW_STAKE_REQUEST_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WITHDRAW_STAKE_REQUEST_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ARRAY_LENGTH\",\"inputs\":[]}]",
 }
 
 // SuperVaultAggregatorABI is the input ABI used to generate the binding from.
@@ -250,6 +250,68 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ESCROWIMPLEMENTA
 	return _SuperVaultAggregator.Contract.ESCROWIMPLEMENTATION(&_SuperVaultAggregator.CallOpts)
 }
 
+// MAXSECONDARYMANAGERS is a free data retrieval call binding the contract method 0x08db8901.
+//
+// Solidity: function MAX_SECONDARY_MANAGERS() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) MAXSECONDARYMANAGERS(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "MAX_SECONDARY_MANAGERS")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// MAXSECONDARYMANAGERS is a free data retrieval call binding the contract method 0x08db8901.
+//
+// Solidity: function MAX_SECONDARY_MANAGERS() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) MAXSECONDARYMANAGERS() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.MAXSECONDARYMANAGERS(&_SuperVaultAggregator.CallOpts)
+}
+
+// MAXSECONDARYMANAGERS is a free data retrieval call binding the contract method 0x08db8901.
+//
+// Solidity: function MAX_SECONDARY_MANAGERS() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) MAXSECONDARYMANAGERS() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.MAXSECONDARYMANAGERS(&_SuperVaultAggregator.CallOpts)
+}
+
+// MAXSTRATEGIES is a free data retrieval call binding the contract method 0x767f06ae.
+//
+// Solidity: function MAX_STRATEGIES() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) MAXSTRATEGIES(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "MAX_STRATEGIES")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// MAXSTRATEGIES is a free data retrieval call binding the contract method 0x767f06ae.
+//
+// Solidity: function MAX_STRATEGIES() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) MAXSTRATEGIES() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.MAXSTRATEGIES(&_SuperVaultAggregator.CallOpts)
+}
+
+// MAXSTRATEGIES is a free data retrieval call binding the contract method 0x767f06ae.
+//
+// Solidity: function MAX_STRATEGIES() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) MAXSTRATEGIES() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.MAXSTRATEGIES(&_SuperVaultAggregator.CallOpts)
+}
+
 // PPSDECIMALS is a free data retrieval call binding the contract method 0x13b56ce7.
 //
 // Solidity: function PPS_DECIMALS() view returns(uint256)
@@ -372,6 +434,99 @@ func (_SuperVaultAggregator *SuperVaultAggregatorSession) VAULTIMPLEMENTATION() 
 // Solidity: function VAULT_IMPLEMENTATION() view returns(address)
 func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) VAULTIMPLEMENTATION() (common.Address, error) {
 	return _SuperVaultAggregator.Contract.VAULTIMPLEMENTATION(&_SuperVaultAggregator.CallOpts)
+}
+
+// WITHDRAWALREQUESTTIMEOUT is a free data retrieval call binding the contract method 0xc3664eca.
+//
+// Solidity: function WITHDRAWAL_REQUEST_TIMEOUT() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) WITHDRAWALREQUESTTIMEOUT(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "WITHDRAWAL_REQUEST_TIMEOUT")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// WITHDRAWALREQUESTTIMEOUT is a free data retrieval call binding the contract method 0xc3664eca.
+//
+// Solidity: function WITHDRAWAL_REQUEST_TIMEOUT() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) WITHDRAWALREQUESTTIMEOUT() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.WITHDRAWALREQUESTTIMEOUT(&_SuperVaultAggregator.CallOpts)
+}
+
+// WITHDRAWALREQUESTTIMEOUT is a free data retrieval call binding the contract method 0xc3664eca.
+//
+// Solidity: function WITHDRAWAL_REQUEST_TIMEOUT() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) WITHDRAWALREQUESTTIMEOUT() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.WITHDRAWALREQUESTTIMEOUT(&_SuperVaultAggregator.CallOpts)
+}
+
+// WITHDRAWSTAKETIMELOCK is a free data retrieval call binding the contract method 0xa66167fa.
+//
+// Solidity: function WITHDRAW_STAKE_TIMELOCK() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) WITHDRAWSTAKETIMELOCK(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "WITHDRAW_STAKE_TIMELOCK")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// WITHDRAWSTAKETIMELOCK is a free data retrieval call binding the contract method 0xa66167fa.
+//
+// Solidity: function WITHDRAW_STAKE_TIMELOCK() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) WITHDRAWSTAKETIMELOCK() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.WITHDRAWSTAKETIMELOCK(&_SuperVaultAggregator.CallOpts)
+}
+
+// WITHDRAWSTAKETIMELOCK is a free data retrieval call binding the contract method 0xa66167fa.
+//
+// Solidity: function WITHDRAW_STAKE_TIMELOCK() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) WITHDRAWSTAKETIMELOCK() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.WITHDRAWSTAKETIMELOCK(&_SuperVaultAggregator.CallOpts)
+}
+
+// ClaimableUpkeep is a free data retrieval call binding the contract method 0x05027eee.
+//
+// Solidity: function claimableUpkeep() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ClaimableUpkeep(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "claimableUpkeep")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// ClaimableUpkeep is a free data retrieval call binding the contract method 0x05027eee.
+//
+// Solidity: function claimableUpkeep() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ClaimableUpkeep() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.ClaimableUpkeep(&_SuperVaultAggregator.CallOpts)
+}
+
+// ClaimableUpkeep is a free data retrieval call binding the contract method 0x05027eee.
+//
+// Solidity: function claimableUpkeep() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ClaimableUpkeep() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.ClaimableUpkeep(&_SuperVaultAggregator.CallOpts)
 }
 
 // GetAllSuperVaultEscrows is a free data retrieval call binding the contract method 0x154fd23f.
@@ -622,12 +777,12 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetLastUpdateTim
 	return _SuperVaultAggregator.Contract.GetLastUpdateTimestamp(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
-// GetMainStrategist is a free data retrieval call binding the contract method 0x457c1641.
+// GetMainManager is a free data retrieval call binding the contract method 0xceb7b7a3.
 //
-// Solidity: function getMainStrategist(address strategy) view returns(address strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetMainStrategist(opts *bind.CallOpts, strategy common.Address) (common.Address, error) {
+// Solidity: function getMainManager(address strategy) view returns(address manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetMainManager(opts *bind.CallOpts, strategy common.Address) (common.Address, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "getMainStrategist", strategy)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getMainManager", strategy)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -639,18 +794,18 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetMainStrategist(opts 
 
 }
 
-// GetMainStrategist is a free data retrieval call binding the contract method 0x457c1641.
+// GetMainManager is a free data retrieval call binding the contract method 0xceb7b7a3.
 //
-// Solidity: function getMainStrategist(address strategy) view returns(address strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetMainStrategist(strategy common.Address) (common.Address, error) {
-	return _SuperVaultAggregator.Contract.GetMainStrategist(&_SuperVaultAggregator.CallOpts, strategy)
+// Solidity: function getMainManager(address strategy) view returns(address manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetMainManager(strategy common.Address) (common.Address, error) {
+	return _SuperVaultAggregator.Contract.GetMainManager(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
-// GetMainStrategist is a free data retrieval call binding the contract method 0x457c1641.
+// GetMainManager is a free data retrieval call binding the contract method 0xceb7b7a3.
 //
-// Solidity: function getMainStrategist(address strategy) view returns(address strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetMainStrategist(strategy common.Address) (common.Address, error) {
-	return _SuperVaultAggregator.Contract.GetMainStrategist(&_SuperVaultAggregator.CallOpts, strategy)
+// Solidity: function getMainManager(address strategy) view returns(address manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetMainManager(strategy common.Address) (common.Address, error) {
+	return _SuperVaultAggregator.Contract.GetMainManager(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
 // GetMaxStaleness is a free data retrieval call binding the contract method 0xc25b784f.
@@ -931,12 +1086,12 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetProposedStrat
 	return _SuperVaultAggregator.Contract.GetProposedStrategyHooksRoot(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
-// GetSecondaryStrategists is a free data retrieval call binding the contract method 0x0edd65cc.
+// GetSecondaryManagers is a free data retrieval call binding the contract method 0x5f853d40.
 //
-// Solidity: function getSecondaryStrategists(address strategy) view returns(address[])
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSecondaryStrategists(opts *bind.CallOpts, strategy common.Address) ([]common.Address, error) {
+// Solidity: function getSecondaryManagers(address strategy) view returns(address[])
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSecondaryManagers(opts *bind.CallOpts, strategy common.Address) ([]common.Address, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "getSecondaryStrategists", strategy)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getSecondaryManagers", strategy)
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -948,18 +1103,49 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSecondaryStrategists
 
 }
 
-// GetSecondaryStrategists is a free data retrieval call binding the contract method 0x0edd65cc.
+// GetSecondaryManagers is a free data retrieval call binding the contract method 0x5f853d40.
 //
-// Solidity: function getSecondaryStrategists(address strategy) view returns(address[])
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetSecondaryStrategists(strategy common.Address) ([]common.Address, error) {
-	return _SuperVaultAggregator.Contract.GetSecondaryStrategists(&_SuperVaultAggregator.CallOpts, strategy)
+// Solidity: function getSecondaryManagers(address strategy) view returns(address[])
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetSecondaryManagers(strategy common.Address) ([]common.Address, error) {
+	return _SuperVaultAggregator.Contract.GetSecondaryManagers(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
-// GetSecondaryStrategists is a free data retrieval call binding the contract method 0x0edd65cc.
+// GetSecondaryManagers is a free data retrieval call binding the contract method 0x5f853d40.
 //
-// Solidity: function getSecondaryStrategists(address strategy) view returns(address[])
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetSecondaryStrategists(strategy common.Address) ([]common.Address, error) {
-	return _SuperVaultAggregator.Contract.GetSecondaryStrategists(&_SuperVaultAggregator.CallOpts, strategy)
+// Solidity: function getSecondaryManagers(address strategy) view returns(address[])
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetSecondaryManagers(strategy common.Address) ([]common.Address, error) {
+	return _SuperVaultAggregator.Contract.GetSecondaryManagers(&_SuperVaultAggregator.CallOpts, strategy)
+}
+
+// GetStakeBalance is a free data retrieval call binding the contract method 0xef869773.
+//
+// Solidity: function getStakeBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetStakeBalance(opts *bind.CallOpts, manager common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getStakeBalance", manager)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetStakeBalance is a free data retrieval call binding the contract method 0xef869773.
+//
+// Solidity: function getStakeBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetStakeBalance(manager common.Address) (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetStakeBalance(&_SuperVaultAggregator.CallOpts, manager)
+}
+
+// GetStakeBalance is a free data retrieval call binding the contract method 0xef869773.
+//
+// Solidity: function getStakeBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetStakeBalance(manager common.Address) (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetStakeBalance(&_SuperVaultAggregator.CallOpts, manager)
 }
 
 // GetStrategyHooksRoot is a free data retrieval call binding the contract method 0xc99d2c89.
@@ -995,10 +1181,10 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetStrategyHooks
 
 // GetUpkeepBalance is a free data retrieval call binding the contract method 0x1aef3510.
 //
-// Solidity: function getUpkeepBalance(address strategist) view returns(uint256 balance)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetUpkeepBalance(opts *bind.CallOpts, strategist common.Address) (*big.Int, error) {
+// Solidity: function getUpkeepBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetUpkeepBalance(opts *bind.CallOpts, manager common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "getUpkeepBalance", strategist)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getUpkeepBalance", manager)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -1012,24 +1198,24 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetUpkeepBalance(opts *
 
 // GetUpkeepBalance is a free data retrieval call binding the contract method 0x1aef3510.
 //
-// Solidity: function getUpkeepBalance(address strategist) view returns(uint256 balance)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetUpkeepBalance(strategist common.Address) (*big.Int, error) {
-	return _SuperVaultAggregator.Contract.GetUpkeepBalance(&_SuperVaultAggregator.CallOpts, strategist)
+// Solidity: function getUpkeepBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetUpkeepBalance(manager common.Address) (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetUpkeepBalance(&_SuperVaultAggregator.CallOpts, manager)
 }
 
 // GetUpkeepBalance is a free data retrieval call binding the contract method 0x1aef3510.
 //
-// Solidity: function getUpkeepBalance(address strategist) view returns(uint256 balance)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetUpkeepBalance(strategist common.Address) (*big.Int, error) {
-	return _SuperVaultAggregator.Contract.GetUpkeepBalance(&_SuperVaultAggregator.CallOpts, strategist)
+// Solidity: function getUpkeepBalance(address manager) view returns(uint256 balance)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetUpkeepBalance(manager common.Address) (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetUpkeepBalance(&_SuperVaultAggregator.CallOpts, manager)
 }
 
-// IsAnyStrategist is a free data retrieval call binding the contract method 0x76de118f.
+// IsAnyManager is a free data retrieval call binding the contract method 0x9e87cb3f.
 //
-// Solidity: function isAnyStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsAnyStrategist(opts *bind.CallOpts, strategist common.Address, strategy common.Address) (bool, error) {
+// Solidity: function isAnyManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsAnyManager(opts *bind.CallOpts, manager common.Address, strategy common.Address) (bool, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "isAnyStrategist", strategist, strategy)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "isAnyManager", manager, strategy)
 
 	if err != nil {
 		return *new(bool), err
@@ -1041,18 +1227,18 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsAnyStrategist(opts *b
 
 }
 
-// IsAnyStrategist is a free data retrieval call binding the contract method 0x76de118f.
+// IsAnyManager is a free data retrieval call binding the contract method 0x9e87cb3f.
 //
-// Solidity: function isAnyStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsAnyStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsAnyStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isAnyManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsAnyManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsAnyManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
-// IsAnyStrategist is a free data retrieval call binding the contract method 0x76de118f.
+// IsAnyManager is a free data retrieval call binding the contract method 0x9e87cb3f.
 //
-// Solidity: function isAnyStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsAnyStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsAnyStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isAnyManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsAnyManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsAnyManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
 // IsGlobalHooksRootActive is a free data retrieval call binding the contract method 0x28f36ff0.
@@ -1117,12 +1303,12 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsGlobalHooksRoo
 	return _SuperVaultAggregator.Contract.IsGlobalHooksRootVetoed(&_SuperVaultAggregator.CallOpts)
 }
 
-// IsMainStrategist is a free data retrieval call binding the contract method 0xd2c806e5.
+// IsMainManager is a free data retrieval call binding the contract method 0xeb91a9b2.
 //
-// Solidity: function isMainStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsMainStrategist(opts *bind.CallOpts, strategist common.Address, strategy common.Address) (bool, error) {
+// Solidity: function isMainManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsMainManager(opts *bind.CallOpts, manager common.Address, strategy common.Address) (bool, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "isMainStrategist", strategist, strategy)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "isMainManager", manager, strategy)
 
 	if err != nil {
 		return *new(bool), err
@@ -1134,26 +1320,26 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsMainStrategist(opts *
 
 }
 
-// IsMainStrategist is a free data retrieval call binding the contract method 0xd2c806e5.
+// IsMainManager is a free data retrieval call binding the contract method 0xeb91a9b2.
 //
-// Solidity: function isMainStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsMainStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsMainStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isMainManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsMainManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsMainManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
-// IsMainStrategist is a free data retrieval call binding the contract method 0xd2c806e5.
+// IsMainManager is a free data retrieval call binding the contract method 0xeb91a9b2.
 //
-// Solidity: function isMainStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsMainStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsMainStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isMainManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsMainManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsMainManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
-// IsSecondaryStrategist is a free data retrieval call binding the contract method 0x247c2867.
+// IsSecondaryManager is a free data retrieval call binding the contract method 0x83aa6836.
 //
-// Solidity: function isSecondaryStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsSecondaryStrategist(opts *bind.CallOpts, strategist common.Address, strategy common.Address) (bool, error) {
+// Solidity: function isSecondaryManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsSecondaryManager(opts *bind.CallOpts, manager common.Address, strategy common.Address) (bool, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "isSecondaryStrategist", strategist, strategy)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "isSecondaryManager", manager, strategy)
 
 	if err != nil {
 		return *new(bool), err
@@ -1165,18 +1351,18 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) IsSecondaryStrategist(o
 
 }
 
-// IsSecondaryStrategist is a free data retrieval call binding the contract method 0x247c2867.
+// IsSecondaryManager is a free data retrieval call binding the contract method 0x83aa6836.
 //
-// Solidity: function isSecondaryStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsSecondaryStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsSecondaryStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isSecondaryManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsSecondaryManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsSecondaryManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
-// IsSecondaryStrategist is a free data retrieval call binding the contract method 0x247c2867.
+// IsSecondaryManager is a free data retrieval call binding the contract method 0x83aa6836.
 //
-// Solidity: function isSecondaryStrategist(address strategist, address strategy) view returns(bool)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsSecondaryStrategist(strategist common.Address, strategy common.Address) (bool, error) {
-	return _SuperVaultAggregator.Contract.IsSecondaryStrategist(&_SuperVaultAggregator.CallOpts, strategist, strategy)
+// Solidity: function isSecondaryManager(address manager, address strategy) view returns(bool)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsSecondaryManager(manager common.Address, strategy common.Address) (bool, error) {
+	return _SuperVaultAggregator.Contract.IsSecondaryManager(&_SuperVaultAggregator.CallOpts, manager, strategy)
 }
 
 // IsStrategyHooksRootVetoed is a free data retrieval call binding the contract method 0xa8485b73.
@@ -1239,6 +1425,51 @@ func (_SuperVaultAggregator *SuperVaultAggregatorSession) IsStrategyPaused(strat
 // Solidity: function isStrategyPaused(address strategy) view returns(bool isPaused)
 func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsStrategyPaused(strategy common.Address) (bool, error) {
 	return _SuperVaultAggregator.Contract.IsStrategyPaused(&_SuperVaultAggregator.CallOpts, strategy)
+}
+
+// ManagerWithdrawalRequests is a free data retrieval call binding the contract method 0x711bfec9.
+//
+// Solidity: function managerWithdrawalRequests(address manager) view returns(uint256 amount, uint256 timestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ManagerWithdrawalRequests(opts *bind.CallOpts, manager common.Address) (struct {
+	Amount    *big.Int
+	Timestamp *big.Int
+}, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "managerWithdrawalRequests", manager)
+
+	outstruct := new(struct {
+		Amount    *big.Int
+		Timestamp *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Amount = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Timestamp = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// ManagerWithdrawalRequests is a free data retrieval call binding the contract method 0x711bfec9.
+//
+// Solidity: function managerWithdrawalRequests(address manager) view returns(uint256 amount, uint256 timestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ManagerWithdrawalRequests(manager common.Address) (struct {
+	Amount    *big.Int
+	Timestamp *big.Int
+}, error) {
+	return _SuperVaultAggregator.Contract.ManagerWithdrawalRequests(&_SuperVaultAggregator.CallOpts, manager)
+}
+
+// ManagerWithdrawalRequests is a free data retrieval call binding the contract method 0x711bfec9.
+//
+// Solidity: function managerWithdrawalRequests(address manager) view returns(uint256 amount, uint256 timestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ManagerWithdrawalRequests(manager common.Address) (struct {
+	Amount    *big.Int
+	Timestamp *big.Int
+}, error) {
+	return _SuperVaultAggregator.Contract.ManagerWithdrawalRequests(&_SuperVaultAggregator.CallOpts, manager)
 }
 
 // SuperVaultEscrows is a free data retrieval call binding the contract method 0xbda262d7.
@@ -1334,12 +1565,12 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) SuperVaults(inde
 	return _SuperVaultAggregator.Contract.SuperVaults(&_SuperVaultAggregator.CallOpts, index)
 }
 
-// ValidateHook is a free data retrieval call binding the contract method 0x480b11e7.
+// ValidateHook is a free data retrieval call binding the contract method 0x9e7b8c3a.
 //
-// Solidity: function validateHook(address strategy, bytes hookArgs, bytes32[] globalProof, bytes32[] strategyProof) view returns(bool isValid)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHook(opts *bind.CallOpts, strategy common.Address, hookArgs []byte, globalProof [][32]byte, strategyProof [][32]byte) (bool, error) {
+// Solidity: function validateHook(address strategy, (address,bytes,bytes32[],bytes32[]) args) view returns(bool isValid)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHook(opts *bind.CallOpts, strategy common.Address, args ISuperVaultAggregatorValidateHookArgs) (bool, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "validateHook", strategy, hookArgs, globalProof, strategyProof)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "validateHook", strategy, args)
 
 	if err != nil {
 		return *new(bool), err
@@ -1351,26 +1582,26 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHook(opts *bind
 
 }
 
-// ValidateHook is a free data retrieval call binding the contract method 0x480b11e7.
+// ValidateHook is a free data retrieval call binding the contract method 0x9e7b8c3a.
 //
-// Solidity: function validateHook(address strategy, bytes hookArgs, bytes32[] globalProof, bytes32[] strategyProof) view returns(bool isValid)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ValidateHook(strategy common.Address, hookArgs []byte, globalProof [][32]byte, strategyProof [][32]byte) (bool, error) {
-	return _SuperVaultAggregator.Contract.ValidateHook(&_SuperVaultAggregator.CallOpts, strategy, hookArgs, globalProof, strategyProof)
+// Solidity: function validateHook(address strategy, (address,bytes,bytes32[],bytes32[]) args) view returns(bool isValid)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ValidateHook(strategy common.Address, args ISuperVaultAggregatorValidateHookArgs) (bool, error) {
+	return _SuperVaultAggregator.Contract.ValidateHook(&_SuperVaultAggregator.CallOpts, strategy, args)
 }
 
-// ValidateHook is a free data retrieval call binding the contract method 0x480b11e7.
+// ValidateHook is a free data retrieval call binding the contract method 0x9e7b8c3a.
 //
-// Solidity: function validateHook(address strategy, bytes hookArgs, bytes32[] globalProof, bytes32[] strategyProof) view returns(bool isValid)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ValidateHook(strategy common.Address, hookArgs []byte, globalProof [][32]byte, strategyProof [][32]byte) (bool, error) {
-	return _SuperVaultAggregator.Contract.ValidateHook(&_SuperVaultAggregator.CallOpts, strategy, hookArgs, globalProof, strategyProof)
+// Solidity: function validateHook(address strategy, (address,bytes,bytes32[],bytes32[]) args) view returns(bool isValid)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ValidateHook(strategy common.Address, args ISuperVaultAggregatorValidateHookArgs) (bool, error) {
+	return _SuperVaultAggregator.Contract.ValidateHook(&_SuperVaultAggregator.CallOpts, strategy, args)
 }
 
-// ValidateHooks is a free data retrieval call binding the contract method 0x5e1d6d6c.
+// ValidateHooks is a free data retrieval call binding the contract method 0x6cbd5796.
 //
-// Solidity: function validateHooks(address strategy, bytes[] hooksArgs, bytes32[][] globalProofs, bytes32[][] strategyProofs) view returns(bool[] validHooks)
-func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHooks(opts *bind.CallOpts, strategy common.Address, hooksArgs [][]byte, globalProofs [][][32]byte, strategyProofs [][][32]byte) ([]bool, error) {
+// Solidity: function validateHooks(address strategy, (address,bytes,bytes32[],bytes32[])[] argsArray) view returns(bool[] validHooks)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHooks(opts *bind.CallOpts, strategy common.Address, argsArray []ISuperVaultAggregatorValidateHookArgs) ([]bool, error) {
 	var out []interface{}
-	err := _SuperVaultAggregator.contract.Call(opts, &out, "validateHooks", strategy, hooksArgs, globalProofs, strategyProofs)
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "validateHooks", strategy, argsArray)
 
 	if err != nil {
 		return *new([]bool), err
@@ -1382,18 +1613,18 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) ValidateHooks(opts *bin
 
 }
 
-// ValidateHooks is a free data retrieval call binding the contract method 0x5e1d6d6c.
+// ValidateHooks is a free data retrieval call binding the contract method 0x6cbd5796.
 //
-// Solidity: function validateHooks(address strategy, bytes[] hooksArgs, bytes32[][] globalProofs, bytes32[][] strategyProofs) view returns(bool[] validHooks)
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ValidateHooks(strategy common.Address, hooksArgs [][]byte, globalProofs [][][32]byte, strategyProofs [][][32]byte) ([]bool, error) {
-	return _SuperVaultAggregator.Contract.ValidateHooks(&_SuperVaultAggregator.CallOpts, strategy, hooksArgs, globalProofs, strategyProofs)
+// Solidity: function validateHooks(address strategy, (address,bytes,bytes32[],bytes32[])[] argsArray) view returns(bool[] validHooks)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ValidateHooks(strategy common.Address, argsArray []ISuperVaultAggregatorValidateHookArgs) ([]bool, error) {
+	return _SuperVaultAggregator.Contract.ValidateHooks(&_SuperVaultAggregator.CallOpts, strategy, argsArray)
 }
 
-// ValidateHooks is a free data retrieval call binding the contract method 0x5e1d6d6c.
+// ValidateHooks is a free data retrieval call binding the contract method 0x6cbd5796.
 //
-// Solidity: function validateHooks(address strategy, bytes[] hooksArgs, bytes32[][] globalProofs, bytes32[][] strategyProofs) view returns(bool[] validHooks)
-func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ValidateHooks(strategy common.Address, hooksArgs [][]byte, globalProofs [][][32]byte, strategyProofs [][][32]byte) ([]bool, error) {
-	return _SuperVaultAggregator.Contract.ValidateHooks(&_SuperVaultAggregator.CallOpts, strategy, hooksArgs, globalProofs, strategyProofs)
+// Solidity: function validateHooks(address strategy, (address,bytes,bytes32[],bytes32[])[] argsArray) view returns(bool[] validHooks)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) ValidateHooks(strategy common.Address, argsArray []ISuperVaultAggregatorValidateHookArgs) ([]bool, error) {
+	return _SuperVaultAggregator.Contract.ValidateHooks(&_SuperVaultAggregator.CallOpts, strategy, argsArray)
 }
 
 // AddAuthorizedCaller is a paid mutator transaction binding the contract method 0x6a279bb6.
@@ -1417,130 +1648,193 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) AddAuthorize
 	return _SuperVaultAggregator.Contract.AddAuthorizedCaller(&_SuperVaultAggregator.TransactOpts, strategy, caller)
 }
 
-// AddSecondaryStrategist is a paid mutator transaction binding the contract method 0x29d0999d.
+// AddSecondaryManager is a paid mutator transaction binding the contract method 0xc0c3bbd8.
 //
-// Solidity: function addSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) AddSecondaryStrategist(opts *bind.TransactOpts, strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "addSecondaryStrategist", strategy, strategist)
+// Solidity: function addSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) AddSecondaryManager(opts *bind.TransactOpts, strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "addSecondaryManager", strategy, manager)
 }
 
-// AddSecondaryStrategist is a paid mutator transaction binding the contract method 0x29d0999d.
+// AddSecondaryManager is a paid mutator transaction binding the contract method 0xc0c3bbd8.
 //
-// Solidity: function addSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) AddSecondaryStrategist(strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.AddSecondaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, strategist)
+// Solidity: function addSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) AddSecondaryManager(strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.AddSecondaryManager(&_SuperVaultAggregator.TransactOpts, strategy, manager)
 }
 
-// AddSecondaryStrategist is a paid mutator transaction binding the contract method 0x29d0999d.
+// AddSecondaryManager is a paid mutator transaction binding the contract method 0xc0c3bbd8.
 //
-// Solidity: function addSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) AddSecondaryStrategist(strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.AddSecondaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, strategist)
+// Solidity: function addSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) AddSecondaryManager(strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.AddSecondaryManager(&_SuperVaultAggregator.TransactOpts, strategy, manager)
 }
 
-// BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
+// ChangeGlobalLeavesStatus is a paid mutator transaction binding the contract method 0xf430b328.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) BatchForwardPPS(opts *bind.TransactOpts, args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "batchForwardPPS", args)
+// Solidity: function changeGlobalLeavesStatus(bytes32[] leaves, bool[] statuses, address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ChangeGlobalLeavesStatus(opts *bind.TransactOpts, leaves [][32]byte, statuses []bool, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "changeGlobalLeavesStatus", leaves, statuses, strategy)
 }
 
-// BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
+// ChangeGlobalLeavesStatus is a paid mutator transaction binding the contract method 0xf430b328.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) BatchForwardPPS(args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.BatchForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
+// Solidity: function changeGlobalLeavesStatus(bytes32[] leaves, bool[] statuses, address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ChangeGlobalLeavesStatus(leaves [][32]byte, statuses []bool, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangeGlobalLeavesStatus(&_SuperVaultAggregator.TransactOpts, leaves, statuses, strategy)
 }
 
-// BatchForwardPPS is a paid mutator transaction binding the contract method 0x8e813db5.
+// ChangeGlobalLeavesStatus is a paid mutator transaction binding the contract method 0xf430b328.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256[],uint256[]) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) BatchForwardPPS(args ISuperVaultAggregatorBatchForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.BatchForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
+// Solidity: function changeGlobalLeavesStatus(bytes32[] leaves, bool[] statuses, address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangeGlobalLeavesStatus(leaves [][32]byte, statuses []bool, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangeGlobalLeavesStatus(&_SuperVaultAggregator.TransactOpts, leaves, statuses, strategy)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ChangePrimaryStrategist(opts *bind.TransactOpts, strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "changePrimaryStrategist", strategy, newStrategist)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "changePrimaryManager", strategy, newManager)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ChangePrimaryStrategist(strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, newStrategist)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangePrimaryStrategist(strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, newStrategist)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
 }
 
-// CreateVault is a paid mutator transaction binding the contract method 0x08109456.
+// ClaimUpkeep is a paid mutator transaction binding the contract method 0xd4eb9083.
 //
-// Solidity: function createVault((address,string,string,address,uint256,uint256,(uint256,address)) params) returns(address superVault, address strategy, address escrow)
+// Solidity: function claimUpkeep(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ClaimUpkeep(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "claimUpkeep", amount)
+}
+
+// ClaimUpkeep is a paid mutator transaction binding the contract method 0xd4eb9083.
+//
+// Solidity: function claimUpkeep(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ClaimUpkeep(amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ClaimUpkeep(&_SuperVaultAggregator.TransactOpts, amount)
+}
+
+// ClaimUpkeep is a paid mutator transaction binding the contract method 0xd4eb9083.
+//
+// Solidity: function claimUpkeep(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ClaimUpkeep(amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ClaimUpkeep(&_SuperVaultAggregator.TransactOpts, amount)
+}
+
+// CompleteStakeWithdrawal is a paid mutator transaction binding the contract method 0x6da16741.
+//
+// Solidity: function completeStakeWithdrawal() returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) CompleteStakeWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "completeStakeWithdrawal")
+}
+
+// CompleteStakeWithdrawal is a paid mutator transaction binding the contract method 0x6da16741.
+//
+// Solidity: function completeStakeWithdrawal() returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) CompleteStakeWithdrawal() (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.CompleteStakeWithdrawal(&_SuperVaultAggregator.TransactOpts)
+}
+
+// CompleteStakeWithdrawal is a paid mutator transaction binding the contract method 0x6da16741.
+//
+// Solidity: function completeStakeWithdrawal() returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) CompleteStakeWithdrawal() (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.CompleteStakeWithdrawal(&_SuperVaultAggregator.TransactOpts)
+}
+
+// CreateVault is a paid mutator transaction binding the contract method 0x0084bce7.
+//
+// Solidity: function createVault((address,string,string,address,address[],uint256,uint256,(uint256,uint256,address),uint256) params) returns(address superVault, address strategy, address escrow)
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) CreateVault(opts *bind.TransactOpts, params ISuperVaultAggregatorVaultCreationParams) (*types.Transaction, error) {
 	return _SuperVaultAggregator.contract.Transact(opts, "createVault", params)
 }
 
-// CreateVault is a paid mutator transaction binding the contract method 0x08109456.
+// CreateVault is a paid mutator transaction binding the contract method 0x0084bce7.
 //
-// Solidity: function createVault((address,string,string,address,uint256,uint256,(uint256,address)) params) returns(address superVault, address strategy, address escrow)
+// Solidity: function createVault((address,string,string,address,address[],uint256,uint256,(uint256,uint256,address),uint256) params) returns(address superVault, address strategy, address escrow)
 func (_SuperVaultAggregator *SuperVaultAggregatorSession) CreateVault(params ISuperVaultAggregatorVaultCreationParams) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.CreateVault(&_SuperVaultAggregator.TransactOpts, params)
 }
 
-// CreateVault is a paid mutator transaction binding the contract method 0x08109456.
+// CreateVault is a paid mutator transaction binding the contract method 0x0084bce7.
 //
-// Solidity: function createVault((address,string,string,address,uint256,uint256,(uint256,address)) params) returns(address superVault, address strategy, address escrow)
+// Solidity: function createVault((address,string,string,address,address[],uint256,uint256,(uint256,uint256,address),uint256) params) returns(address superVault, address strategy, address escrow)
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) CreateVault(params ISuperVaultAggregatorVaultCreationParams) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.CreateVault(&_SuperVaultAggregator.TransactOpts, params)
 }
 
-// DepositUpkeep is a paid mutator transaction binding the contract method 0x6fe79652.
+// DepositStake is a paid mutator transaction binding the contract method 0x5410f365.
 //
-// Solidity: function depositUpkeep(address strategist, uint256 amount) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) DepositUpkeep(opts *bind.TransactOpts, strategist common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "depositUpkeep", strategist, amount)
+// Solidity: function depositStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) DepositStake(opts *bind.TransactOpts, manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "depositStake", manager, amount)
+}
+
+// DepositStake is a paid mutator transaction binding the contract method 0x5410f365.
+//
+// Solidity: function depositStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) DepositStake(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.DepositStake(&_SuperVaultAggregator.TransactOpts, manager, amount)
+}
+
+// DepositStake is a paid mutator transaction binding the contract method 0x5410f365.
+//
+// Solidity: function depositStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) DepositStake(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.DepositStake(&_SuperVaultAggregator.TransactOpts, manager, amount)
 }
 
 // DepositUpkeep is a paid mutator transaction binding the contract method 0x6fe79652.
 //
-// Solidity: function depositUpkeep(address strategist, uint256 amount) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) DepositUpkeep(strategist common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.DepositUpkeep(&_SuperVaultAggregator.TransactOpts, strategist, amount)
+// Solidity: function depositUpkeep(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) DepositUpkeep(opts *bind.TransactOpts, manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "depositUpkeep", manager, amount)
 }
 
 // DepositUpkeep is a paid mutator transaction binding the contract method 0x6fe79652.
 //
-// Solidity: function depositUpkeep(address strategist, uint256 amount) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) DepositUpkeep(strategist common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.DepositUpkeep(&_SuperVaultAggregator.TransactOpts, strategist, amount)
+// Solidity: function depositUpkeep(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) DepositUpkeep(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.DepositUpkeep(&_SuperVaultAggregator.TransactOpts, manager, amount)
 }
 
-// ExecuteChangePrimaryStrategist is a paid mutator transaction binding the contract method 0xc5109cf4.
+// DepositUpkeep is a paid mutator transaction binding the contract method 0x6fe79652.
 //
-// Solidity: function executeChangePrimaryStrategist(address strategy) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ExecuteChangePrimaryStrategist(opts *bind.TransactOpts, strategy common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "executeChangePrimaryStrategist", strategy)
+// Solidity: function depositUpkeep(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) DepositUpkeep(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.DepositUpkeep(&_SuperVaultAggregator.TransactOpts, manager, amount)
 }
 
-// ExecuteChangePrimaryStrategist is a paid mutator transaction binding the contract method 0xc5109cf4.
+// ExecuteChangePrimaryManager is a paid mutator transaction binding the contract method 0x9249c392.
 //
-// Solidity: function executeChangePrimaryStrategist(address strategy) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ExecuteChangePrimaryStrategist(strategy common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ExecuteChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy)
+// Solidity: function executeChangePrimaryManager(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ExecuteChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "executeChangePrimaryManager", strategy)
 }
 
-// ExecuteChangePrimaryStrategist is a paid mutator transaction binding the contract method 0xc5109cf4.
+// ExecuteChangePrimaryManager is a paid mutator transaction binding the contract method 0x9249c392.
 //
-// Solidity: function executeChangePrimaryStrategist(address strategy) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ExecuteChangePrimaryStrategist(strategy common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ExecuteChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy)
+// Solidity: function executeChangePrimaryManager(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ExecuteChangePrimaryManager(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ExecuteChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy)
+}
+
+// ExecuteChangePrimaryManager is a paid mutator transaction binding the contract method 0x9249c392.
+//
+// Solidity: function executeChangePrimaryManager(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ExecuteChangePrimaryManager(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ExecuteChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy)
 }
 
 // ExecuteGlobalHooksRootUpdate is a paid mutator transaction binding the contract method 0x0a48d243.
@@ -1585,46 +1879,46 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ExecuteStrat
 	return _SuperVaultAggregator.Contract.ExecuteStrategyHooksRootUpdate(&_SuperVaultAggregator.TransactOpts, strategy)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0xa895a594.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xe616b9b8.
 //
-// Solidity: function forwardPPS(address updateAuthority, (address,bool,uint256,uint256,uint256,uint256,uint256,uint256) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ForwardPPS(opts *bind.TransactOpts, updateAuthority common.Address, args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "forwardPPS", updateAuthority, args)
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ForwardPPS(opts *bind.TransactOpts, args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "forwardPPS", args)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0xa895a594.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xe616b9b8.
 //
-// Solidity: function forwardPPS(address updateAuthority, (address,bool,uint256,uint256,uint256,uint256,uint256,uint256) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ForwardPPS(updateAuthority common.Address, args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, updateAuthority, args)
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ForwardPPS(args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0xa895a594.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xe616b9b8.
 //
-// Solidity: function forwardPPS(address updateAuthority, (address,bool,uint256,uint256,uint256,uint256,uint256,uint256) args) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ForwardPPS(updateAuthority common.Address, args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, updateAuthority, args)
+// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ForwardPPS(args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }
 
-// ProposeChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x2a0f4c14.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
 //
-// Solidity: function proposeChangePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ProposeChangePrimaryStrategist(opts *bind.TransactOpts, strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "proposeChangePrimaryStrategist", strategy, newStrategist)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ProposeChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "proposeChangePrimaryManager", strategy, newManager)
 }
 
-// ProposeChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x2a0f4c14.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
 //
-// Solidity: function proposeChangePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ProposeChangePrimaryStrategist(strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ProposeChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, newStrategist)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
 }
 
-// ProposeChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x2a0f4c14.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
 //
-// Solidity: function proposeChangePrimaryStrategist(address strategy, address newStrategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ProposeChangePrimaryStrategist(strategy common.Address, newStrategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ProposeChangePrimaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, newStrategist)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
 }
 
 // ProposeGlobalHooksRoot is a paid mutator transaction binding the contract method 0xb0e5173b.
@@ -1690,25 +1984,46 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) RemoveAuthor
 	return _SuperVaultAggregator.Contract.RemoveAuthorizedCaller(&_SuperVaultAggregator.TransactOpts, strategy, caller)
 }
 
-// RemoveSecondaryStrategist is a paid mutator transaction binding the contract method 0xe3a218fe.
+// RemoveSecondaryManager is a paid mutator transaction binding the contract method 0x3c248029.
 //
-// Solidity: function removeSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) RemoveSecondaryStrategist(opts *bind.TransactOpts, strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "removeSecondaryStrategist", strategy, strategist)
+// Solidity: function removeSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) RemoveSecondaryManager(opts *bind.TransactOpts, strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "removeSecondaryManager", strategy, manager)
 }
 
-// RemoveSecondaryStrategist is a paid mutator transaction binding the contract method 0xe3a218fe.
+// RemoveSecondaryManager is a paid mutator transaction binding the contract method 0x3c248029.
 //
-// Solidity: function removeSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) RemoveSecondaryStrategist(strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.RemoveSecondaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, strategist)
+// Solidity: function removeSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) RemoveSecondaryManager(strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.RemoveSecondaryManager(&_SuperVaultAggregator.TransactOpts, strategy, manager)
 }
 
-// RemoveSecondaryStrategist is a paid mutator transaction binding the contract method 0xe3a218fe.
+// RemoveSecondaryManager is a paid mutator transaction binding the contract method 0x3c248029.
 //
-// Solidity: function removeSecondaryStrategist(address strategy, address strategist) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) RemoveSecondaryStrategist(strategy common.Address, strategist common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.RemoveSecondaryStrategist(&_SuperVaultAggregator.TransactOpts, strategy, strategist)
+// Solidity: function removeSecondaryManager(address strategy, address manager) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) RemoveSecondaryManager(strategy common.Address, manager common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.RemoveSecondaryManager(&_SuperVaultAggregator.TransactOpts, strategy, manager)
+}
+
+// RequestStakeWithdrawal is a paid mutator transaction binding the contract method 0x21a081de.
+//
+// Solidity: function requestStakeWithdrawal(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) RequestStakeWithdrawal(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "requestStakeWithdrawal", amount)
+}
+
+// RequestStakeWithdrawal is a paid mutator transaction binding the contract method 0x21a081de.
+//
+// Solidity: function requestStakeWithdrawal(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) RequestStakeWithdrawal(amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.RequestStakeWithdrawal(&_SuperVaultAggregator.TransactOpts, amount)
+}
+
+// RequestStakeWithdrawal is a paid mutator transaction binding the contract method 0x21a081de.
+//
+// Solidity: function requestStakeWithdrawal(uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) RequestStakeWithdrawal(amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.RequestStakeWithdrawal(&_SuperVaultAggregator.TransactOpts, amount)
 }
 
 // SetGlobalHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xd5f3cd86.
@@ -1774,6 +2089,48 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) SetStrategyH
 	return _SuperVaultAggregator.Contract.SetStrategyHooksRootVetoStatus(&_SuperVaultAggregator.TransactOpts, strategy, vetoed)
 }
 
+// SlashStake is a paid mutator transaction binding the contract method 0x98d1c5a8.
+//
+// Solidity: function slashStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) SlashStake(opts *bind.TransactOpts, manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "slashStake", manager, amount)
+}
+
+// SlashStake is a paid mutator transaction binding the contract method 0x98d1c5a8.
+//
+// Solidity: function slashStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) SlashStake(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.SlashStake(&_SuperVaultAggregator.TransactOpts, manager, amount)
+}
+
+// SlashStake is a paid mutator transaction binding the contract method 0x98d1c5a8.
+//
+// Solidity: function slashStake(address manager, uint256 amount) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) SlashStake(manager common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.SlashStake(&_SuperVaultAggregator.TransactOpts, manager, amount)
+}
+
+// UnpauseStrategy is a paid mutator transaction binding the contract method 0x0ff323a3.
+//
+// Solidity: function unpauseStrategy(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) UnpauseStrategy(opts *bind.TransactOpts, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "unpauseStrategy", strategy)
+}
+
+// UnpauseStrategy is a paid mutator transaction binding the contract method 0x0ff323a3.
+//
+// Solidity: function unpauseStrategy(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) UnpauseStrategy(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.UnpauseStrategy(&_SuperVaultAggregator.TransactOpts, strategy)
+}
+
+// UnpauseStrategy is a paid mutator transaction binding the contract method 0x0ff323a3.
+//
+// Solidity: function unpauseStrategy(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) UnpauseStrategy(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.UnpauseStrategy(&_SuperVaultAggregator.TransactOpts, strategy)
+}
+
 // UpdatePPSVerificationThresholds is a paid mutator transaction binding the contract method 0x473e031c.
 //
 // Solidity: function updatePPSVerificationThresholds(address strategy, uint256 dispersionThreshold_, uint256 deviationThreshold_, uint256 mnThreshold_) returns()
@@ -1795,6 +2152,27 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) UpdatePPSVer
 	return _SuperVaultAggregator.Contract.UpdatePPSVerificationThresholds(&_SuperVaultAggregator.TransactOpts, strategy, dispersionThreshold_, deviationThreshold_, mnThreshold_)
 }
 
+// UpdateUnpausePPSTimelock is a paid mutator transaction binding the contract method 0x5b943600.
+//
+// Solidity: function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) UpdateUnpausePPSTimelock(opts *bind.TransactOpts, strategy common.Address, newTimelock_ *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "updateUnpausePPSTimelock", strategy, newTimelock_)
+}
+
+// UpdateUnpausePPSTimelock is a paid mutator transaction binding the contract method 0x5b943600.
+//
+// Solidity: function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) UpdateUnpausePPSTimelock(strategy common.Address, newTimelock_ *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.UpdateUnpausePPSTimelock(&_SuperVaultAggregator.TransactOpts, strategy, newTimelock_)
+}
+
+// UpdateUnpausePPSTimelock is a paid mutator transaction binding the contract method 0x5b943600.
+//
+// Solidity: function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) UpdateUnpausePPSTimelock(strategy common.Address, newTimelock_ *big.Int) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.UpdateUnpausePPSTimelock(&_SuperVaultAggregator.TransactOpts, strategy, newTimelock_)
+}
+
 // WithdrawUpkeep is a paid mutator transaction binding the contract method 0x4b0b8aa6.
 //
 // Solidity: function withdrawUpkeep(uint256 amount) returns()
@@ -1814,6 +2192,159 @@ func (_SuperVaultAggregator *SuperVaultAggregatorSession) WithdrawUpkeep(amount 
 // Solidity: function withdrawUpkeep(uint256 amount) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) WithdrawUpkeep(amount *big.Int) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.WithdrawUpkeep(&_SuperVaultAggregator.TransactOpts, amount)
+}
+
+// SuperVaultAggregatorAuthorizedCallerIterator is returned from FilterAuthorizedCaller and is used to iterate over the raw logs and unpacked data for AuthorizedCaller events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorAuthorizedCallerIterator struct {
+	Event *SuperVaultAggregatorAuthorizedCaller // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorAuthorizedCallerIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorAuthorizedCaller)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorAuthorizedCaller)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorAuthorizedCallerIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorAuthorizedCallerIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorAuthorizedCaller represents a AuthorizedCaller event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorAuthorizedCaller struct {
+	Strategy common.Address
+	Caller   common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterAuthorizedCaller is a free log retrieval operation binding the contract event 0x1c9c420420e76ae7ad733b7098eb1fa04a2293da0cfbd31297ea505568760ebc.
+//
+// Solidity: event AuthorizedCaller(address indexed strategy, address indexed caller)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterAuthorizedCaller(opts *bind.FilterOpts, strategy []common.Address, caller []common.Address) (*SuperVaultAggregatorAuthorizedCallerIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var callerRule []interface{}
+	for _, callerItem := range caller {
+		callerRule = append(callerRule, callerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "AuthorizedCaller", strategyRule, callerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorAuthorizedCallerIterator{contract: _SuperVaultAggregator.contract, event: "AuthorizedCaller", logs: logs, sub: sub}, nil
+}
+
+// WatchAuthorizedCaller is a free log subscription operation binding the contract event 0x1c9c420420e76ae7ad733b7098eb1fa04a2293da0cfbd31297ea505568760ebc.
+//
+// Solidity: event AuthorizedCaller(address indexed strategy, address indexed caller)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchAuthorizedCaller(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorAuthorizedCaller, strategy []common.Address, caller []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var callerRule []interface{}
+	for _, callerItem := range caller {
+		callerRule = append(callerRule, callerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "AuthorizedCaller", strategyRule, callerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorAuthorizedCaller)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "AuthorizedCaller", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseAuthorizedCaller is a log parse operation binding the contract event 0x1c9c420420e76ae7ad733b7098eb1fa04a2293da0cfbd31297ea505568760ebc.
+//
+// Solidity: event AuthorizedCaller(address indexed strategy, address indexed caller)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseAuthorizedCaller(log types.Log) (*SuperVaultAggregatorAuthorizedCaller, error) {
+	event := new(SuperVaultAggregatorAuthorizedCaller)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "AuthorizedCaller", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // SuperVaultAggregatorAuthorizedCallerAddedIterator is returned from FilterAuthorizedCallerAdded and is used to iterate over the raw logs and unpacked data for AuthorizedCallerAdded events raised by the SuperVaultAggregator contract.
@@ -2710,6 +3241,152 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseGlobalHooksRootV
 	return event, nil
 }
 
+// SuperVaultAggregatorGlobalLeavesStatusChangedIterator is returned from FilterGlobalLeavesStatusChanged and is used to iterate over the raw logs and unpacked data for GlobalLeavesStatusChanged events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorGlobalLeavesStatusChangedIterator struct {
+	Event *SuperVaultAggregatorGlobalLeavesStatusChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorGlobalLeavesStatusChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorGlobalLeavesStatusChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorGlobalLeavesStatusChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorGlobalLeavesStatusChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorGlobalLeavesStatusChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorGlobalLeavesStatusChanged represents a GlobalLeavesStatusChanged event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorGlobalLeavesStatusChanged struct {
+	Strategy common.Address
+	Leaves   [][32]byte
+	Statuses []bool
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterGlobalLeavesStatusChanged is a free log retrieval operation binding the contract event 0x671df22165975c9055ff482eedb4963e75f35ac9f3040346699bd97228a8c790.
+//
+// Solidity: event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterGlobalLeavesStatusChanged(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorGlobalLeavesStatusChangedIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "GlobalLeavesStatusChanged", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorGlobalLeavesStatusChangedIterator{contract: _SuperVaultAggregator.contract, event: "GlobalLeavesStatusChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchGlobalLeavesStatusChanged is a free log subscription operation binding the contract event 0x671df22165975c9055ff482eedb4963e75f35ac9f3040346699bd97228a8c790.
+//
+// Solidity: event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchGlobalLeavesStatusChanged(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorGlobalLeavesStatusChanged, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "GlobalLeavesStatusChanged", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorGlobalLeavesStatusChanged)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "GlobalLeavesStatusChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseGlobalLeavesStatusChanged is a log parse operation binding the contract event 0x671df22165975c9055ff482eedb4963e75f35ac9f3040346699bd97228a8c790.
+//
+// Solidity: event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseGlobalLeavesStatusChanged(log types.Log) (*SuperVaultAggregatorGlobalLeavesStatusChanged, error) {
+	event := new(SuperVaultAggregatorGlobalLeavesStatusChanged)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "GlobalLeavesStatusChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // SuperVaultAggregatorHooksRootUpdateTimelockChangedIterator is returned from FilterHooksRootUpdateTimelockChanged and is used to iterate over the raw logs and unpacked data for HooksRootUpdateTimelockChanged events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorHooksRootUpdateTimelockChangedIterator struct {
 	Event *SuperVaultAggregatorHooksRootUpdateTimelockChanged // Event containing the contract specifics and raw log
@@ -2838,6 +3515,314 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchHooksRootUpdateT
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseHooksRootUpdateTimelockChanged(log types.Log) (*SuperVaultAggregatorHooksRootUpdateTimelockChanged, error) {
 	event := new(SuperVaultAggregatorHooksRootUpdateTimelockChanged)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "HooksRootUpdateTimelockChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorInsufficientUpkeepIterator is returned from FilterInsufficientUpkeep and is used to iterate over the raw logs and unpacked data for InsufficientUpkeep events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorInsufficientUpkeepIterator struct {
+	Event *SuperVaultAggregatorInsufficientUpkeep // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorInsufficientUpkeepIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorInsufficientUpkeep)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorInsufficientUpkeep)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorInsufficientUpkeepIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorInsufficientUpkeepIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorInsufficientUpkeep represents a InsufficientUpkeep event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorInsufficientUpkeep struct {
+	Strategy common.Address
+	Manager  common.Address
+	Balance  *big.Int
+	Cost     *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterInsufficientUpkeep is a free log retrieval operation binding the contract event 0x9f17e0625b7890f465cad6295db4c1abad9d5afeea38a1d7d64f390aef73a770.
+//
+// Solidity: event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterInsufficientUpkeep(opts *bind.FilterOpts, strategy []common.Address, manager []common.Address) (*SuperVaultAggregatorInsufficientUpkeepIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "InsufficientUpkeep", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorInsufficientUpkeepIterator{contract: _SuperVaultAggregator.contract, event: "InsufficientUpkeep", logs: logs, sub: sub}, nil
+}
+
+// WatchInsufficientUpkeep is a free log subscription operation binding the contract event 0x9f17e0625b7890f465cad6295db4c1abad9d5afeea38a1d7d64f390aef73a770.
+//
+// Solidity: event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchInsufficientUpkeep(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorInsufficientUpkeep, strategy []common.Address, manager []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "InsufficientUpkeep", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorInsufficientUpkeep)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "InsufficientUpkeep", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInsufficientUpkeep is a log parse operation binding the contract event 0x9f17e0625b7890f465cad6295db4c1abad9d5afeea38a1d7d64f390aef73a770.
+//
+// Solidity: event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseInsufficientUpkeep(log types.Log) (*SuperVaultAggregatorInsufficientUpkeep, error) {
+	event := new(SuperVaultAggregatorInsufficientUpkeep)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "InsufficientUpkeep", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorOldPrimaryManagerRemovedIterator is returned from FilterOldPrimaryManagerRemoved and is used to iterate over the raw logs and unpacked data for OldPrimaryManagerRemoved events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorOldPrimaryManagerRemovedIterator struct {
+	Event *SuperVaultAggregatorOldPrimaryManagerRemoved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorOldPrimaryManagerRemovedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorOldPrimaryManagerRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorOldPrimaryManagerRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorOldPrimaryManagerRemovedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorOldPrimaryManagerRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorOldPrimaryManagerRemoved represents a OldPrimaryManagerRemoved event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorOldPrimaryManagerRemoved struct {
+	Strategy   common.Address
+	OldManager common.Address
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterOldPrimaryManagerRemoved is a free log retrieval operation binding the contract event 0x744302e838f7c0c35e8971c67d7229a331a29eb270e24b7ceb261658ac679f6d.
+//
+// Solidity: event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterOldPrimaryManagerRemoved(opts *bind.FilterOpts, strategy []common.Address, oldManager []common.Address) (*SuperVaultAggregatorOldPrimaryManagerRemovedIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "OldPrimaryManagerRemoved", strategyRule, oldManagerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorOldPrimaryManagerRemovedIterator{contract: _SuperVaultAggregator.contract, event: "OldPrimaryManagerRemoved", logs: logs, sub: sub}, nil
+}
+
+// WatchOldPrimaryManagerRemoved is a free log subscription operation binding the contract event 0x744302e838f7c0c35e8971c67d7229a331a29eb270e24b7ceb261658ac679f6d.
+//
+// Solidity: event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchOldPrimaryManagerRemoved(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorOldPrimaryManagerRemoved, strategy []common.Address, oldManager []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "OldPrimaryManagerRemoved", strategyRule, oldManagerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorOldPrimaryManagerRemoved)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "OldPrimaryManagerRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOldPrimaryManagerRemoved is a log parse operation binding the contract event 0x744302e838f7c0c35e8971c67d7229a331a29eb270e24b7ceb261658ac679f6d.
+//
+// Solidity: event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseOldPrimaryManagerRemoved(log types.Log) (*SuperVaultAggregatorOldPrimaryManagerRemoved, error) {
+	event := new(SuperVaultAggregatorOldPrimaryManagerRemoved)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "OldPrimaryManagerRemoved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -3140,9 +4125,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePPSVerificationT
 	return event, nil
 }
 
-// SuperVaultAggregatorPrimaryStrategistChangeProposedIterator is returned from FilterPrimaryStrategistChangeProposed and is used to iterate over the raw logs and unpacked data for PrimaryStrategistChangeProposed events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChangeProposedIterator struct {
-	Event *SuperVaultAggregatorPrimaryStrategistChangeProposed // Event containing the contract specifics and raw log
+// SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator is returned from FilterPaymentSkippedForPausedStrategy and is used to iterate over the raw logs and unpacked data for PaymentSkippedForPausedStrategy events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator struct {
+	Event *SuperVaultAggregatorPaymentSkippedForPausedStrategy // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -3156,7 +4141,7 @@ type SuperVaultAggregatorPrimaryStrategistChangeProposedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Next() bool {
+func (it *SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -3165,7 +4150,7 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Next() bo
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorPrimaryStrategistChangeProposed)
+			it.Event = new(SuperVaultAggregatorPaymentSkippedForPausedStrategy)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3180,7 +4165,7 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Next() bo
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorPrimaryStrategistChangeProposed)
+		it.Event = new(SuperVaultAggregatorPaymentSkippedForPausedStrategy)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3196,30 +4181,174 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Next() bo
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Error() error {
+func (it *SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperVaultAggregatorPrimaryStrategistChangeProposedIterator) Close() error {
+func (it *SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperVaultAggregatorPrimaryStrategistChangeProposed represents a PrimaryStrategistChangeProposed event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChangeProposed struct {
+// SuperVaultAggregatorPaymentSkippedForPausedStrategy represents a PaymentSkippedForPausedStrategy event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPaymentSkippedForPausedStrategy struct {
+	Strategy common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterPaymentSkippedForPausedStrategy is a free log retrieval operation binding the contract event 0x0478bb79992612bb0113eed2f11d4f517e30990d086ec12b6feaeb96067b4f1b.
+//
+// Solidity: event PaymentSkippedForPausedStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPaymentSkippedForPausedStrategy(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PaymentSkippedForPausedStrategy", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorPaymentSkippedForPausedStrategyIterator{contract: _SuperVaultAggregator.contract, event: "PaymentSkippedForPausedStrategy", logs: logs, sub: sub}, nil
+}
+
+// WatchPaymentSkippedForPausedStrategy is a free log subscription operation binding the contract event 0x0478bb79992612bb0113eed2f11d4f517e30990d086ec12b6feaeb96067b4f1b.
+//
+// Solidity: event PaymentSkippedForPausedStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPaymentSkippedForPausedStrategy(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPaymentSkippedForPausedStrategy, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PaymentSkippedForPausedStrategy", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorPaymentSkippedForPausedStrategy)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PaymentSkippedForPausedStrategy", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePaymentSkippedForPausedStrategy is a log parse operation binding the contract event 0x0478bb79992612bb0113eed2f11d4f517e30990d086ec12b6feaeb96067b4f1b.
+//
+// Solidity: event PaymentSkippedForPausedStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePaymentSkippedForPausedStrategy(log types.Log) (*SuperVaultAggregatorPaymentSkippedForPausedStrategy, error) {
+	event := new(SuperVaultAggregatorPaymentSkippedForPausedStrategy)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PaymentSkippedForPausedStrategy", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorPrimaryManagerChangeProposedIterator is returned from FilterPrimaryManagerChangeProposed and is used to iterate over the raw logs and unpacked data for PrimaryManagerChangeProposed events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChangeProposedIterator struct {
+	Event *SuperVaultAggregatorPrimaryManagerChangeProposed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorPrimaryManagerChangeProposedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorPrimaryManagerChangeProposed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorPrimaryManagerChangeProposed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorPrimaryManagerChangeProposedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorPrimaryManagerChangeProposedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorPrimaryManagerChangeProposed represents a PrimaryManagerChangeProposed event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChangeProposed struct {
 	Strategy      common.Address
 	Proposer      common.Address
-	NewStrategist common.Address
+	NewManager    common.Address
 	EffectiveTime *big.Int
 	Raw           types.Log // Blockchain specific contextual infos
 }
 
-// FilterPrimaryStrategistChangeProposed is a free log retrieval operation binding the contract event 0x142f0213eba92660be9bd12fa93e492e21f9f0a023bd218949b3464f9e21a285.
+// FilterPrimaryManagerChangeProposed is a free log retrieval operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
 //
-// Solidity: event PrimaryStrategistChangeProposed(address indexed strategy, address indexed proposer, address indexed newStrategist, uint256 effectiveTime)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryStrategistChangeProposed(opts *bind.FilterOpts, strategy []common.Address, proposer []common.Address, newStrategist []common.Address) (*SuperVaultAggregatorPrimaryStrategistChangeProposedIterator, error) {
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerChangeProposed(opts *bind.FilterOpts, strategy []common.Address, proposer []common.Address, newManager []common.Address) (*SuperVaultAggregatorPrimaryManagerChangeProposedIterator, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
@@ -3229,22 +4358,22 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryStrategi
 	for _, proposerItem := range proposer {
 		proposerRule = append(proposerRule, proposerItem)
 	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryStrategistChangeProposed", strategyRule, proposerRule, newStrategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryManagerChangeProposed", strategyRule, proposerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperVaultAggregatorPrimaryStrategistChangeProposedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryStrategistChangeProposed", logs: logs, sub: sub}, nil
+	return &SuperVaultAggregatorPrimaryManagerChangeProposedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryManagerChangeProposed", logs: logs, sub: sub}, nil
 }
 
-// WatchPrimaryStrategistChangeProposed is a free log subscription operation binding the contract event 0x142f0213eba92660be9bd12fa93e492e21f9f0a023bd218949b3464f9e21a285.
+// WatchPrimaryManagerChangeProposed is a free log subscription operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
 //
-// Solidity: event PrimaryStrategistChangeProposed(address indexed strategy, address indexed proposer, address indexed newStrategist, uint256 effectiveTime)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategistChangeProposed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryStrategistChangeProposed, strategy []common.Address, proposer []common.Address, newStrategist []common.Address) (event.Subscription, error) {
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerChangeProposed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryManagerChangeProposed, strategy []common.Address, proposer []common.Address, newManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
@@ -3254,12 +4383,12 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategis
 	for _, proposerItem := range proposer {
 		proposerRule = append(proposerRule, proposerItem)
 	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryStrategistChangeProposed", strategyRule, proposerRule, newStrategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryManagerChangeProposed", strategyRule, proposerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3269,8 +4398,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategis
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorPrimaryStrategistChangeProposed)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChangeProposed", log); err != nil {
+				event := new(SuperVaultAggregatorPrimaryManagerChangeProposed)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChangeProposed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3291,21 +4420,21 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategis
 	}), nil
 }
 
-// ParsePrimaryStrategistChangeProposed is a log parse operation binding the contract event 0x142f0213eba92660be9bd12fa93e492e21f9f0a023bd218949b3464f9e21a285.
+// ParsePrimaryManagerChangeProposed is a log parse operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
 //
-// Solidity: event PrimaryStrategistChangeProposed(address indexed strategy, address indexed proposer, address indexed newStrategist, uint256 effectiveTime)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryStrategistChangeProposed(log types.Log) (*SuperVaultAggregatorPrimaryStrategistChangeProposed, error) {
-	event := new(SuperVaultAggregatorPrimaryStrategistChangeProposed)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChangeProposed", log); err != nil {
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryManagerChangeProposed(log types.Log) (*SuperVaultAggregatorPrimaryManagerChangeProposed, error) {
+	event := new(SuperVaultAggregatorPrimaryManagerChangeProposed)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChangeProposed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// SuperVaultAggregatorPrimaryStrategistChangedIterator is returned from FilterPrimaryStrategistChanged and is used to iterate over the raw logs and unpacked data for PrimaryStrategistChanged events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChangedIterator struct {
-	Event *SuperVaultAggregatorPrimaryStrategistChanged // Event containing the contract specifics and raw log
+// SuperVaultAggregatorPrimaryManagerChangedIterator is returned from FilterPrimaryManagerChanged and is used to iterate over the raw logs and unpacked data for PrimaryManagerChanged events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChangedIterator struct {
+	Event *SuperVaultAggregatorPrimaryManagerChanged // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -3319,7 +4448,7 @@ type SuperVaultAggregatorPrimaryStrategistChangedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Next() bool {
+func (it *SuperVaultAggregatorPrimaryManagerChangedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -3328,7 +4457,7 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorPrimaryStrategistChanged)
+			it.Event = new(SuperVaultAggregatorPrimaryManagerChanged)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3343,7 +4472,7 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorPrimaryStrategistChanged)
+		it.Event = new(SuperVaultAggregatorPrimaryManagerChanged)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3359,384 +4488,69 @@ func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Error() error {
+func (it *SuperVaultAggregatorPrimaryManagerChangedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedIterator) Close() error {
+func (it *SuperVaultAggregatorPrimaryManagerChangedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperVaultAggregatorPrimaryStrategistChanged represents a PrimaryStrategistChanged event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChanged struct {
-	Strategy      common.Address
-	OldStrategist common.Address
-	NewStrategist common.Address
-	Raw           types.Log // Blockchain specific contextual infos
-}
-
-// FilterPrimaryStrategistChanged is a free log retrieval operation binding the contract event 0x652015667737ca0d02cff5aa5159731ac509a4b0f37a81ea6274132720fa989e.
-//
-// Solidity: event PrimaryStrategistChanged(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryStrategistChanged(opts *bind.FilterOpts, strategy []common.Address, oldStrategist []common.Address, newStrategist []common.Address) (*SuperVaultAggregatorPrimaryStrategistChangedIterator, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var oldStrategistRule []interface{}
-	for _, oldStrategistItem := range oldStrategist {
-		oldStrategistRule = append(oldStrategistRule, oldStrategistItem)
-	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryStrategistChanged", strategyRule, oldStrategistRule, newStrategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorPrimaryStrategistChangedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryStrategistChanged", logs: logs, sub: sub}, nil
-}
-
-// WatchPrimaryStrategistChanged is a free log subscription operation binding the contract event 0x652015667737ca0d02cff5aa5159731ac509a4b0f37a81ea6274132720fa989e.
-//
-// Solidity: event PrimaryStrategistChanged(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategistChanged(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryStrategistChanged, strategy []common.Address, oldStrategist []common.Address, newStrategist []common.Address) (event.Subscription, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var oldStrategistRule []interface{}
-	for _, oldStrategistItem := range oldStrategist {
-		oldStrategistRule = append(oldStrategistRule, oldStrategistItem)
-	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryStrategistChanged", strategyRule, oldStrategistRule, newStrategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorPrimaryStrategistChanged)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChanged", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParsePrimaryStrategistChanged is a log parse operation binding the contract event 0x652015667737ca0d02cff5aa5159731ac509a4b0f37a81ea6274132720fa989e.
-//
-// Solidity: event PrimaryStrategistChanged(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryStrategistChanged(log types.Log) (*SuperVaultAggregatorPrimaryStrategistChanged, error) {
-	event := new(SuperVaultAggregatorPrimaryStrategistChanged)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChanged", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator is returned from FilterPrimaryStrategistChangedToSuperform and is used to iterate over the raw logs and unpacked data for PrimaryStrategistChangedToSuperform events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator struct {
-	Event *SuperVaultAggregatorPrimaryStrategistChangedToSuperform // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorPrimaryStrategistChangedToSuperform)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorPrimaryStrategistChangedToSuperform)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorPrimaryStrategistChangedToSuperform represents a PrimaryStrategistChangedToSuperform event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorPrimaryStrategistChangedToSuperform struct {
-	Strategy      common.Address
-	OldStrategist common.Address
-	NewStrategist common.Address
-	Raw           types.Log // Blockchain specific contextual infos
-}
-
-// FilterPrimaryStrategistChangedToSuperform is a free log retrieval operation binding the contract event 0x3ac9f650c48cf2cf7a7b640c3f616280609b770849551e28b1d18a14c3de9491.
-//
-// Solidity: event PrimaryStrategistChangedToSuperform(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryStrategistChangedToSuperform(opts *bind.FilterOpts, strategy []common.Address, oldStrategist []common.Address, newStrategist []common.Address) (*SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var oldStrategistRule []interface{}
-	for _, oldStrategistItem := range oldStrategist {
-		oldStrategistRule = append(oldStrategistRule, oldStrategistItem)
-	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryStrategistChangedToSuperform", strategyRule, oldStrategistRule, newStrategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorPrimaryStrategistChangedToSuperformIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryStrategistChangedToSuperform", logs: logs, sub: sub}, nil
-}
-
-// WatchPrimaryStrategistChangedToSuperform is a free log subscription operation binding the contract event 0x3ac9f650c48cf2cf7a7b640c3f616280609b770849551e28b1d18a14c3de9491.
-//
-// Solidity: event PrimaryStrategistChangedToSuperform(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryStrategistChangedToSuperform(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryStrategistChangedToSuperform, strategy []common.Address, oldStrategist []common.Address, newStrategist []common.Address) (event.Subscription, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var oldStrategistRule []interface{}
-	for _, oldStrategistItem := range oldStrategist {
-		oldStrategistRule = append(oldStrategistRule, oldStrategistItem)
-	}
-	var newStrategistRule []interface{}
-	for _, newStrategistItem := range newStrategist {
-		newStrategistRule = append(newStrategistRule, newStrategistItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryStrategistChangedToSuperform", strategyRule, oldStrategistRule, newStrategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorPrimaryStrategistChangedToSuperform)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChangedToSuperform", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParsePrimaryStrategistChangedToSuperform is a log parse operation binding the contract event 0x3ac9f650c48cf2cf7a7b640c3f616280609b770849551e28b1d18a14c3de9491.
-//
-// Solidity: event PrimaryStrategistChangedToSuperform(address indexed strategy, address indexed oldStrategist, address indexed newStrategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryStrategistChangedToSuperform(log types.Log) (*SuperVaultAggregatorPrimaryStrategistChangedToSuperform, error) {
-	event := new(SuperVaultAggregatorPrimaryStrategistChangedToSuperform)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryStrategistChangedToSuperform", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperVaultAggregatorSecondaryStrategistAddedIterator is returned from FilterSecondaryStrategistAdded and is used to iterate over the raw logs and unpacked data for SecondaryStrategistAdded events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorSecondaryStrategistAddedIterator struct {
-	Event *SuperVaultAggregatorSecondaryStrategistAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorSecondaryStrategistAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorSecondaryStrategistAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorSecondaryStrategistAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorSecondaryStrategistAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorSecondaryStrategistAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorSecondaryStrategistAdded represents a SecondaryStrategistAdded event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorSecondaryStrategistAdded struct {
+// SuperVaultAggregatorPrimaryManagerChanged represents a PrimaryManagerChanged event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChanged struct {
 	Strategy   common.Address
-	Strategist common.Address
+	OldManager common.Address
+	NewManager common.Address
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterSecondaryStrategistAdded is a free log retrieval operation binding the contract event 0x6f564e73e0f2deb5e3f099e22cc84afde763cc801d86bdbeaefa989e0d45b342.
+// FilterPrimaryManagerChanged is a free log retrieval operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
 //
-// Solidity: event SecondaryStrategistAdded(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterSecondaryStrategistAdded(opts *bind.FilterOpts, strategy []common.Address, strategist []common.Address) (*SuperVaultAggregatorSecondaryStrategistAddedIterator, error) {
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerChanged(opts *bind.FilterOpts, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (*SuperVaultAggregatorPrimaryManagerChangedIterator, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "SecondaryStrategistAdded", strategyRule, strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryManagerChanged", strategyRule, oldManagerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperVaultAggregatorSecondaryStrategistAddedIterator{contract: _SuperVaultAggregator.contract, event: "SecondaryStrategistAdded", logs: logs, sub: sub}, nil
+	return &SuperVaultAggregatorPrimaryManagerChangedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryManagerChanged", logs: logs, sub: sub}, nil
 }
 
-// WatchSecondaryStrategistAdded is a free log subscription operation binding the contract event 0x6f564e73e0f2deb5e3f099e22cc84afde763cc801d86bdbeaefa989e0d45b342.
+// WatchPrimaryManagerChanged is a free log subscription operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
 //
-// Solidity: event SecondaryStrategistAdded(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrategistAdded(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorSecondaryStrategistAdded, strategy []common.Address, strategist []common.Address) (event.Subscription, error) {
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerChanged(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryManagerChanged, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "SecondaryStrategistAdded", strategyRule, strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryManagerChanged", strategyRule, oldManagerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3746,8 +4560,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrateg
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorSecondaryStrategistAdded)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryStrategistAdded", log); err != nil {
+				event := new(SuperVaultAggregatorPrimaryManagerChanged)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChanged", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3768,21 +4582,21 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrateg
 	}), nil
 }
 
-// ParseSecondaryStrategistAdded is a log parse operation binding the contract event 0x6f564e73e0f2deb5e3f099e22cc84afde763cc801d86bdbeaefa989e0d45b342.
+// ParsePrimaryManagerChanged is a log parse operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
 //
-// Solidity: event SecondaryStrategistAdded(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseSecondaryStrategistAdded(log types.Log) (*SuperVaultAggregatorSecondaryStrategistAdded, error) {
-	event := new(SuperVaultAggregatorSecondaryStrategistAdded)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryStrategistAdded", log); err != nil {
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryManagerChanged(log types.Log) (*SuperVaultAggregatorPrimaryManagerChanged, error) {
+	event := new(SuperVaultAggregatorPrimaryManagerChanged)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChanged", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// SuperVaultAggregatorSecondaryStrategistRemovedIterator is returned from FilterSecondaryStrategistRemoved and is used to iterate over the raw logs and unpacked data for SecondaryStrategistRemoved events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorSecondaryStrategistRemovedIterator struct {
-	Event *SuperVaultAggregatorSecondaryStrategistRemoved // Event containing the contract specifics and raw log
+// SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator is returned from FilterPrimaryManagerChangedToSuperform and is used to iterate over the raw logs and unpacked data for PrimaryManagerChangedToSuperform events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator struct {
+	Event *SuperVaultAggregatorPrimaryManagerChangedToSuperform // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -3796,7 +4610,7 @@ type SuperVaultAggregatorSecondaryStrategistRemovedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Next() bool {
+func (it *SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -3805,7 +4619,7 @@ func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorSecondaryStrategistRemoved)
+			it.Event = new(SuperVaultAggregatorPrimaryManagerChangedToSuperform)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3820,7 +4634,7 @@ func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorSecondaryStrategistRemoved)
+		it.Event = new(SuperVaultAggregatorPrimaryManagerChangedToSuperform)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3836,60 +4650,69 @@ func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Error() error {
+func (it *SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperVaultAggregatorSecondaryStrategistRemovedIterator) Close() error {
+func (it *SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperVaultAggregatorSecondaryStrategistRemoved represents a SecondaryStrategistRemoved event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorSecondaryStrategistRemoved struct {
+// SuperVaultAggregatorPrimaryManagerChangedToSuperform represents a PrimaryManagerChangedToSuperform event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorPrimaryManagerChangedToSuperform struct {
 	Strategy   common.Address
-	Strategist common.Address
+	OldManager common.Address
+	NewManager common.Address
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterSecondaryStrategistRemoved is a free log retrieval operation binding the contract event 0x1752e353c5989bc3c9593594df568802b688caa3df9ecd95dbeab0393b3dff94.
+// FilterPrimaryManagerChangedToSuperform is a free log retrieval operation binding the contract event 0x4a6c6deb2a640ff12d2cffe60e67daf16bfaad28d37d507351ec272fac1e75b2.
 //
-// Solidity: event SecondaryStrategistRemoved(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterSecondaryStrategistRemoved(opts *bind.FilterOpts, strategy []common.Address, strategist []common.Address) (*SuperVaultAggregatorSecondaryStrategistRemovedIterator, error) {
+// Solidity: event PrimaryManagerChangedToSuperform(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerChangedToSuperform(opts *bind.FilterOpts, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (*SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "SecondaryStrategistRemoved", strategyRule, strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "PrimaryManagerChangedToSuperform", strategyRule, oldManagerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperVaultAggregatorSecondaryStrategistRemovedIterator{contract: _SuperVaultAggregator.contract, event: "SecondaryStrategistRemoved", logs: logs, sub: sub}, nil
+	return &SuperVaultAggregatorPrimaryManagerChangedToSuperformIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryManagerChangedToSuperform", logs: logs, sub: sub}, nil
 }
 
-// WatchSecondaryStrategistRemoved is a free log subscription operation binding the contract event 0x1752e353c5989bc3c9593594df568802b688caa3df9ecd95dbeab0393b3dff94.
+// WatchPrimaryManagerChangedToSuperform is a free log subscription operation binding the contract event 0x4a6c6deb2a640ff12d2cffe60e67daf16bfaad28d37d507351ec272fac1e75b2.
 //
-// Solidity: event SecondaryStrategistRemoved(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrategistRemoved(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorSecondaryStrategistRemoved, strategy []common.Address, strategist []common.Address) (event.Subscription, error) {
+// Solidity: event PrimaryManagerChangedToSuperform(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerChangedToSuperform(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryManagerChangedToSuperform, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var oldManagerRule []interface{}
+	for _, oldManagerItem := range oldManager {
+		oldManagerRule = append(oldManagerRule, oldManagerItem)
+	}
+	var newManagerRule []interface{}
+	for _, newManagerItem := range newManager {
+		newManagerRule = append(newManagerRule, newManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "SecondaryStrategistRemoved", strategyRule, strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "PrimaryManagerChangedToSuperform", strategyRule, oldManagerRule, newManagerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3899,8 +4722,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrateg
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorSecondaryStrategistRemoved)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryStrategistRemoved", log); err != nil {
+				event := new(SuperVaultAggregatorPrimaryManagerChangedToSuperform)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChangedToSuperform", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3921,12 +4744,1044 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryStrateg
 	}), nil
 }
 
-// ParseSecondaryStrategistRemoved is a log parse operation binding the contract event 0x1752e353c5989bc3c9593594df568802b688caa3df9ecd95dbeab0393b3dff94.
+// ParsePrimaryManagerChangedToSuperform is a log parse operation binding the contract event 0x4a6c6deb2a640ff12d2cffe60e67daf16bfaad28d37d507351ec272fac1e75b2.
 //
-// Solidity: event SecondaryStrategistRemoved(address indexed strategy, address indexed strategist)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseSecondaryStrategistRemoved(log types.Log) (*SuperVaultAggregatorSecondaryStrategistRemoved, error) {
-	event := new(SuperVaultAggregatorSecondaryStrategistRemoved)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryStrategistRemoved", log); err != nil {
+// Solidity: event PrimaryManagerChangedToSuperform(address indexed strategy, address indexed oldManager, address indexed newManager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryManagerChangedToSuperform(log types.Log) (*SuperVaultAggregatorPrimaryManagerChangedToSuperform, error) {
+	event := new(SuperVaultAggregatorPrimaryManagerChangedToSuperform)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChangedToSuperform", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator is returned from FilterProvidedTimestampExceedsBlockTimestamp and is used to iterate over the raw logs and unpacked data for ProvidedTimestampExceedsBlockTimestamp events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator struct {
+	Event *SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp represents a ProvidedTimestampExceedsBlockTimestamp event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp struct {
+	Strategy       common.Address
+	ArgsTimestamp  *big.Int
+	BlockTimestamp *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// FilterProvidedTimestampExceedsBlockTimestamp is a free log retrieval operation binding the contract event 0x11ce21eb8049b15d3cb258f2a3e207e24b6ca2141010b9c063228faa8628b9b5.
+//
+// Solidity: event ProvidedTimestampExceedsBlockTimestamp(address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterProvidedTimestampExceedsBlockTimestamp(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "ProvidedTimestampExceedsBlockTimestamp", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorProvidedTimestampExceedsBlockTimestampIterator{contract: _SuperVaultAggregator.contract, event: "ProvidedTimestampExceedsBlockTimestamp", logs: logs, sub: sub}, nil
+}
+
+// WatchProvidedTimestampExceedsBlockTimestamp is a free log subscription operation binding the contract event 0x11ce21eb8049b15d3cb258f2a3e207e24b6ca2141010b9c063228faa8628b9b5.
+//
+// Solidity: event ProvidedTimestampExceedsBlockTimestamp(address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchProvidedTimestampExceedsBlockTimestamp(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "ProvidedTimestampExceedsBlockTimestamp", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "ProvidedTimestampExceedsBlockTimestamp", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProvidedTimestampExceedsBlockTimestamp is a log parse operation binding the contract event 0x11ce21eb8049b15d3cb258f2a3e207e24b6ca2141010b9c063228faa8628b9b5.
+//
+// Solidity: event ProvidedTimestampExceedsBlockTimestamp(address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseProvidedTimestampExceedsBlockTimestamp(log types.Log) (*SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp, error) {
+	event := new(SuperVaultAggregatorProvidedTimestampExceedsBlockTimestamp)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "ProvidedTimestampExceedsBlockTimestamp", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorSecondaryManagerAddedIterator is returned from FilterSecondaryManagerAdded and is used to iterate over the raw logs and unpacked data for SecondaryManagerAdded events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorSecondaryManagerAddedIterator struct {
+	Event *SuperVaultAggregatorSecondaryManagerAdded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorSecondaryManagerAddedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorSecondaryManagerAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorSecondaryManagerAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorSecondaryManagerAddedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorSecondaryManagerAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorSecondaryManagerAdded represents a SecondaryManagerAdded event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorSecondaryManagerAdded struct {
+	Strategy common.Address
+	Manager  common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterSecondaryManagerAdded is a free log retrieval operation binding the contract event 0xb62a858ba4f3ba693ebca539c91a5c78f4514d4c1ea35b9d336ce5ce8f071f76.
+//
+// Solidity: event SecondaryManagerAdded(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterSecondaryManagerAdded(opts *bind.FilterOpts, strategy []common.Address, manager []common.Address) (*SuperVaultAggregatorSecondaryManagerAddedIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "SecondaryManagerAdded", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorSecondaryManagerAddedIterator{contract: _SuperVaultAggregator.contract, event: "SecondaryManagerAdded", logs: logs, sub: sub}, nil
+}
+
+// WatchSecondaryManagerAdded is a free log subscription operation binding the contract event 0xb62a858ba4f3ba693ebca539c91a5c78f4514d4c1ea35b9d336ce5ce8f071f76.
+//
+// Solidity: event SecondaryManagerAdded(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryManagerAdded(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorSecondaryManagerAdded, strategy []common.Address, manager []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "SecondaryManagerAdded", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorSecondaryManagerAdded)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryManagerAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseSecondaryManagerAdded is a log parse operation binding the contract event 0xb62a858ba4f3ba693ebca539c91a5c78f4514d4c1ea35b9d336ce5ce8f071f76.
+//
+// Solidity: event SecondaryManagerAdded(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseSecondaryManagerAdded(log types.Log) (*SuperVaultAggregatorSecondaryManagerAdded, error) {
+	event := new(SuperVaultAggregatorSecondaryManagerAdded)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryManagerAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorSecondaryManagerRemovedIterator is returned from FilterSecondaryManagerRemoved and is used to iterate over the raw logs and unpacked data for SecondaryManagerRemoved events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorSecondaryManagerRemovedIterator struct {
+	Event *SuperVaultAggregatorSecondaryManagerRemoved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorSecondaryManagerRemovedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorSecondaryManagerRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorSecondaryManagerRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorSecondaryManagerRemovedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorSecondaryManagerRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorSecondaryManagerRemoved represents a SecondaryManagerRemoved event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorSecondaryManagerRemoved struct {
+	Strategy common.Address
+	Manager  common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterSecondaryManagerRemoved is a free log retrieval operation binding the contract event 0x466dd5513a82de99caf12b8d5176cd2174dec8013f9c3ec7be7254e54b2c417c.
+//
+// Solidity: event SecondaryManagerRemoved(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterSecondaryManagerRemoved(opts *bind.FilterOpts, strategy []common.Address, manager []common.Address) (*SuperVaultAggregatorSecondaryManagerRemovedIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "SecondaryManagerRemoved", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorSecondaryManagerRemovedIterator{contract: _SuperVaultAggregator.contract, event: "SecondaryManagerRemoved", logs: logs, sub: sub}, nil
+}
+
+// WatchSecondaryManagerRemoved is a free log subscription operation binding the contract event 0x466dd5513a82de99caf12b8d5176cd2174dec8013f9c3ec7be7254e54b2c417c.
+//
+// Solidity: event SecondaryManagerRemoved(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchSecondaryManagerRemoved(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorSecondaryManagerRemoved, strategy []common.Address, manager []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "SecondaryManagerRemoved", strategyRule, managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorSecondaryManagerRemoved)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryManagerRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseSecondaryManagerRemoved is a log parse operation binding the contract event 0x466dd5513a82de99caf12b8d5176cd2174dec8013f9c3ec7be7254e54b2c417c.
+//
+// Solidity: event SecondaryManagerRemoved(address indexed strategy, address indexed manager)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseSecondaryManagerRemoved(log types.Log) (*SuperVaultAggregatorSecondaryManagerRemoved, error) {
+	event := new(SuperVaultAggregatorSecondaryManagerRemoved)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "SecondaryManagerRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorStakeDepositedIterator is returned from FilterStakeDeposited and is used to iterate over the raw logs and unpacked data for StakeDeposited events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeDepositedIterator struct {
+	Event *SuperVaultAggregatorStakeDeposited // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStakeDepositedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStakeDeposited)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStakeDeposited)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStakeDepositedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStakeDepositedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStakeDeposited represents a StakeDeposited event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeDeposited struct {
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterStakeDeposited is a free log retrieval operation binding the contract event 0x0a7bb2e28cc4698aac06db79cf9163bfcc20719286cf59fa7d492ceda1b8edc2.
+//
+// Solidity: event StakeDeposited(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStakeDeposited(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorStakeDepositedIterator, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StakeDeposited", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStakeDepositedIterator{contract: _SuperVaultAggregator.contract, event: "StakeDeposited", logs: logs, sub: sub}, nil
+}
+
+// WatchStakeDeposited is a free log subscription operation binding the contract event 0x0a7bb2e28cc4698aac06db79cf9163bfcc20719286cf59fa7d492ceda1b8edc2.
+//
+// Solidity: event StakeDeposited(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStakeDeposited(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStakeDeposited, manager []common.Address) (event.Subscription, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StakeDeposited", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStakeDeposited)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeDeposited", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStakeDeposited is a log parse operation binding the contract event 0x0a7bb2e28cc4698aac06db79cf9163bfcc20719286cf59fa7d492ceda1b8edc2.
+//
+// Solidity: event StakeDeposited(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStakeDeposited(log types.Log) (*SuperVaultAggregatorStakeDeposited, error) {
+	event := new(SuperVaultAggregatorStakeDeposited)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeDeposited", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorStakeSlashedIterator is returned from FilterStakeSlashed and is used to iterate over the raw logs and unpacked data for StakeSlashed events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeSlashedIterator struct {
+	Event *SuperVaultAggregatorStakeSlashed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStakeSlashedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStakeSlashed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStakeSlashed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStakeSlashedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStakeSlashedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStakeSlashed represents a StakeSlashed event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeSlashed struct {
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterStakeSlashed is a free log retrieval operation binding the contract event 0x83f5ea8bea7627d95274e94dd7e9e3d7e82cb55feab513ed49e325232dcc61e0.
+//
+// Solidity: event StakeSlashed(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStakeSlashed(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorStakeSlashedIterator, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StakeSlashed", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStakeSlashedIterator{contract: _SuperVaultAggregator.contract, event: "StakeSlashed", logs: logs, sub: sub}, nil
+}
+
+// WatchStakeSlashed is a free log subscription operation binding the contract event 0x83f5ea8bea7627d95274e94dd7e9e3d7e82cb55feab513ed49e325232dcc61e0.
+//
+// Solidity: event StakeSlashed(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStakeSlashed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStakeSlashed, manager []common.Address) (event.Subscription, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StakeSlashed", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStakeSlashed)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeSlashed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStakeSlashed is a log parse operation binding the contract event 0x83f5ea8bea7627d95274e94dd7e9e3d7e82cb55feab513ed49e325232dcc61e0.
+//
+// Solidity: event StakeSlashed(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStakeSlashed(log types.Log) (*SuperVaultAggregatorStakeSlashed, error) {
+	event := new(SuperVaultAggregatorStakeSlashed)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeSlashed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorStakeWithdrawRequestedIterator is returned from FilterStakeWithdrawRequested and is used to iterate over the raw logs and unpacked data for StakeWithdrawRequested events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeWithdrawRequestedIterator struct {
+	Event *SuperVaultAggregatorStakeWithdrawRequested // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStakeWithdrawRequestedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStakeWithdrawRequested)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStakeWithdrawRequested)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStakeWithdrawRequestedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStakeWithdrawRequestedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStakeWithdrawRequested represents a StakeWithdrawRequested event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeWithdrawRequested struct {
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterStakeWithdrawRequested is a free log retrieval operation binding the contract event 0x3d8d9df4bd0172df32e557fa48e96435cd7f2cac06aaffacfaee608e6f7898ef.
+//
+// Solidity: event StakeWithdrawRequested(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStakeWithdrawRequested(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorStakeWithdrawRequestedIterator, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StakeWithdrawRequested", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStakeWithdrawRequestedIterator{contract: _SuperVaultAggregator.contract, event: "StakeWithdrawRequested", logs: logs, sub: sub}, nil
+}
+
+// WatchStakeWithdrawRequested is a free log subscription operation binding the contract event 0x3d8d9df4bd0172df32e557fa48e96435cd7f2cac06aaffacfaee608e6f7898ef.
+//
+// Solidity: event StakeWithdrawRequested(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStakeWithdrawRequested(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStakeWithdrawRequested, manager []common.Address) (event.Subscription, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StakeWithdrawRequested", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStakeWithdrawRequested)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeWithdrawRequested", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStakeWithdrawRequested is a log parse operation binding the contract event 0x3d8d9df4bd0172df32e557fa48e96435cd7f2cac06aaffacfaee608e6f7898ef.
+//
+// Solidity: event StakeWithdrawRequested(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStakeWithdrawRequested(log types.Log) (*SuperVaultAggregatorStakeWithdrawRequested, error) {
+	event := new(SuperVaultAggregatorStakeWithdrawRequested)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeWithdrawRequested", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorStakeWithdrawnIterator is returned from FilterStakeWithdrawn and is used to iterate over the raw logs and unpacked data for StakeWithdrawn events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeWithdrawnIterator struct {
+	Event *SuperVaultAggregatorStakeWithdrawn // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStakeWithdrawnIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStakeWithdrawn)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStakeWithdrawn)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStakeWithdrawnIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStakeWithdrawnIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStakeWithdrawn represents a StakeWithdrawn event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStakeWithdrawn struct {
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterStakeWithdrawn is a free log retrieval operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+//
+// Solidity: event StakeWithdrawn(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStakeWithdrawn(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorStakeWithdrawnIterator, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StakeWithdrawn", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStakeWithdrawnIterator{contract: _SuperVaultAggregator.contract, event: "StakeWithdrawn", logs: logs, sub: sub}, nil
+}
+
+// WatchStakeWithdrawn is a free log subscription operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+//
+// Solidity: event StakeWithdrawn(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStakeWithdrawn, manager []common.Address) (event.Subscription, error) {
+
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StakeWithdrawn", managerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStakeWithdrawn)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeWithdrawn", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStakeWithdrawn is a log parse operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+//
+// Solidity: event StakeWithdrawn(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStakeWithdrawn(log types.Log) (*SuperVaultAggregatorStakeWithdrawn, error) {
+	event := new(SuperVaultAggregatorStakeWithdrawn)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StakeWithdrawn", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4851,6 +6706,294 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyHooksRoo
 	return event, nil
 }
 
+// SuperVaultAggregatorStrategyPPSStaleIterator is returned from FilterStrategyPPSStale and is used to iterate over the raw logs and unpacked data for StrategyPPSStale events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyPPSStaleIterator struct {
+	Event *SuperVaultAggregatorStrategyPPSStale // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStrategyPPSStaleIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStrategyPPSStale)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStrategyPPSStale)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStrategyPPSStaleIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStrategyPPSStaleIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStrategyPPSStale represents a StrategyPPSStale event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyPPSStale struct {
+	Strategy common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterStrategyPPSStale is a free log retrieval operation binding the contract event 0x80796c8d1dc90790262881896e3680e577f032ca370f16b8dccd1cd4cef254f1.
+//
+// Solidity: event StrategyPPSStale(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStrategyPPSStale(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorStrategyPPSStaleIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StrategyPPSStale", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStrategyPPSStaleIterator{contract: _SuperVaultAggregator.contract, event: "StrategyPPSStale", logs: logs, sub: sub}, nil
+}
+
+// WatchStrategyPPSStale is a free log subscription operation binding the contract event 0x80796c8d1dc90790262881896e3680e577f032ca370f16b8dccd1cd4cef254f1.
+//
+// Solidity: event StrategyPPSStale(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyPPSStale(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStrategyPPSStale, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StrategyPPSStale", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStrategyPPSStale)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyPPSStale", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStrategyPPSStale is a log parse operation binding the contract event 0x80796c8d1dc90790262881896e3680e577f032ca370f16b8dccd1cd4cef254f1.
+//
+// Solidity: event StrategyPPSStale(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyPPSStale(log types.Log) (*SuperVaultAggregatorStrategyPPSStale, error) {
+	event := new(SuperVaultAggregatorStrategyPPSStale)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyPPSStale", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorStrategyPPSStaleResetIterator is returned from FilterStrategyPPSStaleReset and is used to iterate over the raw logs and unpacked data for StrategyPPSStaleReset events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyPPSStaleResetIterator struct {
+	Event *SuperVaultAggregatorStrategyPPSStaleReset // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStrategyPPSStaleResetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStrategyPPSStaleReset)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStrategyPPSStaleReset)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStrategyPPSStaleResetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStrategyPPSStaleResetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStrategyPPSStaleReset represents a StrategyPPSStaleReset event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyPPSStaleReset struct {
+	Strategy common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterStrategyPPSStaleReset is a free log retrieval operation binding the contract event 0x87afbf71df10b23be48535f5f7689b97e949bf5b76a67c76e79fd0f10db005d8.
+//
+// Solidity: event StrategyPPSStaleReset(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStrategyPPSStaleReset(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorStrategyPPSStaleResetIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StrategyPPSStaleReset", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStrategyPPSStaleResetIterator{contract: _SuperVaultAggregator.contract, event: "StrategyPPSStaleReset", logs: logs, sub: sub}, nil
+}
+
+// WatchStrategyPPSStaleReset is a free log subscription operation binding the contract event 0x87afbf71df10b23be48535f5f7689b97e949bf5b76a67c76e79fd0f10db005d8.
+//
+// Solidity: event StrategyPPSStaleReset(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyPPSStaleReset(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStrategyPPSStaleReset, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StrategyPPSStaleReset", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStrategyPPSStaleReset)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyPPSStaleReset", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStrategyPPSStaleReset is a log parse operation binding the contract event 0x87afbf71df10b23be48535f5f7689b97e949bf5b76a67c76e79fd0f10db005d8.
+//
+// Solidity: event StrategyPPSStaleReset(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyPPSStaleReset(log types.Log) (*SuperVaultAggregatorStrategyPPSStaleReset, error) {
+	event := new(SuperVaultAggregatorStrategyPPSStaleReset)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyPPSStaleReset", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // SuperVaultAggregatorStrategyPausedIterator is returned from FilterStrategyPaused and is used to iterate over the raw logs and unpacked data for StrategyPaused events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorStrategyPausedIterator struct {
 	Event *SuperVaultAggregatorStrategyPaused // Event containing the contract specifics and raw log
@@ -4995,6 +7138,151 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyPaused(l
 	return event, nil
 }
 
+// SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator is returned from FilterStrategyUnpausePPSTimelockUpdated and is used to iterate over the raw logs and unpacked data for StrategyUnpausePPSTimelockUpdated events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator struct {
+	Event *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated represents a StrategyUnpausePPSTimelockUpdated event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated struct {
+	Strategy    common.Address
+	NewTimelock *big.Int
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterStrategyUnpausePPSTimelockUpdated is a free log retrieval operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
+//
+// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStrategyUnpausePPSTimelockUpdated(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StrategyUnpausePPSTimelockUpdated", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator{contract: _SuperVaultAggregator.contract, event: "StrategyUnpausePPSTimelockUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchStrategyUnpausePPSTimelockUpdated is a free log subscription operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
+//
+// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyUnpausePPSTimelockUpdated(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StrategyUnpausePPSTimelockUpdated", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyUnpausePPSTimelockUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStrategyUnpausePPSTimelockUpdated is a log parse operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
+//
+// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyUnpausePPSTimelockUpdated(log types.Log) (*SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated, error) {
+	event := new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyUnpausePPSTimelockUpdated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // SuperVaultAggregatorStrategyUnpausedIterator is returned from FilterStrategyUnpaused and is used to iterate over the raw logs and unpacked data for StrategyUnpaused events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorStrategyUnpausedIterator struct {
 	Event *SuperVaultAggregatorStrategyUnpaused // Event containing the contract specifics and raw log
@@ -5133,6 +7421,561 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyUnpaused
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyUnpaused(log types.Log) (*SuperVaultAggregatorStrategyUnpaused, error) {
 	event := new(SuperVaultAggregatorStrategyUnpaused)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyUnpaused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorTimestampNotMonotonicIterator is returned from FilterTimestampNotMonotonic and is used to iterate over the raw logs and unpacked data for TimestampNotMonotonic events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorTimestampNotMonotonicIterator struct {
+	Event *SuperVaultAggregatorTimestampNotMonotonic // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorTimestampNotMonotonicIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorTimestampNotMonotonic)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorTimestampNotMonotonic)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorTimestampNotMonotonicIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorTimestampNotMonotonicIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorTimestampNotMonotonic represents a TimestampNotMonotonic event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorTimestampNotMonotonic struct {
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterTimestampNotMonotonic is a free log retrieval operation binding the contract event 0x2e78c6ab27a29f5c1471d797dd0809527031b55c91aa70143ffa36ceecfab75f.
+//
+// Solidity: event TimestampNotMonotonic()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterTimestampNotMonotonic(opts *bind.FilterOpts) (*SuperVaultAggregatorTimestampNotMonotonicIterator, error) {
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "TimestampNotMonotonic")
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorTimestampNotMonotonicIterator{contract: _SuperVaultAggregator.contract, event: "TimestampNotMonotonic", logs: logs, sub: sub}, nil
+}
+
+// WatchTimestampNotMonotonic is a free log subscription operation binding the contract event 0x2e78c6ab27a29f5c1471d797dd0809527031b55c91aa70143ffa36ceecfab75f.
+//
+// Solidity: event TimestampNotMonotonic()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchTimestampNotMonotonic(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorTimestampNotMonotonic) (event.Subscription, error) {
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "TimestampNotMonotonic")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorTimestampNotMonotonic)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "TimestampNotMonotonic", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseTimestampNotMonotonic is a log parse operation binding the contract event 0x2e78c6ab27a29f5c1471d797dd0809527031b55c91aa70143ffa36ceecfab75f.
+//
+// Solidity: event TimestampNotMonotonic()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseTimestampNotMonotonic(log types.Log) (*SuperVaultAggregatorTimestampNotMonotonic, error) {
+	event := new(SuperVaultAggregatorTimestampNotMonotonic)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "TimestampNotMonotonic", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorUnknownStrategyIterator is returned from FilterUnknownStrategy and is used to iterate over the raw logs and unpacked data for UnknownStrategy events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUnknownStrategyIterator struct {
+	Event *SuperVaultAggregatorUnknownStrategy // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorUnknownStrategyIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorUnknownStrategy)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorUnknownStrategy)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorUnknownStrategyIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorUnknownStrategyIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorUnknownStrategy represents a UnknownStrategy event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUnknownStrategy struct {
+	Strategy common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterUnknownStrategy is a free log retrieval operation binding the contract event 0xde5abf6fb8e50b9c44ca7d6b0b47660db6158640044348124a98dbb8c94d6524.
+//
+// Solidity: event UnknownStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUnknownStrategy(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorUnknownStrategyIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UnknownStrategy", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorUnknownStrategyIterator{contract: _SuperVaultAggregator.contract, event: "UnknownStrategy", logs: logs, sub: sub}, nil
+}
+
+// WatchUnknownStrategy is a free log subscription operation binding the contract event 0xde5abf6fb8e50b9c44ca7d6b0b47660db6158640044348124a98dbb8c94d6524.
+//
+// Solidity: event UnknownStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUnknownStrategy(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUnknownStrategy, strategy []common.Address) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UnknownStrategy", strategyRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorUnknownStrategy)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "UnknownStrategy", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUnknownStrategy is a log parse operation binding the contract event 0xde5abf6fb8e50b9c44ca7d6b0b47660db6158640044348124a98dbb8c94d6524.
+//
+// Solidity: event UnknownStrategy(address indexed strategy)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUnknownStrategy(log types.Log) (*SuperVaultAggregatorUnknownStrategy, error) {
+	event := new(SuperVaultAggregatorUnknownStrategy)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UnknownStrategy", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorUpdateTooFrequentIterator is returned from FilterUpdateTooFrequent and is used to iterate over the raw logs and unpacked data for UpdateTooFrequent events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUpdateTooFrequentIterator struct {
+	Event *SuperVaultAggregatorUpdateTooFrequent // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorUpdateTooFrequentIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorUpdateTooFrequent)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorUpdateTooFrequent)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorUpdateTooFrequentIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorUpdateTooFrequentIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorUpdateTooFrequent represents a UpdateTooFrequent event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUpdateTooFrequent struct {
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterUpdateTooFrequent is a free log retrieval operation binding the contract event 0x53f7a6ee85aab0f20869755601a6424676aa3807e9ef249627fa11a39e9a0e0c.
+//
+// Solidity: event UpdateTooFrequent()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpdateTooFrequent(opts *bind.FilterOpts) (*SuperVaultAggregatorUpdateTooFrequentIterator, error) {
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpdateTooFrequent")
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorUpdateTooFrequentIterator{contract: _SuperVaultAggregator.contract, event: "UpdateTooFrequent", logs: logs, sub: sub}, nil
+}
+
+// WatchUpdateTooFrequent is a free log subscription operation binding the contract event 0x53f7a6ee85aab0f20869755601a6424676aa3807e9ef249627fa11a39e9a0e0c.
+//
+// Solidity: event UpdateTooFrequent()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpdateTooFrequent(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpdateTooFrequent) (event.Subscription, error) {
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpdateTooFrequent")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorUpdateTooFrequent)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpdateTooFrequent", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUpdateTooFrequent is a log parse operation binding the contract event 0x53f7a6ee85aab0f20869755601a6424676aa3807e9ef249627fa11a39e9a0e0c.
+//
+// Solidity: event UpdateTooFrequent()
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpdateTooFrequent(log types.Log) (*SuperVaultAggregatorUpdateTooFrequent, error) {
+	event := new(SuperVaultAggregatorUpdateTooFrequent)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpdateTooFrequent", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorUpkeepClaimedIterator is returned from FilterUpkeepClaimed and is used to iterate over the raw logs and unpacked data for UpkeepClaimed events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUpkeepClaimedIterator struct {
+	Event *SuperVaultAggregatorUpkeepClaimed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorUpkeepClaimedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorUpkeepClaimed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorUpkeepClaimed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorUpkeepClaimedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorUpkeepClaimedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorUpkeepClaimed represents a UpkeepClaimed event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorUpkeepClaimed struct {
+	SuperBank common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterUpkeepClaimed is a free log retrieval operation binding the contract event 0x43214536812d90daa91186dfb744049f5e3c6f3379765892f0f41b204a87e0ee.
+//
+// Solidity: event UpkeepClaimed(address indexed superBank, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepClaimed(opts *bind.FilterOpts, superBank []common.Address) (*SuperVaultAggregatorUpkeepClaimedIterator, error) {
+
+	var superBankRule []interface{}
+	for _, superBankItem := range superBank {
+		superBankRule = append(superBankRule, superBankItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepClaimed", superBankRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorUpkeepClaimedIterator{contract: _SuperVaultAggregator.contract, event: "UpkeepClaimed", logs: logs, sub: sub}, nil
+}
+
+// WatchUpkeepClaimed is a free log subscription operation binding the contract event 0x43214536812d90daa91186dfb744049f5e3c6f3379765892f0f41b204a87e0ee.
+//
+// Solidity: event UpkeepClaimed(address indexed superBank, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepClaimed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepClaimed, superBank []common.Address) (event.Subscription, error) {
+
+	var superBankRule []interface{}
+	for _, superBankItem := range superBank {
+		superBankRule = append(superBankRule, superBankItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepClaimed", superBankRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorUpkeepClaimed)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepClaimed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUpkeepClaimed is a log parse operation binding the contract event 0x43214536812d90daa91186dfb744049f5e3c6f3379765892f0f41b204a87e0ee.
+//
+// Solidity: event UpkeepClaimed(address indexed superBank, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepClaimed(log types.Log) (*SuperVaultAggregatorUpkeepClaimed, error) {
+	event := new(SuperVaultAggregatorUpkeepClaimed)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepClaimed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -5343,22 +8186,22 @@ func (it *SuperVaultAggregatorUpkeepDepositedIterator) Close() error {
 
 // SuperVaultAggregatorUpkeepDeposited represents a UpkeepDeposited event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorUpkeepDeposited struct {
-	Strategist common.Address
-	Amount     *big.Int
-	Raw        types.Log // Blockchain specific contextual infos
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
 }
 
 // FilterUpkeepDeposited is a free log retrieval operation binding the contract event 0xf0616af70d35af23c32610a6397a036a898c088ade99b972a26dc56e54798865.
 //
-// Solidity: event UpkeepDeposited(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepDeposited(opts *bind.FilterOpts, strategist []common.Address) (*SuperVaultAggregatorUpkeepDepositedIterator, error) {
+// Solidity: event UpkeepDeposited(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepDeposited(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorUpkeepDepositedIterator, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepDeposited", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepDeposited", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5367,15 +8210,15 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepDeposited
 
 // WatchUpkeepDeposited is a free log subscription operation binding the contract event 0xf0616af70d35af23c32610a6397a036a898c088ade99b972a26dc56e54798865.
 //
-// Solidity: event UpkeepDeposited(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepDeposited(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepDeposited, strategist []common.Address) (event.Subscription, error) {
+// Solidity: event UpkeepDeposited(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepDeposited(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepDeposited, manager []common.Address) (event.Subscription, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepDeposited", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepDeposited", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5409,7 +8252,7 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepDeposited(
 
 // ParseUpkeepDeposited is a log parse operation binding the contract event 0xf0616af70d35af23c32610a6397a036a898c088ade99b972a26dc56e54798865.
 //
-// Solidity: event UpkeepDeposited(address indexed strategist, uint256 amount)
+// Solidity: event UpkeepDeposited(address indexed manager, uint256 amount)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepDeposited(log types.Log) (*SuperVaultAggregatorUpkeepDeposited, error) {
 	event := new(SuperVaultAggregatorUpkeepDeposited)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepDeposited", log); err != nil {
@@ -5488,39 +8331,41 @@ func (it *SuperVaultAggregatorUpkeepSpentIterator) Close() error {
 
 // SuperVaultAggregatorUpkeepSpent represents a UpkeepSpent event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorUpkeepSpent struct {
-	Strategist common.Address
-	Amount     *big.Int
-	Raw        types.Log // Blockchain specific contextual infos
+	Manager         common.Address
+	Amount          *big.Int
+	Balance         *big.Int
+	ClaimableUpkeep *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterUpkeepSpent is a free log retrieval operation binding the contract event 0x15c92f373007d64c3ac31aa659df53e4a3340021ce36bdc35691470b05c6aa21.
+// FilterUpkeepSpent is a free log retrieval operation binding the contract event 0x70485ec1c1ebd5a2176ff9969ef90917bbeca387cb89fee9a5fac5840d7253d9.
 //
-// Solidity: event UpkeepSpent(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepSpent(opts *bind.FilterOpts, strategist []common.Address) (*SuperVaultAggregatorUpkeepSpentIterator, error) {
+// Solidity: event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepSpent(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorUpkeepSpentIterator, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepSpent", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepSpent", managerRule)
 	if err != nil {
 		return nil, err
 	}
 	return &SuperVaultAggregatorUpkeepSpentIterator{contract: _SuperVaultAggregator.contract, event: "UpkeepSpent", logs: logs, sub: sub}, nil
 }
 
-// WatchUpkeepSpent is a free log subscription operation binding the contract event 0x15c92f373007d64c3ac31aa659df53e4a3340021ce36bdc35691470b05c6aa21.
+// WatchUpkeepSpent is a free log subscription operation binding the contract event 0x70485ec1c1ebd5a2176ff9969ef90917bbeca387cb89fee9a5fac5840d7253d9.
 //
-// Solidity: event UpkeepSpent(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepSpent(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepSpent, strategist []common.Address) (event.Subscription, error) {
+// Solidity: event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepSpent(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepSpent, manager []common.Address) (event.Subscription, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepSpent", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepSpent", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5552,9 +8397,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepSpent(opts
 	}), nil
 }
 
-// ParseUpkeepSpent is a log parse operation binding the contract event 0x15c92f373007d64c3ac31aa659df53e4a3340021ce36bdc35691470b05c6aa21.
+// ParseUpkeepSpent is a log parse operation binding the contract event 0x70485ec1c1ebd5a2176ff9969ef90917bbeca387cb89fee9a5fac5840d7253d9.
 //
-// Solidity: event UpkeepSpent(address indexed strategist, uint256 amount)
+// Solidity: event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepSpent(log types.Log) (*SuperVaultAggregatorUpkeepSpent, error) {
 	event := new(SuperVaultAggregatorUpkeepSpent)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepSpent", log); err != nil {
@@ -5633,22 +8478,22 @@ func (it *SuperVaultAggregatorUpkeepWithdrawnIterator) Close() error {
 
 // SuperVaultAggregatorUpkeepWithdrawn represents a UpkeepWithdrawn event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorUpkeepWithdrawn struct {
-	Strategist common.Address
-	Amount     *big.Int
-	Raw        types.Log // Blockchain specific contextual infos
+	Manager common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
 }
 
 // FilterUpkeepWithdrawn is a free log retrieval operation binding the contract event 0x4a588cb81e6e407560dfbf48e566f684e0b6b791bd8ced912e4f9c58aa99e3d2.
 //
-// Solidity: event UpkeepWithdrawn(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawn(opts *bind.FilterOpts, strategist []common.Address) (*SuperVaultAggregatorUpkeepWithdrawnIterator, error) {
+// Solidity: event UpkeepWithdrawn(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawn(opts *bind.FilterOpts, manager []common.Address) (*SuperVaultAggregatorUpkeepWithdrawnIterator, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepWithdrawn", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepWithdrawn", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5657,15 +8502,15 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawn
 
 // WatchUpkeepWithdrawn is a free log subscription operation binding the contract event 0x4a588cb81e6e407560dfbf48e566f684e0b6b791bd8ced912e4f9c58aa99e3d2.
 //
-// Solidity: event UpkeepWithdrawn(address indexed strategist, uint256 amount)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawn(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepWithdrawn, strategist []common.Address) (event.Subscription, error) {
+// Solidity: event UpkeepWithdrawn(address indexed manager, uint256 amount)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawn(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepWithdrawn, manager []common.Address) (event.Subscription, error) {
 
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepWithdrawn", strategistRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepWithdrawn", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5699,7 +8544,7 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawn(
 
 // ParseUpkeepWithdrawn is a log parse operation binding the contract event 0x4a588cb81e6e407560dfbf48e566f684e0b6b791bd8ced912e4f9c58aa99e3d2.
 //
-// Solidity: event UpkeepWithdrawn(address indexed strategist, uint256 amount)
+// Solidity: event UpkeepWithdrawn(address indexed manager, uint256 amount)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepWithdrawn(log types.Log) (*SuperVaultAggregatorUpkeepWithdrawn, error) {
 	event := new(SuperVaultAggregatorUpkeepWithdrawn)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepWithdrawn", log); err != nil {

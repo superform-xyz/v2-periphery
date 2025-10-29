@@ -25,8 +25,6 @@ interface IECDSAPPSOracle {
     error STRATEGY_MISMATCH();
     /// @notice Thrown when the pps value in the proof does not match
     error PPS_MISMATCH();
-    /// @notice Thrown when the oracle is not set as the active PPS Oracle in SuperGovernor
-    error NOT_ACTIVE_PPS_ORACLE();
     /// @notice Thrown when the dispersion (standard deviation / mean) is too high
     error HIGH_PPS_DISPERSION();
     /// @notice Thrown when the deviation from previous PPS is too high
@@ -35,10 +33,14 @@ interface IECDSAPPSOracle {
     error INSUFFICIENT_VALIDATOR_PARTICIPATION();
     /// @notice Thrown when the reported validator count doesn't match the actual number of valid signatures
     error VALIDATOR_COUNT_MISMATCH();
-    /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures  
+    /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures
     error INVALID_VALIDATOR_SET();
     /// @notice Thrown when the totalValidators doesn't match the actual total number of validators
     error INVALID_TOTAL_VALIDATORS();
+    /// @notice Thrown when the gas provided is insufficient for external calls
+    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+    /// @notice Thrown when the number of strategies exceeds the maximum allowed
+    error MAX_STRATEGIES_EXCEEDED();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -47,18 +49,10 @@ interface IECDSAPPSOracle {
     /// @param strategy Address of the strategy
     /// @param pps The validated price-per-share value
     /// @param ppsStdev The standard deviation of the price-per-share
-    /// @param validatorSet Number of validators who calculated the PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     /// @param sender Address that submitted the update
     event PPSValidated(
-        address indexed strategy,
-        uint256 pps,
-        uint256 ppsStdev,
-        uint256 validatorSet,
-        uint256 totalValidators,
-        uint256 timestamp,
-        address indexed sender
+        address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender
     );
 
     /// @notice Emitted when proof validation failed
@@ -79,6 +73,11 @@ interface IECDSAPPSOracle {
     /// @param lowLevelData Revert encoded data
     event BatchForwardPPSFailedLowLevel(bytes lowLevelData);
 
+    /// @notice Emitted when batch forward PPS failed due to insufficient gas
+    /// @param gasLeft Gas left
+    /// @param requiredGas Required gas
+    event InsufficientGasForForward(uint256 gasLeft, uint256 requiredGas);
+
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -87,16 +86,12 @@ interface IECDSAPPSOracle {
     /// @param proofs Array of cryptographic proofs
     /// @param pps Price-per-share value (mean)
     /// @param ppsStdev Standard deviation of the price-per-share
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     struct ValidationParams {
         address strategy;
         bytes[] proofs;
         uint256 pps;
         uint256 ppsStdev;
-        uint256 validatorSet;
-        uint256 totalValidators;
         uint256 timestamp;
     }
 
@@ -105,17 +100,22 @@ interface IECDSAPPSOracle {
     /// @param proofsArray Array of arrays of cryptographic proofs (one array of proofs per strategy)
     /// @param ppss Array of price-per-share values (means)
     /// @param ppsStdevs Array of standard deviations of price-per-share values
-    /// @param validatorSets Array of numbers of validators who calculated each PPS
-    /// @param totalValidators Array of total number of validators in the network for each update
     /// @param timestamps The time and therefore the blockchain(s) state(s) (plural important) this PPS refers to
     struct UpdatePPSArgs {
         address[] strategies;
         bytes[][] proofsArray;
         uint256[] ppss;
         uint256[] ppsStdevs;
-        uint256[] validatorSets;
-        uint256[] totalValidators;
         uint256[] timestamps;
+    }
+
+    /// @notice Struct to avoid stack too deep errors in batch processing
+    struct ValidatedBatchData {
+        address[] strategies;
+        uint256[] ppss;
+        uint256[] ppsStdevs;
+        uint256[] timestamps;
+        uint256[] validatorSets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -136,8 +136,17 @@ interface IECDSAPPSOracle {
 
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @param params Validation parameters
-    /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function validateProofs(IECDSAPPSOracle.ValidationParams memory params) external view;
+
+    /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @param params Validation parameters
+    /// @param requiredQuorum Required quorum for validation
+    function validateProofs(
+        IECDSAPPSOracle.ValidationParams memory params,
+        uint256 requiredQuorum
+    )
+        external
+        view;
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS

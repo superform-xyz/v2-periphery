@@ -99,13 +99,13 @@ contract VaultBankFromExecutor is
         deposit4626Hook = address(new Deposit4626VaultHook());
         mintSuperPositionsHook = address(new MintSuperPositionsHook());
 
-        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this));
+        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this), address(this));
         superGovernor.addExecutor(address(superExecutor));
         vaultBank = new VaultBank(address(superGovernor));
         superGovernor.addVaultBank(uint64(block.chainid), address(vaultBank));
-        superGovernor.registerHook(address(approveHook), false);
-        superGovernor.registerHook(address(deposit4626Hook), false);
-        superGovernor.registerHook(address(mintSuperPositionsHook), false);
+        superGovernor.registerHook(address(approveHook));
+        superGovernor.registerHook(address(deposit4626Hook));
+        superGovernor.registerHook(address(mintSuperPositionsHook));
     }
 
     function test_ShouldExecuteAll_AndLockAssetsInVaultBank_Test2HookChaining(uint256 amount) external {
