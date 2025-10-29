@@ -7809,11 +7809,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         testStrategy.fulfillRedeemRequests(controllers);
         console2.log("fulfillRedeemRequests() reverts with STRATEGY_PAUSED");
 
-        // Test fulfillCancelRedeemRequests reverts (requires manager)
+        // Test fulfillCancelRedeemRequests works (no validation check)
         vm.prank(MANAGER);
-        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         testStrategy.fulfillCancelRedeemRequests(controllers);
-        console2.log("fulfillCancelRedeemRequests() reverts with STRATEGY_PAUSED");
+        console2.log("fulfillCancelRedeemRequests() works (no validation check)");
 
         // Verify maxDeposit and maxMint return 0 when paused
         assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when paused");
@@ -7865,11 +7864,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         testStrategy.fulfillRedeemRequests(controllers);
         console2.log("fulfillRedeemRequests() reverts with STALE_PPS");
 
-        // Test fulfillCancelRedeemRequests reverts with STALE_PPS (requires manager)
+        // Test fulfillCancelRedeemRequests works (no validation check)
         vm.prank(MANAGER);
-        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
         testStrategy.fulfillCancelRedeemRequests(controllers);
-        console2.log("fulfillCancelRedeemRequests() reverts with STALE_PPS");
+        console2.log("fulfillCancelRedeemRequests() works (no validation check)");
 
         // Verify maxDeposit and maxMint return 0 when PPS is stale
         assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when PPS is stale");
@@ -7964,10 +7962,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Warped to:", block.timestamp);
         console2.log("Time since last update:", block.timestamp - lastUpdateTime);
 
-        // ===== Test deposit/mint operations revert with PPS_EXPIRED =====
-        // Note: Only deposit and mint check PPS expiration. Redeem operations (which use existing shares)
-        // only check for pause and stale PPS, but not expiration.
-        console2.log("\n=== Testing PPS_EXPIRED Reverts (deposit/mint only) ===");
+        // ===== Test operations revert with PPS_EXPIRED =====
+        // Note: All operations except ClaimRedeem check PPS expiration and should revert when PPS is expired.
+        console2.log("\n=== Testing PPS_EXPIRED Reverts (all operations except ClaimRedeem) ===");
 
         // Get fresh tokens for testing operations
         _getTokens(address(asset), accountEth, 10000e6);
@@ -7993,13 +7990,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint returns max (doesn't check expiration)");
         console2.log("maxDeposit() and maxMint() return max (don't check PPS expiration)");
         
-        // Verify requestRedeem still works (redeem operations don't check PPS expiration)
+        // Test requestRedeem reverts with PPS_EXPIRED
         uint256 userShares = testVault.balanceOf(accountEth);
         vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
         testVault.requestRedeem(userShares / 2, accountEth, accountEth);
         vm.stopPrank();
-        assertGt(testStrategy.pendingRedeemRequest(accountEth), 0, "requestRedeem should work (doesn't check expiration)");
-        console2.log("requestRedeem() still works (doesn't check PPS expiration)");
+        console2.log("requestRedeem() reverts with PPS_EXPIRED");
 
         // ===== Verify functionality is restored after PPS update =====
         console2.log("\n=== Testing Functionality Restored After PPS Update ===");
@@ -8710,6 +8707,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Simulate time passing and yield generation
         vm.warp(block.timestamp + 1 days);
+        // Update PPS after time warp to prevent expiration
+        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Active trader performs multiple deposit-redeem-claim cycles
         for (uint256 i = 0; i < 3; i++) {
@@ -8761,6 +8760,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Simulate longer time period (30 days)
         vm.warp(block.timestamp + 30 days);
+        // Update PPS to prevent expiration after long time warp
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /// @notice Execute final redemptions phase

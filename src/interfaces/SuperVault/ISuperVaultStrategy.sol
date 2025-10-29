@@ -43,7 +43,7 @@ interface ISuperVaultStrategy {
     error ZERO_REQUEST_PPS();
     error STALE_PPS();
     error PPS_EXPIRED();
-    error INVALID_PPS_STALENESS_THRESHOLD();
+    error INVALID_PPS_EXPIRY_THRESHOLD();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -92,8 +92,8 @@ interface ISuperVaultStrategy {
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
-    event PPSStalenessThresholdUpdated(uint256 ppsExpiration);
-    event PPSStalenessThresholdProposalCanceled();
+    event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
+    event PPSExpiryThresholdProposalCanceled();
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -285,9 +285,9 @@ interface ISuperVaultStrategy {
     /// @notice Execute the proposed vault fee configuration update after timelock
     function executeVaultFeeConfigUpdate() external;
 
-    /// @notice Manage PPS staleness threshold
+    /// @notice Manage PPS expiry threshold
     /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
-    /// @param ppsExpiration The new PPS staleness threshold
+    /// @param ppsExpiration The new PPS expiry threshold
     function managePPSExpiration(uint8 action, uint256 ppsExpiration) external;
 
     /*//////////////////////////////////////////////////////////////

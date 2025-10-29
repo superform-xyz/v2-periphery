@@ -340,6 +340,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Pause the strategy
         _strategyData[strategy].isPaused = true;
+        _strategyData[strategy].ppsStale = true;
         emit StrategyPaused(strategy);
     }
 
@@ -362,8 +363,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].ppsStale = true;
         emit StrategyUnpaused(strategy);
     }
-
-
 
     /*//////////////////////////////////////////////////////////////
                         STAKE MANAGEMENT
@@ -1024,9 +1023,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (_validateSingleHook(
+            if (
+                _validateSingleHook(
                     argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
-                )) {
+                )
+            ) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root
