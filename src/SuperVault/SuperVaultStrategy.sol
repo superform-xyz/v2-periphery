@@ -52,8 +52,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
     uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
-    uint256 private constant MIN_PPS_STALENESS_THRESHOLD = 1 minutes;
-    uint256 private constant MAX_PPS_STALENESS_THRESHOLD = 1 weeks;
+    uint256 private constant MIN_PPS_EXPIRATION_THRESHOLD = 1 minutes;
+    uint256 private constant MAX_PPS_EXPIRATION_THRESHOLD = 1 weeks;
 
     uint256 public PRECISION;
 
@@ -74,9 +74,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // Core contracts
     ISuperGovernor public immutable superGovernor;
 
-    // PPS staleness threshold
-    uint256 public proposedPPSStalenessThreshold;
-    uint256 public ppsStalenessThresholdEffectiveTime;
+    // PPS expiry threshold
+    uint256 public proposedPPSExpiryThreshold;
+    uint256 public ppsExpiryThresholdEffectiveTime;
     uint256 public ppsExpiration;
 
     // Yield source configuration - simplified mapping from source to oracle
@@ -142,16 +142,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (assetsGross == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
 
-        // Check if strategy is paused or pps is stale
-        if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_isPPSStale()) revert STALE_PPS();
-
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+
         if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _verifyPPSUpdated(aggregator);
+        _validateStrategyState(aggregator);
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -195,16 +192,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (sharesNet == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
 
-        // Check if strategy is paused or PPS is stale
-        if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_isPPSStale()) revert STALE_PPS();
-
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+
         if (aggregator.isGlobalHooksRootVetoed()) {
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _verifyPPSUpdated(aggregator);
+        _validateStrategyState(aggregator);
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
@@ -242,18 +236,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @inheritdoc ISuperVaultStrategy
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
-
-        // claim should be allowed even if paused
-        if (operation != Operation.ClaimRedeem) {
-            if (_isPaused()) revert STRATEGY_PAUSED();
-            if (_isPPSStale()) revert STALE_PPS();
-        }
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
 
         if (operation == Operation.RedeemRequest) {
+            _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
-        } else if (operation == Operation.CancelRedeem) {
-            _handleCancelRedeem(controller);
+        } else if (operation == Operation.ClaimCancelRedeem) {
+            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
+            _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
+            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);
@@ -295,10 +287,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function fulfillCancelRedeemRequests(address[] memory controllers) external nonReentrant {
         _isManager(msg.sender);
 
-        // Check if strategy is paused or PPS is stale
-        if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_isPPSStale()) revert STALE_PPS();
-
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
 
@@ -326,19 +314,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         nonReentrant
     {
         _isManager(msg.sender);
-        if (_isPaused()) revert STRATEGY_PAUSED();
-        if (_isPPSStale()) revert STALE_PPS();
+
+        _validateStrategyState(_getSuperVaultAggregator());
 
         uint256 len = controllers.length;
         if (len == 0 || netAssetsOut.length != len) revert INVALID_ARRAY_LENGTH();
 
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
-        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
-        _verifyPPSUpdated(aggregator);
-
-        uint256 lastPPSUpdate = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdate > ppsExpiration) revert STALE_PPS();
 
         // Validate controllers are sorted and unique
         for (uint256 i = 1; i < len; ++i) {
@@ -424,13 +407,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function managePPSStalenessThreshold(uint8 action, uint256 staleness_) external {
+    function managePPSExpiration(uint8 action, uint256 staleness_) external {
         if (action == 1) {
-            _proposePPSStalenessThreshold(staleness_);
+            _proposePPSExpiration(staleness_);
         } else if (action == 2) {
-            _updatePPSStalenessThreshold();
+            _updatePPSExpiration();
         } else if (action == 3) {
-            _cancelPPSStalenessThresholdProposalUpdate();
+            _cancelPPSExpirationProposalUpdate();
         } else {
             revert ACTION_TYPE_DISALLOWED();
         }
@@ -480,10 +463,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         emit RedeemSlippageSet(msg.sender, slippageBps);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                        PPS MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
@@ -869,49 +848,49 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit YieldSourceRemoved(source);
     }
 
-    /// @notice Internal function to propose a PPS staleness threshold
-    /// @param _threshold The new PPS staleness threshold
-    function _proposePPSStalenessThreshold(uint256 _threshold) internal {
+    /// @notice Internal function to propose a PPS expiry threshold
+    /// @param _threshold The new PPS expiry threshold
+    function _proposePPSExpiration(uint256 _threshold) internal {
         _isPrimaryManager(msg.sender);
 
-        if (_threshold < MIN_PPS_STALENESS_THRESHOLD || _threshold > MAX_PPS_STALENESS_THRESHOLD) {
-            revert INVALID_PPS_STALENESS_THRESHOLD();
+        if (_threshold < MIN_PPS_EXPIRATION_THRESHOLD || _threshold > MAX_PPS_EXPIRATION_THRESHOLD) {
+            revert INVALID_PPS_EXPIRY_THRESHOLD();
         }
 
-        uint256 currentProposedThreshold = proposedPPSStalenessThreshold;
-        proposedPPSStalenessThreshold = _threshold;
-        ppsStalenessThresholdEffectiveTime = block.timestamp + 1 weeks;
+        uint256 currentProposedThreshold = proposedPPSExpiryThreshold;
+        proposedPPSExpiryThreshold = _threshold;
+        ppsExpiryThresholdEffectiveTime = block.timestamp + 1 weeks;
 
-        emit PPSStalenessThresholdProposed(currentProposedThreshold, _threshold, ppsStalenessThresholdEffectiveTime);
+        emit PPSExpirationProposed(currentProposedThreshold, _threshold, ppsExpiryThresholdEffectiveTime);
     }
 
-    /// @notice Internal function to perform a PPS staleness threshold
-    function _updatePPSStalenessThreshold() internal {
+    /// @notice Internal function to perform a PPS expiry threshold
+    function _updatePPSExpiration() internal {
         _isPrimaryManager(msg.sender);
 
         // Must have a valid proposal
-        if (block.timestamp < ppsStalenessThresholdEffectiveTime) revert INVALID_TIMESTAMP();
+        if (block.timestamp < ppsExpiryThresholdEffectiveTime) revert INVALID_TIMESTAMP();
 
-        if (proposedPPSStalenessThreshold == 0) revert INVALID_PPS_STALENESS_THRESHOLD();
+        if (proposedPPSExpiryThreshold == 0) revert INVALID_PPS_EXPIRY_THRESHOLD();
 
-        uint256 _proposed = proposedPPSStalenessThreshold;
+        uint256 _proposed = proposedPPSExpiryThreshold;
         ppsExpiration = _proposed;
-        ppsStalenessThresholdEffectiveTime = 0;
-        proposedPPSStalenessThreshold = 0;
+        ppsExpiryThresholdEffectiveTime = 0;
+        proposedPPSExpiryThreshold = 0;
 
-        emit PPSStalenessThresholdUpdated(_proposed);
+        emit PPSExpiryThresholdUpdated(_proposed);
     }
 
-    /// @notice Internal function to cancel a PPS staleness threshold proposal
-    function _cancelPPSStalenessThresholdProposalUpdate() internal {
+    /// @notice Internal function to cancel a PPS expiry threshold proposal
+    function _cancelPPSExpirationProposalUpdate() internal {
         _isPrimaryManager(msg.sender);
 
-        if (ppsStalenessThresholdEffectiveTime == 0) revert NO_PROPOSAL();
+        if (ppsExpiryThresholdEffectiveTime == 0) revert NO_PROPOSAL();
 
-        proposedPPSStalenessThreshold = 0;
-        ppsStalenessThresholdEffectiveTime = 0;
+        proposedPPSExpiryThreshold = 0;
+        ppsExpiryThresholdEffectiveTime = 0;
 
-        emit PPSStalenessThresholdProposalCanceled();
+        emit PPSExpiryThresholdProposalCanceled();
     }
 
     /// @notice Internal function to check if a hook is registered
@@ -1017,7 +996,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @notice Internal function to handle a claim redeem cancellation
     /// @param controller Address of the controller
-    function _handleCancelRedeem(address controller) private {
+    function _handleClaimCancelRedeem(address controller) private {
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
         uint256 pendingShares = state.claimableCancelRedeemRequest;
@@ -1070,15 +1049,41 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Checks if the strategy is currently paused
     /// @dev This calls SuperVaultAggregator.isStrategyPaused to determine pause status
     /// @return True if the strategy is paused, false otherwise
-    function _isPaused() internal view returns (bool) {
-        return _getSuperVaultAggregator().isStrategyPaused(address(this));
+    function _isPaused(ISuperVaultAggregator aggregator) internal view returns (bool) {
+        return aggregator.isStrategyPaused(address(this));
     }
 
     /// @notice Checks if the PPS is stale
     /// @dev This calls SuperVaultAggregator.isPPSStale to determine stale status
     /// @return True if the PPS is stale, false otherwise
-    function _isPPSStale() internal view returns (bool) {
-        return _getSuperVaultAggregator().isPPSStale(address(this));
+    function _isPPSStale(ISuperVaultAggregator aggregator) internal view returns (bool) {
+        return aggregator.isPPSStale(address(this));
+    }
+
+    /// @notice Checks if the PPS is not updated
+    /// @dev This checks if the PPS has not been updated since the `ppsExpiration` time
+    /// @param aggregator The SuperVaultAggregator contract
+    /// @return True if the PPS is not updated, false otherwise
+    function _isPPSNotUpdated(ISuperVaultAggregator aggregator) internal view returns (bool) {
+        // The `ppsExpiration` serves a different purpose:
+        //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the
+        // quorum is never reached)
+        //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the
+        // `ppsExpiration` logic controls
+        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
+        return block.timestamp - lastPPSUpdateTimestamp > ppsExpiration;
+    }
+
+    /// @notice Validates full pps state by checking pause, stale, and PPS update status
+    /// @dev Used for operations that require current PPS for calculations:
+    ///      - handleOperations4626Deposit: Needs PPS to calculate shares from assets
+    ///      - handleOperations4626Mint: Needs PPS to validate asset requirements
+    ///      - fulfillRedeemRequests: Needs current PPS to calculate assets from shares
+    /// @param aggregator The SuperVaultAggregator contract
+    function _validateStrategyState(ISuperVaultAggregator aggregator) internal view {
+        if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
+        if (_isPPSStale(aggregator)) revert STALE_PPS();
+        if (_isPPSNotUpdated(aggregator)) revert PPS_EXPIRED();
     }
 
     /// @notice Validates a hook using the Merkle root system
@@ -1108,15 +1113,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         );
     }
 
-    function _verifyPPSUpdated(ISuperVaultAggregator aggregator) internal view {
-        // The ppsValidity serves a different purpose:
-        //       if the oracle network stops pushing updates for some reasons (e.g. quite some nodes go down and the
-        // quorum is never reached)
-        //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the
-        // `ppsExpiration` logic controls
-        uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-        if (block.timestamp - lastPPSUpdateTimestamp > ppsExpiration) revert PPS_EXPIRED();
-    }
 
     /*//////////////////////////////////////////////////////////////
                         BATCH PREVIEW FUNCTIONS

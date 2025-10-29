@@ -43,7 +43,7 @@ interface ISuperVaultStrategy {
     error ZERO_REQUEST_PPS();
     error STALE_PPS();
     error PPS_EXPIRED();
-    error INVALID_PPS_STALENESS_THRESHOLD();
+    error INVALID_PPS_EXPIRY_THRESHOLD();
     error BOUNDS_EXCEEDED();
     error INSUFFICIENT_LIQUIDITY();
     error CONTROLLERS_NOT_SORTED_UNIQUE();
@@ -94,9 +94,9 @@ interface ISuperVaultStrategy {
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
-    event PPSStalenessThresholdProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
-    event PPSStalenessThresholdUpdated(uint256 ppsExpiration);
-    event PPSStalenessThresholdProposalCanceled();
+    event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
+    event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
+    event PPSExpiryThresholdProposalCanceled();
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -189,10 +189,8 @@ interface ISuperVaultStrategy {
     enum Operation {
         RedeemRequest,
         CancelRedeemRequest,
-        CancelRedeem,
-        ClaimRedeem,
-        Claim,
-        UpdateDepositAccumulators
+        ClaimCancelRedeem,
+        ClaimRedeem
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -254,10 +252,7 @@ interface ISuperVaultStrategy {
     /// @dev Social: netAssetsOut[i] = theoreticalNet[i] (full). Selective: netAssetsOut[i] < theo.
     /// @param controllers Ordered/unique controllers with pending requests.
     /// @param netAssetsOut Exact POST-FEE assets to assign each controller[i].
-    function fulfillRedeemRequests(
-        address[] calldata controllers,
-        uint256[] calldata netAssetsOut
-    ) external payable;
+    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata netAssetsOut) external payable;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
@@ -294,10 +289,10 @@ interface ISuperVaultStrategy {
     /// @notice Execute the proposed vault fee configuration update after timelock
     function executeVaultFeeConfigUpdate() external;
 
-    /// @notice Manage PPS staleness threshold
+    /// @notice Manage PPS expiry threshold
     /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
-    /// @param ppsExpiration The new PPS staleness threshold
-    function managePPSStalenessThreshold(uint8 action, uint256 ppsExpiration) external;
+    /// @param ppsExpiration The new PPS expiry threshold
+    function managePPSExpiration(uint8 action, uint256 ppsExpiration) external;
 
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
@@ -399,20 +394,18 @@ interface ISuperVaultStrategy {
     /// @return totalFee Total performance fee amount
     /// @return theoNet Theoretical net assets (theoGross - totalFee)
     /// @return minNet Minimum acceptable net assets (slippage floor)
-    function previewExactRedeem(address controller) external view returns (
-        uint256 shares,
-        uint256 theoGross,
-        uint256 totalFee,
-        uint256 theoNet,
-        uint256 minNet
-    );
+    function previewExactRedeem(address controller)
+        external
+        view
+        returns (uint256 shares, uint256 theoGross, uint256 totalFee, uint256 theoNet, uint256 minNet);
 
     /// @notice Batch preview exact redeem fulfillment for multiple controllers
     /// @dev Efficiently batches multiple previewExactRedeem calls to reduce RPC overhead
     /// @param controllers Array of controller addresses to preview
     /// @return totalTheoNet Total theoretical net assets across all controllers
     /// @return individualNetAssets Array of theoretical net assets per controller
-    function previewExactRedeemBatch(
-        address[] calldata controllers
-    ) external view returns (uint256 totalTheoNet, uint256[] memory individualNetAssets);
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets);
 }

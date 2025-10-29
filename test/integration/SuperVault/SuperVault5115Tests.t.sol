@@ -93,13 +93,13 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
-        strategy5115SuperVault.managePPSStalenessThreshold(1, 86_400); // 1 day
-        strategy.managePPSStalenessThreshold(1, 86_400); // 1 day
+        strategy5115SuperVault.managePPSExpiration(1, 86_400); // 1 day
+        strategy.managePPSExpiration(1, 86_400); // 1 day
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy5115SuperVault.managePPSStalenessThreshold(2, 0);
-        strategy.managePPSStalenessThreshold(2, 0);
+        strategy5115SuperVault.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(2, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
