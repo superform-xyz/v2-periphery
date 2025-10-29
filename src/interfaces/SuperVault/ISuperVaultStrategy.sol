@@ -44,7 +44,7 @@ interface ISuperVaultStrategy {
     error STALE_PPS();
     error PPS_EXPIRED();
     error INVALID_PPS_EXPIRY_THRESHOLD();
-    error BOUNDS_EXCEEDED();
+    error BOUNDS_EXCEEDED(uint256 minAllowed, uint256 maxAllowed, uint256 actual);
     error INSUFFICIENT_LIQUIDITY();
     error CONTROLLERS_NOT_SORTED_UNIQUE();
 
@@ -247,12 +247,13 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing hooks, calldata, proofs, expectations.
     function executeHooks(ExecuteArgs calldata args) external payable;
 
-    /// @notice Fulfills pending redeem requests with exact net assets per controller (post-fee).
-    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(netAssetsOut)) first.
-    /// @dev Social: netAssetsOut[i] = theoreticalNet[i] (full). Selective: netAssetsOut[i] < theo.
+    /// @notice Fulfills pending redeem requests with exact total assets per controller (pre-fee).
+    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(totalAssetsOut)) first.
+    /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theo.
+    /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee deduction.
     /// @param controllers Ordered/unique controllers with pending requests.
-    /// @param netAssetsOut Exact POST-FEE assets to assign each controller[i].
-    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata netAssetsOut) external payable;
+    /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
+    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT

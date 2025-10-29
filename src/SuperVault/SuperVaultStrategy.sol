@@ -302,12 +302,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    /// @dev Replaces old fulfillRedeemRequests: Exact net assets per controller (post-fee).
-    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(netAssetsOut)) first.
-    /// @dev Social: netAssetsOut[i] = theoreticalNet[i] (full). Selective: netAssetsOut[i] < theo.
     function fulfillRedeemRequests(
         address[] calldata controllers,
-        uint256[] calldata netAssetsOut
+        uint256[] calldata totalAssetsOut
     )
         external
         payable
@@ -318,7 +315,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _validateStrategyState(_getSuperVaultAggregator());
 
         uint256 len = controllers.length;
-        if (len == 0 || netAssetsOut.length != len) revert INVALID_ARRAY_LENGTH();
+        if (len == 0 || totalAssetsOut.length != len) revert INVALID_ARRAY_LENGTH();
 
         uint256 currentPPS = getStoredPPS();
         if (currentPPS == 0) revert INVALID_PPS();
@@ -336,7 +333,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 processedShares;
         for (uint256 i; i < len; ++i) {
-            processedShares += _processExactFulfillment(controllers[i], netAssetsOut[i], currentPPS);
+            processedShares += _processExactFulfillment(controllers[i], totalAssetsOut[i], currentPPS);
         }
 
         if (processedShares != totalRequestedShares) revert INVALID_REDEEM_FILL();
@@ -675,14 +672,18 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                     INTERNAL REDEMPTION PROCESSING
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Process exact fulfillment with specified net asset amount
+    /// @notice Process exact fulfillment with specified total asset amount (pre-fee)
+    /// @dev totalAssetsOut represents the total amount available for this controller, including fees.
+    /// @dev Fees are calculated based on full theoretical amounts and deducted first,
+    /// @dev then the remaining amount becomes the actual net assets received by the user.
+    /// @dev This ensures fees are always calculated on full theoretical (never reduced due to execution losses).
     /// @param controller Controller address
-    /// @param netAssetsOut Exact POST-FEE assets to assign to controller
+    /// @param totalAssetsOut Total PRE-FEE assets available for this controller (from executeHooks)
     /// @param currentPPS Current price per share
     /// @return processedShares Processed shares
     function _processExactFulfillment(
         address controller,
-        uint256 netAssetsOut,
+        uint256 totalAssetsOut,
         uint256 currentPPS
     )
         internal
@@ -706,7 +707,32 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
         );
 
-        // Transfer fees FIRST
+        uint256 theoNetOut = vars.claimableAssetsWithFees - vars.totalFee;
+
+        // 3. STRICT BOUNDS - totalAssetsOut should be reasonable given theoretical amounts
+        vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
+        uint256 minNetOut = SuperVaultAccountingLib.computeMinNetOut(
+            vars.requestedShares, state.averageRequestPPS, vars.slippageBps, vars.totalFee, PRECISION
+        );
+        // Calculate actual net amount that will be received after fees
+        uint256 netAssetsOut = totalAssetsOut > vars.totalFee ? totalAssetsOut - vars.totalFee : 0;
+        console2.log("Requested shares:", vars.requestedShares);
+        console2.log("Min net out:", minNetOut);
+        console2.log("Theo net out:", theoNetOut);
+        console2.log("Actual net out:", netAssetsOut);
+        if (netAssetsOut < minNetOut || netAssetsOut > theoNetOut) {
+            revert BOUNDS_EXCEEDED(minNetOut, theoNetOut, netAssetsOut);
+        }
+
+        // 4. LIQUIDITY CHECK (PRE-FEE) - Check total amount including fees
+        uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
+        console2.log("Strategy balance:", strategyBalance);
+        console2.log("Total assets out (pre-fee):", totalAssetsOut);
+        console2.log("user", controller);
+        console2.log("--------------");
+        if (strategyBalance < totalAssetsOut) revert INSUFFICIENT_LIQUIDITY();
+
+        // 5. Transfer fees AFTER liquidity check
         if (vars.superformFee > 0) {
             _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), vars.superformFee);
             emit FeePaid(
@@ -718,23 +744,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             emit FeePaid(feeConfig.recipient, vars.recipientFee, feeConfig.performanceFeeBps);
         }
 
-        uint256 theoNetOut = vars.claimableAssetsWithFees - vars.totalFee;
-
-        // STRICT BOUNDS
-        vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
-        uint256 minNetOut = SuperVaultAccountingLib.computeMinNetOut(
-            vars.requestedShares, state.averageRequestPPS, vars.slippageBps, vars.totalFee, PRECISION
-        );
-        if (netAssetsOut < minNetOut || netAssetsOut > theoNetOut) revert BOUNDS_EXCEEDED();
-
-        // 4. LIQUIDITY CHECK (PER-USER, POST ALL PRIOR FEES)
-        uint256 strategyBalance = _getTokenBalance(address(_asset), address(this));
-        console2.log("Strategy balance:", strategyBalance);
-        console2.log("Net assets out:", netAssetsOut);
-        if (strategyBalance < netAssetsOut) console2.log("dif", netAssetsOut - strategyBalance);
-        if (strategyBalance < netAssetsOut) revert INSUFFICIENT_LIQUIDITY();
-
-        // 5. EXACT ASSIGN
+        // 6. EXACT ASSIGN - Use the net amount after fees
         vars.claimableAssets = netAssetsOut;
         if (vars.requestedShares > 0) {
             state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
@@ -1113,27 +1123,28 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         );
     }
 
-
     /*//////////////////////////////////////////////////////////////
                         BATCH PREVIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuperVaultStrategy
-    function previewExactRedeemBatch(
-        address[] calldata controllers
-    ) external view returns (uint256 totalTheoNet, uint256[] memory individualNetAssets) {
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets)
+    {
         if (controllers.length == 0) revert ZERO_LENGTH();
-        
+
         individualNetAssets = new uint256[](controllers.length);
         totalTheoNet = 0;
-        
+
         for (uint256 i = 0; i < controllers.length; i++) {
             // Get theoretical net assets for this controller using existing logic
-            (, , , uint256 theoNet, ) = this.previewExactRedeem(controllers[i]);
+            (,,, uint256 theoNet,) = this.previewExactRedeem(controllers[i]);
             individualNetAssets[i] = theoNet;
             totalTheoNet += theoNet;
         }
-        
+
         return (totalTheoNet, individualNetAssets);
     }
 }

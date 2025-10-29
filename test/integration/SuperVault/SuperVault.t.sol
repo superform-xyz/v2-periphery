@@ -298,7 +298,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Unpause the strategy (only UNPAUSER_ROLE can unpause)
         aggregator.unpauseStrategy(address(strategy));
 
-
         vm.warp(block.timestamp + 1 weeks);
         _updateSuperVaultPPS(address(strategy), address(vault));
 
@@ -3175,11 +3174,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         requestingUsers = _sortAndUniqueControllers(requestingUsers);
 
         // Calculate adjusted netAssetsOut accounting for execution losses
-        uint256[] memory netAssetsOut = calculateAdjustedFulfillment(
-            strategyGearSuperVault,
-            requestingUsers,
-            expectedAssetsOrSharesOut
-        );
+        uint256[] memory netAssetsOut =
+            calculateAdjustedFulfillment(strategyGearSuperVault, requestingUsers, expectedAssetsOrSharesOut);
 
         // Then fulfill redemption requests from liquidity
         strategyGearSuperVault.fulfillRedeemRequests(requestingUsers, netAssetsOut);
@@ -4649,11 +4645,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         users = _sortAndUniqueControllers(users);
 
         // Calculate adjusted netAssetsOut for liquidity-only fulfillment
-        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(
-            strategy,
-            address(asset),
-            users
-        );
+        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(strategy, address(asset), users);
 
         vm.startPrank(MANAGER);
         strategy.fulfillRedeemRequests(users, netAssetsOut);
@@ -4700,11 +4692,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         requestingUsers = _sortAndUniqueControllers(requestingUsers);
 
         // Calculate adjusted netAssetsOut for liquidity-only fulfillment
-        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(
-            strategy,
-            address(asset),
-            requestingUsers
-        );
+        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(strategy, address(asset), requestingUsers);
 
         vm.startPrank(MANAGER);
         strategy.fulfillRedeemRequests(requestingUsers, netAssetsOut);
@@ -4836,11 +4824,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // For this test, use selective fulfillment - distribute available assets pro-rata
         // Get strategy's current asset balance (what's available from executing hooks)
-        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(
-            strategy,
-            address(asset),
-            requestingUsers
-        );
+        uint256[] memory netAssetsOut = calculateLiquidityOnlyFulfillment(strategy, address(asset), requestingUsers);
 
         vm.startPrank(MANAGER);
         strategy.fulfillRedeemRequests(requestingUsers, netAssetsOut);
@@ -5388,8 +5372,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
+    // Temporary mapping to associate users with their redemption amounts
+    mapping(address => uint256) private tempUserRedemptionAmounts;
+
     function test_2_MultipleOperations_RandomAmounts(uint256 seed) public {
         MultipleOperationsVars memory vars;
+        // Clear any existing mapping data
+        _clearRedemptionMapping();
+
         // Setup random seed and initial timestamp
         vars.initialTimestamp = block.timestamp;
         vars.seed = seed;
@@ -5434,6 +5424,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Select random users for redemption
         vars = _selectRandomUsersForRedemption(vars);
+
+        // Populate the mapping to associate each user with their redemption amount
+        for (uint256 i; i < 15; i++) {
+            tempUserRedemptionAmounts[vars.redeemUsers[i]] = vars.redeemAmounts[i];
+        }
 
         // Simulate some more time passing (12 days) before redemption requests
         vm.warp(vars.initialTimestamp + 10 days);
@@ -7150,36 +7145,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
-    // function test_13_TransferOfShares() public   {
-    //     _getTokens(address(asset), accInstances[0].account, 100e6);
-    //     __deposit(accInstances[0], 100e6);
-
-    //     uint256 shares = vault.balanceOf(accInstances[0].account);
-
-    //     vm.prank(accInstances[0].account);
-    //     IERC20(address(vault)).transfer(accInstances[1].account, shares);
-
-    //     console2.log("share balance ofuser2", IERC20(address(vault)).balanceOf(accInstances[1].account));
-
-    //     _depositFreeAssetsFromSingleAmount(100e6, address(fluidVault), address(aaveVault));
-
-    //     _updateSuperVaultPPS(address(strategy), address(vault));
-
-    //     _requestRedeemForAccount(accInstances[1], shares);
-
-    //     address[] memory redeemUsers = new address[](1);
-    //     redeemUsers[0] = accInstances[1].account;
-
-    //     _executeRedeemHooks4626ForUsers(redeemUsers, shares / 2, shares / 2, address(fluidVault),
-    // address(aaveVault));
-
-    //     // console2.log("asset balance ofuser2", IERC20(address(asset)).balanceOf(accInstances[1].account));
-
-    //     // _claimRedeemForUsers(redeemUsers);
-
-    //     // console2.log("asset balance ofuser2", IERC20(address(asset)).balanceOf(accInstances[1].account));
-    // }
-
     function _verifyInitialBalances(uint256[] memory depositAmounts) internal view {
         console2.log("\n=== Initial State ===");
         uint256 totalAssets = vault.totalAssets();
@@ -7211,6 +7176,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             uint256 assets = vault.convertToAssets(shares);
             assertApproxEqRel(assets, depositAmounts[i], 0.01e18);
             console2.log("\nUser", i);
+            console2.log("Account", accInstances[i].account);
             console2.log("deposited:", depositAmounts[i]);
             console2.log("got shares:", shares);
             console2.log("got assets:", assets);
@@ -7218,6 +7184,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
             // Verify share-asset conversion consistency
             uint256 sharesFromAssets = vault.convertToShares(assets);
             assertApproxEqRel(sharesFromAssets, shares, 0.01e18, "Share-asset conversion should be consistent");
+        }
+    }
+
+    function _clearRedemptionMapping() internal {
+        // Clear mapping for all accounts
+        for (uint256 i; i < ACCOUNT_COUNT; i++) {
+            delete tempUserRedemptionAmounts[accInstances[i].account];
         }
     }
 
@@ -7326,26 +7299,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
             v.totalUserShares += v.currentShares;
             v.totalUserAssets += v.currentAssets;
 
-            // Check if user is a redeemer
-            v.isRedeemer = false;
-            v.redeemedShares = 0;
-            for (uint256 j; j < 15; j++) {
-                if (accInstances[i].account == vars.redeemUsers[j]) {
-                    v.isRedeemer = true;
-                    v.redeemedShares = vars.redeemAmounts[j];
-                    break;
-                }
-            }
+            // Check if user is a redeemer using the mapping
+            v.redeemedShares = tempUserRedemptionAmounts[accInstances[i].account];
+            v.isRedeemer = v.redeemedShares > 0;
 
             // Calculate user's yield
             v.userYieldAccrued = v.currentAssets > vars.depositAmounts[i] ? v.currentAssets - vars.depositAmounts[i] : 0;
 
             console2.log(string.concat("\n=== User ", Strings.toString(i), " State ==="));
+            console2.log("user ", accInstances[i].account);
             console2.log("Current Shares:", v.currentShares);
             console2.log("Current Assets:", v.currentAssets);
             console2.log("Yield Accrued:", v.userYieldAccrued);
 
             if (v.isRedeemer) {
+                console2.log("convert to shares", vault.convertToShares(vars.depositAmounts[i]));
+                console2.log("redeemedShares", v.redeemedShares);
                 v.expectedShares = vault.convertToShares(vars.depositAmounts[i]) - v.redeemedShares;
                 assertApproxEqRel(v.currentShares, v.expectedShares, 0.01e18, "Redeemer shares mismatch");
 
@@ -8042,7 +8011,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
         assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint returns max (doesn't check expiration)");
         console2.log("maxDeposit() and maxMint() return max (don't check PPS expiration)");
-
 
         // Test requestRedeem reverts with PPS_EXPIRED
 
@@ -9265,7 +9233,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("\n=== EMERGENCY ASSET RECOVERY TEST COMPLETED ===");
         console2.log("Successfully paused vault, redeemed from all UYS, transferred to safe recipient, and reinvested");
     }
-
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
