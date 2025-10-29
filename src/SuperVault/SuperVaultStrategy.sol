@@ -352,8 +352,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // BATCH TRANSFERS
         if (vars.totalSuperformFee > 0) {
-            _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), vars.totalSuperformFee);
-            emit FeePaid(superGovernor.getAddress(superGovernor.TREASURY()), vars.totalSuperformFee, feeConfig.performanceFeeBps);
+            _safeTokenTransfer(
+                address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), vars.totalSuperformFee
+            );
+            emit FeePaid(
+                superGovernor.getAddress(superGovernor.TREASURY()), vars.totalSuperformFee, feeConfig.performanceFeeBps
+            );
         }
         if (vars.totalRecipientFee > 0) {
             _safeTokenTransfer(address(_asset), feeConfig.recipient, vars.totalRecipientFee);
@@ -642,6 +646,27 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
         minNet =
             SuperVaultAccountingLib.computeMinNetOut(shares, state.averageRequestPPS, slippageBps, totalFee, PRECISION);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets)
+    {
+        if (controllers.length == 0) revert ZERO_LENGTH();
+
+        individualNetAssets = new uint256[](controllers.length);
+        totalTheoNet = 0;
+
+        for (uint256 i = 0; i < controllers.length; i++) {
+            // Get theoretical net assets for this controller using existing logic
+            (,,, uint256 theoNet,) = this.previewExactRedeem(controllers[i]);
+            individualNetAssets[i] = theoNet;
+            totalTheoNet += theoNet;
+        }
+
+        return (totalTheoNet, individualNetAssets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1121,30 +1146,5 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 strategyProof: strategyProof
             })
         );
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        BATCH PREVIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc ISuperVaultStrategy
-    function previewExactRedeemBatch(address[] calldata controllers)
-        external
-        view
-        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets)
-    {
-        if (controllers.length == 0) revert ZERO_LENGTH();
-
-        individualNetAssets = new uint256[](controllers.length);
-        totalTheoNet = 0;
-
-        for (uint256 i = 0; i < controllers.length; i++) {
-            // Get theoretical net assets for this controller using existing logic
-            (,,, uint256 theoNet,) = this.previewExactRedeem(controllers[i]);
-            individualNetAssets[i] = theoNet;
-            totalTheoNet += theoNet;
-        }
-
-        return (totalTheoNet, individualNetAssets);
     }
 }
