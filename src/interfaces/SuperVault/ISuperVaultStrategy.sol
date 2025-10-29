@@ -186,10 +186,8 @@ interface ISuperVaultStrategy {
     enum Operation {
         RedeemRequest,
         CancelRedeemRequest,
-        CancelRedeem,
-        ClaimRedeem,
-        Claim,
-        UpdateDepositAccumulators
+        ClaimCancelRedeem,
+        ClaimRedeem
     }
 
     /*//////////////////////////////////////////////////////////////

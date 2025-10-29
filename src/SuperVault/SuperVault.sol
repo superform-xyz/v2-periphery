@@ -217,7 +217,7 @@ contract SuperVault is
         shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimCancelRedeem, controller, address(0), 0);
 
         // Return shares to controller
         ISuperVaultEscrow(escrow).returnShares(receiver, shares);

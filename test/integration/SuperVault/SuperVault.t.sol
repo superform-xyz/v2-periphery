@@ -9208,6 +9208,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Successfully paused vault, redeemed from all UYS, transferred to safe recipient, and reinvested");
     }
 
+
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/

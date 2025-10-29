@@ -146,7 +146,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _validatePPSState(aggregator);
+        _validateStrategyState(aggregator);
 
         // Fee skim in ASSETS (asset-side entry fee)
         uint256 feeBps = feeConfig.managementFeeBps;
@@ -196,7 +196,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert OPERATIONS_BLOCKED_BY_VETO();
         }
 
-        _validatePPSState(aggregator);
+        _validateStrategyState(aggregator);
 
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
@@ -234,17 +234,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @inheritdoc ISuperVaultStrategy
     function handleOperations7540(Operation operation, address controller, address receiver, uint256 amount) external {
         _requireVault();
-
-        // claim should be allowed even if strategy is not operational
-        if (operation != Operation.ClaimRedeem) {
-            _validatePPSState(_getSuperVaultAggregator());
-        }
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
 
         if (operation == Operation.RedeemRequest) {
+            _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
-        } else if (operation == Operation.CancelRedeem) {
-            _handleCancelRedeem(controller);
+        } else if (operation == Operation.ClaimCancelRedeem) {
+            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
+            _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
+            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);
@@ -304,7 +303,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function fulfillRedeemRequests(address[] memory controllers) external payable nonReentrant {
         _isManager(msg.sender);
 
-        _validatePPSState(_getSuperVaultAggregator());
+        _validateStrategyState(_getSuperVaultAggregator());
 
         uint256 controllersLength = controllers.length;
         if (controllersLength == 0) revert ZERO_LENGTH();
@@ -959,7 +958,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @notice Internal function to handle a claim redeem cancellation
     /// @param controller Address of the controller
-    function _handleCancelRedeem(address controller) private {
+    function _handleClaimCancelRedeem(address controller) private {
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
         uint256 pendingShares = state.claimableCancelRedeemRequest;
@@ -1043,7 +1042,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     ///      - handleOperations4626Mint: Needs PPS to validate asset requirements
     ///      - fulfillRedeemRequests: Needs current PPS to calculate assets from shares
     /// @param aggregator The SuperVaultAggregator contract
-    function _validatePPSState(ISuperVaultAggregator aggregator) internal view {
+    function _validateStrategyState(ISuperVaultAggregator aggregator) internal view {
         if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
         if (_isPPSStale(aggregator)) revert STALE_PPS();
         if (_isPPSNotUpdated(aggregator)) revert PPS_EXPIRED();
