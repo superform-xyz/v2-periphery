@@ -183,6 +183,16 @@ interface ISuperVaultStrategy {
         uint256 claimableAssets;
     }
 
+    struct FulfillRedeemVars {
+        uint256 totalRequestedShares;
+        uint256 totalSuperformFee;
+        uint256 totalRecipientFee;
+        uint256 totalNetAssetsOut;
+        uint256 processedShares;
+        uint256 currentPPS;
+        uint256 strategyBalance;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
