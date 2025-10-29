@@ -66,10 +66,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemAmount;
         uint256 claimedAssets;
     }
-    
+
     /**
-    * @notice Test focused on long-term holder behavior with single deposit and hold strategy
-    */
+     * @notice Test focused on long-term holder behavior with single deposit and hold strategy
+     */
     struct LongTermHolderTestData {
         address holder;
         uint256 depositAmount;
@@ -290,7 +290,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.warp(block.timestamp + 1 weeks);
         _updateSuperVaultPPS(address(strategy), address(vault));
-        
+
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         vault.deposit(depositAmount, accountEth);
         vm.stopPrank();
@@ -300,7 +300,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.warp(block.timestamp + 1 weeks);
         _updateSuperVaultPPS(address(strategy), address(vault));
-        
+
         // Deposit should work again after unpause
         _deposit(depositAmount);
         assertGt(vault.balanceOf(accountEth), depositAmount, "Deposit after unpause failed");
@@ -500,7 +500,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("=== TEST COMPLETED SUCCESSFULLY ===");
     }
 
-
     function test_LongTermHolder_SingleDepositHold() public {
         LongTermHolderTestData memory vars;
         vars.holder = accInstances[0].account;
@@ -555,7 +554,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("  Total allocation:", vars.allocationAmountVault1 + vars.allocationAmountVault2);
 
         _executeRedeemHooks4626ForUsers(
-            requestingUsers, vars.allocationAmountVault1, vars.allocationAmountVault2, address(fluidVault), address(aaveVault)
+            requestingUsers,
+            vars.allocationAmountVault1,
+            vars.allocationAmountVault2,
+            address(fluidVault),
+            address(aaveVault)
         );
 
         console2.log("Redeem fulfillment successful!");
@@ -565,7 +568,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.maxWithdrawAmount = vault.maxWithdraw(vars.holder);
         uint256 maxRedeemShares = vault.maxRedeem(vars.holder);
         uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(vars.holder);
-        
+
         console2.log("Claimable assets after 90 days:", vars.claimableAssets);
         console2.log("Max withdraw amount:", vars.maxWithdrawAmount);
         console2.log("Max redeem shares:", maxRedeemShares);
@@ -573,22 +576,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Current shares balance:", vault.balanceOf(vars.holder));
 
         // Use maxRedeem to get the correct shares amount, then calculate assets from that
-        uint256 sharesToRedeem = maxRedeemShares > vault.balanceOf(vars.holder) ? vault.balanceOf(vars.holder) : maxRedeemShares;
+        uint256 sharesToRedeem =
+            maxRedeemShares > vault.balanceOf(vars.holder) ? vault.balanceOf(vars.holder) : maxRedeemShares;
         vars.assetsToWithdraw = sharesToRedeem.mulDiv(averageWithdrawPrice, 1e6, Math.Rounding.Floor);
-        
+
         console2.log("Shares to redeem:", sharesToRedeem);
         console2.log("Calculated assets to withdraw:", vars.assetsToWithdraw);
 
         // Calculate actual earnings
         vars.expectedPrincipal = (vars.depositAmount * vars.redeemShares) / vars.shares;
-        vars.actualEarnings = vars.assetsToWithdraw > vars.expectedPrincipal ? vars.assetsToWithdraw - vars.expectedPrincipal : 0;
+        vars.actualEarnings =
+            vars.assetsToWithdraw > vars.expectedPrincipal ? vars.assetsToWithdraw - vars.expectedPrincipal : 0;
 
         console2.log("Actual earnings calculation:");
         console2.log("  Expected principal:", vars.expectedPrincipal);
         console2.log("  Assets to withdraw:", vars.assetsToWithdraw);
         console2.log("  Actual earnings:", vars.actualEarnings);
         if (vars.expectedPrincipal > 0) {
-            console2.log("  Earnings percentage:", vars.actualEarnings * 10_000 / vars.expectedPrincipal, "basis points");
+            console2.log(
+                "  Earnings percentage:", vars.actualEarnings * 10_000 / vars.expectedPrincipal, "basis points"
+            );
         }
 
         // Claim the assets to see final balance
@@ -596,7 +603,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
             _claimWithdrawForAccount(accInstances[0], vars.assetsToWithdraw);
             vars.finalBalance = asset.balanceOf(vars.holder);
             console2.log("Final balance after claim:", vars.finalBalance);
-            console2.log("Total return:", vars.finalBalance > vars.initialBalance ? vars.finalBalance - vars.initialBalance : 0);
+            console2.log(
+                "Total return:", vars.finalBalance > vars.initialBalance ? vars.finalBalance - vars.initialBalance : 0
+            );
         }
 
         console2.log("=== LONG-TERM HOLDER TEST COMPLETED ===");
@@ -944,8 +953,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// @dev This verifies the fix by setting PPS to 0 on the real vault and testing conversion functions
     function test_ConvertFunctions_ZeroPPS_RealVault() public {
         // Advance time to ensure timestamp is monotonic
-        vm.warp(block.timestamp +  1 weeks);
-        
+        vm.warp(block.timestamp + 1 weeks);
+
         // First set PPS to 0 using the actual PPS update mechanism
         _updateSuperVaultPPS_ToZero(address(strategy));
 
@@ -3019,7 +3028,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVaultAddr));
-
     }
 
     function _depositFreeAssetsFromSingleAmount_Gearbox(uint256 depositAmount) internal {
@@ -7753,20 +7761,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // ===== PHASE 1: Pause the strategy at t0 =====
         console2.log("\n=== PHASE 1: Pausing Strategy ===");
         uint256 t0 = block.timestamp;
-        
+
         // Set strict deviation threshold to trigger pause (5%)
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
             type(uint256).max, // dispersionThreshold (disabled)
-            0.05e18,          // deviationThreshold (5%)
+            0.05e18, // deviationThreshold (5%)
             type(uint256).max // mnThreshold (disabled)
         );
 
         // Calculate a PPS that deviates by 10% to trigger pause
         uint256 currentPPS = aggregator.getPPS(address(testStrategy));
         uint256 deviatingPPS = currentPPS + (currentPPS * 10 / 100);
-        
+
         vm.warp(t0 + 10);
         _createPPSUpdateThatTriggersDeviation(address(testStrategy), deviatingPPS);
 
@@ -7776,9 +7784,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ===== PHASE 2: Test all functions revert with STRATEGY_PAUSED =====
         console2.log("\n=== PHASE 2: Testing STRATEGY_PAUSED Reverts ===");
-        
+
         // Test deposit reverts
-        _getTokens(address(asset), accountEth, 10000e6);
+        _getTokens(address(asset), accountEth, 10_000e6);
         vm.startPrank(accountEth);
         asset.approve(vaultAddr, type(uint256).max);
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
@@ -7836,7 +7844,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ===== PHASE 4: Test all functions revert with STALE_PPS =====
         console2.log("\n=== PHASE 4: Testing STALE_PPS Reverts ===");
-        
+
         // Test deposit reverts with STALE_PPS
         vm.startPrank(accountEth);
         vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
@@ -7876,16 +7884,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ===== PHASE 5: Update PPS and verify functionality is restored =====
         console2.log("\n=== PHASE 5: Updating PPS and Restoring Functionality ===");
-        
+
         // Reset deviation threshold to permissive value to avoid re-triggering pause
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
             type(uint256).max, // dispersionThreshold (disabled)
             type(uint256).max, // deviationThreshold (disabled)
-            0                  // mnThreshold (0 = disabled, max would cause check to fail)
+            0 // mnThreshold (0 = disabled, max would cause check to fail)
         );
-        
+
         // Update PPS to clear the stale flag
         vm.warp(block.timestamp + 10);
         _updateSuperVaultPPS(address(testStrategy), vaultAddr);
@@ -7951,12 +7959,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Update PPS to establish last update timestamp
         vm.warp(block.timestamp + 10);
         _updateSuperVaultPPS(address(testStrategy), vaultAddr);
-        
+
         uint256 lastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
         uint256 ppsExpiration = testStrategy.ppsExpiration();
         console2.log("Last PPS update:", lastUpdateTime);
         console2.log("PPS expiration period:", ppsExpiration);
-        
+
         // Warp time forward by ppsExpiration + 1 second to trigger expiration
         vm.warp(lastUpdateTime + ppsExpiration + 1);
         console2.log("Warped to:", block.timestamp);
@@ -7967,8 +7975,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("\n=== Testing PPS_EXPIRED Reverts (all operations except ClaimRedeem) ===");
 
         // Get fresh tokens for testing operations
-        _getTokens(address(asset), accountEth, 10000e6);
-        
+        _getTokens(address(asset), accountEth, 10_000e6);
+
         // Test deposit reverts with PPS_EXPIRED
         vm.startPrank(accountEth);
         asset.approve(vaultAddr, type(uint256).max);
@@ -7986,10 +7994,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Note: maxDeposit and maxMint don't check PPS expiration, only pause and stale status
         // They return max value, but actual deposit/mint operations will revert with PPS_EXPIRED
-        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit returns max (doesn't check expiration)");
+        assertEq(
+            testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit returns max (doesn't check expiration)"
+        );
         assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint returns max (doesn't check expiration)");
         console2.log("maxDeposit() and maxMint() return max (don't check PPS expiration)");
-        
+
         // Test requestRedeem reverts with PPS_EXPIRED
         uint256 userShares = testVault.balanceOf(accountEth);
         vm.startPrank(accountEth);
@@ -8000,15 +8010,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // ===== Verify functionality is restored after PPS update =====
         console2.log("\n=== Testing Functionality Restored After PPS Update ===");
-        
+
         // Update PPS to clear expiration
         vm.warp(block.timestamp + 10);
         _updateSuperVaultPPS(address(testStrategy), vaultAddr);
-        
+
         uint256 newLastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
         console2.log("New last PPS update:", newLastUpdateTime);
         console2.log("Time since update:", block.timestamp - newLastUpdateTime);
-        
+
         // Verify deposit now works
         uint256 balanceBefore = testVault.balanceOf(accountEth);
         vm.startPrank(accountEth);
@@ -8900,9 +8910,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// 4. Perform a batch transfer to strip all assets from the vault to escrow address
     function test_EmergencyAssetRecovery_PauseRedeemAndBatchTransfer() public {
         console2.log("=== EMERGENCY ASSET RECOVERY TEST ===");
-        
+
         EmergencyAssetRecoveryVars memory vars;
-        
+
         // Setup: Deploy a fresh vault for this test
         (vars.vaultAddr, vars.strategyAddr, vars.escrowAddr) = _deployVault("SV_EMERGENCY_RECOVERY_TEST");
 
@@ -8919,22 +8929,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         _updateSuperVaultPPS(vars.strategyAddr, vars.vaultAddr);
-        
+
         // Setup: Create multiple users with deposits
         vars.depositAmount = 10_000e6; // 10,000 USDC per user
         vars.users = new address[](3);
         vars.userShares = new uint256[](3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             vars.users[i] = accInstances[i].account;
             _getTokens(address(asset), vars.users[i], vars.depositAmount);
-            
+
             // Deposit for each user
             vm.startPrank(vars.users[i]);
             asset.approve(address(testVault), vars.depositAmount);
             vars.userShares[i] = testVault.deposit(vars.depositAmount, vars.users[i]);
             vm.stopPrank();
-            
+
             console2.log("User", i, "deposited:", vars.depositAmount);
             console2.log("User", i, "received shares:", vars.userShares[i]);
         }
@@ -8945,7 +8955,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         {
             vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-            
+
             vars.fulfillHooksAddresses = new address[](2);
             vars.fulfillHooksAddresses[0] = vars.depositHookAddress;
             vars.fulfillHooksAddresses[1] = vars.depositHookAddress;
@@ -8990,7 +9000,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         console2.log("\n=== STEP 1: PAUSE VAULT WITH EXTREME OUTLIER ===");
-        
+
         // Set strict deviation threshold (5% = 0.05 * 1e18)
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
@@ -9011,7 +9021,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _createPPSUpdateThatTriggersDeviation(address(testStrategy), vars.deviatingPPS);
 
         // Verify strategy is paused
-        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation");
+        assertTrue(
+            aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation"
+        );
         console2.log("Strategy successfully paused due to extreme outlier");
 
         console2.log("\n=== STEP 2: REDEEM FROM ALL UYS INTO FREE ASSETS ===");
@@ -9066,13 +9078,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.userAccountingSnapshot = new UserAccounting[](3);
         vars.totalShares = 0;
-        
+
         for (uint256 i = 0; i < 3; i++) {
             vars.userAccountingSnapshot[i].user = vars.users[i];
             vars.userAccountingSnapshot[i].shares = testVault.balanceOf(vars.users[i]);
             vars.userAccountingSnapshot[i].assets = testVault.convertToAssets(vars.userAccountingSnapshot[i].shares);
             vars.totalShares += vars.userAccountingSnapshot[i].shares;
-            
+
             console2.log("User", i, "shares:", vars.userAccountingSnapshot[i].shares);
             console2.log("User", i, "asset value:", vars.userAccountingSnapshot[i].assets);
         }
@@ -9087,14 +9099,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // For this test, we'll create a merkle tree that allows:
         // - BatchTransferHook with escrow as recipient and all users as senders
         // - We'll use Merkle.sol from openzeppelin or create a simple tree
-        
+
         // Build merkle tree nodes for batch transfer
         vars.escrowRecipient = vars.emergencyVault; // Or any safe recipient
         vars.batchTransferInspectResult = abi.encodePacked(
-            vars.escrowRecipient, 
+            vars.escrowRecipient,
             address(asset) // Token being transferred
         );
-        
+
         console2.log("\n=== STEP 4: PERFORM BATCH TRANSFER TO STRIP ASSETS ===");
 
         vars.assetsToTransfer = asset.balanceOf(address(testStrategy));
@@ -9103,17 +9115,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Prepare batch transfer hook data
         vars.tokens = new address[](1);
         vars.tokens[0] = address(asset);
-        
+
         vars.batchTransferHooks = new address[](1);
         vars.batchTransferHooks[0] = vars.batchTransferHook;
 
         console2.log("vars.batchTransferHooks[0]: ", vars.batchTransferHooks[0]);
 
         vars.batchTransferHooksData = new bytes[](1);
-        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(
-            vars.escrowRecipient,
-            vars.tokens
-        );
+        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(vars.escrowRecipient, vars.tokens);
         // Execute batch transfer
         vars.recipientBalanceBefore = asset.balanceOf(vars.escrowRecipient);
         console2.log("Recipient balance before transfer:", vars.recipientBalanceBefore);
@@ -9131,7 +9140,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.recipientBalanceAfter = asset.balanceOf(vars.escrowRecipient);
         console2.log("Recipient balance after transfer:", vars.recipientBalanceAfter);
-        
+
         vars.strategyBalanceAfter = asset.balanceOf(address(testStrategy));
         console2.log("Strategy balance after transfer:", vars.strategyBalanceAfter);
 
@@ -9145,24 +9154,24 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertLt(vars.strategyBalanceAfter, 1e6, "Strategy should have minimal assets left");
 
         console2.log("\n=== STEP 5: VERIFY EMERGENCY VAULT BALANCE ===");
-        
+
         vars.emergencyVaultBalance = MockEmergencyVault(vars.emergencyVault).getTokenBalance(address(asset));
         console2.log("Emergency vault token balance:", vars.emergencyVaultBalance);
         assertGt(vars.emergencyVaultBalance, 0, "Emergency vault should have received tokens");
 
         console2.log("\n=== STEP 6: WITHDRAW FROM EMERGENCY VAULT AND REINVEST INTO SUPERVAULT ===");
-        
+
         // Withdraw tokens from emergency vault back to this contract
         vars.withdrawAmount = vars.emergencyVaultBalance;
         MockEmergencyVault(vars.emergencyVault).withdrawTokens(address(asset), address(this));
-        
+
         vars.balanceAfterWithdraw = asset.balanceOf(address(this));
         console2.log("Balance after emergency vault withdrawal:", vars.balanceAfterWithdraw);
-        
+
         // Reinvest tokens back into SuperVault using the emergency vault's reinvestIntoVault function
         // First, transfer tokens back to emergency vault
         asset.transfer(vars.emergencyVault, vars.withdrawAmount);
-        
+
         // Approve and reinvest
         vm.startPrank(vars.emergencyVault);
         asset.approve(address(testVault), vars.withdrawAmount);
@@ -9170,10 +9179,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.sharesBefore = testVault.totalSupply();
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
+            address(asset), address(testVault), vars.withdrawAmount, address(this)
+        );
 
         aggregator.unpauseStrategy(address(testStrategy));
-        
+
         // Update thresholds to disable deviation and validator participation checks
         // This allows emergency PPS update to restore the strategy to a known state
         vm.prank(MANAGER);
@@ -9183,7 +9194,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             type(uint256).max, // deviationThreshold: disabled
             0 // mnThreshold: disabled
         );
-        
+
         // deal some assets as a donation to allow PPS updates
         deal(address(asset), address(testVault), 100e6);
 
@@ -9191,15 +9202,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _forceUpdatePPSToTarget(address(testStrategy), 1e6);
 
         // Reinvest tokens back into SuperVault (don't update PPS before reinvesting as strategy has no assets)
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
-        
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
+            address(asset), address(testVault), vars.withdrawAmount, address(this)
+        );
 
         vars.sharesAfter = testVault.totalSupply();
-        
+
         console2.log("SuperVault shares before reinvestment:", vars.sharesBefore);
         console2.log("SuperVault shares after reinvestment:", vars.sharesAfter);
         console2.log("New shares minted:", vars.sharesAfter - vars.sharesBefore);
-        
+
         // Verify reinvestment
         assertGt(vars.sharesAfter, vars.sharesBefore, "Shares should increase after reinvestment");
         console2.log("Successfully reinvested tokens from emergency vault back into SuperVault");
