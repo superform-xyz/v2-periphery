@@ -96,6 +96,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         userAddress = vm.addr(userPrivateKey); 
 
         updateTestVaultPredictions();
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /*//////////////////////////////////////////////////////////////

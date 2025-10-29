@@ -720,6 +720,13 @@ interface ISuperVaultAggregator {
     /// @return isPaused True if paused, false otherwise
     function isStrategyPaused(address strategy) external view returns (bool isPaused);
 
+    /// @notice Checks if a strategy's PPS is stale
+    /// @dev PPS is automatically set to stale when the strategy is paused due to
+    ///      lack of upkeep payment in `SuperVaultAggregator`
+    /// @param strategy Address of the strategy
+    /// @return isStale True if stale, false otherwise
+    function isPPSStale(address strategy) external view returns (bool isStale);
+
     /// @notice Gets the current upkeep balance for a manager
     /// @param manager Address of the manager
     /// @return balance Current upkeep balance in UP tokens
@@ -834,9 +841,4 @@ interface ISuperVaultAggregator {
         external
         view
         returns (bytes32 root, uint256 effectiveTime);
-
-    /// @notice Updates the strategy's PPS unpause timelock
-    /// @param strategy Address of the strategy
-    /// @param timelock The new timelock value
-    function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
 }

@@ -49,7 +49,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVault gearSuperVault;
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
-    
 
     struct UserPersona {
         address account;
@@ -66,6 +65,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 sharesAfterDeposit;
         uint256 redeemAmount;
         uint256 claimedAssets;
+    }
+
+    /**
+     * @notice Test focused on long-term holder behavior with single deposit and hold strategy
+     */
+    struct LongTermHolderTestData {
+        address holder;
+        uint256 depositAmount;
+        uint256 initialBalance;
+        uint256 shares;
+        uint256 redeemShares;
+        uint256 pendingRedeem;
+        uint256 allocationAmountVault1;
+        uint256 allocationAmountVault2;
+        uint256 claimableAssets;
+        uint256 maxWithdrawAmount;
+        uint256 assetsToWithdraw;
+        uint256 expectedPrincipal;
+        uint256 actualEarnings;
+        uint256 finalBalance;
     }
 
     function setUp() public override {
@@ -92,6 +111,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.label(gearboxStakingAddr, "GearboxStaking");
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
+        vm.startPrank(MANAGER);
+        strategy.managePPSExpiration(1, 1 weeks);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategy.managePPSExpiration(2, 0);
+        vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -117,8 +145,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
-
-
 
     function test_DepositDirectlyMintsShares() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
@@ -247,12 +273,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_PauseAndUnpauseStrategy() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
+        _updateSuperVaultPPS(address(strategy), address(vault));
         // First deposit should work normally
         _deposit(depositAmount);
         assertGt(vault.balanceOf(accountEth), 0, "Initial deposit failed");
-
-        // Update PPS to set a recent lastUpdateTimestamp (required for unpause timelock)
-        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Pause the strategy (manager can pause)
         vm.startPrank(MANAGER);
@@ -263,13 +287,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accountEth);
         deal(address(asset), accountEth, depositAmount);
         asset.approve(address(vault), depositAmount);
-        
+
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         vault.deposit(depositAmount, accountEth);
         vm.stopPrank();
 
         // Unpause the strategy (only UNPAUSER_ROLE can unpause)
         aggregator.unpauseStrategy(address(strategy));
+
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Deposit should work again after unpause
         _deposit(depositAmount);
@@ -413,7 +443,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("Holder initial balance:", holder.initialBalance / 1e6, "USDC");
         console2.log("Trader initial balance:", trader.initialBalance / 1e6, "USDC");
-
+        _updateSuperVaultPPS(address(strategy), address(vault));
         // Execute the full flow with equal total investments
         _executeEqualInvestmentDeposits(holder, trader);
         console2.log("--pps before---", aggregator.getPPS(address(strategy)));
@@ -425,8 +455,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
         _executeEqualInvestmentHolding(holder);
+        _updateSuperVaultPPS(address(strategy), address(vault));
         _executeFinalRedemptions(holder, trader);
 
+        _updateSuperVaultPPS(address(strategy), address(vault));
         // Complete the redemption process and calculate final yields
         _completeRedemptionsAndCalculateYield(holder, trader);
     }
@@ -468,93 +500,118 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("=== TEST COMPLETED SUCCESSFULLY ===");
     }
 
-    /**
-     * @notice Test focused on long-term holder behavior with single deposit and hold strategy
-     */
     function test_LongTermHolder_SingleDepositHold() public {
-        address holder = accInstances[0].account;
-        uint256 depositAmount = 50_000e6; // 50,000 USDC - large position
+        LongTermHolderTestData memory vars;
+        vars.holder = accInstances[0].account;
+        vars.depositAmount = 50_000e6; // 50,000 USDC - large position
 
         console2.log("=== LONG-TERM HOLDER TEST ===");
-        console2.log("Holder address:", holder);
-        console2.log("Deposit amount:", depositAmount);
+        console2.log("Holder address:", vars.holder);
+        console2.log("Deposit amount:", vars.depositAmount);
 
         // Setup
-        _getTokens(address(asset), holder, depositAmount * 2);
-        uint256 initialBalance = asset.balanceOf(holder);
+        _getTokens(address(asset), vars.holder, vars.depositAmount * 2);
+        vars.initialBalance = asset.balanceOf(vars.holder);
 
         // Single deposit
-        _depositForAccount(accInstances[0], depositAmount);
-        uint256 shares = vault.balanceOf(holder);
+        _depositForAccount(accInstances[0], vars.depositAmount);
+        vars.shares = vault.balanceOf(vars.holder);
 
         // Allocate to yield sources
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+        _depositFreeAssetsFromSingleAmount(vars.depositAmount, address(fluidVault), address(aaveVault));
 
-        console2.log("Shares received:", shares);
+        console2.log("Shares received:", vars.shares);
 
         // Hold for extended period (90 days)
         vm.warp(block.timestamp + 90 days);
-        shares = vault.balanceOf(holder);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        vars.shares = vault.balanceOf(vars.holder);
 
         // Verify shares haven't changed
-        assertEq(vault.balanceOf(holder), shares, "Shares should remain constant during hold period");
+        assertEq(vault.balanceOf(vars.holder), vars.shares, "Shares should remain constant during hold period");
 
-        uint256 redeemShares = shares; // 40B shares - round number
-        console2.log("Using fixed redeem shares:", redeemShares);
+        vars.redeemShares = vars.shares; // 40B shares - round number
+        console2.log("Using fixed redeem shares:", vars.redeemShares);
 
-        _requestRedeemForAccount(accInstances[0], redeemShares);
+        _requestRedeemForAccount(accInstances[0], vars.redeemShares);
 
         // Check pending redeem request
-        uint256 pendingRedeem = strategy.pendingRedeemRequest(holder);
-        console2.log("Pending redeem request:", pendingRedeem);
-        assertEq(pendingRedeem, redeemShares, "Pending redeem should match requested amount");
+        vars.pendingRedeem = strategy.pendingRedeemRequest(vars.holder);
+        console2.log("Pending redeem request:", vars.pendingRedeem);
+        assertEq(vars.pendingRedeem, vars.redeemShares, "Pending redeem should match requested amount");
 
         // Fulfill redeem using manual allocation to avoid INVALID_REDEEM_FILL precision issues
         console2.log("\n=== FULFILLING REDEEM WITH MANUAL ALLOCATION ===");
 
         address[] memory requestingUsers = new address[](1);
-        requestingUsers[0] = holder;
-        uint256 allocationAmountVault1 = redeemShares / 2;
-        uint256 allocationAmountVault2 = redeemShares / 2;
+        requestingUsers[0] = vars.holder;
+        vars.allocationAmountVault1 = vars.redeemShares / 2;
+        vars.allocationAmountVault2 = vars.redeemShares / 2;
 
         console2.log("Manual allocation:");
-        console2.log("  Vault 1 allocation:", allocationAmountVault1);
-        console2.log("  Vault 2 allocation:", allocationAmountVault2);
-        console2.log("  Total allocation:", allocationAmountVault1 + allocationAmountVault2);
+        console2.log("  Vault 1 allocation:", vars.allocationAmountVault1);
+        console2.log("  Vault 2 allocation:", vars.allocationAmountVault2);
+        console2.log("  Total allocation:", vars.allocationAmountVault1 + vars.allocationAmountVault2);
 
         _executeRedeemHooks4626ForUsers(
-            requestingUsers, allocationAmountVault1, allocationAmountVault2, address(fluidVault), address(aaveVault)
+            requestingUsers,
+            vars.allocationAmountVault1,
+            vars.allocationAmountVault2,
+            address(fluidVault),
+            address(aaveVault)
         );
 
         console2.log("Redeem fulfillment successful!");
 
         // Now check claimable assets (this shows the actual earnings!)
-        uint256 claimableAssets = strategy.claimableWithdraw(holder);
-        console2.log("Claimable assets after 90 days:", claimableAssets);
+        vars.claimableAssets = strategy.claimableWithdraw(vars.holder);
+        vars.maxWithdrawAmount = vault.maxWithdraw(vars.holder);
+        uint256 maxRedeemShares = vault.maxRedeem(vars.holder);
+        uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(vars.holder);
+
+        console2.log("Claimable assets after 90 days:", vars.claimableAssets);
+        console2.log("Max withdraw amount:", vars.maxWithdrawAmount);
+        console2.log("Max redeem shares:", maxRedeemShares);
+        console2.log("Average withdraw price:", averageWithdrawPrice);
+        console2.log("Current shares balance:", vault.balanceOf(vars.holder));
+
+        // Use maxRedeem to get the correct shares amount, then calculate assets from that
+        uint256 sharesToRedeem =
+            maxRedeemShares > vault.balanceOf(vars.holder) ? vault.balanceOf(vars.holder) : maxRedeemShares;
+        vars.assetsToWithdraw = sharesToRedeem.mulDiv(averageWithdrawPrice, 1e6, Math.Rounding.Floor);
+
+        console2.log("Shares to redeem:", sharesToRedeem);
+        console2.log("Calculated assets to withdraw:", vars.assetsToWithdraw);
 
         // Calculate actual earnings
-        uint256 expectedPrincipal = (depositAmount * redeemShares) / shares;
-        uint256 actualEarnings = claimableAssets > expectedPrincipal ? claimableAssets - expectedPrincipal : 0;
+        vars.expectedPrincipal = (vars.depositAmount * vars.redeemShares) / vars.shares;
+        vars.actualEarnings =
+            vars.assetsToWithdraw > vars.expectedPrincipal ? vars.assetsToWithdraw - vars.expectedPrincipal : 0;
 
         console2.log("Actual earnings calculation:");
-        console2.log("  Expected principal:", expectedPrincipal);
-        console2.log("  Actual earnings:", actualEarnings);
-        if (expectedPrincipal > 0) {
-            console2.log("  Earnings percentage:", actualEarnings * 10_000 / expectedPrincipal, "basis points");
+        console2.log("  Expected principal:", vars.expectedPrincipal);
+        console2.log("  Assets to withdraw:", vars.assetsToWithdraw);
+        console2.log("  Actual earnings:", vars.actualEarnings);
+        if (vars.expectedPrincipal > 0) {
+            console2.log(
+                "  Earnings percentage:", vars.actualEarnings * 10_000 / vars.expectedPrincipal, "basis points"
+            );
         }
 
         // Claim the assets to see final balance
-        if (claimableAssets > 0) {
-            _claimWithdrawForAccount(accInstances[0], claimableAssets);
-            uint256 finalBalance = asset.balanceOf(holder);
-            console2.log("Final balance after claim:", finalBalance);
-            console2.log("Total return:", finalBalance > initialBalance ? finalBalance - initialBalance : 0);
+        if (vars.assetsToWithdraw > 0) {
+            _claimWithdrawForAccount(accInstances[0], vars.assetsToWithdraw);
+            vars.finalBalance = asset.balanceOf(vars.holder);
+            console2.log("Final balance after claim:", vars.finalBalance);
+            console2.log(
+                "Total return:", vars.finalBalance > vars.initialBalance ? vars.finalBalance - vars.initialBalance : 0
+            );
         }
 
         console2.log("=== LONG-TERM HOLDER TEST COMPLETED ===");
-        console2.log("Initial balance:", initialBalance);
-        console2.log("Shares held for 90 days:", shares);
-        console2.log("Redeem request submitted for:", redeemShares);
+        console2.log("Initial balance:", vars.initialBalance);
+        console2.log("Shares held for 90 days:", vars.shares);
+        console2.log("Redeem request submitted for:", vars.redeemShares);
     }
 
     /**
@@ -596,6 +653,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
             // Hold for short period (simulate day trading to swing trading)
             vm.warp(block.timestamp + (1 + i) * 1 days);
+            _updateSuperVaultPPS(address(strategy), address(vault));
 
             // Redeem portion (vary between 30-50% to simulate different strategies)
             uint256 redeemPercentage = 30 + (i * 5); // 30%, 35%, 40%, 45%, 50%
@@ -894,6 +952,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// @notice Tests the zero PPS fix using the actual deployed vault
     /// @dev This verifies the fix by setting PPS to 0 on the real vault and testing conversion functions
     function test_ConvertFunctions_ZeroPPS_RealVault() public {
+        // Advance time to ensure timestamp is monotonic
+        vm.warp(block.timestamp + 1 weeks);
+
         // First set PPS to 0 using the actual PPS update mechanism
         _updateSuperVaultPPS_ToZero(address(strategy));
 
@@ -1116,7 +1177,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
-
 
         // Verify state after cancellation
         assertEq(vault.pendingRedeemRequest(0, accountEth), 0, "Pending request should be cleared");
@@ -2292,7 +2352,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-
         uint256 BPS_PRECISION = 10_000;
 
         vm.warp(block.timestamp + 2 weeks);
@@ -2944,6 +3003,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         escrowGearSuperVault = SuperVaultEscrow(escrowAddr);
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
 
+        vm.startPrank(MANAGER);
+        strategyGearSuperVault.managePPSExpiration(1, 1 weeks);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategyGearSuperVault.managePPSExpiration(2, 0);
+        vm.stopPrank();
+
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
         strategyGearSuperVault.manageYieldSource(
@@ -2959,6 +3026,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.warp(block.timestamp + 1 weeks);
         strategyGearSuperVault.executeVaultFeeConfigUpdate();
         vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVaultAddr));
     }
 
     function _depositFreeAssetsFromSingleAmount_Gearbox(uint256 depositAmount) internal {
@@ -4279,7 +4348,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4333,7 +4402,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: Request redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4350,7 +4419,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify cancellation is pending
         bool hasPendingCancel = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancel, "Should have pending cancel request");
-        
+
         // Verify original redeem request is still there (not cleared until fulfillment)
         uint256 pendingRedeemAfterCancel = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterCancel, redeemShares, "Original redeem should still be pending");
@@ -4370,10 +4439,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify states after fulfillment
         uint256 pendingRedeemAfterFulfill = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeemAfterFulfill, 0, "Pending redeem should be cleared after cancel fulfillment");
-        
+
         bool hasPendingCancelAfterFulfill = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertTrue(hasPendingCancelAfterFulfill, "Pending cancel should remain true until claim");
-        
+
         uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelShares, redeemShares, "Should have claimable cancel shares equal to original request");
 
@@ -4381,26 +4450,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 sharesBefore = vault.balanceOf(accInstances[0].account);
         vm.prank(accInstances[0].account);
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(sharesAfter, sharesBefore + redeemShares, "User should get their shares back");
 
         // Verify all pending states are cleared after claim
         bool hasPendingCancelAfterClaim = strategy.pendingCancelRedeemRequest(accInstances[0].account);
         assertFalse(hasPendingCancelAfterClaim, "Pending cancel should be cleared after claim");
-        
+
         uint256 claimableCancelAfterClaim = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelAfterClaim, 0, "Claimable cancel should be cleared after claim");
 
         // Verify accumulator states are preserved (key invariant)
         ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
         assertEq(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved");
+        assertEq(
+            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved"
+        );
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
         _requestRedeemForAccount(accInstances[0], newRedeemShares);
-        
+
         uint256 newPendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(newPendingRedeem, newRedeemShares, "Should be able to make new redeem requests after cancellation");
     }
@@ -4420,7 +4491,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Step 1: User requests redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
-        
+
         // Verify redeem request was recorded
         uint256 pendingRedeem = strategy.pendingRedeemRequest(accInstances[0].account);
         assertEq(pendingRedeem, redeemShares, "Redeem request should be pending");
@@ -4452,7 +4523,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(MANAGER);
         address[] memory controllers = new address[](1);
         controllers[0] = accInstances[0].account;
-        
+
         // This should not revert, but should be ineffective since there's no pending redeem to cancel
         strategy.fulfillCancelRedeemRequests(controllers);
         vm.stopPrank();
@@ -4471,7 +4542,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accInstances[0].account);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
         uint256 claimedShares = vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
-        
+
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);
         assertEq(claimedShares, 0, "Should claim 0 shares since cancellation was ineffective");
         assertEq(sharesAfter, sharesBefore, "User balance should not change when claiming ineffective cancellation");
@@ -5001,6 +5072,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // warp again
         vm.warp(block.timestamp + 20 days);
+        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // create deposit requests for all users
         _depositForAllUsers(vars.depositAmount);
@@ -5414,6 +5486,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         vm.warp(vars.initialTimestamp + 1 days);
+        _updatePPSToTarget(address(strategy), address(vault), 1e18);
 
         uint256 totalAmount = vars.depositAmount * 2;
         uint256 allocationAmountVault1 = totalAmount / 2;
@@ -5445,6 +5518,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Ruggable Vault Balance:", RuggableVault(vars.ruggableVault).balanceOf(address(strategy)));
 
         vm.warp(block.timestamp + 12 weeks);
+        _updatePPSToTarget(address(strategy), address(vault), 1e18);
 
         uint256 prevPps = vars.initialPricePerShare;
         vars.initialTotalAssets = vault.totalAssets();
@@ -7550,6 +7624,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
             // ruggableVault
         vm.stopPrank();
+
+        vm.startPrank(MANAGER);
+        strategy.managePPSExpiration(1, 86_400); // 1 day
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        strategy.managePPSExpiration(2, 0);
+        vm.stopPrank();
+
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /// @notice Test that maxDeposit returns 0 when vault is paused
@@ -7642,6 +7726,313 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Assert: Verify maxMint returns 0 when paused
         uint256 maxMintAfterPause = testVault.maxMint(accountEth);
         assertEq(maxMintAfterPause, 0, "maxMint should return 0 when paused");
+    }
+
+    /// @notice Comprehensive test for pause/unpause functionality with stale PPS checks
+    function test_PauseUnpause_WithStalePPS_ComprehensiveCoverage() public {
+        // Setup: Deploy a fresh vault and perform initial deposit
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        (vaultAddr, strategyAddr, escrowAddr) = _deployVault("SV_USDC_PAUSE_UNPAUSE_TEST");
+
+        SuperVault testVault = SuperVault(vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(strategyAddr));
+
+        // Setup yield sources for the test strategy
+        vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        testStrategy.manageYieldSource(
+            address(aaveVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        vm.stopPrank();
+
+        // Perform initial deposit (no allocation needed for pause/unpause testing)
+        uint256 depositAmount = 10_000e6; // 10k USDC
+        _getTokens(address(asset), accountEth, depositAmount);
+        _deposit(depositAmount, vaultAddr, address(testStrategy), address(asset));
+
+        // ===== PHASE 1: Pause the strategy at t0 =====
+        console2.log("\n=== PHASE 1: Pausing Strategy ===");
+        uint256 t0 = block.timestamp;
+
+        // Set strict deviation threshold to trigger pause (5%)
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold (disabled)
+            0.05e18, // deviationThreshold (5%)
+            type(uint256).max // mnThreshold (disabled)
+        );
+
+        // Calculate a PPS that deviates by 10% to trigger pause
+        uint256 currentPPS = aggregator.getPPS(address(testStrategy));
+        uint256 deviatingPPS = currentPPS + (currentPPS * 10 / 100);
+
+        vm.warp(t0 + 10);
+        _createPPSUpdateThatTriggersDeviation(address(testStrategy), deviatingPPS);
+
+        // Verify strategy is paused
+        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused");
+        console2.log("Strategy paused at t0:", t0);
+
+        // ===== PHASE 2: Test all functions revert with STRATEGY_PAUSED =====
+        console2.log("\n=== PHASE 2: Testing STRATEGY_PAUSED Reverts ===");
+
+        // Test deposit reverts
+        _getTokens(address(asset), accountEth, 10_000e6);
+        vm.startPrank(accountEth);
+        asset.approve(vaultAddr, type(uint256).max);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with STRATEGY_PAUSED");
+
+        // Test mint reverts
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with STRATEGY_PAUSED");
+
+        // Test requestRedeem reverts
+        uint256 userShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        console2.log("requestRedeem() reverts with STRATEGY_PAUSED");
+
+        // Test fulfillRedeemRequests reverts (requires manager)
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
+        testStrategy.fulfillRedeemRequests(controllers);
+        console2.log("fulfillRedeemRequests() reverts with STRATEGY_PAUSED");
+
+        // Test fulfillCancelRedeemRequests works (no validation check)
+        vm.prank(MANAGER);
+        testStrategy.fulfillCancelRedeemRequests(controllers);
+        console2.log("fulfillCancelRedeemRequests() works (no validation check)");
+
+        // Verify maxDeposit and maxMint return 0 when paused
+        assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when paused");
+        assertEq(testVault.maxMint(accountEth), 0, "maxMint should return 0 when paused");
+        console2.log("maxDeposit() and maxMint() return 0 when paused");
+
+        // ===== PHASE 3: Unpause after 20 hours =====
+        console2.log("\n=== PHASE 3: Unpausing Strategy ===");
+        uint256 t1 = t0 + 20 hours;
+        vm.warp(t1);
+
+        // Unpause the strategy (using the contract deployer who has UNPAUSER_ROLE)
+        vm.prank(address(this));
+        aggregator.unpauseStrategy(address(testStrategy));
+
+        // Verify strategy is unpaused but PPS is stale
+        assertFalse(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be unpaused");
+        assertTrue(aggregator.isPPSStale(address(testStrategy)), "PPS should be stale after unpause");
+        console2.log("Strategy unpaused at t1:", t1);
+        console2.log("PPS is now stale");
+
+        // ===== PHASE 4: Test all functions revert with STALE_PPS =====
+        console2.log("\n=== PHASE 4: Testing STALE_PPS Reverts ===");
+
+        // Test deposit reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with STALE_PPS");
+
+        // Test mint reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with STALE_PPS");
+
+        // Test requestRedeem reverts with STALE_PPS
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        console2.log("requestRedeem() reverts with STALE_PPS");
+
+        // Test fulfillRedeemRequests reverts with STALE_PPS (requires manager)
+        vm.prank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.STALE_PPS.selector);
+        testStrategy.fulfillRedeemRequests(controllers);
+        console2.log("fulfillRedeemRequests() reverts with STALE_PPS");
+
+        // Test fulfillCancelRedeemRequests works (no validation check)
+        vm.prank(MANAGER);
+        testStrategy.fulfillCancelRedeemRequests(controllers);
+        console2.log("fulfillCancelRedeemRequests() works (no validation check)");
+
+        // Verify maxDeposit and maxMint return 0 when PPS is stale
+        assertEq(testVault.maxDeposit(accountEth), 0, "maxDeposit should return 0 when PPS is stale");
+        assertEq(testVault.maxMint(accountEth), 0, "maxMint should return 0 when PPS is stale");
+        console2.log("maxDeposit() and maxMint() return 0 when PPS is stale");
+
+        // ===== PHASE 5: Update PPS and verify functionality is restored =====
+        console2.log("\n=== PHASE 5: Updating PPS and Restoring Functionality ===");
+
+        // Reset deviation threshold to permissive value to avoid re-triggering pause
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold (disabled)
+            type(uint256).max, // deviationThreshold (disabled)
+            0 // mnThreshold (0 = disabled, max would cause check to fail)
+        );
+
+        // Update PPS to clear the stale flag
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+
+        // Verify PPS is no longer stale
+        assertFalse(aggregator.isPPSStale(address(testStrategy)), "PPS should not be stale after update");
+        console2.log("PPS updated successfully");
+
+        // Test that deposit now works
+        uint256 balanceBefore = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        assertGt(testVault.balanceOf(accountEth), balanceBefore, "Deposit should succeed after PPS update");
+        console2.log("deposit() works after PPS update");
+
+        // Test that requestRedeem now works
+        uint256 newShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.requestRedeem(newShares / 4, accountEth, accountEth);
+        vm.stopPrank();
+        assertGt(testStrategy.pendingRedeemRequest(accountEth), 0, "Redeem request should succeed after PPS update");
+        console2.log("requestRedeem() works after PPS update");
+
+        // Verify maxDeposit and maxMint return normal values
+        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit should return max value");
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint should return max value");
+        console2.log("maxDeposit() and maxMint() return normal values");
+
+        console2.log("\n=== Test Complete: All phases passed ===");
+    }
+
+    /// @notice Test PPS expiration - operations should revert with PPS_EXPIRED after validity period
+    function test_PPSExpiration_OperationsRevert() public {
+        // Setup: Deploy a fresh vault and perform initial deposit
+        address vaultAddr;
+        address strategyAddr;
+        address escrowAddr;
+        (vaultAddr, strategyAddr, escrowAddr) = _deployVault("SV_USDC_PPS_EXPIRATION_TEST");
+
+        SuperVault testVault = SuperVault(vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(strategyAddr));
+
+        // Setup yield sources for the test strategy
+        vm.startPrank(MANAGER);
+        testStrategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        testStrategy.manageYieldSource(
+            address(aaveVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            0 // ADD
+        );
+        vm.stopPrank();
+
+        // Perform initial deposit
+        uint256 depositAmount = 10_000e6; // 10k USDC
+        _getTokens(address(asset), accountEth, depositAmount);
+        _deposit(depositAmount, vaultAddr, address(testStrategy), address(asset));
+
+        // Update PPS to establish last update timestamp
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+
+        uint256 lastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
+        uint256 ppsExpiration = testStrategy.ppsExpiration();
+        console2.log("Last PPS update:", lastUpdateTime);
+        console2.log("PPS expiration period:", ppsExpiration);
+
+        // Warp time forward by ppsExpiration + 1 second to trigger expiration
+        vm.warp(lastUpdateTime + ppsExpiration + 1);
+        console2.log("Warped to:", block.timestamp);
+        console2.log("Time since last update:", block.timestamp - lastUpdateTime);
+
+        // ===== Test operations revert with PPS_EXPIRED =====
+        // Note: All operations except ClaimRedeem check PPS expiration and should revert when PPS is expired.
+        console2.log("\n=== Testing PPS_EXPIRED Reverts (all operations except ClaimRedeem) ===");
+
+        // Get fresh tokens for testing operations
+        _getTokens(address(asset), accountEth, 10_000e6);
+
+        // Test deposit reverts with PPS_EXPIRED
+        vm.startPrank(accountEth);
+        asset.approve(vaultAddr, type(uint256).max);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("deposit() reverts with PPS_EXPIRED");
+
+        // Test mint reverts with PPS_EXPIRED
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        testVault.mint(1000e6, accountEth);
+        vm.stopPrank();
+        console2.log("mint() reverts with PPS_EXPIRED");
+
+        // Note: maxDeposit and maxMint don't check PPS expiration, only pause and stale status
+        // They return max value, but actual deposit/mint operations will revert with PPS_EXPIRED
+        assertEq(
+            testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit returns max (doesn't check expiration)"
+        );
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint returns max (doesn't check expiration)");
+        console2.log("maxDeposit() and maxMint() return max (don't check PPS expiration)");
+
+        // Test requestRedeem reverts with PPS_EXPIRED
+        uint256 userShares = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        testVault.requestRedeem(userShares / 2, accountEth, accountEth);
+        vm.stopPrank();
+        console2.log("requestRedeem() reverts with PPS_EXPIRED");
+
+        // ===== Verify functionality is restored after PPS update =====
+        console2.log("\n=== Testing Functionality Restored After PPS Update ===");
+
+        // Update PPS to clear expiration
+        vm.warp(block.timestamp + 10);
+        _updateSuperVaultPPS(address(testStrategy), vaultAddr);
+
+        uint256 newLastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
+        console2.log("New last PPS update:", newLastUpdateTime);
+        console2.log("Time since update:", block.timestamp - newLastUpdateTime);
+
+        // Verify deposit now works
+        uint256 balanceBefore = testVault.balanceOf(accountEth);
+        vm.startPrank(accountEth);
+        testVault.deposit(1000e6, accountEth);
+        vm.stopPrank();
+        assertGt(testVault.balanceOf(accountEth), balanceBefore, "Deposit should succeed after PPS update");
+        console2.log("deposit() works after PPS update");
+
+        // Verify maxDeposit and maxMint return normal values
+        assertEq(testVault.maxDeposit(accountEth), type(uint256).max, "maxDeposit should return max value");
+        assertEq(testVault.maxMint(accountEth), type(uint256).max, "maxMint should return max value");
+        console2.log("maxDeposit() and maxMint() return normal values");
+
+        console2.log("\n=== Test Complete: PPS expiration working as expected ===");
     }
 
     /// @notice Helper function to create a PPS update that triggers deviation pause
@@ -7901,7 +8292,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
         );
     }
-
 
     /*//////////////////////////////////////////////////////////////
                        MANAGEMENT FEE TESTS
@@ -8327,6 +8717,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Simulate time passing and yield generation
         vm.warp(block.timestamp + 1 days);
+        // Update PPS after time warp to prevent expiration
+        _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Active trader performs multiple deposit-redeem-claim cycles
         for (uint256 i = 0; i < 3; i++) {
@@ -8378,6 +8770,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Simulate longer time period (30 days)
         vm.warp(block.timestamp + 30 days);
+        // Update PPS to prevent expiration after long time warp
+        _updateSuperVaultPPS(address(strategy), address(vault));
     }
 
     /// @notice Execute final redemptions phase
@@ -8516,9 +8910,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /// 4. Perform a batch transfer to strip all assets from the vault to escrow address
     function test_EmergencyAssetRecovery_PauseRedeemAndBatchTransfer() public {
         console2.log("=== EMERGENCY ASSET RECOVERY TEST ===");
-        
+
         EmergencyAssetRecoveryVars memory vars;
-        
+
         // Setup: Deploy a fresh vault for this test
         (vars.vaultAddr, vars.strategyAddr, vars.escrowAddr) = _deployVault("SV_EMERGENCY_RECOVERY_TEST");
 
@@ -8534,21 +8928,23 @@ contract SuperVaultTest is BaseSuperVaultTest {
         testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
         vm.stopPrank();
 
+        _updateSuperVaultPPS(vars.strategyAddr, vars.vaultAddr);
+
         // Setup: Create multiple users with deposits
         vars.depositAmount = 10_000e6; // 10,000 USDC per user
         vars.users = new address[](3);
         vars.userShares = new uint256[](3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             vars.users[i] = accInstances[i].account;
             _getTokens(address(asset), vars.users[i], vars.depositAmount);
-            
+
             // Deposit for each user
             vm.startPrank(vars.users[i]);
             asset.approve(address(testVault), vars.depositAmount);
             vars.userShares[i] = testVault.deposit(vars.depositAmount, vars.users[i]);
             vm.stopPrank();
-            
+
             console2.log("User", i, "deposited:", vars.depositAmount);
             console2.log("User", i, "received shares:", vars.userShares[i]);
         }
@@ -8559,7 +8955,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         {
             vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-            
+
             vars.fulfillHooksAddresses = new address[](2);
             vars.fulfillHooksAddresses[0] = vars.depositHookAddress;
             vars.fulfillHooksAddresses[1] = vars.depositHookAddress;
@@ -8604,7 +9000,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         }
 
         console2.log("\n=== STEP 1: PAUSE VAULT WITH EXTREME OUTLIER ===");
-        
+
         // Set strict deviation threshold (5% = 0.05 * 1e18)
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
@@ -8625,7 +9021,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _createPPSUpdateThatTriggersDeviation(address(testStrategy), vars.deviatingPPS);
 
         // Verify strategy is paused
-        assertTrue(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation");
+        assertTrue(
+            aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be paused after extreme PPS deviation"
+        );
         console2.log("Strategy successfully paused due to extreme outlier");
 
         console2.log("\n=== STEP 2: REDEEM FROM ALL UYS INTO FREE ASSETS ===");
@@ -8680,13 +9078,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.userAccountingSnapshot = new UserAccounting[](3);
         vars.totalShares = 0;
-        
+
         for (uint256 i = 0; i < 3; i++) {
             vars.userAccountingSnapshot[i].user = vars.users[i];
             vars.userAccountingSnapshot[i].shares = testVault.balanceOf(vars.users[i]);
             vars.userAccountingSnapshot[i].assets = testVault.convertToAssets(vars.userAccountingSnapshot[i].shares);
             vars.totalShares += vars.userAccountingSnapshot[i].shares;
-            
+
             console2.log("User", i, "shares:", vars.userAccountingSnapshot[i].shares);
             console2.log("User", i, "asset value:", vars.userAccountingSnapshot[i].assets);
         }
@@ -8701,14 +9099,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // For this test, we'll create a merkle tree that allows:
         // - BatchTransferHook with escrow as recipient and all users as senders
         // - We'll use Merkle.sol from openzeppelin or create a simple tree
-        
+
         // Build merkle tree nodes for batch transfer
         vars.escrowRecipient = vars.emergencyVault; // Or any safe recipient
         vars.batchTransferInspectResult = abi.encodePacked(
-            vars.escrowRecipient, 
+            vars.escrowRecipient,
             address(asset) // Token being transferred
         );
-        
+
         console2.log("\n=== STEP 4: PERFORM BATCH TRANSFER TO STRIP ASSETS ===");
 
         vars.assetsToTransfer = asset.balanceOf(address(testStrategy));
@@ -8717,17 +9115,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Prepare batch transfer hook data
         vars.tokens = new address[](1);
         vars.tokens[0] = address(asset);
-        
+
         vars.batchTransferHooks = new address[](1);
         vars.batchTransferHooks[0] = vars.batchTransferHook;
 
         console2.log("vars.batchTransferHooks[0]: ", vars.batchTransferHooks[0]);
 
         vars.batchTransferHooksData = new bytes[](1);
-        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(
-            vars.escrowRecipient,
-            vars.tokens
-        );
+        vars.batchTransferHooksData[0] = _createOfframpTokensHookData(vars.escrowRecipient, vars.tokens);
         // Execute batch transfer
         vars.recipientBalanceBefore = asset.balanceOf(vars.escrowRecipient);
         console2.log("Recipient balance before transfer:", vars.recipientBalanceBefore);
@@ -8745,7 +9140,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.recipientBalanceAfter = asset.balanceOf(vars.escrowRecipient);
         console2.log("Recipient balance after transfer:", vars.recipientBalanceAfter);
-        
+
         vars.strategyBalanceAfter = asset.balanceOf(address(testStrategy));
         console2.log("Strategy balance after transfer:", vars.strategyBalanceAfter);
 
@@ -8759,43 +9154,64 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertLt(vars.strategyBalanceAfter, 1e6, "Strategy should have minimal assets left");
 
         console2.log("\n=== STEP 5: VERIFY EMERGENCY VAULT BALANCE ===");
-        
+
         vars.emergencyVaultBalance = MockEmergencyVault(vars.emergencyVault).getTokenBalance(address(asset));
         console2.log("Emergency vault token balance:", vars.emergencyVaultBalance);
         assertGt(vars.emergencyVaultBalance, 0, "Emergency vault should have received tokens");
 
         console2.log("\n=== STEP 6: WITHDRAW FROM EMERGENCY VAULT AND REINVEST INTO SUPERVAULT ===");
-        
+
         // Withdraw tokens from emergency vault back to this contract
         vars.withdrawAmount = vars.emergencyVaultBalance;
         MockEmergencyVault(vars.emergencyVault).withdrawTokens(address(asset), address(this));
-        
+
         vars.balanceAfterWithdraw = asset.balanceOf(address(this));
         console2.log("Balance after emergency vault withdrawal:", vars.balanceAfterWithdraw);
-        
+
         // Reinvest tokens back into SuperVault using the emergency vault's reinvestIntoVault function
         // First, transfer tokens back to emergency vault
         asset.transfer(vars.emergencyVault, vars.withdrawAmount);
-        
+
         // Approve and reinvest
         vm.startPrank(vars.emergencyVault);
         asset.approve(address(testVault), vars.withdrawAmount);
         vm.stopPrank();
-        
+
         vars.sharesBefore = testVault.totalSupply();
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
+            address(asset), address(testVault), vars.withdrawAmount, address(this)
+        );
 
         aggregator.unpauseStrategy(address(testStrategy));
-        _updateSuperVaultPPS(address(testStrategy), address(testVault));
 
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
+        // Update thresholds to disable deviation and validator participation checks
+        // This allows emergency PPS update to restore the strategy to a known state
+        vm.prank(MANAGER);
+        aggregator.updatePPSVerificationThresholds(
+            address(testStrategy),
+            type(uint256).max, // dispersionThreshold: disabled
+            type(uint256).max, // deviationThreshold: disabled
+            0 // mnThreshold: disabled
+        );
+
+        // deal some assets as a donation to allow PPS updates
+        deal(address(asset), address(testVault), 100e6);
+
+        vm.warp(block.timestamp + 1 weeks);
+        _forceUpdatePPSToTarget(address(testStrategy), 1e6);
+
+        // Reinvest tokens back into SuperVault (don't update PPS before reinvesting as strategy has no assets)
+        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
+            address(asset), address(testVault), vars.withdrawAmount, address(this)
+        );
+
         vars.sharesAfter = testVault.totalSupply();
-        
+
         console2.log("SuperVault shares before reinvestment:", vars.sharesBefore);
         console2.log("SuperVault shares after reinvestment:", vars.sharesAfter);
         console2.log("New shares minted:", vars.sharesAfter - vars.sharesBefore);
-        
+
         // Verify reinvestment
         assertGt(vars.sharesAfter, vars.sharesBefore, "Shares should increase after reinvestment");
         console2.log("Successfully reinvested tokens from emergency vault back into SuperVault");
@@ -8803,6 +9219,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("\n=== EMERGENCY ASSET RECOVERY TEST COMPLETED ===");
         console2.log("Successfully paused vault, redeemed from all UYS, transferred to safe recipient, and reinvested");
     }
+
 
     /*//////////////////////////////////////////////////////////////
                             HELPER FUNCTIONS
