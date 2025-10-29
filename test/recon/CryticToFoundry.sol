@@ -52,7 +52,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_previewEquivalenceFromAssets_1 -vvv
     // NOTE: same as above, see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_previewEquivalenceFromAssets_1() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
         vm.warp(block.timestamp + 605_012);
 
@@ -68,13 +68,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/55
     function test_property_previewEquivalenceFromShares_1() public {
         vm.warp(block.timestamp + 5);
-
-        vm.roll(block.number + 1);
-
-        ECDSAPPSOracle_updatePPS_clamped(1);
-
-        console2.log("precision: ", superVault.PRECISION());
-        property_previewEquivalenceFromShares(1);
+        property_previewEquivalenceFromShares(1e18);
     }
 
     // forge test --match-test test_property_accumulatorSharesDecreaseOnFulfill_exact_6 -vvv
@@ -187,11 +181,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
     function test_property_previewEquivalenceFromAssets_() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
-
-        vm.warp(block.timestamp + 577_107);
-
-        vm.roll(block.number + 1);
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 27_732);
@@ -202,14 +192,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_previewEquivalenceFromShares_ -vvv
     function test_property_previewEquivalenceFromShares_() public {
-        vm.warp(block.timestamp + 5);
-
-        vm.roll(block.number + 1);
-
-        ECDSAPPSOracle_updatePPS_clamped(100_000);
-
-        /// @audit Something dangerous tied to how prices work!?
-
         property_previewEquivalenceFromShares(1);
     }
 
@@ -316,7 +298,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_1 -vvv
     function test_property_comparePreviewMintAndConvertToAssets_1() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
         vm.warp(block.timestamp + 605_309);
 
@@ -329,14 +311,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
     function test_property_previewEquivalenceFromAssets_2() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
+        property_previewEquivalenceFromAssets(1e18);
+    }
 
-        vm.warp(block.timestamp + 604_955);
-
-        vm.roll(block.number + 1);
-
-        superVaultStrategy_executeVaultFeeConfigUpdate();
-
+    // forge test --match-test test_property_previewEquivalenceFromAssets_3 -vvv
+    function test_property_previewEquivalenceFromAssets_3() public {
         property_previewEquivalenceFromAssets(1);
     }
 
