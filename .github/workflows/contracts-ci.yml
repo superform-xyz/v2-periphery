@@ -54,17 +54,17 @@ jobs:
         with:
           node-version: "latest"
 
+      - name: "Install Foundry"
+        uses: "foundry-rs/foundry-toolchain@v1"
+  
+      - name: "Get forge version"
+        run: forge --version
+
       - name: Print ulimits
         run: ulimit -Sa && ulimit -Ha
 
       - name: Install Dependencies
         run: yarn install
-
-      - name: "Install Foundry"
-        uses: "foundry-rs/foundry-toolchain@v1"
-
-      - name: "Get forge version"
-        run: forge --version
 
       - name: "Install Foundry dependencies"
         run: forge install
