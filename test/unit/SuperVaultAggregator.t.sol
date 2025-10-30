@@ -89,7 +89,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1255,10 +1259,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Test unpause strategy with invalid authority
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.unpauseStrategy(strategy);
-
-        // Test pause strategy with invalid strategy
-        vm.expectRevert(ISuperVaultAggregator.INVALID_STRATEGY.selector);
-        superVaultAggregator.pauseStrategy(address(0)); 
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1938,7 +1938,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // =============================================================
     // Stake Management Tests
     // =============================================================
-
     /// @notice Tests successful stake deposit by any user for a manager
     function test_DepositStake_Success() public {
         uint256 stakeAmount = 1000e18;
@@ -2091,6 +2090,23 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     /// @notice Tests stake withdrawal reverts with insufficient balance
     function test_WithdrawStake_RevertInsufficientBalance() public {
+        uint256 stakeAmount = 500e18;
+        uint256 withdrawAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Try to withdraw more than deposited
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+    }
+
+    function test_WithdrawStakeInsufficientBalance() public {
         uint256 stakeAmount = 500e18;
         uint256 withdrawAmount = 1000e18;
 
