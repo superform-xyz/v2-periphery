@@ -350,6 +350,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert INSUFFICIENT_LIQUIDITY();
         }
 
+        // BURN SHARES
+        ISuperVault(_vault).burnShares(vars.processedShares);
+
+
         // BATCH TRANSFERS
         if (vars.totalSuperformFee > 0) {
             _safeTokenTransfer(
@@ -367,7 +371,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _asset.safeTransfer(ISuperVault(_vault).escrow(), vars.totalNetAssetsOut);
         }
 
-        ISuperVault(_vault).burnShares(vars.processedShares);
         emit RedeemRequestsFulfilled(controllers, vars.processedShares, vars.currentPPS);
     }
 
@@ -788,7 +791,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.pendingCancelRedeemRequest = false;
         state.claimableCancelRedeemRequest = 0;
 
-        // 6. Emit event without transferring (similar to _onRedeemClaimable but without transfer)
         emit RedeemClaimable(
             controller,
             vars.claimableAssets,
@@ -952,32 +954,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @return Output amount of the previous hook
     function _getPreviousHookOutAmount(address prevHook) private view returns (uint256) {
         return ISuperHookResultOutflow(prevHook).getOutAmount(address(this));
-    }
-
-    /// @notice Internal function to handle a redeem claimable
-    /// @param controller Address of the controller
-    /// @param assetsFulfilled Amount of assets fulfilled
-    /// @param sharesFulfilled Amount of shares fulfilled
-    /// @param averageWithdrawPrice Average withdraw price
-    /// @param accumulatorShares Accumulator shares
-    /// @param accumulatorCostBasis Accumulator cost basis
-    function _onRedeemClaimable(
-        address controller,
-        uint256 assetsFulfilled,
-        uint256 sharesFulfilled,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        private
-    {
-        // transfer assets to vault
-        address _escrow = ISuperVault(_vault).escrow();
-        _asset.safeTransfer(_escrow, assetsFulfilled);
-
-        emit RedeemClaimable(
-            controller, assetsFulfilled, sharesFulfilled, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
-        );
     }
 
     /// @notice Internal function to handle a redeem

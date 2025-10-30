@@ -259,7 +259,7 @@ interface ISuperVaultStrategy {
 
     /// @notice Fulfills pending redeem requests with exact total assets per controller (pre-fee).
     /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(totalAssetsOut)) first.
-    /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theo.
+    /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theoreticalGross[i].
     /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee deduction.
     /// @param controllers Ordered/unique controllers with pending requests.
     /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
