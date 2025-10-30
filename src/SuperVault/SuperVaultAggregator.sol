@@ -1004,11 +1004,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function isPPSStale(address strategy) external view returns (bool isStale) {
-        return _strategyData[strategy].ppsStale;
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
     function getUpkeepBalance(
         address manager
     ) external view returns (uint256 balance) {
