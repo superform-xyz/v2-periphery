@@ -129,17 +129,17 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_property_assetBacking_10() public {
         superVault_deposit(40_000);
 
-        superVault_requestRedeem_clamped(500);
+        yieldSource_deposit(40_000, address(superVaultStrategy));
 
-        // ECDSAPPSOracle_updatePPS_clamped(
-        //     115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_931
-        // );
+        uint256 shares = superVault.balanceOf(_getActor());
+
+        superVault_requestRedeem(shares);
 
         yieldSource_simulateGain(100_000_003);
 
-        superVaultStrategy_fulfillRedeemRequests_clamped(500);
+        superVaultStrategy_fulfillRedeemRequests_clamped(shares);
 
-        superVault_withdraw(500);
+        superVault_withdraw(shares);
 
         int256 difference = optimize_assetBackingDifference();
         console2.log("difference: ", difference);
@@ -328,7 +328,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         
         //superVault_requestRedeem_clamped(shares);
         vm.prank(_getActor());
-        superVault_redeem(shares);
+        superVault_requestRedeem(shares);
         superVault_cancelRedeem();
     }
 
