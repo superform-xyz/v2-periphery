@@ -385,8 +385,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     {
         _isPrimaryManager(msg.sender);
 
-        if (performanceFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
-        if (managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (performanceFeeBps >= BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (managementFeeBps >= BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
         if (recipient == address(0)) revert ZERO_ADDRESS();
         proposedFeeConfig = FeeConfig({
             performanceFeeBps: performanceFeeBps,
