@@ -1244,6 +1244,22 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0]);
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
     }
+    /*//////////////////////////////////////////////////////////////
+                          Strategy Pause Tests
+    //////////////////////////////////////////////////////////////*/
+    function test_StrategyPauseAndUnpause_RevertCases() public {
+        // Test pause strategy with invalid authority
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.pauseStrategy(strategy);
+
+        // Test unpause strategy with invalid authority
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.unpauseStrategy(strategy);
+
+        // Test pause strategy with invalid strategy
+        vm.expectRevert(ISuperVaultAggregator.INVALID_STRATEGY.selector);
+        superVaultAggregator.pauseStrategy(address(0)); 
+    }
 
     /*//////////////////////////////////////////////////////////////
                            Upkeep Management Tests
