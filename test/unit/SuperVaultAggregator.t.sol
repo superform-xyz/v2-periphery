@@ -733,7 +733,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // =============================================================
     // Monotonic Timestamp Validation Tests
     // =============================================================
-
     /// @notice Tests that batch PPS updates with non-monotonic timestamps are rejected
     function test_BatchForwardPPS_Revert_NonMonotonicTimestamp() public {
         // Set up as PPS Oracle to be able to call batchForwardPPS
@@ -811,6 +810,113 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamp2, "timestamp 2 should not change");
     }
 
+    /// @notice Tests timestamp event emissions
+    function test_BatchForwardPPS_TimestampEvents() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Create second strategy for batch testing
+        vm.prank(manager);
+        (, address strategy2,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Get initial timestamps
+        uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
+        uint256 timestamp2 = superVaultAggregator.getLastUpdateTimestamp(strategy2);
+
+        // Prepare batch data with monotonic timestamps
+        address[] memory strategies = new address[](2);
+        strategies[0] = strategy;
+        strategies[1] = strategy2;
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = 1e18;
+        ppss[1] = 1e18;
+
+        uint256[] memory ppsStdevs = new uint256[](2);
+        ppsStdevs[0] = 0;
+        ppsStdevs[1] = 0;
+
+        uint256[] memory validatorSets = new uint256[](2);
+        validatorSets[0] = 1;
+        validatorSets[1] = 1;
+
+        uint256[] memory totalValidators = new uint256[](2);
+        totalValidators[0] = 1;
+        totalValidators[1] = 1;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = timestamp1 + 10 weeks; // ts > block.timestamp
+        timestamps[1] = timestamp2 + 10; // Valid timestamp
+
+        address[] memory updateAuthorities = new address[](2);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+
+        // Wait for minimum interval to pass
+        uint256 timeBeforeUpdate1 = block.timestamp;
+        vm.warp(timeBeforeUpdate1 + 10);
+
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Should emit ProvidedTimestampExceedsBlockTimestamp()
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.ProvidedTimestampExceedsBlockTimestamp(strategy, timestamps[0], block.timestamp);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+
+        timestamps[0] = timeBeforeUpdate1 + 20; // Valid timestamp
+        timestamps[1] = timeBeforeUpdate1 + 20; // Valid timestamp
+
+        vm.warp(block.timestamp + 1000 weeks);
+
+        // Should emit StaleUpdate()
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StaleUpdate(strategy, address(this), timestamps[0]);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+    }
+
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
     function test_BatchForwardPPS_Success_MonotonicTimestamps() public {
         // Set up as PPS Oracle to be able to call batchForwardPPS
@@ -828,7 +934,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
