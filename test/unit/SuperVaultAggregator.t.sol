@@ -431,6 +431,18 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    function test_AddSecondaryManager() public {
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, manager);
+
+        // Test old secondary manager has been deleted
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+
+        vm.prank(manager);
+        superVaultAggregator.removeSecondaryManager(strategy, manager);
+        assertEq(secondaryManagers.length, 0, "Should have 0 secondary managers");
+    }
+
     /// @notice Tests emergency replacement clears pending hook root proposals
     function test_ChangePrimaryManager_ClearsPendingHookProposals() public {
         // Setup: Create pending hook root proposal
