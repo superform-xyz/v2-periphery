@@ -1177,7 +1177,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1239,6 +1243,17 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify timestamps were updated for both strategies
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0]);
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           Upkeep Management Tests
+    //////////////////////////////////////////////////////////////*/
+    function test_Upkeep_RevertCases() public {
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.depositUpkeep(manager, 0);
+
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
+        superVaultAggregator.withdrawUpkeep(1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1837,7 +1852,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
