@@ -222,6 +222,8 @@ Key Points for Auditors:
   - Guardian role can veto both global and strategy roots to prevent malicious hooks
   - Merkle tree leaves contain `abi.encode(hookArgs)` obtained via hooks' inspect function
 
+
+
 #### Hook Root Veto Mechanism
 
 The SuperVault system implements a dual-layer security mechanism for hook execution through vetoed hook roots:
@@ -441,6 +443,25 @@ To ensure transparency and facilitate the audit process, the following points ou
 - Circuit breaker mechanisms for price deviations
 - Multiple validation layers for PPS updates
 - Fallback mechanisms for oracle failures
+
+### Timelocks
+
+The protocol enforces specific timelock durations across different contracts to ensure safe updates.
+These timelocks prevent immediate execution of sensitive operations and allow for community review and intervention if needed.
+
+| **Timelock**               | **Value**      | **Location**             | **Changeable**                         | **Notes** |
+|-----------------------------|----------------|---------------------------|----------------------------------------|------------|
+| **Strategist change**       | 7 days         | `SuperVaultAggregator`    | ❌ Constant                            | For secondary strategist proposals |
+| **Hooks root update**       | 15 minutes     | `SuperVaultAggregator`    | ✅ Via `setHooksRootUpdateTimelock()`  | Configurable by `SuperGovernor` |
+| **Fee config update**       | 7 days         | `SuperVaultStrategy`      | ❌ Constant                            | For performance fee changes |
+| **Emergency withdrawal**    | 7 days         | `SuperVaultStrategy`      | ❌ Constant                            | For emergency mode activation |
+| **SuperGovernor operations**| 7 days         | `SuperGovernor`           | ❌ Constant                            | For governance changes |
+| **Max staleness**           | Variable (from 1 min to 7 days)       | `SuperVaultAggregator`    | ✅ *Should be configurable*             | Per-strategy, needs implementation |
+
+**Notes**:
+- **Immutable Timelocks** (❌ Constant): Defined at deployment and cannot be changed post-deployment.  
+- **Configurable Timelocks** (✅): May be updated via the `SuperGovernor` or dedicated setter functions.  
+- **Max Staleness**: Currently planned as a *per-strategy parameter* to define acceptable data freshness thresholds for oracle or PPS updates.  
 
 ## Development Setup
 

@@ -217,7 +217,7 @@ contract SuperVault is
         shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
-        strategy.handleOperations7540(ISuperVaultStrategy.Operation.CancelRedeem, controller, address(0), 0);
+        strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimCancelRedeem, controller, address(0), 0);
 
         // Return shares to controller
         ISuperVaultEscrow(escrow).returnShares(receiver, shares);
@@ -375,19 +375,19 @@ contract SuperVault is
 
     /// @inheritdoc IERC4626
     function maxDeposit(address) public view override returns (uint256) {
-        if (_isPaused()) return 0;
+        if (_isPaused() || _isPPSStale()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxMint(address) external view override returns (uint256) {
-        if (_isPaused()) return 0;
+        if (_isPaused() || _isPPSStale()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
-        if (_isPaused()) return 0;
+        if (_isPaused() || _isPPSStale()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
@@ -566,6 +566,11 @@ contract SuperVault is
     function _isPaused() internal view returns (bool) {
         address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
         return ISuperVaultAggregator(aggregatorAddress).isStrategyPaused(address(strategy));
+    }
+
+    function _isPPSStale() internal view returns (bool) {
+        address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
+        return ISuperVaultAggregator(aggregatorAddress).isPPSStale(address(strategy));
     }
 
     /// @dev Read management fee config (view-only for previews)

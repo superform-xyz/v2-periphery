@@ -415,6 +415,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_STAKE_BALANCE();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
+    /// @notice Thrown when trying to pause a strategy that is already paused
+    error STRATEGY_ALREADY_PAUSED();
     /// @notice Thrown when caller is already authorized
     error CALLER_ALREADY_AUTHORIZED();
     /// @notice Thrown when caller is not authorized
@@ -518,6 +520,18 @@ interface ISuperVaultAggregator {
     /// @notice Claims upkeep tokens from the contract
     /// @param amount Amount of UP tokens to claim
     function claimUpkeep(uint256 amount) external;
+
+    /*//////////////////////////////////////////////////////////////
+                        PAUSE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    function pauseStrategy(address strategy) external;
+
+    /// @notice Manually unpauses a strategy
+    /// @param strategy Address of the strategy to unpause
+    function unpauseStrategy(address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                         STAKE MANAGEMENT
@@ -706,6 +720,13 @@ interface ISuperVaultAggregator {
     /// @return isPaused True if paused, false otherwise
     function isStrategyPaused(address strategy) external view returns (bool isPaused);
 
+    /// @notice Checks if a strategy's PPS is stale
+    /// @dev PPS is automatically set to stale when the strategy is paused due to
+    ///      lack of upkeep payment in `SuperVaultAggregator`
+    /// @param strategy Address of the strategy
+    /// @return isStale True if stale, false otherwise
+    function isPPSStale(address strategy) external view returns (bool isStale);
+
     /// @notice Gets the current upkeep balance for a manager
     /// @param manager Address of the manager
     /// @return balance Current upkeep balance in UP tokens
@@ -820,9 +841,4 @@ interface ISuperVaultAggregator {
         external
         view
         returns (bytes32 root, uint256 effectiveTime);
-
-    /// @notice Updates the strategy's PPS unpause timelock
-    /// @param strategy Address of the strategy
-    /// @param timelock The new timelock value
-    function updateUnpausePPSTimelock(address strategy, uint256 timelock) external;
 }

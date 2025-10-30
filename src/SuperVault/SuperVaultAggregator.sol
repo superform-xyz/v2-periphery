@@ -74,8 +74,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
-    // Default unpause timelock
-    uint256 private constant _MAX_UNPAUSE_TIMELOCK = 1 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
     // Global hooks Merkle root data
@@ -217,8 +215,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].maxStaleness = params.maxStaleness;
         _strategyData[strategy].isPaused = false;
         _strategyData[strategy].mainManager = params.mainManager;
-        _strategyData[strategy].maxUnpauseTimeLock =
-            params.maxUnpauseTimeLock > 0 ? params.maxUnpauseTimeLock : _MAX_UNPAUSE_TIMELOCK;
 
         uint256 secondaryLen = params.secondaryManagers.length;
         for (uint256 i; i < secondaryLen; ++i) {
@@ -375,6 +371,26 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                         PAUSE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    /// @dev Only the main or secondary manager of the strategy can pause it
+    function pauseStrategy(address strategy) external validStrategy(strategy) {
+        // Either primary or secondary manager can pause
+        if (!isAnyManager(msg.sender, strategy)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if strategy is already paused
+        if (_strategyData[strategy].isPaused) {
+            revert STRATEGY_ALREADY_PAUSED();
+        }
+
+        // Pause the strategy
+        _strategyData[strategy].isPaused = true;
+        _strategyData[strategy].ppsStale = true;
+        emit StrategyPaused(strategy);
+    }
+
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
@@ -387,11 +403,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Check if strategy is currently paused
         if (!_strategyData[strategy].isPaused) {
             revert STRATEGY_NOT_PAUSED();
-        }
-
-        uint256 lastUpdateTimestamp = _strategyData[strategy].lastUpdateTimestamp;
-        if (block.timestamp - lastUpdateTimestamp >= _strategyData[strategy].maxUnpauseTimeLock) {
-            revert UNPAUSE_TIMELOCK_NOT_MET();
         }
 
         // Unpause the strategy
@@ -591,19 +602,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert MANAGER_NOT_FOUND();
 
         emit SecondaryManagerRemoved(strategy, manager);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function updateUnpausePPSTimelock(address strategy, uint256 newTimelock_) external validStrategy(strategy) {
-        // Since this is a risky call, we only allow main managers as callers
-        if (msg.sender != _strategyData[strategy].mainManager) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
-
-        // Update the timelock
-        _strategyData[strategy].maxUnpauseTimeLock = newTimelock_;
-
-        emit StrategyUnpausePPSTimelockUpdated(strategy, newTimelock_);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1001,6 +999,16 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    function isPPSStale(address strategy) external view returns (bool isStale) {
+        return _strategyData[strategy].ppsStale;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function isPPSStale(address strategy) external view returns (bool isStale) {
+        return _strategyData[strategy].ppsStale;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
     function getUpkeepBalance(
         address manager
     ) external view returns (uint256 balance) {
@@ -1181,9 +1189,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (_validateSingleHook(
+            if (
+                _validateSingleHook(
                     argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
-                )) {
+                )
+            ) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root
