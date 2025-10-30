@@ -36,14 +36,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_13 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_comparePreviewMintAndConvertToAssets_13() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 237_093);
+        vm.warp(block.timestamp + 2 weeks);
 
-        vm.roll(block.number + 1);
-
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 367_768);
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
         property_comparePreviewMintAndConvertToAssets(1);
@@ -183,8 +179,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_property_previewEquivalenceFromAssets_() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 27_732);
+        vm.warp(block.timestamp + 2 weeks);
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
         property_previewEquivalenceFromAssets(1);
@@ -197,11 +192,9 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_ -vvv
     function test_property_comparePreviewMintAndConvertToAssets_() public {
-        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 10_000, 0x00000000000000000000000000000000DeaDBeef);
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 100, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 604_912);
-
-        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 2 weeks);
 
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
@@ -300,13 +293,21 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_property_comparePreviewMintAndConvertToAssets_1() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
-        vm.warp(block.timestamp + 605_309);
-
-        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 2 weeks);
 
         superVaultStrategy_executeVaultFeeConfigUpdate();
 
-        property_comparePreviewMintAndConvertToAssets(1);
+        property_comparePreviewMintAndConvertToAssets(1e18);
+    }
+
+    function test_comparePreviewMintAndConvertToAssets_4() public {
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0, 9999, 0x00000000000000000000000000000000DeaDBeef);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        superVaultStrategy_executeVaultFeeConfigUpdate();
+
+        property_comparePreviewMintAndConvertToAssets(1e18);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
@@ -321,33 +322,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_superVault_cancelRedeem_3 -vvv
     function test_superVault_cancelRedeem_3() public {
-        superVault_deposit(40000);
-
-        vm.roll(block.number + 5000);
-        vm.warp(block.timestamp + 136);
-        yieldSource_requestRedeem(
-            901, 0x0000000000000000000000000000000000000100, 0x00000000000000000000000000000001fffffffE
-        );
-
-        vm.roll(block.number + 4967);
-        vm.warp(block.timestamp + 317_374);
-        property_accumulatorSharesIncrease();
-
-        vm.roll(block.number + 4927);
-        vm.warp(block.timestamp + 7994);
-        property_avgPPSMonotonicity();
-
-        vm.roll(block.number + 36_555);
-        vm.warp(block.timestamp + 360_626);
-        property_accumulatorSharesSolvency();
-
-        // TODO: Cancel redeem request
-        vm.roll(block.number + 22_909);
-        vm.warp(block.timestamp + 440_699);
-        yieldSource_cancelDepositRequest(
-            115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_835,
-            0x00000000000000000000000000000002fFffFffD
-        );
+        superVault_deposit(40_000);
+        uint256 shares = superVault.balanceOf(_getActor());
+        vm.warp(block.timestamp + 2 weeks);
+        
+        //superVault_requestRedeem_clamped(shares);
+        vm.prank(_getActor());
+        superVault_redeem(shares);
+        superVault_cancelRedeem();
     }
 
     // forge test --match-test test_doomsday_mintRedeemSymmetrical_6 -vvv

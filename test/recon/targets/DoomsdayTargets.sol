@@ -37,7 +37,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: mint/redeem doesn't cause loss to user
-    function doomsday_mintRedeemSymmetrical(uint256 sharesToMint) public stateless {
+    function doomsday_mintRedeemSymmetrical(uint256 sharesToMint) public {
         // skip if there's been any gain because it complicates the assertion checking
         // NOTE: removed because was previously checking that user doesn't gain only from minting/redeeming
         // if (MockERC4626Tester(_getYieldSource()).totalGains() > 0) {
