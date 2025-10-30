@@ -426,7 +426,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     // @inheritdoc ISuperVaultStrategy
     function executeVaultFeeConfigUpdate() external {
         _isPrimaryManager(msg.sender);
-        
+
         if (block.timestamp < feeConfigEffectiveTime) revert INVALID_TIMESTAMP();
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
         feeConfig = proposedFeeConfig;
