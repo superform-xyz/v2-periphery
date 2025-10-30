@@ -117,6 +117,64 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Create Vault Tests
+    // =============================================================
+    /// @notice Tests revert cases for creating a vault
+    function test_CreateVault_RevertCases() public {
+        // Test with zero name
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "",
+                symbol: "TV",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Test with zero symbol
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Test with too many secondary managers
+        address[] memory secondaryManagers = new address[](10);
+        for (uint256 i = 0; i < 10; i++) {
+            secondaryManagers[i] = _deployAccount(0x10 + i, "SecondaryManager");
+        }
+        vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "TV",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+    }
+
+    // =============================================================
     // Authorized Caller Management Tests
     // =============================================================
 
