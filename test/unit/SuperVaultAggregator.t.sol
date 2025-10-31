@@ -2234,6 +2234,26 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    function test_WithdrawStake_RevertInsufficientBalance_AfterSlashing() public {
+        uint256 stakeAmount = 500e18;
+        uint256 withdrawAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        vm.prank(address(superGovernor));
+        superVaultAggregator.slashStake(manager, stakeAmount);
+
+        // Try to withdraw more than deposited
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+    }
+
     /// @notice Tests successful stake slashing by SuperGovernor
     function test_SlashStake_Success() public {
         uint256 stakeAmount = 1000e18;
