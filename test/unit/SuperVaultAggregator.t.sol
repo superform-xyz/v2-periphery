@@ -1278,15 +1278,25 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /*//////////////////////////////////////////////////////////////
                           Strategy Pause Tests
     //////////////////////////////////////////////////////////////*/
-
     function test_StrategyPauseAndUnpause_RevertCases() public {
         // Test pause strategy with invalid authority
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.pauseStrategy(strategy);
 
+        vm.startPrank(manager);
+        superVaultAggregator.pauseStrategy(strategy);
+        vm.expectRevert(ISuperVaultAggregator.STRATEGY_ALREADY_PAUSED.selector);
+        superVaultAggregator.pauseStrategy(strategy);
+        vm.stopPrank();
+
         // Test unpause strategy with invalid authority
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.unpauseStrategy(strategy);
+        vm.startPrank(governor);
+        superVaultAggregator.unpauseStrategy(strategy);
+        vm.expectRevert(ISuperVaultAggregator.STRATEGY_NOT_PAUSED.selector);
+        superVaultAggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
