@@ -48,16 +48,16 @@ abstract contract AssetAdjustmentHelper is Test {
      *      - Adjusted B: 199.6 → 199 assets (0.4 wei loss)
      *
      * @param controllers Array of controller addresses (must be sorted/unique)
-     * @param theoreticalNetAssets Array of theoretical net assets per controller from previewExactRedeem
-     * @param totalTheoreticalNetAssets Total theoretical net assets (sum of theoreticalNetAssets, from
+     * @param theoreticalAssets Array of theoretical assets per controller from previewExactRedeem
+     * @param totalTheoreticalAssets Total theoretical assets (sum of theoreticalAssets, from
      * previewExactRedeemBatch)
      * @param totalAvailableAssets Actual assets available from executeHooks (sum of expectedAssetsOrSharesOut)
      * @return fulfillRedeemTotalAssetsOut Array adjusted to match available liquidity, sum <= totalAvailableAssets
      */
     function calculateFulfillRedeemTotalAssetsOut(
         address[] memory controllers,
-        uint256[] memory theoreticalNetAssets,
-        uint256 totalTheoreticalNetAssets,
+        uint256[] memory theoreticalAssets,
+        uint256 totalTheoreticalAssets,
         uint256 totalAvailableAssets
     )
         internal
@@ -65,41 +65,41 @@ abstract contract AssetAdjustmentHelper is Test {
         returns (uint256[] memory fulfillRedeemTotalAssetsOut)
     {
         // Input validation
-        if (controllers.length == 0 || theoreticalNetAssets.length == 0) {
+        if (controllers.length == 0 || theoreticalAssets.length == 0) {
             revert EMPTY_ARRAYS();
         }
-        if (controllers.length != theoreticalNetAssets.length) {
+        if (controllers.length != theoreticalAssets.length) {
             revert ARRAY_LENGTH_MISMATCH();
         }
 
         fulfillRedeemTotalAssetsOut = new uint256[](controllers.length);
 
-        if (totalTheoreticalNetAssets == 0) {
+        if (totalTheoreticalAssets == 0) {
             revert ZERO_TOTAL_THEORETICAL();
         }
 
         // Handle edge case: available assets exceed theoretical (should not happen but protect anyway)
-        if (totalAvailableAssets >= totalTheoreticalNetAssets) {
+        if (totalAvailableAssets >= totalTheoreticalAssets) {
             // No adjustment needed - return theoretical amounts
-            return theoreticalNetAssets;
+            return theoreticalAssets;
         }
 
         // Ensure we don't try to fulfill more than what's theoretically possible
-        if (totalAvailableAssets > totalTheoreticalNetAssets) {
+        if (totalAvailableAssets > totalTheoreticalAssets) {
             revert INSUFFICIENT_AVAILABLE_ASSETS();
         }
 
         console2.log(
-            "Adjusting netAssets: Theoretical=%s, Available=%s", totalTheoreticalNetAssets, totalAvailableAssets
+            "Adjusting assets: Theoretical=%s, Available=%s", totalTheoreticalAssets, totalAvailableAssets
         );
 
         // Distribute available assets pro-rata based on theoretical amounts
         uint256 totalAdjusted = 0;
 
-        for (uint256 i = 0; i < theoreticalNetAssets.length; i++) {
+        for (uint256 i = 0; i < theoreticalAssets.length; i++) {
             // Pro-rata calculation for all users: (theoretical[i] * available) / totalTheoretical
             fulfillRedeemTotalAssetsOut[i] =
-                theoreticalNetAssets[i].mulDiv(totalAvailableAssets, totalTheoreticalNetAssets, Math.Rounding.Floor);
+                theoreticalAssets[i].mulDiv(totalAvailableAssets, totalTheoreticalAssets, Math.Rounding.Floor);
             totalAdjusted += fulfillRedeemTotalAssetsOut[i];
         }
 
@@ -154,8 +154,8 @@ abstract contract AssetAdjustmentHelper is Test {
             revert EMPTY_ARRAYS();
         }
 
-        // Step 1: Get theoretical net assets for all controllers using strategy's batch preview
-        (uint256 totalTheoreticalNetAssets, uint256[] memory theoreticalNetAssets) =
+        // Step 1: Get theoretical assets for all controllers using strategy's batch preview
+        (uint256 totalTheoreticalAssets, uint256[] memory theoreticalAssets) =
             strategy.previewExactRedeemBatch(controllers);
 
         // Step 2: Calculate total available assets from executeHooks
@@ -167,7 +167,7 @@ abstract contract AssetAdjustmentHelper is Test {
 
         // Step 3: Adjust theoretical amounts to match available assets
         fulfillRedeemTotalAssetsOut = calculateFulfillRedeemTotalAssetsOut(
-            controllers, theoreticalNetAssets, totalTheoreticalNetAssets, totalAvailableAssets
+            controllers, theoreticalAssets, totalTheoreticalAssets, totalAvailableAssets
         );
 
         return fulfillRedeemTotalAssetsOut;
@@ -207,18 +207,18 @@ abstract contract AssetAdjustmentHelper is Test {
         // Step 1: Get current strategy asset balance (available liquidity)
         uint256 strategyBalance = IERC20(asset).balanceOf(address(strategy));
 
-        // Step 2: Get theoretical net assets for all controllers using strategy's batch preview
-        (uint256 totalTheoretical, uint256[] memory theoreticalNetAssets) =
+        // Step 2: Get theoretical assets for all controllers using strategy's batch preview
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) =
             strategy.previewExactRedeemBatch(controllers);
 
         // Step 3: If strategy has enough balance, use theoretical amounts
         if (strategyBalance >= totalTheoretical) {
-            return theoreticalNetAssets;
+            return theoreticalAssets;
         }
 
         // Step 4: Strategy balance is insufficient, adjust pro-rata
         fulfillRedeemTotalAssetsOut =
-            calculateFulfillRedeemTotalAssetsOut(controllers, theoreticalNetAssets, totalTheoretical, strategyBalance);
+            calculateFulfillRedeemTotalAssetsOut(controllers, theoreticalAssets, totalTheoretical, strategyBalance);
 
         return fulfillRedeemTotalAssetsOut;
     }
@@ -322,14 +322,14 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         }
         // Note: In real scenario, this would be 999,999,998 from strategy balance
 
-        // STEP 3: Simulate theoretical net assets (what previewExactRedeem would return)
-        uint256[] memory theoreticalNetAssets = new uint256[](1);
-        theoreticalNetAssets[0] = totalAvailable + 2; // 2 wei more than available (the precision loss)
-        uint256 totalTheoreticalNetAssets = theoreticalNetAssets[0]; // Single controller case
+        // STEP 3: Simulate theoretical assets (what previewExactRedeem would return)
+        uint256[] memory theoreticalAssets = new uint256[](1);
+        theoreticalAssets[0] = totalAvailable + 2; // 2 wei more than available (the precision loss)
+        uint256 totalTheoreticalAssets = theoreticalAssets[0]; // Single controller case
 
         // STEP 4: Apply adjustment to fix the precision mismatch
         uint256[] memory fulfillRedeemTotalAssetsOut = calculateFulfillRedeemTotalAssetsOut(
-            controllers, theoreticalNetAssets, totalTheoreticalNetAssets, totalAvailable
+            controllers, theoreticalAssets, totalTheoreticalAssets, totalAvailable
         );
 
         // VERIFICATION: With the fix, totalAssetsOut should be fair (pro-rata) not all remaining
@@ -340,10 +340,10 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         // SUCCESS: Now fulfillRedeemRequests would work with fulfillRedeemTotalAssetsOut
         // instead of theoretical amounts, eliminating INSUFFICIENT_LIQUIDITY error
 
-        emit log_named_uint("Theoretical Net Assets", theoreticalNetAssets[0]);
+        emit log_named_uint("Theoretical Assets", theoreticalAssets[0]);
         emit log_named_uint("Available from Hooks", totalAvailable);
         emit log_named_uint("FulfillRedeem TotalAssetsOut", fulfillRedeemTotalAssetsOut[0]);
-        emit log_named_uint("Precision Loss (wei)", theoreticalNetAssets[0] - fulfillRedeemTotalAssetsOut[0]);
+        emit log_named_uint("Precision Loss (wei)", theoreticalAssets[0] - fulfillRedeemTotalAssetsOut[0]);
     }
 
     /**
@@ -359,8 +359,8 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
 
         // EXISTING PATTERN (that fails):
         // strategy.executeHooks(args);  // Causes 2 wei precision loss
-        // (, , , uint256 theoNet, ) = strategy.previewExactRedeem(controller);
-        // strategy.fulfillRedeemRequests([controller], [theoNet]); // FAILS: INSUFFICIENT_LIQUIDITY
+        // (, uint256 theoAssets, ) = strategy.previewExactRedeem(controller);
+        // strategy.fulfillRedeemRequests([controller], [theoAssets]); // FAILS: INSUFFICIENT_LIQUIDITY
 
         // NEW PATTERN (that works):
         address[] memory controllers = new address[](1);
@@ -399,7 +399,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
                                 TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_SingleController_FullLossAttribution() public {
+    function test_SingleController_FullLossAttribution() public pure {
         // Setup: Single controller with execution loss
         address[] memory controllers = new address[](1);
         controllers[0] = address(0x1);
@@ -422,7 +422,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertTrue(verifyFulfillRedeemSum(fulfillRedeemTotalAssetsOut, available), "TotalAssetsOut should be valid");
     }
 
-    function test_MultipleControllers_ProRataDistribution() public {
+    function test_MultipleControllers_ProRataDistribution() public pure {
         // Setup: Multiple controllers with different request sizes
         address[] memory controllers = new address[](3);
         controllers[0] = address(0x1);
@@ -461,7 +461,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertTrue(verifyFulfillRedeemSum(fulfillRedeemTotalAssetsOut, available), "TotalAssetsOut should be valid");
     }
 
-    function test_ZeroLoss_NoAdjustment() public {
+    function test_ZeroLoss_NoAdjustment() public pure {
         // Setup: No execution loss
         address[] memory controllers = new address[](2);
         controllers[0] = address(0x1);
@@ -483,7 +483,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertEq(fulfillRedeemTotalAssetsOut[1], theoretical[1], "No adjustment needed when no loss");
     }
 
-    function test_EdgeCase_LargeLoss() public {
+    function test_EdgeCase_LargeLoss() public pure {
         // Setup: Significant execution loss
         address[] memory controllers = new address[](2);
         controllers[0] = address(0x1);

@@ -1712,7 +1712,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.fluidVaultSharesDecrease = vars.initialFluidVaultBalance - fluidVault.balanceOf(address(strategy));
         vars.aaveVaultSharesDecrease = vars.initialAaveVaultBalance - aaveVault.balanceOf(address(strategy));
         vars.strategyAssetBalanceIncrease = asset.balanceOf(address(escrow)) - vars.initialStrategyAssetBalance; // escrow
-            // balance
+        // balance
 
         vars.fluidVaultAssetsValue = fluidVault.convertToAssets(vars.fluidVaultSharesDecrease);
         vars.aaveVaultAssetsValue = aaveVault.convertToAssets(vars.aaveVaultSharesDecrease);
@@ -2182,8 +2182,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 totalShares;
         // Redemption 1
         uint256 redeemAmount1;
-        uint256 superformFee1;
-        uint256 recipientFee1;
+        // superformFee1 and recipientFee1 removed - fees now collected via skimPerformanceFee
         uint256 totalFee1;
         uint256 userBalanceBeforeRedeem1;
         uint256 treasuryBalanceAfterRedeem1;
@@ -2193,8 +2192,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Redemption 2
         uint256 remainingShares;
         uint256 redeemAmount2;
-        uint256 superformFee2;
-        uint256 recipientFee2;
+        // superformFee2 and recipientFee2 removed - fees now collected via skimPerformanceFee
         uint256 totalFee2;
         uint256 userBalanceBeforeRedeem2;
         uint256 treasuryBalanceAfterRedeem2;
@@ -2203,8 +2201,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userAssetsAfterRedeem2;
         // Redemption 3
         uint256 finalShares;
-        uint256 superformFee3;
-        uint256 recipientFee3;
+        // superformFee3 and recipientFee3 removed - fees now collected via skimPerformanceFee
         uint256 totalFee3;
         uint256 userBalanceBeforeRedeem3;
         uint256 treasuryBalanceAfterRedeem3;
@@ -2247,7 +2244,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -2278,37 +2274,24 @@ contract SuperVaultTest is BaseSuperVaultTest {
         For this reason, should we continue like this and assume this? Should we set a ledger configuration just for
             super vaults where the core fee on yield is 0 so the user is not double charged on performance?
         */
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
 
         // Step 5: Fulfill Redeem
         _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Calculate expected assets based on shares
-        uint256 claimableAssets = vault.maxWithdraw(accountEth);
         uint256 claimableShares = vault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
 
-        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
-        );
-
-        console2.log("superformFee", superformFee);
-        console2.log("recipientFee", recipientFee);
-        console2.log("expectedLedgerFee", expectedLedgerFee);
-        console2.log("claimableAssets", claimableAssets);
+        // Fee logging removed - fees now collected via skimPerformanceFee
         console2.log("getAverageWithdrawPrice", strategy.getAverageWithdrawPrice(accountEth));
 
         // Step 6: Claim Withdraw
         _claimWithdraw(claimableShares);
 
-        uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
-
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
 
-        // Verify fee was taken
-        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+        // Fee verification removed - fees now collected via skimPerformanceFee
     }
 
     function test_SuperVault_E2E_Flow_With_PPS_Slippage_Update() public {
@@ -2341,7 +2324,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -2376,31 +2358,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
-
         // Step 5: Fulfill Redeem
         _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
 
         // Calculate expected assets based on shares
-        uint256 claimableAssets = vault.maxWithdraw(accountEth);
         uint256 claimableShares = vault.maxRedeem(accountEth);
         console2.log("claimableShares", claimableShares);
-
-        uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
-        uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), claimableAssets, claimableShares, 100, pps, vault.decimals()
-        );
 
         // Step 6: Claim Withdraw
         _claimWithdraw(claimableShares);
 
-        uint256 totalFeesTaken = superformFee + recipientFee + expectedLedgerFee;
-
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
 
-        // Verify fee was taken
-        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+        // Fee verification removed - fees now collected via skimPerformanceFee
     }
 
     function test_SuperVault_E2E_Flow_With_0_Ledger_Fees() public {
@@ -2435,7 +2406,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(accountEth);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -2458,10 +2428,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(accountEth, userShares);
-        uint256 totalFeesTaken = superformFee + recipientFee;
-
-        console2.log("totalFeesTaken", totalFeesTaken);
+        // Fees are now collected via skimPerformanceFee(), not during redemption
 
         // Step 5: Fulfill Redeem
         _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
@@ -2475,8 +2442,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Final balance assertions
         assertGt(asset.balanceOf(accountEth), preRedeemUserAssets, "User assets not increased after redeem");
 
-        // Verify fee was taken
-        _assertFeeDerivation(totalFeesTaken, feeBalanceBefore, asset.balanceOf(TREASURY));
+        // Fee verification removed - fees now collected via skimPerformanceFee
     }
 
     function test_SuperVault_MultipleDeposits_PartialRedemptions() public {
@@ -2568,9 +2534,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.redeemAmount1 = vars.totalShares / 4; // 25% of shares
         console2.log("Redeeming shares (25%):", vars.redeemAmount1);
 
-        // Calculate expected fee for first redemption
-        (, vars.superformFee1, vars.recipientFee1) = strategy.previewPerformanceFee(accountEth, vars.redeemAmount1);
-
+        // Fees are now collected via skimPerformanceFee(), not during redemption
         vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
 
         // Record asset balance before redemption
@@ -2586,11 +2550,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.claimableShares1 = vault.maxRedeem(accountEth);
         vars.claimableAssets1 = vault.maxWithdraw(accountEth);
 
+        // Calculate actual assets that will be withdrawn using averageWithdrawPrice with Floor rounding
+        // This matches redeem() behavior and ensures previewFees calculates fees on the correct amount
+        uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(accountEth);
+        uint256 actualAssetsWithdrawn =
+            vars.claimableShares1.mulDiv(averageWithdrawPrice, vault.PRECISION(), Math.Rounding.Floor);
+
         uint256 pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets1, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
+            accountEth, address(vault), actualAssetsWithdrawn, vars.claimableShares1, 100, pps, vault.decimals()
         );
-        vars.totalFee1 = vars.superformFee1 + vars.recipientFee1 + expectedLedgerFee;
+        vars.totalFee1 = expectedLedgerFee; // Only ledger fee remains
         console2.log("Expected fee for redemption 1:", vars.totalFee1);
 
         _claimWithdraw(vars.claimableShares1);
@@ -2605,14 +2575,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _assertFeeDerivation(vars.totalFee1, vars.feeBalanceBefore, vars.treasuryBalanceAfterRedeem1);
         console2.log("Treasury balance after redemption 1:", vars.treasuryBalanceAfterRedeem1);
 
+        // Verify rounding issue: claimableWithdraw should have 1 wei remaining due to double Floor rounding
+        // maxRedeem calculates shares with Floor rounding, then redeem calculates assets with Floor rounding,
+        // leaving 1 wei unclaimable
+        uint256 remainingClaimable = strategy.claimableWithdraw(accountEth);
+        assertEq(remainingClaimable, 1, "claimableWithdraw should have 1 wei remaining due to rounding");
+        console2.log("Remaining claimable (expected 1 wei due to rounding):", remainingClaimable);
+
         // ========== REDEMPTION 2 (33% of remaining shares) ==========
         console2.log("===== REDEMPTION 2 (33% of remaining) =====");
         vars.remainingShares = vault.balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 3; // 33% of remaining shares
         console2.log("Redeeming shares (33% of remaining):", vars.redeemAmount2);
 
-        // Calculate expected fee for second redemption
-        (, vars.superformFee2, vars.recipientFee2) = strategy.previewPerformanceFee(accountEth, vars.redeemAmount2);
+        // Fees are now collected via skimPerformanceFee(), not during redemption
 
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem2 = asset.balanceOf(accountEth);
@@ -2627,11 +2603,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.claimableShares2 = vault.maxRedeem(accountEth);
         vars.claimableAssets2 = vault.maxWithdraw(accountEth);
 
+        // Calculate actual assets that will be withdrawn using averageWithdrawPrice with Floor rounding
+        averageWithdrawPrice = strategy.getAverageWithdrawPrice(accountEth);
+        uint256 actualAssetsWithdrawn2 =
+            vars.claimableShares2.mulDiv(averageWithdrawPrice, vault.PRECISION(), Math.Rounding.Floor);
+
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets2, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
+            accountEth, address(vault), actualAssetsWithdrawn2, vars.claimableShares2, 100, pps, vault.decimals()
         );
-        vars.totalFee2 = vars.superformFee2 + vars.recipientFee2 + expectedLedgerFee;
+        vars.totalFee2 = expectedLedgerFee; // Only ledger fee remains
         console2.log("Expected fee for redemption 2:", vars.totalFee2);
 
         _claimWithdraw(vars.claimableShares2);
@@ -2651,8 +2632,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.finalShares = vault.balanceOf(accountEth);
         console2.log("Redeeming final shares:", vars.finalShares);
 
-        // Calculate expected fee for third redemption
-        (, vars.superformFee3, vars.recipientFee3) = strategy.previewPerformanceFee(accountEth, vars.finalShares);
+        // Fees are now collected via skimPerformanceFee(), not during redemption
 
         // Record asset balance before redemption
         vars.userBalanceBeforeRedeem3 = asset.balanceOf(accountEth);
@@ -2667,11 +2647,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.claimableShares3 = vault.maxRedeem(accountEth);
         vars.claimableAssets3 = vault.maxWithdraw(accountEth);
 
+        // Calculate actual assets that will be withdrawn using averageWithdrawPrice with Floor rounding
+        averageWithdrawPrice = strategy.getAverageWithdrawPrice(accountEth);
+        uint256 actualAssetsWithdrawn3 =
+            vars.claimableShares3.mulDiv(averageWithdrawPrice, vault.PRECISION(), Math.Rounding.Floor);
+
         pps = vault.totalSupply() > 0 ? vault.convertToAssets(1e18) : 1e18;
         expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth, address(vault), vars.claimableAssets3, vault.maxRedeem(accountEth), 100, pps, vault.decimals()
+            accountEth, address(vault), actualAssetsWithdrawn3, vars.claimableShares3, 100, pps, vault.decimals()
         );
-        vars.totalFee3 = vars.superformFee3 + vars.recipientFee3 + expectedLedgerFee;
+        vars.totalFee3 = expectedLedgerFee; // Only ledger fee remains
         console2.log("Expected fee for redemption 3:", vars.totalFee3);
         _claimWithdraw(vars.claimableShares3);
 
@@ -2747,10 +2732,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         for (uint256 i = 0; i < 3; i++) {
             // Deploy a new vault with custom configuration
-            (address vaultAddr,,) = _deployVault(
-                address(asset),
-                symbols[i] // symbol
-            );
+            (address vaultAddr,,) =
+                _deployVault(
+                    address(asset),
+                    symbols[i] // symbol
+                );
 
             // Verify each vault is properly initialized
             SuperVault vaultContract = SuperVault(vaultAddr);
@@ -2832,9 +2818,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 minUpdateInterval: params.minUpdateInterval,
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: params.performanceFeeBps,
-                    managementFeeBps: 0,
-                    recipient: address(this)
+                    performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
                 }),
                 maxUnpauseTimeLock: 0
             })
@@ -2858,9 +2842,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 minUpdateInterval: params.minUpdateInterval,
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: params.performanceFeeBps,
-                    managementFeeBps: 0,
-                    recipient: address(this)
+                    performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
                 }),
                 maxUnpauseTimeLock: 0
             })
@@ -2875,7 +2857,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _setupGearVault();
 
         uint256 amount = 1000e6;
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         console2.log("DEPOSITING");
         _deposit(amount, address(gearSuperVault), address(strategyGearSuperVault), address(asset));
@@ -2946,9 +2927,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultPPS(address(strategyGearSuperVault), address(gearSuperVault));
 
-        (, uint256 superformFee, uint256 recipientFee) =
-            strategyGearSuperVault.previewPerformanceFee(accountEth, userShares);
-
         // Step 5: Fulfill Redeem
         _executeRedeemHooks4626_Gearbox_SV();
 
@@ -2961,18 +2939,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
             accountEth, address(gearSuperVault), claimableAssets, claimableShares, 100, pps, gearSuperVault.decimals()
         );
 
-        uint256 totalFee = superformFee + recipientFee + expectedLedgerFee;
+        uint256 totalFee = expectedLedgerFee; // Only ledger fee remains
         console2.log("totalFee: ", totalFee);
-        console2.log("feeBalanceBefore: ", feeBalanceBefore);
+        // Fee balance logging removed - fees now collected via skimPerformanceFee"
         console2.log("asset.balanceOf(TREASURY): ", asset.balanceOf(TREASURY));
-        console2.log("recipientFee: ", recipientFee);
-        console2.log("superformFee: ", superformFee);
-        console2.log("expectedLedgerFee: ", expectedLedgerFee);
+        // Fee logging removed - fees now collected via skimPerformanceFee
 
         // Step 6: Claim Withdraw
         _claimWithdraw_Gearbox_SV(claimableAssets);
 
-        _assertFeeDerivation(totalFee, feeBalanceBefore, asset.balanceOf(TREASURY));
+        // Fee derivation assertion removed - fees now collected via skimPerformanceFee"
 
         /*
         assertEq(
@@ -3570,7 +3546,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             + newVault.convertToAssets(vars.initialNewVaultBalance);
 
         vars.finalTotalValue = fluidVault.convertToAssets(vars.finalFluidVaultBalance)
-            + aaveVault.convertToAssets(vars.finalAaveVaultBalance) + newVault.convertToAssets(vars.finalNewVaultBalance);
+            + aaveVault.convertToAssets(vars.finalAaveVaultBalance)
+            + newVault.convertToAssets(vars.finalNewVaultBalance);
         assertApproxEqRel(
             vars.finalTotalValue, vars.initialTotalValue, 0.01e18, "Total value should be preserved during allocation"
         );
@@ -3647,7 +3624,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         address receiver = accInstances[1].account;
 
         // Record initial accumulator states
-        ISuperVaultStrategy.SuperVaultState memory receiverStateBefore = strategy.getSuperVaultState(receiver);
 
         vm.startPrank(receiver);
         asset.approve(address(vault), depositAmount);
@@ -3659,19 +3635,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(receiver), shares, "Receiver should have all shares");
 
         // Verify accumulator accounting follows the receiver
-        ISuperVaultStrategy.SuperVaultState memory receiverStateAfter = strategy.getSuperVaultState(receiver);
 
-        // Receiver's accumulator should reflect the deposit
-        assertEq(
-            receiverStateAfter.accumulatorShares,
-            receiverStateBefore.accumulatorShares + shares,
-            "Receiver should get accumulator shares"
-        );
-        assertEq(
-            receiverStateAfter.accumulatorCostBasis,
-            receiverStateBefore.accumulatorCostBasis + depositAmount,
-            "Receiver should get accumulator cost basis"
-        );
+        // Accumulator assertions removed - now using global cost basis tracking
+        // receiverStateAfter.accumulatorShares /* REMOVED - now using global cost basis */ and accumulatorCostBasis no
+        // longer exist
     }
 
     /// @notice Test that receiver can successfully redeem after receiving deposit from another user
@@ -3901,50 +3868,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 transferShares = totalShares / 3; // Transfer 1/3 of shares
 
         // Record state before transfer
-        ISuperVaultStrategy.SuperVaultState memory fromStateBefore =
-            strategy.getSuperVaultState(accInstances[0].account);
-        ISuperVaultStrategy.SuperVaultState memory toStateBefore = strategy.getSuperVaultState(accInstances[1].account);
 
-        // Calculate expected pro-rata movement
-        uint256 expectedMovedCostBasis =
-            transferShares * fromStateBefore.accumulatorCostBasis / fromStateBefore.accumulatorShares;
+        // Accumulator pro-rata movement calculations removed - now using global cost basis tracking
 
         // Transfer shares
         vm.prank(accInstances[0].account);
         IERC20(address(vault)).transfer(accInstances[1].account, transferShares);
 
-        // Record state after transfer
-        ISuperVaultStrategy.SuperVaultState memory fromStateAfter = strategy.getSuperVaultState(accInstances[0].account);
-        ISuperVaultStrategy.SuperVaultState memory toStateAfter = strategy.getSuperVaultState(accInstances[1].account);
-
-        // Verify sender's accumulator updated correctly
-        assertEq(
-            fromStateAfter.accumulatorShares,
-            fromStateBefore.accumulatorShares - transferShares,
-            "Sender accumulator shares incorrect"
-        );
-        assertEq(
-            fromStateAfter.accumulatorCostBasis,
-            fromStateBefore.accumulatorCostBasis - expectedMovedCostBasis,
-            "Sender accumulator cost basis incorrect"
-        );
-
-        // Verify receiver's accumulator updated correctly
-        assertEq(
-            toStateAfter.accumulatorShares,
-            toStateBefore.accumulatorShares + transferShares,
-            "Receiver accumulator shares incorrect"
-        );
-        assertEq(
-            toStateAfter.accumulatorCostBasis,
-            toStateBefore.accumulatorCostBasis + expectedMovedCostBasis,
-            "Receiver accumulator cost basis incorrect"
-        );
-
-        // Verify total cost basis is conserved (within 1 wei tolerance for rounding)
-        uint256 totalCostBasisBefore = fromStateBefore.accumulatorCostBasis + toStateBefore.accumulatorCostBasis;
-        uint256 totalCostBasisAfter = fromStateAfter.accumulatorCostBasis + toStateAfter.accumulatorCostBasis;
-        assertApproxEqAbs(totalCostBasisAfter, totalCostBasisBefore, 1, "Total cost basis not conserved");
+        // Accumulator assertions removed - accumulatorShares and accumulatorCostBasis no longer exist
+        // The system now uses global vaultTotalCostBasis tracking instead of per-user accumulators
     }
 
     /// @notice Test that zero-value transfer is a no-op
@@ -3958,7 +3890,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Record state before zero transfer
         ISuperVaultStrategy.SuperVaultState memory fromStateBefore =
             strategy.getSuperVaultState(accInstances[0].account);
-        ISuperVaultStrategy.SuperVaultState memory toStateBefore = strategy.getSuperVaultState(accInstances[1].account);
 
         // Perform zero-value transfer
         vm.prank(accInstances[0].account);
@@ -3966,29 +3897,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record state after zero transfer
         ISuperVaultStrategy.SuperVaultState memory fromStateAfter = strategy.getSuperVaultState(accInstances[0].account);
-        ISuperVaultStrategy.SuperVaultState memory toStateAfter = strategy.getSuperVaultState(accInstances[1].account);
 
-        // Verify no state changes occurred
-        assertEq(
-            fromStateAfter.accumulatorShares,
-            fromStateBefore.accumulatorShares,
-            "Sender accumulator shares should not change"
-        );
-        assertEq(
-            fromStateAfter.accumulatorCostBasis,
-            fromStateBefore.accumulatorCostBasis,
-            "Sender accumulator cost basis should not change"
-        );
-        assertEq(
-            toStateAfter.accumulatorShares,
-            toStateBefore.accumulatorShares,
-            "Receiver accumulator shares should not change"
-        );
-        assertEq(
-            toStateAfter.accumulatorCostBasis,
-            toStateBefore.accumulatorCostBasis,
-            "Receiver accumulator cost basis should not change"
-        );
+        // Accumulator assertions removed - accumulatorShares and accumulatorCostBasis no longer exist
+        // Zero-value transfers now only affect share balances, not accumulator tracking
 
         // Verify all other fields unchanged
         assertEq(
@@ -4055,8 +3966,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify only accumulators moved during transfer
         ISuperVaultStrategy.SuperVaultState memory stateB = strategy.getSuperVaultState(accInstances[1].account);
 
-        // User B should have accumulator from the transfer but no request/claim state
-        assertGt(stateB.accumulatorShares, 0, "User B should have accumulator shares from transfer");
+        // Accumulator assertion removed - accumulatorShares field no longer exists
+        // User B would have received share balances from the transfer
         assertEq(stateB.pendingRedeemRequest, 0, "User B should have no pending requests");
         assertEq(stateB.maxWithdraw, 0, "User B should have no maxWithdraw");
         assertEq(stateB.averageRequestPPS, 0, "User B should have no averageRequestPPS");
@@ -4079,10 +3990,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userShares = vault.balanceOf(accInstances[0].account);
         uint256 redeemShares = userShares / 2;
 
-        // Get initial accumulator state
+        // Get initial state
         ISuperVaultStrategy.SuperVaultState memory initialState = strategy.getSuperVaultState(accInstances[0].account);
-        uint256 initialAccumulatorShares = initialState.accumulatorShares;
-        uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis;
 
         // Step 1: Request redeem
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4104,17 +4013,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accInstances[0].account);
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
-        // Verify cancel cleared pending fields but preserved accumulators
+        // Get state after cancel
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
             strategy.getSuperVaultState(accInstances[0].account);
+
+        // Verify cancel cleared pending fields but preserved accumulators
         assertEq(stateAfterCancel.pendingRedeemRequest, 0, "Pending request should be cleared");
         assertEq(stateAfterCancel.averageRequestPPS, 0, "Average request PPS should be cleared");
-        assertEq(stateAfterCancel.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(
-            stateAfterCancel.accumulatorCostBasis,
-            initialAccumulatorCostBasis,
-            "Accumulator cost basis should be preserved"
-        );
         assertEq(stateAfterCancel.maxWithdraw, initialState.maxWithdraw, "Max withdraw should be preserved");
         assertEq(
             stateAfterCancel.averageWithdrawPrice,
@@ -4141,11 +4046,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(claimableAssets, 0, "Should have claimable assets after fulfillment");
 
         // Verify accumulator was properly debited
-        ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
-        assertLt(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be debited");
-        assertLt(
-            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be debited"
-        );
     }
 
     /// @notice Test that maxWithdraw and averageWithdrawPrice remain unchanged by cancel
@@ -4173,8 +4073,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
             strategy.getSuperVaultState(accInstances[0].account);
         uint256 maxWithdrawBefore = stateAfterFirstFulfill.maxWithdraw;
         uint256 averageWithdrawPriceBefore = stateAfterFirstFulfill.averageWithdrawPrice;
-        uint256 accumulatorSharesBefore = stateAfterFirstFulfill.accumulatorShares;
-        uint256 accumulatorCostBasisBefore = stateAfterFirstFulfill.accumulatorCostBasis;
 
         assertGt(maxWithdrawBefore, 0, "Should have claimable assets");
         assertGt(averageWithdrawPriceBefore, 0, "Should have average withdraw price");
@@ -4196,24 +4094,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accInstances[0].account);
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
-        // Verify claimable state is preserved
+        // Get state after cancel
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
             strategy.getSuperVaultState(accInstances[0].account);
+
+        // Verify claimable state is preserved
         assertEq(stateAfterCancel.maxWithdraw, maxWithdrawBefore, "Max withdraw should be unchanged by cancel");
         assertEq(
             stateAfterCancel.averageWithdrawPrice,
             averageWithdrawPriceBefore,
             "Average withdraw price should be unchanged by cancel"
-        );
-        assertEq(
-            stateAfterCancel.accumulatorShares,
-            accumulatorSharesBefore,
-            "Accumulator shares should be unchanged by cancel"
-        );
-        assertEq(
-            stateAfterCancel.accumulatorCostBasis,
-            accumulatorCostBasisBefore,
-            "Accumulator cost basis should be unchanged by cancel"
         );
 
         // Verify only pending fields were cleared
@@ -4234,12 +4124,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemShares = userShares / 2;
 
         // Get initial accumulator state
-        ISuperVaultStrategy.SuperVaultState memory initialState = strategy.getSuperVaultState(accInstances[0].account);
-        uint256 initialAccumulatorShares = initialState.accumulatorShares;
-        uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis;
-
-        assertGt(initialAccumulatorShares, 0, "Should have accumulator shares");
-        assertGt(initialAccumulatorCostBasis, 0, "Should have accumulator cost basis");
+        // uint256 initialAccumulatorShares = initialState.accumulatorShares; // REMOVED
+        // uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis; // REMOVED
 
         // Request redeem
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4258,14 +4144,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         // Verify accumulators are exactly the same
-        ISuperVaultStrategy.SuperVaultState memory stateAfterCancel =
-            strategy.getSuperVaultState(accInstances[0].account);
-        assertEq(stateAfterCancel.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be unchanged");
-        assertEq(
-            stateAfterCancel.accumulatorCostBasis,
-            initialAccumulatorCostBasis,
-            "Accumulator cost basis should be unchanged"
-        );
 
         // User should still be able to make future redeems
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4286,8 +4164,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemShares = userShares / 4;
 
         // Get initial accumulator state
-        ISuperVaultStrategy.SuperVaultState memory initialState = strategy.getSuperVaultState(accInstances[0].account);
-        uint256 initialAccumulatorShares = initialState.accumulatorShares;
 
         // Cycle 1: Request → Cancel
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4307,7 +4183,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel1 =
             strategy.getSuperVaultState(accInstances[0].account);
         assertEq(stateAfterCancel1.pendingRedeemRequest, 0, "Pending should be cleared after cancel 1");
-        assertEq(stateAfterCancel1.accumulatorShares, initialAccumulatorShares, "Accumulators preserved after cancel 1");
 
         // Cycle 2: Request → Cancel
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4325,7 +4200,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         ISuperVaultStrategy.SuperVaultState memory stateAfterCancel2 =
             strategy.getSuperVaultState(accInstances[0].account);
         assertEq(stateAfterCancel2.pendingRedeemRequest, 0, "Pending should be cleared after cancel 2");
-        assertEq(stateAfterCancel2.accumulatorShares, initialAccumulatorShares, "Accumulators preserved after cancel 2");
 
         // Cycle 3: Request → Fulfill (should work)
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4403,9 +4277,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemShares = userShares / 3;
 
         // Get initial state
-        ISuperVaultStrategy.SuperVaultState memory initialState = strategy.getSuperVaultState(accInstances[0].account);
-        uint256 initialAccumulatorShares = initialState.accumulatorShares;
-        uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis;
+        // uint256 initialAccumulatorShares = initialState.accumulatorShares; // REMOVED
+        // uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis; // REMOVED
 
         // Step 1: Request redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
@@ -4469,11 +4342,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(claimableCancelAfterClaim, 0, "Claimable cancel should be cleared after claim");
 
         // Verify accumulator states are preserved (key invariant)
-        ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
-        assertEq(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(
-            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved"
-        );
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
@@ -4612,7 +4480,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(account);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -4636,8 +4503,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
-
         address[] memory users = new address[](1);
         users[0] = account;
 
@@ -4653,7 +4518,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
-        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
+        // Fee balance assertion removed - fees now collected via skimPerformanceFee
 
         // Verify SuperVaultState is properly cleared after fulfillment
         ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(account);
@@ -5265,7 +5130,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             + aaveVault.convertToAssets(vars.initialAaveVaultBalance)
             + newVault.convertToAssets(vars.initialNewVaultBalance);
         vars.finalTotalValue = fluidVault.convertToAssets(vars.finalFluidVaultBalance)
-            + aaveVault.convertToAssets(vars.finalAaveVaultBalance) + newVault.convertToAssets(vars.finalNewVaultBalance);
+            + aaveVault.convertToAssets(vars.finalAaveVaultBalance)
+            + newVault.convertToAssets(vars.finalNewVaultBalance);
 
         assertApproxEqRel(
             vars.finalTotalValue,
@@ -5362,7 +5228,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("NewVault balance:", vars.finalNewVaultBalance);
 
         vars.finalTotalValue = fluidVault.convertToAssets(vars.finalFluidVaultBalance)
-            + aaveVault.convertToAssets(vars.finalAaveVaultBalance) + newVault.convertToAssets(vars.finalNewVaultBalance);
+            + aaveVault.convertToAssets(vars.finalAaveVaultBalance)
+            + newVault.convertToAssets(vars.finalNewVaultBalance);
 
         assertApproxEqRel(
             vars.finalTotalValue,
@@ -5678,18 +5545,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
             vars.finalFluidRatio,
             vars.finalAaveRatio,
             vars.finalEulerRatio
-        ) = _reallocate(
-            ReallocateArgs({
-                vault1: fluidVault,
-                vault2: aaveVault,
-                vault3: eulerVault,
-                targetVault1Percentage: 5000, // 50%
-                targetVault2Percentage: 2500, // 25%
-                targetVault3Percentage: 2500, // 25%
-                withdrawHookAddress: vars.withdrawHookAddress,
-                depositHookAddress: vars.depositHookAddress
-            })
-        );
+        ) =
+            _reallocate(
+                ReallocateArgs({
+                    vault1: fluidVault,
+                    vault2: aaveVault,
+                    vault3: eulerVault,
+                    targetVault1Percentage: 5000, // 50%
+                    targetVault2Percentage: 2500, // 25%
+                    targetVault3Percentage: 2500, // 25%
+                    withdrawHookAddress: vars.withdrawHookAddress,
+                    depositHookAddress: vars.depositHookAddress
+                })
+            );
 
         // Verify the allocation is close to 50/25/25
         assertApproxEqRel(vars.finalFluidRatio, 5000, 0.05e18, "Fluid allocation should be close to 50%");
@@ -6947,7 +6815,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
             + newVault.convertToAssets(vars.initialNewVaultBalance);
 
         vars.finalTotalValue = fluidVault.convertToAssets(vars.finalFluidVaultBalance)
-            + aaveVault.convertToAssets(vars.finalAaveVaultBalance) + newVault.convertToAssets(vars.finalNewVaultBalance);
+            + aaveVault.convertToAssets(vars.finalAaveVaultBalance)
+            + newVault.convertToAssets(vars.finalNewVaultBalance);
         assertApproxEqRel(
             vars.finalTotalValue, vars.initialTotalValue, 0.01e18, "Total value should be preserved during allocation"
         );
@@ -7451,7 +7320,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = vars.assetsVault1;
         vars.expectedAssetsOrSharesOut[1] = !vars.convertVault ? 1 : vars.assetsVault2; // this should make the call
-            // revert
+        // revert
 
         // this should revert
         _executeRedeemHooks4626ForUsers(
@@ -7482,9 +7351,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.totalSupplyPreClaimTaintedAssets = vault.totalSupply();
         console2.log("Total Assets:", vars.totalAssetsPreClaimTaintedAssets);
         console2.log("Total Supply:", vars.totalSupplyPreClaimTaintedAssets);
-        vars.pricePerSharePreClaimTaintedAssets = vars.totalAssetsPreClaimTaintedAssets.mulDiv(
-            1e18, vars.totalSupplyPreClaimTaintedAssets, Math.Rounding.Floor
-        );
+        vars.pricePerSharePreClaimTaintedAssets = vars.totalAssetsPreClaimTaintedAssets
+            .mulDiv(1e18, vars.totalSupplyPreClaimTaintedAssets, Math.Rounding.Floor);
         console2.log("Price per share:", vars.pricePerSharePreClaimTaintedAssets);
         console2.log("Ruggable Vault Balance:", IERC4626(vars.ruggableVault).balanceOf(address(strategy)));
         console2.log("Fluid Vault Balance:", fluidVault.balanceOf(address(strategy)));
@@ -7633,7 +7501,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
 
         strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
-            // ruggableVault
+        // ruggableVault
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
@@ -8471,14 +8339,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
     }
 
-    function _createMockNativeETHHookData(
-        address ethReceiver,
-        uint256 ethAmount
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _createMockNativeETHHookData(address ethReceiver, uint256 ethAmount) internal pure returns (bytes memory) {
         // Create calldata following the standard hook format: oracleId + yieldSource + amount
         return abi.encodePacked(
             bytes32(0), // oracle ID placeholder
@@ -8515,7 +8376,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Record balances before redeem
         uint256 preRedeemUserAssets = asset.balanceOf(account);
-        uint256 feeBalanceBefore = asset.balanceOf(TREASURY);
 
         // Fast forward time to simulate yield on underlying vaults
         vm.warp(block.timestamp + 50 weeks);
@@ -8539,14 +8399,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         console2.log("--pps after---", aggregator.getPPS(address(strategy)));
 
-        (, uint256 superformFee, uint256 recipientFee) = strategy.previewPerformanceFee(account, userShares);
-
         // Step 5: Fulfill Redeem
         _executeRedeemHooks7540(userShares, address(aaveVault), address(centrifugeVault), account);
 
         // Verify balances
         assertEq(asset.balanceOf(account), preRedeemUserAssets, "User assets not returned");
-        assertEq(asset.balanceOf(TREASURY), feeBalanceBefore + superformFee + recipientFee, "Fee balance not correct");
+        // Fee balance assertion removed - fees now collected via skimPerformanceFee
     }
 
     /// @notice Execute initial deposits with equal total investment strategy
@@ -9193,9 +9051,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vars.sharesBefore = testVault.totalSupply();
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
-            address(asset), address(testVault), vars.withdrawAmount, address(this)
-        );
+        MockEmergencyVault(vars.emergencyVault)
+            .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
 
         aggregator.unpauseStrategy(address(testStrategy));
 
@@ -9216,9 +9073,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _forceUpdatePPSToTarget(address(testStrategy), 1e6);
 
         // Reinvest tokens back into SuperVault (don't update PPS before reinvesting as strategy has no assets)
-        MockEmergencyVault(vars.emergencyVault).reinvestIntoVault(
-            address(asset), address(testVault), vars.withdrawAmount, address(this)
-        );
+        MockEmergencyVault(vars.emergencyVault)
+            .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
 
         vars.sharesAfter = testVault.totalSupply();
 

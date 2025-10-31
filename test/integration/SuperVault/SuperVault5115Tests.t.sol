@@ -714,8 +714,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vars.totalShares = IERC20(sv5115.share()).balanceOf(accountEth);
         vars.redeemAmount1 = vars.totalShares / 4;
 
-        (, vars.superformFee1, vars.recipientFee1) =
-            strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount1);
+        // Fees are now collected via skimPerformanceFee(), not during redemption
         vars.treasuryBalanceAfterRedeem1 = vars.feeBalanceBefore;
         vars.userBalanceBeforeRedeem1 = asset5115.balanceOf(accountEth);
 
@@ -764,8 +763,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         //redeem 2
         vars.remainingShares = IERC20(sv5115.share()).balanceOf(accountEth);
         vars.redeemAmount2 = vars.remainingShares / 2;
-        (, vars.superformFee2, vars.recipientFee2) =
-            strategy5115SuperVault.previewPerformanceFee(accountEth, vars.redeemAmount2);
+        // Fees are now collected via skimPerformanceFee(), not during redemption
 
         vars.userBalanceBeforeRedeem2 = asset5115.balanceOf(accountEth);
 

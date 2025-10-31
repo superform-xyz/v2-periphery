@@ -540,21 +540,6 @@ contract SuperVault is
         return recoveredSigner == signer;
     }
 
-    /// @notice Overrides the ERC20 _update function to update the state of the vault when a transfer occurs
-    /// @param from The address of the sender
-    /// @param to The address of the recipient
-    /// @param value The amount of shares being transferred
-    function _update(address from, address to, uint256 value) internal override(ERC20Upgradeable) {
-        /// @dev Move only accumulators pro-rata between actual users, not to/from infrastructure contracts
-        if (from != address(0) && to != address(0) && to != address(escrow) && from != address(escrow)) {
-            uint256 shares = value;
-            // Zero-value transfers are legal: treat as accounting no-op.
-            if (shares > 0) {
-                strategy.moveAccumulatorOnTransfer(from, to, shares);
-            }
-        }
-        super._update(from, to, value);
-    }
 
     function _getStoredPPS() internal view returns (uint256) {
         return strategy.getStoredPPS();
