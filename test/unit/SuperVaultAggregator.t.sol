@@ -1041,6 +1041,72 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    function test_ForwardPPS_InsufficientUpkeep() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Get initial timestamps
+        uint256 lastUpdateTimestamp = superVaultAggregator.getLastUpdateTimestamp(strategy);
+
+        // Prepare batch data with monotonic timestamps
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategy;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = 1e18;
+
+        uint256[] memory ppsStdevs = new uint256[](1);
+        ppsStdevs[0] = 0;
+
+        uint256[] memory validatorSets = new uint256[](1);
+        validatorSets[0] = 1;
+
+        uint256[] memory totalValidators = new uint256[](1);
+        totalValidators[0] = 1;
+
+        uint256[] memory timestamps = new uint256[](1);
+
+        address[] memory updateAuthorities = new address[](1);
+        updateAuthorities[0] = user;
+
+        vm.warp(lastUpdateTimestamp + 65 + 1 weeks);
+        timestamps[0] = block.timestamp - 100;
+
+        uint256 upkeepCost = superGovernor.getUpkeepCostPerSingleUpdate(address(this));
+
+        uint256 upkeepBalance = superVaultAggregator.getUpkeepBalance(manager);
+
+        console2.log("upkeepCost", upkeepCost);
+        console2.log("upkeepBalance", upkeepBalance);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StrategyPaused(strategy);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StrategyPPSStale(strategy);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.InsufficientUpkeep(strategy, manager, upkeepBalance, upkeepCost);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+    }
+
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
     function test_BatchForwardPPS_Success_MonotonicTimestamps() public {
         // Set up as PPS Oracle to be able to call batchForwardPPS
