@@ -467,6 +467,49 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(effectiveTime, 0, "Hook effective time should be cleared");
     }
 
+    function test_ExecuteChangePrimaryManager() public {
+        // Test that old primary manager get removed and new primary manager has been set
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        uint256 len = secondaryManagers.length;
+
+        // Test that new primary manager has been set
+        address currentManager = superVaultAggregator.getMainManager(strategy);
+        address newPrimaryManager = _deployAccount(0x12, "NewManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        // Verify old primary manager has been removed
+        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        assertEq(secondaryManagers.length, len + 1, "Should have 0 secondary managers");
+        assertEq(secondaryManagers[1], currentManager, "Old primary manager should be made secondary manager");
+
+        // Verify new primary manager has been set
+        currentManager = superVaultAggregator.getMainManager(strategy);
+        assertEq(currentManager, newPrimaryManager, "New manager should be set");
+
+        // Test case where there are too many secondary managers
+        address[] memory newManagers = new address[](4);
+        for (uint256 i; i < 4; i++) {
+            newManagers[i] = _deployAccount(0x13 + i, "NewManager");
+            vm.prank(newPrimaryManager);
+            superVaultAggregator.addSecondaryManager(strategy, newManagers[i]);
+        }
+
+        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        address nextPrimaryManager = _deployAccount(0x14, "NextManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, newPrimaryManager);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+    }
+
     /// @notice Tests the complete attack scenario - malicious manager cannot regain control
     function test_ChangePrimaryManager_PreventsAttackScenario() public {
         // Setup malicious scenario:
