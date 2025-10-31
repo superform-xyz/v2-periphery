@@ -847,7 +847,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, recipient: 
+                    manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -924,7 +928,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -977,6 +985,29 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Should emit ProvidedTimestampExceedsBlockTimestamp()
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultAggregator.ProvidedTimestampExceedsBlockTimestamp(strategy, timestamps[0], block.timestamp);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                ppsStdevs: ppsStdevs,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+        // Retrieve updated last timestamp after previous forwardPPS
+        uint256 lastUpdate = superVaultAggregator.getLastUpdateTimestamp(strategy);
+
+        // Prepare a timestamp slightly ahead but below minUpdateInterval
+        // minUpdateInterval = 5, so +2 triggers UpdateTooFrequent
+        timestamps[0] = lastUpdate + 2;
+        timestamps[1] = lastUpdate + 2;
+
+        vm.warp(timestamps[0] + 1);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.UpdateTooFrequent();
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
