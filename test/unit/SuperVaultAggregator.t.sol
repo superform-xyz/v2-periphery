@@ -135,7 +135,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -151,7 +155,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -171,16 +179,48 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: secondaryManagers,
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
     }
 
+    function test_CreateVault_NonceIncrement() public {
+        uint256 nonce = superVaultAggregator.getCurrentNonce();
+        assertEq(nonce, 1, "Vault creation nonce should be 1");
+
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = _deployAccount(0x10, "SecondaryManager");
+
+        vm.prank(manager);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+        nonce = superVaultAggregator.getCurrentNonce();
+        assertEq(nonce, 2, "Vault creation nonce should be 2");
+    }
+
     // =============================================================
     // Authorized Caller Management Tests
     // =============================================================
-
     /// @notice Tests adding a normal (non-protected) keeper as authorized caller
     function test_AddAuthorizedCaller_Success_NormalKeeper() public {
         // Primary manager adds normal keeper
