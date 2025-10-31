@@ -718,7 +718,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1124,7 +1128,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1363,7 +1371,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2079,7 +2091,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2775,7 +2791,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2809,7 +2829,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV4",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({ 
+                    performanceFeeBps: 1000, 
+                    managementFeeBps: 0, 
+                    recipient: manager 
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
