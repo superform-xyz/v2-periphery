@@ -1300,6 +1300,28 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.withdrawUpkeep(1);
     }
 
+    function test_WithdrawUpkeep_RevertCases() public {
+        uint256 upkeepAmount = 1000e18;
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(manager, upkeepAmount);
+        vm.stopPrank();
+
+        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep balance should be the same");
+
+        vm.startPrank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.withdrawUpkeep(0);
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        superVaultAggregator.withdrawUpkeep(upkeepAmount);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
+        superVaultAggregator.withdrawUpkeep(upkeepAmount);
+        vm.stopPrank();
+    }
+
     /*//////////////////////////////////////////////////////////////
                            HOOK VALIDATION TESTS
     //////////////////////////////////////////////////////////////*/
