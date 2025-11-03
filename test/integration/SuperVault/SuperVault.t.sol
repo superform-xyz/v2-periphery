@@ -9250,7 +9250,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Provide liquidity buffer for fee collection - ensure strategy has enough assets
         // Calculate expected fee and provide buffer
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
-        uint256 expectedFee = expectedProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000);
+        uint256 expectedFee = expectedProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (expectedFee > 0) {
             deal(address(asset), address(strategy), expectedFee);
             // Update PPS to account for the additional assets in strategy
@@ -9671,7 +9671,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 expectedProfit =
             totalAssetsBeforeFirstSkim > costBasisBeforeSkim ? totalAssetsBeforeFirstSkim - costBasisBeforeSkim : 0;
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
-        uint256 expectedFee = expectedProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000);
+        uint256 expectedFee = expectedProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (expectedFee > 0) {
             deal(address(asset), address(strategy), expectedFee);
             // Update PPS to account for the additional assets in strategy
@@ -9706,7 +9706,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             : 0;
 
         // Provide liquidity buffer for second fee collection
-        uint256 expectedSecondFee = expectedNewProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000);
+        uint256 expectedSecondFee = expectedNewProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (expectedSecondFee > 0) {
             deal(address(asset), address(strategy), expectedSecondFee);
             // Update PPS to account for the additional assets in strategy
@@ -9777,7 +9777,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vars.expectedProfit =
             vars.totalAssetsAfterProfit > vars.costBasis ? vars.totalAssetsAfterProfit - vars.costBasis : 0;
         vars.feeConfig_ = strategy.getConfigInfo();
-        vars.expectedFee = vars.expectedProfit.mulDiv(vars.feeConfig_.performanceFeeBps, 10_000);
+        vars.expectedFee = vars.expectedProfit.mulDiv(vars.feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (vars.expectedFee > 0) {
             deal(address(asset), address(strategy), vars.expectedFee);
             // Update PPS to account for the additional assets in strategy

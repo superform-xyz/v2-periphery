@@ -83,7 +83,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     mapping(address source => address oracle) private yieldSources;
     EnumerableSet.AddressSet private yieldSourcesList;
 
-    // --- Global HWM Tracking ---
+    // --- Global Vault total cost basis tracking ---
     uint256 public vaultTotalCostBasis;
 
     // --- Redeem Request State ---
@@ -344,18 +344,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert INSUFFICIENT_LIQUIDITY();
         }
 
-        // Reduce vaultTotalCostBasis proportionally for burned shares
-        uint256 totalSupplyBefore = IERC4626(_vault).totalSupply();
-        if (totalSupplyBefore > 0 && vars.processedShares > 0) {
-            uint256 basisToReduce = vars.processedShares.mulDiv(
-                vaultTotalCostBasis,
-                totalSupplyBefore,
-                Math.Rounding.Floor
-            );
-            vaultTotalCostBasis -= basisToReduce;
-            emit VaultCostBasisUpdated(vaultTotalCostBasis);
-        }
-
         // Burn shares
         ISuperVault(_vault).burnShares(vars.processedShares);
 
@@ -384,11 +372,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         if (profit == 0) return; // No profit, no fee
 
-        uint256 fee = profit.mulDiv(feeConfig.performanceFeeBps, BPS_PRECISION);
+        uint256 fee = profit.mulDiv(feeConfig.performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
         if (fee > 0) {
             // Split fees
-            uint256 sfFee = fee.mulDiv(superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION);
+            uint256 sfFee = fee.mulDiv(
+                superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+            );
 
             // Transfer fees
             _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
