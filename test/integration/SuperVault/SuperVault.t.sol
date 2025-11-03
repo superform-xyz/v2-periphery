@@ -1301,7 +1301,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULTSTRATEGY.SOL
     //////////////////////////////////////////////////////////////*/
-
     function test_RequestRedeem_MultipleUsers(uint256 depositAmount) public {
         // bound amount
         depositAmount = bound(depositAmount, 100e6, 10_000e6);
@@ -1585,6 +1584,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // make sure redeem is cleared even if we have small rounding errors
         assertEq(strategy.claimableWithdraw(accInstances[0].account), 0);
+    }
+
+    function testExtractAndSendAssets_UnauthroizedCaller() public {
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.extractAndSendAssets(address(this), 1000);
     }
 
     // Helper function to handle deposit setup
