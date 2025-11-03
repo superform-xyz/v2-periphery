@@ -732,9 +732,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             revert BOUNDS_EXCEEDED(minAssetsOut, theoreticalAssets, totalAssetsOut);
         }
 
-        // Update average withdraw price (use theoreticalAssets)
+        // Update average withdraw price (use actual assets received)
         state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-            state.maxWithdraw, state.averageWithdrawPrice, processedShares, theoreticalAssets, PRECISION
+            state.maxWithdraw, state.averageWithdrawPrice, processedShares, totalAssetsOut, PRECISION
         );
 
         // Reset state
