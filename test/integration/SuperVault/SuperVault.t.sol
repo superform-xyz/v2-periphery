@@ -225,6 +225,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
     }
 
+    function test_MintShares() public {
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.mintShares(accountEth, 1000);
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+
+        vm.prank(address(strategy));
+        vault.mintShares(accountEth, 1000);
+
+        assertEq(vault.balanceOf(accountEth), initialShares + 1000);
+    }
+
     function test_FulfillRedeem_FullAmountWithThreshold() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
