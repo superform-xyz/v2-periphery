@@ -146,6 +146,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
 
+    function test_Deposit_With_ZeroAddress() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.deposit(1000, address(0));
+    }
+
     function test_DepositDirectlyMintsShares() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
@@ -1184,11 +1189,33 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), 0, "Escrow should no longer hold shares");
     }
 
+    
+
     function test_RevertWhen_CancelRedeemWithNoRequest() public {
         // Try to cancel when there's no request
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
         vault.cancelRedeemRequest(0, accountEth);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.claimCancelRedeemRequest(0, address(0), accountEth);
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.claimCancelRedeemRequest(0, accountEth, address(0));
+
+        vm.expectRevert(ISuperVault.INVALID_OWNER_OR_OPERATOR.selector);
+        vault.claimCancelRedeemRequest(0, accountEth, accountEth);
+
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vault.claimCancelRedeemRequest(0, address(this), accountEth);
     }
 
     /*//////////////////////////////////////////////////////////////
