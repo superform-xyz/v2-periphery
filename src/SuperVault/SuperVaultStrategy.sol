@@ -92,8 +92,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
-        ppsExpiration = 1 days;
-
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
         _disableInitializers();
@@ -124,6 +122,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
+
+        ppsExpiration = 1 days;
 
         emit Initialized(_vault);
     }
@@ -442,6 +442,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     // @inheritdoc ISuperVaultStrategy
     function executeVaultFeeConfigUpdate() external {
+        _isPrimaryManager(msg.sender);
+
         if (block.timestamp < feeConfigEffectiveTime) revert INVALID_TIMESTAMP();
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
         feeConfig = proposedFeeConfig;
