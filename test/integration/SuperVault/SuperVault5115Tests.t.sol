@@ -721,14 +721,21 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _requestRedeem(vars.redeemAmount1, address(sv5115));
         _fulfillRedeem5115(vars.redeemAmount1, address(sv5115), address(strategy5115SuperVault));
 
+        uint256 claimableShares1 = sv5115.maxRedeem(accountEth);
         vars.claimableAssets1 = sv5115.maxWithdraw(accountEth);
+
+        // Calculate actual assets that will be withdrawn using averageWithdrawPrice with Floor rounding
+        // This matches redeem() behavior and ensures previewFees calculates fees on the correct amount
+        uint256 averageWithdrawPrice1 = strategy5115SuperVault.getAverageWithdrawPrice(accountEth);
+        uint256 actualAssetsWithdrawn1 =
+            claimableShares1.mulDiv(averageWithdrawPrice1, sv5115.PRECISION(), Math.Rounding.Floor);
 
         uint256 pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
         uint256 expectedLedgerFee = superLedgerETH.previewFees(
             accountEth,
             address(sv5115),
-            vars.claimableAssets1,
-            sv5115.maxRedeem(accountEth),
+            actualAssetsWithdrawn1,
+            claimableShares1,
             100,
             pps,
             sv5115.decimals()
@@ -770,14 +777,21 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _requestRedeem(vars.redeemAmount2, address(sv5115));
         _fulfillRedeem5115(vars.redeemAmount2, address(sv5115), address(strategy5115SuperVault));
 
+        uint256 claimableShares2 = sv5115.maxRedeem(accountEth);
         vars.claimableAssets2 = sv5115.maxWithdraw(accountEth);
+
+        // Calculate actual assets that will be withdrawn using averageWithdrawPrice with Floor rounding
+        // This matches redeem() behavior and ensures previewFees calculates fees on the correct amount
+        uint256 averageWithdrawPrice2 = strategy5115SuperVault.getAverageWithdrawPrice(accountEth);
+        uint256 actualAssetsWithdrawn2 =
+            claimableShares2.mulDiv(averageWithdrawPrice2, sv5115.PRECISION(), Math.Rounding.Floor);
 
         pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(1e18) : 1e18;
         expectedLedgerFee = superLedgerETH.previewFees(
             accountEth,
             address(sv5115),
-            vars.claimableAssets2,
-            sv5115.maxRedeem(accountEth),
+            actualAssetsWithdrawn2,
+            claimableShares2,
             100,
             pps,
             sv5115.decimals()
