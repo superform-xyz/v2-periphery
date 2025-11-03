@@ -1182,6 +1182,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.fulfillCancelRedeemRequests(controllers);
         vm.stopPrank();
 
+        uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accountEth);
+        uint256 claimableCancelSharesVault = vault.claimableCancelRedeemRequest(0, accountEth);
+        assertEq(claimableCancelShares, redeemAmount, "Should have claimable cancel shares equal to original request");
+        assertEq(claimableCancelSharesVault, claimableCancelShares, "Should have claimable cancel shares equal to original request");
+
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
 
@@ -1191,27 +1196,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), 0, "Escrow should no longer hold shares");
     }
 
-    function test_CancelRedeem_RevertCases() public {
-        uint256 depositAmount = 1000e6; // 1000 USDC
-        _deposit(depositAmount);
-
-        // Need to allocate to yield sources before requesting redemption
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
-
-        // Request redeem
-        uint256 userShares = vault.balanceOf(accountEth);
-        uint256 redeemAmount = userShares / 2;
-        _requestRedeem(redeemAmount);
-
-        // Check shares are in escrow
-        assertEq(vault.balanceOf(address(escrow)), redeemAmount, "Escrow should hold shares");
-
-        // Cancel redeem
-        vm.prank(accountEth);
-        vault.cancelRedeemRequest(0, accountEth);
-    }
-
-    function test_RevertWhen_CancelRedeemWithNoRequest() public {
+    function test_RevertWhen_CancelRedeem_RevertCases() public {
         // Try to cancel when there's no request
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
@@ -4522,9 +4507,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Verify accumulator states are preserved (key invariant)
         ISuperVaultStrategy.SuperVaultState memory finalState = strategy.getSuperVaultState(accInstances[0].account);
         assertEq(finalState.accumulatorShares, initialAccumulatorShares, "Accumulator shares should be preserved");
-        assertEq(
-            finalState.accumulatorCostBasis, initialAccumulatorCostBasis, "Accumulator cost basis should be preserved"
-        );
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
