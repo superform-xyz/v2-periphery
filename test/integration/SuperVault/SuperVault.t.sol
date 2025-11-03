@@ -1032,6 +1032,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimable = strategy.claimableWithdraw(accountEth);
         uint256 maxWithdrawAfter = vault.maxWithdraw(accountEth);
         assertEq(maxWithdrawAfter, claimable, "maxWithdraw should match claimable amount");
+
+        // Pause the strategy (manager can pause)
+        vm.prank(MANAGER);
+        aggregator.pauseStrategy(address(strategy));
+
+        uint256 maxWithdrawWithPause = vault.maxWithdraw(accountEth);
+        assertEq(maxWithdrawWithPause, 0, "maxWithdraw should be 0 when strategy is paused");
     }
 
     function test_MaxRedeem() public {
@@ -1586,7 +1593,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(strategy.claimableWithdraw(accInstances[0].account), 0);
     }
 
-    function testExtractAndSendAssets_UnauthroizedCaller() public {
+    function test_ExtractAndSendAssets_UnauthroizedCaller() public {
         vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
         vault.extractAndSendAssets(address(this), 1000);
     }
