@@ -4472,7 +4472,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get initial state
         ISuperVaultStrategy.SuperVaultState memory initialState = strategy.getSuperVaultState(accInstances[0].account);
         uint256 initialAccumulatorShares = initialState.accumulatorShares;
-        uint256 initialAccumulatorCostBasis = initialState.accumulatorCostBasis;
 
         // Step 1: Request redemption
         _requestRedeemForAccount(accInstances[0], redeemShares);
