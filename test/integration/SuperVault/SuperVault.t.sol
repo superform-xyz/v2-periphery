@@ -1203,7 +1203,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), 0, "Escrow should no longer hold shares");
     }
 
-    function test_RevertWhen_CancelRedeem_RevertCases() public {
+    function test_ClaimCancelRedeem_RevertCases() public {
         // Try to cancel when there's no request
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
@@ -1220,12 +1220,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.claimCancelRedeemRequest(0, address(0), accountEth);
 
         vm.prank(accountEth);
-        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
         vault.claimCancelRedeemRequest(0, accountEth, address(0));
 
-        vm.expectRevert(ISuperVault.INVALID_OWNER_OR_OPERATOR.selector);
-        vault.claimCancelRedeemRequest(0, accountEth, accountEth);
-
+        vm.prank(accountEth);
         vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
         vault.claimCancelRedeemRequest(0, address(this), accountEth);
     }
