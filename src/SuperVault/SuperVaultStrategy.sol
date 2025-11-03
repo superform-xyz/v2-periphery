@@ -45,6 +45,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint256 private constant BPS_PRECISION = 10_000;
+    uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
@@ -112,7 +113,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             (feeConfigData.performanceFeeBps > 0 || feeConfigData.managementFeeBps > 0)
                 && feeConfigData.recipient == address(0)
         ) revert ZERO_ADDRESS();
-        if (feeConfigData.performanceFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (feeConfigData.performanceFeeBps > MAX_PERFORMANCE_FEE) revert INVALID_PERFORMANCE_FEE_BPS();
         if (feeConfigData.managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
 
         __ReentrancyGuard_init();
@@ -360,12 +361,24 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function skimPerformanceFee() external nonReentrant {
         _isManager(msg.sender);
 
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        _validateStrategyState(aggregator);
+
         IERC4626 vault = IERC4626(_vault);
-        uint256 curTotalAssets = vault.totalAssets();
         uint256 totalSupplyLocal = vault.totalSupply();
 
-        // High Water Mark calculation (simplifies to vaultTotalCostBasis when supply > 0)
-        uint256 highWaterMark = totalSupplyLocal > 0 ? vaultTotalCostBasis : 0;
+        // Early return if no supply
+        if (totalSupplyLocal == 0) return;
+
+        // Get PPS once at the beginning for gas optimization
+        uint256 oldPPS = aggregator.getPPS(address(this));
+        if (oldPPS == 0) revert INVALID_PPS();
+
+        // Calculate current total assets from PPS (avoids external call to vault.totalAssets())
+        uint256 curTotalAssets = Math.mulDiv(totalSupplyLocal, oldPPS, PRECISION, Math.Rounding.Floor);
+
+        // High Water Mark is the vault total cost basis
+        uint256 highWaterMark = vaultTotalCostBasis;
 
         // Calculate profit above High Water Mark
         uint256 profit = curTotalAssets > highWaterMark ? curTotalAssets - highWaterMark : 0;
@@ -374,23 +387,37 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 fee = profit.mulDiv(feeConfig.performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
-        if (fee > 0) {
-            // Split fees
-            uint256 sfFee = fee.mulDiv(
-                superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
-            );
+        if (fee == 0) return; // Edge case: profit exists but fee rounds to 0
 
-            // Transfer fees
-            _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
-            _safeTokenTransfer(address(_asset), feeConfig.recipient, fee - sfFee);
+        // Split fees
+        uint256 sfFee = fee.mulDiv(
+            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+        );
 
-            emit PerformanceFeeSkimmed(fee, sfFee);
-        }
+        // Transfer fees
+        _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
+        _safeTokenTransfer(address(_asset), feeConfig.recipient, fee - sfFee);
+
+        emit PerformanceFeeSkimmed(fee, sfFee);
 
         // Reset High Water Mark to post-skim assets
         vaultTotalCostBasis = curTotalAssets - fee;
-
         emit VaultCostBasisUpdated(vaultTotalCostBasis);
+
+        // Calculate new PPS: oldPPS - (fee * PRECISION / supply)
+        // Use mulDiv for precision and to prevent overflow
+        uint256 ppsReduction = Math.mulDiv(fee, PRECISION, totalSupplyLocal, Math.Rounding.Floor);
+
+        // Safety check: ensure reduction doesn't crash PPS
+        if (ppsReduction >= oldPPS) revert INVALID_PPS();
+
+        uint256 newPPS = oldPPS - ppsReduction;
+
+        // Safety check: new PPS must be positive
+        if (newPPS == 0) revert INVALID_PPS();
+
+        // Update PPS in aggregator
+        aggregator.updatePPSAfterSkim(newPPS, fee);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -432,7 +459,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     {
         _isPrimaryManager(msg.sender);
 
-        if (performanceFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (performanceFeeBps > MAX_PERFORMANCE_FEE) revert INVALID_PERFORMANCE_FEE_BPS();
         if (managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
         if (recipient == address(0)) revert ZERO_ADDRESS();
         proposedFeeConfig = FeeConfig({

@@ -9475,8 +9475,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(strategy.vaultTotalCostBasis(), costBasis, "Cost basis unchanged");
     }
 
-
-
     /// @notice Test 3.3: Zero total supply edge case
     function test_SkimFeeFlow_ZeroTotalSupply_HandledCorrectly() public {
         // Start with no deposits (zero total supply)
@@ -9499,27 +9497,66 @@ contract SuperVaultTest is BaseSuperVaultTest {
         deal(address(asset), user, depositAmount);
         deal(address(asset), address(strategy), depositAmount * 2);
 
-        // Set fee percent to 0 (would need access to fee configuration)
-        // This test assumes the fee config can be set to 0
-        // In actual implementation, this might require additional setup
+        // Get current fee config to preserve other settings
+        ISuperVaultStrategy.FeeConfig memory currentConfig = strategy.getConfigInfo();
 
+        // Manager proposes new fee config with 0% performance fee
+        vm.startPrank(MANAGER);
+        strategy.proposeVaultFeeConfigUpdate(
+            0, // 0% performance fee
+            currentConfig.managementFeeBps, // keep existing management fee
+            currentConfig.recipient // keep existing recipient
+        );
+        vm.stopPrank();
+
+        // Fast forward past the 1 week timelock
+        vm.warp(block.timestamp + 1 weeks + 1);
+
+        // Update PPS after time warp to prevent expiration
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Manager executes the fee config update
+        vm.startPrank(MANAGER);
+        strategy.executeVaultFeeConfigUpdate();
+        vm.stopPrank();
+
+        // Verify fee is now 0%
+        ISuperVaultStrategy.FeeConfig memory newConfig = strategy.getConfigInfo();
+        assertEq(newConfig.performanceFeeBps, 0, "Performance fee should be 0%");
+
+        // Now proceed with deposit
         vm.startPrank(user);
         asset.approve(address(vault), depositAmount);
         vault.deposit(depositAmount, user);
         vm.stopPrank();
 
+        // Allocate to yield sources
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
         // Generate profit
         _simulateProfitViaAllocation(1.2e18);
 
+        // Update PPS to reflect profit
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
         uint256 totalAssetsBefore = vault.totalAssets();
+        uint256 ppsBefore = aggregator.getPPS(address(strategy));
 
         // Skim with 0% fee should collect no fees despite profit
         vm.startPrank(MANAGER);
         strategy.skimPerformanceFee();
         vm.stopPrank();
 
+        uint256 totalAssetsAfter = vault.totalAssets();
+        uint256 ppsAfter = aggregator.getPPS(address(strategy));
+
         // Total assets should remain the same (no fee taken)
-        assertEq(vault.totalAssets(), totalAssetsBefore, "No assets should be taken as fees");
+        assertEq(totalAssetsAfter, totalAssetsBefore, "No assets should be taken as fees");
+
+        // PPS should also remain unchanged since no fee was collected
+        assertEq(ppsAfter, ppsBefore, "PPS should not change when no fee is collected");
+
+        console2.log("Test passed: 0% fee configuration working correctly");
     }
 
     /// @notice Test 4.1: Only manager can skim fees
@@ -9918,6 +9955,248 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     /// @notice Event declaration for testing
     event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
+
+    /*//////////////////////////////////////////////////////////////
+                    PPS UPDATE AFTER SKIM TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test that PPS is automatically updated after skimming
+    function test_SkimFeeFlow_PPSUpdatedAutomatically() public {
+        uint256 depositAmount = 1000e6;
+
+        // Initial deposit
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Get initial PPS
+        uint256 ppsBeforeProfit = aggregator.getPPS(address(strategy));
+
+        // Simulate profit (20% increase)
+        _simulateProfitViaAllocation(1.2e18);
+
+        // Manually update PPS to reflect profit
+        _updateSuperVaultPPS(address(strategy), address(vault));
+        uint256 ppsAfterProfit = aggregator.getPPS(address(strategy));
+        assertGt(ppsAfterProfit, ppsBeforeProfit, "PPS should increase after profit");
+
+        // Provide liquidity for fee collection
+        uint256 costBasis = strategy.vaultTotalCostBasis();
+        uint256 totalAssets = vault.totalAssets();
+        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
+        uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
+
+        if (expectedFee > 0) {
+            deal(address(asset), address(strategy), expectedFee);
+            _updateSuperVaultPPS(address(strategy), address(vault));
+        }
+
+        // Skim performance fee
+        vm.startPrank(MANAGER);
+        strategy.skimPerformanceFee();
+        vm.stopPrank();
+
+        // PPS should be automatically updated (decreased) after skim
+        uint256 ppsAfterSkim = aggregator.getPPS(address(strategy));
+        assertLt(ppsAfterSkim, ppsAfterProfit, "PPS should decrease after skim due to fee removal");
+
+        // Verify totalAssets consistency (EIP-4626 invariant)
+        uint256 totalSupply = vault.totalSupply();
+        uint256 calculatedAssets = totalSupply.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
+        uint256 reportedAssets = vault.totalAssets();
+
+        // Allow 1 wei tolerance for rounding
+        assertApproxEqAbs(
+            calculatedAssets,
+            reportedAssets,
+            1,
+            "totalAssets should match convertToAssets(totalSupply) after skim"
+        );
+
+        console2.log("PPS before profit:", ppsBeforeProfit);
+        console2.log("PPS after profit:", ppsAfterProfit);
+        console2.log("PPS after skim:", ppsAfterSkim);
+        console2.log("Calculated assets:", calculatedAssets);
+        console2.log("Reported assets:", reportedAssets);
+    }
+
+    /// @notice Test that PPSUpdatedAfterSkim event is emitted
+    function test_SkimFeeFlow_PPSUpdateEventEmitted() public {
+        uint256 depositAmount = 1000e6;
+
+        // Setup: deposit and generate profit
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+        _simulateProfitViaAllocation(1.2e18);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Provide liquidity for fee collection
+        uint256 costBasis = strategy.vaultTotalCostBasis();
+        uint256 totalAssets = vault.totalAssets();
+        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
+        uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
+
+        if (expectedFee > 0) {
+            deal(address(asset), address(strategy), expectedFee);
+            _updateSuperVaultPPS(address(strategy), address(vault));
+        }
+
+        uint256 oldPPS = aggregator.getPPS(address(strategy));
+
+        // Expect PPSUpdatedAfterSkim event
+        vm.expectEmit(true, false, false, false);
+        emit PPSUpdatedAfterSkim(address(strategy), 0, 0, 0, 0); // We only check strategy address
+
+        vm.startPrank(MANAGER);
+        strategy.skimPerformanceFee();
+        vm.stopPrank();
+
+        console2.log("Event emission test passed");
+    }
+
+    /// @notice Test that zero fee skim doesn't update PPS
+    function test_SkimFeeFlow_ZeroFee_NoPPSUpdate() public {
+        uint256 depositAmount = 1000e6;
+
+        // Deposit but don't generate profit
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 ppsBeforeSkim = aggregator.getPPS(address(strategy));
+
+        // Try to skim with no profit (should return early)
+        vm.startPrank(MANAGER);
+        strategy.skimPerformanceFee();
+        vm.stopPrank();
+
+        uint256 ppsAfterSkim = aggregator.getPPS(address(strategy));
+
+        // PPS should remain unchanged
+        assertEq(ppsAfterSkim, ppsBeforeSkim, "PPS should not change when no fee is collected");
+
+        console2.log("PPS unchanged:", ppsBeforeSkim);
+    }
+
+    /// @notice Test access control - only registered strategy can call updatePPSAfterSkim
+    function test_SkimFeeFlow_OnlyStrategyCanUpdatePPS() public {
+        uint256 newPPS = 1e18;
+        uint256 feeAmount = 100e6;
+
+        // Try to call updatePPSAfterSkim as non-strategy (should revert with UNKNOWN_STRATEGY)
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        aggregator.updatePPSAfterSkim(newPPS, feeAmount);
+
+        console2.log("Access control test passed");
+    }
+
+    /// @notice Test that PPS must decrease after skim
+    function test_SkimFeeFlow_PPSMustDecrease() public {
+        uint256 depositAmount = 1000e6;
+
+        // Setup vault with deposits
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+
+        // Try to call updatePPSAfterSkim with same or higher PPS (should revert)
+        vm.startPrank(address(strategy));
+
+        // Same PPS should revert
+        vm.expectRevert(ISuperVaultAggregator.PPS_MUST_DECREASE_AFTER_SKIM.selector);
+        aggregator.updatePPSAfterSkim(currentPPS, 100e6);
+
+        // Higher PPS should revert
+        vm.expectRevert(ISuperVaultAggregator.PPS_MUST_DECREASE_AFTER_SKIM.selector);
+        aggregator.updatePPSAfterSkim(currentPPS + 1, 100e6);
+
+        vm.stopPrank();
+
+        console2.log("PPS decrease validation test passed");
+    }
+
+    /// @notice Test that PPS deduction is bounded by MAX_PERFORMANCE_FEE
+    function test_SkimFeeFlow_PPSDeductionBounded() public {
+        uint256 depositAmount = 1000e6;
+
+        // Setup vault
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+
+        // Calculate minimum allowed PPS based on MAX_PERFORMANCE_FEE (5100 bps = 51%)
+        uint256 MAX_PERFORMANCE_FEE = 5100;
+        uint256 minAllowedPPS = currentPPS.mulDiv(10_000 - MAX_PERFORMANCE_FEE, 10_000, Math.Rounding.Floor);
+
+        // Try to set PPS below minimum (should revert)
+        vm.startPrank(address(strategy));
+        vm.expectRevert(ISuperVaultAggregator.PPS_DEDUCTION_TOO_LARGE.selector);
+        aggregator.updatePPSAfterSkim(minAllowedPPS - 1, 100e6);
+        vm.stopPrank();
+
+        console2.log("PPS deduction bounds test passed");
+        console2.log("Current PPS:", currentPPS);
+        console2.log("Min allowed PPS:", minAllowedPPS);
+        console2.log("Max deduction allowed: 51%");
+    }
+
+    /// @notice Test EIP-4626 consistency after skim
+    function test_SkimFeeFlow_EIP4626ConsistencyAfterSkim() public {
+        uint256 depositAmount = 1000e6;
+
+        // Setup and skim
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+        _simulateProfitViaAllocation(1.5e18);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Provide liquidity for fee
+        uint256 costBasis = strategy.vaultTotalCostBasis();
+        uint256 totalAssets = vault.totalAssets();
+        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
+        uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
+
+        if (expectedFee > 0) {
+            deal(address(asset), address(strategy), expectedFee);
+            _updateSuperVaultPPS(address(strategy), address(vault));
+        }
+
+        vm.startPrank(MANAGER);
+        strategy.skimPerformanceFee();
+        vm.stopPrank();
+
+        // Verify EIP-4626 invariant: totalAssets() == convertToAssets(totalSupply())
+        uint256 totalSupply = vault.totalSupply();
+        uint256 totalAssetsReported = vault.totalAssets();
+        uint256 totalAssetsCalculated = vault.convertToAssets(totalSupply);
+
+        // Should be equal within 1 wei due to rounding
+        assertApproxEqAbs(
+            totalAssetsReported,
+            totalAssetsCalculated,
+            1,
+            "EIP-4626 invariant violated: totalAssets != convertToAssets(totalSupply)"
+        );
+
+        console2.log("EIP-4626 consistency verified");
+        console2.log("Total assets (reported):", totalAssetsReported);
+        console2.log("Total assets (calculated):", totalAssetsCalculated);
+        console2.log("Difference:", totalAssetsReported > totalAssetsCalculated ?
+            totalAssetsReported - totalAssetsCalculated :
+            totalAssetsCalculated - totalAssetsReported);
+    }
+
+    /// @notice Event for testing
+    event PPSUpdatedAfterSkim(
+        address indexed strategy,
+        uint256 oldPPS,
+        uint256 newPPS,
+        uint256 feeAmount,
+        uint256 timestamp
+    );
 }
 
 /// @notice Simple contract without payable functions for testing

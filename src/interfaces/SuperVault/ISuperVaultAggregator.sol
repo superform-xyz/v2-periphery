@@ -384,6 +384,20 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a strategy's PPS is reset
     event StrategyPPSStaleReset(address indexed strategy);
 
+    /// @notice Emitted when PPS is updated after performance fee skimming
+    /// @param strategy Address of the strategy
+    /// @param oldPPS Previous price-per-share value
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee skimmed that caused the PPS update
+    /// @param timestamp Timestamp of the update
+    event PPSUpdatedAfterSkim(
+        address indexed strategy,
+        uint256 oldPPS,
+        uint256 newPPS,
+        uint256 feeAmount,
+        uint256 timestamp
+    );
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -467,6 +481,10 @@ interface ISuperVaultAggregator {
     error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
     /// @notice Thrown when PPS is too stale to unpause a strategy
     error UNPAUSE_TIMELOCK_NOT_MET();
+    /// @notice PPS must decrease after skimming fees
+    error PPS_MUST_DECREASE_AFTER_SKIM();
+    /// @notice PPS deduction is larger than the maximum allowed fee rate
+    error PPS_DEDUCTION_TOO_LARGE();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -503,6 +521,12 @@ interface ISuperVaultAggregator {
     /// @notice Batch forwards validated PPS updates to multiple strategies
     /// @param args Struct containing all batch PPS update parameters
     function forwardPPS(ForwardPPSArgs calldata args) external;
+
+    /// @notice Updates PPS directly after performance fee skimming
+    /// @dev Only callable by the strategy contract itself (msg.sender must be a registered strategy)
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee that was skimmed (for event logging)
+    function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external;
 
     /*//////////////////////////////////////////////////////////////
                         UPKEEP MANAGEMENT

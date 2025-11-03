@@ -20,6 +20,8 @@ forge-script :; forge script $(SCRIPT) $(ARGS)
 
 forge-test :; $(MAKE) ensure-merkle-cache && forge test --match-test $(TEST) $(ARGS)
 
+forge-test-contract :; $(MAKE) ensure-merkle-cache && forge test --match-contract $(CONTRACT) $(ARGS)
+
 # Internal forge-test without merkle cache check (used by cache generation)
 forge-test-internal :; forge test --match-path $(TEST) $(ARGS)
 

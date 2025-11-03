@@ -64,6 +64,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Constant for PPS decimals
     uint256 public constant PPS_DECIMALS = 18;
 
+    // Constant for basis points precision (100% = 10,000 bps)
+    uint256 private constant BPS_PRECISION = 10_000;
+
+    // Maximum performance fee allowed (51%)
+    uint256 private constant MAX_PERFORMANCE_FEE = 5100;
+
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
@@ -257,6 +263,52 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 })
             );
         }
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function updatePPSAfterSkim(
+        uint256 newPPS,
+        uint256 feeAmount
+    )
+        external
+        validStrategy(msg.sender)
+    {
+        // msg.sender must be a registered strategy (validated by modifier)
+        address strategy = msg.sender;
+
+        StrategyData storage data = _strategyData[strategy];
+        uint256 oldPPS = data.pps;
+
+        // VALIDATION 1: PPS must decrease after fee skim
+        if (newPPS >= oldPPS) revert PPS_MUST_DECREASE_AFTER_SKIM();
+
+        // VALIDATION 2: PPS must be positive
+        if (newPPS == 0) revert INVALID_ASSET();
+
+        // VALIDATION 3: Range check - deduction must be within max fee bounds
+        // Use MAX_PERFORMANCE_FEE to avoid external call to strategy
+        // Max possible PPS after skim: oldPPS * (1 - MAX_PERFORMANCE_FEE)
+        uint256 minAllowedPPS = oldPPS.mulDiv(
+            BPS_PRECISION - MAX_PERFORMANCE_FEE,
+            BPS_PRECISION,
+            Math.Rounding.Floor
+        );
+
+        if (newPPS < minAllowedPPS) revert PPS_DEDUCTION_TOO_LARGE();
+
+        // UPDATE: Store new PPS
+        data.pps = newPPS;
+
+        // UPDATE TIMESTAMP
+        // Update timestamp to reflect when this PPS change occurred
+        // NOTE: This may interact with oracle submissions - to be discussed
+        data.lastUpdateTimestamp = block.timestamp;
+
+        // NOTE: We do NOT reset ppsStale flag here
+        // The skim function can only be called if _validateStrategyState doesn't revert
+        // So if we reach here, the strategy state is valid
+
+        emit PPSUpdatedAfterSkim(strategy, oldPPS, newPPS, feeAmount, block.timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
