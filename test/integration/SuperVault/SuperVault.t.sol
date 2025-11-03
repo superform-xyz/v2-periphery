@@ -1174,6 +1174,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accountEth);
         vault.cancelRedeemRequest(0, accountEth);
 
+        assertTrue(strategy.pendingCancelRedeemRequest(accountEth), "Pending cancel request should be true");
+
         vm.startPrank(MANAGER);
         address[] memory controllers = new address[](1);
         controllers[0] = accountEth;
