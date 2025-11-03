@@ -1137,6 +1137,43 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
+    function test_Redeem_RevertCases() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Make and fulfill redemption request to get claimable assets
+        uint256 userShares = vault.balanceOf(accountEth);
+        _requestRedeem(userShares);
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Get claimable amount
+        uint256 maxRedeem = vault.maxRedeem(accountEth);
+        uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
+
+        // Try to redeem more than the max redeem
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
+        vault.redeem(
+            maxRedeem + 1, // shares to redeem
+            accountEth, // receiver
+            accountEth // owner
+        );
+
+        // Try redeem more than escrow balance
+        vm.prank(address(escrow));
+        asset.transfer(address(this), claimableAssets);
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
+        uint256 assetsRedeemed = vault.redeem(
+            maxRedeem, // shares to redeem
+            accountEth, // receiver
+            accountEth // owner
+        );
+    }
+
     function test_Withdraw_InvalidAmount() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
