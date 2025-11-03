@@ -1189,7 +1189,25 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), 0, "Escrow should no longer hold shares");
     }
 
-    
+    function test_CancelRedeem_RevertCases() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        _deposit(depositAmount);
+
+        // Need to allocate to yield sources before requesting redemption
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Request redeem
+        uint256 userShares = vault.balanceOf(accountEth);
+        uint256 redeemAmount = userShares / 2;
+        _requestRedeem(redeemAmount);
+
+        // Check shares are in escrow
+        assertEq(vault.balanceOf(address(escrow)), redeemAmount, "Escrow should hold shares");
+
+        // Cancel redeem
+        vm.prank(accountEth);
+        vault.cancelRedeemRequest(0, accountEth);
+    }
 
     function test_RevertWhen_CancelRedeemWithNoRequest() public {
         // Try to cancel when there's no request
