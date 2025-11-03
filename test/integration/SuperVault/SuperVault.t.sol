@@ -2006,6 +2006,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _requestRedeem(redeemShares);
         _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
 
+        uint256 escrowedAssets = vault.getEscrowedAssets();
+        uint256 redeemSharesAsAssets = vault.convertToAssets(redeemShares);
+        assertEq(escrowedAssets, redeemSharesAsAssets, "Escrowed assets should match redeem shares as assets");
+
         // Get claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
         // Claim redeem
