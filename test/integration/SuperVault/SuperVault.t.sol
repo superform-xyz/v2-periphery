@@ -1137,6 +1137,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
+    function test_Withdraw_InvalidAmount() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 shares = vault.balanceOf(accountEth);
+
+        _requestRedeem(shares);
+
+        _executeRedeemHooks4626(
+            shares, address(fluidVault), address(aaveVault), new address[](0)
+        );
+
+        uint256 maxWithdraw = vault.maxWithdraw(accountEth);
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
+        vault.withdraw(maxWithdraw + 1, accountEth, accountEth);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         REDEMPTION FUNCTIONS TESTS
     //////////////////////////////////////////////////////////////*/
@@ -1280,7 +1302,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTION COVERAGE TESTS
     //////////////////////////////////////////////////////////////*/
-
     function test_ValidateOwnerOrOperator() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
@@ -1933,6 +1954,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             totalAssetsReceived, totalRedeemAmount, 0.01e18, "Total assets received should match total redeem amount"
         );
     }
+
     /*//////////////////////////////////////////////////////////////
                       GAS REPORT TESTS
     //////////////////////////////////////////////////////////////*/
