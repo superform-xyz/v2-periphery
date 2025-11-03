@@ -89,8 +89,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
-        ppsExpiration = 1 days;
-
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
         _disableInitializers();
@@ -121,6 +119,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
+
+        ppsExpiration = 1 days;
 
         emit Initialized(_vault);
     }
@@ -157,13 +157,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 assetsNet = assetsGross - feeAssets;
         if (assetsNet == 0) revert INVALID_AMOUNT();
 
-        if (feeAssets != 0) {
-            address recipient = feeConfig.recipient;
-            if (recipient == address(0)) revert ZERO_ADDRESS();
-            _safeTokenTransfer(address(_asset), recipient, feeAssets);
-            emit ManagementFeePaid(controller, recipient, feeAssets, feeBps);
-        }
-
         // Compute shares on NET using current PPS
         uint256 pps = getStoredPPS();
         if (pps == 0) revert INVALID_PPS();
@@ -175,6 +168,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.accumulatorShares += sharesNet;
         state.accumulatorCostBasis += assetsNet;
         emit DepositHandled(controller, assetsNet, sharesNet);
+
+        if (feeAssets != 0) {
+            address recipient = feeConfig.recipient;
+            if (recipient == address(0)) revert ZERO_ADDRESS();
+            _safeTokenTransfer(address(_asset), recipient, feeAssets);
+            emit ManagementFeePaid(controller, recipient, feeAssets, feeBps);
+        }
+
         return sharesNet;
     }
 
@@ -200,6 +201,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         _validateStrategyState(aggregator);
 
+        // Account on NET
+        SuperVaultState storage state = superVaultState[controller];
+        state.accumulatorShares += sharesNet;
+        state.accumulatorCostBasis += assetsNet;
+        emit DepositHandled(controller, assetsNet, sharesNet);
+
         uint256 feeBps = feeConfig.managementFeeBps;
         // Transfer fee if needed
         if (feeBps != 0) {
@@ -211,12 +218,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                 emit ManagementFeePaid(controller, recipient, feeAssets, feeBps);
             }
         }
-
-        // Account on NET
-        SuperVaultState storage state = superVaultState[controller];
-        state.accumulatorShares += sharesNet;
-        state.accumulatorCostBasis += assetsNet;
-        emit DepositHandled(controller, assetsNet, sharesNet);
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -427,6 +428,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     // @inheritdoc ISuperVaultStrategy
     function executeVaultFeeConfigUpdate() external {
+        _isPrimaryManager(msg.sender);
+
         if (block.timestamp < feeConfigEffectiveTime) revert INVALID_TIMESTAMP();
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
         feeConfig = proposedFeeConfig;
