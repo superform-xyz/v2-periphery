@@ -211,7 +211,6 @@ contract SuperVault is
     function claimCancelRedeemRequest(uint256 /*requestId*/, address receiver, address controller) external returns (uint256 shares) {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (receiver != controller) revert INVALID_CONTROLLER();
         
         shares = strategy.claimableCancelRedeemRequest(controller);
