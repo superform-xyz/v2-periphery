@@ -30,7 +30,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
     bytes32 public constant UPDATE_PPS_TYPEHASH =
-        keccak256("UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 timestamp,uint256 strategyNonce)");
+        keccak256("UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)");
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
@@ -65,7 +65,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // Validate input array lengths
         if (
             strategiesLength != args.proofsArray.length || strategiesLength != args.ppss.length
-                || strategiesLength != args.ppsStdevs.length || strategiesLength != args.timestamps.length
+                || strategiesLength != args.timestamps.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
@@ -131,7 +131,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     UPDATE_PPS_TYPEHASH,
                     params.strategy,
                     params.pps,
-                    params.ppsStdev,
                     params.timestamp,
                     noncePerStrategy[params.strategy]
                 )
@@ -170,7 +169,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // -------- existing collection logic --------
         validatedData.strategies = new address[](strategiesLength);
         validatedData.ppss = new uint256[](strategiesLength);
-        validatedData.ppsStdevs = new uint256[](strategiesLength);
         validatedData.timestamps = new uint256[](strategiesLength);
         validatedData.validatorSets = new uint256[](strategiesLength);
 
@@ -179,7 +177,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (isValid) {
                 validatedData.strategies[validCount] = args.strategies[i];
                 validatedData.ppss[validCount] = args.ppss[i];
-                validatedData.ppsStdevs[validCount] = args.ppsStdevs[i];
                 validatedData.timestamps[validCount] = args.timestamps[i];
                 validatedData.validatorSets[validCount] = args.proofsArray[i].length;
                 unchecked {
@@ -196,13 +193,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             mstore(mload(add(validatedData, 0x20)), validCount) // ppss.length = validCount
         }
         assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x40)), validCount) // ppsStdevs.length = validCount
+            mstore(mload(add(validatedData, 0x40)), validCount) // timestamps.length = validCount
         }
         assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x60)), validCount) // timestamps.length = validCount
-        }
-        assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x80)), validCount) // validatorSets.length = validCount
+            mstore(mload(add(validatedData, 0x60)), validCount) // validatorSets.length = validCount
         }
     }
 
@@ -228,12 +222,11 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     strategy: _strategy,
                     proofs: args.proofsArray[index],
                     pps: args.ppss[index],
-                    ppsStdev: args.ppsStdevs[index],
                     timestamp: args.timestamps[index]
                 }),
                 requiredQuorum
             ) {
-            emit PPSValidated(_strategy, args.ppss[index], args.ppsStdevs[index], args.timestamps[index], msg.sender);
+            emit PPSValidated(_strategy, args.ppss[index], args.timestamps[index], msg.sender);
         } catch Error(string memory reason) {
             emit ProofValidationFailed(_strategy, reason);
             return false;
@@ -266,7 +259,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     ISuperVaultAggregator.ForwardPPSArgs({
                         strategies: validatedData.strategies,
                         ppss: validatedData.ppss,
-                        ppsStdevs: validatedData.ppsStdevs,
                         validatorSets: validatedData.validatorSets,
                         totalValidator: totalValidators,
                         timestamps: validatedData.timestamps,

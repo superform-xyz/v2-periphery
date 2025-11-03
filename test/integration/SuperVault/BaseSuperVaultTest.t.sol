@@ -2608,7 +2608,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256 currentTotalAssets;
         uint256 precision;
         uint256 pps;
-        uint256 ppsStdev;
         uint256 timestamp;
         bytes32 messageHash;
         bytes32 ethSignedMessageHash;
@@ -2646,8 +2645,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-        // Set the additional parameters as requested: ppsStdev=0
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
@@ -2655,7 +2652,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2682,8 +2678,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -2693,7 +2687,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -2955,7 +2948,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         vars.timestamp = block.timestamp;
 
         // Set the additional parameters as in _updateSuperVaultPPS
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
         bytes32 structHash = keccak256(
@@ -2963,7 +2955,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2990,8 +2981,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -3001,7 +2990,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -3014,8 +3002,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-        // Set the additional parameters as requested: ppsStdev=0
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
@@ -3023,7 +3009,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -3050,8 +3035,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -3061,7 +3044,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
