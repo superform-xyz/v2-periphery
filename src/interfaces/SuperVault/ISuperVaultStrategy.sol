@@ -44,6 +44,9 @@ interface ISuperVaultStrategy {
     error STALE_PPS();
     error PPS_EXPIRED();
     error INVALID_PPS_EXPIRY_THRESHOLD();
+    error BOUNDS_EXCEEDED(uint256 minAllowed, uint256 maxAllowed, uint256 actual);
+    error INSUFFICIENT_LIQUIDITY();
+    error CONTROLLERS_NOT_SORTED_UNIQUE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -180,6 +183,16 @@ interface ISuperVaultStrategy {
         uint256 claimableAssets;
     }
 
+    struct FulfillRedeemVars {
+        uint256 totalRequestedShares;
+        uint256 totalSuperformFee;
+        uint256 totalRecipientFee;
+        uint256 totalNetAssetsOut;
+        uint256 processedShares;
+        uint256 currentPPS;
+        uint256 strategyBalance;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
@@ -244,9 +257,13 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing hooks, calldata, proofs, expectations.
     function executeHooks(ExecuteArgs calldata args) external payable;
 
-    /// @notice Fulfills pending redeem requests from assets already present in the strategy (async-only flow)
-    /// @param controllers Array of controller addresses to fulfill redeem requests for
-    function fulfillRedeemRequests(address[] memory controllers) external payable;
+    /// @notice Fulfills pending redeem requests with exact total assets per controller (pre-fee).
+    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(totalAssetsOut)) first.
+    /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theoreticalGross[i].
+    /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee deduction.
+    /// @param controllers Ordered/unique controllers with pending requests.
+    /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
+    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
@@ -380,4 +397,26 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @return claimableAssets The amount of assets claimable
     function claimableWithdraw(address controller) external view returns (uint256 claimableAssets);
+
+    /// @notice Preview exact redeem fulfillment for off-chain calculation
+    /// @param controller The controller address to preview
+    /// @return shares Pending redeem shares
+    /// @return theoGross Theoretical gross assets at current PPS
+    /// @return totalFee Total performance fee amount
+    /// @return theoNet Theoretical net assets (theoGross - totalFee)
+    /// @return minNet Minimum acceptable net assets (slippage floor)
+    function previewExactRedeem(address controller)
+        external
+        view
+        returns (uint256 shares, uint256 theoGross, uint256 totalFee, uint256 theoNet, uint256 minNet);
+
+    /// @notice Batch preview exact redeem fulfillment for multiple controllers
+    /// @dev Efficiently batches multiple previewExactRedeem calls to reduce RPC overhead
+    /// @param controllers Array of controller addresses to preview
+    /// @return totalTheoNet Total theoretical net assets across all controllers
+    /// @return individualNetAssets Array of theoretical net assets per controller
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets);
 }

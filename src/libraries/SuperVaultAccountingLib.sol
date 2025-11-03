@@ -87,114 +87,27 @@ library SuperVaultAccountingLib {
         return (totalFee, superformFee, recipientFee);
     }
 
-    /// @notice Calculate final assets with dual-mode operation: loss socialization OR selective attribution
-    /// @dev IMPORTANT: This function enables TWO distinct operational modes depending on strategist behavior:
-    ///
-    /// MODE 1 - STANDARD LOSS SOCIALIZATION (typical batch fulfillment):
-    ///   - Strategist generates FULL liquidity via executeHooks for all pending requests
-    ///   - strategyBalance >= sum of all theoretical payouts
-    ///   - All users in batch get paid exactly at currentPPS (theoreticalAssets)
-    ///   - Underlying Yield Source (UYS) withdrawal losses are socialized to remaining vault shareholders
-    ///     via PPS updates, not to exiting users
-    ///   - Example: If selling position incurs 2% slippage, vault PPS drops 2%, but exiting users
-    ///     get paid at pre-drop PPS (loss absorbed by remaining shareholders)
-    ///
-    /// MODE 2 - SELECTIVE LOSS ATTRIBUTION (targeted fulfillment):
-    ///   - Strategist generates PARTIAL liquidity via executeHooks for specific user(s)
-    ///   - strategyBalance is intentionally limited to be < theoreticalAssets
-    ///   - Users absorb the shortfall up to their slippage tolerance
-    ///   - Enables attributing specific losses (e.g., PT secondary market slippage) directly to exiting user
-    ///   - Example: Whale exits with illiquid PT → strategist sells PT with 5% slippage →
-    ///     whale absorbs 5% loss (within their tolerance), vault PPS preserved
-    ///
-    /// OPERATIONAL REQUIREMENTS FOR MODE 2:
-    ///   1. Strategy must have ≈0 free assets before executeHooks (else dilution occurs)
-    ///   2. Target user(s) must be fulfilled separately (cannot mix with other users in batch)
-    ///   3. executeHooks must generate precise amount: minAssetOut <= amount < theoreticalAssets
-    ///   4. Atomic execution (no other executeHooks calls between generation and fulfillment)
-    ///
-    /// DUAL-BOUND PROTECTION:
-    ///   - Lower bound: User's slippage protection (anchored to REQUEST PPS)
-    ///       * Ensures user never receives less than (requestPPS * shares * (1 - slippageBps))
-    ///       * Protects against PPS drops, rounding, AND selective attribution
-    ///   - Upper bound: Vault PPS preservation (never overpay)
-    ///       * Ensures payout <= theoretical value at current PPS
-    ///       * Prevents vault PPS dilution regardless of strategyBalance
-    ///
-    /// @param claimableAssetsWithFees Assets before fee deduction (theoretical amount at current PPS)
-    /// @param totalFee Total performance fee to deduct
-    /// @param strategyBalance Total available balance in strategy (POST-FEE, controlled by executeHooks)
-    /// @param slippageBps User's slippage tolerance in basis points
+    /// @notice Compute MIN net claimable (slippage floor, post-fee). For exact mode.
     /// @param requestedShares Number of shares being redeemed
-    /// @param averageRequestPPS PPS at the time of request (slippage anchor point)
+    /// @param averageRequestPPS PPS at time of request (slippage anchor)
+    /// @param slippageBps User's slippage tolerance in basis points
+    /// @param totalFee Total performance fee to deduct
     /// @param precision Precision constant for PPS calculations
-    /// @return claimableAssets Final assets user will receive (actual payout)
-    function calculateClaimableAssets(
-        uint256 claimableAssetsWithFees,
-        uint256 totalFee,
-        uint256 strategyBalance,
-        uint256 slippageBps,
+    /// @return minNetOut User's minimum acceptable post-fee assets
+    function computeMinNetOut(
         uint256 requestedShares,
         uint256 averageRequestPPS,
+        uint16 slippageBps,
+        uint256 totalFee,
         uint256 precision
     )
         internal
         pure
-        returns (uint256 claimableAssets)
+        returns (uint256 minNetOut)
     {
-        // Step 1: Calculate expected assets based on REQUEST PPS
-        // This is the user's anchor point - what they expected when submitting the request
-        // Used as baseline for slippage protection, NOT current PPS
-        uint256 expectedAssetsAtRequest = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
-
-        // Step 2: Apply user's slippage tolerance to their REQUEST expectations
-        // This is the LOWER BOUND - protects user from ALL sources of loss:
-        //   - PPS drops between request and fulfillment
-        //   - Rounding errors
-        //   - UYS withdrawal slippage (if attributed to user via Mode 2)
-        // By anchoring to requestPPS (not currentPPS), user is protected even if vault PPS crashed
-        uint256 minAssetOut =
-            expectedAssetsAtRequest.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
-
-        // Subtract fees from minimum
-        // (fees are already transferred out of strategyBalance in calling function)
-        if (minAssetOut > totalFee) {
-            minAssetOut -= totalFee;
-        } else {
-            minAssetOut = 0;
-        }
-
-        // Step 3: Enforce LOWER BOUND - revert if strategy cannot meet user's minimum
-        // This check enables BOTH modes:
-        //   - Mode 1: Should never revert (strategy has full liquidity)
-        //   - Mode 2: Reverts if strategist didn't generate enough (misestimated UYS slippage)
-        if (strategyBalance < minAssetOut) {
-            revert SLIPPAGE_EXCEEDED();
-        }
-
-        // Step 4: Calculate theoretical payout at CURRENT PPS (after fees)
-        // This is the UPPER BOUND - what user would get if vault had infinite liquidity
-        uint256 theoreticalAssets = claimableAssetsWithFees - totalFee;
-
-        // Step 5: DUAL-MODE PAYOUT LOGIC
-        // Pay user the MINIMUM of (available liquidity, theoretical entitlement)
-        //
-        // CASE A: strategyBalance >= theoreticalAssets (Mode 1 - Standard)
-        //   → claimableAssets = theoreticalAssets
-        //   → User gets exactly what they're entitled to at current PPS
-        //   → UYS losses were socialized to remaining shareholders (via PPS drop)
-        //
-        // CASE B: strategyBalance < theoreticalAssets (Mode 2 - Selective Attribution)
-        //   → claimableAssets = strategyBalance
-        //   → User absorbs the shortfall (theoreticalAssets - strategyBalance)
-        //   → Shortfall represents UYS withdrawal losses specifically attributed to this user
-        //   → Requires user's slippage tolerance >= loss amount (enforced in Step 3)
-        //
-        // In BOTH cases: paying out <= theoreticalAssets preserves vault PPS
-        // (burning X shares for <= X * currentPPS assets cannot decrease PPS for remaining holders)
-        claimableAssets = strategyBalance < theoreticalAssets ? strategyBalance : theoreticalAssets;
-
-        return claimableAssets;
+        uint256 expectedGross = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
+        uint256 minGrossOut = expectedGross.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
+        minNetOut = minGrossOut > totalFee ? minGrossOut - totalFee : 0;
     }
 
     /// @notice Validate redemption share amounts are within tolerance bounds
