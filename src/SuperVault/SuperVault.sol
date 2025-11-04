@@ -108,10 +108,7 @@ contract SuperVault is
         external
         initializer
     {
-        if (asset_ == address(0)) revert INVALID_ASSET();
-        if (strategy_ == address(0)) revert INVALID_STRATEGY();
-        if (escrow_ == address(0)) revert INVALID_ESCROW();
-
+        /// @dev asset, strategy, and escrow already validated in SuperVaultAggregator during vault creation
         // Initialize parent contracts
         __ERC20_init(name_, symbol_);
         __ReentrancyGuard_init();
