@@ -1400,6 +1400,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Initially not an operator
         assertFalse(vault.isOperator(accountEth, operator), "Should not be operator initially");
 
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.setOperator(accountEth, true);
+
         // Set operator directly
         vm.prank(accountEth);
         vault.setOperator(operator, true);
