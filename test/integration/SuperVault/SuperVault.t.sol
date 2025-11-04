@@ -1195,6 +1195,29 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(previewAssets, expectedAssets, "previewMint should match convertToAssets");
     }
 
+    function test_PreviewDeposit_AndMint_PPSZero() public {
+        uint256 amount = 1000e6; // 1000 USDC/shares
+
+        // Deploy a fresh vault for this test
+        (address vaultAddr, address strategyAddr, address escrowAddr) = _deployVault("SV_PREVIEW_PPS_0_TEST");
+
+        SuperVault testVault = SuperVault(vaultAddr);
+        SuperVaultStrategy testStrategy = SuperVaultStrategy(payable(strategyAddr));
+
+        // First set PPS to 0 using the actual PPS update mechanism
+        //_updatePPSToTarget(address(strategyAddr), address(testVault), 0);
+        _updateSuperVaultPPS_ToZero(address(strategyAddr));
+        console2.log("PPS", testStrategy.getStoredPPS());
+
+        // Test previewDeposit
+        uint256 previewShares = testVault.previewDeposit(amount);
+        assertEq(previewShares, 0, "previewDeposit return 0 when PPS 0");
+
+        // Test previewMint
+        uint256 previewAssets = testVault.previewMint(amount);
+        assertEq(previewAssets, 0, "previewMint return 0 when PPS 0");
+    }
+
     function test_RevertWhen_PreviewWithdraw() public {
         uint256 amount = 1000e6; // 1000 USDC
 
