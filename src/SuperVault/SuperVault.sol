@@ -410,7 +410,9 @@ contract SuperVault is
     function maxRedeem(address owner) public view override returns (uint256) {
         uint256 withdrawPrice = strategy.getAverageWithdrawPrice(owner);
         if (withdrawPrice == 0) return 0;
-        return maxWithdraw(owner).mulDiv(PRECISION, withdrawPrice, Math.Rounding.Floor);
+        // Use Ceil rounding to prevent dust remaining after redeem
+        // Since redeem uses Floor rounding, Ceil here ensures all assets are redeemable
+        return maxWithdraw(owner).mulDiv(PRECISION, withdrawPrice, Math.Rounding.Ceil);
     }
 
     /// @inheritdoc IERC4626
