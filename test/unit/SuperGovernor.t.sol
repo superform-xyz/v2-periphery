@@ -2273,6 +2273,17 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
     }
+
+    function test_QueueOracleProviderRemoval() public {
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.queueOracleProviderRemoval(providers);
+
+        // TODO: success flow
+    }
 }
 
 // =============================================================
