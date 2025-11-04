@@ -416,11 +416,25 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redemption
         uint256 vaultBalance = vault.balanceOf(accountEth);
         uint256 redeemShares = vaultBalance - (vaultBalance * 2e4 / 1e5);
-        _requestRedeem(redeemShares);
+
+        // Test revert cases
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.requestRedeem(0, accountEth, accountEth);
+
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.requestRedeem(redeemShares, address(0), accountEth);
+
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.requestRedeem(redeemShares, accountEth, address(0));
+
+        uint256 reqId = vault.requestRedeem(redeemShares, accountEth, accountEth);
+        vm.stopPrank();
 
         // Verify state
         assertEq(strategy.pendingRedeemRequest(accountEth), redeemShares, "Wrong pending redeem amount");
         assertEq(vault.balanceOf(address(escrow)), redeemShares, "Wrong escrow balance");
+        assertEq(reqId, 0, "Request ID should be 0");
     }
 
     function test_FulfillRedeem() public {
