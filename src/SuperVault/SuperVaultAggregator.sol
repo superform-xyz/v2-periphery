@@ -56,6 +56,16 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Withdraw stake requests
     mapping(address manager => WithdrawStakeRequest withdrawalRequest) public managerWithdrawalRequests;
 
+    // Debt tracking (MAIN MANAGERS ONLY)
+    mapping(address manager => uint256 debt) private _managerDebt;
+
+    // Global minimum stake requirement (applies to all main managers)
+    uint256 private _globalMinStake;
+
+    // Proposed global minimum stake (for timelock pattern)
+    uint256 private _proposedGlobalMinStake;
+    uint256 private _proposedGlobalMinStakeEffectiveTime;
+
     // Registry of created vaults
     EnumerableSet.AddressSet private _superVaults;
     EnumerableSet.AddressSet private _superVaultStrategies;
@@ -79,6 +89,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
+
+    // Timelock for global minimum stake changes (7 days, same as other critical changes)
+    uint256 private constant _MIN_STAKE_CHANGE_TIMELOCK = 7 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
     // Global hooks Merkle root data
@@ -393,10 +406,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Allow only the UNPAUSER_ROLE to unpause
-        if (!_isUnpauser(msg.sender)) {
+        // ONLY main manager can unpause (ensures economic security is in place)
+        if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+
+        // Check debt and minimum stake on MAIN manager before allowing unpause
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
 
         // Check if strategy is currently paused
         if (!_strategyData[strategy].isPaused) {
@@ -413,6 +430,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                         STAKE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @notice Deposits UP tokens as stake for manager economic security
+    /// @dev If manager has debt, deposits are applied to debt first, then to stake
     /// @param manager Address of the manager to deposit stake for
     /// @param amount Amount of UP tokens to deposit as stake
     function depositStake(address manager, uint256 amount) external {
@@ -425,19 +443,54 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Transfer UP tokens from msg.sender to this contract
         IERC20(upToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        // Update stake balance
-        _managerStakeBalance[manager] += amount;
+        // Check if manager has outstanding debt
+        uint256 currentDebt = _managerDebt[manager];
 
-        emit StakeDeposited(manager, amount);
+        if (currentDebt > 0) {
+            // Apply deposited amount to debt first
+            uint256 debtRepayment = Math.min(currentDebt, amount);
+            _managerDebt[manager] -= debtRepayment;
+
+            // Transfer debt repayment to SuperBank (where slashed funds go)
+            address superBank = _getSuperBank();
+            IERC20(upToken).safeTransfer(superBank, debtRepayment);
+
+            // Remaining amount (if any) goes to stake balance
+            uint256 remainingAmount = amount - debtRepayment;
+            if (remainingAmount > 0) {
+                _managerStakeBalance[manager] += remainingAmount;
+            }
+
+            emit DebtRepaid(manager, debtRepayment, _managerDebt[manager]);
+            if (remainingAmount > 0) {
+                emit StakeDeposited(manager, remainingAmount);
+            }
+        } else {
+            // No debt: all amount goes to stake balance
+            _managerStakeBalance[manager] += amount;
+            emit StakeDeposited(manager, amount);
+        }
     }
 
     /// @inheritdoc ISuperVaultAggregator
     function requestStakeWithdrawal(uint256 amount) external {
         if (amount == 0) revert ZERO_AMOUNT();
 
+        // DEBT CHECK: Cannot request withdrawal if in debt
+        if (_managerDebt[msg.sender] > 0) {
+            revert MANAGER_HAS_DEBT();
+        }
+
         // Check sufficient balance
         if (_managerStakeBalance[msg.sender] < amount) {
             revert INSUFFICIENT_STAKE_BALANCE();
+        }
+
+        // MINIMUM STAKE CHECK: Cannot withdraw below minimum
+        uint256 balanceAfterWithdrawal = _managerStakeBalance[msg.sender] - amount;
+        (bool hasMinStake, uint256 requiredStake) = _hasMinimumStake(msg.sender);
+        if (!hasMinStake || (requiredStake > 0 && balanceAfterWithdrawal < requiredStake)) {
+            revert WITHDRAWAL_BELOW_MINIMUM_STAKE();
         }
 
         // Create withdrawal request
@@ -457,6 +510,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         if (block.timestamp > request.timestamp + WITHDRAWAL_REQUEST_TIMEOUT) {
             revert WITHDRAWAL_REQUEST_EXPIRED();
+        }
+
+        // DEBT CHECK: Block withdrawal if debt was incurred during timelock
+        if (_managerDebt[msg.sender] > 0) {
+            // Cancel the withdrawal request
+            delete managerWithdrawalRequests[msg.sender];
+            revert MANAGER_HAS_DEBT();
         }
 
         /// Get the UP token address from SUPER_GOVERNOR
@@ -479,7 +539,112 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         IERC20(upToken).safeTransfer(msg.sender, request.amount);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        DEBT MANAGEMENT QUERIES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Gets the debt owed by a manager
+    /// @param manager Address of the manager
+    /// @return debt The debt amount
+    function getManagerDebt(address manager) external view returns (uint256 debt) {
+        return _managerDebt[manager];
+    }
+
+    /// @notice Checks if a manager has any outstanding debt
+    /// @param manager Address of the manager
+    /// @return True if manager has debt
+    function hasDebt(address manager) external view returns (bool) {
+        return _managerDebt[manager] > 0;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    MINIMUM STAKE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proposes a new global minimum stake requirement
+    /// @dev Only callable by SUPER_GOVERNOR, requires timelock
+    /// @param newMinStake The proposed minimum stake amount
+    function proposeGlobalMinStake(uint256 newMinStake) external {
+        if (msg.sender != address(SUPER_GOVERNOR)) {
+            revert CALLER_NOT_AUTHORIZED();
+        }
+
+        _proposedGlobalMinStake = newMinStake;
+        _proposedGlobalMinStakeEffectiveTime = block.timestamp + _MIN_STAKE_CHANGE_TIMELOCK;
+
+        emit GlobalMinStakeProposed(newMinStake, _proposedGlobalMinStakeEffectiveTime);
+    }
+
+    /// @notice Executes a previously proposed global minimum stake change
+    /// @dev Can be called by anyone after timelock expires
+    function executeGlobalMinStakeChange() external {
+        if (_proposedGlobalMinStakeEffectiveTime == 0) {
+            revert NO_PENDING_MIN_STAKE_PROPOSAL();
+        }
+        if (block.timestamp < _proposedGlobalMinStakeEffectiveTime) {
+            revert TIMELOCK_NOT_EXPIRED();
+        }
+
+        uint256 newMinStake = _proposedGlobalMinStake;
+        _globalMinStake = newMinStake;
+
+        // Reset proposal
+        _proposedGlobalMinStake = 0;
+        _proposedGlobalMinStakeEffectiveTime = 0;
+
+        emit GlobalMinStakeUpdated(newMinStake);
+    }
+
+    /// @notice Gets the current global minimum stake requirement
+    /// @return minStake The global minimum stake
+    function getGlobalMinStake() external view returns (uint256 minStake) {
+        return _globalMinStake;
+    }
+
+    /// @notice Gets the proposed global minimum stake and effective time
+    /// @return proposedMinStake The proposed minimum stake
+    /// @return effectiveTime When the proposal becomes executable
+    function getProposedGlobalMinStake()
+        external
+        view
+        returns (uint256 proposedMinStake, uint256 effectiveTime)
+    {
+        return (_proposedGlobalMinStake, _proposedGlobalMinStakeEffectiveTime);
+    }
+
+    /// @notice Gets comprehensive stake information for a manager
+    /// @param manager Address of the manager
+    /// @return balance Current stake balance
+    /// @return debt Outstanding debt amount
+    /// @return pendingWithdrawal Amount pending in withdrawal request
+    /// @return effectiveBalance Usable balance (balance - pendingWithdrawal)
+    /// @return minRequired Minimum stake required (0 if none)
+    function getManagerStakeInfo(address manager)
+        external
+        view
+        returns (
+            uint256 balance,
+            uint256 debt,
+            uint256 pendingWithdrawal,
+            uint256 effectiveBalance,
+            uint256 minRequired
+        )
+    {
+        balance = _managerStakeBalance[manager];
+        debt = _managerDebt[manager];
+        pendingWithdrawal = managerWithdrawalRequests[manager].amount;
+
+        if (pendingWithdrawal > balance) {
+            effectiveBalance = 0;
+        } else {
+            effectiveBalance = balance - pendingWithdrawal;
+        }
+
+        minRequired = _globalMinStake;
+    }
+
     /// @notice Slashes a manager's stake balance by a specified amount
+    /// @dev If insufficient balance, slashes what's available and creates debt for remainder
     /// @param manager The manager whose stake will be slashed
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external {
@@ -492,13 +657,21 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
         if (amount == 0) revert ZERO_AMOUNT();
 
-        // Check if manager has sufficient stake balance to slash
-        if (_managerStakeBalance[manager] < amount) {
-            revert INSUFFICIENT_STAKE_BALANCE();
+        // Calculate how much can actually be slashed
+        uint256 currentBalance = _managerStakeBalance[manager];
+        uint256 slashableAmount = Math.min(currentBalance, amount);
+
+        // Calculate debt if slash amount exceeds balance
+        uint256 debtCreated = 0;
+        if (amount > currentBalance) {
+            debtCreated = amount - currentBalance;
+            _managerDebt[manager] += debtCreated;
         }
 
-        // Reduce manager's stake balance
-        _managerStakeBalance[manager] -= amount;
+        // Reduce manager's stake balance by slashable amount
+        if (slashableAmount > 0) {
+            _managerStakeBalance[manager] -= slashableAmount;
+        }
 
         // Clear any pending withdrawal requests
         delete managerWithdrawalRequests[manager];
@@ -507,11 +680,16 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
         address superBank = _getSuperBank();
 
-        // Transfer slashed amount directly to SuperBank
-        IERC20(upToken).safeTransfer(superBank, amount);
+        // Transfer slashed amount to SuperBank (only what was actually slashed)
+        if (slashableAmount > 0) {
+            IERC20(upToken).safeTransfer(superBank, slashableAmount);
+        }
 
-        // Emit event for transparency
-        emit StakeSlashed(manager, amount);
+        // Emit events
+        emit StakeSlashed(manager, slashableAmount, debtCreated);
+        if (debtCreated > 0) {
+            emit ManagerDebtCreated(manager, debtCreated, _managerDebt[manager]);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -521,6 +699,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function addAuthorizedCaller(address strategy, address caller) external validStrategy(strategy) {
         // Either primary or secondary manager can add authorized callers
         if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        // Check debt and minimum stake on MAIN manager (not caller)
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
 
         if (caller == address(0)) revert ZERO_ADDRESS();
 
@@ -541,6 +723,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Either primary or secondary manager can remove authorized callers
         if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
+        // Check debt and minimum stake on MAIN manager (not caller)
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
+
         // Remove the caller
         if (!_strategyData[strategy].authorizedCallers.remove(caller)) {
             revert CALLER_NOT_AUTHORIZED();
@@ -555,6 +741,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function addSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
         // Only the primary manager can add secondary managers
         if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        // Check debt and minimum stake on MAIN manager
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
 
         if (manager == address(0)) revert ZERO_ADDRESS();
 
@@ -577,6 +767,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Only the primary manager can remove secondary managers
         if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
+        // Check debt and minimum stake on MAIN manager
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
+
         // Remove the manager using EnumerableSet
         if (!_strategyData[strategy].secondaryManagers.remove(manager)) revert MANAGER_NOT_FOUND();
 
@@ -596,6 +790,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+
+        // Check debt and minimum stake on MAIN manager
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
 
         // Update the thresholds
         _strategyData[strategy].deviationThreshold = deviationThreshold_;
@@ -618,6 +816,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+
+        // Check debt and minimum stake on MAIN manager
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
+
         uint256 leavesLen = leaves.length;
         // Check array lengths match
         if (leavesLen != statuses.length) {
@@ -678,6 +881,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         if (newManager == address(0)) revert ZERO_ADDRESS();
+
+        // CRITICAL: Validate NEW manager has zero debt and sufficient stake
+        if (_managerDebt[newManager] > 0) {
+            revert MANAGER_HAS_DEBT();
+        }
+        (bool hasMinStake, uint256 requiredStake) = _hasMinimumStake(newManager);
+        if (!hasMinStake) {
+            revert INSUFFICIENT_STAKE_FOR_OPERATION(requiredStake);
+        }
 
         // Set up the proposal with 7-day timelock
         uint256 effectiveTime = block.timestamp + _MANAGER_CHANGE_TIMELOCK;
@@ -796,6 +1008,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[strategy].mainManager != msg.sender) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+
+        // Check debt and minimum stake on MAIN manager
+        _requireMainManagerNoDebt(strategy);
+        _requireMainManagerMinimumStake(strategy);
 
         // Set proposed root with timelock
         _strategyData[strategy].proposedHooksRoot = newRoot;
@@ -1266,5 +1482,60 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     function _isUnpauser(address account) internal view returns (bool) {
         return IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        DEBT AND MINIMUM STAKE HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Internal validation for manager operations requiring no debt
+    /// @dev Always checks debt on the MAIN manager, not the caller
+    /// @param strategy The strategy to check the main manager for
+    function _requireMainManagerNoDebt(address strategy) internal view {
+        address mainManager = _strategyData[strategy].mainManager;
+        if (_managerDebt[mainManager] > 0) {
+            revert MANAGER_HAS_DEBT();
+        }
+    }
+
+    /// @notice Internal validation for manager operations requiring minimum stake
+    /// @dev Always checks stake on the MAIN manager, not the caller
+    /// @param strategy The strategy to check the main manager for
+    function _requireMainManagerMinimumStake(address strategy) internal view {
+        address mainManager = _strategyData[strategy].mainManager;
+        (bool hasMinStake, uint256 requiredStake) = _hasMinimumStake(mainManager);
+        if (!hasMinStake) {
+            revert INSUFFICIENT_STAKE_FOR_OPERATION(requiredStake);
+        }
+    }
+
+    /// @notice Internal function to check if manager meets minimum stake requirements
+    /// @param manager The manager to check
+    /// @return hasMinStake True if manager has sufficient stake
+    /// @return requiredStake The minimum stake required
+    function _hasMinimumStake(address manager) internal view returns (bool hasMinStake, uint256 requiredStake) {
+        requiredStake = _globalMinStake;
+
+        // If no minimum is set, always passes
+        if (requiredStake == 0) {
+            return (true, 0);
+        }
+
+        // Check if effective balance meets requirement
+        uint256 effectiveBalance = _getEffectiveStakeBalance(manager);
+        hasMinStake = effectiveBalance >= requiredStake;
+    }
+
+    /// @notice Gets effective stake balance (actual balance minus pending withdrawals)
+    /// @param manager The manager to check
+    /// @return Effective stake balance
+    function _getEffectiveStakeBalance(address manager) internal view returns (uint256) {
+        uint256 balance = _managerStakeBalance[manager];
+        uint256 pendingWithdrawal = managerWithdrawalRequests[manager].amount;
+
+        if (pendingWithdrawal > balance) {
+            return 0;
+        }
+        return balance - pendingWithdrawal;
     }
 }

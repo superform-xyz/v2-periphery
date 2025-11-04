@@ -778,7 +778,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // SuperGovernor slashes stake
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
+        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount, 0); // 0 debt created (sufficient stake)
         superGovernor.slashStake(manager, slashAmount);
 
         // Verify balances

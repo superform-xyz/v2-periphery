@@ -214,8 +214,30 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when a manager's stake is slashed
     /// @param manager The manager whose stake was slashed
-    /// @param amount The amount of UP tokens slashed
-    event StakeSlashed(address indexed manager, uint256 amount);
+    /// @param slashedAmount The amount of UP tokens actually slashed (may be less than requested)
+    /// @param debtCreated The amount of debt created if slashedAmount < requested amount
+    event StakeSlashed(address indexed manager, uint256 slashedAmount, uint256 debtCreated);
+
+    /// @notice Emitted when a manager incurs debt from insufficient stake during slashing
+    /// @param manager The manager who incurred debt
+    /// @param debtAmount The amount of debt created
+    /// @param totalDebt The manager's total debt after this operation
+    event ManagerDebtCreated(address indexed manager, uint256 debtAmount, uint256 totalDebt);
+
+    /// @notice Emitted when a manager repays debt
+    /// @param manager The manager who repaid debt
+    /// @param repaymentAmount The amount of debt repaid
+    /// @param remainingDebt The manager's remaining debt after repayment
+    event DebtRepaid(address indexed manager, uint256 repaymentAmount, uint256 remainingDebt);
+
+    /// @notice Emitted when a global minimum stake is proposed
+    /// @param proposedMinStake The proposed new global minimum stake
+    /// @param effectiveTime The timestamp when the change becomes effective
+    event GlobalMinStakeProposed(uint256 proposedMinStake, uint256 effectiveTime);
+
+    /// @notice Emitted when the global minimum stake is updated
+    /// @param newMinStake The new global minimum stake requirement
+    event GlobalMinStakeUpdated(uint256 newMinStake);
 
     /// @notice Emitted when an authorized caller is added for a strategy
     /// @param strategy Address of the strategy
@@ -420,6 +442,15 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_UPKEEP_BALANCE();
     /// @notice Thrown when withdrawing more stake than available
     error INSUFFICIENT_STAKE_BALANCE();
+    /// @notice Thrown when a manager has outstanding debt
+    error MANAGER_HAS_DEBT();
+    /// @notice Thrown when a manager doesn't meet minimum stake requirements
+    /// @param required The minimum stake required
+    error INSUFFICIENT_STAKE_FOR_OPERATION(uint256 required);
+    /// @notice Thrown when attempting to withdraw stake below minimum requirement
+    error WITHDRAWAL_BELOW_MINIMUM_STAKE();
+    /// @notice Thrown when no pending minimum stake proposal exists
+    error NO_PENDING_MIN_STAKE_PROPOSAL();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
@@ -568,6 +599,61 @@ interface ISuperVaultAggregator {
     /// @param manager The manager whose stake will be slashed
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external;
+
+    /*//////////////////////////////////////////////////////////////
+                        DEBT MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Gets the debt owed by a manager
+    /// @param manager Address of the manager
+    /// @return debt The debt amount
+    function getManagerDebt(address manager) external view returns (uint256 debt);
+
+    /// @notice Checks if a manager has any outstanding debt
+    /// @param manager Address of the manager
+    /// @return True if manager has debt
+    function hasDebt(address manager) external view returns (bool);
+
+    /*//////////////////////////////////////////////////////////////
+                    MINIMUM STAKE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proposes a new global minimum stake requirement
+    /// @param newMinStake The proposed minimum stake amount
+    function proposeGlobalMinStake(uint256 newMinStake) external;
+
+    /// @notice Executes a previously proposed global minimum stake change
+    function executeGlobalMinStakeChange() external;
+
+    /// @notice Gets the current global minimum stake requirement
+    /// @return minStake The global minimum stake
+    function getGlobalMinStake() external view returns (uint256 minStake);
+
+    /// @notice Gets the proposed global minimum stake and effective time
+    /// @return proposedMinStake The proposed minimum stake
+    /// @return effectiveTime When the proposal becomes executable
+    function getProposedGlobalMinStake()
+        external
+        view
+        returns (uint256 proposedMinStake, uint256 effectiveTime);
+
+    /// @notice Gets comprehensive stake information for a manager
+    /// @param manager Address of the manager
+    /// @return balance Current stake balance
+    /// @return debt Outstanding debt amount
+    /// @return pendingWithdrawal Amount pending in withdrawal request
+    /// @return effectiveBalance Usable balance (balance - pendingWithdrawal)
+    /// @return minRequired Minimum stake required (0 if none)
+    function getManagerStakeInfo(address manager)
+        external
+        view
+        returns (
+            uint256 balance,
+            uint256 debt,
+            uint256 pendingWithdrawal,
+            uint256 effectiveBalance,
+            uint256 minRequired
+        );
 
     /*//////////////////////////////////////////////////////////////
                         AUTHORIZED CALLER MANAGEMENT

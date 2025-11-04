@@ -1951,7 +1951,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // SuperGovernor slashes stake
         vm.prank(address(superGovernor));
         vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
+        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount, 0); // 0 debt created (sufficient stake)
         superVaultAggregator.slashStake(manager, slashAmount);
 
         // Verify balances
