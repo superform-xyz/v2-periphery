@@ -407,10 +407,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Split fee between Superform treasury and strategy recipient
         uint256 sfFee = Math.mulDiv(
-            fee,
-            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
-            BPS_PRECISION,
-            Math.Rounding.Floor
+            fee, superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
         );
         uint256 recipientFee = fee - sfFee;
 
@@ -500,10 +497,21 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         if (block.timestamp < feeConfigEffectiveTime) revert INVALID_TIMESTAMP();
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
+
+        // Get current PPS before updating fee config
+        uint256 currentPPS = getStoredPPS();
+        uint256 oldHwmPps = vaultHwmPps;
+
+        // Update fee config
         feeConfig = proposedFeeConfig;
         delete proposedFeeConfig;
         feeConfigEffectiveTime = 0;
+
+        // Reset HWM PPS to current PPS to avoid incorrect fee calculations with new fee structure
+        vaultHwmPps = currentPPS;
+
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
+        emit HWMPPSUpdated(currentPPS, oldHwmPps, 0, 0);
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -757,9 +765,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 theoreticalAssets = pendingShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
-        uint256 minAssetsOut = SuperVaultAccountingLib.computeMinNetOut(
-            pendingShares, state.averageRequestPPS, slippageBps, PRECISION
-        );
+        uint256 minAssetsOut =
+            SuperVaultAccountingLib.computeMinNetOut(pendingShares, state.averageRequestPPS, slippageBps, PRECISION);
 
         // Bounds check: totalAssetsOut must be between minAssetsOut and theoreticalAssets
         if (totalAssetsOut < minAssetsOut || totalAssetsOut > theoreticalAssets) {

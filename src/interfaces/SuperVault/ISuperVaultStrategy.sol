@@ -306,6 +306,9 @@ interface ISuperVaultStrategy {
     /// @param performanceFeeBps New performance fee in basis points
     /// @param managementFeeBps New management fee in basis points
     /// @param recipient New fee recipient
+    /// @dev IMPORTANT: Before executing the proposed update (via executeVaultFeeConfigUpdate),
+    ///      manager should call skimPerformanceFee() to collect performance fees on existing profits
+    ///      under the current fee structure to avoid losing profit or incorrect fee calculations.
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
@@ -314,6 +317,11 @@ interface ISuperVaultStrategy {
         external;
 
     /// @notice Execute the proposed vault fee configuration update after timelock
+    /// @dev IMPORTANT: Manager should call skimPerformanceFee() before executing this update
+    ///      to collect performance fees on existing profits under the current fee structure.
+    ///      Otherwise, profit earned under the old fee percentage will be lost or incorrectly calculated.
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
+    ///      to avoid incorrect fee calculations with the new fee structure.
     function executeVaultFeeConfigUpdate() external;
 
     /// @notice Manage PPS expiry threshold
