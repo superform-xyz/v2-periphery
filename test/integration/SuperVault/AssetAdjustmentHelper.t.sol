@@ -399,7 +399,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
                                 TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_SingleController_FullLossAttribution() public {
+    function test_SingleController_FullLossAttribution() public pure {
         // Setup: Single controller with execution loss
         address[] memory controllers = new address[](1);
         controllers[0] = address(0x1);
@@ -422,7 +422,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertTrue(verifyFulfillRedeemSum(fulfillRedeemTotalAssetsOut, available), "TotalAssetsOut should be valid");
     }
 
-    function test_MultipleControllers_ProRataDistribution() public {
+    function test_MultipleControllers_ProRataDistribution() public pure {
         // Setup: Multiple controllers with different request sizes
         address[] memory controllers = new address[](3);
         controllers[0] = address(0x1);
@@ -461,7 +461,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertTrue(verifyFulfillRedeemSum(fulfillRedeemTotalAssetsOut, available), "TotalAssetsOut should be valid");
     }
 
-    function test_ZeroLoss_NoAdjustment() public {
+    function test_ZeroLoss_NoAdjustment() public pure {
         // Setup: No execution loss
         address[] memory controllers = new address[](2);
         controllers[0] = address(0x1);
@@ -483,7 +483,7 @@ contract AssetAdjustmentHelperTest is AssetAdjustmentHelper {
         assertEq(fulfillRedeemTotalAssetsOut[1], theoretical[1], "No adjustment needed when no loss");
     }
 
-    function test_EdgeCase_LargeLoss() public {
+    function test_EdgeCase_LargeLoss() public pure {
         // Setup: Significant execution loss
         address[] memory controllers = new address[](2);
         controllers[0] = address(0x1);
