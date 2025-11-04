@@ -214,9 +214,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
     }
 
-    function test_Deposit_With_ZeroAddress() public {
+    function test_Deposit_RevertCases() public {
         vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.deposit(1000, address(0));
+
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.deposit(0, accountEth);
     }
 
     function test_DepositDirectlyMintsShares() public {
@@ -291,6 +294,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify that the strategy has no free assets left
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
+    }
+
+    function test_Mint_RevertCases() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.mint(1000, address(0));
+
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.mint(0, accountEth);
     }
 
     function test_MintShares() public {
