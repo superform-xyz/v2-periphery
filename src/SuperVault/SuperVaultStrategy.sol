@@ -319,25 +319,22 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         vars.currentPPS = getStoredPPS();
         if (vars.currentPPS == 0) revert INVALID_PPS();
 
-        // Validate controllers are sorted and unique
-        for (uint256 i = 1; i < len; ++i) {
-            if (controllers[i] <= controllers[i - 1]) revert CONTROLLERS_NOT_SORTED_UNIQUE();
-        }
-
-        // Pre-validate total shares (exact burn)
+        // Process each controller with all validations in one loop
         for (uint256 i; i < len; ++i) {
-            vars.totalRequestedShares += superVaultState[controllers[i]].pendingRedeemRequest;
-        }
+            // Validate controllers are sorted and unique
+            if (i > 0 && controllers[i] <= controllers[i - 1]) revert CONTROLLERS_NOT_SORTED_UNIQUE();
 
-        // Process each controller
-        for (uint256 i; i < len; ++i) {
-            uint256 shares = _processExactFulfillmentBatch(controllers[i], totalAssetsOut[i], vars.currentPPS);
+            // Load pending shares into memory and accumulate total
+            uint256 pendingShares = superVaultState[controllers[i]].pendingRedeemRequest;
+            vars.totalRequestedShares += pendingShares;
 
-            vars.processedShares += shares;
+            // Disallow fulfillment for controllers with zero pending shares
+            if (pendingShares == 0) revert ZERO_SHARE_FULFILLMENT_DISALLOWED();
+
+            // Process fulfillment and accumulate assets
+            _processExactFulfillmentBatch(controllers[i], totalAssetsOut[i], vars.currentPPS, pendingShares);
             vars.totalNetAssetsOut += totalAssetsOut[i];
         }
-
-        if (vars.processedShares != vars.totalRequestedShares) revert INVALID_REDEEM_FILL();
 
         // Balance check (no fees expected)
         vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
@@ -346,14 +343,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
 
         // Burn shares
-        ISuperVault(_vault).burnShares(vars.processedShares);
+        ISuperVault(_vault).burnShares(vars.totalRequestedShares);
 
         // Transfer net assets to escrow
         if (vars.totalNetAssetsOut > 0) {
             _asset.safeTransfer(ISuperVault(_vault).escrow(), vars.totalNetAssetsOut);
         }
 
-        emit RedeemRequestsFulfilled(controllers, vars.processedShares, vars.currentPPS);
+        emit RedeemRequestsFulfilled(controllers, vars.totalRequestedShares, vars.currentPPS);
     }
 
     /// @notice Skim performance fees based on global High Water Mark
@@ -390,9 +387,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (fee == 0) return; // Edge case: profit exists but fee rounds to 0
 
         // Split fees
-        uint256 sfFee = fee.mulDiv(
-            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
-        );
+        uint256 sfFee =
+            fee.mulDiv(superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor);
 
         // Transfer fees
         _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
@@ -704,27 +700,24 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param controller Controller address
     /// @param totalAssetsOut Total assets available for this controller (from executeHooks)
     /// @param currentPPS Current price per share
-    /// @return processedShares Processed shares
+    /// @param pendingShares Pending shares for this controller (passed to avoid re-reading from storage)
     function _processExactFulfillmentBatch(
         address controller,
         uint256 totalAssetsOut,
-        uint256 currentPPS
+        uint256 currentPPS,
+        uint256 pendingShares
     )
         internal
-        returns (uint256 processedShares)
     {
         SuperVaultState storage state = superVaultState[controller];
-        processedShares = state.pendingRedeemRequest;
-
-        if (processedShares == 0) return 0;
 
         // Slippage validation
         uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
 
-        uint256 theoreticalAssets = processedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
+        uint256 theoreticalAssets = pendingShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
         uint256 minAssetsOut = SuperVaultAccountingLib.computeMinNetOut(
-            processedShares, state.averageRequestPPS, slippageBps, PRECISION
+            pendingShares, state.averageRequestPPS, slippageBps, PRECISION
         );
 
         // Bounds check: totalAssetsOut must be between minAssetsOut and theoreticalAssets
@@ -734,7 +727,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Update average withdraw price (use actual assets received)
         state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-            state.maxWithdraw, state.averageWithdrawPrice, processedShares, totalAssetsOut, PRECISION
+            state.maxWithdraw, state.averageWithdrawPrice, pendingShares, totalAssetsOut, PRECISION
         );
 
         // Reset state
@@ -744,9 +737,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         state.pendingCancelRedeemRequest = false;
         state.claimableCancelRedeemRequest = 0;
 
-        emit RedeemClaimable(controller, totalAssetsOut, processedShares, state.averageWithdrawPrice);
-
-        return processedShares;
+        emit RedeemClaimable(controller, totalAssetsOut, pendingShares, state.averageWithdrawPrice);
     }
 
     /*//////////////////////////////////////////////////////////////

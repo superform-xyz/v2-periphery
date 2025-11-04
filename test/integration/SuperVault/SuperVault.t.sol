@@ -10191,6 +10191,98 @@ contract SuperVaultTest is BaseSuperVaultTest {
             totalAssetsCalculated - totalAssetsReported);
     }
 
+    /// @notice Test that fulfillRedeemRequests reverts when trying to fulfill zero-share controllers with non-zero assets
+    /// @dev This tests the fix for the vulnerability where managers could strand funds by providing non-zero totalAssetsOut for controllers with zero pending shares
+    function test_FulfillRedeemRequests_RevertsOnZeroSharesWithNonZeroAssets() public {
+        // Setup: Create two users, only one will have a pending redeem request
+        uint256 depositAmount = 1000e6;
+        _deposit(depositAmount);
+
+        address user1 = accountEth;
+        address user2 = accInstances[1].account;
+
+        // User 1 deposits and requests redeem
+        uint256 userShares = vault.balanceOf(user1);
+        vm.startPrank(user1);
+        vault.requestRedeem(userShares, user1, user1);
+        vm.stopPrank();
+
+        // Update PPS before attempting fulfillment
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // User 2 has no pending redeem request (pendingRedeemRequest = 0)
+        // but malicious/mistaken manager tries to provide non-zero totalAssetsOut for user2
+
+        // Calculate proper assets for user1
+        address[] memory tempArray = new address[](1);
+        tempArray[0] = user1;
+        uint256[] memory assetsForUser1 = calculateLiquidityOnlyFulfillment(strategy, address(asset), tempArray);
+
+        address[] memory controllers = new address[](2);
+        controllers[0] = user1 < user2 ? user1 : user2;  // Must be sorted
+        controllers[1] = user1 < user2 ? user2 : user1;
+
+        uint256[] memory totalAssetsOut = new uint256[](2);
+        if (user1 < user2) {
+            totalAssetsOut[0] = assetsForUser1[0];  // user1 has pending shares - proper amount
+            totalAssetsOut[1] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
+        } else {
+            totalAssetsOut[0] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
+            totalAssetsOut[1] = assetsForUser1[0];  // user1 has pending shares - proper amount
+        }
+
+        // Try to fulfill - should revert with ZERO_SHARE_FULFILLMENT_DISALLOWED because user2 has zero shares
+        vm.startPrank(MANAGER);
+        vm.expectRevert(ISuperVaultStrategy.ZERO_SHARE_FULFILLMENT_DISALLOWED.selector);
+        strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
+        vm.stopPrank();
+
+        console2.log("fulfillRedeemRequests correctly reverts when zero-share controller is included");
+    }
+
+    /// @notice Test that fulfillRedeemRequests succeeds when only fulfilling controllers with pending shares
+    /// @dev This ensures the fix allows normal operation when only valid controllers are included
+    function test_FulfillRedeemRequests_SucceedsWithOnlyValidControllers() public {
+        // Setup: Create two users, only one will have a pending redeem request
+        uint256 depositAmount = 1000e6;
+        _deposit(depositAmount);
+
+        address user1 = accountEth;
+
+        // User 1 deposits and requests redeem
+        uint256 userShares = vault.balanceOf(user1);
+        vm.startPrank(user1);
+        vault.requestRedeem(userShares, user1, user1);
+        vm.stopPrank();
+
+        // Update PPS before fulfillment
+        vm.warp(block.timestamp + 1 weeks);
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        // Only include user1 in the fulfillment (don't include zero-share controllers)
+        address[] memory controllers = new address[](1);
+        controllers[0] = user1;
+
+        // Calculate proper assets for user1 using the helper
+        uint256[] memory assetsForUser1 = calculateLiquidityOnlyFulfillment(strategy, address(asset), controllers);
+
+        uint256[] memory totalAssetsOut = new uint256[](1);
+        totalAssetsOut[0] = assetsForUser1[0];
+
+        // Should succeed - only including valid controllers
+        vm.startPrank(MANAGER);
+        strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
+        vm.stopPrank();
+
+        // Verify user1's request was fulfilled
+        ISuperVaultStrategy.SuperVaultState memory user1State = strategy.getSuperVaultState(user1);
+        assertEq(user1State.pendingRedeemRequest, 0, "User1 pending redeem should be cleared");
+        assertGt(user1State.maxWithdraw, 0, "User1 should have claimable assets");
+
+        console2.log("fulfillRedeemRequests succeeds when only valid controllers are included");
+    }
+
     /// @notice Event for testing
     event PPSUpdatedAfterSkim(
         address indexed strategy,

@@ -47,6 +47,7 @@ interface ISuperVaultStrategy {
     error BOUNDS_EXCEEDED(uint256 minAllowed, uint256 maxAllowed, uint256 actual);
     error INSUFFICIENT_LIQUIDITY();
     error CONTROLLERS_NOT_SORTED_UNIQUE();
+    error ZERO_SHARE_FULFILLMENT_DISALLOWED();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -185,7 +186,6 @@ interface ISuperVaultStrategy {
         uint256 totalSuperformFee;
         uint256 totalRecipientFee;
         uint256 totalNetAssetsOut;
-        uint256 processedShares;
         uint256 currentPPS;
         uint256 strategyBalance;
     }
