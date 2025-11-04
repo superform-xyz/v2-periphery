@@ -61,9 +61,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for PPS decimals
-    uint256 public constant PPS_DECIMALS = 18;
-
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
