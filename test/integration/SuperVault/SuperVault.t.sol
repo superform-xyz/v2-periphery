@@ -10,7 +10,7 @@ import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IERC165 } from "openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-
+import { Initializable } from "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -33,6 +33,7 @@ import { RuggableConvertVault } from "../../mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "../../mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
 import { MockEmergencyVault } from "../../mocks/MockEmergencyVault.sol";
+import { MockAssetNoDecimals } from "../../mocks/MockAssetNoDecimals.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
 
 contract SuperVaultTest is BaseSuperVaultTest {
@@ -123,7 +124,74 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                       SUPERVAULT.SOL
+                    CONSTRUCTOR & INITIALIZER TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_SuperVault_Constructor() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        new SuperVault(address(0));
+
+        vm.prank(MANAGER);
+        vm.expectEmit(true, true, true, true);
+        emit Initializable.Initialized(type(uint64).max);
+        SuperVault vault = new SuperVault(address(superGovernor));
+
+        assertEq(address(vault.superGovernor()), address(superGovernor));
+
+        SuperVault vaultError = new SuperVault(address(superGovernor));
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        vaultError.initialize(address(0), "SuperVault", "SV_USDC", address(strategy), address(escrow));
+    }
+
+    function test_SuperVault_Initializer() public {
+        ISuperVaultAggregator.VaultCreationParams memory params = ISuperVaultAggregator.VaultCreationParams({
+            asset: address(asset),
+            name: "SuperVault",
+            symbol: "SV_USDC",
+            mainManager: MANAGER,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: 0,
+            maxStaleness: 300,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 0,
+                managementFeeBps: 0,
+                recipient: MANAGER
+            }),
+            maxUnpauseTimeLock: 0
+        });
+        aggregator.createVault(params);
+
+        // Test that the reentrancy guard is initialized properly
+        uint256 NOT_ENTERED = 1;
+
+        // The slot used by OZ’s ReentrancyGuardUpgradeable
+        bytes32 slot = 0x9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00;
+        uint256 storedValue = uint256(vm.load(address(vault), slot));
+
+        assertEq(storedValue, NOT_ENTERED, "ReentrancyGuard not initialized properly");
+
+        // Test revert case when asset has no decimals
+        MockAssetNoDecimals mockAsset = new MockAssetNoDecimals("NoDecimals", "NODEC");
+        ISuperVaultAggregator.VaultCreationParams memory params1 = ISuperVaultAggregator.VaultCreationParams({
+            asset: address(mockAsset),
+            name: "SuperVault",
+            symbol: "SV_USDC",
+            mainManager: MANAGER,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: 0,
+            maxStaleness: 300,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 0,
+                managementFeeBps: 0,
+                recipient: MANAGER
+            }),
+            maxUnpauseTimeLock: 0
+        });
+        vm.expectRevert(ISuperVault.INVALID_ASSET.selector);
+        aggregator.createVault(params1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            SUPERVAULT.SOL
     //////////////////////////////////////////////////////////////*/
 
     function test_Name() public view {
