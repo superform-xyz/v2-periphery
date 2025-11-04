@@ -25,8 +25,6 @@ interface IECDSAPPSOracle {
     error STRATEGY_MISMATCH();
     /// @notice Thrown when the pps value in the proof does not match
     error PPS_MISMATCH();
-    /// @notice Thrown when the dispersion (standard deviation / mean) is too high
-    error HIGH_PPS_DISPERSION();
     /// @notice Thrown when the deviation from previous PPS is too high
     error HIGH_PPS_DEVIATION();
     /// @notice Thrown when too few validators participated in the round
@@ -48,11 +46,10 @@ interface IECDSAPPSOracle {
     /// @notice Emitted when a PPS update is validated and forwarded
     /// @param strategy Address of the strategy
     /// @param pps The validated price-per-share value
-    /// @param ppsStdev The standard deviation of the price-per-share
     /// @param timestamp Timestamp when the value was generated
     /// @param sender Address that submitted the update
     event PPSValidated(
-        address indexed strategy, uint256 pps, uint256 ppsStdev, uint256 timestamp, address indexed sender
+        address indexed strategy, uint256 pps, uint256 timestamp, address indexed sender
     );
 
     /// @notice Emitted when proof validation failed
@@ -84,28 +81,24 @@ interface IECDSAPPSOracle {
     /// @notice Parameters for validating PPS proofs
     /// @param strategy Address of the strategy
     /// @param proofs Array of cryptographic proofs
-    /// @param pps Price-per-share value (mean)
-    /// @param ppsStdev Standard deviation of the price-per-share
+    /// @param pps Price-per-share value
     /// @param timestamp Timestamp when the value was generated
     struct ValidationParams {
         address strategy;
         bytes[] proofs;
         uint256 pps;
-        uint256 ppsStdev;
         uint256 timestamp;
     }
 
     /// @notice Arguments for batch updating PPS for multiple strategies
     /// @param strategies Array of strategy addresses
     /// @param proofsArray Array of arrays of cryptographic proofs (one array of proofs per strategy)
-    /// @param ppss Array of price-per-share values (means)
-    /// @param ppsStdevs Array of standard deviations of price-per-share values
+    /// @param ppss Array of price-per-share values
     /// @param timestamps The time and therefore the blockchain(s) state(s) (plural important) this PPS refers to
     struct UpdatePPSArgs {
         address[] strategies;
         bytes[][] proofsArray;
         uint256[] ppss;
-        uint256[] ppsStdevs;
         uint256[] timestamps;
     }
 
@@ -113,7 +106,6 @@ interface IECDSAPPSOracle {
     struct ValidatedBatchData {
         address[] strategies;
         uint256[] ppss;
-        uint256[] ppsStdevs;
         uint256[] timestamps;
         uint256[] validatorSets;
     }

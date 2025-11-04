@@ -26,88 +26,26 @@ library SuperVaultAccountingLib {
                         ACCOUNTING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Calculate cost basis for requested shares using proportional approach
-    /// @param accumulatorShares Total shares in accumulator
-    /// @param accumulatorCostBasis Total cost basis in accumulator
-    /// @param requestedShares Shares being redeemed
-    /// @return costBasis Proportional cost basis for requested shares
-    /// @return newAccumulatorShares Updated accumulator shares
-    /// @return newAccumulatorCostBasis Updated accumulator cost basis
-    function calculateCostBasis(
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis,
-        uint256 requestedShares
-    )
-        internal
-        pure
-        returns (uint256 costBasis, uint256 newAccumulatorShares, uint256 newAccumulatorCostBasis)
-    {
-        if (requestedShares > accumulatorShares) revert INSUFFICIENT_SHARES();
 
-        // Calculate cost basis proportionally
-        costBasis = requestedShares.mulDiv(accumulatorCostBasis, accumulatorShares, Math.Rounding.Floor);
 
-        // Calculate updated accumulator values
-        newAccumulatorShares = accumulatorShares - requestedShares;
-        newAccumulatorCostBasis = accumulatorCostBasis - costBasis;
-
-        return (costBasis, newAccumulatorShares, newAccumulatorCostBasis);
-    }
-
-    /// @notice Calculate performance fee on profit
-    /// @param currentAssetsWithFees Current value of shares in assets
-    /// @param historicalAssets Historical cost basis in assets
-    /// @param performanceFeeBps Performance fee in basis points
-    /// @param superformRevenueShare Superform's revenue share in BPS
-    /// @return totalFee Total fee amount
-    /// @return superformFee Superform's portion of the fee
-    /// @return recipientFee Recipient's portion of the fee
-    function calculatePerformanceFee(
-        uint256 currentAssetsWithFees,
-        uint256 historicalAssets,
-        uint256 performanceFeeBps,
-        uint256 superformRevenueShare
-    )
-        internal
-        pure
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee)
-    {
-        if (currentAssetsWithFees <= historicalAssets) {
-            return (0, 0, 0);
-        }
-
-        uint256 profit = currentAssetsWithFees - historicalAssets;
-        totalFee = profit.mulDiv(performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
-
-        if (totalFee > 0) {
-            superformFee = totalFee.mulDiv(superformRevenueShare, BPS_PRECISION, Math.Rounding.Floor);
-            recipientFee = totalFee - superformFee;
-        }
-
-        return (totalFee, superformFee, recipientFee);
-    }
-
-    /// @notice Compute MIN net claimable (slippage floor, post-fee). For exact mode.
+    /// @notice Compute minimum acceptable assets (slippage floor)
     /// @param requestedShares Number of shares being redeemed
     /// @param averageRequestPPS PPS at time of request (slippage anchor)
     /// @param slippageBps User's slippage tolerance in basis points
-    /// @param totalFee Total performance fee to deduct
     /// @param precision Precision constant for PPS calculations
-    /// @return minNetOut User's minimum acceptable post-fee assets
+    /// @return minAssetsOut User's minimum acceptable assets
     function computeMinNetOut(
         uint256 requestedShares,
         uint256 averageRequestPPS,
         uint16 slippageBps,
-        uint256 totalFee,
         uint256 precision
     )
         internal
         pure
-        returns (uint256 minNetOut)
+        returns (uint256 minAssetsOut)
     {
-        uint256 expectedGross = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
-        uint256 minGrossOut = expectedGross.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
-        minNetOut = minGrossOut > totalFee ? minGrossOut - totalFee : 0;
+        uint256 expectedAssets = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
+        minAssetsOut = expectedAssets.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
     }
 
     /// @notice Validate redemption share amounts are within tolerance bounds

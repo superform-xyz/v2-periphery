@@ -47,6 +47,7 @@ interface ISuperVaultStrategy {
     error BOUNDS_EXCEEDED(uint256 minAllowed, uint256 maxAllowed, uint256 actual);
     error INSUFFICIENT_LIQUIDITY();
     error CONTROLLERS_NOT_SORTED_UNIQUE();
+    error ZERO_SHARE_FULFILLMENT_DISALLOWED();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -88,15 +89,15 @@ interface ISuperVaultStrategy {
         address indexed controller,
         uint256 assetsFulfilled,
         uint256 sharesFulfilled,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
+        uint256 averageWithdrawPrice
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
     event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
     event PPSExpiryThresholdProposalCanceled();
+    event VaultCostBasisUpdated(uint256 newTotalCostBasis);
+    event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -141,9 +142,6 @@ interface ISuperVaultStrategy {
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
         uint256 averageRequestPPS; // Average PPS at the time of redeem request
-        // Accumulators needed for fee calculation on redeem
-        uint256 accumulatorShares;
-        uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice; // Average price for claimable assets
         uint16 redeemSlippageBps; // User-defined slippage tolerance in BPS for redeem fulfillment
     }
@@ -188,7 +186,6 @@ interface ISuperVaultStrategy {
         uint256 totalSuperformFee;
         uint256 totalRecipientFee;
         uint256 totalNetAssetsOut;
-        uint256 processedShares;
         uint256 currentPPS;
         uint256 strategyBalance;
     }
@@ -265,6 +262,10 @@ interface ISuperVaultStrategy {
     /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
     function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
 
+    /// @notice Skim performance fees based on global High Water Mark
+    /// @dev Can be called by any manager when vault has profit above HWM
+    function skimPerformanceFee() external;
+
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -308,11 +309,6 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Move accumulator shares and cost basis pro-rata during share transfers
-    /// @param from The address transferring shares
-    /// @param to The address receiving shares
-    /// @param shares The amount of shares being transferred
-    function moveAccumulatorOnTransfer(address from, address to, uint256 shares) external;
 
     /*//////////////////////////////////////////////////////////////
                         USER OPERATIONS
@@ -364,19 +360,6 @@ interface ISuperVaultStrategy {
     /// @return state The super vault state
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state);
 
-    /// @notice Previews the fee that would be taken for redeeming a specific amount of shares
-    /// @param controller The address of the controller requesting the redemption
-    /// @param sharesToRedeem The number of shares to redeem
-    /// @return totalFee The estimated fee that would be taken in asset terms
-    /// @return superformFee The portion of the fee that would go to Superform treasury
-    /// @return recipientFee The portion of the fee that would go to the fee recipient
-    function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
-    )
-        external
-        view
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee);
 
     /// @notice Get the pending redeem request amount (shares) for a controller
     /// @param controller The controller address
@@ -401,22 +384,24 @@ interface ISuperVaultStrategy {
     /// @notice Preview exact redeem fulfillment for off-chain calculation
     /// @param controller The controller address to preview
     /// @return shares Pending redeem shares
-    /// @return theoGross Theoretical gross assets at current PPS
-    /// @return totalFee Total performance fee amount
-    /// @return theoNet Theoretical net assets (theoGross - totalFee)
-    /// @return minNet Minimum acceptable net assets (slippage floor)
+    /// @return theoreticalAssets Theoretical assets at current PPS
+    /// @return minAssets Minimum acceptable assets (slippage floor)
     function previewExactRedeem(address controller)
         external
         view
-        returns (uint256 shares, uint256 theoGross, uint256 totalFee, uint256 theoNet, uint256 minNet);
+        returns (uint256 shares, uint256 theoreticalAssets, uint256 minAssets);
 
     /// @notice Batch preview exact redeem fulfillment for multiple controllers
     /// @dev Efficiently batches multiple previewExactRedeem calls to reduce RPC overhead
     /// @param controllers Array of controller addresses to preview
-    /// @return totalTheoNet Total theoretical net assets across all controllers
-    /// @return individualNetAssets Array of theoretical net assets per controller
+    /// @return totalTheoAssets Total theoretical assets across all controllers
+    /// @return individualAssets Array of theoretical assets per controller
     function previewExactRedeemBatch(address[] calldata controllers)
         external
         view
-        returns (uint256 totalTheoNet, uint256[] memory individualNetAssets);
+        returns (uint256 totalTheoAssets, uint256[] memory individualAssets);
+
+    /// @notice Get the current unrealized profit above the High Water Mark
+    /// @return profit Current profit above High Water Mark, 0 if no profit
+    function vaultUnrealizedProfit() external view returns (uint256);
 }

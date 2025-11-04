@@ -16,7 +16,6 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy being updated
     /// @param isExempt Whether the update is exempt from paying upkeep
     /// @param pps New price-per-share value
-    /// @param ppsStdev Standard deviation of the price-per-share
     /// @param validatorSet Number of validators who calculated this PPS
     /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
@@ -25,7 +24,6 @@ interface ISuperVaultAggregator {
         address strategy;
         bool isExempt;
         uint256 pps;
-        uint256 ppsStdev;
         uint256 validatorSet;
         uint256 totalValidators;
         uint256 timestamp;
@@ -59,7 +57,6 @@ interface ISuperVaultAggregator {
     /// @param authorizedCallers List of callers authorized to update PPS without paying upkeep
     struct StrategyData {
         uint256 pps;
-        uint256 ppsStdev;
         uint256 lastUpdateTimestamp;
         uint256 minUpdateInterval;
         uint256 maxStaleness;
@@ -79,7 +76,6 @@ interface ISuperVaultAggregator {
         // Veto status
         bool hooksRootVetoed;
         // PPS Verification thresholds
-        uint256 dispersionThreshold; // Threshold for standard deviation / mean
         uint256 deviationThreshold; // Threshold for abs(new - current) / current
         uint256 mnThreshold; // Threshold for validatorSet / totalValidators ratio, scaled by 1e18
         // Banned global leaves mapping
@@ -160,14 +156,12 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a PPS value is updated
     /// @param strategy Address of the strategy
     /// @param pps New price-per-share value
-    /// @param ppsStdev Standard deviation of price-per-share value
     /// @param validatorSet Number of validators who calculated this PPS
     /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp of the update
     event PPSUpdated(
         address indexed strategy,
         uint256 pps,
-        uint256 ppsStdev,
         uint256 validatorSet,
         uint256 totalValidators,
         uint256 timestamp
@@ -315,11 +309,10 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when a strategy's PPS verification thresholds are updated
     /// @param strategy Address of the strategy
-    /// @param dispersionThreshold New dispersion threshold (stddev/mean)
     /// @param deviationThreshold New deviation threshold (abs diff/current)
     /// @param mnThreshold New M/N threshold (validatorSet/totalValidators)
     event PPSVerificationThresholdsUpdated(
-        address indexed strategy, uint256 dispersionThreshold, uint256 deviationThreshold, uint256 mnThreshold
+        address indexed strategy, uint256 deviationThreshold, uint256 mnThreshold
     );
 
     /// @notice Emitted when the hooks root update timelock is changed
@@ -383,6 +376,20 @@ interface ISuperVaultAggregator {
     
     /// @notice Emitted when a strategy's PPS is reset
     event StrategyPPSStaleReset(address indexed strategy);
+
+    /// @notice Emitted when PPS is updated after performance fee skimming
+    /// @param strategy Address of the strategy
+    /// @param oldPPS Previous price-per-share value
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee skimmed that caused the PPS update
+    /// @param timestamp Timestamp of the update
+    event PPSUpdatedAfterSkim(
+        address indexed strategy,
+        uint256 oldPPS,
+        uint256 newPPS,
+        uint256 feeAmount,
+        uint256 timestamp
+    );
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
@@ -467,6 +474,10 @@ interface ISuperVaultAggregator {
     error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
     /// @notice Thrown when PPS is too stale to unpause a strategy
     error UNPAUSE_TIMELOCK_NOT_MET();
+    /// @notice PPS must decrease after skimming fees
+    error PPS_MUST_DECREASE_AFTER_SKIM();
+    /// @notice PPS deduction is larger than the maximum allowed fee rate
+    error PPS_DEDUCTION_TOO_LARGE();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -486,14 +497,12 @@ interface ISuperVaultAggregator {
     /// @notice Arguments for batch forwarding PPS updates
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
-    /// @param ppsStdevs Array of standard deviations of price-per-share values
     /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
     /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
-        uint256[] ppsStdevs;
         uint256[] validatorSets;
         uint256 totalValidator;
         uint256[] timestamps;
@@ -503,6 +512,12 @@ interface ISuperVaultAggregator {
     /// @notice Batch forwards validated PPS updates to multiple strategies
     /// @param args Struct containing all batch PPS update parameters
     function forwardPPS(ForwardPPSArgs calldata args) external;
+
+    /// @notice Updates PPS directly after performance fee skimming
+    /// @dev Only callable by the strategy contract itself (msg.sender must be a registered strategy)
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee that was skimmed (for event logging)
+    function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external;
 
     /*//////////////////////////////////////////////////////////////
                         UPKEEP MANAGEMENT
@@ -639,12 +654,10 @@ interface ISuperVaultAggregator {
 
     /// @notice Updates the PPS verification thresholds for a strategy
     /// @param strategy Address of the strategy
-    /// @param dispersionThreshold_ New dispersion threshold (stddev/mean ratio, scaled by 1e18)
     /// @param deviationThreshold_ New deviation threshold (abs diff/current ratio, scaled by 1e18)
     /// @param mnThreshold_ New M/N threshold (validatorSet/totalValidators ratio, scaled by 1e18)
     function updatePPSVerificationThresholds(
         address strategy,
-        uint256 dispersionThreshold_,
         uint256 deviationThreshold_,
         uint256 mnThreshold_
     )
@@ -684,11 +697,6 @@ interface ISuperVaultAggregator {
     /// @return pps Current price-per-share value
     function getPPS(address strategy) external view returns (uint256 pps);
 
-    /// @notice Gets the current PPS and its standard deviation for a strategy
-    /// @param strategy Address of the strategy
-    /// @return pps Current price-per-share value
-    /// @return ppsStdev Standard deviation of price-per-share value
-    function getPPSWithStdDev(address strategy) external view returns (uint256 pps, uint256 ppsStdev);
 
     /// @notice Gets the last update timestamp for a strategy's PPS
     /// @param strategy Address of the strategy
@@ -707,13 +715,12 @@ interface ISuperVaultAggregator {
 
     /// @notice Gets the PPS verification thresholds for a strategy
     /// @param strategy Address of the strategy
-    /// @return dispersionThreshold The current dispersion threshold (stddev/mean ratio, scaled by 1e18)
     /// @return deviationThreshold The current deviation threshold (abs diff/current ratio, scaled by 1e18)
     /// @return mnThreshold The current M/N threshold (validatorSet/totalValidators ratio, scaled by 1e18)
     function getPPSVerificationThresholds(address strategy)
         external
         view
-        returns (uint256 dispersionThreshold, uint256 deviationThreshold, uint256 mnThreshold);
+        returns (uint256 deviationThreshold, uint256 mnThreshold);
 
     /// @notice Checks if a strategy is currently paused
     /// @param strategy Address of the strategy

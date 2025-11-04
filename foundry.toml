@@ -83,7 +83,7 @@ wrap_comments = true
 11155420 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 84532 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 
-[profile.lint]
+[lint]
 lint_on_build = false
 exclude_lints = ["mixed-case-function"]
 ignore = [
