@@ -34,6 +34,7 @@ interface ISuperVaultStrategy {
     error INVALID_REDEEM_FILL();
     error SLIPPAGE_EXCEEDED();
     error INVALID_VAULT();
+    error INVALID_ASSET();
     error OPERATIONS_BLOCKED_BY_VETO();
     error HOOK_VALIDATION_FAILED();
     error STRATEGY_PAUSED();
@@ -96,7 +97,18 @@ interface ISuperVaultStrategy {
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
     event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
     event PPSExpiryThresholdProposalCanceled();
+
+    /// @notice DEPRECATED: Event no longer emitted after PPS-based HWM refactor
+    /// @dev Kept for interface compatibility, will be removed in future version
     event VaultCostBasisUpdated(uint256 newTotalCostBasis);
+
+    /// @notice Emitted when the high-water mark PPS is updated after fee collection
+    /// @param newHwmPps The new high-water mark PPS (post-fee)
+    /// @param previousPps The PPS before fee collection
+    /// @param profit The total profit above HWM (in assets)
+    /// @param feeCollected The total fee collected (in assets)
+    event HWMPPSUpdated(uint256 newHwmPps, uint256 previousPps, uint256 profit, uint256 feeCollected);
+
     event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
 
     /*//////////////////////////////////////////////////////////////
@@ -262,8 +274,10 @@ interface ISuperVaultStrategy {
     /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
     function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
 
-    /// @notice Skim performance fees based on global High Water Mark
-    /// @dev Can be called by any manager when vault has profit above HWM
+    /// @notice Skim performance fees based on per-share High Water Mark (PPS-based)
+    /// @dev Can be called by any manager when vault PPS has grown above HWM PPS
+    /// @dev Uses PPS growth to calculate profit: (currentPPS - hwmPPS) * totalSupply / PRECISION
+    /// @dev HWM is only updated during this function, not during deposits/redemptions
     function skimPerformanceFee() external;
 
     /*//////////////////////////////////////////////////////////////
@@ -402,6 +416,8 @@ interface ISuperVaultStrategy {
         returns (uint256 totalTheoAssets, uint256[] memory individualAssets);
 
     /// @notice Get the current unrealized profit above the High Water Mark
-    /// @return profit Current profit above High Water Mark, 0 if no profit
+    /// @return profit Current profit above High Water Mark (in assets), 0 if no profit
+    /// @dev Calculates based on PPS growth: (currentPPS - hwmPPS) * totalSupply / PRECISION
+    /// @dev Returns 0 if totalSupply is 0 or currentPPS <= hwmPPS
     function vaultUnrealizedProfit() external view returns (uint256);
 }

@@ -28,6 +28,7 @@ import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrateg
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { SuperVaultAccountingLib } from "../libraries/SuperVaultAccountingLib.sol";
+import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
 import "forge-std/console2.sol";
 
@@ -40,6 +41,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
     using Math for uint256;
+    using AssetMetadataLib for address;
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
@@ -84,8 +86,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     mapping(address source => address oracle) private yieldSources;
     EnumerableSet.AddressSet private yieldSourcesList;
 
-    // --- Global Vault total cost basis tracking ---
-    uint256 public vaultTotalCostBasis;
+    // --- Global Vault High-Water Mark (PPS-based) ---
+    /// @notice High-water mark price-per-share for performance fee calculation
+    /// @dev Represents the PPS at which performance fees were last collected
+    ///      Scaled by PRECISION (e.g., 1e6 for USDC vaults, 1e18 for 18-decimal vaults)
+    ///      Only updated during skimPerformanceFee() when fees are taken
+    uint256 public vaultHwmPps;
 
     // --- Redeem Request State ---
     mapping(address controller => SuperVaultState state) private superVaultState;
@@ -125,6 +131,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         feeConfig = feeConfigData;
 
         ppsExpiration = 1 days;
+
+        // Initialize HWM to 1.0 using asset decimals (same as aggregator)
+        // Get asset decimals the same way aggregator does
+        (bool success, uint8 assetDecimals) = address(_asset).tryGetAssetDecimals();
+        if (!success) revert INVALID_ASSET();
+        vaultHwmPps = 10 ** assetDecimals; // 1.0 as initial PPS (matches aggregator)
 
         emit Initialized(_vault);
     }
@@ -168,10 +180,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         sharesNet = Math.mulDiv(assetsNet, PRECISION, pps, Math.Rounding.Floor);
         if (sharesNet == 0) revert INVALID_AMOUNT();
 
-        // Track deposit cost basis globally
-        vaultTotalCostBasis += assetsNet;
+        // No HWM update needed - deposits are PPS-neutral by design
 
-        emit VaultCostBasisUpdated(vaultTotalCostBasis);
         emit DepositHandled(controller, assetsNet, sharesNet);
         return sharesNet;
     }
@@ -210,10 +220,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             }
         }
 
-        // Track deposit cost basis globally
-        vaultTotalCostBasis += assetsNet;
+        // No HWM update needed - mints are PPS-neutral by design
 
-        emit VaultCostBasisUpdated(vaultTotalCostBasis);
         emit DepositHandled(controller, assetsNet, sharesNet);
     }
 
@@ -353,8 +361,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit RedeemRequestsFulfilled(controllers, vars.totalRequestedShares, vars.currentPPS);
     }
 
-    /// @notice Skim performance fees based on global High Water Mark
-    /// @dev Can be called by any manager when vault has profit above HWM
+    /// @notice Skim performance fees based on per-share High Water Mark
+    /// @dev Can be called by any manager when vault PPS has grown above HWM
+    /// @dev Uses PPS-based HWM which eliminates redemption-related vulnerabilities
     function skimPerformanceFee() external nonReentrant {
         _isManager(msg.sender);
 
@@ -364,55 +373,72 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         IERC4626 vault = IERC4626(_vault);
         uint256 totalSupplyLocal = vault.totalSupply();
 
-        // Early return if no supply
+        // Early return if no supply - cannot calculate PPS or collect fees
         if (totalSupplyLocal == 0) return;
 
-        // Get PPS once at the beginning for gas optimization
-        uint256 oldPPS = aggregator.getPPS(address(this));
-        if (oldPPS == 0) revert INVALID_PPS();
+        // Get current PPS from aggregator
+        uint256 currentPPS = aggregator.getPPS(address(this));
+        if (currentPPS == 0) revert INVALID_PPS();
 
-        // Calculate current total assets from PPS (avoids external call to vault.totalAssets())
-        uint256 curTotalAssets = Math.mulDiv(totalSupplyLocal, oldPPS, PRECISION, Math.Rounding.Floor);
+        // Get the high-water mark PPS (baseline for fee calculation)
+        uint256 hwmPPS = vaultHwmPps;
 
-        // High Water Mark is the vault total cost basis
-        uint256 highWaterMark = vaultTotalCostBasis;
+        // Check if there's any per-share growth above HWM
+        if (currentPPS <= hwmPPS) {
+            // No growth above HWM, no fee to collect
+            return;
+        }
 
-        // Calculate profit above High Water Mark
-        uint256 profit = curTotalAssets > highWaterMark ? curTotalAssets - highWaterMark : 0;
+        // Calculate PPS growth above HWM
+        uint256 ppsGrowth = currentPPS - hwmPPS;
 
-        if (profit == 0) return; // No profit, no fee
+        // Calculate total profit: (PPS growth) * (total shares) / PRECISION
+        // This represents the total assets gained above the high-water mark
+        uint256 profit = Math.mulDiv(ppsGrowth, totalSupplyLocal, PRECISION, Math.Rounding.Floor);
 
-        uint256 fee = profit.mulDiv(feeConfig.performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+        // Safety check: profit must be non-zero to collect fees
+        if (profit == 0) return;
 
-        if (fee == 0) return; // Edge case: profit exists but fee rounds to 0
+        // Calculate fee as percentage of profit
+        uint256 fee = Math.mulDiv(profit, feeConfig.performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
 
-        // Split fees
-        uint256 sfFee =
-            fee.mulDiv(superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor);
+        // Edge case: profit exists but fee rounds to zero
+        if (fee == 0) return;
 
-        // Transfer fees
+        // Split fee between Superform treasury and strategy recipient
+        uint256 sfFee = Math.mulDiv(
+            fee,
+            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE),
+            BPS_PRECISION,
+            Math.Rounding.Floor
+        );
+        uint256 recipientFee = fee - sfFee;
+
+        // Transfer fees to recipients
         _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
-        _safeTokenTransfer(address(_asset), feeConfig.recipient, fee - sfFee);
+        _safeTokenTransfer(address(_asset), feeConfig.recipient, recipientFee);
 
         emit PerformanceFeeSkimmed(fee, sfFee);
 
-        // Reset High Water Mark to post-skim assets
-        vaultTotalCostBasis = curTotalAssets - fee;
-        emit VaultCostBasisUpdated(vaultTotalCostBasis);
-
-        // Calculate new PPS: oldPPS - (fee * PRECISION / supply)
-        // Use mulDiv for precision and to prevent overflow
+        // Calculate the new PPS after fee extraction
+        // Fee extraction reduces vault assets while shares stay constant, lowering PPS
         uint256 ppsReduction = Math.mulDiv(fee, PRECISION, totalSupplyLocal, Math.Rounding.Floor);
 
-        // Safety check: ensure reduction doesn't crash PPS
-        if (ppsReduction >= oldPPS) revert INVALID_PPS();
+        // Safety check: ensure reduction doesn't crash PPS to zero
+        if (ppsReduction >= currentPPS) revert INVALID_PPS();
 
-        uint256 newPPS = oldPPS - ppsReduction;
+        uint256 newPPS = currentPPS - ppsReduction;
 
         // Safety check: new PPS must be positive
         if (newPPS == 0) revert INVALID_PPS();
 
-        // Update PPS in aggregator
+        // Update HWM to the new post-fee PPS
+        // This becomes the new baseline for future fee calculations
+        vaultHwmPps = newPPS;
+
+        emit HWMPPSUpdated(newPPS, currentPPS, profit, fee);
+
+        // Update PPS in aggregator to reflect fee extraction
         aggregator.updatePPSAfterSkim(newPPS, fee);
     }
 
@@ -563,11 +589,23 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @notice Get the current unrealized profit above the High Water Mark
-    /// @return profit Current profit above High Water Mark, 0 if no profit
+    /// @return profit Current profit above High Water Mark (in assets), 0 if no profit
+    /// @dev Calculates based on PPS growth: (currentPPS - hwmPPS) * totalSupply / PRECISION
     function vaultUnrealizedProfit() external view returns (uint256) {
         IERC4626 vault = IERC4626(_vault);
-        uint256 totalAssetsLocal = vault.totalAssets();
-        return totalAssetsLocal > vaultTotalCostBasis ? totalAssetsLocal - vaultTotalCostBasis : 0;
+        uint256 totalSupplyLocal = vault.totalSupply();
+
+        // No profit if no shares exist
+        if (totalSupplyLocal == 0) return 0;
+
+        uint256 currentPPS = _getSuperVaultAggregator().getPPS(address(this));
+
+        // No profit if current PPS is at or below HWM
+        if (currentPPS <= vaultHwmPps) return 0;
+
+        // Calculate profit as: (PPS growth) * (shares) / PRECISION
+        uint256 ppsGrowth = currentPPS - vaultHwmPps;
+        return Math.mulDiv(ppsGrowth, totalSupplyLocal, PRECISION, Math.Rounding.Floor);
     }
 
     // @inheritdoc ISuperVaultStrategy
