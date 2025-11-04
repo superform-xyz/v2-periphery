@@ -49,6 +49,7 @@ interface ISuperVaultStrategy {
     error INSUFFICIENT_LIQUIDITY();
     error CONTROLLERS_NOT_SORTED_UNIQUE();
     error ZERO_SHARE_FULFILLMENT_DISALLOWED();
+    error NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

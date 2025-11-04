@@ -414,6 +414,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         );
         uint256 recipientFee = fee - sfFee;
 
+        // Check if strategy has sufficient liquid assets for fee transfer
+        if (_getTokenBalance(address(_asset), address(this)) < fee) revert NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
+
         // Transfer fees to recipients
         _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
         _safeTokenTransfer(address(_asset), feeConfig.recipient, recipientFee);
