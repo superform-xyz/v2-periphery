@@ -987,6 +987,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(userAddress);
         vault.invalidateNonce(nonce);
 
+        vm.prank(userAddress);
+        vm.expectRevert(ISuperVault.INVALID_NONCE.selector);
+        vault.invalidateNonce(nonce);
+
         // Try to use invalidated nonce
         bool approved = true;
         uint256 deadline = block.timestamp + 1 hours;
