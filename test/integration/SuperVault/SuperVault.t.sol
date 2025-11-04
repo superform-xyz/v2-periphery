@@ -2624,8 +2624,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // maxRedeem calculates shares with Floor rounding, then redeem calculates assets with Floor rounding,
         // leaving 1 wei unclaimable
         uint256 remainingClaimable = strategy.claimableWithdraw(accountEth);
-        assertEq(remainingClaimable, 1, "claimableWithdraw should have 1 wei remaining due to rounding");
-        console2.log("Remaining claimable (expected 1 wei due to rounding):", remainingClaimable);
+        assertEq(remainingClaimable, 0, "claimableWithdraw should have 0 wei remaining");
+        console2.log("Remaining claimable (expected 0 wei):", remainingClaimable);
 
         // ========== REDEMPTION 2 (33% of remaining shares) ==========
         console2.log("===== REDEMPTION 2 (33% of remaining) =====");
@@ -7969,7 +7969,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
 
-
         // Create the message hash with the deviating PPS
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -8002,16 +8001,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = newPPS;
 
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -9997,10 +9992,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Allow 1 wei tolerance for rounding
         assertApproxEqAbs(
-            calculatedAssets,
-            reportedAssets,
-            1,
-            "totalAssets should match convertToAssets(totalSupply) after skim"
+            calculatedAssets, reportedAssets, 1, "totalAssets should match convertToAssets(totalSupply) after skim"
         );
 
         console2.log("PPS before profit:", ppsBeforeProfit);
@@ -10174,13 +10166,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("EIP-4626 consistency verified");
         console2.log("Total assets (reported):", totalAssetsReported);
         console2.log("Total assets (calculated):", totalAssetsCalculated);
-        console2.log("Difference:", totalAssetsReported > totalAssetsCalculated ?
-            totalAssetsReported - totalAssetsCalculated :
-            totalAssetsCalculated - totalAssetsReported);
+        console2.log(
+            "Difference:",
+            totalAssetsReported > totalAssetsCalculated
+                ? totalAssetsReported - totalAssetsCalculated
+                : totalAssetsCalculated - totalAssetsReported
+        );
     }
 
-    /// @notice Test that fulfillRedeemRequests reverts when trying to fulfill zero-share controllers with non-zero assets
-    /// @dev This tests the fix for the vulnerability where managers could strand funds by providing non-zero totalAssetsOut for controllers with zero pending shares
+    /// @notice Test that fulfillRedeemRequests reverts when trying to fulfill zero-share controllers with non-zero
+    /// assets @dev This tests the fix for the vulnerability where managers could strand funds by providing non-zero
+    /// totalAssetsOut for controllers with zero pending shares
     function test_FulfillRedeemRequests_RevertsOnZeroSharesWithNonZeroAssets() public {
         // Setup: Create two users, only one will have a pending redeem request
         uint256 depositAmount = 1000e6;
@@ -10208,16 +10204,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory assetsForUser1 = calculateLiquidityOnlyFulfillment(strategy, address(asset), tempArray);
 
         address[] memory controllers = new address[](2);
-        controllers[0] = user1 < user2 ? user1 : user2;  // Must be sorted
+        controllers[0] = user1 < user2 ? user1 : user2; // Must be sorted
         controllers[1] = user1 < user2 ? user2 : user1;
 
         uint256[] memory totalAssetsOut = new uint256[](2);
         if (user1 < user2) {
-            totalAssetsOut[0] = assetsForUser1[0];  // user1 has pending shares - proper amount
-            totalAssetsOut[1] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
+            totalAssetsOut[0] = assetsForUser1[0]; // user1 has pending shares - proper amount
+            totalAssetsOut[1] = 100e6; // user2 has ZERO pending shares but non-zero assets - should revert
         } else {
-            totalAssetsOut[0] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
-            totalAssetsOut[1] = assetsForUser1[0];  // user1 has pending shares - proper amount
+            totalAssetsOut[0] = 100e6; // user2 has ZERO pending shares but non-zero assets - should revert
+            totalAssetsOut[1] = assetsForUser1[0]; // user1 has pending shares - proper amount
         }
 
         // Try to fulfill - should revert with ZERO_SHARE_FULFILLMENT_DISALLOWED because user2 has zero shares
@@ -10273,11 +10269,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     /// @notice Event for testing
     event PPSUpdatedAfterSkim(
-        address indexed strategy,
-        uint256 oldPPS,
-        uint256 newPPS,
-        uint256 feeAmount,
-        uint256 timestamp
+        address indexed strategy, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
     );
 }
 
