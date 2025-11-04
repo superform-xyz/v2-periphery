@@ -1285,6 +1285,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 maxRedeem = vault.maxRedeem(accountEth);
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
 
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.redeem(
+            maxRedeem, // shares to redeem
+            address(0), // receiver
+            accountEth // owner
+        );
+
         // Try to redeem more than the max redeem
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
