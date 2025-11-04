@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { IERC7540Redeem, IERC7540CancelRedeem } from "../../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7741 } from "../../vendor/standards/ERC7741/IERC7741.sol";
+
 /// @title ISuperVault
 /// @notice Interface for SuperVault core contract that manages share minting
 /// @author Superform Labs
-interface ISuperVault {
+interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedeem {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -50,7 +54,9 @@ interface ISuperVault {
     
     event DepositRequestCancelled(address indexed receiver, address indexed caller, uint256 assets);
 
-    event MintRequest(address indexed sender, address indexed receiver, uint256 requestId, uint256 requestedShares, uint256 maxAssets);
+    event MintRequest(
+        address indexed sender, address indexed receiver, uint256 requestId, uint256 requestedShares, uint256 maxAssets
+    );
 
     event MintRequestCancelled(address indexed receiver, address indexed caller, uint256 assets);
     event DepositAssetsReturned(address indexed receiver, uint256 assets);

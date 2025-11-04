@@ -203,11 +203,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Set default threshold values
-        _strategyData[strategy].dispersionThreshold = type(uint256).max; // Default: max (disabled)
         _strategyData[strategy].deviationThreshold = type(uint256).max; // Default: max (disabled)
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
-        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
 
         return (superVault, strategy, escrow);
     }
@@ -255,7 +254,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     strategy: strategy,
                     isExempt: (!paymentsEnabled) || (upkeepCost == 0),
                     pps: args.ppss[i],
-                    ppsStdev: args.ppsStdevs[i],
                     validatorSet: args.validatorSets[i],
                     totalValidators: args.totalValidator,
                     timestamp: ts,
@@ -583,7 +581,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function updatePPSVerificationThresholds(
         address strategy,
-        uint256 dispersionThreshold_,
         uint256 deviationThreshold_,
         uint256 mnThreshold_
     )
@@ -596,12 +593,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Update the thresholds
-        _strategyData[strategy].dispersionThreshold = dispersionThreshold_;
         _strategyData[strategy].deviationThreshold = deviationThreshold_;
         _strategyData[strategy].mnThreshold = mnThreshold_;
 
         // Emit the event
-        emit PPSVerificationThresholdsUpdated(strategy, dispersionThreshold_, deviationThreshold_, mnThreshold_);
+        emit PPSVerificationThresholdsUpdated(strategy, deviationThreshold_, mnThreshold_);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -875,16 +871,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function getPPSWithStdDev(address strategy)
-        external
-        view
-        validStrategy(strategy)
-        returns (uint256 pps, uint256 ppsStdev)
-    {
-        return (_strategyData[strategy].pps, _strategyData[strategy].ppsStdev);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
     function getLastUpdateTimestamp(address strategy) external view returns (uint256 timestamp) {
         return _strategyData[strategy].lastUpdateTimestamp;
     }
@@ -904,10 +890,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         external
         view
         validStrategy(strategy)
-        returns (uint256 dispersionThreshold, uint256 deviationThreshold, uint256 mnThreshold)
+        returns (uint256 deviationThreshold, uint256 mnThreshold)
     {
         return (
-            _strategyData[strategy].dispersionThreshold,
             _strategyData[strategy].deviationThreshold,
             _strategyData[strategy].mnThreshold
         );
@@ -1138,17 +1123,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Flag to track if any check failed
         bool checksFailed;
 
-        // C2.1) Dispersion Check: Check if the standard deviation is too high relative to mean
-        if (_strategyData[args.strategy].dispersionThreshold != type(uint256).max && args.pps > 0) {
-            // Calculate dispersion as stddev/mean
-            uint256 dispersion = (args.ppsStdev * 1e18) / args.pps; // Scaled by 1e18 for precision
-            if (dispersion > _strategyData[args.strategy].dispersionThreshold) {
-                checksFailed = true;
-                emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DISPERSION");
-            }
-        }
-
-        // C2.2) Deviation Check: Check if new PPS deviates too much from current PPS
+        // C1) Deviation Check: Check if new PPS deviates too much from current PPS
         uint256 currentPPS = _strategyData[args.strategy].pps;
         if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
             // Calculate absolute deviation, scaled by 1e18
@@ -1160,7 +1135,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // C2.3) M/N Check: Check if enough validators participated
+        // C2) M/N Check: Check if enough validators participated
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
             uint256 participationRate = (args.validatorSet * 1e18) / args.totalValidators;
@@ -1198,16 +1173,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
         }
 
-        // Update PPS, ppsStdev, timestamp and ppsStale in StrategyData
+        // Update PPS, timestamp and ppsStale in StrategyData
         _strategyData[args.strategy].pps = args.pps;
-        _strategyData[args.strategy].ppsStdev = args.ppsStdev;
         _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
         if (!checksFailed && args.pps > 0) {
             _strategyData[args.strategy].ppsStale = false;
             emit StrategyPPSStaleReset(args.strategy);
         }
 
-        emit PPSUpdated(args.strategy, args.pps, args.ppsStdev, args.validatorSet, args.totalValidators, args.timestamp);
+        emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
     }
 
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments

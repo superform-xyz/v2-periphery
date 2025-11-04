@@ -7581,7 +7581,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            type(uint256).max, // dispersionThreshold (disabled)
             0.05e18, // deviationThreshold (5%)
             type(uint256).max // mnThreshold (disabled)
         );
@@ -7627,7 +7626,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            type(uint256).max, // dispersionThreshold (disabled)
             0.05e18, // deviationThreshold (5%)
             type(uint256).max // mnThreshold (disabled)
         );
@@ -7692,7 +7690,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            type(uint256).max, // dispersionThreshold (disabled)
             0.05e18, // deviationThreshold (5%)
             type(uint256).max // mnThreshold (disabled)
         );
@@ -7816,7 +7813,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            type(uint256).max, // dispersionThreshold (disabled)
             type(uint256).max, // deviationThreshold (disabled)
             0 // mnThreshold (0 = disabled, max would cause check to fail)
         );
@@ -7973,8 +7969,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
 
-        // Set the additional parameters: ppsStdev=0
-        vars.ppsStdev = 0;
 
         // Create the message hash with the deviating PPS
         bytes32 structHash = keccak256(
@@ -7982,7 +7976,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 newPPS,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -8009,8 +8002,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = newPPS;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -8020,7 +8011,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -8924,8 +8914,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            0.05e18, // mxThreshold: 5% max deviation
-            0, // mnThreshold: disabled
+            0.05e18, // deviationThreshold: 5% max deviation
             type(uint256).max // mnThreshold (disabled)
         );
 
@@ -9108,7 +9097,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(MANAGER);
         aggregator.updatePPSVerificationThresholds(
             address(testStrategy),
-            type(uint256).max, // dispersionThreshold: disabled
             type(uint256).max, // deviationThreshold: disabled
             0 // mnThreshold: disabled
         );

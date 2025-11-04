@@ -21,7 +21,12 @@ import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Operator, IERC7540Redeem, IERC7741, IERC7540CancelRedeem } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import {
+    IERC7540Operator,
+    IERC7540Redeem,
+    IERC7540CancelRedeem
+} from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7741 } from "../vendor/standards/ERC7741/IERC7741.sol";
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
 
@@ -35,10 +40,6 @@ import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 contract SuperVault is
     Initializable,
     ERC20Upgradeable,
-    IERC7540Redeem,
-    IERC7741,
-    IERC4626,
-    IERC7540CancelRedeem,
     ISuperVault,
     ReentrancyGuardUpgradeable,
     EIP712Upgradeable
@@ -208,7 +209,14 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function claimCancelRedeemRequest(uint256 /*requestId*/, address receiver, address controller) external returns (uint256 shares) {
+    function claimCancelRedeemRequest(
+        uint256, /*requestId*/
+        address receiver,
+        address controller
+    )
+        external
+        returns (uint256 shares)
+    {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
@@ -303,7 +311,14 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function claimableCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (uint256 claimableShares) {
+    function claimableCancelRedeemRequest(
+        uint256, /*requestId*/
+        address controller
+    )
+        external
+        view
+        returns (uint256 claimableShares)
+    {
         return strategy.claimableCancelRedeemRequest(controller);
     }
 
