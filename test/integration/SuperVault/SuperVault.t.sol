@@ -2620,7 +2620,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _assertFeeDerivation(vars.totalFee1, vars.feeBalanceBefore, vars.treasuryBalanceAfterRedeem1);
         console2.log("Treasury balance after redemption 1:", vars.treasuryBalanceAfterRedeem1);
 
-        // Verify rounding issue: claimableWithdraw should have 1 wei remaining due to double Floor rounding
+        // Verify rounding issue: claimableWithdraw should have 0 wei remaining due to double Floor rounding
         // maxRedeem calculates shares with Floor rounding, then redeem calculates assets with Floor rounding,
         // leaving 1 wei unclaimable
         uint256 remainingClaimable = strategy.claimableWithdraw(accountEth);
