@@ -873,9 +873,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory ppsStdevs = new uint256[](2);
-        ppsStdevs[0] = 0;
-        ppsStdevs[1] = 0;
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -902,7 +899,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -1150,9 +1146,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory ppsStdevs = new uint256[](2);
-        ppsStdevs[0] = 0;
-        ppsStdevs[1] = 0;
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -1178,7 +1171,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -1243,7 +1235,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             // Prepare arrays for current test size
             address[] memory strategies = new address[](arraySize);
             uint256[] memory ppss = new uint256[](arraySize);
-            uint256[] memory ppsStdevs = new uint256[](arraySize);
             uint256[] memory validatorSets = new uint256[](arraySize);
             uint256[] memory totalValidators = new uint256[](arraySize);
             uint256[] memory timestamps = new uint256[](arraySize);
@@ -1253,7 +1244,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             for (uint256 i = 0; i < arraySize; i++) {
                 strategies[i] = allStrategies[i];
                 ppss[i] = 1e18 + (i * 1e15); // Slightly different PPS values
-                ppsStdevs[i] = 0;
                 validatorSets[i] = 1;
                 totalValidators[i] = 1;
                 updateAuthorities[i] = user;
@@ -1273,8 +1263,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
                     ppss: ppss,
-                    ppsStdevs: ppsStdevs,
-                    validatorSets: validatorSets,
+                        validatorSets: validatorSets,
                     totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
@@ -1396,9 +1385,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory ppsStdevs = new uint256[](2);
-        ppsStdevs[0] = 0;
-        ppsStdevs[1] = 0;
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -1426,7 +1412,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -2854,11 +2839,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.ppss[2] = 1.3e18;
         vars.ppss[3] = 1.4e18;
 
-        vars.ppsStdevs = new uint256[](4);
-        vars.ppsStdevs[0] = 0;
-        vars.ppsStdevs[1] = 0;
-        vars.ppsStdevs[2] = 0;
-        vars.ppsStdevs[3] = 0;
 
         vars.validatorSets = new uint256[](4);
         vars.validatorSets[0] = 1;
@@ -2906,7 +2886,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: vars.strategies,
                 ppss: vars.ppss,
-                ppsStdevs: vars.ppsStdevs,
                 validatorSets: vars.validatorSets,
                 totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
@@ -2965,7 +2944,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address[] memory strategies = new address[](strategiesCount);
         bytes[][] memory proofsArray = new bytes[][](strategiesCount);
         uint256[] memory ppss = new uint256[](strategiesCount);
-        uint256[] memory ppsStdevs = new uint256[](strategiesCount);
         uint256[] memory timestamps = new uint256[](strategiesCount);
 
         // Fill arrays with dummy data (we don't need valid strategies since it should revert before validation)
@@ -2973,7 +2951,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             strategies[i] = address(uint160(i + 1)); // Dummy addresses
             proofsArray[i] = new bytes[](0); // Empty proofs array since it should revert before validation
             ppss[i] = 1e18;
-            ppsStdevs[i] = 0;
             timestamps[i] = block.timestamp;
         }
 
@@ -2984,7 +2961,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -3002,14 +2978,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare arrays with size 1
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory ppsStdevs = new uint256[](1);
         uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory totalValidatorsArray = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 1e18 + 1e15;
-        ppsStdevs[0] = 0;
         validatorSets[0] = 1;
         totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
@@ -3027,7 +3001,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
@@ -3053,25 +3026,25 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // First, let's pause the strategy by triggering a validation failure
         vm.warp(block.timestamp + 100); // Move time forward
 
-        // Set a very low dispersion threshold to trigger pause
+        // Set very low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
         superVaultAggregator.updatePPSVerificationThresholds(
             strategy,
-            1, // Very low dispersion threshold (0.000000000000000001%)
-            type(uint256).max, // Keep deviation threshold at max (disabled)
+            1, // Very low deviation threshold (0.000000000000000001%)
             0 // Keep M/N threshold at 0 (disabled)
         );
 
-        // Create an update with high dispersion to trigger pause
-        timestamps[0] = block.timestamp; // Current timestamp (valid)
-        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        // Update timestamp to current (valid)
+        timestamps[0] = block.timestamp;
+
+        // Change PPS significantly to trigger deviation check (double it)
+        ppss[0] = 2e18;
 
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
@@ -3103,14 +3076,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare arrays with size 1
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory ppsStdevs = new uint256[](1);
         uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory totalValidatorsArray = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 1e18 + 1e15;
-        ppsStdevs[0] = 0;
         validatorSets[0] = 1;
         totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
@@ -3118,25 +3089,22 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Advance time to ensure update is valid
         vm.warp(block.timestamp + 25);
 
-        // Set a very low dispersion threshold to trigger pause
+        // Set very low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
         superVaultAggregator.updatePPSVerificationThresholds(
             strategy,
-            1, // Very low dispersion threshold (0.000000000000000001%)
-            type(uint256).max, // Keep deviation threshold at max (disabled)
+            1, // Very low deviation threshold
             0 // Keep M/N threshold at 0 (disabled)
         );
 
-        // Create an update with high dispersion to trigger pause
-        timestamps[0] = block.timestamp; // Current timestamp (valid)
-        ppsStdevs[0] = 1e15; // High standard deviation to trigger dispersion check failure
+        // Update timestamp to current (valid)
+        timestamps[0] = block.timestamp;
 
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
@@ -3153,13 +3121,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.prank(mainManager);
         superVaultAggregator.updatePPSVerificationThresholds(
             strategy,
-            1e18, // Very low dispersion threshold (0.000000000000000001%)
             type(uint256).max, // Keep deviation threshold at max (disabled)
             0 // Keep M/N threshold at 0 (disabled)
         );
 
         ppss[0] = 1e18 + 1e15;
-        ppsStdevs[0] = 0;
         validatorSets[0] = 1;
         totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
@@ -3171,7 +3137,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
@@ -3206,7 +3171,6 @@ struct BatchForwardPPSTestVars {
     uint256 expectedTotalCharged;
     address[] strategies;
     uint256[] ppss;
-    uint256[] ppsStdevs;
     uint256[] validatorSets;
     uint256[] totalValidators;
     uint256[] timestamps;
