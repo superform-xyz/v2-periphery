@@ -166,7 +166,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     }
 
     /// @inheritdoc IERC7540Redeem
-    /// @notice Once owner has authorized an operator, the operator can request a redeem with any controller address
+    /// @notice Once owner has authorized an operator, controller must be the owner
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
