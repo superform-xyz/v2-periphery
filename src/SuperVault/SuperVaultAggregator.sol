@@ -245,6 +245,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
                 } else {
                     // Query cost directly per entry
+                    // Everyone pays the upkeep cost
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
             }
@@ -391,7 +392,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
-    /// @dev Only the main manager of the strategy can unpause it
+    /// @dev Only addresses with UNPAUSER_ROLE (via SuperGovernor) can unpause; unpausing marks PPS stale until a fresh oracle update
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
         // Allow only the UNPAUSER_ROLE to unpause
         if (!_isUnpauser(msg.sender)) {
@@ -1133,7 +1134,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
-            uint256 relativeDeviation = (absDiff * 1e18) / currentPPS;
+            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
@@ -1143,7 +1144,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // C2) M/N Check: Check if enough validators participated
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = (args.validatorSet * 1e18) / args.totalValidators;
+            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
             if (participationRate < _strategyData[args.strategy].mnThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");

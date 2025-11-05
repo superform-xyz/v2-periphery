@@ -254,7 +254,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         address[] memory quotes = new address[](3);
         quotes[0] = address(840); // USD
         quotes[1] = address(840); // USD
-        quotes[2] = address(uint160(uint256(keccak256("GWEI_QUOTE")))); // GWEI
+        quotes[2] = address(uint160(uint256(keccak256("WEI_QUOTE")))); // WEI
         bytes32[] memory providers = new bytes32[](3);
         providers[0] = "CHAINLINK";
         providers[1] = "CHAINLINK";

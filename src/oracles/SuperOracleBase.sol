@@ -339,7 +339,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         }
 
         // --- Validate data ---
-        if (answer <= 0 || block.timestamp - updatedAt > feedMaxStaleness[oracle]) {
+        uint256 limit = feedMaxStaleness[oracle];
+        if (limit == 0 || limit > maxDefaultStaleness) {
+            limit = maxDefaultStaleness;
+        }
+        if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
@@ -489,15 +493,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             oracles[base][quote][provider] = feed;
 
             // Update activeProviders array - add provider if not already present
-            bool providerExists = false;
-            uint256 activeProvidersLength = activeProviders.length;
-            for (uint256 j; j < activeProvidersLength; ++j) {
-                if (activeProviders[j] == provider) {
-                    providerExists = true;
-                    break;
-                }
-            }
-
+            bool providerExists = isProviderSet[provider];
             if (!providerExists) {
                 activeProviders.push(provider);
                 isProviderSet[provider] = true;

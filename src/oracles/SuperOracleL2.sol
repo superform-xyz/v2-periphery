@@ -25,6 +25,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
     mapping(address uptimeOracle => uint256 gracePeriod) public gracePeriods;
 
     uint256 private constant DEFAULT_GRACE_PERIOD_TIME = 3600;
+    uint256 private constant MIN_GRACE_PERIOD_TIME = 600;
 
     constructor(
         address superGovernor_,
@@ -59,6 +60,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
             address dataOracle = dataOracles[i];
             address uptimeOracle = uptimeOracles[i];
             uint256 gracePeriod = gracePeriods_[i];
+            if (gracePeriod != 0 && gracePeriod < MIN_GRACE_PERIOD_TIME) revert GRACE_PERIOD_TOO_LOW();
 
             if (dataOracle == address(0) || uptimeOracle == address(0)) revert ZERO_ADDRESS();
 
@@ -121,7 +123,11 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(oracle).latestRoundData();
 
         // Validate data
-        if (answer <= 0 || block.timestamp - updatedAt > feedMaxStaleness[oracle]) {
+        uint256 limit = feedMaxStaleness[oracle];
+        if (limit == 0 || limit > maxDefaultStaleness) {
+            limit = maxDefaultStaleness;
+        }
+        if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }

@@ -413,6 +413,40 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(validators[0], validator1, "Validator in list should match");
     }
 
+    /// @notice Tests getting validators by index using getValidatorAt
+    function test_ValidatorManagement_GetValidatorAt() public {
+        // Add two validators
+        vm.startPrank(governor);
+        superGovernor.addValidator(validator1);
+        superGovernor.addValidator(validator2);
+        vm.stopPrank();
+
+        // Verify count
+        uint256 count = superGovernor.getValidatorsCount();
+        assertEq(count, 2, "Should have 2 validators");
+
+        // Get validators by index
+        address validatorAt0 = superGovernor.getValidatorAt(0);
+        address validatorAt1 = superGovernor.getValidatorAt(1);
+
+        // Verify both validators are accessible
+        assertTrue(validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2");
+        assertTrue(validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2");
+        assertTrue(validatorAt0 != validatorAt1, "Validators at different indices should be different");
+
+        // Verify we can access each validator
+        assertTrue(superGovernor.isValidator(validatorAt0), "Validator at index 0 should be registered");
+        assertTrue(superGovernor.isValidator(validatorAt1), "Validator at index 1 should be registered");
+
+        // Test that out-of-bounds index reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(2);
+
+        // Test that large out-of-bounds index also reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(999);
+    }
+
     /// @notice Tests reverting when adding a validator with zero address
     function test_ValidatorManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
