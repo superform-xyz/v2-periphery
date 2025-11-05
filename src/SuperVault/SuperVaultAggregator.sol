@@ -1133,7 +1133,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
-            uint256 relativeDeviation = (absDiff * 1e18) / currentPPS;
+            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
