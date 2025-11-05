@@ -1294,14 +1294,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
         vault.redeem(
-            maxRedeem + 1, // shares to redeem
+            maxRedeem + 100, // shares to redeem
             accountEth, // receiver
             accountEth // owner
         );
 
         // Try redeem more than escrow balance
-        vm.prank(address(escrow));
-        asset.transfer(address(this), claimableAssets);
+        vm.startPrank(address(escrow));
+        asset.transfer(address(this), asset.balanceOf(address(escrow)) - 1);
+        vm.stopPrank();
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         vault.redeem(
