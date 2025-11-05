@@ -1304,6 +1304,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         asset.transfer(address(this), claimableAssets);
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
+        vault.redeem(
+            maxRedeem, // shares to redeem
+            accountEth, // receiver
+            accountEth // owner
+        );
     }
 
     function test_Withdraw_InvalidAmount() public {
