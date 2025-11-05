@@ -264,13 +264,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function updatePPSAfterSkim(
-        uint256 newPPS,
-        uint256 feeAmount
-    )
-        external
-        validStrategy(msg.sender)
-    {
+    function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external validStrategy(msg.sender) {
         // msg.sender must be a registered strategy (validated by modifier)
         address strategy = msg.sender;
 
@@ -286,13 +280,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // VALIDATION 3: Range check - deduction must be within max fee bounds
         // Use MAX_PERFORMANCE_FEE to avoid external call to strategy
         // Max possible PPS after skim: oldPPS * (1 - MAX_PERFORMANCE_FEE)
-        uint256 minAllowedPPS = oldPPS.mulDiv(
-            BPS_PRECISION - MAX_PERFORMANCE_FEE,
-            BPS_PRECISION,
-            Math.Rounding.Floor
-        );
+        // Use Ceil rounding to ensure strict enforcement of MAX_PERFORMANCE_FEE (51%) limit
+        uint256 minAllowedPPS = oldPPS.mulDiv(BPS_PRECISION - MAX_PERFORMANCE_FEE, BPS_PRECISION, Math.Rounding.Ceil);
 
         if (newPPS < minAllowedPPS) revert PPS_DEDUCTION_TOO_LARGE();
+
+        // VALIDATION 4: Fee amount must be non-zero when PPS decreases
+        // This ensures consistent reporting between PPS change and claimed fee amount
+        if (feeAmount == 0) revert INVALID_ASSET();
 
         // UPDATE: Store new PPS
         data.pps = newPPS;
@@ -1060,11 +1055,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validHooks = new bool[](length);
         for (uint256 i; i < length; i++) {
             // Try global root first
-            if (
-                _validateSingleHook(
+            if (_validateSingleHook(
                     argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
-                )
-            ) {
+                )) {
                 validHooks[i] = true;
             } else {
                 // Try strategy root

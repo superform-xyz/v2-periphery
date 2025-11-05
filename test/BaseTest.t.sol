@@ -432,7 +432,6 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_REQUEST_7540_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_DEPOSIT_REQUEST_7540_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][CLAIM_CANCEL_REDEEM_REQUEST_7540_HOOK_KEY]);
-            superGovernor.registerHook(hookAddresses[chainIds[i]][CANCEL_REDEEM_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][MINT_SUPERPOSITIONS_HOOK_KEY]);
             superGovernor.registerHook(hookAddresses[chainIds[i]][MERKL_CLAIM_REWARD_HOOK_KEY]);
 
