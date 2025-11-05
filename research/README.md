@@ -1,127 +1,172 @@
-# Skim Arbitrage Analysis
+# Pre-Skim Deposit Analysis: Economic & Business Justification
 
-Research project analyzing optimal skim frequency for performance fee collection in SuperVault, balancing gas costs against arbitrage opportunities from PPS drops.
+**For Auditors:** This document explains why we keep performance fee skimming separate from PPS updates, despite the theoretical possibility of users experiencing small value decreases when depositing before skim events.
 
-## Overview
+---
 
-This simulator models the trade-off between:
-- **Gas costs** (increases with frequency)
-- **Arbitrage losses** (decreases with frequency due to smaller PPS drops)
-- **Fees captured** (relatively constant across frequencies)
+## Simulation Assumptions (Simple Reference)
 
-**Key Finding**: For large TVLs ($100M+) at 10% APY, daily (24h) skims are optimal.
+All analysis based on the following parameters:
 
-### Direct Match to Real Solidity Function
+**Vault Parameters:**
+- TVL: $100M (also tested at $10M, $50M, $250M)
+- APY: 10% annual yield
+- Performance Fee: 20% on profits above high-water mark
+- Superform Protocol Fee: 50% of performance fees
+- Deposits: 100 random deposits per day (200% TVL annual volume)
 
-The simulator precisely mirrors the mechanics of `skimPerformanceFee()`:
+**Gas Cost Assumptions:**
+- Gas Price: 20 gwei
+- ETH Price: $3,000
+- PPS Update: 88,000 gas (~$5.28 per update)
+- Separate Skim: 87,000 gas (~$5.22 per skim)
+- Integrated Skim: 146,000 gas per combined operation (~$8.76)
 
-| Aspect | Real Function | Simulator | Match |
-|--------|---------------|-----------|-------|
-| **HWM Calculation** | `hwm = vaultTotalCostBasis` | `profit = max(0, total_assets - vault_total_cost_basis)` | ✅ Exact |
-| **Profit & Fee** | `profit = max(0, assets - hwm)`<br>`fee = profit * 2000 bps / 10000` | `profit = max(0, total_assets - vault_total_cost_basis)`<br>`total_fee = profit * 0.20` | ✅ Exact (20% perf fee) |
-| **PPS Drop** | Assets -= fee → PPS = (assets - fee) / supply | `total_assets -= total_fee`<br>`pps_drop_pct = ((pre_pps - post_pps) / pre_pps) * 100` | ✅ Exact |
-| **HWM Reset** | `vaultTotalCostBasis = assets - fee` | `vault_total_cost_basis = total_assets` | ✅ Exact |
-| **Cooldown** | `timestamp >= lastSkimTimestamp + interval` | `(current_time - last_skim_timestamp) >= interval` | ✅ Exact |
+**Current Operations:**
+- PPS updates: 24x per day (hourly) = 8,760/year
+- Skim calls: 1x per day (daily) = 365/year
+- **Annual gas cost: $48,164** (8,760 × $5.28 + 365 × $5.22)
 
-### How Arbitrage Is Calculated
+**Integrated Operations:**
+- Combined PPS + Skim: 24x per day = 8,760/year
+- **Annual gas cost: $76,738** (8,760 × $8.76)
+- **Extra cost: $28,574/year**
 
-1. **PPS Drop Creates Opportunity**:
-   - Pre-skim PPS: `total_assets / total_supply`
-   - Post-skim PPS: `(total_assets - fee) / total_supply`
-   - Discount ≈ `performance_fee * yield_since_last`
+**Yield Strategy Types Tested:**
+- Continuous yield (lending protocols, AMMs)
+- Daily harvest (daily reward claims)
+- Weekly harvest (weekly reward farming)
+- Monthly harvest (monthly reward farming)
 
-2. **Arbitrage Gain**:
+---
+
+## The Mechanism: How Pre-Skim Deposits Work
+
+### Current Implementation (PPS-Based HWM)
+
+Our vaults use a **price-per-share (PPS) based high-water mark** for performance fee collection:
+
+1. **Yield accrues** → `totalAssets` increases → PPS rises above HWM
+2. **User deposits** at current PPS (e.g., 1.0010)
+3. **Manager calls `skimPerformanceFee()`**:
+   ```solidity
+   // Calculate profit above HWM (per-share basis)
+   uint256 ppsGrowth = currentPPS - hwmPPS;
+   uint256 profit = ppsGrowth * totalSupply;
+   uint256 fee = profit * 0.20;  // 20% performance fee
+
+   // Extract fees (50% to Superform, 50% to strategy manager)
+   _safeTokenTransfer(treasury, fee * 0.50);
+   _safeTokenTransfer(recipient, fee * 0.50);
+
+   // PPS drops after fee extraction
+   uint256 newPPS = (totalAssets - fee) / totalSupply;  // e.g., 1.0008
+   vaultHwmPps = newPPS;
    ```
-   shares_if_pre_skim = deposit_amount / pre_skim_pps
-   shares_if_post_skim = deposit_amount / post_skim_pps  # More shares!
-   extra_shares = shares_if_post_skim - shares_if_pre_skim
-   arbitrage_gain = extra_shares * pre_skim_pps
-   ```
-   - Users get "free" shares by depositing at the discounted PPS
 
-3. **Strategic Timing Model**:
-   - Assumes users wait for skims and deposit immediately after
-   - Total deposit volume distributed evenly across all skims
-   - Worst-case scenario: 100% strategic timing (upper bound)
+4. **User's shares now worth slightly less**: Deposited at 1.0010, now worth 1.0008
 
-4. **Net Benefit Calculation**:
-   ```
-   Net Benefit = Fees Captured - Arbitrage Loss - Gas Costs
-   ```
-   - **Fees Captured**: Performance fees from vault yield (20% of profit)
-   - **Arbitrage Loss**: Users deposit after skims when PPS drops (strategic timing)
-   - **Gas Costs**: Transaction costs for each skim (~66,273 gas per skim)
+This is **by design** - performance fees must be extracted from vault assets, which proportionally affects all share values including newly minted ones.
 
-### Gas Cost Breakdown
+---
 
-Based on opcode analysis of `skimPerformanceFee()`:
-- Base transaction: 21,000 gas
-- Access control checks: ~2,200 gas
-- Vault state reads: ~4,400 gas
-- HWM/profit calculations: ~2,300 gas
-- Fee transfers (2 transfers): ~22,600 gas
-- Storage updates: ~5,800 gas
-- Event emission: ~848 gas
-- **Total: ~66,273 gas per skim**
+## Quantitative Analysis: User Losses vs Integration Costs
 
-## Usage
+We simulated **4 yield strategy types** over 365 days at $100M TVL with 10% APY:
 
-```bash
-cd research
-uv sync
-uv run python optimal_frequency.py
+| Strategy Type | User Losses/Year | Avg Loss/Deposit | Max Loss | Integration Gas Cost | Net Economic Impact |
+|---------------|------------------|------------------|----------|---------------------|---------------------|
+| **Continuous Yield** (lending, AMMs) | $4,799 | 0.0026% | 0.005% | $28,574 | **-$23,775** ❌ |
+| **Daily Harvest** | $415 | 0.0009% | 0.006% | $28,579 | **-$28,164** ❌ |
+| **Weekly Harvest** | $419 | 0.0006% | 0.013% | $30,422 | **-$30,003** ❌ |
+| **Monthly Harvest** | $375 | 0.0006% | 0.156% | $30,422 | **-$30,047** ❌ |
+
+### Key Insights
+
+**1. Losses Are Negligible**
+- Average loss: **0.0006-0.0026%** per affected deposit
+- On a $1,000 deposit: user loses **$0.06-0.26** (6-26 cents)
+- Total annual impact: **$375-4,799** across thousands of deposits
+
+**2. Integration Costs Outweigh Benefits**
+- Extra gas for hourly skims: **$28,600-30,400/year**
+- User losses prevented: **$375-4,800/year**
+- **Net loss to protocol: 6-81x** the benefit to users
+
+**3. Discrete Harvests Are Not Worse**
+Contrary to initial assumptions, less frequent harvests result in LOWER total losses:
+- **Continuous yield**: 96% of deposits exposed (23hr window/day) → higher total losses
+- **Monthly harvest**: Only 0.14% of deposits exposed (1hr window/month) → lower total losses
+- Larger per-deposit loss (0.156% max) but far fewer users affected
+
+**4. Why Losses Are So Small**
+With 10% APY:
+- Daily growth: 0.026% → 20% fee = **0.005% PPS drop**
+- Weekly growth: 0.18% → 20% fee = **0.036% PPS drop**
+- Monthly growth: 0.8% → 20% fee = **0.16% PPS drop**
+
+Even the "worst case" monthly scenario results in <0.2% impact for <1% of depositors.
+
+---
+
+## Visual Evidence: PPS Evolution Charts
+
+We've generated charts showing PPS evolution over time (see `/research/pps_*.png`):
+
+### What the Charts Show
+
+```
+Continuous Yield:
+├─ Gradual PPS increase (hourly compounding)
+├─ Small frequent skim corrections (~0.005%)
+└─ Long exposure windows (23hr/day)
+
+Weekly Harvest:
+├─ Flat PPS for 7 days
+├─ Sudden jump at harvest (+0.18%)
+├─ Skim correction 1hr later (-0.036%)
+└─ Short exposure window (1hr/week)
+
+Monthly Harvest:
+├─ Flat PPS for 30 days
+├─ Large jump at harvest (+0.8%)
+├─ Skim correction 1hr later (-0.16%)
+└─ Short exposure window (1hr/month)
 ```
 
-## Key Findings
+The orange "User Loss Windows" in the visualizations clearly demonstrate:
+- **Magnitude**: PPS drops are minimal (0.005-0.16%)
+- **Frequency**: Most strategies use continuous/daily yield (highest frequency)
+- **Exposure**: Actual affected user percentage is very small
 
-### For Large TVLs ($100M+) at 10% APY:
+---
 
-- **Daily (24h) skims are optimal**
-- Arbitrage losses: ~0.53% of fees
-- Gas costs: ~0.01-0.07% of fees (negligible)
-- Net benefit: ~99.4% of fees captured
+## Appendix: Simulation Methodology
 
-### Trade-offs by Frequency:
+**Tools:** `/research/pre_skim_user_loss_analysis.py` + `visualize_pps_evolution.py`
 
-| Interval | Fees | Arbitrage Loss | Gas Costs | Net Benefit |
-|----------|------|----------------|-----------|-------------|
-| **Hourly** | Same | Same (~0.53%) | **High** (~$35k/year) | Lower |
-| **Daily** | Same | Same (~0.53%) | **Low** (~$1.5k/year) | **Optimal** ✅ |
-| **Weekly** | Slightly more | Higher (~1.8%) | Minimal | Lower |
-| **Monthly** | More | Much higher (~6.2%) | Minimal | Much lower |
+**Parameters:**
+- TVL: $100M
+- APY: 10%
+- Performance fee: 20% (50% to Superform)
+- Deposits: 100/day randomly distributed
+- Simulation period: 365 days
 
-**Key Insight**: More frequent skims reduce arbitrage losses but increase gas costs. For large TVLs, arbitrage losses dominate gas costs, making daily skims optimal.
+**Tested scenarios:**
+- Continuous yield (hourly accrual)
+- Daily harvest (1-day accumulation)
+- Weekly harvest (7-day accumulation)
+- Monthly harvest (30-day accumulation)
 
-## Simulation Parameters
+**Gas costs** (20 gwei @ $3,000 ETH):
+- Separate: ~$48k/year (8,760 PPS updates + 365 skims)
+- Integrated: ~$76k/year (8,760 combined operations)
 
-Default parameters (can be adjusted in code):
-- **APY**: 10% (realistic DeFi yield)
-- **TVLs**: $100M, $250M, $500M
-- **Gas Price**: 20 gwei @ $3,000/ETH
-- **Deposit Volume**: 2x TVL per year (realistic growth)
-- **Strategic Timing**: 100% (worst-case assumption)
+**Code references:**
+- Skim implementation: `src/SuperVault/SuperVaultStrategy.sol:367-443`
+- PPS updates: `src/SuperVault/SuperVaultAggregator.sol` (`_forwardPPS`)
+- HWM tracking: `SuperVaultStrategy.sol:384` (`vaultHwmPps`)
 
-## Limitations & Assumptions
+---
 
-1. **Daily Yield Batching**: Yield applied in 1-day chunks
-   - Impact: Negligible (<0.1% difference)
-   - Total fees/arbitrage are correct
-
-2. **No Withdrawals**: Assumes deposits only
-   - Conservative: Underestimates real arbitrage (no withdrawal arbitrage)
-
-3. **Constant Yield**: Assumes steady yield rate
-   - Realistic for stable strategies
-
-4. **Gas Estimates**: Conservative (assumes cold storage reads)
-   - Real-world may be slightly lower with warm storage
-
-## Conclusion
-
-The simulator is **90-95% realistic** and suitable for production decisions. It accurately models:
-- ✅ PPS dynamics and drops
-- ✅ Arbitrage opportunities from strategic deposit timing
-- ✅ Gas costs at different frequencies
-- ✅ Net benefit optimization
-
-**Recommendation**: Set `skimInterval = 1 day` for optimal balance of fees, arbitrage, and gas costs.
+**For questions or additional analysis, contact Superform Labs.**

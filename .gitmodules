@@ -4,6 +4,7 @@
 [submodule "lib/v2-core"]
 	path = lib/v2-core
 	url = https://github.com/superform-xyz/v2-core
+	branch = dev
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
