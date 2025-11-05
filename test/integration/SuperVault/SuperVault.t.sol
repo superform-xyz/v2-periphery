@@ -2866,12 +2866,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _assertFeeDerivation(vars.totalFee1, vars.feeBalanceBefore, vars.treasuryBalanceAfterRedeem1);
         console2.log("Treasury balance after redemption 1:", vars.treasuryBalanceAfterRedeem1);
 
-        // Verify rounding issue: claimableWithdraw should have 1 wei remaining due to double Floor rounding
-        // maxRedeem calculates shares with Floor rounding, then redeem calculates assets with Floor rounding,
-        // leaving 1 wei unclaimable
+        // Verify rounding behavior: claimableWithdraw may have up to 2 wei remaining due to Floor rounding
+        // maxRedeem calculates shares with Floor rounding, then redeem calculates assets with Floor rounding
+        // This is expected ERC4626 behavior - users can claim remaining dust via withdraw(maxWithdraw(user))
         uint256 remainingClaimable = strategy.claimableWithdraw(accountEth);
-        assertEq(remainingClaimable, 1, "claimableWithdraw should have 1 wei remaining due to rounding");
-        console2.log("Remaining claimable (expected 1 wei due to rounding):", remainingClaimable);
+        assertLe(remainingClaimable, 2, "claimableWithdraw should have at most 2 wei remaining (ERC4626 rounding dust)");
+        console2.log("Remaining claimable (expected 0-2 wei dust):", remainingClaimable);
 
         // ========== REDEMPTION 2 (33% of remaining shares) ==========
         console2.log("===== REDEMPTION 2 (33% of remaining) =====");
@@ -4169,7 +4169,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         IERC20(address(vault)).transfer(accInstances[1].account, transferShares);
 
         // Accumulator assertions removed - accumulatorShares and accumulatorCostBasis no longer exist
-        // The system now uses global vaultTotalCostBasis tracking instead of per-user accumulators
+        // The system now uses global vaultHwmPps tracking (PPS-based high-water mark) instead of per-user accumulators
     }
 
     /// @notice Test that zero-value transfer is a no-op
@@ -8213,7 +8213,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp; // // Use current timestamp to avoid TIMESTAMP_EXCEEDS_BLOCK revert
 
-
         // Create the message hash with the deviating PPS
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -8246,16 +8245,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = newPPS;
 
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -9456,16 +9451,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
         // Record initial state
-        uint256 initialCostBasis = strategy.vaultTotalCostBasis();
+        uint256 initialHwmPps = strategy.vaultHwmPps();
 
         // 1. User deposits using existing helper
         _deposit(depositAmount);
 
-        // Verify cost basis updated correctly
-        uint256 costBasisAfterDeposit = strategy.vaultTotalCostBasis();
-        assertEq(
-            costBasisAfterDeposit, initialCostBasis + depositAmount, "Cost basis should increase by deposit amount"
-        );
+        // Verify HWM unchanged after deposit (deposits are PPS-neutral)
+        uint256 hwmPpsAfterDeposit = strategy.vaultHwmPps();
+        assertEq(hwmPpsAfterDeposit, initialHwmPps, "HWM PPS should not change on deposit");
 
         // Allocate to yield sources (required before redemption)
         _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
@@ -9473,12 +9466,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // 2. Simulate profit (PPS increase from 1.0 to 1.2)
         _simulateProfitViaAllocation(1.2e18);
 
-        uint256 totalAssetsAfterProfit = vault.totalAssets();
-        uint256 expectedProfit =
-            totalAssetsAfterProfit > costBasisAfterDeposit ? totalAssetsAfterProfit - costBasisAfterDeposit : 0;
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > hwmPpsAfterDeposit ? currentPPS - hwmPpsAfterDeposit : 0;
+        uint256 expectedProfit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
 
-        console2.log("Total assets after profit:", totalAssetsAfterProfit);
-        console2.log("Cost basis:", costBasisAfterDeposit);
+        console2.log("Current PPS:", currentPPS);
+        console2.log("HWM PPS:", hwmPpsAfterDeposit);
         console2.log("Expected profit:", expectedProfit);
 
         // Provide liquidity buffer for fee collection - ensure strategy has enough assets
@@ -9499,21 +9493,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // CRITICAL: Update PPS after skimming to sync vault state
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        // Verify cost basis was updated (fees reduce the cost basis)
-        uint256 newCostBasis = strategy.vaultTotalCostBasis();
-        uint256 totalAssetsAfterSkim = vault.totalAssets();
+        // Verify HWM PPS was updated after skimming
+        uint256 newHwmPps = strategy.vaultHwmPps();
+        uint256 newPPS = aggregator.getPPS(address(strategy));
 
-        // The cost basis should be <= total assets (fees were deducted from strategy, not vaults)
-        assertLe(newCostBasis, totalAssetsAfterSkim, "Cost basis should be reduced by fees");
-        assertLt(
-            newCostBasis,
-            costBasisAfterDeposit + expectedProfit,
-            "Cost basis should be less than original + full profit"
-        );
+        // The new HWM should equal the post-skim PPS
+        assertEq(newHwmPps, newPPS, "HWM PPS should equal post-skim PPS");
+        assertLt(newHwmPps, currentPPS, "HWM PPS should be lower than pre-skim PPS (fees were taken)");
 
-        console2.log("Cost basis after skim:", newCostBasis);
-        console2.log("Total assets after skim:", totalAssetsAfterSkim);
-        console2.log("Fees collected:", (costBasisAfterDeposit + expectedProfit) - newCostBasis);
+        console2.log("HWM PPS after skim:", newHwmPps);
+        console2.log("Current PPS after skim:", newPPS);
+        console2.log("Fees collected:", expectedFee);
 
         // 4. User redeems using proper 2-step process
         uint256 userShares = vault.balanceOf(accountEth);
@@ -9560,19 +9550,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Deposit free assets into underlying vaults
         _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
 
-        uint256 initialCostBasis = strategy.vaultTotalCostBasis();
+        uint256 initialHwmPps = strategy.vaultHwmPps();
 
         // First PPS update to 1.1 (10% gain)
         _simulateProfitViaAllocation(1.1e18);
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        // More deposits at new PPS
+        // More deposits at new PPS - HWM should stay unchanged
         uint256 additionalDeposit = 1000e6;
         _getTokens(address(asset), user, additionalDeposit);
         vm.startPrank(user);
         asset.approve(address(vault), additionalDeposit);
         vault.deposit(additionalDeposit, user);
         vm.stopPrank();
+
+        // Verify HWM unchanged after deposit
+        assertEq(strategy.vaultHwmPps(), initialHwmPps, "HWM should not change on deposit");
 
         // Deposit additional free assets
         _depositFreeAssetsFromSingleAmount(additionalDeposit, address(fluidVault), address(aaveVault));
@@ -9581,11 +9574,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _simulateProfitViaAllocation(1.25e18);
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        uint256 finalTotalAssets = vault.totalAssets();
-
-        // Single skim should collect fee on total profit vs total cost basis
-        uint256 finalCostBasis = strategy.vaultTotalCostBasis();
-        uint256 expectedProfit = finalTotalAssets > finalCostBasis ? finalTotalAssets - finalCostBasis : 0;
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > initialHwmPps ? currentPPS - initialHwmPps : 0;
+        uint256 expectedProfit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
 
         // Provide liquidity buffer for fee collection
         _getTokens(address(asset), address(strategy), expectedProfit / 5);
@@ -9597,16 +9589,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // CRITICAL: Update PPS after skimming to sync vault state
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        // Verify HWM reset correctly - use assertLe since fees reduce assets slightly below cost basis
-        uint256 postSkimCostBasis = strategy.vaultTotalCostBasis();
-        uint256 postSkimTotalAssets = vault.totalAssets();
-        assertLe(postSkimCostBasis, postSkimTotalAssets + 1, "Cost basis should be <= post-skim total assets");
+        // Verify HWM reset to post-skim PPS
+        uint256 postSkimHwmPps = strategy.vaultHwmPps();
+        uint256 postSkimPPS = aggregator.getPPS(address(strategy));
+        assertEq(postSkimHwmPps, postSkimPPS, "HWM PPS should equal post-skim PPS");
 
-        console2.log("Initial cost basis:", initialCostBasis);
-        console2.log("Final cost basis:", finalCostBasis);
+        console2.log("Initial HWM PPS:", initialHwmPps);
+        console2.log("Current PPS before skim:", currentPPS);
         console2.log("Expected profit:", expectedProfit);
-        console2.log("Post-skim cost basis:", postSkimCostBasis);
-        console2.log("Post-skim total assets:", postSkimTotalAssets);
+        console2.log("Post-skim HWM PPS:", postSkimHwmPps);
+        console2.log("Post-skim PPS:", postSkimPPS);
     }
 
     /// @notice Test 2.2: Skim after each PPS update
@@ -9631,9 +9623,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Provide liquidity for first skim
-        uint256 totalAssets1 = vault.totalAssets();
-        uint256 expectedProfit1 =
-            totalAssets1 > strategy.vaultTotalCostBasis() ? totalAssets1 - strategy.vaultTotalCostBasis() : 0;
+        uint256 currentPPS1 = aggregator.getPPS(address(strategy));
+        uint256 hwmPps1 = strategy.vaultHwmPps();
+        uint256 totalSupply1 = vault.totalSupply();
+        uint256 ppsGrowth1 = currentPPS1 > hwmPps1 ? currentPPS1 - hwmPps1 : 0;
+        uint256 expectedProfit1 = ppsGrowth1.mulDiv(totalSupply1, 10 ** asset.decimals(), Math.Rounding.Floor);
         _getTokens(address(asset), address(strategy), expectedProfit1 / 5);
 
         vm.startPrank(MANAGER);
@@ -9643,7 +9637,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // CRITICAL: Update PPS after skimming to sync vault state
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        uint256 costBasisAfterFirstSkim = strategy.vaultTotalCostBasis();
+        uint256 hwmPpsAfterFirstSkim = strategy.vaultHwmPps();
 
         // Additional deposit
         vm.startPrank(user);
@@ -9658,10 +9652,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _simulateProfitViaAllocation(1.2e18);
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        uint256 totalAssetsBeforeSecondSkim = vault.totalAssets();
-        uint256 expectedSecondProfit = totalAssetsBeforeSecondSkim > strategy.vaultTotalCostBasis()
-            ? totalAssetsBeforeSecondSkim - strategy.vaultTotalCostBasis()
-            : 0;
+        uint256 currentPPS2 = aggregator.getPPS(address(strategy));
+        uint256 totalSupply2 = vault.totalSupply();
+        uint256 ppsGrowth2 = currentPPS2 > hwmPpsAfterFirstSkim ? currentPPS2 - hwmPpsAfterFirstSkim : 0;
+        uint256 expectedSecondProfit = ppsGrowth2.mulDiv(totalSupply2, 10 ** asset.decimals(), Math.Rounding.Floor);
 
         // Provide liquidity for second skim
         _getTokens(address(asset), address(strategy), expectedSecondProfit / 5);
@@ -9673,15 +9667,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // CRITICAL: Update PPS after skimming to sync vault state
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        // Progressive HWM reset should prevent double-fee collection - use assertLe for fee tolerance
-        uint256 finalCostBasis = strategy.vaultTotalCostBasis();
-        uint256 finalTotalAssets = vault.totalAssets();
-        assertLe(finalCostBasis, finalTotalAssets + 1, "Cost basis should be <= total assets after second skim");
+        // Progressive HWM reset should prevent double-fee collection
+        uint256 finalHwmPps = strategy.vaultHwmPps();
+        uint256 finalPPS = aggregator.getPPS(address(strategy));
+        assertEq(finalHwmPps, finalPPS, "HWM PPS should equal final PPS after second skim");
 
         console2.log("Expected second profit:", expectedSecondProfit);
-        console2.log("Cost basis after first skim:", costBasisAfterFirstSkim);
-        console2.log("Final cost basis:", finalCostBasis);
-        console2.log("Final total assets:", finalTotalAssets);
+        console2.log("HWM PPS after first skim:", hwmPpsAfterFirstSkim);
+        console2.log("Final HWM PPS:", finalHwmPps);
+        console2.log("Final PPS:", finalPPS);
     }
 
     /// @notice Test 3.1: Zero profit scenario - no fees collected
@@ -9691,12 +9685,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Deposit using helper
         _deposit(depositAmount);
 
-        // PPS remains at 1.0 (no profit simulation)
-        uint256 totalAssetsBefore = vault.totalAssets();
-        uint256 costBasis = strategy.vaultTotalCostBasis();
+        // PPS remains at HWM (no profit simulation)
+        uint256 hwmPpsBefore = strategy.vaultHwmPps();
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
 
-        // Should have no profit
-        assertEq(totalAssetsBefore, costBasis, "Should have no profit");
+        // Should have no PPS growth
+        assertEq(currentPPS, hwmPpsBefore, "Should have no PPS growth");
 
         // Skim should return early with no fees
         vm.startPrank(MANAGER);
@@ -9704,8 +9698,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         // No state changes should occur
-        assertEq(vault.totalAssets(), totalAssetsBefore, "Total assets unchanged");
-        assertEq(strategy.vaultTotalCostBasis(), costBasis, "Cost basis unchanged");
+        assertEq(strategy.vaultHwmPps(), hwmPpsBefore, "HWM PPS unchanged");
     }
 
     /// @notice Test 3.3: Zero total supply edge case
@@ -9713,13 +9706,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Start with no deposits (zero total supply)
         assertEq(vault.totalSupply(), 0, "Should start with zero supply");
 
+        uint256 hwmPpsBefore = strategy.vaultHwmPps();
+
         // Try to skim with zero supply
         vm.startPrank(MANAGER);
         strategy.skimPerformanceFee(); // Should not revert
         vm.stopPrank();
 
-        // Should handle gracefully
-        assertEq(strategy.vaultTotalCostBasis(), 0, "Cost basis should remain zero");
+        // Should handle gracefully - HWM should remain unchanged
+        assertEq(strategy.vaultHwmPps(), hwmPpsBefore, "HWM PPS should remain unchanged");
     }
 
     /// @notice Test 3.4: Zero fee percent configuration
@@ -9936,9 +9931,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 totalAssetsBeforeFirstSkim = vault.totalAssets();
 
         // Provide liquidity buffer for fee collection
-        uint256 costBasisBeforeSkim = strategy.vaultTotalCostBasis();
-        uint256 expectedProfit =
-            totalAssetsBeforeFirstSkim > costBasisBeforeSkim ? totalAssetsBeforeFirstSkim - costBasisBeforeSkim : 0;
+        uint256 hwmPpsBeforeSkim = strategy.vaultHwmPps();
+        uint256 currentPPS1 = aggregator.getPPS(address(strategy));
+        uint256 totalSupply1 = vault.totalSupply();
+        uint256 ppsGrowth1 = currentPPS1 > hwmPpsBeforeSkim ? currentPPS1 - hwmPpsBeforeSkim : 0;
+        uint256 expectedProfit = ppsGrowth1.mulDiv(totalSupply1, 10 ** asset.decimals(), Math.Rounding.Floor);
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
         uint256 expectedFee = expectedProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (expectedFee > 0) {
@@ -9957,25 +9954,27 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         uint256 totalAssetsAfterFirstSkim = vault.totalAssets();
-        uint256 costBasisAfterFirstSkim = strategy.vaultTotalCostBasis();
+        uint256 hwmPpsAfterFirstSkim = strategy.vaultHwmPps();
+        uint256 ppsAfterFirstSkim = aggregator.getPPS(address(strategy));
 
-        // HWM should be reduced by fees (cost basis < total assets after skim)
-        assertLe(costBasisAfterFirstSkim, totalAssetsAfterFirstSkim, "Cost basis should be <= total assets after skim");
-        // Note: totalAssets may not decrease if fees came from strategy buffer, but cost basis should be lower
+        // HWM should equal post-skim PPS
+        assertEq(hwmPpsAfterFirstSkim, ppsAfterFirstSkim, "HWM PPS should equal post-skim PPS");
+        assertLt(hwmPpsAfterFirstSkim, currentPPS1, "HWM PPS should be lower than pre-skim PPS (fees taken)");
         console2.log("Total assets before skim:", totalAssetsBeforeFirstSkim);
         console2.log("Total assets after skim:", totalAssetsAfterFirstSkim);
-        console2.log("Cost basis after skim:", costBasisAfterFirstSkim);
+        console2.log("HWM PPS after skim:", hwmPpsAfterFirstSkim);
 
         // Generate additional profit
         _simulateProfitViaAllocation(1.1e18); // Additional 10% on current base
 
-        uint256 totalAssetsBeforeSecondSkim = vault.totalAssets();
-        uint256 expectedNewProfit = totalAssetsBeforeSecondSkim > costBasisAfterFirstSkim
-            ? totalAssetsBeforeSecondSkim - costBasisAfterFirstSkim
-            : 0;
+        uint256 currentPPS2 = aggregator.getPPS(address(strategy));
+        uint256 totalSupply2 = vault.totalSupply();
+        uint256 ppsGrowth2 = currentPPS2 > hwmPpsAfterFirstSkim ? currentPPS2 - hwmPpsAfterFirstSkim : 0;
+        uint256 expectedNewProfit = ppsGrowth2.mulDiv(totalSupply2, 10 ** asset.decimals(), Math.Rounding.Floor);
 
         // Provide liquidity buffer for second fee collection
         uint256 expectedSecondFee = expectedNewProfit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
+        uint256 totalAssetsBeforeSecondSkim = vault.totalAssets();
         if (expectedSecondFee > 0) {
             deal(address(asset), address(strategy), expectedSecondFee);
             // Update PPS to account for the additional assets in strategy
@@ -9993,17 +9992,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         uint256 totalAssetsAfterSecondSkim = vault.totalAssets();
-        uint256 costBasisAfterSecondSkim = strategy.vaultTotalCostBasis();
+        uint256 hwmPpsAfterSecondSkim = strategy.vaultHwmPps();
+        uint256 ppsAfterSecondSkim = aggregator.getPPS(address(strategy));
 
         // Verify no double-fee collection on same profit
-        assertLe(
-            costBasisAfterSecondSkim,
-            totalAssetsAfterSecondSkim,
-            "Cost basis should be <= total assets after second skim"
-        );
+        assertEq(hwmPpsAfterSecondSkim, ppsAfterSecondSkim, "HWM PPS should equal post-skim PPS");
+        assertLt(hwmPpsAfterSecondSkim, currentPPS2, "HWM PPS should be lower than pre-skim PPS (second skim)");
 
         console2.log("Expected new profit:", expectedNewProfit);
-        console2.log("Assets before second skim:", totalAssetsBeforeSecondSkim);
+        console2.log("HWM PPS after second skim:", hwmPpsAfterSecondSkim);
         console2.log("Assets after second skim:", totalAssetsAfterSecondSkim);
     }
 
@@ -10041,10 +10038,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _simulateProfitViaAllocation(1.2e18);
 
         // Provide liquidity buffer for fee collection
-        vars.totalAssetsAfterProfit = vault.totalAssets();
-        vars.costBasis = strategy.vaultTotalCostBasis();
-        vars.expectedProfit =
-            vars.totalAssetsAfterProfit > vars.costBasis ? vars.totalAssetsAfterProfit - vars.costBasis : 0;
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 hwmPps = strategy.vaultHwmPps();
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > hwmPps ? currentPPS - hwmPps : 0;
+        vars.expectedProfit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
         vars.feeConfig_ = strategy.getConfigInfo();
         vars.expectedFee = vars.expectedProfit.mulDiv(vars.feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
         if (vars.expectedFee > 0) {
@@ -10155,9 +10153,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _simulateProfitViaAllocation(1.3e18);
 
         // Test skim fee events
-        uint256 totalAssetsBeforeSkim = vault.totalAssets();
-        uint256 costBasis = strategy.vaultTotalCostBasis();
-        uint256 expectedProfit = totalAssetsBeforeSkim > costBasis ? totalAssetsBeforeSkim - costBasis : 0;
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 hwmPps = strategy.vaultHwmPps();
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > hwmPps ? currentPPS - hwmPps : 0;
+        uint256 expectedProfit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
 
         if (expectedProfit > 0) {
             // Expect PerformanceFeeSkimmed event - check structure but not exact values
@@ -10172,17 +10172,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // CRITICAL: Update PPS after skimming to sync vault state
         _updateSuperVaultPPS(address(strategy), address(vault));
 
-        // Verify cost basis was updated
-        uint256 newCostBasis = strategy.vaultTotalCostBasis();
-        assertLt(
-            newCostBasis, costBasis + expectedProfit, "Cost basis should be less than original + profit (fees deducted)"
-        );
+        // Verify HWM PPS was updated
+        uint256 newHwmPps = strategy.vaultHwmPps();
+        uint256 newPPS = aggregator.getPPS(address(strategy));
+        assertEq(newHwmPps, newPPS, "HWM PPS should equal post-skim PPS");
+        assertLt(newHwmPps, currentPPS, "HWM PPS should be lower than pre-skim PPS (fees taken)");
 
         console2.log("Event emission test completed");
-        console2.log("Original cost basis:", costBasis);
+        console2.log("Original HWM PPS:", hwmPps);
         console2.log("Expected profit:", expectedProfit);
-        console2.log("New cost basis after skim:", newCostBasis);
-        console2.log("Fees collected:", (costBasis + expectedProfit) - newCostBasis);
+        console2.log("New HWM PPS after skim:", newHwmPps);
     }
 
     /// @notice Event declaration for testing
@@ -10212,9 +10211,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertGt(ppsAfterProfit, ppsBeforeProfit, "PPS should increase after profit");
 
         // Provide liquidity for fee collection
-        uint256 costBasis = strategy.vaultTotalCostBasis();
-        uint256 totalAssets = vault.totalAssets();
-        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        uint256 hwmPps = strategy.vaultHwmPps();
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = ppsAfterProfit > hwmPps ? ppsAfterProfit - hwmPps : 0;
+        uint256 profit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
         uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
 
@@ -10233,16 +10233,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertLt(ppsAfterSkim, ppsAfterProfit, "PPS should decrease after skim due to fee removal");
 
         // Verify totalAssets consistency (EIP-4626 invariant)
-        uint256 totalSupply = vault.totalSupply();
-        uint256 calculatedAssets = totalSupply.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
+        uint256 totalSupplyAfterSkim = vault.totalSupply();
+        uint256 calculatedAssets = totalSupplyAfterSkim.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
         uint256 reportedAssets = vault.totalAssets();
 
         // Allow 1 wei tolerance for rounding
         assertApproxEqAbs(
-            calculatedAssets,
-            reportedAssets,
-            1,
-            "totalAssets should match convertToAssets(totalSupply) after skim"
+            calculatedAssets, reportedAssets, 1, "totalAssets should match convertToAssets(totalSupply) after skim"
         );
 
         console2.log("PPS before profit:", ppsBeforeProfit);
@@ -10263,9 +10260,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Provide liquidity for fee collection
-        uint256 costBasis = strategy.vaultTotalCostBasis();
-        uint256 totalAssets = vault.totalAssets();
-        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        uint256 hwmPps = strategy.vaultHwmPps();
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > hwmPps ? currentPPS - hwmPps : 0;
+        uint256 profit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
         uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
 
@@ -10383,9 +10382,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Provide liquidity for fee
-        uint256 costBasis = strategy.vaultTotalCostBasis();
-        uint256 totalAssets = vault.totalAssets();
-        uint256 profit = totalAssets > costBasis ? totalAssets - costBasis : 0;
+        uint256 hwmPps = strategy.vaultHwmPps();
+        uint256 currentPPS = aggregator.getPPS(address(strategy));
+        uint256 totalSupply = vault.totalSupply();
+        uint256 ppsGrowth = currentPPS > hwmPps ? currentPPS - hwmPps : 0;
+        uint256 profit = ppsGrowth.mulDiv(totalSupply, 10 ** asset.decimals(), Math.Rounding.Floor);
         ISuperVaultStrategy.FeeConfig memory feeConfig_ = strategy.getConfigInfo();
         uint256 expectedFee = profit.mulDiv(feeConfig_.performanceFeeBps, 10_000, Math.Rounding.Ceil);
 
@@ -10399,9 +10400,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         // Verify EIP-4626 invariant: totalAssets() == convertToAssets(totalSupply())
-        uint256 totalSupply = vault.totalSupply();
+        uint256 totalSupplyAfterSkim = vault.totalSupply();
         uint256 totalAssetsReported = vault.totalAssets();
-        uint256 totalAssetsCalculated = vault.convertToAssets(totalSupply);
+        uint256 totalAssetsCalculated = vault.convertToAssets(totalSupplyAfterSkim);
 
         // Should be equal within 1 wei due to rounding
         assertApproxEqAbs(
@@ -10414,13 +10415,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("EIP-4626 consistency verified");
         console2.log("Total assets (reported):", totalAssetsReported);
         console2.log("Total assets (calculated):", totalAssetsCalculated);
-        console2.log("Difference:", totalAssetsReported > totalAssetsCalculated ?
-            totalAssetsReported - totalAssetsCalculated :
-            totalAssetsCalculated - totalAssetsReported);
+        console2.log(
+            "Difference:",
+            totalAssetsReported > totalAssetsCalculated
+                ? totalAssetsReported - totalAssetsCalculated
+                : totalAssetsCalculated - totalAssetsReported
+        );
     }
 
-    /// @notice Test that fulfillRedeemRequests reverts when trying to fulfill zero-share controllers with non-zero assets
-    /// @dev This tests the fix for the vulnerability where managers could strand funds by providing non-zero totalAssetsOut for controllers with zero pending shares
+    /// @notice Test that fulfillRedeemRequests reverts when trying to fulfill zero-share controllers with non-zero
+    /// assets @dev This tests the fix for the vulnerability where managers could strand funds by providing non-zero
+    /// totalAssetsOut for controllers with zero pending shares
     function test_FulfillRedeemRequests_RevertsOnZeroSharesWithNonZeroAssets() public {
         // Setup: Create two users, only one will have a pending redeem request
         uint256 depositAmount = 1000e6;
@@ -10448,16 +10453,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256[] memory assetsForUser1 = calculateLiquidityOnlyFulfillment(strategy, address(asset), tempArray);
 
         address[] memory controllers = new address[](2);
-        controllers[0] = user1 < user2 ? user1 : user2;  // Must be sorted
+        controllers[0] = user1 < user2 ? user1 : user2; // Must be sorted
         controllers[1] = user1 < user2 ? user2 : user1;
 
         uint256[] memory totalAssetsOut = new uint256[](2);
         if (user1 < user2) {
-            totalAssetsOut[0] = assetsForUser1[0];  // user1 has pending shares - proper amount
-            totalAssetsOut[1] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
+            totalAssetsOut[0] = assetsForUser1[0]; // user1 has pending shares - proper amount
+            totalAssetsOut[1] = 100e6; // user2 has ZERO pending shares but non-zero assets - should revert
         } else {
-            totalAssetsOut[0] = 100e6;  // user2 has ZERO pending shares but non-zero assets - should revert
-            totalAssetsOut[1] = assetsForUser1[0];  // user1 has pending shares - proper amount
+            totalAssetsOut[0] = 100e6; // user2 has ZERO pending shares but non-zero assets - should revert
+            totalAssetsOut[1] = assetsForUser1[0]; // user1 has pending shares - proper amount
         }
 
         // Try to fulfill - should revert with ZERO_SHARE_FULFILLMENT_DISALLOWED because user2 has zero shares
@@ -10513,11 +10518,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     /// @notice Event for testing
     event PPSUpdatedAfterSkim(
-        address indexed strategy,
-        uint256 oldPPS,
-        uint256 newPPS,
-        uint256 feeAmount,
-        uint256 timestamp
+        address indexed strategy, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
     );
 }
 

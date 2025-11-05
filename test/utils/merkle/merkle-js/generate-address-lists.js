@@ -145,14 +145,16 @@ class AddressListGenerator {
     addDetectedVaults(detectedVaults) {
         // SuperVaults that should only appear in beneficiaries, not in yieldSources
         // These are the main SuperVault contracts, not yield source vaults
-        const superVaults = ['globalSVStrategy', 'globalSVGearStrategy', 'globalRuggableVault'];
+        const superVaults = ['globalSVStrategy', 'globalSVGearStrategy', 'globalRuggableVault', 'globalSV5115Strategy'];
 
         // Load existing target JSON files
         const tokenListPath = path.join(this.targetDir, 'token_list.json');
         const yieldSourcesListPath = path.join(this.targetDir, 'yield_sources_list.json');
+        const ownerListPath = path.join(this.targetDir, 'owner_list.json');
 
         let tokenList = {};
         let yieldSourcesList = {};
+        let ownerList = {};
 
         if (fs.existsSync(tokenListPath)) {
             tokenList = JSON.parse(fs.readFileSync(tokenListPath, 'utf8'));
@@ -160,10 +162,14 @@ class AddressListGenerator {
         if (fs.existsSync(yieldSourcesListPath)) {
             yieldSourcesList = JSON.parse(fs.readFileSync(yieldSourcesListPath, 'utf8'));
         }
+        if (fs.existsSync(ownerListPath)) {
+            ownerList = JSON.parse(fs.readFileSync(ownerListPath, 'utf8'));
+        }
 
-        // Ensure chain 1 exists in both files
+        // Ensure chain 1 exists in all files
         if (!tokenList['1']) tokenList['1'] = [];
         if (!yieldSourcesList['1']) yieldSourcesList['1'] = [];
+        if (!ownerList['1']) ownerList['1'] = [];
 
         // Helper function to normalize vault names and remove duplicates
         const normalizeVaultName = (name) => {
@@ -189,9 +195,20 @@ class AddressListGenerator {
         tokenList['1'] = tokenList['1'].filter(entry => !isTestVault(entry.symbol));
         yieldSourcesList['1'] = yieldSourcesList['1'].filter(entry => !isTestVault(entry.symbol));
 
-        // Add detected vaults to target files only (excluding SuperVaults)
+        // First, add SuperVault strategies to owner list (beneficiaries)
         for (const [vaultName, address] of Object.entries(detectedVaults)) {
-            // Skip SuperVaults - they should only be in beneficiaries
+            if (superVaults.includes(vaultName)) {
+                // Add to owner list if not already present
+                if (!ownerList['1'].includes(address)) {
+                    ownerList['1'].push(address);
+                    console.log(`Added SuperVault strategy ${vaultName} (${address}) to owner list`);
+                }
+            }
+        }
+
+        // Add detected vaults to target files only (excluding SuperVaults from yield sources)
+        for (const [vaultName, address] of Object.entries(detectedVaults)) {
+            // Skip SuperVaults - they were already added to beneficiaries above
             if (superVaults.includes(vaultName)) {
                 continue;
             }
@@ -228,10 +245,12 @@ class AddressListGenerator {
         // Write updated target JSON files (NOT the registry)
         fs.writeFileSync(tokenListPath, JSON.stringify(tokenList, null, 2));
         fs.writeFileSync(yieldSourcesListPath, JSON.stringify(yieldSourcesList, null, 2));
+        fs.writeFileSync(ownerListPath, JSON.stringify(ownerList, null, 2));
 
         console.log(`Updated target JSON files with ${addedVaults.size} unique detected vaults (including _Coverage variants)`);
         console.log('Note: address_registry.json was NOT modified - test vaults only added to target files');
         console.log('Note: Removed all existing test vault entries and normalized naming to prevent duplicates');
+        console.log('Note: SuperVault strategies were added to owner_list.json for use as beneficiaries in Redeem hooks');
     }
 }
 
