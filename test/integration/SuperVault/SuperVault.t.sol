@@ -1280,7 +1280,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Get claimable amount
         uint256 maxRedeem = vault.maxRedeem(accountEth);
-        uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
 
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
