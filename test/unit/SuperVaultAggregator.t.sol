@@ -950,10 +950,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory ppsStdevs = new uint256[](2);
-        ppsStdevs[0] = 0;
-        ppsStdevs[1] = 0;
-
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
         validatorSets[1] = 1;
@@ -989,7 +985,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -1012,7 +1007,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -1032,7 +1026,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
@@ -1063,9 +1056,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = 1e18;
-
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = 0;
 
         uint256[] memory validatorSets = new uint256[](1);
         validatorSets[0] = 1;
@@ -1098,7 +1088,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 validatorSets: validatorSets,
                 totalValidator: totalValidators[0],
                 timestamps: timestamps,
