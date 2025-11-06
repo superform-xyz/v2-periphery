@@ -284,6 +284,14 @@ contract SuperOracleTest is PeripheryHelpers {
     }
 
     function test_RemovingProvider() public {
+        // Test revert if too many providers are being removed
+        bytes32[] memory providersToRemoveRevert = new bytes32[](24);
+        for (uint256 i = 0; i < 24; i++) {
+            providersToRemoveRevert[i] = bytes32(keccak256(abi.encodePacked(i)));
+        }
+        vm.expectRevert(ISuperOracle.TOO_MANY_PROVIDER_REMOVALS.selector);
+        superOracle.queueProviderRemoval(providersToRemoveRevert);
+
         // First verify provider 3 exists
         bytes32[] memory providersToRemove = new bytes32[](1);
         providersToRemove[0] = PROVIDER_3;
