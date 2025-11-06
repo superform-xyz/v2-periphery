@@ -393,7 +393,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Allow only the UNPAUSER_ROLE to unpause
         if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }

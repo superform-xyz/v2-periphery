@@ -7757,7 +7757,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 t1 = t0 + 20 hours;
         vm.warp(t1);
 
-        // Unpause the strategy (using the contract deployer who has UNPAUSER_ROLE)
         vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
         vm.stopPrank();
