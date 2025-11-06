@@ -137,11 +137,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         _validateOracleInputs(bases, quotes, providers, feeds);
 
         pendingUpdate = PendingUpdate({
-            bases: bases,
-            quotes: quotes,
-            providers: providers,
-            feeds: feeds,
-            timestamp: block.timestamp
+            bases: bases, quotes: quotes, providers: providers, feeds: feeds, timestamp: block.timestamp
         });
 
         emit OracleUpdateQueued(bases, quotes, providers, feeds, block.timestamp);
@@ -154,6 +150,16 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         if (block.timestamp < pendingUpdate.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
         _configureOracles(pendingUpdate.bases, pendingUpdate.quotes, pendingUpdate.providers, pendingUpdate.feeds);
+
+        // Ensure every new feed has a valid staleness value.
+        for (uint256 i; i < pendingUpdate.feeds.length; ++i) {
+            address feed = pendingUpdate.feeds[i];
+
+            // If no staleness was ever set, apply the default.
+            if (feedMaxStaleness[feed] == 0) {
+                feedMaxStaleness[feed] = maxDefaultStaleness;
+            }
+        }
 
         emit OracleUpdateExecuted(
             pendingUpdate.bases, pendingUpdate.quotes, pendingUpdate.providers, pendingUpdate.feeds
@@ -187,7 +193,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @inheritdoc ISuperOracle
     function executeProviderRemoval() external {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        
+
         if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
         if (block.timestamp < pendingRemoval.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
@@ -334,8 +340,12 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             answer = _answer;
             updatedAt = _updatedAt;
         } catch {
+            bool outOfGas = gasleft() <= gasBefore / 64;
+
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (outOfGas && revertOnError) {
+                revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            }
 
             if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
             return 0;
@@ -346,7 +356,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
-        
+
         gasBefore = gasleft();
         // --- Get decimals and compute scaled amount ---
         try AggregatorV3Interface(oracle).decimals() returns (uint8 feedDecimals) {
@@ -354,14 +364,12 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
             // Calculate quote amount with proper decimal scaling
-            quoteAmount = Math.mulDiv(
-                baseAmount,
-                uint256(answer) * 10 ** quoteDecimals,
-                10 ** (feedDecimals + baseDecimals)
-            );
+            quoteAmount =
+                Math.mulDiv(baseAmount, uint256(answer) * 10 ** quoteDecimals, 10 ** (feedDecimals + baseDecimals));
         } catch {
+            bool outOfGas = gasleft() <= gasBefore / 64;
             // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (outOfGas && revertOnError) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
@@ -399,7 +407,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             ETH -> USD - eORACLE -> address(0x2)
             ETH -> EUR -> CHAINLINK -> address(0x3)
 
-            This would just continue for 
+            This would just continue for
 
             ETH -> EUR -> eOracle, because oracle address is 0
             */
