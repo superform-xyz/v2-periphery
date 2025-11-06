@@ -75,7 +75,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -127,19 +127,19 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, governor, treasury, address(this));
+        new SuperGovernor(sGovernor, address(0), governor, governor, treasury, address(this));
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, governor, address(0), address(this));
+        new SuperGovernor(sGovernor, governor, governor, governor, address(0), address(this));
     }
 
     // =============================================================
@@ -858,7 +858,6 @@ contract SuperGovernorTest is PeripheryHelpers {
             governor,
             governor, // bankManager (using governor as valid address)
             governor, // gasManager (using governor as valid address)
-            governor, // unpauser (using governor as valid address)
             treasury,
             governor // prover (using governor as valid address)
         );

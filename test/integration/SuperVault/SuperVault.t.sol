@@ -391,8 +391,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.deposit(depositAmount, accountEth);
         vm.stopPrank();
 
-        // Unpause the strategy (only UNPAUSER_ROLE can unpause)
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(strategy));
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 1 weeks);
         _updateSuperVaultPPS(address(strategy), address(vault));
@@ -7999,9 +8000,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 t1 = t0 + 20 hours;
         vm.warp(t1);
 
-        // Unpause the strategy (using the contract deployer who has UNPAUSER_ROLE)
-        vm.prank(address(this));
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
+        vm.stopPrank();
 
         // Verify strategy is unpaused but PPS is stale
         assertFalse(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be unpaused");
@@ -9327,8 +9328,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         MockEmergencyVault(vars.emergencyVault)
             .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
-
+            
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
+        vm.stopPrank();
 
         // Update thresholds to disable deviation and validator participation checks
         // This allows emergency PPS update to restore the strategy to a known state

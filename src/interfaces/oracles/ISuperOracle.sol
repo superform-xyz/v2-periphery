@@ -56,6 +56,9 @@ interface ISuperOracle {
     /// @notice Error when provider is zero
     error ZERO_PROVIDER();
 
+    /// @notice Error when too many providers are being iterated through
+    error TOO_MANY_PROVIDERS();
+
     /// @notice Error when caller is not authorized to update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
 
@@ -106,6 +109,9 @@ interface ISuperOracle {
     /// @param timestamp Timestamp when removal was queued
     event ProviderRemovalQueued(bytes32[] providers, uint256 timestamp);
 
+    /// @notice Emitted when provider removal is cancelled
+    event ProviderRemovalCancelled();
+
     /// @notice Emitted when provider removal is executed
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
@@ -136,7 +142,6 @@ interface ISuperOracle {
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Get oracle address for a base asset and provider
     /// @param base Base asset address
     /// @param quote Quote asset address
