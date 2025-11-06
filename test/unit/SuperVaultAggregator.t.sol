@@ -66,7 +66,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -2095,8 +2095,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Get SuperBank balance before
-        address superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
+        address _superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(_superBank);
 
         // Try to slash more than available - should slash only what's available
         vm.prank(address(superGovernor));
@@ -2107,7 +2107,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify only available amount was slashed
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
         assertEq(
-            IERC20(upToken).balanceOf(superBank),
+            IERC20(upToken).balanceOf(_superBank),
             superBankBalanceBefore + stakeAmount,
             "SuperBank should receive available amount"
         );
@@ -2575,8 +2575,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(isPaused, "Strategy should be paused after invalid update");
 
         // Now unpause the strategy by pranking as the main manager
-        vm.startPrank(governor);
+        vm.startPrank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
 
         // Verify strategy is unpaused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
@@ -2665,7 +2666,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should still be paused");
 
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify strategy is unpaused
