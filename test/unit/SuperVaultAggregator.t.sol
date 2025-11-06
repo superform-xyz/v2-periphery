@@ -348,12 +348,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             secondaryManagers[i] = _deployAccount(10 + i, "SecondaryManager");
         }
 
-        address lastSecondaryManager = _deployAccount(20, "SecondaryManager");
-
         vm.startPrank(manager);
-        for (uint256 i = 0; i < len - 1; ++i) {
+        for (uint256 i = 0; i < len - 2; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
+        address lastSecondaryManager = _deployAccount(20, "SecondaryManager");
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
         superVaultAggregator.addSecondaryManager(strategy, lastSecondaryManager);
         vm.stopPrank();
