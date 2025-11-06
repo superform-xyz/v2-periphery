@@ -492,13 +492,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
         if (amount == 0) revert ZERO_AMOUNT();
 
-        // Check if manager has sufficient stake balance to slash
-        if (_managerStakeBalance[manager] < amount) {
-            revert INSUFFICIENT_STAKE_BALANCE();
-        }
+        // Calculate actual slash amount (take minimum to prevent revert on frontrun)
+        uint256 slashAmount = Math.min(_managerStakeBalance[manager], amount);
+
+        // If no stake available, revert
+        if (slashAmount == 0) revert ZERO_AMOUNT();
 
         // Reduce manager's stake balance
-        _managerStakeBalance[manager] -= amount;
+        _managerStakeBalance[manager] -= slashAmount;
 
         // Clear any pending withdrawal requests
         delete managerWithdrawalRequests[manager];
@@ -508,10 +509,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address superBank = _getSuperBank();
 
         // Transfer slashed amount directly to SuperBank
-        IERC20(upToken).safeTransfer(superBank, amount);
+        IERC20(upToken).safeTransfer(superBank, slashAmount);
 
         // Emit event for transparency
-        emit StakeSlashed(manager, amount);
+        emit StakeSlashed(manager, slashAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
