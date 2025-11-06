@@ -29,7 +29,7 @@ import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/orac
 import { ERC5115YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC5115YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
-import { IGearboxFarmingPool } from "../../../src/vendor/gearbox/IGearboxFarmingPool.sol";
+import { IGearboxFarmingPool } from "../../vendor/gearbox/IGearboxFarmingPool.sol";
 import { ISuperExecutor } from "@superform-v2-core/src/interfaces/ISuperExecutor.sol";
 import { AccountInstance, UserOpData } from "modulekit/ModuleKit.sol";
 import { Mock4626Vault } from "../../mocks/Mock4626Vault.sol";

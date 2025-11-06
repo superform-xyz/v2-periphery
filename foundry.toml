@@ -87,13 +87,13 @@ wrap_comments = true
 lint_on_build = false
 exclude_lints = ["mixed-case-function"]
 ignore = [
-    "src/vendor/**", 
+    "src/vendor/**",
     "src/vendor/**/*.sol",
     "./src/vendor/**",
     "**/vendor/**",
     "lib/evm-gateway-contracts/**",
     "./lib/evm-gateway-contracts/**",
-    "test/**", 
+    "test/**",
     "test/**/*.sol",
     "./test/**",
     "**/test/**"
