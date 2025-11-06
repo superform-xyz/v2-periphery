@@ -609,6 +609,10 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256 newQuorum = 3;
 
         vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setPPSOracleQuorum(0);
+
+        vm.prank(governor);
         vm.expectEmit(true, false, false, false);
         emit ISuperGovernor.PPSOracleQuorumUpdated(newQuorum);
         superGovernor.setPPSOracleQuorum(newQuorum);
