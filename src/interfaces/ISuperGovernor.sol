@@ -119,14 +119,15 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
 
-
     /// @notice Emitted when a validator is registered
     /// @param validator The address of the registered validator
-    event ValidatorAdded(address indexed validator);
+    /// @param blockNumber The block number when the validator was added
+    event ValidatorAdded(address indexed validator, uint256 blockNumber);
 
     /// @notice Emitted when a validator is removed
     /// @param validator The address of the removed validator
-    event ValidatorRemoved(address indexed validator);
+    /// @param blockNumber The block number when the validator was removed
+    event ValidatorRemoved(address indexed validator, uint256 blockNumber);
 
     /// @notice Emitted when revenue share is updated
     /// @param share The new revenue share percentage
@@ -154,7 +155,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param newRoot The new Merkle root.
     event SuperBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot);
 
-
     /// @notice Emitted when the active PPS Oracle's quorum requirement is updated
     /// @param quorum The new quorum value
     event PPSOracleQuorumUpdated(uint256 quorum);
@@ -176,7 +176,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Event emitted when manager takeovers are permanently frozen
     event ManagerTakeoversFrozen();
 
-
     /// @notice Emitted when an executor is added
     /// @param executor The address of the added executor
     event ExecutorAdded(address indexed executor);
@@ -184,7 +183,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when an executor is removed
     /// @param executor The address of the removed executor
     event ExecutorRemoved(address indexed executor);
-
 
     /// @notice Emitted when a change to upkeep payments status is proposed
     /// @param enabled The proposed status (enabled/disabled)
@@ -211,7 +209,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a superform manager is removed
     /// @param manager The address of the removed manager
     event SuperformManagerRemoved(address indexed manager);
-
 
     /// @notice Emitted when a protected keeper is registered
     /// @param keeper Address of the keeper being registered
@@ -266,7 +263,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param strategy Address of the strategy to affect
     /// @param vetoed Whether to veto (true) or unveto (false) the strategy hooks root
     function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external;
-
 
     /// @notice Sets the maximum staleness period for all oracle feeds
     /// @param newMaxStaleness The new maximum staleness period in seconds
@@ -360,6 +356,10 @@ interface ISuperGovernor is IAccessControl {
     /// @param validator The address of the validator to remove
     function removeValidator(address validator) external;
 
+    /// @notice Gets the latest validator config block number
+    /// @return The block number when validators were last added/removed
+    function getValidatorConfigVersion() external view returns (uint256);
+
     /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -435,7 +435,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external;
 
-
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
@@ -447,7 +446,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Executes a previously proposed Merkle root update for a specific hook if the effective time has passed.
     /// @param hook The address of the hook to execute the update for.
     function executeSuperBankHookMerkleRootUpdate(address hook) external;
-
 
     /*//////////////////////////////////////////////////////////////
                         EXTERNAL VIEW FUNCTIONS
@@ -479,17 +477,14 @@ interface ISuperGovernor is IAccessControl {
     /// @return True if manager takeovers are frozen, false otherwise
     function isManagerTakeoverFrozen() external view returns (bool);
 
-
     /// @notice Checks if a hook is registered
     /// @param hook The address of the hook to check
     /// @return True if the hook is registered, false otherwise
     function isHookRegistered(address hook) external view returns (bool);
 
-
     /// @notice Gets all registered hooks
     /// @return An array of registered hook addresses
     function getRegisteredHooks() external view returns (address[] memory);
-
 
     /// @notice Checks if an address is an approved validator
     /// @param validator The address to check
@@ -500,7 +495,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param guardian Address to check
     /// @return true if the address has the GUARDIAN_ROLE
     function isGuardian(address guardian) external view returns (bool);
-
 
     /// @notice Checks if an address is an approved executor
     /// @param executor The address to check

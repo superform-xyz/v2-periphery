@@ -46,6 +46,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
+    // Latest validator config block number (updated when validators are added/removed)
+    // it is used offchain for validator network to maintain sync between validators for config version to be used
+    uint256 private _latestValidatorConfigBlockNumber;
+
     // Executor registry
     EnumerableSet.AddressSet private _executors;
 
@@ -380,15 +384,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function addValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (validator == address(0)) revert INVALID_ADDRESS();
         if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
+        uint256 blockNumber = block.number;
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
 
-        emit ValidatorAdded(validator);
+        emit ValidatorAdded(validator, blockNumber);
     }
 
     /// @inheritdoc ISuperGovernor
     function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
+        uint256 blockNumber = block.number;
 
-        emit ValidatorRemoved(validator);
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
+
+        emit ValidatorRemoved(validator, blockNumber);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -671,6 +682,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function getValidatorConfigVersion() external view returns (uint256) {
+        return _latestValidatorConfigBlockNumber;
     }
 
     /// @inheritdoc ISuperGovernor

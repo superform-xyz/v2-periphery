@@ -402,7 +402,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ValidatorManagement_AddValidator() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorAdded(validator1);
+        emit ISuperGovernor.ValidatorAdded(validator1, block.timestamp);
         superGovernor.addValidator(validator1);
 
         assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
@@ -439,7 +439,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Remove validator
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorRemoved(validator1);
+        emit ISuperGovernor.ValidatorRemoved(validator1, block.timestamp);
         superGovernor.removeValidator(validator1);
 
         assertFalse(superGovernor.isValidator(validator1), "Validator should be removed");
