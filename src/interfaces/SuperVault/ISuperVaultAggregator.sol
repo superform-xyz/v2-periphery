@@ -79,6 +79,7 @@ interface ISuperVaultAggregator {
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
         uint256 maxUnpauseTimeLock;
+        uint256 lastUnpauseTimestamp; // Timestamp of last unpause (for skim timelock)
     }
 
     /// @notice Parameters for creating a new SuperVault trio
@@ -375,6 +376,10 @@ interface ISuperVaultAggregator {
         uint256 feeAmount,
         uint256 timestamp
     );
+
+    /// @notice Emitted when a PPS update is rejected because strategy is paused
+    /// @param strategy Address of the paused strategy
+    event PPSUpdateRejectedStrategyPaused(address indexed strategy);
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
@@ -702,6 +707,11 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @return isStale True if stale, false otherwise
     function isPPSStale(address strategy) external view returns (bool isStale);
+
+    /// @notice Gets the last unpause timestamp for a strategy
+    /// @param strategy Address of the strategy
+    /// @return timestamp Last unpause timestamp (0 if never unpaused)
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp);
 
     /// @notice Gets the current upkeep balance for a manager
     /// @param manager Address of the manager
