@@ -81,6 +81,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
+    // Timelock for parameter changes (3 days)
+    uint256 private constant _PARAMETER_CHANGE_TIMELOCK = 3 days;
+
     // Global hooks Merkle root data
     bytes32 private _globalHooksRoot;
     bytes32 private _proposedGlobalHooksRoot;
@@ -620,6 +623,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedHooksRoot = bytes32(0);
         _strategyData[strategy].hooksRootEffectiveTime = 0;
 
+        // SECURITY: Clear any pending minUpdateInterval proposals
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
         // SECURITY: Clear all secondary managers as they may be controlled by malicious manager
         // Get all secondary managers first to emit proper events
         address[] memory clearedSecondaryManagers = _strategyData[strategy].secondaryManagers.values();
@@ -812,6 +819,78 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         emit StrategyHooksRootVetoStatusChanged(strategy, vetoed, _strategyData[strategy].managerHooksRoot);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                 MIN UPDATE INTERVAL MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ISuperVaultAggregator
+    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval)
+        external
+        validStrategy(strategy)
+    {
+        // Only the main manager can propose changes
+        if (_strategyData[strategy].mainManager != msg.sender) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Validate: newMinUpdateInterval must be less than maxStaleness
+        // This ensures updates can occur before data becomes stale
+        if (newMinUpdateInterval >= _strategyData[strategy].maxStaleness) {
+            revert MIN_UPDATE_INTERVAL_TOO_HIGH();
+        }
+
+        // Set proposed interval with timelock
+        uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+        _strategyData[strategy].proposedMinUpdateInterval = newMinUpdateInterval;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = effectiveTime;
+
+        emit MinUpdateIntervalChangeProposed(strategy, msg.sender, newMinUpdateInterval, effectiveTime);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function executeMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
+            revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+        }
+
+        // Check if the timelock period has passed
+        if (block.timestamp < _strategyData[strategy].minUpdateIntervalEffectiveTime) {
+            revert TIMELOCK_NOT_EXPIRED();
+        }
+
+        uint256 newInterval = _strategyData[strategy].proposedMinUpdateInterval;
+        uint256 oldInterval = _strategyData[strategy].minUpdateInterval;
+
+        // Clear the proposal first
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        // Re-validate against current maxStaleness in case it changed
+        // If invalid, just clear the proposal (already done above) and return
+        // This allows the manager to try again with a valid value
+        if (newInterval >= _strategyData[strategy].maxStaleness) {
+            return;
+        }
+
+        // Update the minUpdateInterval
+        _strategyData[strategy].minUpdateInterval = newInterval;
+
+        emit MinUpdateIntervalChanged(strategy, oldInterval, newInterval);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getProposedMinUpdateInterval(address strategy)
+        external
+        view
+        returns (uint256 proposedInterval, uint256 effectiveTime)
+    {
+        return (
+            _strategyData[strategy].proposedMinUpdateInterval, _strategyData[strategy].minUpdateIntervalEffectiveTime
+        );
+    }
+
     /// @inheritdoc ISuperVaultAggregator
 
     function isGlobalHooksRootVetoed() external view returns (bool vetoed) {
@@ -1069,7 +1148,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param args Struct containing all parameters for PPS update
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
-        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
+        // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
+        uint256 minInterval = Math.min(
+            _strategyData[args.strategy].minUpdateInterval,
+            _strategyData[args.strategy].maxStaleness
+        );
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
 
         // Ensure timestamp is monotonically increasing to prevent out-of-order updates

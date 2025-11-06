@@ -79,6 +79,9 @@ interface ISuperVaultAggregator {
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
         uint256 maxUnpauseTimeLock;
+        // Min update interval proposal data
+        uint256 proposedMinUpdateInterval;
+        uint256 minUpdateIntervalEffectiveTime;
     }
 
     /// @notice Parameters for creating a new SuperVault trio
@@ -376,6 +379,28 @@ interface ISuperVaultAggregator {
         uint256 timestamp
     );
 
+    /// @notice Emitted when a change to minUpdateInterval is proposed
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the manager who made the proposal
+    /// @param newMinUpdateInterval The proposed new minimum update interval
+    /// @param effectiveTime Timestamp when the proposal can be executed
+    event MinUpdateIntervalChangeProposed(
+        address indexed strategy,
+        address indexed proposer,
+        uint256 newMinUpdateInterval,
+        uint256 effectiveTime
+    );
+
+    /// @notice Emitted when a minUpdateInterval change is executed
+    /// @param strategy Address of the strategy
+    /// @param oldMinUpdateInterval Previous minimum update interval
+    /// @param newMinUpdateInterval New minimum update interval
+    event MinUpdateIntervalChanged(
+        address indexed strategy,
+        uint256 oldMinUpdateInterval,
+        uint256 newMinUpdateInterval
+    );
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -461,6 +486,10 @@ interface ISuperVaultAggregator {
     error PPS_MUST_DECREASE_AFTER_SKIM();
     /// @notice PPS deduction is larger than the maximum allowed fee rate
     error PPS_DEDUCTION_TOO_LARGE();
+    /// @notice Thrown when no minUpdateInterval change proposal is pending
+    error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+    /// @notice Thrown when minUpdateInterval >= maxStaleness
+    error MIN_UPDATE_INTERVAL_TOO_HIGH();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -638,6 +667,30 @@ interface ISuperVaultAggregator {
     /// @param statuses Array of banned statuses (true = banned, false = allowed)
     /// @param strategy Address of the strategy to change banned leaves for
     function changeGlobalLeavesStatus(bytes32[] memory leaves, bool[] memory statuses, address strategy) external;
+
+    /*//////////////////////////////////////////////////////////////
+                 MIN UPDATE INTERVAL MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proposes a change to the minimum update interval for a strategy
+    /// @param strategy Address of the strategy
+    /// @param newMinUpdateInterval The proposed new minimum update interval (in seconds)
+    /// @dev Only the main manager can propose. Must be less than maxStaleness
+    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval) external;
+
+    /// @notice Executes a previously proposed minUpdateInterval change after timelock
+    /// @param strategy Address of the strategy whose minUpdateInterval to update
+    /// @dev Can be called by anyone after the timelock period has elapsed
+    function executeMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Gets the proposed minUpdateInterval and effective time
+    /// @param strategy Address of the strategy
+    /// @return proposedInterval The proposed minimum update interval
+    /// @return effectiveTime The timestamp when the proposed interval becomes effective
+    function getProposedMinUpdateInterval(address strategy)
+        external
+        view
+        returns (uint256 proposedInterval, uint256 effectiveTime);
 
     /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
