@@ -289,7 +289,7 @@ contract SuperOracleTest is PeripheryHelpers {
         for (uint256 i = 0; i < 24; i++) {
             providersToRemoveRevert[i] = bytes32(keccak256(abi.encodePacked(i)));
         }
-        vm.expectRevert(ISuperOracle.TOO_MANY_PROVIDER_REMOVALS.selector);
+        vm.expectRevert(ISuperOracle.TOO_MANY_PROVIDERS.selector);
         superOracle.queueProviderRemoval(providersToRemoveRevert);
 
         // First verify provider 3 exists
@@ -330,21 +330,6 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Average of provider 1 ($1100) and provider 2 ($1000)
         assertEq(quoteAmount, 1.05e6, "Average quote should be $1050 after removal");
-    }
-
-    function test_CancelProviderRemoval() public {
-        bytes32[] memory providersToRemove = new bytes32[](1);
-        providersToRemove[0] = PROVIDER_3;
-
-        // Queue provider removal
-        superOracle.queueProviderRemoval(providersToRemove);
-
-        // Cancel the provider removal
-        superOracle.cancelProviderRemoval();
-
-        // Verify the provider removal was cancelled
-        bytes32[] memory activeProviders = superOracle.getActiveProviders();
-        assertEq(activeProviders.length, 3, "Should still have 3 active providers");
     }
 
     /*//////////////////////////////////////////////////////////////

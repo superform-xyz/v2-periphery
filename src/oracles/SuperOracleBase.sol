@@ -177,20 +177,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         uint256 length = providers.length;
         if (length == 0) revert ZERO_ARRAY_LENGTH();
 
-        if (length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDER_REMOVALS();
+        if (length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDERS();
 
         pendingRemoval = PendingRemoval({ providers: providers, timestamp: block.timestamp });
 
         emit ProviderRemovalQueued(providers, block.timestamp);
-    }
-
-    /// @inheritdoc ISuperOracle
-    function cancelProviderRemoval() external {
-        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
-        
-        delete pendingRemoval;
-        emit ProviderRemovalCancelled();
     }
 
     /// @inheritdoc ISuperOracle
@@ -511,6 +502,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             }
 
             if (!providerExists) {
+                if (activeProviders.length >= MAX_SAMPLE_PROVIDERS) {
+                    revert TOO_MANY_PROVIDERS();
+                }
                 activeProviders.push(provider);
                 isProviderSet[provider] = true;
             }

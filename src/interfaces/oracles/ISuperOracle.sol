@@ -56,8 +56,8 @@ interface ISuperOracle {
     /// @notice Error when provider is zero
     error ZERO_PROVIDER();
 
-    /// @notice Error when too many providers are being removed
-    error TOO_MANY_PROVIDER_REMOVALS();
+    /// @notice Error when too many providers are being iterated through
+    error TOO_MANY_PROVIDERS();
 
     /// @notice Error when caller is not authorized to update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -177,9 +177,6 @@ interface ISuperOracle {
         address[] calldata feeds
     )
         external;
-
-    /// @notice Cancel queued provider removal
-    function cancelProviderRemoval() external;
 
     /// @notice Execute queued oracle update after timelock period
     function executeOracleUpdate() external;
