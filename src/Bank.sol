@@ -7,7 +7,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 // Superform
 import { IHookExecutionData } from "./interfaces/IHookExecutionData.sol";
-import { ISuperHook, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { ISuperHook, ISuperHookInspector, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 abstract contract Bank is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
@@ -15,7 +15,9 @@ abstract contract Bank is ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
     error INVALID_HOOK();
     error INVALID_MERKLE_PROOF();
+    error HOOK_VALIDATION_FAILED();
     error HOOK_EXECUTION_FAILED();
+    error HOOK_NOT_REGISTERED();
     error ZERO_LENGTH_ARRAY();
     error INVALID_ARRAY_LENGTH();
 
@@ -27,10 +29,21 @@ abstract contract Bank is ReentrancyGuard {
     /// @param data The data passed to each hook.
     event HooksExecuted(address[] hooks, bytes[] data);
 
+    /// @notice Emitted when hook validation fails.
+    /// @param hook The hook address that failed validation.
+    /// @param leaf The calculated leaf hash for the hook configuration.
+    /// @param root The Merkle root used for validation.
+    event HookValidationFailed(address indexed hook, bytes32 leaf, bytes32 root);
+
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     function _getMerkleRootForHook(address hookAddress) internal view virtual returns (bytes32);
+
+    /// @notice Checks if a hook is registered.
+    /// @param hookAddress The hook address to check.
+    /// @return registered True if the hook is registered.
+    function _isHookRegistered(address hookAddress) internal view virtual returns (bool);
 
     function _executeHooks(IHookExecutionData.HookExecutionData calldata executionData) internal virtual nonReentrant {
         uint256 hooksLength = executionData.hooks.length;
@@ -49,7 +62,6 @@ abstract contract Bank is ReentrancyGuard {
         bytes32 merkleRoot;
         Execution[] memory executions;
         Execution memory executionStep;
-        bytes32 targetLeaf;
         bool success;
 
         for (uint256 i; i < hooksLength; i++) {
@@ -59,47 +71,46 @@ abstract contract Bank is ReentrancyGuard {
 
             hook = ISuperHook(hookAddress);
 
-            // 1. Get the Merkle root specific to this hook
+            // 1. Verify hook is registered
+            if (!_isHookRegistered(hookAddress)) revert HOOK_NOT_REGISTERED();
+
+            // 2. Get the Merkle root specific to this hook
             merkleRoot = _getMerkleRootForHook(hookAddress);
 
+            // 3. VALIDATE HOOK CONFIGURATION
+            if (!_validateHookConfiguration(hookAddress, hookData, merkleProof, merkleRoot)) {
+                emit HookValidationFailed(hookAddress, _createHookLeaf(hookAddress, hookData), merkleRoot);
+                revert HOOK_VALIDATION_FAILED();
+            }
+
+            // 4. Set execution context
             ISuperHook(hookAddress).setExecutionContext(address(this));
 
-            // 2. Build Execution Steps
+            // 5. Build Execution Steps
             executions = hook.build(prevHook, address(this), hookData);
 
-            // 3. Execute Target Calls and verify each target
-            for (uint256 j; j < executions.length; ++j) {
-                executionStep = executions[j];
+            uint256 len = executions.length;
 
-                // valid hooks encapsulate execution between a `.preExecute` and ` .postExecute`
-                // target for preExecute and postExecute is the hook address
-                // keep the original behavior for validating the tree against the actual execution steps
-                if (executionStep.target != hookAddress) {
-                    // Verify that this target is allowed for this hook using the Merkle proof
-                    // The leaf is the hash of the target address
-                    targetLeaf = keccak256(bytes.concat(keccak256(abi.encodePacked(executionStep.target))));
-                    // Verify this target is allowed using the corresponding Merkle proof
-                    if (!MerkleProof.verify(merkleProof, merkleRoot, targetLeaf)) {
-                        revert INVALID_MERKLE_PROOF();
-                    }
-                }
+            // 6. Execute all steps (no per-target validation needed)
+            for (uint256 j; j < len; ++j) {
+                executionStep = executions[j];
 
                 uint256 valueToSend = executionStep.value;
                 address targetToCall = executionStep.target;
                 bytes memory callData = executionStep.callData;
-                // Execute the call after verification
+
+                // Execute the call
                 // We call via assembly to avoid memcopying the returndata
                 assembly {
-                    success :=
-                        call(
-                            gas(), // gas
-                            targetToCall, // recipient
-                            valueToSend, // ether value
-                            add(callData, 0x20), // inloc
-                            mload(callData), // inlen
-                            0, // outloc
-                            0 // outlen
-                        )
+                    success := call(
+                        gas(), // gas
+                        targetToCall, // recipient
+                        valueToSend, // ether value
+                        add(callData, 0x20), // inloc
+                        mload(callData), // inlen
+                        0, // outloc
+                        0 // outlen
+                    )
                 }
 
                 if (!success) {
@@ -107,12 +118,69 @@ abstract contract Bank is ReentrancyGuard {
                 }
             }
 
-            // Reset execution state after each hook
+            // 7. Reset execution state after each hook
             ISuperHook(hookAddress).resetExecutionState(address(this));
 
             prevHook = hookAddress;
         }
 
         emit HooksExecuted(executionData.hooks, executionData.data);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Validates a hook configuration using Merkle proof.
+    /// @dev Validates the hook configuration (hook address + arguments from inspect()) instead of individual targets.
+    /// @param hookAddress Address of the hook contract.
+    /// @param hookData Calldata to pass to the hook.
+    /// @param proof Merkle proof for this hook configuration.
+    /// @param root Merkle root to verify against.
+    /// @return valid True if the hook configuration is approved.
+    function _validateHookConfiguration(
+        address hookAddress,
+        bytes memory hookData,
+        bytes32[] memory proof,
+        bytes32 root
+    )
+        private
+        view
+        returns (bool valid)
+    {
+        // If root is not set, reject
+        if (root == bytes32(0)) return false;
+
+        // Extract hook arguments using inspect()
+        bytes memory hookArgs;
+        try ISuperHookInspector(hookAddress).inspect(hookData) returns (bytes memory args) {
+            hookArgs = args;
+        } catch {
+            // If hook doesn't implement ISuperHookInspector or inspect() fails, reject
+            return false;
+        }
+
+        // Reject hooks with no address parameters (empty args)
+        if (hookArgs.length == 0) return false;
+
+        // Create leaf: keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))))
+        bytes32 leaf = _createHookLeaf(hookAddress, hookArgs);
+
+        // For single-leaf trees, empty proof is valid when root equals leaf
+        if (proof.length == 0) {
+            return root == leaf;
+        }
+
+        // Verify Merkle proof
+        return MerkleProof.verify(proof, root, leaf);
+    }
+
+    /// @notice Creates a Merkle leaf for a hook configuration.
+    /// @dev Matches StandardMerkleTree.of() leaf hashing: keccak256(bytes.concat(keccak256(abi.encode(...))))
+    /// @param hookAddress Address of the hook contract.
+    /// @param hookArgs Encoded arguments from inspect().
+    /// @return leaf The Merkle leaf hash.
+    function _createHookLeaf(address hookAddress, bytes memory hookArgs) private pure returns (bytes32 leaf) {
+        return keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))));
     }
 }
