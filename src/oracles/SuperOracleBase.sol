@@ -355,13 +355,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
 
             // Calculate quote amount with proper decimal scaling
             quoteAmount = Math.mulDiv(
-                Math.mulDiv(
-                    baseAmount,
-                    uint256(answer),
-                    10 ** feedDecimals
-                ),
-                10 ** quoteDecimals,
-                10 ** baseDecimals
+                baseAmount,
+                uint256(answer) * 10 ** quoteDecimals,
+                10 ** (feedDecimals + baseDecimals)
             );
         } catch {
             // Require that enough gas was provided to prevent an OOG revert
