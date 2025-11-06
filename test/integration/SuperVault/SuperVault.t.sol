@@ -24,7 +24,7 @@ import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuper
 import { IERC7540Redeem, IERC7540Operator, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
-import { IGearboxFarmingPool } from "../../../src/vendor/gearbox/IGearboxFarmingPool.sol";
+import { IGearboxFarmingPool } from "../../vendor/gearbox/IGearboxFarmingPool.sol";
 import { ISuperExecutor } from "@superform-v2-core/src/interfaces/ISuperExecutor.sol";
 import { AccountInstance, UserOpData } from "modulekit/ModuleKit.sol";
 import { Mock4626Vault } from "../../mocks/Mock4626Vault.sol";

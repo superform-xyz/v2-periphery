@@ -2545,8 +2545,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.slashStake(manager, 0);
     }
 
-    /// @notice Tests slashing reverts with insufficient stake balance
-    function test_SlashStake_RevertInsufficientStake() public {
+    /// @notice Tests slashing takes minimum when requested amount exceeds balance
+    function test_SlashStake_PartialSlashWhenInsufficient() public {
         uint256 stakeAmount = 500e18;
         uint256 slashAmount = 1000e18;
 
@@ -2557,16 +2557,29 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
 
-        // Try to slash more than available
+        // Get SuperBank balance before
+        address superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
+
+        // Try to slash more than available - should slash only what's available
         vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StakeSlashed(manager, stakeAmount); // Only stakeAmount is slashed
         superVaultAggregator.slashStake(manager, slashAmount);
+
+        // Verify only available amount was slashed
+        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
+        assertEq(
+            IERC20(upToken).balanceOf(superBank),
+            superBankBalanceBefore + stakeAmount,
+            "SuperBank should receive available amount"
+        );
     }
 
     /// @notice Tests slashing reverts when no stake deposited
     function test_SlashStake_RevertNoStake() public {
         vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superVaultAggregator.slashStake(manager, 100e18);
     }
 
