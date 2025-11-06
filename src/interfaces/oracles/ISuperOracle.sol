@@ -110,6 +110,10 @@ interface ISuperOracle {
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
 
+    /// @notice Emitted when provider removal is cancelled
+    /// @param providers Array of provider ids that were queued for removal
+    event ProviderRemovalCancelled(bytes32[] providers);
+
     /// @notice Emitted when emergency price is updated
     /// @param token Token address
     /// @param price Emergency price
@@ -182,6 +186,9 @@ interface ISuperOracle {
 
     /// @notice Execute queued provider removal after timelock period
     function executeProviderRemoval() external;
+
+    /// @notice Cancel queued provider removal
+    function cancelProviderRemoval() external;
 
     /// @notice Set the maximum staleness period for a specific provider
     /// @param feed Feed address

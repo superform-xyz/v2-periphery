@@ -366,7 +366,7 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 ### External Dependencies
 
 **ERC4626 Compliance:**
-- **Standard Deviation**: SuperVault deviates from standard ERC4626 for async redeems by using ERC7540 for redemptions
+- **Standard Deviation**: SuperVault deviates from standard ERC4626 for async redeems by using ERC7540 for redemptions. Also, pause state doesn't affect claims in 7540 operations
 - **Preview Functions**: `previewWithdraw` and `previewRedeem` intentionally unimplemented
 - **Rounding Direction**: Follows ERC4626 rounding conventions where applicable
 

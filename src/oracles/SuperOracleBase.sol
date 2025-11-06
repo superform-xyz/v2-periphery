@@ -38,8 +38,10 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     bytes32[] public activeProviders;
     mapping(bytes32 provider => bool isSet) public isProviderSet;
 
-    /// @notice Timelock period for oracle updates
+    /// @notice Timelock period for oracle updates (adding new feeds)
     uint256 internal constant TIMELOCK_PERIOD = 1 weeks;
+    /// @notice Timelock period for provider removal
+    uint256 internal constant REMOVAL_TIMELOCK_PERIOD = 1 hours;
     uint256 internal constant MAX_SAMPLE_PROVIDERS = 10;
     bytes32 internal constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
@@ -186,7 +188,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
         
         if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
-        if (block.timestamp < pendingRemoval.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
+        if (block.timestamp < pendingRemoval.timestamp + REMOVAL_TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
         bytes32[] memory providersToRemove = pendingRemoval.providers;
 
@@ -213,6 +215,19 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         emit ProviderRemovalExecuted(providersToRemove);
 
         delete pendingRemoval;
+    }
+
+    /// @inheritdoc ISuperOracle
+    function cancelProviderRemoval() external {
+        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        
+        if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
+
+        bytes32[] memory cancelledProviders = pendingRemoval.providers;
+
+        delete pendingRemoval;
+
+        emit ProviderRemovalCancelled(cancelledProviders);
     }
 
     /// @inheritdoc ISuperOracle
@@ -244,6 +259,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             availableProviders = count;
             deviation = _calculateStdDev(validQuotes, count);
         } else {
+            if (!isProviderSet[oracleProvider]) revert ORACLE_UNTRUSTED_DATA();
+            
             quoteAmount = _getQuoteFromOracle(oracles[base][quote][oracleProvider], baseAmount, base, quote, true);
             deviation = 0;
             totalProviders = 1;
