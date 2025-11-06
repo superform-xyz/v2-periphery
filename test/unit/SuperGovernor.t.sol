@@ -218,12 +218,20 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.getAddress(keccak256("NON_EXISTENT"));
     }
 
+    // =============================================================
+    // Getters Tests
+    // =============================================================
     function test_RoleGetters() public view {
         assertEq(superGovernor.SUPER_GOVERNOR_ROLE(), keccak256("SUPER_GOVERNOR_ROLE"));
         assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
         assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
         assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
         assertEq(superGovernor.UNPAUSER_ROLE(), keccak256("UNPAUSER_ROLE"));
+    }
+
+    function test_IsGuardian() public view {
+        assertTrue(superGovernor.isGuardian(governor), "SuperGovernor should be a guardian");
+        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
     // =============================================================
