@@ -295,8 +295,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.deposit(depositAmount, accountEth);
         vm.stopPrank();
 
-        // Unpause the strategy (only UNPAUSER_ROLE can unpause)
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(strategy));
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 1 weeks);
         _updateSuperVaultPPS(address(strategy), address(vault));
@@ -7756,9 +7757,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 t1 = t0 + 20 hours;
         vm.warp(t1);
 
-        // Unpause the strategy (using the contract deployer who has UNPAUSER_ROLE)
-        vm.prank(address(this));
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
+        vm.stopPrank();
 
         // Verify strategy is unpaused but PPS is stale
         assertFalse(aggregator.isStrategyPaused(address(testStrategy)), "Strategy should be unpaused");
@@ -9084,8 +9085,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         MockEmergencyVault(vars.emergencyVault)
             .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
-
+            
+        vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
+        vm.stopPrank();
 
         // Update thresholds to disable deviation and validator participation checks
         // This allows emergency PPS update to restore the strategy to a known state
@@ -9188,7 +9191,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 /* feePercent */
     )
         internal
-        view
+        pure
     {
         if (expectedTotalFee == 0) return;
 
@@ -9276,8 +9279,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Use direct vault.withdraw instead of complex hooks
         vm.prank(accountEth);
-        uint256 assetsWithdrawn = vault.withdraw(claimableAssets, accountEth, accountEth);
-
+        vault.withdraw(claimableAssets, accountEth, accountEth);
+        
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
 
         // User should get full theoretical amount (no fee deduction in redemption)
@@ -9647,7 +9650,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Claim the assets using maxRedeem to get the correct amount
-        uint256 maxRedeemAmount = vault.maxRedeem(accountEth);
         uint256 maxWithdrawAmount = vault.maxWithdraw(accountEth);
 
         // Use withdraw with the maxWithdraw amount
@@ -10030,8 +10032,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
             deal(address(asset), address(strategy), expectedFee);
             _updateSuperVaultPPS(address(strategy), address(vault));
         }
-
-        uint256 oldPPS = aggregator.getPPS(address(strategy));
 
         // Expect PPSUpdatedAfterSkim event
         vm.expectEmit(true, false, false, false);

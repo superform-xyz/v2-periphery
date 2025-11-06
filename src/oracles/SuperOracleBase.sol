@@ -41,8 +41,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Timelock period for oracle updates (adding new feeds)
     uint256 internal constant TIMELOCK_PERIOD = 1 weeks;
     /// @notice Timelock period for provider removal
+    /// @dev Removing feeds has a short timelock so that corrupted or malicious feeds causing overflow / PPS update failures
+    ///         can be quickly disabled, avoiding prolonged DoS on SuperAsset deposits.
     uint256 internal constant REMOVAL_TIMELOCK_PERIOD = 1 hours;
     uint256 internal constant MAX_SAMPLE_PROVIDERS = 10;
+    uint256 internal constant MAX_PROVIDER_REMOVALS = 20;
     bytes32 internal constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // SuperGovernor address
@@ -177,6 +180,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
 
         uint256 length = providers.length;
         if (length == 0) revert ZERO_ARRAY_LENGTH();
+
+        if (length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDERS();
 
         pendingRemoval = PendingRemoval({ providers: providers, timestamp: block.timestamp });
 
@@ -513,6 +518,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             // Update activeProviders array - add provider if not already present
             bool providerExists = isProviderSet[provider];
             if (!providerExists) {
+                if (activeProviders.length >= MAX_SAMPLE_PROVIDERS) {
+                    revert TOO_MANY_PROVIDERS();
+                }
                 activeProviders.push(provider);
                 isProviderSet[provider] = true;
             }

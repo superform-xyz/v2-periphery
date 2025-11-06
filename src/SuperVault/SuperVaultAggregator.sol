@@ -394,8 +394,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only addresses with UNPAUSER_ROLE (via SuperGovernor) can unpause; unpausing marks PPS stale until a fresh oracle update
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Allow only the UNPAUSER_ROLE to unpause
-        if (!_isUnpauser(msg.sender)) {
+        if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
@@ -517,40 +516,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        AUTHORIZED CALLER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperVaultAggregator
-    function addAuthorizedCaller(address strategy, address caller) external validStrategy(strategy) {
-        // Either primary or secondary manager can add authorized callers
-        if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        if (caller == address(0)) revert ZERO_ADDRESS();
-
-        // Prevent managers from adding protected keepers to circumvent fees
-        if (SUPER_GOVERNOR.isProtectedKeeper(caller)) {
-            revert CANNOT_ADD_PROTECTED_KEEPER();
-        }
-
-        // Check if caller is already authorized and add if not
-        if (!_strategyData[strategy].authorizedCallers.add(caller)) {
-            revert CALLER_ALREADY_AUTHORIZED();
-        }
-        emit AuthorizedCallerAdded(strategy, caller);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function removeAuthorizedCaller(address strategy, address caller) external validStrategy(strategy) {
-        // Either primary or secondary manager can remove authorized callers
-        if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        // Remove the caller
-        if (!_strategyData[strategy].authorizedCallers.remove(caller)) {
-            revert CALLER_NOT_AUTHORIZED();
-        }
-        emit AuthorizedCallerRemoved(strategy, caller);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
@@ -564,7 +529,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -937,11 +902,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function getAuthorizedCallers(address strategy) external view returns (address[] memory callers) {
-        return _strategyData[strategy].authorizedCallers.values();
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
     function getMainManager(address strategy) external view returns (address manager) {
         return _strategyData[strategy].mainManager;
     }
@@ -1264,9 +1224,5 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
      */
     function _getSuperBank() internal view returns (address) {
         return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_BANK());
-    }
-
-    function _isUnpauser(address account) internal view returns (bool) {
-        return IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
     }
 }

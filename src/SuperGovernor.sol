@@ -46,9 +46,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
-    // Protected keepers registry (cannot be added as authorized callers by managers)
-    EnumerableSet.AddressSet private _protectedKeepers;
-
     // Executor registry
     EnumerableSet.AddressSet private _executors;
 
@@ -93,7 +90,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
     bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
-    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -117,7 +113,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE
-    /// @param unpauser Address that will have the UNPAUSER_ROLE
     /// @param treasury_ Address of the treasury
     /// @param prover_ Address of the prover
     constructor(
@@ -125,13 +120,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address governor,
         address bankManager,
         address gasManager,
-        address unpauser,
         address treasury_,
         address prover_
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) 
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -141,7 +135,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -151,7 +144,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
         _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
@@ -671,11 +663,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function UNPAUSER_ROLE() external pure returns (bytes32) {
-        return _UNPAUSER_ROLE;
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getAddress(bytes32 key) external view returns (address) {
         address value = _addressRegistry[key];
         if (value == address(0)) revert CONTRACT_NOT_FOUND();
@@ -847,38 +834,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getSuperformManagersCount() external view returns (uint256) {
         return _superformManagers.length();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function registerProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (keeper == address(0)) revert INVALID_ADDRESS();
-        if (_protectedKeepers.contains(keeper)) revert KEEPER_ALREADY_REGISTERED();
-
-        _protectedKeepers.add(keeper);
-        emit ProtectedKeeperRegistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function unregisterProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_protectedKeepers.contains(keeper)) revert KEEPER_NOT_REGISTERED();
-
-        _protectedKeepers.remove(keeper);
-        emit ProtectedKeeperUnregistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function isProtectedKeeper(address keeper) external view returns (bool) {
-        return _protectedKeepers.contains(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepers() external view returns (address[] memory) {
-        return _protectedKeepers.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepersCount() external view returns (uint256) {
-        return _protectedKeepers.length();
     }
 
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
