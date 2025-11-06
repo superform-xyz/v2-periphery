@@ -1144,7 +1144,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // C2) M/N Check: Check if enough validators participated
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = (args.validatorSet * 1e18) / args.totalValidators;
+            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
             if (participationRate < _strategyData[args.strategy].mnThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");
