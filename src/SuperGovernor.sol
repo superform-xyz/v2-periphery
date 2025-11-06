@@ -45,9 +45,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Validator registry
     EnumerableSet.AddressSet private _validators;
-
-    // Validator config version (incremented when validators are added/removed)
-    uint256 private _validatorConfigVersion;
+    
+    // Latest validator config block number (updated when validators are added/removed)
+    uint256 private _latestValidatorConfigBlockNumber;
 
     // Protected keepers registry (cannot be added as authorized callers by managers)
     EnumerableSet.AddressSet private _protectedKeepers;
@@ -399,8 +399,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (validator == address(0)) revert INVALID_ADDRESS();
         if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
 
-        // Increment validator config version
-        _validatorConfigVersion++;
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = block.number;
 
         emit ValidatorAdded(validator);
     }
@@ -409,8 +409,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
 
-        // Increment validator config version
-        _validatorConfigVersion++;
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = block.number;
 
         emit ValidatorRemoved(validator);
     }
@@ -710,7 +710,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getValidatorConfigVersion() external view returns (uint256) {
-        return _validatorConfigVersion;
+        return _latestValidatorConfigBlockNumber;
     }
 
     /// @inheritdoc ISuperGovernor

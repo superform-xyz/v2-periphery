@@ -360,8 +360,8 @@ interface ISuperGovernor is IAccessControl {
     /// @param validator The address of the validator to remove
     function removeValidator(address validator) external;
 
-    /// @notice Gets the current validator config version
-    /// @return The current validator config version (incremented when validators are added/removed)
+    /// @notice Gets the latest validator config block number
+    /// @return The block number when validators were last added/removed
     function getValidatorConfigVersion() external view returns (uint256);
 
     /*//////////////////////////////////////////////////////////////
