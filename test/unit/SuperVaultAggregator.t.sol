@@ -1797,7 +1797,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify only available amount was slashed
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
         assertEq(
-            IERC20(upToken).balanceOf(_superBank),
+            IERC20(upToken).balanceOf(superBank),
             superBankBalanceBefore + stakeAmount,
             "SuperBank should receive available amount"
         );
