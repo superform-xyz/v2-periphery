@@ -260,8 +260,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             deviation = _calculateStdDev(validQuotes, count);
         } else {
             if (!isProviderSet[oracleProvider]) revert ORACLE_UNTRUSTED_DATA();
-            
-            quoteAmount = _getQuoteFromOracle(oracles[base][quote][oracleProvider], baseAmount, base, quote, true);
+            address _oracle = oracles[base][quote][oracleProvider];
+            if (_oracle == address(0)) revert NO_ORACLES_CONFIGURED();
+            quoteAmount = _getQuoteFromOracle(_oracle, baseAmount, base, quote, true);
             deviation = 0;
             totalProviders = 1;
             availableProviders = 1;
