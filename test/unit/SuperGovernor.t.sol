@@ -226,7 +226,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
         assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
         assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
-        assertEq(superGovernor.UNPAUSER_ROLE(), keccak256("UNPAUSER_ROLE"));
     }
 
     function test_IsGuardian() public view {
