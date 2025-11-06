@@ -101,7 +101,7 @@ contract VaultBankFromExecutor is
         deposit4626Hook = address(new Deposit4626VaultHook());
         mintSuperPositionsHook = address(new MintSuperPositionsHook());
 
-        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this), address(this));
+        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this));
         superRegistry = new SuperRegistry(address(superGovernor), address(this), address(this));
         superGovernor.addExecutor(address(superExecutor));
         vaultBank = new VaultBank(address(superGovernor), address(superRegistry));

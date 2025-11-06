@@ -66,7 +66,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -2265,8 +2265,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(isPaused, "Strategy should be paused after invalid update");
 
         // Now unpause the strategy by pranking as the main manager
-        vm.startPrank(governor);
+        vm.startPrank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
 
         // Verify strategy is unpaused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
@@ -2355,7 +2356,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should still be paused");
 
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify strategy is unpaused
