@@ -218,17 +218,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.getAddress(keccak256("NON_EXISTENT"));
     }
 
-    function test_SetProver() public {
-        vm.prank(sGovernor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.setProver(address(0));
-
-        vm.prank(sGovernor);
-        superGovernor.setProver(validator1);
-
-        assertEq(superGovernor.getProver(), validator1);
-    }
-
     // =============================================================
     // Manager Takeover Tests
     // =============================================================

@@ -2558,7 +2558,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Get SuperBank balance before
-        address superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
         uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
 
         // Try to slash more than available - should slash only what's available
