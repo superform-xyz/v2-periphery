@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/IAccessControl.sol";
 /// @notice Enum representing different types of fees that can be managed
 enum FeeType {
     REVENUE_SHARE,
-    SUPER_VAULT_PERFORMANCE_FEE
+    PERFORMANCE_FEE_SHARE
 }
 /// @title ISuperGovernor
 /// @author Superform Labs

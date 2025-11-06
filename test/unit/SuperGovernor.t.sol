@@ -75,7 +75,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -86,23 +86,22 @@ contract SuperGovernorTest is PeripheryHelpers {
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
         aggregator = SuperVaultAggregator(superVaultAggregator);
 
-        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: address(this),
-                secondaryManagers: new address[](0),
-                name: "SUP",
-                symbol: "SUP",
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
-            })
-        );
+        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator)
+            .createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    mainManager: address(this),
+                    secondaryManagers: new address[](0),
+                    name: "SUP",
+                    symbol: "SUP",
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                    }),
+                    maxUnpauseTimeLock: 0
+                })
+            );
         strategy1 = strategy;
 
         vm.startPrank(sGovernor);
@@ -127,19 +126,21 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, treasury, address(this));
+
+        new SuperGovernor(sGovernor, address(0), governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, address(0), address(this));
+
+        new SuperGovernor(sGovernor, governor, governor, governor, address(0));
     }
 
     // =============================================================
@@ -287,7 +288,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
     }
 
-
     /// @notice Tests reverting when registering a hook with zero address
     function test_HookManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
@@ -344,7 +344,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be unregistered");
     }
 
-
     /// @notice Tests the fix for the dangerous hook registration behavior where sets can get out of sync
     function test_HookManagement_FixedInvariantMaintenance() public {
         // Test case 1: Register a hook in regular set, then try to register it as fulfill request hook
@@ -394,7 +393,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook1 || hooks[1] == hook1, "hook1 should be in the list");
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
-
 
     // =============================================================
     // Validator Management Tests
@@ -841,9 +839,8 @@ contract SuperGovernorTest is PeripheryHelpers {
             sGovernor,
             governor,
             governor, // bankManager (using governor as valid address)
-            governor, // gasManager (using governor as valid address)
-            treasury,
-            governor // prover (using governor as valid address)
+            governor, // gasManager (using governor as valid address)s
+            treasury
         );
 
         vm.prank(governor);
