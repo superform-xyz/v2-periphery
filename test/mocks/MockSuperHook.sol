@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { Execution, ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 /// @notice Mock SuperHook implementation for testing
-contract MockSuperHook {
+contract MockSuperHook is ISuperHookInspector {
     // Events for testing
     event PreExecuteCalled(address prevHook, address sender, bytes data);
     event PostExecuteCalled(address prevHook, address sender, bytes data);
@@ -61,5 +61,11 @@ contract MockSuperHook {
 
     function setExecutionContext(address _caller) external {
         caller = _caller;
+    }
+
+    /// @notice Inspect implementation - returns the target address as encoded args
+    function inspect(bytes calldata) external view returns (bytes memory) {
+        // Return the target address as the only "argument"
+        return abi.encodePacked(targetToReturn);
     }
 }
