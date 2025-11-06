@@ -241,8 +241,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // ===== VALIDATION PHASE =====
         require(configuration.treasury != address(0), "TREASURY_ADDRESS_ZERO");
         require(configuration.owner != address(0), "OWNER_ADDRESS_ZERO");
-        require(configuration.validator != address(0), "VALIDATOR_ADDRESS_ZERO");
-        require(configuration.polymerProvers[chainId] != address(0), "POLYMER_PROVER_ADDRESS_ZERO");
+        require(validators.length > 0, "NO_VALIDATORS_CONFIGURED");
 
         console2.log("All periphery dependencies validated successfully");
 
@@ -259,8 +258,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     configuration.owner,
                     configuration.owner,
                     configuration.owner,
-                    configuration.treasury,
-                    configuration.polymerProvers[chainId]
+                    configuration.treasury
                 )
             )
         );
@@ -332,9 +330,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     {
         console2.log("Configuring core periphery contracts...");
 
-        // Configure SuperGovernor with oracle and validator
+        // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
-        SuperGovernor(peripheryContracts.superGovernor).addValidator(configuration.validator);
+
+        // Add all configured validators
+        for (uint256 i = 0; i < validators.length; i++) {
+            SuperGovernor(peripheryContracts.superGovernor).addValidator(validators[i]);
+            console2.log("Added validator:", validators[i]);
+        }
 
         // Configure SuperGovernor with aggregator
         SuperGovernor(peripheryContracts.superGovernor).setAddress(

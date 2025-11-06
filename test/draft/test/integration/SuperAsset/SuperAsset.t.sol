@@ -106,8 +106,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
             admin, // bankManager role
             admin, // gasManager role
             admin, // unpauser role
-            makeAddr("treasury"), // treasury
-            makeAddr("prover") // prover
+            makeAddr("treasury") // treasury
         );
         console.log("SuperGovernor deployed");
 

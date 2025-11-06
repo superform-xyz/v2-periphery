@@ -111,14 +111,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         for (uint256 i = 0; i < chainIds.length; ++i) {
             vm.selectFork(FORKS[chainIds[i]]);
 
-            // Use 0xDEAD as placeholder for chains where Polymer prover is not available
-            address proverAddress = POLYMER_PROVER[chainIds[i]];
-            if (proverAddress == address(0)) {
-                proverAddress = address(0xDEAD);
-            }
-
             PA[i].superGovernor =
-                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), address(this), TREASURY, proverAddress);
+                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), address(this), TREASURY);
             vm.label(address(PA[i].superGovernor), SUPER_GOVERNOR_KEY);
             contractAddresses[chainIds[i]][SUPER_GOVERNOR_KEY] = address(PA[i].superGovernor);
 

@@ -103,8 +103,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 public constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
     // Fee constants
-    uint256 public constant REVENUE_SHARE = 2000; // 20% revenue share
-    uint256 public constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
+    uint256 public constant REVENUE_SHARE = 0; // 0% starting revenue share to sUP
+    uint256 public constant PERFORMANCE_FEE_SHARE = 5000; // 50% protocol share of manager's performance fee
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -114,19 +114,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param treasury_ Address of the treasury
-    /// @param prover_ Address of the prover
     constructor(
         address superGovernor,
         address governor,
         address bankManager,
         address gasManager,
         address unpauser,
-        address treasury_,
-        address prover_
+        address treasury_
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
+                || bankManager == address(0) || gasManager == address(0) || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -149,10 +147,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
+        _feeValues[FeeType.PERFORMANCE_FEE_SHARE] = PERFORMANCE_FEE_SHARE; // 50% protocol fee share
         emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
+        emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
         // Set treasury in address registry
         _addressRegistry[TREASURY] = treasury_;
@@ -456,13 +454,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function executeOracleProviderRemoval()
-        external
-        onlyRole(_ORACLE_MANAGER_ROLE)
-    {
+    function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
- 
+
         ISuperOracle(oracle).executeProviderRemoval();
     }
 
@@ -862,12 +857,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            1e18, // 1 UP token (18 decimals)
-            upToken,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+            .getQuoteFromProvider(
+                1e18, // 1 UP token (18 decimals)
+                upToken,
+                USD_TOKEN,
+                AVERAGE_PROVIDER
+            );
 
         // Calculate required UP tokens
         // usdAmount / upPerUsd = required UP tokens

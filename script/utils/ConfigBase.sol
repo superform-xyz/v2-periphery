@@ -15,11 +15,13 @@ abstract contract ConfigBase is Constants {
         address deployer;
         address owner;
         address treasury;
-        address validator;
         mapping(uint64 chainId => address polymerProver) polymerProvers;
     }
 
     EnvironmentData public configuration;
+
+    /// @notice Array of validator addresses
+    address[] public validators;
 
     mapping(uint64 chainId => string chainName) internal chainNames;
     bytes internal SALT_NAMESPACE;
@@ -51,17 +53,22 @@ abstract contract ConfigBase is Constants {
         chainNames[BNB_CHAIN_ID] = BNB_KEY;
 
         // ===== COMMON CONFIGURATION =====
-        // TODO: think of making addresses as constant
         if (env == 0 || env == 2) {
             // Production environment
             configuration.owner = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
             configuration.treasury = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
-            configuration.validator = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
+
+            // Set validator addresses
+            validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
+            validators.push(0x33E69B6b8342882274c03Bcdc8a1873c6DA52573);
         } else {
             // Test environment
             configuration.owner = TEST_DEPLOYER;
-            configuration.treasury = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-            configuration.validator = 0xd95f4bc7733d9E94978244C0a27c1815878a59BB;
+            configuration.treasury = TEST_DEPLOYER;
+
+            // Set validator addresses
+            validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
+            validators.push(0x33E69B6b8342882274c03Bcdc8a1873c6DA52573);
         }
     }
 }

@@ -2578,7 +2578,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
             uint256 totalFee = profit.mulDiv(performanceFeeBps, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
 
             if (totalFee > 0) {
-                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE);
+                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE);
                 // Calculate Superform's portion of the fee
                 superformFee = totalFee.mulDiv(superVaultFeePercent, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
                 recipientFee = totalFee - superformFee;
