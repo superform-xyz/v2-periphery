@@ -185,6 +185,10 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
         return SUPER_REGISTRY.getVaultBankHookMerkleRoot(hookAddress);
     }
 
+    function _isHookRegistered(address hookAddress) internal view override returns (bool) {
+        return SUPER_GOVERNOR.isHookRegistered(hookAddress);
+    }
+
     function _distributeRewardsToSuperBank(address token, uint256 amount) internal {
         // get SuperBank address
         address superBank = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_BANK());
