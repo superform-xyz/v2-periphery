@@ -435,7 +435,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
-
     // =============================================================
     // Validator Management Tests
     // =============================================================
@@ -515,6 +514,10 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(validators.length, 1, "Should have 1 validator remaining");
         assertEq(validators[0], validator2, "Remaining validator should be validator2");
     }
+
+    // =============================================================
+    // Emergency Price Tests
+    // =============================================================
 
     // =============================================================
     // PPS Oracle Management Tests
