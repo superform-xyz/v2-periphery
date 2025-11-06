@@ -243,6 +243,19 @@ contract SuperGovernorTest is PeripheryHelpers {
         address[] memory executors = superGovernor.getExecutors();
         assertEq(executors.length, 1, "Should have 1 executor");
         assertEq(executors[0], address(this), "Executor in list should match");
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorRemoved(address(this));
+        superGovernor.removeExecutor(address(this));
+
+        assertFalse(superGovernor.isExecutor(address(this)), "This contract should not be an executor");
+        executors = superGovernor.getExecutors();
+        assertEq(executors.length, 0, "Should have 0 executors");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_NOT_REGISTERED.selector);
+        superGovernor.removeExecutor(address(this));
     }
 
     // =============================================================
