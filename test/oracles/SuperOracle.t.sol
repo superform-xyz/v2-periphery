@@ -332,6 +332,21 @@ contract SuperOracleTest is PeripheryHelpers {
         assertEq(quoteAmount, 1.05e6, "Average quote should be $1050 after removal");
     }
 
+    function test_CancelProviderRemoval() public {
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = PROVIDER_3;
+
+        // Queue provider removal
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Cancel the provider removal
+        superOracle.cancelProviderRemoval();
+
+        // Verify the provider removal was cancelled
+        bytes32[] memory activeProviders = superOracle.getActiveProviders();
+        assertEq(activeProviders.length, 3, "Should still have 3 active providers");
+    }
+
     /*//////////////////////////////////////////////////////////////
                     STALENESS CONFIGURATION TESTS
     //////////////////////////////////////////////////////////////*/

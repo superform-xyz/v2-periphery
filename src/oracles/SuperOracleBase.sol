@@ -185,6 +185,15 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     }
 
     /// @inheritdoc ISuperOracle
+    function cancelProviderRemoval() external {
+        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
+        
+        delete pendingRemoval;
+        emit ProviderRemovalCancelled();
+    }
+
+    /// @inheritdoc ISuperOracle
     function executeProviderRemoval() external {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
         

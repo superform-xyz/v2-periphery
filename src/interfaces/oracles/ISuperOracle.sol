@@ -109,6 +109,9 @@ interface ISuperOracle {
     /// @param timestamp Timestamp when removal was queued
     event ProviderRemovalQueued(bytes32[] providers, uint256 timestamp);
 
+    /// @notice Emitted when provider removal is cancelled
+    event ProviderRemovalCancelled();
+
     /// @notice Emitted when provider removal is executed
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
@@ -139,7 +142,6 @@ interface ISuperOracle {
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Get oracle address for a base asset and provider
     /// @param base Base asset address
     /// @param quote Quote asset address
@@ -175,6 +177,9 @@ interface ISuperOracle {
         address[] calldata feeds
     )
         external;
+
+    /// @notice Cancel queued provider removal
+    function cancelProviderRemoval() external;
 
     /// @notice Execute queued oracle update after timelock period
     function executeOracleUpdate() external;
