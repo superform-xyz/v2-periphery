@@ -45,8 +45,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Validator registry
     EnumerableSet.AddressSet private _validators;
-    
+
     // Latest validator config block number (updated when validators are added/removed)
+    // it is used offchain for validator network to maintain sync between validators for config version to be used
     uint256 private _latestValidatorConfigBlockNumber;
 
     // Protected keepers registry (cannot be added as authorized callers by managers)
@@ -402,7 +403,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Update latest validator config block number
         _latestValidatorConfigBlockNumber = block.number;
 
-        emit ValidatorAdded(validator);
+        emit ValidatorAdded(validator, _latestValidatorConfigBlockNumber);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -412,7 +413,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Update latest validator config block number
         _latestValidatorConfigBlockNumber = block.number;
 
-        emit ValidatorRemoved(validator);
+        emit ValidatorRemoved(validator, _latestValidatorConfigBlockNumber);
     }
 
     /*//////////////////////////////////////////////////////////////
