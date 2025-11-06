@@ -86,23 +86,22 @@ contract SuperGovernorTest is PeripheryHelpers {
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
         aggregator = SuperVaultAggregator(superVaultAggregator);
 
-        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: address(this),
-                secondaryManagers: new address[](0),
-                name: "SUP",
-                symbol: "SUP",
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
-            })
-        );
+        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator)
+            .createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    mainManager: address(this),
+                    secondaryManagers: new address[](0),
+                    name: "SUP",
+                    symbol: "SUP",
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                    }),
+                    maxUnpauseTimeLock: 0
+                })
+            );
         strategy1 = strategy;
 
         vm.startPrank(sGovernor);
@@ -232,7 +231,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isGuardian(governor), "SuperGovernor should be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
-    
+
     function test_IsExecutor() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
@@ -327,7 +326,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
     }
 
-
     /// @notice Tests reverting when registering a hook with zero address
     function test_HookManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
@@ -383,7 +381,6 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be unregistered");
     }
-
 
     /// @notice Tests the fix for the dangerous hook registration behavior where sets can get out of sync
     function test_HookManagement_FixedInvariantMaintenance() public {
@@ -551,6 +548,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         (address proposedOracle, uint256 effectiveTime) = superGovernor.getProposedActivePPSOracle();
         assertEq(proposedOracle, ppsOracle1, "Proposed PPS Oracle address mismatch");
         assertEq(effectiveTime, expectedTime, "Effective time mismatch");
+    }
+
+    function test_SetActivePPSOracle_Revert_MustUseTimelock() public {
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.expectRevert(ISuperGovernor.MUST_USE_TIMELOCK_FOR_CHANGE.selector);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.stopPrank();
     }
 
     /// @notice Tests reverting when proposing a PPS Oracle with zero address
