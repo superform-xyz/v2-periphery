@@ -177,6 +177,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         uint256 length = providers.length;
         if (length == 0) revert ZERO_ARRAY_LENGTH();
 
+        if (length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDER_REMOVALS();
+
         pendingRemoval = PendingRemoval({ providers: providers, timestamp: block.timestamp });
 
         emit ProviderRemovalQueued(providers, block.timestamp);
@@ -190,7 +192,6 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         if (block.timestamp < pendingRemoval.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
         bytes32[] memory providersToRemove = pendingRemoval.providers;
-        if (providersToRemove.length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDER_REMOVALS();
 
         // Loop through each provider to remove
         for (uint256 i; i < providersToRemove.length; i++) {
