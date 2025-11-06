@@ -225,7 +225,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
         // Register the hook
-        vm.prank(sGovernor);
+        vm.prank(governor);
         superGovernor.registerHook(address(mockHook));
 
         address[] memory hooks = new address[](1);
@@ -250,7 +250,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
         vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
         superBank.executeHooks(executionData);
-        vm.stopPrank();
     }
 
     function test_SuperBank_executeHooks_HookExecutionFailed() public {
@@ -264,7 +263,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
         // Register the hook
-        vm.prank(sGovernor);
+        vm.prank(governor);
         superGovernor.registerHook(address(mockHook));
 
         // Create Merkle root using new hook configuration approach
@@ -290,10 +289,8 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             abi.encode(merkleRoot)
         );
 
-        vm.startPrank(address(this));
         vm.expectRevert(Bank.HOOK_EXECUTION_FAILED.selector);
         superBank.executeHooks(executionData);
-        vm.stopPrank();
     }
 
     function test_SuperBank_executeHooks_Success() public {
@@ -305,7 +302,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
         // Register the hook
-        vm.prank(sGovernor);
+        vm.prank(governor);
         superGovernor.registerHook(address(mockHook));
 
         // Create Merkle root using new hook configuration approach
@@ -338,7 +335,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         emit Bank.HooksExecuted(hooks, data);
 
         superBank.executeHooks(executionData);
-        vm.stopPrank();
     }
 
     function test_SuperBank_executeHooks_MultipleHooks() public {
@@ -352,11 +348,20 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         MockSuperHook mockHook1 = new MockSuperHook(address(mockTarget1));
         MockSuperHook mockHook2 = new MockSuperHook(address(mockTarget2));
 
-        bytes32 targetLeaf1 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget1)))));
-        bytes32 targetLeaf2 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget2)))));
+        // Register hooks
+        vm.startPrank(governor);
+        superGovernor.registerHook(address(mockHook1));
+        superGovernor.registerHook(address(mockHook2));
+        vm.stopPrank();
 
-        bytes32 merkleRoot1 = targetLeaf1;
-        bytes32 merkleRoot2 = targetLeaf2;
+        // Create Merkle roots using new hook configuration approach
+        bytes memory hookArgs1 = abi.encodePacked(address(mockTarget1));
+        bytes memory hookArgs2 = abi.encodePacked(address(mockTarget2));
+        bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook1), hookArgs1))));
+        bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook2), hookArgs2))));
+
+        bytes32 merkleRoot1 = hookLeaf1;
+        bytes32 merkleRoot2 = hookLeaf2;
 
         address[] memory hooks = new address[](2);
         hooks[0] = address(mockHook1);
@@ -386,7 +391,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         );
 
         superBank.executeHooks(executionData);
-        vm.stopPrank();
     }
 
     function test_SuperBank_SwapHookOdos() public {
@@ -404,6 +408,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
         ApproveERC20Hook approveHook = new ApproveERC20Hook();
         SwapOdosV2Hook odosHook = new SwapOdosV2Hook(address(odosRouter));
+
+        // Register hooks
+        vm.startPrank(governor);
+        superGovernor.registerHook(address(approveHook));
+        superGovernor.registerHook(address(odosHook));
+        vm.stopPrank();
 
         _getTokens(address(token), address(superBank), amount);
 
@@ -439,10 +449,17 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](0);
         merkleProofs[1] = new bytes32[](0);
 
-        bytes32 targetLeaf1 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(token)))));
-        bytes32 targetLeaf2 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(odosRouter)))));
-        bytes32 merkleRoot1 = targetLeaf1;
-        bytes32 merkleRoot2 = targetLeaf2;
+        // Create proper Merkle leafs using hook configuration approach
+        // ApproveERC20Hook.inspect() returns: abi.encodePacked(token, spender)
+        bytes memory hookArgs1 = abi.encodePacked(address(token), address(odosRouter));
+        bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(approveHook), hookArgs1))));
+
+        // SwapOdosV2Hook.inspect() returns: abi.encodePacked(inputToken, inputReceiver, outputToken, executor)
+        bytes memory hookArgs2 = abi.encodePacked(address(token), address(this), address(up), address(0));
+        bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(odosHook), hookArgs2))));
+
+        bytes32 merkleRoot1 = hookLeaf1;
+        bytes32 merkleRoot2 = hookLeaf2;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
             hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
@@ -490,6 +507,10 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
         Redeem4626VaultHook redeemHook = new Redeem4626VaultHook();
 
+        // Register hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(redeemHook));
+
         bytes[] memory hooksData = new bytes[](1);
         hooksData[0] = _createRedeem4626HookData(bytes32(0), address(vault), address(superBank), shares, false);
 
@@ -499,8 +520,10 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0);
 
-        bytes32 targetLeaf1 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(vault)))));
-        bytes32 merkleRoot1 = targetLeaf1;
+        // Redeem4626VaultHook.inspect() returns: abi.encodePacked(yieldSource, owner)
+        bytes memory hookArgs1 = abi.encodePacked(address(vault), address(superBank));
+        bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(redeemHook), hookArgs1))));
+        bytes32 merkleRoot1 = hookLeaf1;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
             hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
@@ -541,6 +564,10 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         AcrossSendFundsAndExecuteOnDstHook acrossSendFundsAndExecuteOnDstHook =
             new AcrossSendFundsAndExecuteOnDstHook(CHAIN_8453_SPOKE_POOL_V3_ADDRESS, address(this));
 
+        // Register hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(acrossSendFundsAndExecuteOnDstHook));
+
         IHookExecutionData.HookExecutionData memory executionData;
         {
             bytes[] memory hooksData = new bytes[](1);
@@ -572,9 +599,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             bytes32[][] memory merkleProofs = new bytes32[][](1);
             merkleProofs[0] = new bytes32[](0);
 
-            bytes32 targetLeaf1 =
-                keccak256(bytes.concat(keccak256(abi.encodePacked(address(CHAIN_8453_SPOKE_POOL_V3_ADDRESS)))));
-            bytes32 merkleRoot1 = targetLeaf1;
+            // AcrossSendFundsAndExecuteOnDstHook.inspect() returns: abi.encodePacked(recipient, inputToken,
+            // outputToken, exclusiveRelayer)
+            bytes memory hookArgs = abi.encodePacked(address(superBank), CHAIN_8453_USDC, CHAIN_1_USDC, address(0));
+            bytes32 hookLeaf =
+                keccak256(bytes.concat(keccak256(abi.encode(address(acrossSendFundsAndExecuteOnDstHook), hookArgs))));
+            bytes32 merkleRoot1 = hookLeaf;
 
             executionData = IHookExecutionData.HookExecutionData({
                 hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
@@ -624,16 +654,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
-        // Override the hook's inspect to return empty bytes
-        vm.mockCall(
-            address(mockHook),
-            abi.encodeWithSignature("inspect(bytes)"),
-            abi.encode(bytes(""))
-        );
-
-        // Register the hook
-        vm.prank(sGovernor);
+        // Register the hook first
+        vm.prank(governor);
         superGovernor.registerHook(address(mockHook));
+
+        // Override the hook's inspect to return empty bytes after registration
+        vm.mockCall(address(mockHook), abi.encodeWithSignature("inspect(bytes)"), abi.encode(bytes("")));
 
         // Try to execute - should fail due to empty hookArgs
         address[] memory hooks = new address[](1);
