@@ -387,6 +387,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         assertEq(ppsAfterAttempt, ppsBefore, "PPS should remain at old value (zero PPS never stored)");
 
         // Unpause the strategy to enable the escape hatch (C1 check will be skipped)
+        vm.prank(MANAGER);
         aggregator.unpauseStrategy(address(strategy5115SuperVault));
 
         // Advance time to ensure monotonic timestamp

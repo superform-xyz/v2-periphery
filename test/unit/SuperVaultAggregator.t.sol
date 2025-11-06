@@ -66,7 +66,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -89,7 +90,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -98,12 +101,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Add secondary manager for testing
         vm.prank(manager);
         superVaultAggregator.addSecondaryManager(strategy, secondaryManager);
-
-        // Register some protected keepers
-        vm.startPrank(governor);
-        superGovernor.registerProtectedKeeper(protectedKeeper1);
-        superGovernor.registerProtectedKeeper(protectedKeeper2);
-        vm.stopPrank();
 
         // Register UP token on SuperGovernor
         upToken = address(new MockUp(address(this)));
@@ -114,172 +111,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
         vm.stopPrank();
-    }
-
-    // =============================================================
-    // Authorized Caller Management Tests
-    // =============================================================
-
-    /// @notice Tests adding a normal (non-protected) keeper as authorized caller
-    function test_AddAuthorizedCaller_Success_NormalKeeper() public {
-        // Primary manager adds normal keeper
-        vm.prank(manager);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.AuthorizedCallerAdded(strategy, normalKeeper1);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify the keeper was added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-        assertEq(callers[0], normalKeeper1, "Authorized caller should match");
-    }
-
-    /// @notice Tests secondary manager can add authorized callers
-    function test_AddAuthorizedCaller_Success_SecondaryManager() public {
-        // Secondary manager adds normal keeper
-        vm.prank(secondaryManager);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.AuthorizedCallerAdded(strategy, normalKeeper1);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify the keeper was added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-        assertEq(callers[0], normalKeeper1, "Authorized caller should match");
-    }
-
-    /// @notice Tests adding multiple normal keepers as authorized callers
-    function test_AddAuthorizedCaller_Success_MultipleKeepers() public {
-        vm.startPrank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper2);
-        vm.stopPrank();
-
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 2, "Should have 2 authorized callers");
-
-        // Verify both keepers are in the list
-        bool foundKeeper1 = false;
-        bool foundKeeper2 = false;
-        for (uint256 i = 0; i < callers.length; i++) {
-            if (callers[i] == normalKeeper1) foundKeeper1 = true;
-            if (callers[i] == normalKeeper2) foundKeeper2 = true;
-        }
-        assertTrue(foundKeeper1, "normalKeeper1 should be in authorized callers");
-        assertTrue(foundKeeper2, "normalKeeper2 should be in authorized callers");
-    }
-
-    /// @notice Tests reverting when manager tries to add protected keeper
-    function test_AddAuthorizedCaller_Revert_ProtectedKeeper() public {
-        // Primary manager tries to add protected keeper
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, protectedKeeper1);
-
-        // Secondary manager tries to add protected keeper
-        vm.prank(secondaryManager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, protectedKeeper2);
-
-        // Verify no callers were added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 0, "Should have 0 authorized callers");
-    }
-
-    /// @notice Tests reverting when non-manager tries to add authorized caller
-    function test_AddAuthorizedCaller_Revert_UnauthorizedCaller() public {
-        vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-    }
-
-    /// @notice Tests reverting when adding zero address as authorized caller
-    function test_AddAuthorizedCaller_Revert_ZeroAddress() public {
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, address(0));
-    }
-
-    /// @notice Tests reverting when adding duplicate authorized caller
-    function test_AddAuthorizedCaller_Revert_AlreadyAuthorized() public {
-        // Add keeper first
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Try to add same keeper again
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CALLER_ALREADY_AUTHORIZED.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-    }
-
-    /// @notice Tests reverting when trying to add authorized caller for unknown strategy
-    function test_AddAuthorizedCaller_Revert_UnknownStrategy() public {
-        address unknownStrategy = _deployAccount(0x99, "UnknownStrategy");
-
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
-        superVaultAggregator.addAuthorizedCaller(unknownStrategy, normalKeeper1);
-    }
-
-    // =============================================================
-    // Remove Authorized Caller Tests
-    // =============================================================
-
-    /// @notice Tests removing authorized caller successfully
-    function test_RemoveAuthorizedCaller_Success() public {
-        // Add caller first
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Remove caller
-        vm.prank(manager);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.AuthorizedCallerRemoved(strategy, normalKeeper1);
-        superVaultAggregator.removeAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify caller was removed
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 0, "Should have 0 authorized callers");
-    }
-
-    /// @notice Tests removing authorized caller when multiple exist
-    function test_RemoveAuthorizedCaller_Success_WithMultiple() public {
-        // Add multiple callers
-        vm.startPrank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper2);
-        vm.stopPrank();
-
-        // Remove one caller
-        vm.prank(manager);
-        superVaultAggregator.removeAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify only normalKeeper2 remains
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-        assertEq(callers[0], normalKeeper2, "Remaining caller should be normalKeeper2");
-    }
-
-    /// @notice Tests reverting when removing non-existent authorized caller
-    function test_RemoveAuthorizedCaller_Revert_CallerNotFound() public {
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
-        superVaultAggregator.removeAuthorizedCaller(strategy, normalKeeper1);
-    }
-
-    /// @notice Tests secondary manager can remove authorized callers
-    function test_RemoveAuthorizedCaller_Success_SecondaryManager() public {
-        // Add caller with primary manager
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Remove caller with secondary manager
-        vm.prank(secondaryManager);
-        superVaultAggregator.removeAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify caller was removed
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 0, "Should have 0 authorized callers");
     }
 
     // =============================================================
@@ -341,7 +172,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     /// @notice Tests emergency replacement clears all secondary managers
     function test_AddTooManySecondaryManagers() public {
-        uint256 len = 7;
+        uint256 len = 6;
         address[] memory secondaryManagers = new address[](len);
 
         for (uint256 i = 0; i < len - 1; ++i) {
@@ -349,11 +180,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         }
 
         vm.startPrank(manager);
-        for (uint256 i = 0; i < 5; ++i) {
+        for (uint256 i = 0; i < len - 2; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
+        address lastSecondaryManager = _deployAccount(20, "SecondaryManager");
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[5]);
+        superVaultAggregator.addSecondaryManager(strategy, lastSecondaryManager);
         vm.stopPrank();
     }
 
@@ -522,145 +354,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     // =============================================================
-    // Security Integration Tests
-    // =============================================================
-
-    /// @notice Tests that previously added keepers become blocked if later protected
-    function test_Security_KeeperProtectedAfterAdding() public {
-        // Add a normal keeper
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        // Verify keeper was added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-
-        // Governance protects the keeper
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(normalKeeper1);
-
-        // Manager should no longer be able to add the same keeper to other strategies
-        // (Create another strategy for testing)
-        vm.prank(manager);
-        (, address strategy2,) = superVaultAggregator.createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                name: "Test Vault 2",
-                symbol: "TV2",
-                mainManager: manager,
-                secondaryManagers: new address[](0),
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
-                maxUnpauseTimeLock: 0
-            })
-        );
-
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy2, normalKeeper1);
-
-        // But the keeper should still be in the original strategy's list
-        callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Original strategy should still have the keeper");
-        assertEq(callers[0], normalKeeper1, "Original strategy keeper should match");
-    }
-
-    /// @notice Tests that unprotecting a keeper allows it to be added again
-    function test_Security_KeeperUnprotectedAllowsAdding() public {
-        // Governance unprotects a previously protected keeper
-        vm.prank(governor);
-        superGovernor.unregisterProtectedKeeper(protectedKeeper1);
-
-        // Now manager should be able to add it
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, protectedKeeper1);
-
-        // Verify keeper was added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-        assertEq(callers[0], protectedKeeper1, "Authorized caller should be former protected keeper");
-    }
-
-    /// @notice Tests complex scenario with multiple managers and protected keepers
-    function test_Security_ComplexScenario() public {
-        // Create another strategy with different manager
-        address manager2 = _deployAccount(0xB, "Manager2");
-        vm.prank(manager2);
-        (, address strategy2,) = superVaultAggregator.createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: manager2,
-                secondaryManagers: new address[](0),
-                name: "Test Vault 2",
-                symbol: "TV2",
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager2
-                }),
-                maxUnpauseTimeLock: 0
-            })
-        );
-
-        // Both managers can add normal keepers
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, normalKeeper1);
-
-        vm.prank(manager2);
-        superVaultAggregator.addAuthorizedCaller(strategy2, normalKeeper2);
-
-        // Neither can add protected keepers
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, protectedKeeper1);
-
-        vm.prank(manager2);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy2, protectedKeeper2);
-
-        // Verify normal keepers were added successfully
-        address[] memory callers1 = superVaultAggregator.getAuthorizedCallers(strategy);
-        address[] memory callers2 = superVaultAggregator.getAuthorizedCallers(strategy2);
-
-        assertEq(callers1.length, 1, "Strategy 1 should have 1 caller");
-        assertEq(callers2.length, 1, "Strategy 2 should have 1 caller");
-        assertEq(callers1[0], normalKeeper1, "Strategy 1 caller should match");
-        assertEq(callers2[0], normalKeeper2, "Strategy 2 caller should match");
-    }
-
-    /// @notice Tests that the manager themselves can be added as authorized caller (if not protected)
-    function test_Security_ManagerCanAddSelf() public {
-        // Manager adds themselves as authorized caller
-        vm.prank(manager);
-        superVaultAggregator.addAuthorizedCaller(strategy, manager);
-
-        // Verify manager was added
-        address[] memory callers = superVaultAggregator.getAuthorizedCallers(strategy);
-        assertEq(callers.length, 1, "Should have 1 authorized caller");
-        assertEq(callers[0], manager, "Authorized caller should be manager");
-    }
-
-    /// @notice Tests that protected manager cannot be added as authorized caller
-    function test_Security_ProtectedManagerCannotBeAdded() public {
-        // Protect the manager
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(manager);
-
-        // Manager tries to add themselves but should fail
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, manager);
-
-        // Secondary manager also cannot add the protected primary manager
-        vm.prank(secondaryManager);
-        vm.expectRevert(ISuperVaultAggregator.CANNOT_ADD_PROTECTED_KEEPER.selector);
-        superVaultAggregator.addAuthorizedCaller(strategy, manager);
-    }
-
-    // =============================================================
     // Monotonic Timestamp Validation Tests
     // =============================================================
 
@@ -681,7 +374,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -698,7 +393,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](2);
         ppss[0] = 1e18;
         ppss[1] = 1e18;
-
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -754,7 +448,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -771,7 +467,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](2);
         ppss[0] = 1e18;
         ppss[1] = 1e18;
-
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -832,9 +527,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     minUpdateInterval: 5,
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
-                        performanceFeeBps: 1000,
-                        managementFeeBps: 0,
-                        recipient: manager
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                     }),
                     maxUnpauseTimeLock: 0
                 })
@@ -889,7 +582,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
                     ppss: ppss,
-                        validatorSets: validatorSets,
+                    validatorSets: validatorSets,
                     totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
@@ -986,7 +679,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1007,7 +702,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
         validatorSets[1] = 1;
@@ -1019,7 +713,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 150; // Valid newer timestamp for strategy1
         timestamps[1] = timestamp2 + 40; // This will be stale for strategy2 (block.timestamp=151, submitted=41,
-            // diff=110 > maxStaleness=100)
+        // diff=110 > maxStaleness=100)
 
         address[] memory updateAuthorities = new address[](2);
         updateAuthorities[0] = user;
@@ -1403,10 +1097,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid initially");
@@ -1424,10 +1115,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid, "Hook should be invalid after banning");
@@ -1462,10 +1150,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid, "Hook should be invalid when banned");
@@ -1479,10 +1164,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid after unbanning");
@@ -1587,10 +1269,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid via strategy root despite global ban");
@@ -1642,7 +1321,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1673,10 +1354,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid1 = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid1, "Hook should be invalid for strategy1");
@@ -1685,10 +1363,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid2 = superVaultAggregator.validateHook(
             strategy2,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid2, "Hook should be valid for strategy2");
@@ -2006,9 +1681,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager2
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2
                 }),
                 maxUnpauseTimeLock: 0
             })
@@ -2095,7 +1768,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Get SuperBank balance before
-        address superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
         uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
 
         // Try to slash more than available - should slash only what's available
@@ -2306,7 +1979,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2321,7 +1996,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV3",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2336,7 +2013,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV4",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2356,7 +2035,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.ppss[1] = 1.2e18;
         vars.ppss[2] = 1.3e18;
         vars.ppss[3] = 1.4e18;
-
 
         vars.validatorSets = new uint256[](4);
         vars.validatorSets[0] = 1;
@@ -2476,10 +2154,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.expectRevert(IECDSAPPSOracle.MAX_STRATEGIES_EXCEEDED.selector);
         ecdsaPPSOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -2575,8 +2250,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(isPaused, "Strategy should be paused after invalid update");
 
         // Now unpause the strategy by pranking as the main manager
-        vm.startPrank(governor);
+        vm.startPrank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
 
         // Verify strategy is unpaused
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
@@ -2665,7 +2341,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertTrue(isPaused, "Strategy should still be paused");
 
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify strategy is unpaused
@@ -2765,7 +2441,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(superVaultAggregator.isStrategyPaused(strategy), "Strategy should be paused");
 
         // Unpause
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Verify lastUnpauseTimestamp was set
@@ -2834,7 +2510,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertTrue(superVaultAggregator.isPPSStale(strategy), "PPS should be stale after pause");
 
         // Unpause
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Set very low deviation threshold
@@ -3049,7 +2725,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(superVaultAggregator.getPPS(strategy), initialPPS, "PPS should remain at initial value");
 
         // Unpause to allow next attempt
-        vm.prank(governor);
+        vm.prank(mainManager);
         superVaultAggregator.unpauseStrategy(strategy);
 
         // Wait for minimum interval

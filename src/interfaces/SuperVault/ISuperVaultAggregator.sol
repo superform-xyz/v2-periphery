@@ -54,7 +54,6 @@ interface ISuperVaultAggregator {
     /// @param isPaused Whether the strategy is paused
     /// @param mainManager Address of the primary manager controlling the strategy
     /// @param secondaryManagers Set of secondary managers that can manage the strategy
-    /// @param authorizedCallers List of callers authorized to update PPS without paying upkeep
     struct StrategyData {
         uint256 pps;
         uint256 lastUpdateTimestamp;
@@ -64,7 +63,6 @@ interface ISuperVaultAggregator {
         bool isPaused;
         address mainManager;
         EnumerableSet.AddressSet secondaryManagers;
-        EnumerableSet.AddressSet authorizedCallers;
         // Manager change proposal data
         address proposedManager;
         uint256 managerChangeEffectiveTime;
@@ -218,16 +216,6 @@ interface ISuperVaultAggregator {
     /// @param amount The amount of UP tokens slashed
     event StakeSlashed(address indexed manager, uint256 amount);
 
-    /// @notice Emitted when an authorized caller is added for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the authorized caller
-    event AuthorizedCallerAdded(address indexed strategy, address indexed caller);
-
-    /// @notice Emitted when an authorized caller is removed for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the removed caller
-    event AuthorizedCallerRemoved(address indexed strategy, address indexed caller);
-
     /// @notice Emitted when a secondary manager is added to a strategy
     /// @param strategy Address of the strategy
     /// @param manager Address of the manager added
@@ -359,9 +347,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a strategy is unknown
     event UnknownStrategy(address indexed strategy);
 
-    /// @notice Emitted when the caller is authorized
-    event AuthorizedCaller(address indexed strategy, address indexed caller);
-
     /// @notice Emitted when the old primary manager is removed from the strategy
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
@@ -413,6 +398,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_UPKEEP();
     /// @notice Thrown when vault is paused but operation requires active state
     error VAULT_PAUSED();
+    /// @notice Thrown when caller is not authorized
+    error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when caller is not an approved PPS oracle
     error UNAUTHORIZED_PPS_ORACLE();
     /// @notice Thrown when PPS update is too stale (after maxStaleness)
@@ -429,10 +416,6 @@ interface ISuperVaultAggregator {
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
     error STRATEGY_ALREADY_PAUSED();
-    /// @notice Thrown when caller is already authorized
-    error CALLER_ALREADY_AUTHORIZED();
-    /// @notice Thrown when caller is not authorized
-    error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when array index is out of bounds
     error INDEX_OUT_OF_BOUNDS();
     /// @notice Thrown when attempting to remove the last manager
@@ -573,20 +556,6 @@ interface ISuperVaultAggregator {
     /// @param manager The manager whose stake will be slashed
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external;
-
-    /*//////////////////////////////////////////////////////////////
-                        AUTHORIZED CALLER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Adds an authorized caller for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the caller to authorize
-    function addAuthorizedCaller(address strategy, address caller) external;
-
-    /// @notice Removes an authorized caller for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the caller to remove
-    function removeAuthorizedCaller(address strategy, address caller) external;
 
     /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
@@ -753,11 +722,6 @@ interface ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance);
-
-    /// @notice Gets all authorized callers for a strategy
-    /// @param strategy Address of the strategy
-    /// @return callers Array of authorized callers
-    function getAuthorizedCallers(address strategy) external view returns (address[] memory callers);
 
     /// @notice Gets the main manager for a strategy
     /// @param strategy Address of the strategy

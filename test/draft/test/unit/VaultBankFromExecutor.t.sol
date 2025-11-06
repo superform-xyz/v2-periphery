@@ -88,10 +88,7 @@ contract VaultBankFromExecutor is
         ISuperLedgerConfiguration.YieldSourceOracleConfigArgs[] memory configs =
             new ISuperLedgerConfiguration.YieldSourceOracleConfigArgs[](1);
         configs[0] = ISuperLedgerConfiguration.YieldSourceOracleConfigArgs({
-            yieldSourceOracle: yieldSourceOracle,
-            feePercent: 100,
-            feeRecipient: feeRecipient,
-            ledger: address(ledger)
+            yieldSourceOracle: yieldSourceOracle, feePercent: 100, feeRecipient: feeRecipient, ledger: address(ledger)
         });
         bytes32[] memory salts = new bytes32[](1);
         salts[0] = bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY));
@@ -101,7 +98,7 @@ contract VaultBankFromExecutor is
         deposit4626Hook = address(new Deposit4626VaultHook());
         mintSuperPositionsHook = address(new MintSuperPositionsHook());
 
-        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this), address(this), address(this));
+        superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this));
         superRegistry = new SuperRegistry(address(superGovernor), address(this), address(this));
         superGovernor.addExecutor(address(superExecutor));
         vaultBank = new VaultBank(address(superGovernor), address(superRegistry));
@@ -117,9 +114,7 @@ contract VaultBankFromExecutor is
 
         testInstance.installModule({ moduleTypeId: MODULE_TYPE_EXECUTOR, module: address(superExecutor), data: "" });
         testInstance.installModule({
-            moduleTypeId: MODULE_TYPE_VALIDATOR,
-            module: address(validator),
-            data: abi.encode(signer)
+            moduleTypeId: MODULE_TYPE_VALIDATOR, module: address(validator), data: abi.encode(signer)
         });
 
         amount = _bound(amount);
@@ -186,9 +181,7 @@ contract VaultBankFromExecutor is
 
         testInstance.installModule({ moduleTypeId: MODULE_TYPE_EXECUTOR, module: address(superExecutor), data: "" });
         testInstance.installModule({
-            moduleTypeId: MODULE_TYPE_VALIDATOR,
-            module: address(validator),
-            data: abi.encode(signer)
+            moduleTypeId: MODULE_TYPE_VALIDATOR, module: address(validator), data: abi.encode(signer)
         });
 
         amount = _bound(amount);

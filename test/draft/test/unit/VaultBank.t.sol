@@ -129,7 +129,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver = new MockCrossL2ProverV2();
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+
         // Deploy SuperRegistry with governor as both superRegistryAdmin and registryAdmin
         superRegistry = new SuperRegistry(governor, governor, address(mockProver));
         vaultBank = new TestVaultBank(address(superGovernor), address(superRegistry));
@@ -449,7 +450,9 @@ contract VaultBankTest is PeripheryHelpers {
         vaultBank.lockAsset(yieldSourceOracleId, user, address(token), address(mockHook), lockAmount, DST_CHAIN_ID);
 
         mockProver.setEmittingContract(address(vaultBank));
-        mockProver.mockSuperpositionsBurnedEvent(user, address(token), 0, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId);
+        mockProver.mockSuperpositionsBurnedEvent(
+            user, address(token), 0, CURRENT_CHAIN_ID, 0, uint32(DST_CHAIN_ID), yieldSourceOracleId
+        );
 
         bytes memory mockProof = new bytes(0);
 
@@ -1151,6 +1154,12 @@ contract VaultBankTest is PeripheryHelpers {
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook2 = new MockSuperHook(address(mockTarget));
 
+        // Register hook
+        vm.stopPrank();
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook2));
+        vm.startPrank(address(this));
+
         address[] memory hooks = new address[](1);
         hooks[0] = address(mockHook2);
 
@@ -1170,7 +1179,7 @@ contract VaultBankTest is PeripheryHelpers {
             abi.encode(bytes32(uint256(2)))
         );
 
-        vm.expectRevert(Bank.INVALID_MERKLE_PROOF.selector);
+        vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
         vaultBank.executeHooks(executionData);
         vm.stopPrank();
     }
@@ -1182,8 +1191,14 @@ contract VaultBankTest is PeripheryHelpers {
 
         MockSuperHook mockHook1 = new MockSuperHook(address(mockTarget));
 
-        bytes32 targetLeaf = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget)))));
-        bytes32 merkleRoot = targetLeaf;
+        // Register hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook1));
+
+        // Create proper Merkle leaf using hook configuration approach
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook1), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
 
         address[] memory hooks = new address[](1);
         hooks[0] = address(mockHook1);
@@ -1215,8 +1230,16 @@ contract VaultBankTest is PeripheryHelpers {
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook1 = new MockSuperHook(address(mockTarget));
 
-        bytes32 targetLeaf = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget)))));
-        bytes32 merkleRoot = targetLeaf;
+        // Register hook
+        vm.stopPrank();
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook1));
+        vm.startPrank(address(this));
+
+        // Create proper Merkle leaf using hook configuration approach
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook1), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
 
         address[] memory hooks = new address[](1);
         hooks[0] = address(mockHook1);
@@ -1255,11 +1278,22 @@ contract VaultBankTest is PeripheryHelpers {
         MockSuperHook mockHook1 = new MockSuperHook(address(mockTarget1));
         MockSuperHook mockHook2 = new MockSuperHook(address(mockTarget2));
 
-        bytes32 targetLeaf1 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget1)))));
-        bytes32 targetLeaf2 = keccak256(bytes.concat(keccak256(abi.encodePacked(address(mockTarget2)))));
+        // Register hooks
+        vm.stopPrank();
+        vm.startPrank(governor);
+        superGovernor.registerHook(address(mockHook1));
+        superGovernor.registerHook(address(mockHook2));
+        vm.stopPrank();
+        vm.startPrank(address(this));
 
-        bytes32 merkleRoot1 = targetLeaf1;
-        bytes32 merkleRoot2 = targetLeaf2;
+        // Create proper Merkle leafs using hook configuration approach
+        bytes memory hookArgs1 = abi.encodePacked(address(mockTarget1));
+        bytes memory hookArgs2 = abi.encodePacked(address(mockTarget2));
+        bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook1), hookArgs1))));
+        bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook2), hookArgs2))));
+
+        bytes32 merkleRoot1 = hookLeaf1;
+        bytes32 merkleRoot2 = hookLeaf2;
 
         address[] memory hooks = new address[](2);
         hooks[0] = address(mockHook1);
@@ -1514,8 +1548,9 @@ contract VaultBankTest is PeripheryHelpers {
         string memory symbol = "NTKN";
         uint8 decimals = 18;
 
-        address retrievedSP =
-            vaultBank.exposed_retrieveSuperPosition(yieldSourceOracleId, mockChainId, mockToken, name, symbol, decimals);
+        address retrievedSP = vaultBank.exposed_retrieveSuperPosition(
+            yieldSourceOracleId, mockChainId, mockToken, name, symbol, decimals
+        );
 
         assertFalse(retrievedSP == address(0), "Should not return zero address");
         assertTrue(vaultBank.isSuperPositionCreated(retrievedSP), "Should mark new SP as created");
@@ -1618,8 +1653,9 @@ contract VaultBankTest is PeripheryHelpers {
         string memory symbol = "NTKN";
         uint8 decimals = 18;
 
-        address testSP =
-            vaultBank.exposed_retrieveSuperPosition(yieldSourceOracleId, mockChainId, mockToken, name, symbol, decimals);
+        address testSP = vaultBank.exposed_retrieveSuperPosition(
+            yieldSourceOracleId, mockChainId, mockToken, name, symbol, decimals
+        );
         address newOwner = address(0x9999);
 
         // Call from bank manager (address(this) has BANK_MANAGER_ROLE)

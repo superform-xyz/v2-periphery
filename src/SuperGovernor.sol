@@ -46,8 +46,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
-    // Protected keepers registry (cannot be added as authorized callers by managers)
-    EnumerableSet.AddressSet private _protectedKeepers;
+    // Latest validator config block number (updated when validators are added/removed)
+    // it is used offchain for validator network to maintain sync between validators for config version to be used
+    uint256 private _latestValidatorConfigBlockNumber;
 
     // Executor registry
     EnumerableSet.AddressSet private _executors;
@@ -93,7 +94,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
     bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
-    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -106,8 +106,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 public constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
     // Fee constants
-    uint256 public constant REVENUE_SHARE = 2000; // 20% revenue share
-    uint256 public constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
+    uint256 public constant REVENUE_SHARE = 0; // 0% starting revenue share to sUP
+    uint256 public constant PERFORMANCE_FEE_SHARE = 5000; // 50% protocol share of manager's performance fee
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -116,20 +116,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param superGovernor Address of the default admin (will have SUPER_GOVERNOR_ROLE)
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
-    /// @param treasury_ Address of the treasury
-    /// @param prover_ Address of the prover
-    constructor(
-        address superGovernor,
-        address governor,
-        address bankManager,
-        address gasManager,
-        address unpauser,
-        address treasury_,
-        address prover_
-    ) {
+    /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
+    /// @param treasury Address of the treasury
+    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury) {
         if (
-            superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
+            superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
+                || gasManager == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -139,7 +131,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -149,17 +140,16 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
+        _feeValues[FeeType.PERFORMANCE_FEE_SHARE] = PERFORMANCE_FEE_SHARE; // 50% protocol fee share
         emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
+        emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
         // Set treasury in address registry
-        _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, address(0), treasury_);
+        _addressRegistry[TREASURY] = treasury;
+        emit AddressSet(TREASURY, address(0), treasury);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
@@ -394,15 +384,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function addValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (validator == address(0)) revert INVALID_ADDRESS();
         if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
+        uint256 blockNumber = block.number;
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
 
-        emit ValidatorAdded(validator);
+        emit ValidatorAdded(validator, blockNumber);
     }
 
     /// @inheritdoc ISuperGovernor
     function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
+        uint256 blockNumber = block.number;
 
-        emit ValidatorRemoved(validator);
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
+
+        emit ValidatorRemoved(validator, blockNumber);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -459,13 +456,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function executeOracleProviderRemoval()
-        external
-        onlyRole(_ORACLE_MANAGER_ROLE)
-    {
+    function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
- 
+
         ISuperOracle(oracle).executeProviderRemoval();
     }
 
@@ -669,11 +663,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function UNPAUSER_ROLE() external pure returns (bytes32) {
-        return _UNPAUSER_ROLE;
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getAddress(bytes32 key) external view returns (address) {
         address value = _addressRegistry[key];
         if (value == address(0)) revert CONTRACT_NOT_FOUND();
@@ -693,6 +682,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function getValidatorConfigVersion() external view returns (uint256) {
+        return _latestValidatorConfigBlockNumber;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -842,38 +836,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _superformManagers.length();
     }
 
-    /// @inheritdoc ISuperGovernor
-    function registerProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (keeper == address(0)) revert INVALID_ADDRESS();
-        if (_protectedKeepers.contains(keeper)) revert KEEPER_ALREADY_REGISTERED();
-
-        _protectedKeepers.add(keeper);
-        emit ProtectedKeeperRegistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function unregisterProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_protectedKeepers.contains(keeper)) revert KEEPER_NOT_REGISTERED();
-
-        _protectedKeepers.remove(keeper);
-        emit ProtectedKeeperUnregistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function isProtectedKeeper(address keeper) external view returns (bool) {
-        return _protectedKeepers.contains(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepers() external view returns (address[] memory) {
-        return _protectedKeepers.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepersCount() external view returns (uint256) {
-        return _protectedKeepers.length();
-    }
-
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
     function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
         return interfaceId == type(ISuperGovernor).interfaceId || super.supportsInterface(interfaceId);
@@ -897,12 +859,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            1e18, // 1 UP token (18 decimals)
-            upToken,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+            .getQuoteFromProvider(
+                1e18, // 1 UP token (18 decimals)
+                upToken,
+                USD_TOKEN,
+                AVERAGE_PROVIDER
+            );
 
         // Calculate required UP tokens
         // usdAmount / upPerUsd = required UP tokens
