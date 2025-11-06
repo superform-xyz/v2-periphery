@@ -407,7 +407,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Split fee between Superform treasury and strategy recipient
         uint256 sfFee = Math.mulDiv(
-            fee, superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE), BPS_PRECISION, Math.Rounding.Floor
+            fee, superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE), BPS_PRECISION, Math.Rounding.Floor
         );
         uint256 recipientFee = fee - sfFee;
 

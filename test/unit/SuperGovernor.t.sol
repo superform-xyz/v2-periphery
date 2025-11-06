@@ -75,7 +75,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -86,23 +86,22 @@ contract SuperGovernorTest is PeripheryHelpers {
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
         aggregator = SuperVaultAggregator(superVaultAggregator);
 
-        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: address(this),
-                secondaryManagers: new address[](0),
-                name: "SUP",
-                symbol: "SUP",
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
-            })
-        );
+        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator)
+            .createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    mainManager: address(this),
+                    secondaryManagers: new address[](0),
+                    name: "SUP",
+                    symbol: "SUP",
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                    }),
+                    maxUnpauseTimeLock: 0
+                })
+            );
         strategy1 = strategy;
 
         vm.startPrank(sGovernor);
@@ -127,19 +126,21 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, governor, treasury, address(this));
+
+        new SuperGovernor(sGovernor, address(0), governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, governor, address(0), address(this));
+
+        new SuperGovernor(sGovernor, governor, governor, governor, address(0));
     }
 
     // =============================================================
@@ -287,7 +288,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
     }
 
-
     /// @notice Tests reverting when registering a hook with zero address
     function test_HookManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
@@ -344,7 +344,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be unregistered");
     }
 
-
     /// @notice Tests the fix for the dangerous hook registration behavior where sets can get out of sync
     function test_HookManagement_FixedInvariantMaintenance() public {
         // Test case 1: Register a hook in regular set, then try to register it as fulfill request hook
@@ -395,7 +394,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
-
     // =============================================================
     // Validator Management Tests
     // =============================================================
@@ -404,7 +402,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ValidatorManagement_AddValidator() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorAdded(validator1);
+        emit ISuperGovernor.ValidatorAdded(validator1, block.timestamp);
         superGovernor.addValidator(validator1);
 
         assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
@@ -441,7 +439,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Remove validator
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorRemoved(validator1);
+        emit ISuperGovernor.ValidatorRemoved(validator1, block.timestamp);
         superGovernor.removeValidator(validator1);
 
         assertFalse(superGovernor.isValidator(validator1), "Validator should be removed");
@@ -841,10 +839,8 @@ contract SuperGovernorTest is PeripheryHelpers {
             sGovernor,
             governor,
             governor, // bankManager (using governor as valid address)
-            governor, // gasManager (using governor as valid address)
-            governor, // unpauser (using governor as valid address)
-            treasury,
-            governor // prover (using governor as valid address)
+            governor, // gasManager (using governor as valid address)s
+            treasury
         );
 
         vm.prank(governor);
@@ -1057,216 +1053,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook1);
     }
-
-    // =============================================================
-    // Vault Bank Management Tests
-    // =============================================================
-
-
-    // =============================================================
-    // Protected Keeper Registry Tests
-    // =============================================================
-
-    /// @notice Tests registering a protected keeper
-    function test_ProtectedKeeperRegistry_RegisterProtectedKeeper() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ProtectedKeeperRegistered(keeper);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should be registered as protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 1, "Should have 1 protected keeper");
-        assertEq(keepers[0], keeper, "Keeper in list should match");
-
-        assertEq(superGovernor.getProtectedKeepersCount(), 1, "Count should be 1");
-    }
-
-    /// @notice Tests registering multiple protected keepers
-    function test_ProtectedKeeperRegistry_RegisterMultipleKeepers() public {
-        address keeper1 = _deployAccount(0x30, "ProtectedKeeper1");
-        address keeper2 = _deployAccount(0x31, "ProtectedKeeper2");
-        address keeper3 = _deployAccount(0x32, "ProtectedKeeper3");
-
-        vm.startPrank(governor);
-        superGovernor.registerProtectedKeeper(keeper1);
-        superGovernor.registerProtectedKeeper(keeper2);
-        superGovernor.registerProtectedKeeper(keeper3);
-        vm.stopPrank();
-
-        assertTrue(superGovernor.isProtectedKeeper(keeper1), "Keeper1 should be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper2), "Keeper2 should be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper3), "Keeper3 should be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 3, "Should have 3 protected keepers");
-        assertEq(superGovernor.getProtectedKeepersCount(), 3, "Count should be 3");
-
-        // Verify all keepers are in the list
-        assertTrue(_addressInArray(keepers, keeper1), "keeper1 should be in list");
-        assertTrue(_addressInArray(keepers, keeper2), "keeper2 should be in list");
-        assertTrue(_addressInArray(keepers, keeper3), "keeper3 should be in list");
-    }
-
-    /// @notice Tests reverting when registering with zero address
-    function test_ProtectedKeeperRegistry_Revert_ZeroAddress() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.registerProtectedKeeper(address(0));
-    }
-
-    /// @notice Tests reverting when registering already registered keeper
-    function test_ProtectedKeeperRegistry_Revert_AlreadyRegistered() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Try to register again
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.KEEPER_ALREADY_REGISTERED.selector);
-        superGovernor.registerProtectedKeeper(keeper);
-    }
-
-    /// @notice Tests access control for registerProtectedKeeper
-    function test_ProtectedKeeperRegistry_RegisterAccessControl() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Test with user (should fail)
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with governor (should succeed)
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Governor should be able to register keeper");
-    }
-
-    /// @notice Tests unregistering a protected keeper
-    function test_ProtectedKeeperRegistry_UnregisterProtectedKeeper() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should be registered");
-
-        // Unregister keeper
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ProtectedKeeperUnregistered(keeper);
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Keeper should no longer be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 0, "Should have 0 protected keepers");
-        assertEq(superGovernor.getProtectedKeepersCount(), 0, "Count should be 0");
-    }
-
-    /// @notice Tests reverting when unregistering non-existent keeper
-    function test_ProtectedKeeperRegistry_Revert_UnregisterNotRegistered() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.KEEPER_NOT_REGISTERED.selector);
-        superGovernor.unregisterProtectedKeeper(keeper);
-    }
-
-    /// @notice Tests access control for unregisterProtectedKeeper
-    function test_ProtectedKeeperRegistry_UnregisterAccessControl() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with user (should fail)
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        // Verify keeper is still registered
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should still be protected");
-
-        // Test with governor (should succeed)
-        vm.prank(governor);
-        superGovernor.unregisterProtectedKeeper(keeper);
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Governor should be able to unregister keeper");
-    }
-
-    /// @notice Tests unregistering keeper when multiple keepers exist
-    function test_ProtectedKeeperRegistry_UnregisterWithMultiple() public {
-        address keeper1 = _deployAccount(0x30, "ProtectedKeeper1");
-        address keeper2 = _deployAccount(0x31, "ProtectedKeeper2");
-        address keeper3 = _deployAccount(0x32, "ProtectedKeeper3");
-
-        // Register all keepers
-        vm.startPrank(governor);
-        superGovernor.registerProtectedKeeper(keeper1);
-        superGovernor.registerProtectedKeeper(keeper2);
-        superGovernor.registerProtectedKeeper(keeper3);
-        vm.stopPrank();
-
-        // Unregister middle keeper
-        vm.prank(governor);
-        superGovernor.unregisterProtectedKeeper(keeper2);
-
-        // Verify states
-        assertTrue(superGovernor.isProtectedKeeper(keeper1), "Keeper1 should still be protected");
-        assertFalse(superGovernor.isProtectedKeeper(keeper2), "Keeper2 should no longer be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper3), "Keeper3 should still be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 2, "Should have 2 protected keepers remaining");
-        assertEq(superGovernor.getProtectedKeepersCount(), 2, "Count should be 2");
-
-        // Verify remaining keepers are in the list
-        assertTrue(_addressInArray(keepers, keeper1), "keeper1 should still be in list");
-        assertFalse(_addressInArray(keepers, keeper2), "keeper2 should not be in list");
-        assertTrue(_addressInArray(keepers, keeper3), "keeper3 should still be in list");
-    }
-
-    /// @notice Tests checking non-existent keeper
-    function test_ProtectedKeeperRegistry_IsProtectedKeeperFalse() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Non-registered keeper should return false");
-    }
-
-    /// @notice Tests getting empty keeper list initially
-    function test_ProtectedKeeperRegistry_EmptyListInitially() public view {
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 0, "Should start with empty keeper list");
-        assertEq(superGovernor.getProtectedKeepersCount(), 0, "Count should start at 0");
-    }
-
-    // =============================================================
-    // Incentive Token Management Tests
-    // =============================================================
-
 
     // =============================================================
     // Min Staleness Management Tests

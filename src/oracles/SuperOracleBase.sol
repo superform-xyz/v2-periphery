@@ -41,6 +41,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Timelock period for oracle updates
     uint256 internal constant TIMELOCK_PERIOD = 1 weeks;
     uint256 internal constant MAX_SAMPLE_PROVIDERS = 10;
+    uint256 internal constant MAX_PROVIDER_REMOVALS = 20;
     bytes32 internal constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // SuperGovernor address
@@ -175,6 +176,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
 
         uint256 length = providers.length;
         if (length == 0) revert ZERO_ARRAY_LENGTH();
+
+        if (length > MAX_PROVIDER_REMOVALS) revert TOO_MANY_PROVIDERS();
 
         pendingRemoval = PendingRemoval({ providers: providers, timestamp: block.timestamp });
 
@@ -499,6 +502,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             }
 
             if (!providerExists) {
+                if (activeProviders.length >= MAX_SAMPLE_PROVIDERS) {
+                    revert TOO_MANY_PROVIDERS();
+                }
                 activeProviders.push(provider);
                 isProviderSet[provider] = true;
             }

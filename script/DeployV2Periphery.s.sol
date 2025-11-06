@@ -232,17 +232,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("  SuperLedger:", coreAddresses.superLedger);
     }
 
-    function _deployPeripheryContracts(uint64 chainId)
-        internal
-        returns (PeripheryContracts memory peripheryContracts)
-    {
+    function _deployPeripheryContracts(uint64 chainId) internal returns (PeripheryContracts memory peripheryContracts) {
         console2.log("Starting comprehensive periphery contract deployment with full validation...");
 
         // ===== VALIDATION PHASE =====
         require(configuration.treasury != address(0), "TREASURY_ADDRESS_ZERO");
         require(configuration.owner != address(0), "OWNER_ADDRESS_ZERO");
-        require(configuration.validator != address(0), "VALIDATOR_ADDRESS_ZERO");
-        require(configuration.polymerProvers[chainId] != address(0), "POLYMER_PROVER_ADDRESS_ZERO");
+        require(validators.length > 0, "NO_VALIDATORS_CONFIGURED");
 
         console2.log("All periphery dependencies validated successfully");
 
@@ -258,9 +254,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     configuration.owner,
                     configuration.owner,
                     configuration.owner,
-                    configuration.owner,
-                    configuration.treasury,
-                    configuration.polymerProvers[chainId]
+                    configuration.treasury
                 )
             )
         );
@@ -332,15 +326,25 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     {
         console2.log("Configuring core periphery contracts...");
 
-        // Configure SuperGovernor with oracle and validator
+        // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
-        SuperGovernor(peripheryContracts.superGovernor).addValidator(configuration.validator);
+
+        // Set PPS Oracle quorum to 1
+        SuperGovernor(peripheryContracts.superGovernor).setPPSOracleQuorum(1);
+        console2.log("Set PPS Oracle quorum to: 1");
+
+        // Add all configured validators
+        for (uint256 i = 0; i < validators.length; i++) {
+            SuperGovernor(peripheryContracts.superGovernor).addValidator(validators[i]);
+            console2.log("Added validator:", validators[i]);
+        }
 
         // Configure SuperGovernor with aggregator
-        SuperGovernor(peripheryContracts.superGovernor).setAddress(
-            SuperGovernor(peripheryContracts.superGovernor).SUPER_VAULT_AGGREGATOR(),
-            peripheryContracts.superVaultAggregator
-        );
+        SuperGovernor(peripheryContracts.superGovernor)
+            .setAddress(
+                SuperGovernor(peripheryContracts.superGovernor).SUPER_VAULT_AGGREGATOR(),
+                peripheryContracts.superVaultAggregator
+            );
 
         // Grant roles and revoke from deployer for production
         if (configuration.owner != TEST_DEPLOYER) {
