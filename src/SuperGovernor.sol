@@ -46,9 +46,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
-    // Protected keepers registry (cannot be added as authorized callers by managers)
-    EnumerableSet.AddressSet private _protectedKeepers;
-
     // Executor registry
     EnumerableSet.AddressSet private _executors;
 
@@ -840,38 +837,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getSuperformManagersCount() external view returns (uint256) {
         return _superformManagers.length();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function registerProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (keeper == address(0)) revert INVALID_ADDRESS();
-        if (_protectedKeepers.contains(keeper)) revert KEEPER_ALREADY_REGISTERED();
-
-        _protectedKeepers.add(keeper);
-        emit ProtectedKeeperRegistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function unregisterProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_protectedKeepers.contains(keeper)) revert KEEPER_NOT_REGISTERED();
-
-        _protectedKeepers.remove(keeper);
-        emit ProtectedKeeperUnregistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function isProtectedKeeper(address keeper) external view returns (bool) {
-        return _protectedKeepers.contains(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepers() external view returns (address[] memory) {
-        return _protectedKeepers.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepersCount() external view returns (uint256) {
-        return _protectedKeepers.length();
     }
 
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
