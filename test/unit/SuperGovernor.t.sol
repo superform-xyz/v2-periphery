@@ -218,6 +218,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.getAddress(keccak256("NON_EXISTENT"));
     }
 
+    function test_RoleGetters() public view {
+        assertEq(superGovernor.SUPER_GOVERNOR_ROLE(), keccak256("SUPER_GOVERNOR_ROLE"));
+        assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
+        assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
+        assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
+        assertEq(superGovernor.UNPAUSER_ROLE(), keccak256("UNPAUSER_ROLE"));
+    }
+
     // =============================================================
     // Manager Takeover Tests
     // =============================================================
