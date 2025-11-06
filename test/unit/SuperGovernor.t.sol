@@ -232,6 +232,18 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isGuardian(governor), "SuperGovernor should be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
+    
+    function test_IsExecutor() public {
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorAdded(address(this));
+        superGovernor.addExecutor(address(this));
+
+        assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
+        address[] memory executors = superGovernor.getExecutors();
+        assertEq(executors.length, 1, "Should have 1 executor");
+        assertEq(executors[0], address(this), "Executor in list should match");
+    }
 
     // =============================================================
     // Manager Takeover Tests
