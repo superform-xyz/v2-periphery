@@ -29,6 +29,7 @@ abstract contract ConfigBase is Constants {
     string internal constant PRODUCTION_SALT_NAMESPACE = "DEPLOYPROD1.0.0";
 
     address internal constant TEST_DEPLOYER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address internal constant SUPERFORM_TREASURY = 0x1dbD9b26b295A33f126456Ab4e498cd308622f08;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
@@ -56,7 +57,7 @@ abstract contract ConfigBase is Constants {
         if (env == 0 || env == 2) {
             // Production environment
             configuration.owner = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
-            configuration.treasury = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
+            configuration.treasury = SUPERFORM_TREASURY;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
@@ -64,7 +65,7 @@ abstract contract ConfigBase is Constants {
         } else {
             // Test environment
             configuration.owner = TEST_DEPLOYER;
-            configuration.treasury = TEST_DEPLOYER;
+            configuration.treasury = SUPERFORM_TREASURY;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

@@ -232,10 +232,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("  SuperLedger:", coreAddresses.superLedger);
     }
 
-    function _deployPeripheryContracts(uint64 chainId)
-        internal
-        returns (PeripheryContracts memory peripheryContracts)
-    {
+    function _deployPeripheryContracts(uint64 chainId) internal returns (PeripheryContracts memory peripheryContracts) {
         console2.log("Starting comprehensive periphery contract deployment with full validation...");
 
         // ===== VALIDATION PHASE =====
@@ -253,7 +250,6 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             abi.encodePacked(
                 vm.getCode("script/locked-bytecode/SuperGovernor.json"),
                 abi.encode(
-                    configuration.owner,
                     configuration.owner,
                     configuration.owner,
                     configuration.owner,
@@ -344,10 +340,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         }
 
         // Configure SuperGovernor with aggregator
-        SuperGovernor(peripheryContracts.superGovernor).setAddress(
-            SuperGovernor(peripheryContracts.superGovernor).SUPER_VAULT_AGGREGATOR(),
-            peripheryContracts.superVaultAggregator
-        );
+        SuperGovernor(peripheryContracts.superGovernor)
+            .setAddress(
+                SuperGovernor(peripheryContracts.superGovernor).SUPER_VAULT_AGGREGATOR(),
+                peripheryContracts.superVaultAggregator
+            );
 
         // Grant roles and revoke from deployer for production
         if (configuration.owner != TEST_DEPLOYER) {

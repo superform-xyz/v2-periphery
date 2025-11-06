@@ -90,7 +90,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
     bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
-    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
@@ -113,18 +112,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param superGovernor Address of the default admin (will have SUPER_GOVERNOR_ROLE)
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
-    /// @param treasury_ Address of the treasury
-    constructor(
-        address superGovernor,
-        address governor,
-        address bankManager,
-        address gasManager,
-        address unpauser,
-        address treasury_
-    ) {
+    /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
+    /// @param treasury Address of the treasury
+    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury) {
         if (
-            superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || gasManager == address(0) || unpauser == address(0)
+            superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
+                || gasManager == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -134,7 +127,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -144,7 +136,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
         _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
@@ -153,8 +144,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
         // Set treasury in address registry
-        _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, address(0), treasury_);
+        _addressRegistry[TREASURY] = treasury;
+        emit AddressSet(TREASURY, address(0), treasury);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
@@ -658,11 +649,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function GUARDIAN_ROLE() external pure returns (bytes32) {
         return _GUARDIAN_ROLE;
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function UNPAUSER_ROLE() external pure returns (bytes32) {
-        return _UNPAUSER_ROLE;
     }
 
     /// @inheritdoc ISuperGovernor

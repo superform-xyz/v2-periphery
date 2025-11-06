@@ -393,8 +393,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param strategy Address of the strategy to unpause
     /// @dev Only the main manager of the strategy can unpause it
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        // Allow only the UNPAUSER_ROLE to unpause
-        if (!_isUnpauser(msg.sender)) {
+        if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
@@ -529,7 +528,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -1095,7 +1094,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
-            uint256 relativeDeviation = (absDiff * 1e18) / currentPPS;
+            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
@@ -1105,7 +1104,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // C2) M/N Check: Check if enough validators participated
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = (args.validatorSet * 1e18) / args.totalValidators;
+            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
             if (participationRate < _strategyData[args.strategy].mnThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");
@@ -1224,9 +1223,5 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
      */
     function _getSuperBank() internal view returns (address) {
         return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_BANK());
-    }
-
-    function _isUnpauser(address account) internal view returns (bool) {
-        return IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.UNPAUSER_ROLE(), account);
     }
 }
