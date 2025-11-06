@@ -860,7 +860,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     /// @notice Tests slashing reverts with insufficient stake balance
-    function test_SlashStake_RevertInsufficientStake() public {
+    function test_SlashStake_PartialSlashWhenInsufficient() public {
         uint256 stakeAmount = 500e18;
         uint256 slashAmount = 1000e18;
 
@@ -871,16 +871,29 @@ contract SuperGovernorTest is PeripheryHelpers {
         aggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
 
-        // Try to slash more than available
+        // Get SuperBank balance before
+        address superBankAddr = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = upToken.balanceOf(superBankAddr);
+
+        // Try to slash more than available - should slash only what's available
         vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StakeSlashed(manager, stakeAmount); // Only stakeAmount is slashed
         superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only available amount was slashed
+        assertEq(aggregator.getStakeBalance(manager), 0, "All stake should be slashed");
+        assertEq(
+            upToken.balanceOf(superBankAddr),
+            superBankBalanceBefore + stakeAmount,
+            "SuperBank should receive available amount"
+        );
     }
 
     /// @notice Tests slashing reverts when no stake deposited
     function test_SlashStake_RevertNoStake() public {
         vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superGovernor.slashStake(manager, 100e18);
     }
 
