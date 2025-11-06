@@ -949,47 +949,66 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertApproxEqRel(assetsAfter, sharesAmount, 0.01e18, "Asset conversion should be close to 1:1");
     }
 
-    /// @notice Tests the zero PPS fix using the actual deployed vault
-    /// @dev This verifies the fix by setting PPS to 0 on the real vault and testing conversion functions
+    /// @notice Tests that zero PPS is never stored (protection for external integrators)
+    /// @dev This verifies that attempting to set PPS to 0 (even with escape hatch) keeps the old PPS value
     function test_ConvertFunctions_ZeroPPS_RealVault() public {
         // Advance time to ensure timestamp is monotonic
         vm.warp(block.timestamp + 1 weeks);
 
-        // First set PPS to 0 using the actual PPS update mechanism
+        // Get the PPS before trying to set it to 0
+        uint256 ppsBefore = aggregator.getPPS(address(strategy));
+        assertGt(ppsBefore, 0, "Initial PPS should be greater than 0");
+
+        // Attempt to set PPS to 0 using the actual PPS update mechanism - this will pause and mark stale
         _updateSuperVaultPPS_ToZero(address(strategy));
+
+        // Verify strategy is paused
+        assertTrue(aggregator.isStrategyPaused(address(strategy)), "Strategy should be paused after zero PPS attempt");
+
+        // Verify that PPS was NOT stored (protection for external integrators)
+        uint256 ppsAfterAttempt = aggregator.getPPS(address(strategy));
+        assertEq(ppsAfterAttempt, ppsBefore, "PPS should remain at old value (zero PPS never stored)");
+
+        // Unpause the strategy to enable the escape hatch (C1 check will be skipped)
+        aggregator.unpauseStrategy(address(strategy));
+
+        // Advance time to ensure monotonic timestamp
+        vm.warp(block.timestamp + 10);
+
+        // Send fresh PPS update with 0 - C1 check will be skipped because ppsStale is true
+        // BUT PPS will still not be stored because args.pps == 0
+        _updateSuperVaultPPS_ToZero(address(strategy));
+
+        // Verify PPS is STILL at the old value (security: zero PPS can never be stored)
+        uint256 ppsAfterEscapeHatch = aggregator.getPPS(address(strategy));
+        assertEq(ppsAfterEscapeHatch, ppsBefore, "PPS should remain at old value even with escape hatch");
 
         uint256 testAssets = 1000e6; // 1000 USDC
         uint256 testShares = 1000e6; // 1000 shares
 
-        // Test convertToShares with zero PPS
+        // Test convertToShares with the OLD PPS (not zero, because zero PPS is never stored)
         uint256 resultShares = vault.convertToShares(testAssets);
-        assertEq(resultShares, 0, "convertToShares should return 0 when PPS is 0");
+        assertGt(resultShares, 0, "convertToShares should use old PPS value");
 
-        // Test convertToAssets with zero PPS
+        // Test convertToAssets with the OLD PPS
         uint256 resultAssets = vault.convertToAssets(testShares);
-        assertEq(resultAssets, 0, "convertToAssets should return 0 when PPS is 0");
+        assertGt(resultAssets, 0, "convertToAssets should use old PPS value");
 
-        // Test totalAssets consistency - should also be 0 when PPS is 0 (if no supply)
-        // Note: totalAssets depends on both PPS and total supply, so behavior may vary
+        // Test totalAssets - should be based on old PPS
         uint256 totalAssets = vault.totalAssets();
-        console2.log("totalAssets with PPS=0:", totalAssets);
+        console2.log("totalAssets with old PPS:", totalAssets);
 
         // Test edge cases with zero inputs
         assertEq(vault.convertToShares(0), 0, "convertToShares(0) should return 0");
         assertEq(vault.convertToAssets(0), 0, "convertToAssets(0) should return 0");
 
-        // Test with large values to ensure no overflow issues
-        uint256 largeValue = type(uint128).max; // Use uint128 max to avoid potential overflow
-        assertEq(vault.convertToShares(largeValue), 0, "convertToShares should return 0 for large values when PPS is 0");
-        assertEq(vault.convertToAssets(largeValue), 0, "convertToAssets should return 0 for large values when PPS is 0");
-
-        // Verify that operations requiring valid PPS should fail
+        // Verify that operations requiring valid PPS should fail due to PAUSED status
         deal(address(asset), address(this), testAssets);
         asset.approve(address(vault), testAssets);
 
         _getTokens(address(asset), accountEth, testAssets);
 
-        // Deposit should revert with STRATEGY_PAUSED when PPS is 0
+        // Deposit should revert with STRATEGY_PAUSED (because strategy is paused, not because PPS is 0)
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         vault.deposit(testAssets, address(this));
     }
