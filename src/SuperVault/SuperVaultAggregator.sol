@@ -516,40 +516,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        AUTHORIZED CALLER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperVaultAggregator
-    function addAuthorizedCaller(address strategy, address caller) external validStrategy(strategy) {
-        // Either primary or secondary manager can add authorized callers
-        if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        if (caller == address(0)) revert ZERO_ADDRESS();
-
-        // Prevent managers from adding protected keepers to circumvent fees
-        if (SUPER_GOVERNOR.isProtectedKeeper(caller)) {
-            revert CANNOT_ADD_PROTECTED_KEEPER();
-        }
-
-        // Check if caller is already authorized and add if not
-        if (!_strategyData[strategy].authorizedCallers.add(caller)) {
-            revert CALLER_ALREADY_AUTHORIZED();
-        }
-        emit AuthorizedCallerAdded(strategy, caller);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function removeAuthorizedCaller(address strategy, address caller) external validStrategy(strategy) {
-        // Either primary or secondary manager can remove authorized callers
-        if (!isAnyManager(msg.sender, strategy)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        // Remove the caller
-        if (!_strategyData[strategy].authorizedCallers.remove(caller)) {
-            revert CALLER_NOT_AUTHORIZED();
-        }
-        emit AuthorizedCallerRemoved(strategy, caller);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
@@ -933,11 +899,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
         return _managerStakeBalance[manager];
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function getAuthorizedCallers(address strategy) external view returns (address[] memory callers) {
-        return _strategyData[strategy].authorizedCallers.values();
     }
 
     /// @inheritdoc ISuperVaultAggregator

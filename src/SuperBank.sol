@@ -86,4 +86,8 @@ contract SuperBank is ISuperBank, Bank {
     function _getMerkleRootForHook(address hookAddress) internal view override returns (bytes32) {
         return SUPER_GOVERNOR.getSuperBankHookMerkleRoot(hookAddress);
     }
+
+    function _isHookRegistered(address hookAddress) internal view override returns (bool) {
+        return SUPER_GOVERNOR.isHookRegistered(hookAddress);
+    }
 }
