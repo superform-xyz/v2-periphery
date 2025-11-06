@@ -518,6 +518,22 @@ contract SuperGovernorTest is PeripheryHelpers {
     // =============================================================
     // Emergency Price Tests
     // =============================================================
+    function test_SetEmergencyPrice() public {
+        uint256 emergencyPrice = 1e18;
+
+        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        // Set the oracle in the registry
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(oracle));
+
+        vm.prank(governor);
+        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
+
+        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
+    }
 
     // =============================================================
     // PPS Oracle Management Tests
@@ -1785,6 +1801,16 @@ contract MockSuperOracleForStaleness {
     address[] public lastFeeds;
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
+
+    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
+
+    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
+        emergencyPrices[token] = emergencyPrice;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return emergencyPrices[token];
+    }
 
     function setMaxStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
