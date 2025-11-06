@@ -46,6 +46,9 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
+    // Validator config version (incremented when validators are added/removed)
+    uint256 private _validatorConfigVersion;
+
     // Protected keepers registry (cannot be added as authorized callers by managers)
     EnumerableSet.AddressSet private _protectedKeepers;
 
@@ -129,7 +132,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     ) {
         if (
             superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
+                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0)
+                || unpauser == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -395,12 +399,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (validator == address(0)) revert INVALID_ADDRESS();
         if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
 
+        // Increment validator config version
+        _validatorConfigVersion++;
+
         emit ValidatorAdded(validator);
     }
 
     /// @inheritdoc ISuperGovernor
     function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
+
+        // Increment validator config version
+        _validatorConfigVersion++;
 
         emit ValidatorRemoved(validator);
     }
@@ -459,13 +469,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function executeOracleProviderRemoval()
-        external
-        onlyRole(_ORACLE_MANAGER_ROLE)
-    {
+    function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
- 
+
         ISuperOracle(oracle).executeProviderRemoval();
     }
 
@@ -597,7 +604,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function proposeSuperBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
+    function proposeSuperBankHookMerkleRoot(
+        address hook,
+        bytes32 proposedRoot
+    )
+        external
+        onlyRole(_GOVERNOR_ROLE)
+    {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
         if (proposedRoot == bytes32(0)) revert ZERO_PROPOSED_MERKLE_ROOT();
 
@@ -693,6 +706,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getRegisteredHooks() external view returns (address[] memory) {
         return _registeredHooks.values();
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function getValidatorConfigVersion() external view returns (uint256) {
+        return _validatorConfigVersion;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -897,12 +915,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            1e18, // 1 UP token (18 decimals)
-            upToken,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+            .getQuoteFromProvider(
+                1e18, // 1 UP token (18 decimals)
+                upToken,
+                USD_TOKEN,
+                AVERAGE_PROVIDER
+            );
 
         // Calculate required UP tokens
         // usdAmount / upPerUsd = required UP tokens
