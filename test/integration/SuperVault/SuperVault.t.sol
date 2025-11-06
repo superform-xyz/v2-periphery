@@ -9192,7 +9192,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 /* feePercent */
     )
         internal
-        view
+        pure
     {
         if (expectedTotalFee == 0) return;
 
@@ -9280,8 +9280,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Use direct vault.withdraw instead of complex hooks
         vm.prank(accountEth);
-        uint256 assetsWithdrawn = vault.withdraw(claimableAssets, accountEth, accountEth);
-
+        vault.withdraw(claimableAssets, accountEth, accountEth);
+        
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
 
         // User should get full theoretical amount (no fee deduction in redemption)
@@ -9651,7 +9651,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         // Claim the assets using maxRedeem to get the correct amount
-        uint256 maxRedeemAmount = vault.maxRedeem(accountEth);
         uint256 maxWithdrawAmount = vault.maxWithdraw(accountEth);
 
         // Use withdraw with the maxWithdraw amount
@@ -10034,8 +10033,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
             deal(address(asset), address(strategy), expectedFee);
             _updateSuperVaultPPS(address(strategy), address(vault));
         }
-
-        uint256 oldPPS = aggregator.getPPS(address(strategy));
 
         // Expect PPSUpdatedAfterSkim event
         vm.expectEmit(true, false, false, false);

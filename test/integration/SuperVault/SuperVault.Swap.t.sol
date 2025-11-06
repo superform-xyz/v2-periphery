@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 // testing
 import { BaseSuperVaultTest } from "./BaseSuperVaultTest.t.sol";
+import { MockOdosRouterV2 } from "../../mocks/MockOdosRouterV2.sol";
 
 // external
 import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
@@ -17,6 +18,7 @@ import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHoo
 import { ClaimsMerkleHelper } from "../../../test/utils/merkle/helper/ClaimsMerkleHelper.sol";
 import { IDistributor } from "@superform-v2-core/src/vendor/merkl/IDistributor.sol";
 import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
+import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
 // we need to `useLatestFork` on true
 contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
@@ -24,7 +26,10 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE; 
-    address userAddress; 
+    address userAddress;
+    
+    MockOdosRouterV2 public odosRouter;
+    address public odosRouterAddress; 
 
     struct MerklHookWithSwapVars {
         uint256 depositAmount;
@@ -98,6 +103,20 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         updateTestVaultPredictions();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
+
+        useRealOdosRouter = false;
+        
+        // Setup Odos router based on flag
+        if (useRealOdosRouter) {
+            odosRouterAddress = CHAIN_1_ODOS_ROUTER;
+        } else {
+            odosRouter = new MockOdosRouterV2();
+            odosRouterAddress = address(odosRouter);
+        }
+        
+        // Deploy ApproveAndSwapOdosV2Hook with the correct router
+        approveAndSwapOdosHookAddressETH = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
+        superGovernor.registerHook(approveAndSwapOdosHookAddressETH);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -359,21 +378,39 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         vars.quoteOutputTokens = new QuoteOutputToken[](1);
         vars.quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: address(asset), proportion: 1 });
 
-        vars.path = surlCallQuoteV2(vars.quoteInputTokens, vars.quoteOutputTokens, address(strategy), ETH, true);
-        vars.requestBody = surlCallAssemble(vars.path, address(strategy));
-        vars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(vars.requestBody));
-        vars.odosCalldata = _createOdosSwapHookData(
-            vars.odosDecodedSwap.tokenInfo.inputToken,
-            vars.odosDecodedSwap.tokenInfo.inputAmount,
-            vars.odosDecodedSwap.tokenInfo.inputReceiver,
-            vars.odosDecodedSwap.tokenInfo.outputToken,
-            vars.odosDecodedSwap.tokenInfo.outputQuote,
-            vars.odosDecodedSwap.tokenInfo.outputMin - vars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
-            vars.odosDecodedSwap.pathDefinition,
-            vars.odosDecodedSwap.executor,
-            vars.odosDecodedSwap.referralCode,
-            false
-        );
+        if (useRealOdosRouter) {
+            vars.path = surlCallQuoteV2(vars.quoteInputTokens, vars.quoteOutputTokens, address(strategy), ETH, true);
+            vars.requestBody = surlCallAssemble(vars.path, address(strategy));
+            vars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(vars.requestBody));
+            vars.odosCalldata = _createOdosSwapHookData(
+                vars.odosDecodedSwap.tokenInfo.inputToken,
+                vars.odosDecodedSwap.tokenInfo.inputAmount,
+                vars.odosDecodedSwap.tokenInfo.inputReceiver,
+                vars.odosDecodedSwap.tokenInfo.outputToken,
+                vars.odosDecodedSwap.tokenInfo.outputQuote,
+                vars.odosDecodedSwap.tokenInfo.outputMin - vars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                vars.odosDecodedSwap.pathDefinition,
+                vars.odosDecodedSwap.executor,
+                vars.odosDecodedSwap.referralCode,
+                false
+            );
+        } else {
+            // Mock scenario: deal tokens to mock router and create simplified calldata
+            deal(address(asset), address(odosRouter), 10e6);
+            
+            vars.odosCalldata = _createOdosSwapHookData(
+                address(CHAIN_1_USDT),
+                10e6,
+                odosRouterAddress,
+                address(asset),
+                10e6,
+                10e6 - 10e6 * 1e4 / 1e5,
+                bytes(""),
+                address(0),
+                0,
+                false
+            );
+        }
         vars.hooksData[1] = vars.odosCalldata;
 
 
@@ -691,23 +728,43 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         swapVars.quoteOutputTokens = new QuoteOutputToken[](1);
         swapVars.quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: CHAIN_1_USDT, proportion: 1 });
 
-        swapVars.path = surlCallQuoteV2(swapVars.quoteInputTokens, swapVars.quoteOutputTokens, params.strat, ETH, true);
-        swapVars.requestBody = surlCallAssemble(swapVars.path, params.strat);
+        if (useRealOdosRouter) {
+            swapVars.path = surlCallQuoteV2(swapVars.quoteInputTokens, swapVars.quoteOutputTokens, params.strat, ETH, true);
+            swapVars.requestBody = surlCallAssemble(swapVars.path, params.strat);
 
-        swapVars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(swapVars.requestBody));
-        swapVars.odosCalldata = _createOdosSwapHookData(
-            swapVars.odosDecodedSwap.tokenInfo.inputToken,
-            swapVars.odosDecodedSwap.tokenInfo.inputAmount,
-            swapVars.odosDecodedSwap.tokenInfo.inputReceiver,
-            swapVars.odosDecodedSwap.tokenInfo.outputToken,
-            swapVars.odosDecodedSwap.tokenInfo.outputQuote,
-            swapVars.odosDecodedSwap.tokenInfo.outputMin - swapVars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
-            swapVars.odosDecodedSwap.pathDefinition,
-            swapVars.odosDecodedSwap.executor,
-            swapVars.odosDecodedSwap.referralCode,
-            false
-        );
-        arrays.executeHooksData[2] = swapVars.odosCalldata;
-        arrays.expectedAssetsOrSharesOut[2] = swapVars.odosDecodedSwap.tokenInfo.outputQuote;
+            swapVars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(swapVars.requestBody));
+            swapVars.odosCalldata = _createOdosSwapHookData(
+                swapVars.odosDecodedSwap.tokenInfo.inputToken,
+                swapVars.odosDecodedSwap.tokenInfo.inputAmount,
+                swapVars.odosDecodedSwap.tokenInfo.inputReceiver,
+                swapVars.odosDecodedSwap.tokenInfo.outputToken,
+                swapVars.odosDecodedSwap.tokenInfo.outputQuote,
+                swapVars.odosDecodedSwap.tokenInfo.outputMin - swapVars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                swapVars.odosDecodedSwap.pathDefinition,
+                swapVars.odosDecodedSwap.executor,
+                swapVars.odosDecodedSwap.referralCode,
+                false
+            );
+            arrays.executeHooksData[2] = swapVars.odosCalldata;
+            arrays.expectedAssetsOrSharesOut[2] = swapVars.odosDecodedSwap.tokenInfo.outputQuote;
+        } else {
+            // Mock scenario: deal tokens to mock router and create simplified calldata
+            deal(CHAIN_1_USDT, address(odosRouter), params.swapAmount);
+            
+            swapVars.odosCalldata = _createOdosSwapHookData(
+                params.assetToDeposit,
+                params.swapAmount,
+                odosRouterAddress,
+                CHAIN_1_USDT,
+                params.swapAmount,
+                params.swapAmount - params.swapAmount * 1e4 / 1e5,
+                bytes(""),
+                address(0),
+                0,
+                false
+            );
+            arrays.executeHooksData[2] = swapVars.odosCalldata;
+            arrays.expectedAssetsOrSharesOut[2] = params.swapAmount;
+        }
     }
 }

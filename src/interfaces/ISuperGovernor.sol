@@ -514,7 +514,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Returns the number of registered validators (O(1))
     function getValidatorsCount() external view returns (uint256);
 
-
     /// @notice Returns all registered executors
     /// @return List of executor addresses
     function getExecutors() external view returns (address[] memory);
@@ -631,29 +630,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the SuperBank ID
     /// @return The ID for the SuperBank in the registry
     function SUPER_BANK() external view returns (bytes32);
-
-    /// @notice Registers a keeper that cannot be added as authorized caller by managers
-    /// @dev Only governance can register protected keepers
-    /// @param keeper Address of the keeper to register
-    function registerProtectedKeeper(address keeper) external;
-
-    /// @notice Unregisters a protected keeper
-    /// @dev Only governance can unregister protected keepers
-    /// @param keeper Address of the keeper to unregister
-    function unregisterProtectedKeeper(address keeper) external;
-
-    /// @notice Checks if an address is a registered protected keeper
-    /// @param keeper Address to check
-    /// @return True if the address is a registered protected keeper
-    function isProtectedKeeper(address keeper) external view returns (bool);
-
-    /// @notice Gets all registered protected keepers
-    /// @return Array of all registered protected keeper addresses
-    function getProtectedKeepers() external view returns (address[] memory);
-
-    /// @notice Gets the number of registered protected keepers
-    /// @return The number of registered protected keepers
-    function getProtectedKeepersCount() external view returns (uint256);
 
     /// @notice Gets the gas info for a specific SuperVault PPS Oracle
     /// @param oracle_ The address of the oracle to get gas info for
