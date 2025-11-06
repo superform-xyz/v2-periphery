@@ -9519,7 +9519,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Use direct vault.withdraw instead of complex hooks
         vm.prank(accountEth);
-
+        vault.withdraw(claimableAssets, accountEth, accountEth);
+        
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
 
         // User should get full theoretical amount (no fee deduction in redemption)
