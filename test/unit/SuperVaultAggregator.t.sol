@@ -169,7 +169,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
     /// @notice Tests emergency replacement clears all secondary managers
     function test_AddTooManySecondaryManagers() public {
-        uint256 len = 7;
+        uint256 len = 6;
         address[] memory secondaryManagers = new address[](len);
 
         for (uint256 i = 0; i < len - 1; ++i) {
@@ -177,11 +177,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         }
 
         vm.startPrank(manager);
-        for (uint256 i = 0; i < 5; ++i) {
+        for (uint256 i = 0; i < len - 2; ++i) {
             superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
         }
+        address lastSecondaryManager = _deployAccount(20, "SecondaryManager");
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[5]);
+        superVaultAggregator.addSecondaryManager(strategy, lastSecondaryManager);
         vm.stopPrank();
     }
 
@@ -1784,8 +1785,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Get SuperBank balance before
-        address _superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(_superBank);
+        superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
 
         // Try to slash more than available - should slash only what's available
         vm.prank(address(superGovernor));
@@ -1796,7 +1797,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify only available amount was slashed
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
         assertEq(
-            IERC20(upToken).balanceOf(_superBank),
+            IERC20(upToken).balanceOf(superBank),
             superBankBalanceBefore + stakeAmount,
             "SuperBank should receive available amount"
         );

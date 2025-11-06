@@ -528,7 +528,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
@@ -1094,7 +1094,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
-            uint256 relativeDeviation = (absDiff * 1e18) / currentPPS;
+            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
@@ -1104,7 +1104,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // C2) M/N Check: Check if enough validators participated
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = (args.validatorSet * 1e18) / args.totalValidators;
+            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
             if (participationRate < _strategyData[args.strategy].mnThreshold) {
                 checksFailed = true;
                 emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");
