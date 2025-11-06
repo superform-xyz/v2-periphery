@@ -105,8 +105,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
             admin, // governor role
             admin, // bankManager role
             admin, // gasManager role
-            makeAddr("treasury"), // treasury
-            makeAddr("prover") // prover
+            makeAddr("treasury") // treasury
         );
         console.log("SuperGovernor deployed");
 
@@ -439,9 +438,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
 
         // Create preview deposit args using the new struct approach
         ISuperAsset.PreviewDepositArgs memory previewDepositArgs = ISuperAsset.PreviewDepositArgs({
-            tokenIn: address(underlyingToken1),
-            amountTokenToDeposit: depositAmount,
-            isSoft: false
+            tokenIn: address(underlyingToken1), amountTokenToDeposit: depositAmount, isSoft: false
         });
 
         // Call previewDeposit with the new struct
@@ -525,50 +522,50 @@ contract SuperAssetTest is BaseTestSuperAsset {
         assertEq(s.isDispersion, true);
         assertEq(s.isOracleOff, false);
     }
-    
+
     function test_BasicDepositWithInsufficientGasCheck() public {
         console.log("test_BasicDepositWithInsufficientGasCheck() Start");
-        
+
         // Create a direct test for the gas check by calling a function that will trigger it
         vm.startPrank(user);
-        
+
         // Test the gas check directly by calling with calculated gas limits
         // The check is: if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
         // So we need to provide gas such that after some consumption, gasleft() <= initial / 64
-        
+
         bytes4 expectedSelector = bytes4(keccak256("INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()"));
         console.log("Expected error selector:");
         console.logBytes4(expectedSelector);
-        
+
         // Try different gas amounts to find the threshold
         uint256[] memory gasAmounts = new uint256[](8);
-        gasAmounts[0] = 200000;
-        gasAmounts[1] = 150000;
-        gasAmounts[2] = 100000;
-        gasAmounts[3] = 80000;
-        gasAmounts[4] = 60000;
-        gasAmounts[5] = 40000;
-        gasAmounts[6] = 20000;
-        gasAmounts[7] = 10000;
-        
+        gasAmounts[0] = 200_000;
+        gasAmounts[1] = 150_000;
+        gasAmounts[2] = 100_000;
+        gasAmounts[3] = 80_000;
+        gasAmounts[4] = 60_000;
+        gasAmounts[5] = 40_000;
+        gasAmounts[6] = 20_000;
+        gasAmounts[7] = 10_000;
+
         for (uint256 i = 0; i < gasAmounts.length; i++) {
             console.log("\n--- Testing with gas:", gasAmounts[i], "---");
-            
-            try this.testGasCheckDirectly{gas: gasAmounts[i]}() {
+
+            try this.testGasCheckDirectly{ gas: gasAmounts[i] }() {
                 console.log("Call succeeded - no gas check triggered");
             } catch (bytes memory reason) {
                 console.log("Call reverted");
                 console.log("Error length:", reason.length);
-                
+
                 if (reason.length >= 4) {
                     bytes4 actualSelector;
                     assembly {
                         actualSelector := mload(add(reason, 0x20))
                     }
-                    
+
                     console.log("Actual error selector:");
                     console.logBytes4(actualSelector);
-                    
+
                     if (actualSelector == expectedSelector) {
                         console.log("SUCCESS: INSUFFICIENT_GAS_FOR_EXTERNAL_CALL triggered at gas:", gasAmounts[i]);
                         vm.stopPrank();
@@ -582,36 +579,36 @@ contract SuperAssetTest is BaseTestSuperAsset {
                 console.logBytes(reason);
             }
         }
-        
+
         console.log("Test completed - check results above");
         vm.stopPrank();
     }
-    
+
     // Direct test function that simulates the gas check scenario
     function testGasCheckDirectly() external view {
         // This function simulates the scenario in SuperAssetPriceLib where the gas check occurs
         uint256 gasBefore = gasleft();
         console.log("Gas at start:", gasBefore);
-        
+
         // Calculate how much gas we need to consume to trigger the condition
         uint256 threshold = gasBefore / 64;
-        
+
         console.log("Threshold (gasBefore/64):", threshold);
-        
+
         // Use a more efficient gas consumption method with limited iterations
         // Consume gas in chunks to avoid excessive memory usage
         uint256 maxIterations = 500; // Limit iterations to prevent memory issues
-        
+
         for (uint256 i = 0; i < maxIterations; i++) {
             // Simple gas consumption without excessive memory allocation
             uint256 temp = gasleft();
-            
+
             // Check if we're close to the threshold
             if (temp <= threshold + 500) {
                 console.log("Approaching threshold, stopping iterations");
                 break;
             }
-            
+
             // Consume some gas with a simple operation
             assembly {
                 let x := add(temp, i)
@@ -621,11 +618,11 @@ contract SuperAssetTest is BaseTestSuperAsset {
                 mstore(0x0, z)
             }
         }
-        
+
         uint256 gasAfter = gasleft();
         console.log("Gas after consumption:", gasAfter);
         console.log("Check condition (gasAfter <= gasBefore/64):", gasAfter <= gasBefore / 64);
-        
+
         // This is the exact check from your SuperAssetPriceLib
         if (gasleft() <= gasBefore / 64) {
             // Use assembly to revert with the exact custom error selector
@@ -635,12 +632,19 @@ contract SuperAssetTest is BaseTestSuperAsset {
                 revert(ptr, 4)
             }
         }
-        
+
         console.log("Gas check passed - threshold not reached");
     }
 
     // Helper function to call getPriceAndCircuitBreakers with limited gas
-    function callGetPriceWithLimitedGas(address superAsset_, address token_) external view returns (uint256, bool, bool, bool) {
+    function callGetPriceWithLimitedGas(
+        address superAsset_,
+        address token_
+    )
+        external
+        view
+        returns (uint256, bool, bool, bool)
+    {
         return ISuperAsset(superAsset_).getPriceAndCircuitBreakers(token_);
     }
 
@@ -648,10 +652,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.ZERO_AMOUNT.selector);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 0,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 0, minSharesOut: 0
         });
         superAsset.deposit(depositArgs);
         vm.stopPrank();
@@ -662,10 +663,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.NOT_SUPPORTED_TOKEN.selector);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: unsupportedToken,
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: unsupportedToken, amountTokenToDeposit: 100e18, minSharesOut: 0
         });
         superAsset.deposit(depositArgs);
         vm.stopPrank();
@@ -675,10 +673,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.ZERO_ADDRESS.selector);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: address(0),
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: address(0), tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
         superAsset.deposit(depositArgs);
         vm.stopPrank();
@@ -708,9 +703,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         uint256 depositAmount = 100e18;
         // Create preview deposit args using the new struct approach
         ISuperAsset.PreviewDepositArgs memory previewDepositArgs = ISuperAsset.PreviewDepositArgs({
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: depositAmount,
-            isSoft: false
+            tokenIn: address(tokenIn), amountTokenToDeposit: depositAmount, isSoft: false
         });
 
         // Call previewDeposit with the new struct
@@ -725,10 +718,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         tokenIn.approve(address(superAsset), depositAmount);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
         console.log("\n DEPOSIT 1 START");
         ISuperAsset.DepositReturnVars memory ret = superAsset.deposit(depositArgs);
@@ -743,10 +733,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
 
         tokenIn.approve(address(superAsset), depositAmount);
         ISuperAsset.DepositArgs memory depositArgs2 = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
         console.log("\n DEPOSIT 2 START");
         ISuperAsset.DepositReturnVars memory ret2 = superAsset.deposit(depositArgs2);
@@ -806,10 +793,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.ZERO_AMOUNT.selector);
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: user,
-            amountSharesToRedeem: 0,
-            tokenOut: address(tokenIn),
-            minTokenOut: 0
+            receiver: user, amountSharesToRedeem: 0, tokenOut: address(tokenIn), minTokenOut: 0
         });
         superAsset.redeem(redeemArgs);
         vm.stopPrank();
@@ -820,10 +804,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.NOT_SUPPORTED_TOKEN.selector);
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: user,
-            amountSharesToRedeem: 100e18,
-            tokenOut: unsupportedToken,
-            minTokenOut: 0
+            receiver: user, amountSharesToRedeem: 100e18, tokenOut: unsupportedToken, minTokenOut: 0
         });
         superAsset.redeem(redeemArgs);
         vm.stopPrank();
@@ -838,10 +819,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         underlyingToken1.approve(address(superAsset), depositAmount);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(underlyingToken1),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(underlyingToken1), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
         ISuperAsset.DepositReturnVars memory retDeposit = superAsset.deposit(depositArgs);
         uint256 sharesBalance = retDeposit.amountSharesMinted;
@@ -855,10 +833,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
 
         // Attempt to redeem with depegged token
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: user,
-            amountSharesToRedeem: sharesBalance,
-            tokenOut: address(underlyingToken1),
-            minTokenOut: 0
+            receiver: user, amountSharesToRedeem: sharesBalance, tokenOut: address(underlyingToken1), minTokenOut: 0
         });
 
         // vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_DEPEG.selector,
@@ -876,10 +851,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         vm.expectRevert(ISuperAsset.ZERO_ADDRESS.selector);
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: address(0),
-            amountSharesToRedeem: 100e18,
-            tokenOut: address(tokenIn),
-            minTokenOut: 0
+            receiver: address(0), amountSharesToRedeem: 100e18, tokenOut: address(tokenIn), minTokenOut: 0
         });
         superAsset.redeem(redeemArgs);
         vm.stopPrank();
@@ -891,10 +863,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         tokenIn.approve(address(superAsset), depositAmount);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
         ISuperAsset.DepositReturnVars memory ret = superAsset.deposit(depositArgs);
 
@@ -935,10 +904,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         // We need enough tokenOut deposited
         tokenOut.approve(address(superAsset), s.swapAmount);
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user11,
-            tokenIn: address(tokenOut),
-            amountTokenToDeposit: s.swapAmount,
-            minSharesOut: 0
+            receiver: user11, tokenIn: address(tokenOut), amountTokenToDeposit: s.swapAmount, minSharesOut: 0
         });
         ISuperAsset.DepositReturnVars memory ret = superAsset.deposit(depositArgs);
         vm.stopPrank();
@@ -946,10 +912,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         assertEq(superAsset.balanceOf(user11), ret.amountSharesMinted, "Should mint shares");
         // Create preview swap args
         ISuperAsset.PreviewSwapArgs memory previewArgs = ISuperAsset.PreviewSwapArgs({
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: s.swapAmount,
-            tokenOut: address(tokenOut),
-            isSoft: false
+            tokenIn: address(tokenIn), amountTokenToDeposit: s.swapAmount, tokenOut: address(tokenOut), isSoft: false
         });
 
         // Call previewSwap with the new struct approach
@@ -1214,10 +1177,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
 
         // Deposit should work with active token
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(testToken),
-            amountTokenToDeposit: 10e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(testToken), amountTokenToDeposit: 10e18, minSharesOut: 0
         });
 
         // Try to deposit with inactive token - should revert
@@ -1238,10 +1198,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         underlyingToken1.approve(address(superAsset), depositAmount);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(underlyingToken1),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(underlyingToken1), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
         ISuperAsset.DepositReturnVars memory depositRet = superAsset.deposit(depositArgs);
         uint256 sharesBalance = depositRet.amountSharesMinted;
@@ -1256,10 +1213,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         // Try to redeem to inactive token - should not revert if the token was removed from the whitelist
         vm.startPrank(user);
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: user,
-            tokenOut: address(underlyingToken1),
-            amountSharesToRedeem: sharesBalance,
-            minTokenOut: 0
+            receiver: user, tokenOut: address(underlyingToken1), amountSharesToRedeem: sharesBalance, minTokenOut: 0
         });
         ISuperAsset.RedeemReturnVars memory redeemRet = superAsset.redeem(redeemArgs);
         // superAsset.redeem(redeemArgs);
@@ -1310,10 +1264,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.warp(block.timestamp + 30 days);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
         vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_ORACLE_OFF.selector, address(tokenIn)));
         superAsset.deposit(depositArgs);
@@ -1331,10 +1282,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         mockFeed3.setAnswer(0);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
 
         vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_ORACLE_OFF.selector, address(tokenIn)));
@@ -1400,10 +1348,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         tokenIn.approve(address(superAsset), deposit1);
         ISuperAsset.DepositArgs memory depositArgs1 = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: deposit1,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: deposit1, minSharesOut: 0
         });
 
         console.log("TokenIn = ", address(tokenIn));
@@ -1416,10 +1361,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user11);
         tokenOut.approve(address(superAsset), deposit2);
         ISuperAsset.DepositArgs memory depositArgs2 = ISuperAsset.DepositArgs({
-            receiver: user11,
-            tokenIn: address(tokenOut),
-            amountTokenToDeposit: deposit2,
-            minSharesOut: 0
+            receiver: user11, tokenIn: address(tokenOut), amountTokenToDeposit: deposit2, minSharesOut: 0
         });
         ISuperAsset.DepositReturnVars memory ret2 = superAsset.deposit(depositArgs2);
         vm.stopPrank();
@@ -1432,10 +1374,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.startPrank(user);
         uint256 redeemAmount = ret1.amountSharesMinted / 2;
         ISuperAsset.RedeemArgs memory redeemArgs = ISuperAsset.RedeemArgs({
-            receiver: user,
-            amountSharesToRedeem: redeemAmount,
-            tokenOut: address(tokenIn),
-            minTokenOut: 0
+            receiver: user, amountSharesToRedeem: redeemAmount, tokenOut: address(tokenIn), minTokenOut: 0
         });
         ISuperAsset.RedeemReturnVars memory redeemRet = superAsset.redeem(redeemArgs);
         vm.stopPrank();
@@ -1506,10 +1445,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
 
         // Should revert due to depeg
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
 
         vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_DISPERSION.selector, address(tokenIn)));
@@ -1528,10 +1464,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         mockFeed3.setAnswer(basePrice * 80 / 100); // -20%
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
 
         vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_DISPERSION.selector, address(tokenIn)));
@@ -1575,10 +1508,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         tokenIn.approve(address(superAsset), minAmount);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(tokenIn),
-            amountTokenToDeposit: minAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: minAmount, minSharesOut: 0
         });
 
         // May revert or succeed depending on precision - test that it behaves consistently
@@ -1602,10 +1532,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         underlyingToken1.approve(address(superAsset), depositAmount);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(underlyingToken1),
-            amountTokenToDeposit: depositAmount,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(underlyingToken1), amountTokenToDeposit: depositAmount, minSharesOut: 0
         });
 
         // Initial deposit
@@ -1649,10 +1576,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
         vm.warp(block.timestamp + 30 days);
 
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
-            receiver: user,
-            tokenIn: address(underlyingToken1),
-            amountTokenToDeposit: 100e18,
-            minSharesOut: 0
+            receiver: user, tokenIn: address(underlyingToken1), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
 
         vm.expectRevert();

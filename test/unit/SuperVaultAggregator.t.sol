@@ -66,7 +66,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -89,7 +90,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -349,7 +352,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.prank(address(superGovernor));
         superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
     }
-    
+
     // =============================================================
     // Monotonic Timestamp Validation Tests
     // =============================================================
@@ -371,7 +374,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -388,7 +393,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](2);
         ppss[0] = 1e18;
         ppss[1] = 1e18;
-
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -444,7 +448,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -461,7 +467,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](2);
         ppss[0] = 1e18;
         ppss[1] = 1e18;
-
 
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
@@ -522,9 +527,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     minUpdateInterval: 5,
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
-                        performanceFeeBps: 1000,
-                        managementFeeBps: 0,
-                        recipient: manager
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                     }),
                     maxUnpauseTimeLock: 0
                 })
@@ -579,7 +582,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
                     ppss: ppss,
-                        validatorSets: validatorSets,
+                    validatorSets: validatorSets,
                     totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
@@ -676,7 +679,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -697,7 +702,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-
         uint256[] memory validatorSets = new uint256[](2);
         validatorSets[0] = 1;
         validatorSets[1] = 1;
@@ -709,7 +713,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 150; // Valid newer timestamp for strategy1
         timestamps[1] = timestamp2 + 40; // This will be stale for strategy2 (block.timestamp=151, submitted=41,
-            // diff=110 > maxStaleness=100)
+        // diff=110 > maxStaleness=100)
 
         address[] memory updateAuthorities = new address[](2);
         updateAuthorities[0] = user;
@@ -1093,10 +1097,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid initially");
@@ -1114,10 +1115,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid, "Hook should be invalid after banning");
@@ -1152,10 +1150,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid, "Hook should be invalid when banned");
@@ -1169,10 +1164,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid after unbanning");
@@ -1277,10 +1269,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid, "Hook should be valid via strategy root despite global ban");
@@ -1332,7 +1321,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -1363,10 +1354,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid1 = superVaultAggregator.validateHook(
             strategy,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertFalse(isValid1, "Hook should be invalid for strategy1");
@@ -1375,10 +1363,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bool isValid2 = superVaultAggregator.validateHook(
             strategy2,
             ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hookAddress,
-                hookArgs: hookArgs,
-                globalProof: globalProof,
-                strategyProof: strategyProof
+                hookAddress: hookAddress, hookArgs: hookArgs, globalProof: globalProof, strategyProof: strategyProof
             })
         );
         assertTrue(isValid2, "Hook should be valid for strategy2");
@@ -1696,9 +1681,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager2
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2
                 }),
                 maxUnpauseTimeLock: 0
             })
@@ -1996,7 +1979,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV2",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2011,7 +1996,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV3",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2026,7 +2013,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 symbol: "TV4",
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -2046,7 +2035,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.ppss[1] = 1.2e18;
         vars.ppss[2] = 1.3e18;
         vars.ppss[3] = 1.4e18;
-
 
         vars.validatorSets = new uint256[](4);
         vars.validatorSets[0] = 1;
@@ -2166,10 +2154,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.expectRevert(IECDSAPPSOracle.MAX_STRATEGIES_EXCEEDED.selector);
         ecdsaPPSOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
