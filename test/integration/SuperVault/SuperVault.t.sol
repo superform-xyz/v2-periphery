@@ -50,6 +50,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
 
+
     struct UserPersona {
         address account;
         uint256 depositAmount;

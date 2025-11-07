@@ -17,6 +17,7 @@ import { SuperVaultStrategy } from "../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../src/SuperVault/SuperVaultEscrow.sol";
 import { ECDSAPPSOracle } from "../src/oracles/ECDSAPPSOracle.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
+import { PendleRouterSwapHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterSwapHook.sol";
 
 // Mock contracts for address prediction
 import { Mock4626Vault } from "./mocks/Mock4626Vault.sol";
@@ -36,6 +37,7 @@ struct PeripheryAddresses {
     MockNativeETHHook mockNativeETHHook;
     MockETHReceiver mockETHReceiver;
     ApproveAndSwapOdosV2Hook approveAndSwapOdosHook;
+    PendleRouterSwapHook pendleRouterSwapHook;
 }
 
 contract BaseTest is PeripheryHelpers, CoreBaseTest {
@@ -218,6 +220,14 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 vm.label(address(PA[i].approveAndSwapOdosHook), "ApproveAndSwapOdosV2Hook");
                 contractAddresses[ETH][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY] = address(PA[i].approveAndSwapOdosHook);
                 approveAndSwapOdosHookAddressETH = address(PA[i].approveAndSwapOdosHook);
+
+                PA[i].pendleRouterSwapHook = new PendleRouterSwapHook{
+                    salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT))
+                }(
+                    CHAIN_1_PENDLE_ROUTER
+                );
+                vm.label(address(PA[i].pendleRouterSwapHook), "PendleRouterSwapHook");
+                contractAddresses[ETH][PENDLE_ROUTER_SWAP_HOOK_KEY] = address(PA[i].pendleRouterSwapHook);
 
                 // Predict test vault addresses
                 _predictTestVaultAddresses();
