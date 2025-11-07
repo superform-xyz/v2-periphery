@@ -1853,16 +1853,6 @@ contract MockSuperOracleForStaleness {
         return emergencyPrices[token];
     }
 
-    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
-
-    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
-        emergencyPrices[token] = emergencyPrice;
-    }
-
-    function getEmergencyPrice(address token) external view returns (uint256) {
-        return emergencyPrices[token];
-    }
-
     function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }

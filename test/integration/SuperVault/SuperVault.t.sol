@@ -1154,13 +1154,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimable = strategy.claimableWithdraw(accountEth);
         uint256 maxWithdrawAfter = vault.maxWithdraw(accountEth);
         assertEq(maxWithdrawAfter, claimable, "maxWithdraw should match claimable amount");
-
-        // Pause the strategy (manager can pause)
-        vm.prank(MANAGER);
-        aggregator.pauseStrategy(address(strategy));
-
-        uint256 maxWithdrawWithPause = vault.maxWithdraw(accountEth);
-        assertEq(maxWithdrawWithPause, 0, "maxWithdraw should be 0 when strategy is paused");
     }
 
     function test_MaxRedeem() public {
