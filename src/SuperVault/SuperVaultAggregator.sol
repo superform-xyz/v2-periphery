@@ -403,9 +403,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert STRATEGY_NOT_PAUSED();
         }
 
-        // Unpause the strategy
+        // Unpause the strategy and track unpause timestamp
         _strategyData[strategy].isPaused = false;
-        _strategyData[strategy].ppsStale = true;
+        _strategyData[strategy].lastUnpauseTimestamp = block.timestamp;  // Track for skim timelock
+        // ppsStale already true from pause - no need to set again (gas savings)
         emit StrategyUnpaused(strategy);
     }
 
@@ -881,6 +882,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp) {
+        return _strategyData[strategy].lastUnpauseTimestamp;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
     function getUpkeepBalance(address manager) external view returns (uint256 balance) {
         return _managerUpkeepBalance[manager];
     }
@@ -1084,15 +1090,23 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             return;
         }
 
+        // Reject updates when paused - no incentive to update during pause
+        if (_strategyData[args.strategy].isPaused) {
+            emit PPSUpdateRejectedStrategyPaused(args.strategy);
+            return;
+        }
+
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
         // Flag to track if any check failed
         bool checksFailed;
 
-        // C1) Deviation Check: Check if new PPS deviates too much from current PPS
+        //  C1) Deviation Check - Skip if PPS is stale (escape hatch for liquidations)
         uint256 currentPPS = _strategyData[args.strategy].pps;
-        if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
+        if (_strategyData[args.strategy].deviationThreshold != type(uint256).max
+            && currentPPS > 0
+            && !_strategyData[args.strategy].ppsStale) {  // Skip deviation check if stale
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
             uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
@@ -1112,10 +1126,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // Pause strategy if any check failed
+        // Pause strategy if any check failed and mark PPS as stale
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
+            _strategyData[args.strategy].ppsStale = true;  // Mark stale when auto-pausing
             emit StrategyPaused(args.strategy);
+            emit StrategyPPSStale(args.strategy);
         }
 
         // Handle upkeep costs unless exempt
@@ -1140,15 +1156,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
         }
 
-        // Update PPS, timestamp and ppsStale in StrategyData
-        _strategyData[args.strategy].pps = args.pps;
-        _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+        // Only store PPS, timestamp and clear stale flag when validation passes
         if (!checksFailed && args.pps > 0) {
-            _strategyData[args.strategy].ppsStale = false;
-            emit StrategyPPSStaleReset(args.strategy);
+            _strategyData[args.strategy].pps = args.pps;
+            _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+            // Only reset stale flag if it was previously stale (gas optimization)
+            if (_strategyData[args.strategy].ppsStale) {
+                _strategyData[args.strategy].ppsStale = false;
+                emit StrategyPPSStaleReset(args.strategy);
+            }
+            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
         }
-
-        emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+        // If checks failed, PPS remains at old value (safer for external integrators)
     }
 
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments
