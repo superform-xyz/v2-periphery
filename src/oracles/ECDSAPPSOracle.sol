@@ -235,7 +235,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             return false;
         }
 
-        noncePerStrategy[_strategy]++;
         return true;
     }
 
@@ -264,7 +263,12 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                         timestamps: validatedData.timestamps,
                         updateAuthority: msg.sender
                     })
-                ) { }
+                ) { 
+                    for (uint256 i; i < count; ++i) {
+                        // Increment nonce only after successful forwarding to avoid burning signatures on failed/short-gas attempts
+                        noncePerStrategy[validatedData.strategies[i]]++;
+                    }
+            }
             catch Error(string memory reason) {
                 // Require that enough gas was provided to prevent an OOG revert
                 if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();

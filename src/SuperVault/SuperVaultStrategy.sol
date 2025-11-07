@@ -248,10 +248,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.ClaimCancelRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);
@@ -369,6 +367,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         _validateStrategyState(aggregator);
+
+        // CHANGE 7: Prevent skim for 12 hours after unpause (rug prevention)
+        uint256 lastUnpause = aggregator.getLastUnpauseTimestamp(address(this));
+        if (block.timestamp < lastUnpause + 12 hours) {
+            revert SKIM_TIMELOCK_ACTIVE();
+        }
 
         IERC4626 vault = IERC4626(_vault);
         uint256 totalSupplyLocal = vault.totalSupply();

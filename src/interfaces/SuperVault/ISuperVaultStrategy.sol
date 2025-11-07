@@ -50,6 +50,7 @@ interface ISuperVaultStrategy {
     error CONTROLLERS_NOT_SORTED_UNIQUE();
     error ZERO_SHARE_FULFILLMENT_DISALLOWED();
     error NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
+    error SKIM_TIMELOCK_ACTIVE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
