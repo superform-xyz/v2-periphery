@@ -25,7 +25,7 @@ import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IERC7540Redeem, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC7540YieldSourceOracle } from "@superform-v2-core/test/mocks/unused-oracles/ERC7540YieldSourceOracle.sol";
 import { ERC5115YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC5115YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
