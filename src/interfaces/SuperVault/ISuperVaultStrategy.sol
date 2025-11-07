@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 import { ISuperHook, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
@@ -50,6 +50,7 @@ interface ISuperVaultStrategy {
     error CONTROLLERS_NOT_SORTED_UNIQUE();
     error ZERO_SHARE_FULFILLMENT_DISALLOWED();
     error NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
+    error SKIM_TIMELOCK_ACTIVE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

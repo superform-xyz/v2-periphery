@@ -55,7 +55,6 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
     address public globalRuggableVault;
     address public globalSV5115Strategy;
 
-
     // Test vault addresses for deterministic testing
     address public test1_DynamicAllocation_MockVault;
     address public test3_UnderlyingVaults_StressTest;
@@ -111,14 +110,9 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
         for (uint256 i = 0; i < chainIds.length; ++i) {
             vm.selectFork(FORKS[chainIds[i]]);
 
-            // Use 0xDEAD as placeholder for chains where Polymer prover is not available
-            address proverAddress = POLYMER_PROVER[chainIds[i]];
-            if (proverAddress == address(0)) {
-                proverAddress = address(0xDEAD);
-            }
-
             PA[i].superGovernor =
-                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), address(this), TREASURY, proverAddress);
+                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), TREASURY);
+
             vm.label(address(PA[i].superGovernor), SUPER_GOVERNOR_KEY);
             contractAddresses[chainIds[i]][SUPER_GOVERNOR_KEY] = address(PA[i].superGovernor);
 
@@ -155,44 +149,56 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 address aggregator = address(PA[i].superVaultAggregator);
                 globalSVStrategy = SuperVaultAggregator(aggregator).STRATEGY_IMPLEMENTATION()
                     .predictDeterministicAddress(
-                    keccak256(
-                        abi.encode(
-                            SV_MANAGER, existingUnderlyingTokens[ETH][USDC_KEY], "SuperVault", "SV_USDC", uint256(0)
-                        )
-                    ),
-                    aggregator
-                );
+                        keccak256(
+                            abi.encode(
+                                SV_MANAGER, existingUnderlyingTokens[ETH][USDC_KEY], "SuperVault", "SV_USDC", uint256(0)
+                            )
+                        ),
+                        aggregator
+                    );
                 globalSVGearStrategy = SuperVaultAggregator(aggregator).STRATEGY_IMPLEMENTATION()
                     .predictDeterministicAddress(
-                    keccak256(
-                        abi.encode(
-                            SV_MANAGER, existingUnderlyingTokens[ETH][USDC_KEY], "SuperVault", "svGearbox", uint256(1)
-                        )
-                    ),
-                    aggregator
-                );
+                        keccak256(
+                            abi.encode(
+                                SV_MANAGER,
+                                existingUnderlyingTokens[ETH][USDC_KEY],
+                                "SuperVault",
+                                "svGearbox",
+                                uint256(1)
+                            )
+                        ),
+                        aggregator
+                    );
 
                 globalRuggableVault = SuperVaultAggregator(aggregator).STRATEGY_IMPLEMENTATION()
                     .predictDeterministicAddress(
-                    keccak256(
-                        abi.encode(
-                            SV_MANAGER, existingUnderlyingTokens[ETH][USDC_KEY], "SuperVault", "SV_USDC_RUG", uint256(1)
-                        )
-                    ),
-                    aggregator
-                );
+                        keccak256(
+                            abi.encode(
+                                SV_MANAGER,
+                                existingUnderlyingTokens[ETH][USDC_KEY],
+                                "SuperVault",
+                                "SV_USDC_RUG",
+                                uint256(1)
+                            )
+                        ),
+                        aggregator
+                    );
 
                 globalSV5115Strategy = SuperVaultAggregator(aggregator).STRATEGY_IMPLEMENTATION()
                     .predictDeterministicAddress(
-                    keccak256(
-                        abi.encode(
-                            //SV_MANAGER, existingUnderlyingTokens[ETH][USDE_KEY], "SuperVault", "sv5115", uint256(1)
-                            SV_MANAGER, CHAIN_1_SUSDE, "SuperVault", "sv5115", uint256(1)
-                        )
-                    ),
-                    aggregator
-                );
-
+                        keccak256(
+                            abi.encode(
+                                //SV_MANAGER, existingUnderlyingTokens[ETH][USDE_KEY], "SuperVault", "sv5115",
+                                // uint256(1)
+                                SV_MANAGER,
+                                CHAIN_1_SUSDE,
+                                "SuperVault",
+                                "sv5115",
+                                uint256(1)
+                            )
+                        ),
+                        aggregator
+                    );
 
                 // Deploy MockETHReceiver first (needed for MockNativeETHHook constructor) - ETH only
                 PA[i].mockETHReceiver = new MockETHReceiver{ salt: SALT }(existingUnderlyingTokens[ETH][USDC_KEY]);
@@ -204,7 +210,11 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 vm.label(address(PA[i].mockNativeETHHook), "MOCK_NATIVE_ETH_HOOK");
                 contractAddresses[ETH]["MOCK_NATIVE_ETH_HOOK"] = address(PA[i].mockNativeETHHook);
 
-                PA[i].approveAndSwapOdosHook = new ApproveAndSwapOdosV2Hook{ salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT)) }(CHAIN_1_ODOS_ROUTER);
+                PA[i].approveAndSwapOdosHook = new ApproveAndSwapOdosV2Hook{
+                    salt: keccak256(abi.encodePacked(PERIPHERY_HOOKS_SALT))
+                }(
+                    CHAIN_1_ODOS_ROUTER
+                );
                 vm.label(address(PA[i].approveAndSwapOdosHook), "ApproveAndSwapOdosV2Hook");
                 contractAddresses[ETH][APPROVE_AND_SWAP_ODOSV2_HOOK_KEY] = address(PA[i].approveAndSwapOdosHook);
                 approveAndSwapOdosHookAddressETH = address(PA[i].approveAndSwapOdosHook);
@@ -294,10 +304,12 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             _predictMock4626VaultAddress(deployer, assetAddress, "New Vault", "NV", TEST_SALT);
 
         // Test 1: SuperVault 5115 ReAllocateFrom4626To5115 - uses salt "TEST"
-        test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1 =
-            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault1", "SV5115R1", TEST_SALT);
-        test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2 =
-            _predictMock4626VaultAddress(deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault2", "SV5115R2", TEST_SALT);
+        test1_SuperVault_5115_ReAllocateFrom4626To5115_Vault1 = _predictMock4626VaultAddress(
+            deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault1", "SV5115R1", TEST_SALT
+        );
+        test2_SuperVault_5115_ReAllocateFrom4626To5115_Vault2 = _predictMock4626VaultAddress(
+            deployer, assetAddress, "SuperVault 5115 ReAllocateFrom4626To5115 Vault2", "SV5115R2", TEST_SALT
+        );
     }
 
     /// @notice Updates test vault predictions with the correct deployer address
@@ -440,7 +452,6 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
                 superGovernor.registerHook(address(PA[i].mockNativeETHHook));
                 superGovernor.registerHook(address(PA[i].approveAndSwapOdosHook));
 
-
                 // Initialize periphery-specific merkle hooks - include all hooks that can fulfill requests (true)
                 globalMerkleHooksPeriphery = new address[](16);
                 globalMerkleHooksPeriphery[0] = hookAddresses[chainIds[i]][DEPOSIT_4626_VAULT_HOOK_KEY];
@@ -521,8 +532,8 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
             // Read current configs to preserve existing settings
             ISuperLedgerConfiguration.YieldSourceOracleConfig[] memory currentConfigs = ISuperLedgerConfiguration(
-                _getContract(chainIds[i], SUPER_LEDGER_CONFIGURATION_KEY)
-            ).getYieldSourceOracleConfigs(yieldSourceOracleIds);
+                    _getContract(chainIds[i], SUPER_LEDGER_CONFIGURATION_KEY)
+                ).getYieldSourceOracleConfigs(yieldSourceOracleIds);
 
             // Create new config proposals with updated treasury
             ISuperLedgerConfiguration.YieldSourceOracleConfigArgs[] memory newConfigs =

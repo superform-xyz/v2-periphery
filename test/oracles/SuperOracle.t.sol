@@ -64,7 +64,7 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle = new SuperOracle(address(this), bases, quotes, providers, feeds);
 
         // Set a longer max staleness period for tests that involve time warping
-        superOracle.setMaxStaleness(2 weeks);
+        superOracle.setDefaultStaleness(2 weeks);
     }
 
     function test_GetQuote() public view {
@@ -284,6 +284,14 @@ contract SuperOracleTest is PeripheryHelpers {
     }
 
     function test_RemovingProvider() public {
+        // Test revert if too many providers are being removed
+        bytes32[] memory providersToRemoveRevert = new bytes32[](24);
+        for (uint256 i = 0; i < 24; i++) {
+            providersToRemoveRevert[i] = bytes32(keccak256(abi.encodePacked(i)));
+        }
+        vm.expectRevert(ISuperOracle.TOO_MANY_PROVIDERS.selector);
+        superOracle.queueProviderRemoval(providersToRemoveRevert);
+
         // First verify provider 3 exists
         bytes32[] memory providersToRemove = new bytes32[](1);
         providersToRemove[0] = PROVIDER_3;
@@ -291,8 +299,8 @@ contract SuperOracleTest is PeripheryHelpers {
         // Queue provider removal
         superOracle.queueProviderRemoval(providersToRemove);
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed1.setUpdatedAt(block.timestamp);
@@ -331,10 +339,10 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_SetMaxStaleness() public {
         // Set a new max staleness period
         uint256 newMaxStaleness = 12 hours;
-        superOracle.setMaxStaleness(newMaxStaleness);
+        superOracle.setDefaultStaleness(newMaxStaleness);
 
         // Check it was updated
-        assertEq(superOracle.maxDefaultStaleness(), newMaxStaleness, "Max staleness should be updated");
+        assertEq(superOracle.defaultStaleness(), newMaxStaleness, "Max staleness should be updated");
     }
 
     function test_SetFeedMaxStaleness() public {
@@ -511,7 +519,7 @@ contract SuperOracleTest is PeripheryHelpers {
 
     function test_RevertIfMaxStalenessExceeded() public {
         // Set max staleness to 12 hours
-        superOracle.setMaxStaleness(12 hours);
+        superOracle.setDefaultStaleness(12 hours);
 
         // Try to set a feed staleness greater than max
         vm.expectRevert(ISuperOracle.MAX_STALENESS_EXCEEDED.selector);
@@ -556,8 +564,8 @@ contract SuperOracleTest is PeripheryHelpers {
         vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
         superOracle.executeProviderRemoval();
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed2.setUpdatedAt(block.timestamp);
@@ -575,6 +583,35 @@ contract SuperOracleTest is PeripheryHelpers {
                 revert("Provider 1 should have been removed");
             }
         }
+    }
+
+    function test_ProviderRemovalTimelockPeriod() public {
+        // Verify that provider removal uses 1 hour timelock (not 1 week like oracle updates)
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = PROVIDER_1;
+
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Cannot execute immediately
+        vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
+        superOracle.executeProviderRemoval();
+
+        // Cannot execute just before 1 hour (59 minutes 59 seconds)
+        vm.warp(block.timestamp + 59 minutes + 59 seconds);
+        vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
+        superOracle.executeProviderRemoval();
+
+        // Should succeed after exactly 1 hour
+        vm.warp(block.timestamp + 2 seconds); // Now at 1 hour + 1 second total
+        mockFeed2.setUpdatedAt(block.timestamp);
+        mockFeed3.setUpdatedAt(block.timestamp);
+        
+        superOracle.executeProviderRemoval();
+
+        // Verify provider was removed
+        bytes32[] memory activeProviders = superOracle.getActiveProviders();
+        assertEq(activeProviders.length, 2, "Should have 2 providers after removal");
+        assertFalse(superOracle.isProviderSet(PROVIDER_1), "Provider 1 should not be set");
     }
 
     function test_NegativeOracleValues() public {
@@ -603,8 +640,8 @@ contract SuperOracleTest is PeripheryHelpers {
 
         superOracle.queueProviderRemoval(providersToRemove);
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed3.setUpdatedAt(block.timestamp);
@@ -636,6 +673,73 @@ contract SuperOracleTest is PeripheryHelpers {
             superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_3);
 
         assertEq(quoteAmount, 0.9e6, "Quote should be $900 from Provider 3");
+    }
+
+    function test_CancelProviderRemoval() public {
+        // Queue provider removal
+        bytes32[] memory providersToRemove = new bytes32[](2);
+        providersToRemove[0] = PROVIDER_1;
+        providersToRemove[1] = PROVIDER_2;
+
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Verify providers are still active before cancellation
+        bytes32[] memory activeProvidersBefore = superOracle.getActiveProviders();
+        assertEq(activeProvidersBefore.length, 3, "Should still have 3 providers before cancellation");
+
+        // Cancel the pending removal
+        vm.expectEmit(true, false, false, false);
+        emit ISuperOracle.ProviderRemovalCancelled(providersToRemove);
+        superOracle.cancelProviderRemoval();
+
+        // Verify providers are still active after cancellation
+        bytes32[] memory activeProvidersAfter = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfter.length, 3, "Should still have 3 providers after cancellation");
+
+        // Verify we can still get quotes from the providers that were queued for removal
+        (uint256 quoteAmount1,,,) =
+            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_1);
+        assertEq(quoteAmount1, 1.1e6, "Should still be able to get quote from Provider 1");
+
+        (uint256 quoteAmount2,,,) =
+            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_2);
+        assertEq(quoteAmount2, 1e6, "Should still be able to get quote from Provider 2");
+
+        // Verify provider is still set
+        bool isProvider1Set = superOracle.isProviderSet(PROVIDER_1);
+        bool isProvider2Set = superOracle.isProviderSet(PROVIDER_2);
+        assertTrue(isProvider1Set, "Provider 1 should still be set");
+        assertTrue(isProvider2Set, "Provider 2 should still be set");
+
+        // Verify we can queue a new removal after cancellation
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // This time execute it to verify cancellation didn't break anything
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
+        mockFeed3.setUpdatedAt(block.timestamp);
+        superOracle.executeProviderRemoval();
+
+        // Verify providers were removed this time
+        bytes32[] memory activeProvidersAfterExecution = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfterExecution.length, 1, "Should have 1 provider after execution");
+    }
+
+    function test_CancelProviderRemoval_Revert_NoPendingUpdate() public {
+        // Try to cancel when there's no pending removal
+        vm.expectRevert(ISuperOracle.NO_PENDING_UPDATE.selector);
+        superOracle.cancelProviderRemoval();
+    }
+
+    function test_CancelProviderRemoval_Revert_OnlyOwner() public {
+        // Queue provider removal as owner
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = PROVIDER_1;
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Try to cancel as non-owner
+        vm.prank(makeAddr("nonOwner"));
+        vm.expectRevert();
+        superOracle.cancelProviderRemoval();
     }
 
     function test_DecimalConversion() public {
@@ -773,7 +877,7 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Try to set max staleness (should revert)
         vm.expectRevert();
-        superOracle.setMaxStaleness(1 days);
+        superOracle.setDefaultStaleness(1 days);
 
         // Try to set feed max staleness (should revert)
         vm.expectRevert();
@@ -811,7 +915,7 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_DefaultFeedStalenessWhenZeroProvided() public {
         // Set maxDefaultStaleness to a specific value
         uint256 defaultStaleness = 3 days;
-        superOracle.setMaxStaleness(defaultStaleness);
+        superOracle.setDefaultStaleness(defaultStaleness);
 
         // Set feed staleness to 0, which should default to maxDefaultStaleness
         superOracle.setFeedMaxStaleness(address(mockFeed1), 0);
@@ -864,7 +968,7 @@ contract SuperOracleTest is PeripheryHelpers {
         providersToRemove[1] = PROVIDER_2;
 
         superOracle.queueProviderRemoval(providersToRemove);
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
         mockFeed3.setUpdatedAt(block.timestamp);
         superOracle.executeProviderRemoval();
 
@@ -882,7 +986,7 @@ contract SuperOracleTest is PeripheryHelpers {
         providersToRemove[0] = PROVIDER_1;
 
         superOracle.queueProviderRemoval(providersToRemove);
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
         superOracle.executeProviderRemoval();
 
         // When a provider is removed, its oracle mapping still exists but isProviderSet is false

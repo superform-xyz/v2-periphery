@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -54,7 +54,6 @@ interface ISuperVaultAggregator {
     /// @param isPaused Whether the strategy is paused
     /// @param mainManager Address of the primary manager controlling the strategy
     /// @param secondaryManagers Set of secondary managers that can manage the strategy
-    /// @param authorizedCallers List of callers authorized to update PPS without paying upkeep
     struct StrategyData {
         uint256 pps;
         uint256 lastUpdateTimestamp;
@@ -64,7 +63,6 @@ interface ISuperVaultAggregator {
         bool isPaused;
         address mainManager;
         EnumerableSet.AddressSet secondaryManagers;
-        EnumerableSet.AddressSet authorizedCallers;
         // Manager change proposal data
         address proposedManager;
         uint256 managerChangeEffectiveTime;
@@ -81,6 +79,10 @@ interface ISuperVaultAggregator {
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
         uint256 maxUnpauseTimeLock;
+        // Min update interval proposal data
+        uint256 proposedMinUpdateInterval;
+        uint256 minUpdateIntervalEffectiveTime;
+        uint256 lastUnpauseTimestamp; // Timestamp of last unpause (for skim timelock)
     }
 
     /// @notice Parameters for creating a new SuperVault trio
@@ -160,11 +162,7 @@ interface ISuperVaultAggregator {
     /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp of the update
     event PPSUpdated(
-        address indexed strategy,
-        uint256 pps,
-        uint256 validatorSet,
-        uint256 totalValidators,
-        uint256 timestamp
+        address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp
     );
 
     /// @notice Emitted when a strategy is paused due to missed updates
@@ -216,16 +214,6 @@ interface ISuperVaultAggregator {
     /// @param manager The manager whose stake was slashed
     /// @param amount The amount of UP tokens slashed
     event StakeSlashed(address indexed manager, uint256 amount);
-
-    /// @notice Emitted when an authorized caller is added for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the authorized caller
-    event AuthorizedCallerAdded(address indexed strategy, address indexed caller);
-
-    /// @notice Emitted when an authorized caller is removed for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the removed caller
-    event AuthorizedCallerRemoved(address indexed strategy, address indexed caller);
 
     /// @notice Emitted when a secondary manager is added to a strategy
     /// @param strategy Address of the strategy
@@ -311,9 +299,7 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param deviationThreshold New deviation threshold (abs diff/current)
     /// @param mnThreshold New M/N threshold (validatorSet/totalValidators)
-    event PPSVerificationThresholdsUpdated(
-        address indexed strategy, uint256 deviationThreshold, uint256 mnThreshold
-    );
+    event PPSVerificationThresholdsUpdated(address indexed strategy, uint256 deviationThreshold, uint256 mnThreshold);
 
     /// @notice Emitted when the hooks root update timelock is changed
     /// @param newTimelock New timelock duration in seconds
@@ -347,6 +333,11 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when PPS update timestamp is not monotonically increasing
     event TimestampNotMonotonic();
 
+    /// @notice Emitted when PPS update is rejected due to stale signature after unpause
+    event StaleSignatureAfterUnpause(
+        address indexed strategy, uint256 signatureTimestamp, uint256 lastUnpauseTimestamp
+    );
+
     /// @notice Emitted when a manager does not have enough upkeep balance
     event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
 
@@ -358,22 +349,16 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a strategy is unknown
     event UnknownStrategy(address indexed strategy);
 
-    /// @notice Emitted when the caller is authorized
-    event AuthorizedCaller(address indexed strategy, address indexed caller);
-
     /// @notice Emitted when the old primary manager is removed from the strategy
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
-
-    /// @notice Emitted when payment is skipped for a paused strategy
-    event PaymentSkippedForPausedStrategy(address indexed strategy);
 
     /// @notice Emitted when the strategy's PPS unpause timelock is updated
     event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
 
     /// @notice Emitted when a strategy's PPS is stale
     event StrategyPPSStale(address indexed strategy);
-    
+
     /// @notice Emitted when a strategy's PPS is reset
     event StrategyPPSStaleReset(address indexed strategy);
 
@@ -384,12 +369,42 @@ interface ISuperVaultAggregator {
     /// @param feeAmount Amount of fee skimmed that caused the PPS update
     /// @param timestamp Timestamp of the update
     event PPSUpdatedAfterSkim(
-        address indexed strategy,
-        uint256 oldPPS,
-        uint256 newPPS,
-        uint256 feeAmount,
-        uint256 timestamp
+        address indexed strategy, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
     );
+
+    /// @notice Emitted when a change to minUpdateInterval is proposed
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the manager who made the proposal
+    /// @param newMinUpdateInterval The proposed new minimum update interval
+    /// @param effectiveTime Timestamp when the proposal can be executed
+    event MinUpdateIntervalChangeProposed(
+        address indexed strategy, address indexed proposer, uint256 newMinUpdateInterval, uint256 effectiveTime
+    );
+
+    /// @notice Emitted when a minUpdateInterval change is executed
+    /// @param strategy Address of the strategy
+    /// @param oldMinUpdateInterval Previous minimum update interval
+    /// @param newMinUpdateInterval New minimum update interval
+    event MinUpdateIntervalChanged(
+        address indexed strategy, uint256 oldMinUpdateInterval, uint256 newMinUpdateInterval
+    );
+
+    /// @notice Emitted when a minUpdateInterval change proposal is rejected due to validation failure
+    /// @param strategy Address of the strategy
+    /// @param proposedInterval The proposed interval that was rejected
+    /// @param currentMaxStaleness The current maxStaleness value that caused rejection
+    event MinUpdateIntervalChangeRejected(
+        address indexed strategy, uint256 proposedInterval, uint256 currentMaxStaleness
+    );
+
+    /// @notice Emitted when a minUpdateInterval change proposal is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledInterval The proposed interval that was cancelled
+    event MinUpdateIntervalChangeCancelled(address indexed strategy, uint256 cancelledInterval);
+
+    /// @notice Emitted when a PPS update is rejected because strategy is paused
+    /// @param strategy Address of the paused strategy
+    event PPSUpdateRejectedStrategyPaused(address indexed strategy);
 
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
@@ -408,6 +423,8 @@ interface ISuperVaultAggregator {
     error INSUFFICIENT_UPKEEP();
     /// @notice Thrown when vault is paused but operation requires active state
     error VAULT_PAUSED();
+    /// @notice Thrown when caller is not authorized
+    error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when caller is not an approved PPS oracle
     error UNAUTHORIZED_PPS_ORACLE();
     /// @notice Thrown when PPS update is too stale (after maxStaleness)
@@ -424,10 +441,6 @@ interface ISuperVaultAggregator {
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
     error STRATEGY_ALREADY_PAUSED();
-    /// @notice Thrown when caller is already authorized
-    error CALLER_ALREADY_AUTHORIZED();
-    /// @notice Thrown when caller is not authorized
-    error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when array index is out of bounds
     error INDEX_OUT_OF_BOUNDS();
     /// @notice Thrown when attempting to remove the last manager
@@ -478,6 +491,10 @@ interface ISuperVaultAggregator {
     error PPS_MUST_DECREASE_AFTER_SKIM();
     /// @notice PPS deduction is larger than the maximum allowed fee rate
     error PPS_DEDUCTION_TOO_LARGE();
+    /// @notice Thrown when no minUpdateInterval change proposal is pending
+    error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+    /// @notice Thrown when minUpdateInterval >= maxStaleness
+    error MIN_UPDATE_INTERVAL_TOO_HIGH();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -570,20 +587,6 @@ interface ISuperVaultAggregator {
     function slashStake(address manager, uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
-                        AUTHORIZED CALLER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Adds an authorized caller for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the caller to authorize
-    function addAuthorizedCaller(address strategy, address caller) external;
-
-    /// @notice Removes an authorized caller for a strategy
-    /// @param strategy Address of the strategy
-    /// @param caller Address of the caller to remove
-    function removeAuthorizedCaller(address strategy, address caller) external;
-
-    /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -671,6 +674,35 @@ interface ISuperVaultAggregator {
     function changeGlobalLeavesStatus(bytes32[] memory leaves, bool[] memory statuses, address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
+                 MIN UPDATE INTERVAL MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proposes a change to the minimum update interval for a strategy
+    /// @param strategy Address of the strategy
+    /// @param newMinUpdateInterval The proposed new minimum update interval (in seconds)
+    /// @dev Only the main manager can propose. Must be less than maxStaleness
+    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval) external;
+
+    /// @notice Executes a previously proposed minUpdateInterval change after timelock
+    /// @param strategy Address of the strategy whose minUpdateInterval to update
+    /// @dev Can be called by anyone after the timelock period has elapsed
+    function executeMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Cancels a pending minUpdateInterval change proposal
+    /// @param strategy Address of the strategy
+    /// @dev Only the main manager can cancel
+    function cancelMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Gets the proposed minUpdateInterval and effective time
+    /// @param strategy Address of the strategy
+    /// @return proposedInterval The proposed minimum update interval
+    /// @return effectiveTime The timestamp when the proposed interval becomes effective
+    function getProposedMinUpdateInterval(address strategy)
+        external
+        view
+        returns (uint256 proposedInterval, uint256 effectiveTime);
+
+    /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -696,7 +728,6 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @return pps Current price-per-share value
     function getPPS(address strategy) external view returns (uint256 pps);
-
 
     /// @notice Gets the last update timestamp for a strategy's PPS
     /// @param strategy Address of the strategy
@@ -734,6 +765,11 @@ interface ISuperVaultAggregator {
     /// @return isStale True if stale, false otherwise
     function isPPSStale(address strategy) external view returns (bool isStale);
 
+    /// @notice Gets the last unpause timestamp for a strategy
+    /// @param strategy Address of the strategy
+    /// @return timestamp Last unpause timestamp (0 if never unpaused)
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp);
+
     /// @notice Gets the current upkeep balance for a manager
     /// @param manager Address of the manager
     /// @return balance Current upkeep balance in UP tokens
@@ -743,11 +779,6 @@ interface ISuperVaultAggregator {
     /// @param manager Address of the manager
     /// @return balance Current stake balance in UP tokens
     function getStakeBalance(address manager) external view returns (uint256 balance);
-
-    /// @notice Gets all authorized callers for a strategy
-    /// @param strategy Address of the strategy
-    /// @return callers Array of authorized callers
-    function getAuthorizedCallers(address strategy) external view returns (address[] memory callers);
 
     /// @notice Gets the main manager for a strategy
     /// @param strategy Address of the strategy
@@ -844,8 +875,5 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @return root The proposed strategy hooks Merkle root
     /// @return effectiveTime The timestamp when the proposed root becomes effective
-    function getProposedStrategyHooksRoot(address strategy)
-        external
-        view
-        returns (bytes32 root, uint256 effectiveTime);
+    function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32 root, uint256 effectiveTime);
 }

@@ -254,7 +254,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         address[] memory quotes = new address[](3);
         quotes[0] = address(840); // USD
         quotes[1] = address(840); // USD
-        quotes[2] = address(uint160(uint256(keccak256("GWEI_QUOTE")))); // GWEI
+        quotes[2] = address(uint160(uint256(keccak256("WEI_QUOTE")))); // WEI
         bytes32[] memory providers = new bytes32[](3);
         providers[0] = "CHAINLINK";
         providers[1] = "CHAINLINK";
@@ -2578,7 +2578,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
             uint256 totalFee = profit.mulDiv(performanceFeeBps, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
 
             if (totalFee > 0) {
-                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE);
+                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE);
                 // Calculate Superform's portion of the fee
                 superformFee = totalFee.mulDiv(superVaultFeePercent, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
                 recipientFee = totalFee - superformFee;

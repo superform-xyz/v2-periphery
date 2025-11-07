@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -100,10 +100,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         external
         initializer
     {
-        if (asset_ == address(0)) revert INVALID_ASSET();
-        if (strategy_ == address(0)) revert INVALID_STRATEGY();
-        if (escrow_ == address(0)) revert INVALID_ESCROW();
-
+        /// @dev asset, strategy, and escrow already validated in SuperVaultAggregator during vault creation
         // Initialize parent contracts
         __ERC20_init(name_, symbol_);
         __ReentrancyGuard_init();
@@ -166,7 +163,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     }
 
     /// @inheritdoc IERC7540Redeem
-    /// @notice Once owner has authorized an operator, the operator can request a redeem with any controller address
+    /// @notice Once owner has authorized an operator, controller must be the owner
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
@@ -216,7 +213,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (receiver != controller) revert INVALID_CONTROLLER();
 
         shares = strategy.claimableCancelRedeemRequest(controller);
@@ -405,7 +401,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
