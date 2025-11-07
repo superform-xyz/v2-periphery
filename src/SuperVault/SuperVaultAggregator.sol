@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -233,19 +233,33 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
             // Skip invalid timestamp
             uint256 ts = args.timestamps[i];
+
+            // [Property 4: Future Timestamp Rejection]
+            // Reject updates with timestamps in the future. This prevents validators from
+            // creating signatures with future timestamps that could be used later.
             if (ts > block.timestamp) {
                 emit ProvidedTimestampExceedsBlockTimestamp(strategy, ts, block.timestamp);
                 continue;
             }
 
+            StrategyData storage data = _strategyData[strategy];
+
+            // [Property 5: Pause Rejection]
+            // Always skip paused strategies, regardless of payment settings.
+            // Paused strategies should not accept any PPS updates until explicitly unpaused.
+            // This check happens early to avoid unnecessary processing and gas costs.
+            if (data.isPaused) {
+                emit PPSUpdateRejectedStrategyPaused(strategy);
+                continue; // Skip processing paused strategies
+            }
+
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
-                StrategyData storage data = _strategyData[strategy];
-                // Check staleness
-                if (data.isPaused) {
-                    emit PaymentSkippedForPausedStrategy(strategy);
-                } else if (block.timestamp - ts > data.maxStaleness) {
+                // [Property 6: Staleness Enforcement (Absolute Time)]
+                // Reject PPS updates with timestamps older than maxStaleness relative to current block time.
+                if (block.timestamp - ts > data.maxStaleness) {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
+                    continue; // Skip processing stale updates
                 } else {
                     // Query cost directly per entry
                     // Everyone pays the upkeep cost
@@ -395,7 +409,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
-    /// @dev Only addresses with UNPAUSER_ROLE (via SuperGovernor) can unpause; unpausing marks PPS stale until a fresh oracle update
+    /// @dev unpausing marks PPS stale until a fresh oracle update
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
         if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -408,7 +422,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Unpause the strategy and track unpause timestamp
         _strategyData[strategy].isPaused = false;
-        _strategyData[strategy].lastUnpauseTimestamp = block.timestamp;  // Track for skim timelock
+        _strategyData[strategy].lastUnpauseTimestamp = block.timestamp; // Track for skim timelock
         // ppsStale already true from pause - no need to set again (gas savings)
         emit StrategyUnpaused(strategy);
     }
@@ -827,7 +841,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuperVaultAggregator
-    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval)
+    function proposeMinUpdateIntervalChange(
+        address strategy,
+        uint256 newMinUpdateInterval
+    )
         external
         validStrategy(strategy)
     {
@@ -966,10 +983,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         validStrategy(strategy)
         returns (uint256 deviationThreshold, uint256 mnThreshold)
     {
-        return (
-            _strategyData[strategy].deviationThreshold,
-            _strategyData[strategy].mnThreshold
-        );
+        return (_strategyData[strategy].deviationThreshold, _strategyData[strategy].mnThreshold);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1178,26 +1192,33 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
         // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
-        uint256 minInterval = Math.min(
-            _strategyData[args.strategy].minUpdateInterval,
-            _strategyData[args.strategy].maxStaleness
-        );
+        uint256 minInterval =
+            Math.min(_strategyData[args.strategy].minUpdateInterval, _strategyData[args.strategy].maxStaleness);
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
 
-        // Ensure timestamp is monotonically increasing to prevent out-of-order updates
+        // [Property 7: Timestamp Monotonicity]
+        // Ensure timestamps are strictly increasing to prevent out-of-order updates.
+        // This guarantees that PPS updates reflect the true chronological order of market conditions.
         if (args.timestamp <= lastUpdate) {
             emit TimestampNotMonotonic();
             return;
         }
 
-        if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
-            emit UpdateTooFrequent();
+        // [Property 8: Post-Unpause Timestamp Validation (C1-RE_ANCHOR)]
+        // After unpause, only accept signatures timestamped AFTER the unpause event.
+        // Note: lastUnpauseTimestamp is 0 for never-paused strategies (check skipped via short-circuit).
+        uint256 lastUnpauseTimestamp = _strategyData[args.strategy].lastUnpauseTimestamp;
+        if (lastUnpauseTimestamp > 0 && args.timestamp <= lastUnpauseTimestamp) {
+            emit StaleSignatureAfterUnpause(args.strategy, args.timestamp, lastUnpauseTimestamp);
             return;
         }
 
-        // Reject updates when paused - no incentive to update during pause
-        if (_strategyData[args.strategy].isPaused) {
-            emit PPSUpdateRejectedStrategyPaused(args.strategy);
+        // [Property 9: Rate Limit Enforcement]
+        // Enforce minimum time interval between PPS updates to prevent spam and ensure
+        // adequate time for market conditions to change meaningfully.
+        // Skip this check if strategy is paused (allows immediate update after unpause).
+        if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
+            emit UpdateTooFrequent();
             return;
         }
 
@@ -1207,11 +1228,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Flag to track if any check failed
         bool checksFailed;
 
-        //  C1) Deviation Check - Skip if PPS is stale (escape hatch for liquidations)
+        // [Property 10: Deviation Threshold (C1 Check)]
+        // Check if PPS deviation exceeds the configured threshold.
+        // Large deviations may indicate data errors or extreme market conditions requiring review.
+        // Skip this check if: threshold disabled (type(uint256).max), no previous PPS, or PPS marked stale.
+        // Stale PPS skip allows emergency updates during liquidation scenarios.
+        // Failures trigger auto-pause and mark PPS as stale (handled below).
         uint256 currentPPS = _strategyData[args.strategy].pps;
-        if (_strategyData[args.strategy].deviationThreshold != type(uint256).max
-            && currentPPS > 0
-            && !_strategyData[args.strategy].ppsStale) {  // Skip deviation check if stale
+        if (
+            _strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0
+                && !_strategyData[args.strategy].ppsStale
+        ) {
+            // Skip deviation check if stale
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
             uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
@@ -1221,7 +1249,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // C2) M/N Check: Check if enough validators participated
+        // [Property 11: M/N Threshold Validation (C2 Check)]
+        // Check if sufficient validators participated in signing this PPS update.
+        // Low participation may indicate consensus issues or validator availability problems.
+        // Participation rate = (validators who signed) / (total registered validators).
+        // Failures trigger auto-pause and mark PPS as stale (handled below).
         if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
             // Calculate participation rate, scaled by 1e18
             uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
@@ -1234,12 +1266,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Pause strategy if any check failed and mark PPS as stale
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
-            _strategyData[args.strategy].ppsStale = true;  // Mark stale when auto-pausing
+            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
             emit StrategyPaused(args.strategy);
             emit StrategyPPSStale(args.strategy);
         }
 
-        // Handle upkeep costs unless exempt
+        // [Property 12: Upkeep Balance Check]
+        // Ensure the strategy manager has sufficient upkeep balance to pay for this update.
+        // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
+        // continued operation without proper oracle funding.
         uint256 managerUpkeepBalance = _managerUpkeepBalance[manager];
         if (!args.isExempt) {
             // Check if manager has sufficient upkeep balance

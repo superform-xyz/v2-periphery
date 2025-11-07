@@ -123,6 +123,8 @@ C.accumulatorCostBasis -= historicalCost
 
 ## ECDSAPPSOracle Security Properties
 
+**Note:** For comprehensive security properties documentation, see `security_properties.md`
+
 ### Signature Validation Invariants
 
 **Quorum Requirements:**
@@ -137,26 +139,34 @@ totalValidators == SUPER_GOVERNOR.getValidators().length
 - **No Duplicates**: `signer > lastSigner` enforced for each proof
 - **Validator Registry**: Each signer must be registered in `SUPER_GOVERNOR.isValidator(signer)`
 
-**Message Integrity:**
+**Message Integrity (EIP-712):**
 ```solidity
-structHash = keccak256(abi.encodePacked(
-    UPDATE_PPS_TYPEHASH,
-    strategy,
-    pps,
-    ppsStdev,
-    validatorSet,
-    totalValidators,
-    timestamp,
-    nonce
-))
-digest = _hashTypedDataV4(structHash)
+// UPDATE_PPS_TYPEHASH: "UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)"
+digest = _hashTypedDataV4(
+    keccak256(
+        abi.encodePacked(
+            UPDATE_PPS_TYPEHASH,
+            strategy,
+            pps,
+            timestamp,
+            noncePerStrategy[strategy]  // Per-strategy nonce
+        )
+    )
+)
 ```
 
 ### Oracle State Management
 
-**Nonce Progression:**
-- **Monotonic Increase**: Nonce increments on each successful update
-- **Replay Protection**: Same nonce cannot be used twice
+**Per-Strategy Nonce Model:**
+- **Independent Nonces**: Each strategy maintains its own nonce counter
+- **Increment Timing**: Nonce increments ONLY after successful `forwardPPS()` (try block succeeds)
+- **Replay Protection**: Same nonce cannot be used twice for the same strategy
+- **Retry Capability**: On external failures (reverts), nonce remains unchanged allowing retry with same signatures
+
+**Nonce Burning Strategy:**
+- **Business Logic Rejections**: When `forwardPPS()` returns normally (via `return` or `continue`), nonces increment
+- **Intentional Design**: Burns signatures for fundamentally invalid data (prevents replay of invalid signatures)
+- **Batch Protection**: Prevents DoS of entire batch when one strategy has invalid data
 
 **Active Oracle Validation:**
 - **Authorization Check**: Only active PPS oracle can submit updates
@@ -243,10 +253,19 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 ### Strategy ↔ Aggregator Integration
 
 **PPS Update Flow:**
-1. **Oracle Validation**: ECDSAPPSOracle validates signatures and quorum
-2. **Aggregator Forwarding**: Validated PPS forwarded to aggregator
-3. **Strategy Update**: Aggregator updates strategy's stored PPS
-4. **Event Emission**: PPS update events emitted at each stage
+1. **Oracle Validation**: ECDSAPPSOracle validates signatures, quorum, and nonce binding
+2. **Aggregator Forwarding**: Validated PPS forwarded to SuperVaultAggregator.forwardPPS()
+3. **Multi-Layer Validation**: 
+   - forwardPPS(): Future timestamp, pause state, staleness checks
+   - _forwardPPS(): Monotonicity, post-unpause, rate limit, deviation, M/N, upkeep balance
+4. **Strategy Update**: Aggregator updates strategy's stored PPS (if all checks pass)
+5. **Nonce Increment**: Oracle increments nonce only after successful update
+6. **Event Emission**: PPS update events emitted at each stage
+
+**Validation Layers (14 Security Properties):**
+- See `security_properties.md` for complete documentation
+- Properties enforce defense-in-depth through multiple overlapping checks
+- Graceful degradation using `return` (not `revert`) for business logic rejections
 
 ### Escrow ↔ Vault Integration
 
@@ -272,6 +291,12 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 - **Tiny PPS Risk**: Aggregator starting with tiny PPS enables outsized share minting
 - **Detection**: Monitor for abnormal share/asset ratios on first deposits
 
+**Stale PPS Replay Attacks:**
+- **Timestamp Monotonicity**: Prevents out-of-order updates
+- **Post-Unpause Validation**: C1-RE_ANCHOR prevents replay of pre-pause signatures
+- **Absolute Staleness**: maxStaleness check rejects old timestamps
+- **Defense-in-Depth**: Multiple overlapping protections prevent stale PPS acceptance
+
 ### Hook Execution Risks
 
 **Malicious Hooks:**
@@ -290,11 +315,21 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 - **Quorum Requirements**: Minimum quorum prevents small validator sets
 - **Signature Ordering**: Prevents duplicate validator signatures
 - **Registry Validation**: Only registered validators can sign
+- **M/N Threshold**: Configurable per-strategy participation requirements
 
-**Oracle Downtime:**
+**Oracle Downtime & Stale Data:**
 - **Liveness Model**: Test negative cases (proper reversions) rather than always-success invariants
-- **Fallback Mechanisms**: Strategy can pause/veto via aggregator
-- **Stale Data**: Implement staleness checks for PPS updates
+- **Fallback Mechanisms**: Strategy can pause via manager or auto-pause on anomalies
+- **Staleness Enforcement**: Absolute time check (maxStaleness) rejects old timestamps
+- **Post-Unpause Protection**: C1-RE_ANCHOR check prevents replay of pre-pause signatures
+- **Rate Limiting**: Minimum update interval (minUpdateInterval) prevents spam
+
+**Frontrunning Risks:**
+- **Nonce Burning Attacks**: Attackers can burn nonces by triggering business logic rejections
+- **Economic Cost**: Most attacks require privileged access or have medium economic cost
+- **Mitigation**: Validator pre-flight validation, economic disincentives
+- **Risk Level**: MEDIUM-LOW overall, safe for production
+- **See**: `../.claude/doc/frontrunning_attack_analysis.md` for detailed analysis
 
 ### Dust and Rounding Edge Cases
 
@@ -316,13 +351,19 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 5. **Timelock Compliance**: Test premature execution prevention
 6. **Oracle Quorum**: Test insufficient signature scenarios
 7. **Hook Validation**: Test Merkle proof verification edge cases
+8. **Nonce Management**: Test nonce increment timing and replay protection
+9. **PPS Validation**: Test all 14 security properties (see [security_properties.md](security_properties.md))
+10. **Pause State**: Test pause rejection independent of payment settings
+11. **Batch Processing**: Test graceful rejection (return vs revert) for batch continuity
 
 ### Negative Testing Scenarios
 
 **Paused State Testing:**
 - **Deposit Blocking**: Verify deposits fail when strategy paused
+- **PPS Update Blocking**: Verify PPS updates rejected when paused (PPSUpdateRejectedStrategyPaused event)
 - **Withdrawal Continuation**: Verify withdrawals continue when paused
 - **Hook Execution**: Test hook execution during various pause states
+- **Payment Independence**: Verify pause check works regardless of payment settings
 
 **Extreme Market Conditions:**
 - **High Volatility**: Test rapid PPS changes and slippage protection
@@ -339,7 +380,8 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 **State Transition Properties:**
 - **Redeem Flow**: Request → Cancel/Fulfill state transitions
 - **Share Movement**: Mint → Transfer → Burn lifecycle
-- **PPS Updates**: Oracle → Aggregator → Strategy propagation
+- **PPS Updates**: Oracle (validation + nonce) → Aggregator (multi-layer checks) → Strategy (storage)
+- **Nonce Lifecycle**: Validate → Forward → Success/Revert → Increment/Preserve
 
 ---
 
@@ -360,8 +402,10 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 
 **Oracle Dependencies:**
 - **PPS Accuracy**: External aggregator provides accurate PPS data
-- **Staleness**: PPS updates occur within reasonable time windows
-- **Manipulation Resistance**: Multiple validators prevent single-point manipulation
+- **Validator Signatures**: Validators sign off-chain, oracle validates on-chain
+- **Staleness Prevention**: Multi-layered staleness checks (absolute time + post-unpause)
+- **Manipulation Resistance**: Multiple validators + quorum requirements + deviation thresholds
+- **Nonce Security**: Per-strategy nonces prevent cross-strategy replay attacks
 
 ### External Dependencies
 
