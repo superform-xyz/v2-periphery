@@ -228,7 +228,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_IsGuardian() public view {
-        assertTrue(superGovernor.isGuardian(governor), "SuperGovernor should be a guardian");
+        assertTrue(superGovernor.isGuardian(sGovernor), "SuperGovernor should be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
@@ -1778,6 +1778,10 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(0), bases2[0], "First base should be from second operation");
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
+    }
+
+    function test_ExecuteOracleProviderRemoval() public {
+
     }
 
     function test_QueueOracleProviderRemoval() public {
