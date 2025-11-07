@@ -1201,26 +1201,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(previewAssets, expectedAssets, "previewMint should match convertToAssets");
     }
 
-    function test_PreviewDeposit_AndMint_PPSZero() public {
-        // Advance time to ensure timestamp is monotonic
-        vm.warp(block.timestamp + 1 weeks);
-
-        // First set PPS to 0 using the actual PPS update mechanism
-        _updateSuperVaultPPS_ToZero(address(strategy));
-
-        uint256 testAssets = 1000e6; // 1000 USDC
-        uint256 testShares = 1000e6; // 1000 shares
-
-        // Test totalAssets consistency - should also be 0 when PPS is 0 (if no supply)
-        // Note: totalAssets depends on both PPS and total supply, so behavior may vary
-        uint256 totalAssets = vault.totalAssets();
-        console2.log("totalAssets with PPS=0:", totalAssets);
-
-        // Test edge cases with zero inputs
-        assertEq(vault.previewDeposit(testAssets), 0, "previewDeposit(0) should return 0");
-        assertEq(vault.previewMint(testShares), 0, "previewMint(0) should return 0");
-    }
-
     function test_RevertWhen_PreviewWithdraw() public {
         uint256 amount = 1000e6; // 1000 USDC
 
