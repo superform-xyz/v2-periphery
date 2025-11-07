@@ -23,7 +23,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Mapping of token to emergency price when oracle is down
     mapping(address token => uint256 emergencyPrice) public emergencyPrices;
 
-    uint256 public maxDefaultStaleness;
+    uint256 public defaultStaleness;
 
     /// @notice Pending oracle update
     PendingUpdate public pendingUpdate;
@@ -38,8 +38,12 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     bytes32[] public activeProviders;
     mapping(bytes32 provider => bool isSet) public isProviderSet;
 
-    /// @notice Timelock period for oracle updates
+    /// @notice Timelock period for oracle updates (adding new feeds)
     uint256 internal constant TIMELOCK_PERIOD = 1 weeks;
+    /// @notice Timelock period for provider removal
+    /// @dev Removing feeds has a short timelock so that corrupted or malicious feeds causing overflow / PPS update failures
+    ///         can be quickly disabled, avoiding prolonged DoS on SuperAsset deposits.
+    uint256 internal constant REMOVAL_TIMELOCK_PERIOD = 1 hours;
     uint256 internal constant MAX_SAMPLE_PROVIDERS = 10;
     uint256 internal constant MAX_PROVIDER_REMOVALS = 20;
     bytes32 internal constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
@@ -56,7 +60,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     ) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
         SUPER_GOVERNOR = superGovernor_;
-        maxDefaultStaleness = 1 days;
+        defaultStaleness = 1 days;
 
         // validate oracle inputs
         _validateOracleInputs(bases, quotes, providers, feeds);
@@ -67,7 +71,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         // set default staleness for feeds
         uint256 length = feeds.length;
         for (uint256 i; i < length; ++i) {
-            feedMaxStaleness[feeds[i]] = maxDefaultStaleness;
+            feedMaxStaleness[feeds[i]] = defaultStaleness;
         }
     }
 
@@ -75,9 +79,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperOracle
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        maxDefaultStaleness = newMaxStaleness;
+        defaultStaleness = newMaxStaleness;
         emit MaxStalenessUpdated(newMaxStaleness);
     }
 
@@ -189,7 +193,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
         
         if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
-        if (block.timestamp < pendingRemoval.timestamp + TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
+        if (block.timestamp < pendingRemoval.timestamp + REMOVAL_TIMELOCK_PERIOD) revert TIMELOCK_NOT_ELAPSED();
 
         bytes32[] memory providersToRemove = pendingRemoval.providers;
 
@@ -219,6 +223,19 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     }
 
     /// @inheritdoc ISuperOracle
+    function cancelProviderRemoval() external {
+        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        
+        if (pendingRemoval.timestamp == 0) revert NO_PENDING_UPDATE();
+
+        bytes32[] memory cancelledProviders = pendingRemoval.providers;
+
+        delete pendingRemoval;
+
+        emit ProviderRemovalCancelled(cancelledProviders);
+    }
+
+    /// @inheritdoc ISuperOracle
     function getActiveProviders() external view returns (bytes32[] memory) {
         return activeProviders;
     }
@@ -241,13 +258,18 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         // If average, calculate average of all oracles
         if (oracleProvider == AVERAGE_PROVIDER) {
             uint256 length = activeProviders.length;
-            uint256[] memory validQuotes = new uint256[](length);
+            // Cap to MAX_SAMPLE_PROVIDERS to avoid unnecessary allocation
+            uint256 sampleCap = length > MAX_SAMPLE_PROVIDERS ? MAX_SAMPLE_PROVIDERS : length;
+            uint256[] memory validQuotes = new uint256[](sampleCap);
             uint256 count;
-            (quoteAmount, validQuotes, totalProviders, count) = _getAverageQuote(base, quote, baseAmount, length);
+            (quoteAmount, validQuotes, totalProviders, count) = _getAverageQuote(base, quote, baseAmount, sampleCap);
             availableProviders = count;
             deviation = _calculateStdDev(validQuotes, count);
         } else {
-            quoteAmount = _getQuoteFromOracle(oracles[base][quote][oracleProvider], baseAmount, base, quote, true);
+            if (!isProviderSet[oracleProvider]) revert ORACLE_UNTRUSTED_DATA();
+            address _oracle = oracles[base][quote][oracleProvider];
+            if (_oracle == address(0)) revert NO_ORACLES_CONFIGURED();
+            quoteAmount = _getQuoteFromOracle(_oracle, baseAmount, base, quote, true);
             deviation = 0;
             totalProviders = 1;
             availableProviders = 1;
@@ -300,11 +322,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     }
 
     function _setFeedMaxStaleness(address feed, uint256 newMaxStaleness) internal {
-        if (newMaxStaleness > maxDefaultStaleness) {
+        if (newMaxStaleness > defaultStaleness) {
             revert MAX_STALENESS_EXCEEDED();
         }
         if (newMaxStaleness == 0) {
-            newMaxStaleness = maxDefaultStaleness;
+            newMaxStaleness = defaultStaleness;
         }
         feedMaxStaleness[feed] = newMaxStaleness;
         emit FeedMaxStalenessUpdated(feed, newMaxStaleness);
@@ -342,7 +364,8 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         }
 
         // --- Validate data ---
-        if (answer <= 0 || block.timestamp - updatedAt > feedMaxStaleness[oracle]) {
+        uint256 limit = feedMaxStaleness[oracle] == 0 ? defaultStaleness : Math.min(feedMaxStaleness[oracle], defaultStaleness);
+        if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
@@ -492,15 +515,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             oracles[base][quote][provider] = feed;
 
             // Update activeProviders array - add provider if not already present
-            bool providerExists = false;
-            uint256 activeProvidersLength = activeProviders.length;
-            for (uint256 j; j < activeProvidersLength; ++j) {
-                if (activeProviders[j] == provider) {
-                    providerExists = true;
-                    break;
-                }
-            }
-
+            bool providerExists = isProviderSet[provider];
             if (!providerExists) {
                 if (activeProviders.length >= MAX_SAMPLE_PROVIDERS) {
                     revert TOO_MANY_PROVIDERS();

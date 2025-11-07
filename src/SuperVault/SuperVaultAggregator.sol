@@ -78,6 +78,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
     uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
+    // Timelock for parameter changes (3 days)
+    uint256 private constant _PARAMETER_CHANGE_TIMELOCK = 3 days;
+
     // Global hooks Merkle root data
     bytes32 private _globalHooksRoot;
     bytes32 private _proposedGlobalHooksRoot;
@@ -242,6 +245,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
                 } else {
                     // Query cost directly per entry
+                    // Everyone pays the upkeep cost
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
             }
@@ -388,7 +392,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
-    /// @dev Only the main manager of the strategy can unpause it
+    /// @dev Only addresses with UNPAUSER_ROLE (via SuperGovernor) can unpause; unpausing marks PPS stale until a fresh oracle update
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
         if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -399,9 +403,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert STRATEGY_NOT_PAUSED();
         }
 
-        // Unpause the strategy
+        // Unpause the strategy and track unpause timestamp
         _strategyData[strategy].isPaused = false;
-        _strategyData[strategy].ppsStale = true;
+        _strategyData[strategy].lastUnpauseTimestamp = block.timestamp;  // Track for skim timelock
+        // ppsStale already true from pause - no need to set again (gas savings)
         emit StrategyUnpaused(strategy);
     }
 
@@ -617,6 +622,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedHooksRoot = bytes32(0);
         _strategyData[strategy].hooksRootEffectiveTime = 0;
 
+        // SECURITY: Clear any pending minUpdateInterval proposals
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
         // SECURITY: Clear all secondary managers as they may be controlled by malicious manager
         // Get all secondary managers first to emit proper events
         address[] memory clearedSecondaryManagers = _strategyData[strategy].secondaryManagers.values();
@@ -809,6 +818,100 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         emit StrategyHooksRootVetoStatusChanged(strategy, vetoed, _strategyData[strategy].managerHooksRoot);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                 MIN UPDATE INTERVAL MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ISuperVaultAggregator
+    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval)
+        external
+        validStrategy(strategy)
+    {
+        // Only the main manager can propose changes
+        if (_strategyData[strategy].mainManager != msg.sender) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Validate: newMinUpdateInterval must be less than maxStaleness
+        // This ensures updates can occur before data becomes stale
+        if (newMinUpdateInterval >= _strategyData[strategy].maxStaleness) {
+            revert MIN_UPDATE_INTERVAL_TOO_HIGH();
+        }
+
+        // Set proposed interval with timelock
+        uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+        _strategyData[strategy].proposedMinUpdateInterval = newMinUpdateInterval;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = effectiveTime;
+
+        emit MinUpdateIntervalChangeProposed(strategy, msg.sender, newMinUpdateInterval, effectiveTime);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function executeMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
+            revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+        }
+
+        // Check if the timelock period has passed
+        if (block.timestamp < _strategyData[strategy].minUpdateIntervalEffectiveTime) {
+            revert TIMELOCK_NOT_EXPIRED();
+        }
+
+        uint256 newInterval = _strategyData[strategy].proposedMinUpdateInterval;
+        uint256 oldInterval = _strategyData[strategy].minUpdateInterval;
+
+        // Clear the proposal first
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        // Re-validate against current maxStaleness in case it changed
+        // If invalid, just clear the proposal (already done above) and return
+        // This allows the manager to try again with a valid value
+        if (newInterval >= _strategyData[strategy].maxStaleness) {
+            emit MinUpdateIntervalChangeRejected(strategy, newInterval, _strategyData[strategy].maxStaleness);
+            return;
+        }
+
+        // Update the minUpdateInterval
+        _strategyData[strategy].minUpdateInterval = newInterval;
+
+        emit MinUpdateIntervalChanged(strategy, oldInterval, newInterval);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function cancelMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Only the main manager can cancel
+        if (_strategyData[strategy].mainManager != msg.sender) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
+            revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+        }
+
+        uint256 cancelledInterval = _strategyData[strategy].proposedMinUpdateInterval;
+
+        // Clear the proposal
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        emit MinUpdateIntervalChangeCancelled(strategy, cancelledInterval);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getProposedMinUpdateInterval(address strategy)
+        external
+        view
+        returns (uint256 proposedInterval, uint256 effectiveTime)
+    {
+        return (
+            _strategyData[strategy].proposedMinUpdateInterval, _strategyData[strategy].minUpdateIntervalEffectiveTime
+        );
+    }
+
     /// @inheritdoc ISuperVaultAggregator
 
     function isGlobalHooksRootVetoed() external view returns (bool vetoed) {
@@ -874,6 +977,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function isPPSStale(address strategy) external view returns (bool isStale) {
         return _strategyData[strategy].ppsStale;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp) {
+        return _strategyData[strategy].lastUnpauseTimestamp;
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1066,7 +1174,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param args Struct containing all parameters for PPS update
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
-        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
+        // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
+        uint256 minInterval = Math.min(
+            _strategyData[args.strategy].minUpdateInterval,
+            _strategyData[args.strategy].maxStaleness
+        );
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
 
         // Ensure timestamp is monotonically increasing to prevent out-of-order updates
@@ -1080,15 +1192,23 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             return;
         }
 
+        // Reject updates when paused - no incentive to update during pause
+        if (_strategyData[args.strategy].isPaused) {
+            emit PPSUpdateRejectedStrategyPaused(args.strategy);
+            return;
+        }
+
         // Get the strategy's manager to deduct upkeep cost from
         address manager = _strategyData[args.strategy].mainManager;
 
         // Flag to track if any check failed
         bool checksFailed;
 
-        // C1) Deviation Check: Check if new PPS deviates too much from current PPS
+        //  C1) Deviation Check - Skip if PPS is stale (escape hatch for liquidations)
         uint256 currentPPS = _strategyData[args.strategy].pps;
-        if (_strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0) {
+        if (_strategyData[args.strategy].deviationThreshold != type(uint256).max
+            && currentPPS > 0
+            && !_strategyData[args.strategy].ppsStale) {  // Skip deviation check if stale
             // Calculate absolute deviation, scaled by 1e18
             uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
             uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
@@ -1108,10 +1228,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // Pause strategy if any check failed
+        // Pause strategy if any check failed and mark PPS as stale
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
+            _strategyData[args.strategy].ppsStale = true;  // Mark stale when auto-pausing
             emit StrategyPaused(args.strategy);
+            emit StrategyPPSStale(args.strategy);
         }
 
         // Handle upkeep costs unless exempt
@@ -1136,15 +1258,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
         }
 
-        // Update PPS, timestamp and ppsStale in StrategyData
-        _strategyData[args.strategy].pps = args.pps;
-        _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+        // Only store PPS, timestamp and clear stale flag when validation passes
         if (!checksFailed && args.pps > 0) {
-            _strategyData[args.strategy].ppsStale = false;
-            emit StrategyPPSStaleReset(args.strategy);
+            _strategyData[args.strategy].pps = args.pps;
+            _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+            // Only reset stale flag if it was previously stale (gas optimization)
+            if (_strategyData[args.strategy].ppsStale) {
+                _strategyData[args.strategy].ppsStale = false;
+                emit StrategyPPSStaleReset(args.strategy);
+            }
+            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
         }
-
-        emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+        // If checks failed, PPS remains at old value (safer for external integrators)
     }
 
     /// @notice Creates a leaf node for Merkle verification from hook address and arguments

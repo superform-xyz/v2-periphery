@@ -75,7 +75,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -126,19 +126,21 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, treasury, address(this));
+
+        new SuperGovernor(sGovernor, address(0), governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, address(0), address(this));
+
+        new SuperGovernor(sGovernor, governor, governor, governor, address(0));
     }
 
     // =============================================================
@@ -435,13 +437,47 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ValidatorManagement_AddValidator() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorAdded(validator1);
+        emit ISuperGovernor.ValidatorAdded(validator1, block.timestamp);
         superGovernor.addValidator(validator1);
 
         assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
         address[] memory validators = superGovernor.getValidators();
         assertEq(validators.length, 1, "Should have 1 validator");
         assertEq(validators[0], validator1, "Validator in list should match");
+    }
+
+    /// @notice Tests getting validators by index using getValidatorAt
+    function test_ValidatorManagement_GetValidatorAt() public {
+        // Add two validators
+        vm.startPrank(governor);
+        superGovernor.addValidator(validator1);
+        superGovernor.addValidator(validator2);
+        vm.stopPrank();
+
+        // Verify count
+        uint256 count = superGovernor.getValidatorsCount();
+        assertEq(count, 2, "Should have 2 validators");
+
+        // Get validators by index
+        address validatorAt0 = superGovernor.getValidatorAt(0);
+        address validatorAt1 = superGovernor.getValidatorAt(1);
+
+        // Verify both validators are accessible
+        assertTrue(validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2");
+        assertTrue(validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2");
+        assertTrue(validatorAt0 != validatorAt1, "Validators at different indices should be different");
+
+        // Verify we can access each validator
+        assertTrue(superGovernor.isValidator(validatorAt0), "Validator at index 0 should be registered");
+        assertTrue(superGovernor.isValidator(validatorAt1), "Validator at index 1 should be registered");
+
+        // Test that out-of-bounds index reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(2);
+
+        // Test that large out-of-bounds index also reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(999);
     }
 
     /// @notice Tests reverting when adding a validator with zero address
@@ -472,7 +508,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Remove validator
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorRemoved(validator1);
+        emit ISuperGovernor.ValidatorRemoved(validator1, block.timestamp);
         superGovernor.removeValidator(validator1);
 
         assertFalse(superGovernor.isValidator(validator1), "Validator should be removed");
@@ -904,9 +940,8 @@ contract SuperGovernorTest is PeripheryHelpers {
             sGovernor,
             governor,
             governor, // bankManager (using governor as valid address)
-            governor, // gasManager (using governor as valid address)
-            treasury,
-            governor // prover (using governor as valid address)
+            governor, // gasManager (using governor as valid address)s
+            treasury
         );
 
         vm.prank(governor);
@@ -1818,7 +1853,17 @@ contract MockSuperOracleForStaleness {
         return emergencyPrices[token];
     }
 
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
+
+    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
+        emergencyPrices[token] = emergencyPrice;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return emergencyPrices[token];
+    }
+
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }
 
