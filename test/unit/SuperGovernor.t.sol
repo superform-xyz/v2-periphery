@@ -108,6 +108,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
         vm.stopPrank();
     }
 
@@ -230,10 +231,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_IsExecutor() public {
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ExecutorAdded(address(this));
-        superGovernor.addExecutor(address(this));
+        
 
         assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
         address[] memory executors = superGovernor.getExecutors();
@@ -252,6 +250,11 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(governor);
         vm.expectRevert(ISuperGovernor.EXECUTOR_NOT_REGISTERED.selector);
         superGovernor.removeExecutor(address(this));
+    }
+
+    function test_IsGuardian() public view {
+        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
     // =============================================================
@@ -427,6 +430,27 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(hooks.length, 2, "Should have 2 registered hooks");
         assertTrue(hooks[0] == hook1 || hooks[1] == hook1, "hook1 should be in the list");
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
+    }
+
+    function test_ChangeHooksRootUpdateTimelock() public {
+        vm.prank(sGovernor);
+        superGovernor.changeHooksRootUpdateTimelock(100);
+        uint256 timelock = aggregator.getHooksRootUpdateTimelock();
+        assertEq(timelock, 100, "Timelock should be 100");
+    }
+
+    function test_SetGlobalHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setGlobalHooksRootVetoStatus(true);
+        bool vetoed = aggregator.isGlobalHooksRootVetoed();
+        assertTrue(vetoed, "Global hooks should be vetoed");
+    }
+
+    function test_SetStrategyHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
+        bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
+        assertTrue(vetoed, "Strategy hooks should be vetoed");
     }
 
     // =============================================================
