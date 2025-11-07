@@ -245,6 +245,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                     emit StaleUpdate(strategy, args.updateAuthority, ts);
                 } else {
                     // Query cost directly per entry
+                    // Everyone pays the upkeep cost
                     upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
                 }
             }
@@ -391,7 +392,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
-    /// @dev Only the main manager of the strategy can unpause it
+    /// @dev Only addresses with UNPAUSER_ROLE (via SuperGovernor) can unpause; unpausing marks PPS stale until a fresh oracle update
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
         if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();

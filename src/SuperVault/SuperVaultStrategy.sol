@@ -248,10 +248,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.ClaimCancelRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);

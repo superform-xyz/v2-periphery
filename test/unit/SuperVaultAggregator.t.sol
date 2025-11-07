@@ -1768,8 +1768,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Get SuperBank balance before
-        superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
+        address _superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(_superBank);
 
         // Try to slash more than available - should slash only what's available
         vm.prank(address(superGovernor));
@@ -1780,7 +1780,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify only available amount was slashed
         assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
         assertEq(
-            IERC20(upToken).balanceOf(superBank),
+            IERC20(upToken).balanceOf(_superBank),
             superBankBalanceBefore + stakeAmount,
             "SuperBank should receive available amount"
         );

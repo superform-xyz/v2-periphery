@@ -80,7 +80,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant USD_TOKEN = address(840);
     address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    address private constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
@@ -236,7 +236,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
-        ISuperOracle(oracle).setMaxStaleness(newMaxStaleness);
+        ISuperOracle(oracle).setDefaultStaleness(newMaxStaleness);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -715,6 +715,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function getValidatorAt(uint256 index) external view returns (address) {
+        return _validators.at(index);
+    }
+
+    /// @inheritdoc ISuperGovernor
     function getExecutors() external view returns (address[] memory) {
         return _executors.values();
     }
@@ -852,7 +857,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Step 1: convert gas to ETH
         (uint256 weiAmount,,,) =
-            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
         (uint256 ethToUsd,,,) =

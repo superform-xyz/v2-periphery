@@ -508,6 +508,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Returns the number of registered validators (O(1))
     function getValidatorsCount() external view returns (uint256);
 
+    /// @notice Returns a validator address by index (0 … count-1)
+    /// @param index The index into the validators set
+    /// @return validator The validator address at the given index
+    function getValidatorAt(uint256 index) external view returns (address validator);
+
     /// @notice Returns all registered executors
     /// @return List of executor addresses
     function getExecutors() external view returns (address[] memory);
