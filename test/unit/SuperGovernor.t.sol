@@ -1775,9 +1775,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
     }
 
-    function test_ExecuteOracleProviderRemoval() public {
-
-    }
+    function test_ExecuteOracleProviderRemoval() public { }
 
     function test_QueueOracleProviderRemoval() public {
         bytes32[] memory providers = new bytes32[](1);

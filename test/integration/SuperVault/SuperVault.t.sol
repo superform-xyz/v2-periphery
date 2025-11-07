@@ -151,11 +151,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({
-                performanceFeeBps: 0,
-                managementFeeBps: 0,
-                recipient: MANAGER
-            }),
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
             maxUnpauseTimeLock: 0
         });
         aggregator.createVault(params);
@@ -179,11 +175,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({
-                performanceFeeBps: 0,
-                managementFeeBps: 0,
-                recipient: MANAGER
-            }),
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
             maxUnpauseTimeLock: 0
         });
         vm.expectRevert(ISuperVault.INVALID_ASSET.selector);
@@ -1323,9 +1315,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _requestRedeem(shares);
 
-        _executeRedeemHooks4626(
-            shares, address(fluidVault), address(aaveVault), new address[](0)
-        );
+        _executeRedeemHooks4626(shares, address(fluidVault), address(aaveVault), new address[](0));
 
         uint256 maxWithdraw = vault.maxWithdraw(accountEth);
 
@@ -1389,7 +1379,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accountEth);
         uint256 claimableCancelSharesVault = vault.claimableCancelRedeemRequest(0, accountEth);
         assertEq(claimableCancelShares, redeemAmount, "Should have claimable cancel shares equal to original request");
-        assertEq(claimableCancelSharesVault, claimableCancelShares, "Should have claimable cancel shares equal to original request");
+        assertEq(
+            claimableCancelSharesVault,
+            claimableCancelShares,
+            "Should have claimable cancel shares equal to original request"
+        );
 
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
@@ -9328,7 +9322,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         MockEmergencyVault(vars.emergencyVault)
             .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
-            
+
         vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
         vm.stopPrank();
@@ -9523,7 +9517,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Use direct vault.withdraw instead of complex hooks
         vm.prank(accountEth);
         vault.withdraw(claimableAssets, accountEth, accountEth);
-        
+
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
 
         // User should get full theoretical amount (no fee deduction in redemption)
@@ -10237,7 +10231,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify totalAssets consistency (EIP-4626 invariant)
         uint256 totalSupplyAfterSkim = vault.totalSupply();
-        uint256 calculatedAssets = totalSupplyAfterSkim.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
+        uint256 calculatedAssets =
+            totalSupplyAfterSkim.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
         uint256 reportedAssets = vault.totalAssets();
 
         // Allow 1 wei tolerance for rounding
