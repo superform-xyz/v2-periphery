@@ -735,9 +735,19 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             })
         );
 
-        // Verify timestamps were updated for both strategies
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamps[0]);
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamps[1]);
+        // Verify timestamps remain unchanged for BOTH strategies (both are stale)
+        // strategy was created at timestamp 1, strategy2 at timestamp 604801 (7 days)
+        // Both strategies are stale and skipped via 'continue', so their timestamps remain at creation time
+        assertEq(
+            superVaultAggregator.getLastUpdateTimestamp(strategy),
+            1,
+            "Strategy timestamp should remain at creation time (stale)"
+        );
+        assertEq(
+            superVaultAggregator.getLastUpdateTimestamp(strategy2),
+            604_801,
+            "Strategy2 timestamp should remain at creation time (stale)"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -2111,25 +2121,36 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             "Claimable upkeep should equal total charged amount"
         );
 
-        // Verify PPS updates were applied to all valid strategies
+        // Verify PPS updates were applied ONLY to fresh (non-stale) strategies
+        // Stale strategies are skipped via 'continue' in forwardPPS() loop, so their PPS remains at default (1e18)
         assertEq(superVaultAggregator.getPPS(strategy), vars.ppss[0], "Strategy 1 PPS should be updated");
         assertEq(
             superVaultAggregator.getPPS(vars.strategy2),
-            vars.ppss[1],
-            "Strategy 2 PPS should be updated despite being stale"
+            1e18,
+            "Strategy 2 PPS should NOT be updated (stale, skipped via continue)"
         );
         assertEq(superVaultAggregator.getPPS(vars.strategy3), vars.ppss[2], "Strategy 3 PPS should be updated");
         assertEq(
             superVaultAggregator.getPPS(vars.strategy4),
-            vars.ppss[3],
-            "Strategy 4 PPS should be updated despite being stale"
+            1e18,
+            "Strategy 4 PPS should NOT be updated (stale, skipped via continue)"
         );
 
-        // Verify timestamps were updated for all strategies
+        // Verify timestamps were updated ONLY for fresh (non-stale) strategies
+        // Stale strategies keep their last update timestamp (block.timestamp when strategy was created)
+        // Strategy2 and strategy4 were created after warp to 8 days = 691200 seconds
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), vars.timestamps[0]);
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy2), vars.timestamps[1]);
+        assertEq(
+            superVaultAggregator.getLastUpdateTimestamp(vars.strategy2),
+            691_200,
+            "Strategy 2 timestamp should remain at creation time (stale)"
+        );
         assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy3), vars.timestamps[2]);
-        assertEq(superVaultAggregator.getLastUpdateTimestamp(vars.strategy4), vars.timestamps[3]);
+        assertEq(
+            superVaultAggregator.getLastUpdateTimestamp(vars.strategy4),
+            691_200,
+            "Strategy 4 timestamp should remain at creation time (stale)"
+        );
     }
 
     /// @notice Tests that batch PPS updates revert when exceeding MAX_STRATEGIES limit
@@ -2348,7 +2369,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         isPaused = superVaultAggregator.isStrategyPaused(strategy);
         assertFalse(isPaused, "Strategy should be unpaused after calling unpauseStrategy");
 
-        // After unpause, need to send a new valid PPS update
+        // After unpause, need to send a new valid PPS update with timestamp > lastUnpauseTimestamp
+        // The C1-RE_ANCHOR check (aggregator line 1194-1200) rejects timestamps <= lastUnpauseTimestamp
+        // to prevent replay of pre-unpause signatures
+        vm.warp(block.timestamp + 10); // Warp forward to ensure timestamp > lastUnpauseTimestamp
         ppss[0] = 1e18 + 1e15;
         timestamps[0] = block.timestamp;
 
@@ -3015,7 +3039,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
-        // Expect PPSUpdateRejectedStrategyPaused event
+        // Expect PPSUpdateRejectedStrategyPaused event (early rejection in forwardPPS)
         vm.expectEmit(true, false, false, false);
         emit ISuperVaultAggregator.PPSUpdateRejectedStrategyPaused(strategy);
 
@@ -3231,7 +3255,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
-        // Expect early rejection event
+        // Expect early rejection event (PPSUpdateRejectedStrategyPaused)
         vm.expectEmit(true, false, false, false);
         emit ISuperVaultAggregator.PPSUpdateRejectedStrategyPaused(strategy);
 
