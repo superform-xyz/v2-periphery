@@ -202,7 +202,7 @@ interface ISuperOracle {
 
     /// @notice Set the maximum staleness period for all providers
     /// @param newMaxStaleness New maximum staleness period in seconds
-    function setMaxStaleness(uint256 newMaxStaleness) external;
+    function setDefaultStaleness(uint256 newMaxStaleness) external;
 
     /// @notice Set the maximum staleness period for multiple providers
     /// @param feeds Array of feed addresses

@@ -23,7 +23,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Mapping of token to emergency price when oracle is down
     mapping(address token => uint256 emergencyPrice) public emergencyPrices;
 
-    uint256 public maxDefaultStaleness;
+    uint256 public defaultStaleness;
 
     /// @notice Pending oracle update
     PendingUpdate public pendingUpdate;
@@ -60,7 +60,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     ) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
         SUPER_GOVERNOR = superGovernor_;
-        maxDefaultStaleness = 1 days;
+        defaultStaleness = 1 days;
 
         // validate oracle inputs
         _validateOracleInputs(bases, quotes, providers, feeds);
@@ -71,7 +71,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         // set default staleness for feeds
         uint256 length = feeds.length;
         for (uint256 i; i < length; ++i) {
-            feedMaxStaleness[feeds[i]] = maxDefaultStaleness;
+            feedMaxStaleness[feeds[i]] = defaultStaleness;
         }
     }
 
@@ -79,9 +79,9 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperOracle
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        maxDefaultStaleness = newMaxStaleness;
+        defaultStaleness = newMaxStaleness;
         emit MaxStalenessUpdated(newMaxStaleness);
     }
 
@@ -320,11 +320,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     }
 
     function _setFeedMaxStaleness(address feed, uint256 newMaxStaleness) internal {
-        if (newMaxStaleness > maxDefaultStaleness) {
+        if (newMaxStaleness > defaultStaleness) {
             revert MAX_STALENESS_EXCEEDED();
         }
         if (newMaxStaleness == 0) {
-            newMaxStaleness = maxDefaultStaleness;
+            newMaxStaleness = defaultStaleness;
         }
         feedMaxStaleness[feed] = newMaxStaleness;
         emit FeedMaxStalenessUpdated(feed, newMaxStaleness);
@@ -362,7 +362,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         }
 
         // --- Validate data ---
-        uint256 limit = feedMaxStaleness[oracle] == 0 ? maxDefaultStaleness : Math.min(feedMaxStaleness[oracle], maxDefaultStaleness);
+        uint256 limit = feedMaxStaleness[oracle] == 0 ? defaultStaleness : Math.min(feedMaxStaleness[oracle], defaultStaleness);
         if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;

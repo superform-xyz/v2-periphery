@@ -123,7 +123,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(oracle).latestRoundData();
 
         // Validate data
-        uint256 limit = feedMaxStaleness[oracle] == 0 ? maxDefaultStaleness : Math.min(feedMaxStaleness[oracle], maxDefaultStaleness);
+        uint256 limit = feedMaxStaleness[oracle] == 0 ? defaultStaleness : Math.min(feedMaxStaleness[oracle], defaultStaleness);
         if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;

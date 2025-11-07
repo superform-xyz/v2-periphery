@@ -1763,7 +1763,7 @@ contract MockSuperOracleForStaleness {
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
 
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }
 

@@ -236,7 +236,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
-        ISuperOracle(oracle).setMaxStaleness(newMaxStaleness);
+        ISuperOracle(oracle).setDefaultStaleness(newMaxStaleness);
     }
 
     /// @inheritdoc ISuperGovernor

@@ -64,7 +64,7 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle = new SuperOracle(address(this), bases, quotes, providers, feeds);
 
         // Set a longer max staleness period for tests that involve time warping
-        superOracle.setMaxStaleness(2 weeks);
+        superOracle.setDefaultStaleness(2 weeks);
     }
 
     function test_GetQuote() public view {
@@ -339,10 +339,10 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_SetMaxStaleness() public {
         // Set a new max staleness period
         uint256 newMaxStaleness = 12 hours;
-        superOracle.setMaxStaleness(newMaxStaleness);
+        superOracle.setDefaultStaleness(newMaxStaleness);
 
         // Check it was updated
-        assertEq(superOracle.maxDefaultStaleness(), newMaxStaleness, "Max staleness should be updated");
+        assertEq(superOracle.defaultStaleness(), newMaxStaleness, "Max staleness should be updated");
     }
 
     function test_SetFeedMaxStaleness() public {
@@ -519,7 +519,7 @@ contract SuperOracleTest is PeripheryHelpers {
 
     function test_RevertIfMaxStalenessExceeded() public {
         // Set max staleness to 12 hours
-        superOracle.setMaxStaleness(12 hours);
+        superOracle.setDefaultStaleness(12 hours);
 
         // Try to set a feed staleness greater than max
         vm.expectRevert(ISuperOracle.MAX_STALENESS_EXCEEDED.selector);
@@ -877,7 +877,7 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Try to set max staleness (should revert)
         vm.expectRevert();
-        superOracle.setMaxStaleness(1 days);
+        superOracle.setDefaultStaleness(1 days);
 
         // Try to set feed max staleness (should revert)
         vm.expectRevert();
@@ -915,7 +915,7 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_DefaultFeedStalenessWhenZeroProvided() public {
         // Set maxDefaultStaleness to a specific value
         uint256 defaultStaleness = 3 days;
-        superOracle.setMaxStaleness(defaultStaleness);
+        superOracle.setDefaultStaleness(defaultStaleness);
 
         // Set feed staleness to 0, which should default to maxDefaultStaleness
         superOracle.setFeedMaxStaleness(address(mockFeed1), 0);

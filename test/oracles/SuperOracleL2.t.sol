@@ -82,7 +82,7 @@ contract SuperOracleL2Test is Test {
     //////////////////////////////////////////////////////////////*/
     function test_Constructor() public view {
         // Test that constructor sets up the contract correctly
-        assertEq(oracle.maxDefaultStaleness(), DEFAULT_STALENESS);
+        assertEq(oracle.defaultStaleness(), DEFAULT_STALENESS);
 
         // Verify oracle configuration
         address configuredOracle = oracle.getOracleAddress(address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
