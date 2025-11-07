@@ -231,7 +231,18 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_IsExecutor() public {
-        
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.addExecutor(address(0));
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorAdded(address(this));
+        superGovernor.addExecutor(address(this));
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_ALREADY_REGISTERED.selector);
+        superGovernor.addExecutor(address(this));
 
         assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
         address[] memory executors = superGovernor.getExecutors();
