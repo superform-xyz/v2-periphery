@@ -1,8 +1,8 @@
 {
-  "ECDSAPPSOracle": "0xAfF87F2C6DdB59155eBbBd24a09942D677ABb49E",
-  "SuperGovernor": "0xc0a79460af039EC129d5491C399169867Ac378a1",
-  "SuperVaultAggregator": "0x103714889243CdA8fFfA9d8f37957B744e66E112",
-  "SuperVaultEscrowImplementation": "0xa1b50EF5EEaeDe5d01eeD251437d176149D38033",
-  "SuperVaultImplementation": "0x60B3aB78695f801A848986773f1eda15D7Bd7e7D",
-  "SuperVaultStrategyImplementation": "0xaF21764FD2e6c69a26A8Cb8ea7F0c76c5fD589EF"
+  "ECDSAPPSOracle": "0xe294081d6dd97E8FdD791646b2196C93FF870c96",
+  "SuperGovernor": "0x264C824e2C53873EB2c55f9D8650ca0120E8F76D",
+  "SuperVaultAggregator": "0xBac5C12ea3e05388816B52A14dA76D744e120707",
+  "SuperVaultEscrowImplementation": "0xA7E57C53d273356B24aB8c7eFd92eec873D0b7EE",
+  "SuperVaultImplementation": "0x019F681Bb6c3fab1AAC9383cd22F09fcf529aEEF",
+  "SuperVaultStrategyImplementation": "0x00833571B30De57F2E2D052BEB3D066D2319941b"
 }

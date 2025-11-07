@@ -48,7 +48,7 @@ import { MockUp } from "../../mocks/MockUp.sol";
 import { MockFeedWithRealData } from "../../mocks/MockFeedWithRealData.sol";
 import { MockERC20 } from "../../mocks/MockERC20.sol";
 import { ISuperLedgerConfiguration } from "@superform-v2-core/src/interfaces/accounting/ISuperLedgerConfiguration.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC7540YieldSourceOracle } from "@superform-v2-core/test/mocks/unused-oracles/ERC7540YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { LibSort } from "solady/utils/LibSort.sol";
 import { AssetAdjustmentHelper } from "./AssetAdjustmentHelper.t.sol";
