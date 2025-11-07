@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -333,6 +333,11 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when PPS update timestamp is not monotonically increasing
     event TimestampNotMonotonic();
 
+    /// @notice Emitted when PPS update is rejected due to stale signature after unpause
+    event StaleSignatureAfterUnpause(
+        address indexed strategy, uint256 signatureTimestamp, uint256 lastUnpauseTimestamp
+    );
+
     /// @notice Emitted when a manager does not have enough upkeep balance
     event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
 
@@ -347,9 +352,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when the old primary manager is removed from the strategy
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
-
-    /// @notice Emitted when payment is skipped for a paused strategy
-    event PaymentSkippedForPausedStrategy(address indexed strategy);
 
     /// @notice Emitted when the strategy's PPS unpause timelock is updated
     event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
