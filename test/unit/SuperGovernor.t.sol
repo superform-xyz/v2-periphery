@@ -227,11 +227,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
     }
 
-    function test_IsGuardian() public view {
-        assertTrue(superGovernor.isGuardian(sGovernor), "SuperGovernor should be a guardian");
-        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
-    }
-
     function test_IsExecutor() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);

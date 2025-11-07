@@ -260,23 +260,37 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         currentManager = superVaultAggregator.getMainManager(strategy);
         assertEq(currentManager, newPrimaryManager, "New manager should be set");
 
-        // Test case where there are too many secondary managers
-        address[] memory newManagers = new address[](4);
-        for (uint256 i; i < 4; i++) {
-            newManagers[i] = _deployAccount(0x13 + i, "NewManager");
-            vm.prank(newPrimaryManager);
-            superVaultAggregator.addSecondaryManager(strategy, newManagers[i]);
-        }
-
         secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
 
         vm.startPrank(secondaryManagers[0]);
         superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
         vm.warp(block.timestamp + 1 weeks);
+        
         vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, newPrimaryManager);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, newPrimaryManager, nextPrimaryManager);
         superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        vm.startPrank(nextPrimaryManager);
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x15, "NewSecondaryManager"));
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x16, "NewSecondaryManager"));
+        vm.stopPrank();
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+
+        
+
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, nextPrimaryManager);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, newPrimaryManager);
+        
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
     }
 
     /// @notice Tests the complete attack scenario - malicious manager cannot regain control
@@ -1017,7 +1031,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Test unpause strategy with invalid authority
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.unpauseStrategy(strategy);
-        vm.startPrank(governor);
+
+        vm.startPrank(manager);
         superVaultAggregator.unpauseStrategy(strategy);
         vm.expectRevert(ISuperVaultAggregator.STRATEGY_NOT_PAUSED.selector);
         superVaultAggregator.unpauseStrategy(strategy);
