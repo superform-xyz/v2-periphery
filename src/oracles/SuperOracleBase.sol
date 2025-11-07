@@ -258,9 +258,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         // If average, calculate average of all oracles
         if (oracleProvider == AVERAGE_PROVIDER) {
             uint256 length = activeProviders.length;
-            uint256[] memory validQuotes = new uint256[](length);
+            // Cap to MAX_SAMPLE_PROVIDERS to avoid unnecessary allocation
+            uint256 sampleCap = length > MAX_SAMPLE_PROVIDERS ? MAX_SAMPLE_PROVIDERS : length;
+            uint256[] memory validQuotes = new uint256[](sampleCap);
             uint256 count;
-            (quoteAmount, validQuotes, totalProviders, count) = _getAverageQuote(base, quote, baseAmount, length);
+            (quoteAmount, validQuotes, totalProviders, count) = _getAverageQuote(base, quote, baseAmount, sampleCap);
             availableProviders = count;
             deviation = _calculateStdDev(validQuotes, count);
         } else {
