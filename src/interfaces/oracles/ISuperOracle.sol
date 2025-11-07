@@ -109,9 +109,6 @@ interface ISuperOracle {
     /// @param timestamp Timestamp when removal was queued
     event ProviderRemovalQueued(bytes32[] providers, uint256 timestamp);
 
-    /// @notice Emitted when provider removal is cancelled
-    event ProviderRemovalCancelled();
-
     /// @notice Emitted when provider removal is executed
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
