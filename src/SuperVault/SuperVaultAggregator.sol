@@ -871,6 +871,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // If invalid, just clear the proposal (already done above) and return
         // This allows the manager to try again with a valid value
         if (newInterval >= _strategyData[strategy].maxStaleness) {
+            emit MinUpdateIntervalChangeRejected(strategy, newInterval, _strategyData[strategy].maxStaleness);
             return;
         }
 
@@ -878,6 +879,27 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].minUpdateInterval = newInterval;
 
         emit MinUpdateIntervalChanged(strategy, oldInterval, newInterval);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function cancelMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Only the main manager can cancel
+        if (_strategyData[strategy].mainManager != msg.sender) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
+            revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+        }
+
+        uint256 cancelledInterval = _strategyData[strategy].proposedMinUpdateInterval;
+
+        // Clear the proposal
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        emit MinUpdateIntervalChangeCancelled(strategy, cancelledInterval);
     }
 
     /// @inheritdoc ISuperVaultAggregator

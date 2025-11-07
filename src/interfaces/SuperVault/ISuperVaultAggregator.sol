@@ -401,6 +401,24 @@ interface ISuperVaultAggregator {
         uint256 newMinUpdateInterval
     );
 
+    /// @notice Emitted when a minUpdateInterval change proposal is rejected due to validation failure
+    /// @param strategy Address of the strategy
+    /// @param proposedInterval The proposed interval that was rejected
+    /// @param currentMaxStaleness The current maxStaleness value that caused rejection
+    event MinUpdateIntervalChangeRejected(
+        address indexed strategy,
+        uint256 proposedInterval,
+        uint256 currentMaxStaleness
+    );
+
+    /// @notice Emitted when a minUpdateInterval change proposal is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledInterval The proposed interval that was cancelled
+    event MinUpdateIntervalChangeCancelled(
+        address indexed strategy,
+        uint256 cancelledInterval
+    );
+
     /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -682,6 +700,11 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy whose minUpdateInterval to update
     /// @dev Can be called by anyone after the timelock period has elapsed
     function executeMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Cancels a pending minUpdateInterval change proposal
+    /// @param strategy Address of the strategy
+    /// @dev Only the main manager can cancel
+    function cancelMinUpdateIntervalChange(address strategy) external;
 
     /// @notice Gets the proposed minUpdateInterval and effective time
     /// @param strategy Address of the strategy
