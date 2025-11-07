@@ -108,6 +108,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
         vm.stopPrank();
     }
 
@@ -217,6 +218,54 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_AddressRegistry_GetAddress_Revert_NotFound() public {
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.getAddress(keccak256("NON_EXISTENT"));
+    }
+
+    // =============================================================
+    // Getters Tests
+    // =============================================================
+    function test_RoleGetters() public view {
+        assertEq(superGovernor.SUPER_GOVERNOR_ROLE(), keccak256("SUPER_GOVERNOR_ROLE"));
+        assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
+        assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
+        assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
+    }
+
+    function test_IsExecutor() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.addExecutor(address(0));
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorAdded(address(this));
+        superGovernor.addExecutor(address(this));
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_ALREADY_REGISTERED.selector);
+        superGovernor.addExecutor(address(this));
+
+        assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
+        address[] memory executors = superGovernor.getExecutors();
+        assertEq(executors.length, 1, "Should have 1 executor");
+        assertEq(executors[0], address(this), "Executor in list should match");
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorRemoved(address(this));
+        superGovernor.removeExecutor(address(this));
+
+        assertFalse(superGovernor.isExecutor(address(this)), "This contract should not be an executor");
+        executors = superGovernor.getExecutors();
+        assertEq(executors.length, 0, "Should have 0 executors");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_NOT_REGISTERED.selector);
+        superGovernor.removeExecutor(address(this));
+    }
+
+    function test_IsGuardian() public view {
+        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
     // =============================================================
@@ -394,6 +443,27 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
+    function test_ChangeHooksRootUpdateTimelock() public {
+        vm.prank(sGovernor);
+        superGovernor.changeHooksRootUpdateTimelock(100);
+        uint256 timelock = aggregator.getHooksRootUpdateTimelock();
+        assertEq(timelock, 100, "Timelock should be 100");
+    }
+
+    function test_SetGlobalHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setGlobalHooksRootVetoStatus(true);
+        bool vetoed = aggregator.isGlobalHooksRootVetoed();
+        assertTrue(vetoed, "Global hooks should be vetoed");
+    }
+
+    function test_SetStrategyHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
+        bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
+        assertTrue(vetoed, "Strategy hooks should be vetoed");
+    }
+
     // =============================================================
     // Validator Management Tests
     // =============================================================
@@ -509,6 +579,26 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Emergency Price Tests
+    // =============================================================
+    function test_SetEmergencyPrice() public {
+        uint256 emergencyPrice = 1e18;
+
+        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        // Set the oracle in the registry
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(oracle));
+
+        vm.prank(governor);
+        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
+
+        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
+    }
+
+    // =============================================================
     // PPS Oracle Management Tests
     // =============================================================
 
@@ -524,6 +614,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         (address proposedOracle, uint256 effectiveTime) = superGovernor.getProposedActivePPSOracle();
         assertEq(proposedOracle, ppsOracle1, "Proposed PPS Oracle address mismatch");
         assertEq(effectiveTime, expectedTime, "Effective time mismatch");
+    }
+
+    function test_SetActivePPSOracle_Revert_MustUseTimelock() public {
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.expectRevert(ISuperGovernor.MUST_USE_TIMELOCK_FOR_CHANGE.selector);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.stopPrank();
     }
 
     /// @notice Tests reverting when proposing a PPS Oracle with zero address
@@ -575,6 +673,10 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests setting the PPS Oracle quorum
     function test_PPSOracleManagement_SetPPSOracleQuorum() public {
         uint256 newQuorum = 3;
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setPPSOracleQuorum(0);
 
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
@@ -1742,6 +1844,19 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
     }
+
+    function test_ExecuteOracleProviderRemoval() public { }
+
+    function test_QueueOracleProviderRemoval() public {
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.queueOracleProviderRemoval(providers);
+
+        // TODO: success flow
+    }
 }
 
 // =============================================================
@@ -1762,6 +1877,16 @@ contract MockSuperOracleForStaleness {
     address[] public lastFeeds;
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
+
+    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
+
+    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
+        emergencyPrices[token] = emergencyPrice;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return emergencyPrices[token];
+    }
 
     function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;

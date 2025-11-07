@@ -10,7 +10,7 @@ import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import { IERC165 } from "openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-
+import { Initializable } from "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -33,6 +33,7 @@ import { RuggableConvertVault } from "../../mocks/RuggableConvertVault.sol";
 import { MockNativeETHHook } from "../../mocks/MockNativeETHHook.sol";
 import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
 import { MockEmergencyVault } from "../../mocks/MockEmergencyVault.sol";
+import { MockAssetNoDecimals } from "../../mocks/MockAssetNoDecimals.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
 
 contract SuperVaultTest is BaseSuperVaultTest {
@@ -123,7 +124,66 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
-                       SUPERVAULT.SOL
+                    CONSTRUCTOR & INITIALIZER TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_SuperVault_Constructor() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        new SuperVault(address(0));
+
+        vm.prank(MANAGER);
+        vm.expectEmit(true, true, true, true);
+        emit Initializable.Initialized(type(uint64).max);
+        SuperVault vault = new SuperVault(address(superGovernor));
+
+        assertEq(address(vault.superGovernor()), address(superGovernor));
+
+        SuperVault vaultError = new SuperVault(address(superGovernor));
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        vaultError.initialize(address(0), "SuperVault", "SV_USDC", address(strategy), address(escrow));
+    }
+
+    function test_SuperVault_Initializer() public {
+        ISuperVaultAggregator.VaultCreationParams memory params = ISuperVaultAggregator.VaultCreationParams({
+            asset: address(asset),
+            name: "SuperVault",
+            symbol: "SV_USDC",
+            mainManager: MANAGER,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: 0,
+            maxStaleness: 300,
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
+            maxUnpauseTimeLock: 0
+        });
+        aggregator.createVault(params);
+
+        // Test that the reentrancy guard is initialized properly
+        uint256 NOT_ENTERED = 1;
+
+        // The slot used by OZ’s ReentrancyGuardUpgradeable
+        bytes32 slot = 0x9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00;
+        uint256 storedValue = uint256(vm.load(address(vault), slot));
+
+        assertEq(storedValue, NOT_ENTERED, "ReentrancyGuard not initialized properly");
+
+        // Test revert case when asset has no decimals
+        MockAssetNoDecimals mockAsset = new MockAssetNoDecimals("NoDecimals", "NODEC");
+        ISuperVaultAggregator.VaultCreationParams memory params1 = ISuperVaultAggregator.VaultCreationParams({
+            asset: address(mockAsset),
+            name: "SuperVault",
+            symbol: "SV_USDC",
+            mainManager: MANAGER,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: 0,
+            maxStaleness: 300,
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
+            maxUnpauseTimeLock: 0
+        });
+        vm.expectRevert(ISuperVault.INVALID_ASSET.selector);
+        aggregator.createVault(params1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            SUPERVAULT.SOL
     //////////////////////////////////////////////////////////////*/
 
     function test_Name() public view {
@@ -144,6 +204,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 userShares = vault.balanceOf(accountEth);
         assertGt(userShares, 0, "No shares minted to user");
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
+    }
+
+    function test_Deposit_RevertCases() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.deposit(1000, address(0));
+
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.deposit(0, accountEth);
     }
 
     function test_DepositDirectlyMintsShares() public {
@@ -218,6 +286,26 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify that the strategy has no free assets left
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
+    }
+
+    function test_Mint_RevertCases() public {
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.mint(1000, address(0));
+
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.mint(0, accountEth);
+    }
+
+    function test_MintShares() public {
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.mintShares(accountEth, 1000);
+
+        uint256 initialShares = vault.balanceOf(accountEth);
+
+        vm.prank(address(strategy));
+        vault.mintShares(accountEth, 1000);
+
+        assertEq(vault.balanceOf(accountEth), initialShares + 1000);
     }
 
     function test_FulfillRedeem_FullAmountWithThreshold() public {
@@ -321,11 +409,25 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Request redemption
         uint256 vaultBalance = vault.balanceOf(accountEth);
         uint256 redeemShares = vaultBalance - (vaultBalance * 2e4 / 1e5);
-        _requestRedeem(redeemShares);
+
+        // Test revert cases
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.requestRedeem(0, accountEth, accountEth);
+
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.requestRedeem(redeemShares, address(0), accountEth);
+
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.requestRedeem(redeemShares, accountEth, address(0));
+
+        uint256 reqId = vault.requestRedeem(redeemShares, accountEth, accountEth);
+        vm.stopPrank();
 
         // Verify state
         assertEq(strategy.pendingRedeemRequest(accountEth), redeemShares, "Wrong pending redeem amount");
         assertEq(vault.balanceOf(address(escrow)), redeemShares, "Wrong escrow balance");
+        assertEq(reqId, 0, "Request ID should be 0");
     }
 
     function test_FulfillRedeem() public {
@@ -878,6 +980,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(userAddress);
         vault.invalidateNonce(nonce);
 
+        vm.prank(userAddress);
+        vm.expectRevert(ISuperVault.INVALID_NONCE.selector);
+        vault.invalidateNonce(nonce);
+
         // Try to use invalidated nonce
         bool approved = true;
         uint256 deadline = block.timestamp + 1 hours;
@@ -1146,6 +1252,71 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
     }
 
+    function test_Redeem_RevertCases() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Make and fulfill redemption request to get claimable assets
+        uint256 userShares = vault.balanceOf(accountEth);
+        _requestRedeem(userShares);
+        _executeRedeemHooks4626(userShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Get claimable amount
+        uint256 maxRedeem = vault.maxRedeem(accountEth);
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.redeem(
+            maxRedeem, // shares to redeem
+            address(0), // receiver
+            accountEth // owner
+        );
+
+        // Try to redeem more than the max redeem
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
+        vault.redeem(
+            maxRedeem + 100, // shares to redeem
+            accountEth, // receiver
+            accountEth // owner
+        );
+
+        // Try redeem more than escrow balance
+        vm.startPrank(address(escrow));
+        asset.transfer(address(this), asset.balanceOf(address(escrow)) - 1);
+        vm.stopPrank();
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
+        vault.redeem(
+            maxRedeem, // shares to redeem
+            accountEth, // receiver
+            accountEth // owner
+        );
+    }
+
+    function test_Withdraw_InvalidAmount() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+
+        // Deposit and allocate to yield
+        _deposit(depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        uint256 shares = vault.balanceOf(accountEth);
+
+        _requestRedeem(shares);
+
+        _executeRedeemHooks4626(shares, address(fluidVault), address(aaveVault), new address[](0));
+
+        uint256 maxWithdraw = vault.maxWithdraw(accountEth);
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_AMOUNT.selector);
+        vault.withdraw(maxWithdraw + 1, accountEth, accountEth);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         REDEMPTION FUNCTIONS TESTS
     //////////////////////////////////////////////////////////////*/
@@ -1190,11 +1361,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(accountEth);
         vault.cancelRedeemRequest(0, accountEth);
 
+        assertTrue(strategy.pendingCancelRedeemRequest(accountEth), "Pending cancel request should be true");
+
         vm.startPrank(MANAGER);
         address[] memory controllers = new address[](1);
         controllers[0] = accountEth;
         strategy.fulfillCancelRedeemRequests(controllers);
         vm.stopPrank();
+
+        uint256 claimableCancelShares = strategy.claimableCancelRedeemRequest(accountEth);
+        uint256 claimableCancelSharesVault = vault.claimableCancelRedeemRequest(0, accountEth);
+        assertEq(claimableCancelShares, redeemAmount, "Should have claimable cancel shares equal to original request");
+        assertEq(
+            claimableCancelSharesVault,
+            claimableCancelShares,
+            "Should have claimable cancel shares equal to original request"
+        );
 
         vm.prank(accountEth);
         vault.claimCancelRedeemRequest(0, accountEth, accountEth);
@@ -1205,11 +1387,29 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(vault.balanceOf(address(escrow)), 0, "Escrow should no longer hold shares");
     }
 
-    function test_RevertWhen_CancelRedeemWithNoRequest() public {
+    function test_ClaimCancelRedeem_RevertCases() public {
         // Try to cancel when there's no request
         vm.prank(accountEth);
         vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
         vault.cancelRedeemRequest(0, accountEth);
+
+        vm.startPrank(MANAGER);
+        address[] memory controllers = new address[](1);
+        controllers[0] = accountEth;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.claimCancelRedeemRequest(0, address(0), accountEth);
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vault.claimCancelRedeemRequest(0, accountEth, address(0));
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vault.claimCancelRedeemRequest(0, address(this), accountEth);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1219,6 +1419,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_SetOperator() public {
         // Initially not an operator
         assertFalse(vault.isOperator(accountEth, operator), "Should not be operator initially");
+
+        vm.prank(accountEth);
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.setOperator(accountEth, true);
 
         // Set operator directly
         vm.prank(accountEth);
@@ -1264,7 +1468,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTION COVERAGE TESTS
     //////////////////////////////////////////////////////////////*/
-
     function test_ValidateOwnerOrOperator() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
@@ -1290,7 +1493,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     /*//////////////////////////////////////////////////////////////
                        SUPERVAULTSTRATEGY.SOL
     //////////////////////////////////////////////////////////////*/
-
     function test_RequestRedeem_MultipleUsers(uint256 depositAmount) public {
         // bound amount
         depositAmount = bound(depositAmount, 100e6, 10_000e6);
@@ -1574,6 +1776,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // make sure redeem is cleared even if we have small rounding errors
         assertEq(strategy.claimableWithdraw(accInstances[0].account), 0);
+    }
+
+    function test_ExtractAndSendAssets_UnauthroizedCaller() public {
+        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
+        vault.extractAndSendAssets(address(this), 1000);
     }
 
     // Helper function to handle deposit setup
@@ -1958,6 +2165,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             totalAssetsReceived, totalRedeemAmount, 0.01e18, "Total assets received should match total redeem amount"
         );
     }
+
     /*//////////////////////////////////////////////////////////////
                       GAS REPORT TESTS
     //////////////////////////////////////////////////////////////*/
@@ -2024,6 +2232,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 redeemShares = initialShares / 2;
         _requestRedeem(redeemShares);
         _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        uint256 escrowedAssets = vault.getEscrowedAssets();
+        uint256 redeemSharesAsAssets = vault.convertToAssets(redeemShares);
+        assertEq(escrowedAssets, redeemSharesAsAssets, "Escrowed assets should match redeem shares as assets");
 
         // Get claimable assets
         uint256 claimableAssets = strategy.claimableWithdraw(accountEth);
@@ -4408,8 +4620,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 claimableCancelAfterClaim = strategy.claimableCancelRedeemRequest(accInstances[0].account);
         assertEq(claimableCancelAfterClaim, 0, "Claimable cancel should be cleared after claim");
-
-        // Verify accumulator states are preserved (key invariant)
 
         // Step 5: Verify user can make new requests after complete cancellation flow
         uint256 newRedeemShares = vault.balanceOf(accInstances[0].account) / 4;
@@ -9105,7 +9315,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.expectRevert(ISuperVaultStrategy.STRATEGY_PAUSED.selector);
         MockEmergencyVault(vars.emergencyVault)
             .reinvestIntoVault(address(asset), address(testVault), vars.withdrawAmount, address(this));
-            
+
         vm.startPrank(MANAGER);
         aggregator.unpauseStrategy(address(testStrategy));
         vm.stopPrank();
@@ -9300,7 +9510,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Use direct vault.withdraw instead of complex hooks
         vm.prank(accountEth);
         vault.withdraw(claimableAssets, accountEth, accountEth);
-        
+
         uint256 userBalanceAfter = asset.balanceOf(accountEth);
 
         // User should get full theoretical amount (no fee deduction in redemption)
@@ -10014,7 +10224,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify totalAssets consistency (EIP-4626 invariant)
         uint256 totalSupplyAfterSkim = vault.totalSupply();
-        uint256 calculatedAssets = totalSupplyAfterSkim.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
+        uint256 calculatedAssets =
+            totalSupplyAfterSkim.mulDiv(ppsAfterSkim, 10 ** vault.decimals(), Math.Rounding.Floor);
         uint256 reportedAssets = vault.totalAssets();
 
         // Allow 1 wei tolerance for rounding

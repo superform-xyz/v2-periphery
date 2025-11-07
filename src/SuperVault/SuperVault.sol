@@ -100,10 +100,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         external
         initializer
     {
-        if (asset_ == address(0)) revert INVALID_ASSET();
-        if (strategy_ == address(0)) revert INVALID_STRATEGY();
-        if (escrow_ == address(0)) revert INVALID_ESCROW();
-
+        /// @dev asset, strategy, and escrow already validated in SuperVaultAggregator during vault creation
         // Initialize parent contracts
         __ERC20_init(name_, symbol_);
         __ReentrancyGuard_init();
@@ -216,7 +213,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (receiver != controller) revert INVALID_CONTROLLER();
 
         shares = strategy.claimableCancelRedeemRequest(controller);

@@ -61,9 +61,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for PPS decimals
-    uint256 public constant PPS_DECIMALS = 18;
-
     // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
 

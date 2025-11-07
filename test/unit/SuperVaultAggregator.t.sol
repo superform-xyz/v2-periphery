@@ -189,6 +189,29 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    function test_AddSecondaryManager() public {
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.addSecondaryManager(strategy, manager);
+
+        vm.startPrank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, manager);
+        vm.stopPrank();
+
+        address newSecondaryManager = _deployAccount(0x10, "NewSecondaryManager");
+
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        assertEq(secondaryManagers.length, 2, "Should have 2 secondary managers");
+
+        vm.prank(manager);
+        superVaultAggregator.removeSecondaryManager(strategy, newSecondaryManager);
+        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        assertEq(secondaryManagers.length, 1, "Should have 1 secondary manager");
+    }
+
     /// @notice Tests emergency replacement clears pending hook root proposals
     function test_ChangePrimaryManager_ClearsPendingHookProposals() public {
         // Setup: Create pending hook root proposal
@@ -211,6 +234,61 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         (proposedRoot, effectiveTime) = superVaultAggregator.getProposedStrategyHooksRoot(strategy);
         assertEq(proposedRoot, bytes32(0), "Hook proposal should be cleared");
         assertEq(effectiveTime, 0, "Hook effective time should be cleared");
+    }
+
+    function test_ExecuteChangePrimaryManager() public {
+        // Test that old primary manager get removed and new primary manager has been set
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        uint256 len = secondaryManagers.length;
+
+        // Test that new primary manager has been set
+        address currentManager = superVaultAggregator.getMainManager(strategy);
+        address newPrimaryManager = _deployAccount(0x12, "NewManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        // Verify old primary manager has been removed
+        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        assertEq(secondaryManagers.length, len + 1, "Should have 0 secondary managers");
+        assertEq(secondaryManagers[1], currentManager, "Old primary manager should be made secondary manager");
+
+        // Verify new primary manager has been set
+        currentManager = superVaultAggregator.getMainManager(strategy);
+        assertEq(currentManager, newPrimaryManager, "New manager should be set");
+
+        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        address nextPrimaryManager = _deployAccount(0x14, "NextManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, newPrimaryManager, nextPrimaryManager);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        vm.startPrank(nextPrimaryManager);
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x15, "NewSecondaryManager"));
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x16, "NewSecondaryManager"));
+        vm.stopPrank();
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, nextPrimaryManager);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, newPrimaryManager);
+
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
     }
 
     /// @notice Tests the complete attack scenario - malicious manager cannot regain control
@@ -356,7 +434,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // =============================================================
     // Monotonic Timestamp Validation Tests
     // =============================================================
-
     /// @notice Tests that batch PPS updates with non-monotonic timestamps are rejected
     function test_BatchForwardPPS_Revert_NonMonotonicTimestamp() public {
         // Set up as PPS Oracle to be able to call batchForwardPPS
@@ -429,6 +506,189 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Verify original timestamps are updated
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy), timestamp1 + 10, "timestamp 1");
         assertEq(superVaultAggregator.getLastUpdateTimestamp(strategy2), timestamp2, "timestamp 2 should not change");
+    }
+
+    /// @notice Tests timestamp event emissions
+    function test_BatchForwardPPS_TimestampEvents() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Create second strategy for batch testing
+        vm.prank(manager);
+        (, address strategy2,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Get initial timestamps
+        uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
+        uint256 timestamp2 = superVaultAggregator.getLastUpdateTimestamp(strategy2);
+
+        // Prepare batch data with monotonic timestamps
+        address[] memory strategies = new address[](2);
+        strategies[0] = strategy;
+        strategies[1] = strategy2;
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = 1e18;
+        ppss[1] = 1e18;
+
+        uint256[] memory validatorSets = new uint256[](2);
+        validatorSets[0] = 1;
+        validatorSets[1] = 1;
+
+        uint256[] memory totalValidators = new uint256[](2);
+        totalValidators[0] = 1;
+        totalValidators[1] = 1;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = timestamp1 + 10 weeks; // ts > block.timestamp
+        timestamps[1] = timestamp2 + 10; // Valid timestamp
+
+        address[] memory updateAuthorities = new address[](2);
+        updateAuthorities[0] = user;
+        updateAuthorities[1] = user;
+
+        // Wait for minimum interval to pass
+        uint256 timeBeforeUpdate1 = block.timestamp;
+        vm.warp(timeBeforeUpdate1 + 10);
+
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Should emit ProvidedTimestampExceedsBlockTimestamp()
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.ProvidedTimestampExceedsBlockTimestamp(strategy, timestamps[0], block.timestamp);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+        // Retrieve updated last timestamp after previous forwardPPS
+        uint256 lastUpdate = superVaultAggregator.getLastUpdateTimestamp(strategy);
+
+        // Prepare a timestamp slightly ahead but below minUpdateInterval
+        // minUpdateInterval = 5, so +2 triggers UpdateTooFrequent
+        timestamps[0] = lastUpdate + 2;
+        timestamps[1] = lastUpdate + 2;
+
+        vm.warp(timestamps[0] + 1);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.UpdateTooFrequent();
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+
+        timestamps[0] = timeBeforeUpdate1 + 20; // Valid timestamp
+        timestamps[1] = timeBeforeUpdate1 + 20; // Valid timestamp
+
+        vm.warp(block.timestamp + 1000 weeks);
+
+        // Should emit StaleUpdate()
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StaleUpdate(strategy, address(this), timestamps[0]);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+    }
+
+    function test_ForwardPPS_InsufficientUpkeep() public {
+        // Set up as PPS Oracle to be able to call batchForwardPPS
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Get initial timestamps
+        uint256 lastUpdateTimestamp = superVaultAggregator.getLastUpdateTimestamp(strategy);
+
+        // Prepare batch data with monotonic timestamps
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategy;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = 1e18;
+
+        uint256[] memory validatorSets = new uint256[](1);
+        validatorSets[0] = 1;
+
+        uint256[] memory totalValidators = new uint256[](1);
+        totalValidators[0] = 1;
+
+        uint256[] memory timestamps = new uint256[](1);
+
+        address[] memory updateAuthorities = new address[](1);
+        updateAuthorities[0] = user;
+
+        vm.warp(lastUpdateTimestamp + 65 + 1 weeks);
+        timestamps[0] = block.timestamp - 100;
+
+        uint256 upkeepCost = superGovernor.getUpkeepCostPerSingleUpdate(address(this));
+
+        uint256 upkeepBalance = superVaultAggregator.getUpkeepBalance(manager);
+
+        console2.log("upkeepCost", upkeepCost);
+        console2.log("upkeepBalance", upkeepBalance);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StrategyPaused(strategy);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StrategyPPSStale(strategy);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.InsufficientUpkeep(strategy, manager, upkeepBalance, upkeepCost);
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: totalValidators[0],
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
     }
 
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
@@ -748,6 +1008,64 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             604_801,
             "Strategy2 timestamp should remain at creation time (stale)"
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          Strategy Pause Tests
+    //////////////////////////////////////////////////////////////*/
+    function test_StrategyPauseAndUnpause_RevertCases() public {
+        // Test pause strategy with invalid authority
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.pauseStrategy(strategy);
+
+        vm.startPrank(manager);
+        superVaultAggregator.pauseStrategy(strategy);
+        vm.expectRevert(ISuperVaultAggregator.STRATEGY_ALREADY_PAUSED.selector);
+        superVaultAggregator.pauseStrategy(strategy);
+        vm.stopPrank();
+
+        // Test unpause strategy with invalid authority
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.unpauseStrategy(strategy);
+
+        vm.startPrank(manager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        vm.expectRevert(ISuperVaultAggregator.STRATEGY_NOT_PAUSED.selector);
+        superVaultAggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           Upkeep Management Tests
+    //////////////////////////////////////////////////////////////*/
+    function test_Upkeep_RevertCases() public {
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.depositUpkeep(manager, 0);
+
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
+        superVaultAggregator.withdrawUpkeep(1);
+    }
+
+    function test_WithdrawUpkeep_RevertCases() public {
+        uint256 upkeepAmount = 1000e18;
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(manager, upkeepAmount);
+        vm.stopPrank();
+
+        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep balance should be the same");
+
+        vm.startPrank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.withdrawUpkeep(0);
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        superVaultAggregator.withdrawUpkeep(upkeepAmount);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
+        superVaultAggregator.withdrawUpkeep(upkeepAmount);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1393,7 +1711,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     // =============================================================
     // Stake Management Tests
     // =============================================================
-
     /// @notice Tests successful stake deposit by any user for a manager
     function test_DepositStake_Success() public {
         uint256 stakeAmount = 1000e18;
@@ -1562,6 +1879,23 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
     }
 
+    function test_WithdrawStakeInsufficientBalance() public {
+        uint256 stakeAmount = 500e18;
+        uint256 withdrawAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        // Try to withdraw more than deposited
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+    }
+
     /// @notice Tests stake withdrawal reverts when no stake deposited
     function test_WithdrawStake_RevertNoStake() public {
         vm.prank(manager);
@@ -1615,6 +1949,26 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.expectRevert(ISuperVaultAggregator.WITHDRAWAL_REQUEST_EXPIRED.selector);
         superVaultAggregator.completeStakeWithdrawal();
         vm.stopPrank();
+    }
+
+    function test_WithdrawStake_RevertInsufficientBalance_AfterSlashing() public {
+        uint256 stakeAmount = 500e18;
+        uint256 withdrawAmount = 1000e18;
+
+        // Setup: Deposit smaller stake
+        MockUp(upToken).mint(manager, stakeAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
+        superVaultAggregator.depositStake(manager, stakeAmount);
+        vm.stopPrank();
+
+        vm.prank(address(superGovernor));
+        superVaultAggregator.slashStake(manager, stakeAmount);
+
+        // Try to withdraw more than deposited
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
     }
 
     /// @notice Tests successful stake slashing by SuperGovernor
@@ -1896,6 +2250,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             withdrawalAmount,
             "Stake balance should be reduced by the withdrawal amount"
         );
+
+        vm.prank(address(superGovernor));
+        superVaultAggregator.slashStake(manager, withdrawalAmount);
+
+        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
     }
 
     function testSlashStake_ClearsWithdrawalRequest() public {
