@@ -445,7 +445,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256 movedCostBasis = sharesToMove == availableAccumulatorShares
             ? fromState.accumulatorCostBasis
             : Math.mulDiv(sharesToMove, fromState.accumulatorCostBasis, availableAccumulatorShares, Math.Rounding.Floor);
-        /// @audit is there a value st when transfered transfers minimal shares and maximum cost basis
 
         fromState.accumulatorShares -= sharesToMove;
         fromState.accumulatorCostBasis -= movedCostBasis;

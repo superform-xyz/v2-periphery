@@ -327,7 +327,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         hookCalldata[0] = redeemHookCalldata;
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = 1; // @audit Allow max losse amount matching the actual redeem
+        expectedAssetsOrSharesOut[0] = 1; // Allow max losse amount matching the actual redeem
 
         bytes32[][] memory globalProofs = new bytes32[][](1);
         globalProofs[0] = new bytes32[](0); // Empty proof for UnsafeSuperVaultAggregator
