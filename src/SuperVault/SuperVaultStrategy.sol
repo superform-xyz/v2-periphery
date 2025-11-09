@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -28,6 +28,9 @@ import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrateg
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { SuperVaultAccountingLib } from "../libraries/SuperVaultAccountingLib.sol";
+import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
+
+import "forge-std/console2.sol";
 
 /// @title SuperVaultStrategy
 /// @author Superform Labs
@@ -38,11 +41,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
     using Math for uint256;
+    using AssetMetadataLib for address;
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint256 private constant BPS_PRECISION = 10_000;
+    uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
     // Slippage tolerance in BPS (1%)
     uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
@@ -81,13 +86,18 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     mapping(address source => address oracle) private yieldSources;
     EnumerableSet.AddressSet private yieldSourcesList;
 
+    // --- Global Vault High-Water Mark (PPS-based) ---
+    /// @notice High-water mark price-per-share for performance fee calculation
+    /// @dev Represents the PPS at which performance fees were last collected
+    ///      Scaled by PRECISION (e.g., 1e6 for USDC vaults, 1e18 for 18-decimal vaults)
+    ///      Only updated during skimPerformanceFee() when fees are taken
+    uint256 public vaultHwmPps;
+
     // --- Redeem Request State ---
     mapping(address controller => SuperVaultState state) private superVaultState;
 
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
-
-        ppsExpiration = 1 days;
 
         superGovernor = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
@@ -109,12 +119,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             (feeConfigData.performanceFeeBps > 0 || feeConfigData.managementFeeBps > 0)
                 && feeConfigData.recipient == address(0)
         ) revert ZERO_ADDRESS();
-        if (feeConfigData.performanceFeeBps > BPS_PRECISION) {
-            revert INVALID_PERFORMANCE_FEE_BPS();
-        }
-        if (feeConfigData.managementFeeBps > BPS_PRECISION) {
-            revert INVALID_PERFORMANCE_FEE_BPS();
-        }
+        if (feeConfigData.performanceFeeBps > MAX_PERFORMANCE_FEE) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (feeConfigData.managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
 
         __ReentrancyGuard_init();
 
@@ -124,6 +130,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         PRECISION = 10 ** _vaultDecimals;
         feeConfig = feeConfigData;
 
+        ppsExpiration = 1 days;
+
+        // Initialize HWM to 1.0 using asset decimals (same as aggregator)
+        // Get asset decimals the same way aggregator does
+        (bool success, uint8 assetDecimals) = address(_asset).tryGetAssetDecimals();
+        if (!success) revert INVALID_ASSET();
+        vaultHwmPps = 10 ** assetDecimals; // 1.0 as initial PPS (matches aggregator)
+
         emit Initialized(_vault);
     }
 
@@ -132,13 +146,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuperVaultStrategy
-    function handleOperations4626Deposit(
-        address controller,
-        uint256 assetsGross
-    )
-        external
-        returns (uint256 sharesNet)
-    {
+    function handleOperations4626Deposit(address controller, uint256 assetsGross) external returns (uint256 sharesNet) {
         _requireVault();
 
         if (assetsGross == 0) revert INVALID_AMOUNT();
@@ -172,10 +180,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         sharesNet = Math.mulDiv(assetsNet, PRECISION, pps, Math.Rounding.Floor);
         if (sharesNet == 0) revert INVALID_AMOUNT();
 
-        // Account on NET
-        SuperVaultState storage state = superVaultState[controller];
-        state.accumulatorShares += sharesNet;
-        state.accumulatorCostBasis += assetsNet;
+        // No HWM update needed - deposits are PPS-neutral by design
+
         emit DepositHandled(controller, assetsNet, sharesNet);
         return sharesNet;
     }
@@ -214,10 +220,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             }
         }
 
-        // Account on NET
-        SuperVaultState storage state = superVaultState[controller];
-        state.accumulatorShares += sharesNet;
-        state.accumulatorCostBasis += assetsNet;
+        // No HWM update needed - mints are PPS-neutral by design
+
         emit DepositHandled(controller, assetsNet, sharesNet);
     }
 
@@ -244,10 +248,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.ClaimCancelRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);
@@ -312,38 +314,144 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function fulfillRedeemRequests(address[] memory controllers) external payable nonReentrant {
+    function fulfillRedeemRequests(
+        address[] calldata controllers,
+        uint256[] calldata totalAssetsOut
+    )
+        external
+        payable
+        nonReentrant
+    {
         _isManager(msg.sender);
 
         _validateStrategyState(_getSuperVaultAggregator());
 
-        uint256 controllersLength = controllers.length;
-        if (controllersLength == 0) revert ZERO_LENGTH();
+        uint256 len = controllers.length;
+        if (len == 0 || totalAssetsOut.length != len) revert INVALID_ARRAY_LENGTH();
 
-        uint256 currentPPS = getStoredPPS();
+        FulfillRedeemVars memory vars;
+        vars.currentPPS = getStoredPPS();
+        if (vars.currentPPS == 0) revert INVALID_PPS();
+
+        // Process each controller with all validations in one loop
+        for (uint256 i; i < len; ++i) {
+            // Validate controllers are sorted and unique
+            if (i > 0 && controllers[i] <= controllers[i - 1]) revert CONTROLLERS_NOT_SORTED_UNIQUE();
+
+            // Load pending shares into memory and accumulate total
+            uint256 pendingShares = superVaultState[controllers[i]].pendingRedeemRequest;
+            vars.totalRequestedShares += pendingShares;
+
+            // Disallow fulfillment for controllers with zero pending shares
+            if (pendingShares == 0) revert ZERO_SHARE_FULFILLMENT_DISALLOWED();
+
+            // Process fulfillment and accumulate assets
+            _processExactFulfillmentBatch(controllers[i], totalAssetsOut[i], vars.currentPPS, pendingShares);
+            vars.totalNetAssetsOut += totalAssetsOut[i];
+        }
+
+        // Balance check (no fees expected)
+        vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
+        if (vars.strategyBalance < vars.totalNetAssetsOut) {
+            revert INSUFFICIENT_LIQUIDITY();
+        }
+
+        // Burn shares
+        ISuperVault(_vault).burnShares(vars.totalRequestedShares);
+
+        // Transfer net assets to escrow
+        if (vars.totalNetAssetsOut > 0) {
+            _asset.safeTransfer(ISuperVault(_vault).escrow(), vars.totalNetAssetsOut);
+        }
+
+        emit RedeemRequestsFulfilled(controllers, vars.totalRequestedShares, vars.currentPPS);
+    }
+
+    /// @notice Skim performance fees based on per-share High Water Mark
+    /// @dev Can be called by any manager when vault PPS has grown above HWM
+    /// @dev Uses PPS-based HWM which eliminates redemption-related vulnerabilities
+    function skimPerformanceFee() external nonReentrant {
+        _isManager(msg.sender);
+
+        ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
+        _validateStrategyState(aggregator);
+
+        // CHANGE 7: Prevent skim for 12 hours after unpause (rug prevention)
+        uint256 lastUnpause = aggregator.getLastUnpauseTimestamp(address(this));
+        if (block.timestamp < lastUnpause + 12 hours) {
+            revert SKIM_TIMELOCK_ACTIVE();
+        }
+
+        IERC4626 vault = IERC4626(_vault);
+        uint256 totalSupplyLocal = vault.totalSupply();
+
+        // Early return if no supply - cannot calculate PPS or collect fees
+        if (totalSupplyLocal == 0) return;
+
+        // Get current PPS from aggregator
+        uint256 currentPPS = aggregator.getPPS(address(this));
         if (currentPPS == 0) revert INVALID_PPS();
 
-        // make sure controllers are sorted and unique
-        controllers.insertionSort();
-        controllers.uniquifySorted();
+        // Get the high-water mark PPS (baseline for fee calculation)
+        uint256 hwmPPS = vaultHwmPps;
 
-        // Pre-calculate totals to ensure no overburn of escrowed shares
-        uint256 totalRequestedShares;
-        for (uint256 i; i < controllersLength; ++i) {
-            totalRequestedShares += superVaultState[controllers[i]].pendingRedeemRequest;
+        // Check if there's any per-share growth above HWM
+        if (currentPPS <= hwmPPS) {
+            // No growth above HWM, no fee to collect
+            return;
         }
 
-        uint256 processedShares;
-        for (uint256 i; i < controllersLength; ++i) {
-            processedShares += _processLiquidityRedeemFulfillment(controllers[i], currentPPS);
-        }
+        // Calculate PPS growth above HWM
+        uint256 ppsGrowth = currentPPS - hwmPPS;
 
-        // Post-condition: processed shares must match intended shares
-        if (processedShares != totalRequestedShares) revert INVALID_REDEEM_FILL();
+        // Calculate total profit: (PPS growth) * (total shares) / PRECISION
+        // This represents the total assets gained above the high-water mark
+        uint256 profit = Math.mulDiv(ppsGrowth, totalSupplyLocal, PRECISION, Math.Rounding.Floor);
 
-        ISuperVault(_vault).burnShares(processedShares);
+        // Safety check: profit must be non-zero to collect fees
+        if (profit == 0) return;
 
-        emit RedeemRequestsFulfilled(controllers, processedShares, currentPPS);
+        // Calculate fee as percentage of profit
+        uint256 fee = Math.mulDiv(profit, feeConfig.performanceFeeBps, BPS_PRECISION, Math.Rounding.Ceil);
+
+        // Edge case: profit exists but fee rounds to zero
+        if (fee == 0) return;
+
+        // Split fee between Superform treasury and strategy recipient
+        uint256 sfFee = Math.mulDiv(
+            fee, superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE), BPS_PRECISION, Math.Rounding.Floor
+        );
+        uint256 recipientFee = fee - sfFee;
+
+        // Check if strategy has sufficient liquid assets for fee transfer
+        if (_getTokenBalance(address(_asset), address(this)) < fee) revert NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
+
+        // Transfer fees to recipients
+        _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
+        _safeTokenTransfer(address(_asset), feeConfig.recipient, recipientFee);
+
+        emit PerformanceFeeSkimmed(fee, sfFee);
+
+        // Calculate the new PPS after fee extraction
+        // Fee extraction reduces vault assets while shares stay constant, lowering PPS
+        uint256 ppsReduction = Math.mulDiv(fee, PRECISION, totalSupplyLocal, Math.Rounding.Floor);
+
+        // Safety check: ensure reduction doesn't crash PPS to zero
+        if (ppsReduction >= currentPPS) revert INVALID_PPS();
+
+        uint256 newPPS = currentPPS - ppsReduction;
+
+        // Safety check: new PPS must be positive
+        if (newPPS == 0) revert INVALID_PPS();
+
+        // Update HWM to the new post-fee PPS
+        // This becomes the new baseline for future fee calculations
+        vaultHwmPps = newPPS;
+
+        emit HWMPPSUpdated(newPPS, currentPPS, profit, fee);
+
+        // Update PPS in aggregator to reflect fee extraction
+        aggregator.updatePPSAfterSkim(newPPS, fee);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -385,13 +493,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     {
         _isPrimaryManager(msg.sender);
 
-        if (performanceFeeBps >= BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
-        if (managementFeeBps >= BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (performanceFeeBps > MAX_PERFORMANCE_FEE) revert INVALID_PERFORMANCE_FEE_BPS();
+        if (managementFeeBps > BPS_PRECISION) revert INVALID_PERFORMANCE_FEE_BPS();
         if (recipient == address(0)) revert ZERO_ADDRESS();
         proposedFeeConfig = FeeConfig({
-            performanceFeeBps: performanceFeeBps,
-            managementFeeBps: managementFeeBps,
-            recipient: recipient
+            performanceFeeBps: performanceFeeBps, managementFeeBps: managementFeeBps, recipient: recipient
         });
         feeConfigEffectiveTime = block.timestamp + 1 weeks;
         emit VaultFeeConfigProposed(performanceFeeBps, managementFeeBps, recipient, feeConfigEffectiveTime);
@@ -399,14 +505,27 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     // @inheritdoc ISuperVaultStrategy
     function executeVaultFeeConfigUpdate() external {
+        _isPrimaryManager(msg.sender);
+
         if (block.timestamp < feeConfigEffectiveTime) {
             revert INVALID_TIMESTAMP();
         }
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
+
+        // Get current PPS before updating fee config
+        uint256 currentPPS = getStoredPPS();
+        uint256 oldHwmPps = vaultHwmPps;
+
+        // Update fee config
         feeConfig = proposedFeeConfig;
         delete proposedFeeConfig;
         feeConfigEffectiveTime = 0;
+
+        // Reset HWM PPS to current PPS to avoid incorrect fee calculations with new fee structure
+        vaultHwmPps = currentPPS;
+
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
+        emit HWMPPSUpdated(currentPPS, oldHwmPps, 0, 0);
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -425,35 +544,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperVaultStrategy
-    function moveAccumulatorOnTransfer(address from, address to, uint256 shares) external {
-        _requireVault();
-        if (shares == 0) return;
-
-        SuperVaultState storage fromState = superVaultState[from];
-        SuperVaultState storage toState = superVaultState[to];
-
-        // Only move accumulator proportional to what's available
-        // (accumulator shares may be less than ERC20 shares due to pending redeems)
-        // see test_Fix1_AuditAttackScenarioFails
-        uint256 availableAccumulatorShares = fromState.accumulatorShares;
-        if (availableAccumulatorShares == 0) return; // No accumulator to move
-
-        uint256 sharesToMove = shares > availableAccumulatorShares ? availableAccumulatorShares : shares;
-
-        // Pro-rata move of cost basis (NO PPS here; preserves fee correctness)
-        uint256 movedCostBasis = sharesToMove == availableAccumulatorShares
-            ? fromState.accumulatorCostBasis
-            : Math.mulDiv(sharesToMove, fromState.accumulatorCostBasis, availableAccumulatorShares, Math.Rounding.Floor);
-
-        fromState.accumulatorShares -= sharesToMove;
-        fromState.accumulatorCostBasis -= movedCostBasis;
-
-        toState.accumulatorShares += sharesToMove;
-        toState.accumulatorCostBasis += movedCostBasis;
-
-        // Never touch: pendingRedeemRequest, averageRequestPPS, maxWithdraw, averageWithdrawPrice
-    }
 
     /*//////////////////////////////////////////////////////////////
                         USER OPERATIONS
@@ -523,6 +613,26 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return yieldSourcesList.length();
     }
 
+    /// @notice Get the current unrealized profit above the High Water Mark
+    /// @return profit Current profit above High Water Mark (in assets), 0 if no profit
+    /// @dev Calculates based on PPS growth: (currentPPS - hwmPPS) * totalSupply / PRECISION
+    function vaultUnrealizedProfit() external view returns (uint256) {
+        IERC4626 vault = IERC4626(_vault);
+        uint256 totalSupplyLocal = vault.totalSupply();
+
+        // No profit if no shares exist
+        if (totalSupplyLocal == 0) return 0;
+
+        uint256 currentPPS = _getSuperVaultAggregator().getPPS(address(this));
+
+        // No profit if current PPS is at or below HWM
+        if (currentPPS <= vaultHwmPps) return 0;
+
+        // Calculate profit as: (PPS growth) * (shares) / PRECISION
+        uint256 ppsGrowth = currentPPS - vaultHwmPps;
+        return Math.mulDiv(ppsGrowth, totalSupplyLocal, PRECISION, Math.Rounding.Floor);
+    }
+
     // @inheritdoc ISuperVaultStrategy
     function containsYieldSource(address source) external view returns (bool) {
         return yieldSourcesList.contains(source);
@@ -554,43 +664,46 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return superVaultState[controller].averageWithdrawPrice;
     }
 
-    // @inheritdoc ISuperVaultStrategy
-    function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
-    )
+    /// @inheritdoc ISuperVaultStrategy
+    function previewExactRedeem(address controller)
         external
         view
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee)
+        returns (uint256 shares, uint256 theoreticalAssets, uint256 minAssets)
     {
-        if (sharesToRedeem == 0) return (0, 0, 0);
+        SuperVaultState memory state = superVaultState[controller];
+        shares = state.pendingRedeemRequest;
 
-        // Get controller's state
-        SuperVaultState storage state = superVaultState[controller];
+        if (shares == 0) return (0, 0, 0);
 
-        // Check if controller has enough shares
-        if (sharesToRedeem > state.accumulatorShares) return (0, 0, 0);
+        uint256 pps = getStoredPPS();
+        theoreticalAssets = shares.mulDiv(pps, PRECISION, Math.Rounding.Floor);
 
-        // Get the current price per share
-        uint256 currentPPS = getStoredPPS();
+        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
 
-        // Calculate historical assets (cost basis) proportionally
-        uint256 historicalAssets = 0;
-        if (state.accumulatorShares > 0) {
-            historicalAssets =
-                sharesToRedeem.mulDiv(state.accumulatorCostBasis, state.accumulatorShares, Math.Rounding.Floor);
+        minAssets = SuperVaultAccountingLib.computeMinNetOut(shares, state.averageRequestPPS, slippageBps, PRECISION);
+
+        return (shares, theoreticalAssets, minAssets);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoAssets, uint256[] memory individualAssets)
+    {
+        if (controllers.length == 0) revert ZERO_LENGTH();
+
+        individualAssets = new uint256[](controllers.length);
+        totalTheoAssets = 0;
+
+        for (uint256 i = 0; i < controllers.length; i++) {
+            // Get theoretical assets for this controller
+            (, uint256 theoreticalAssets,) = this.previewExactRedeem(controllers[i]);
+            individualAssets[i] = theoreticalAssets;
+            totalTheoAssets += theoreticalAssets;
         }
 
-        // Calculate current value of shares in asset terms
-        uint256 currentAssetsWithFees = sharesToRedeem.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
-
-        // Use the stateless library function for fee calculation - makes it easier to audit
-        return SuperVaultAccountingLib.calculatePerformanceFee(
-            currentAssetsWithFees,
-            historicalAssets,
-            feeConfig.performanceFeeBps,
-            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
-        );
+        return (totalTheoAssets, individualAssets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -646,100 +759,47 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                     INTERNAL REDEMPTION PROCESSING
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Process a single redemption from liquidity fulfillment
+    /// @notice Process exact fulfillment for batch processing
     /// @param controller Controller address
+    /// @param totalAssetsOut Total assets available for this controller (from executeHooks)
     /// @param currentPPS Current price per share
-    /// @return processedShares Processed shares
-    function _processLiquidityRedeemFulfillment(
+    /// @param pendingShares Pending shares for this controller (passed to avoid re-reading from storage)
+    function _processExactFulfillmentBatch(
         address controller,
-        uint256 currentPPS
+        uint256 totalAssetsOut,
+        uint256 currentPPS,
+        uint256 pendingShares
     )
         internal
-        returns (uint256 processedShares)
     {
         SuperVaultState storage state = superVaultState[controller];
-        LiquidityRedeemVars memory vars;
 
-        vars.requestedShares = state.pendingRedeemRequest;
+        // Slippage validation
+        uint16 slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
 
-        // Calculate cost basis using library
-        (vars.historicalAssets, state.accumulatorShares, state.accumulatorCostBasis) = SuperVaultAccountingLib
-            .calculateCostBasis(state.accumulatorShares, state.accumulatorCostBasis, vars.requestedShares);
+        uint256 theoreticalAssets = pendingShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
 
-        // Calculate current value of shares
-        vars.claimableAssetsWithFees = vars.requestedShares.mulDiv(currentPPS, PRECISION, Math.Rounding.Floor);
+        uint256 minAssetsOut =
+            SuperVaultAccountingLib.computeMinNetOut(pendingShares, state.averageRequestPPS, slippageBps, PRECISION);
 
-        // Calculate performance fee using library
-        (vars.totalFee, vars.superformFee, vars.recipientFee) = SuperVaultAccountingLib.calculatePerformanceFee(
-            vars.claimableAssetsWithFees,
-            vars.historicalAssets,
-            feeConfig.performanceFeeBps,
-            superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE)
+        // Bounds check: totalAssetsOut must be between minAssetsOut and theoreticalAssets
+        if (totalAssetsOut < minAssetsOut || totalAssetsOut > theoreticalAssets) {
+            revert BOUNDS_EXCEEDED(minAssetsOut, theoreticalAssets, totalAssetsOut);
+        }
+
+        // Update average withdraw price (use actual assets received)
+        state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
+            state.maxWithdraw, state.averageWithdrawPrice, pendingShares, totalAssetsOut, PRECISION
         );
 
-        // Transfer fees if applicable
-        if (vars.superformFee > 0) {
-            address treasury = superGovernor.getAddress(superGovernor.TREASURY());
-            _safeTokenTransfer(address(_asset), treasury, vars.superformFee);
-            emit FeePaid(treasury, vars.superformFee, feeConfig.performanceFeeBps);
-        }
-
-        if (vars.recipientFee > 0) {
-            address recipient = feeConfig.recipient;
-            if (recipient == address(0)) revert ZERO_ADDRESS();
-            _safeTokenTransfer(address(_asset), recipient, vars.recipientFee);
-            emit FeePaid(recipient, vars.recipientFee, feeConfig.performanceFeeBps);
-        }
-
-        // Get user's slippage tolerance (or use default if not set)
-        vars.slippageBps = state.redeemSlippageBps > 0 ? state.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS;
-
-        // Calculate final assets using library with slippage protection
-        // Slippage is anchored to REQUEST PPS to protect user from PPS drops
-        vars.strategyBalance = _getTokenBalance(address(_asset), address(this));
-
-        vars.avgRequestPPS = state.averageRequestPPS;
-        if (vars.avgRequestPPS == 0) revert ZERO_REQUEST_PPS();
-
-        vars.claimableAssets = SuperVaultAccountingLib.calculateClaimableAssets(
-            vars.claimableAssetsWithFees,
-            vars.totalFee,
-            vars.strategyBalance,
-            vars.slippageBps,
-            vars.requestedShares,
-            vars.avgRequestPPS,
-            PRECISION
-        );
-
-        // Update average withdraw price using library
-        if (vars.requestedShares > 0) {
-            state.averageWithdrawPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
-                state.maxWithdraw,
-                state.averageWithdrawPrice,
-                vars.requestedShares,
-                vars.claimableAssetsWithFees,
-                PRECISION
-            );
-        }
-
-        // Update user state, no partial redeems allowed
+        // Reset state
         state.pendingRedeemRequest = 0;
-        state.maxWithdraw += vars.claimableAssets;
-        state.averageRequestPPS = 0; // Reset PPS value after fulfillment
+        state.maxWithdraw += totalAssetsOut;
+        state.averageRequestPPS = 0;
         state.pendingCancelRedeemRequest = false;
         state.claimableCancelRedeemRequest = 0;
 
-        // Call vault callback
-        _onRedeemClaimable(
-            controller,
-            vars.claimableAssets,
-            vars.requestedShares,
-            state.averageWithdrawPrice,
-            state.accumulatorShares,
-            state.accumulatorCostBasis
-        );
-
-        processedShares = vars.requestedShares;
+        emit RedeemClaimable(controller, totalAssetsOut, pendingShares, state.averageWithdrawPrice);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -897,32 +957,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return ISuperHookResultOutflow(prevHook).getOutAmount(address(this));
     }
 
-    /// @notice Internal function to handle a redeem claimable
-    /// @param controller Address of the controller
-    /// @param assetsFulfilled Amount of assets fulfilled
-    /// @param sharesFulfilled Amount of shares fulfilled
-    /// @param averageWithdrawPrice Average withdraw price
-    /// @param accumulatorShares Accumulator shares
-    /// @param accumulatorCostBasis Accumulator cost basis
-    function _onRedeemClaimable(
-        address controller,
-        uint256 assetsFulfilled,
-        uint256 sharesFulfilled,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        private
-    {
-        // transfer assets to vault
-        address _escrow = ISuperVault(_vault).escrow();
-        _asset.safeTransfer(_escrow, assetsFulfilled);
-
-        emit RedeemClaimable(
-            controller, assetsFulfilled, sharesFulfilled, averageWithdrawPrice, accumulatorShares, accumulatorCostBasis
-        );
-    }
-
     /// @notice Internal function to handle a redeem
     /// @param controller Address of the controller
     /// @param shares Amount of shares
@@ -930,10 +964,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (shares == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
-
-        // Defense-in-depth: assert controller has accumulator shares
-        if (state.accumulatorShares == 0) revert INSUFFICIENT_SHARES();
-        if (shares > state.accumulatorShares) revert INSUFFICIENT_FUNDS();
 
         // Get current PPS from aggregator to use as baseline for slippage protection
         uint256 currentPPS = getStoredPPS();
@@ -1080,14 +1110,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         view
         returns (bool)
     {
-        return _getSuperVaultAggregator().validateHook(
-            address(this),
-            ISuperVaultAggregator.ValidateHookArgs({
-                hookAddress: hook,
-                hookArgs: ISuperHookInspector(hook).inspect(hookCalldata),
-                globalProof: globalProof,
-                strategyProof: strategyProof
-            })
-        );
+        return _getSuperVaultAggregator()
+            .validateHook(
+                address(this),
+                ISuperVaultAggregator.ValidateHookArgs({
+                    hookAddress: hook,
+                    hookArgs: ISuperHookInspector(hook).inspect(hookCalldata),
+                    globalProof: globalProof,
+                    strategyProof: strategyProof
+                })
+            );
     }
 }

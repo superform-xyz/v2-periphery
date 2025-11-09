@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -85,5 +85,9 @@ contract SuperBank is ISuperBank, Bank {
     //////////////////////////////////////////////////////////////*/
     function _getMerkleRootForHook(address hookAddress) internal view override returns (bytes32) {
         return SUPER_GOVERNOR.getSuperBankHookMerkleRoot(hookAddress);
+    }
+
+    function _isHookRegistered(address hookAddress) internal view override returns (bool) {
+        return SUPER_GOVERNOR.isHookRegistered(hookAddress);
     }
 }

@@ -75,7 +75,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, treasury, address(this));
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -86,29 +86,29 @@ contract SuperGovernorTest is PeripheryHelpers {
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
         aggregator = SuperVaultAggregator(superVaultAggregator);
 
-        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator).createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                mainManager: address(this),
-                secondaryManagers: new address[](0),
-                name: "SUP",
-                symbol: "SUP",
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
-            })
-        );
+        (, address strategy,) = ISuperVaultAggregator(superVaultAggregator)
+            .createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    mainManager: address(this),
+                    secondaryManagers: new address[](0),
+                    name: "SUP",
+                    symbol: "SUP",
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                    }),
+                    maxUnpauseTimeLock: 0
+                })
+            );
         strategy1 = strategy;
 
         vm.startPrank(sGovernor);
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
         vm.stopPrank();
     }
 
@@ -127,19 +127,21 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, governor, treasury, address(this));
+        new SuperGovernor(address(0), governor, governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, address(0), governor, governor, governor, treasury, address(this));
+
+        new SuperGovernor(sGovernor, address(0), governor, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(sGovernor, governor, governor, governor, governor, address(0), address(this));
+
+        new SuperGovernor(sGovernor, governor, governor, governor, address(0));
     }
 
     // =============================================================
@@ -219,6 +221,54 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Getters Tests
+    // =============================================================
+    function test_RoleGetters() public view {
+        assertEq(superGovernor.SUPER_GOVERNOR_ROLE(), keccak256("SUPER_GOVERNOR_ROLE"));
+        assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
+        assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
+        assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
+    }
+
+    function test_IsExecutor() public {
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.addExecutor(address(0));
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorAdded(address(this));
+        superGovernor.addExecutor(address(this));
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_ALREADY_REGISTERED.selector);
+        superGovernor.addExecutor(address(this));
+
+        assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
+        address[] memory executors = superGovernor.getExecutors();
+        assertEq(executors.length, 1, "Should have 1 executor");
+        assertEq(executors[0], address(this), "Executor in list should match");
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperGovernor.ExecutorRemoved(address(this));
+        superGovernor.removeExecutor(address(this));
+
+        assertFalse(superGovernor.isExecutor(address(this)), "This contract should not be an executor");
+        executors = superGovernor.getExecutors();
+        assertEq(executors.length, 0, "Should have 0 executors");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EXECUTOR_NOT_REGISTERED.selector);
+        superGovernor.removeExecutor(address(this));
+    }
+
+    function test_IsGuardian() public view {
+        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
+    }
+
+    // =============================================================
     // Manager Takeover Tests
     // =============================================================
 
@@ -287,7 +337,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(superGovernor.isHookRegistered(hook1), "Hook should be registered");
     }
 
-
     /// @notice Tests reverting when registering a hook with zero address
     function test_HookManagement_Revert_ZeroAddress() public {
         vm.prank(governor);
@@ -344,7 +393,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertFalse(superGovernor.isHookRegistered(hook1), "Hook should be unregistered");
     }
 
-
     /// @notice Tests the fix for the dangerous hook registration behavior where sets can get out of sync
     function test_HookManagement_FixedInvariantMaintenance() public {
         // Test case 1: Register a hook in regular set, then try to register it as fulfill request hook
@@ -395,6 +443,26 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
+    function test_ChangeHooksRootUpdateTimelock() public {
+        vm.prank(sGovernor);
+        superGovernor.changeHooksRootUpdateTimelock(100);
+        uint256 timelock = aggregator.getHooksRootUpdateTimelock();
+        assertEq(timelock, 100, "Timelock should be 100");
+    }
+
+    function test_SetGlobalHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setGlobalHooksRootVetoStatus(true);
+        bool vetoed = aggregator.isGlobalHooksRootVetoed();
+        assertTrue(vetoed, "Global hooks should be vetoed");
+    }
+
+    function test_SetStrategyHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
+        bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
+        assertTrue(vetoed, "Strategy hooks should be vetoed");
+    }
 
     // =============================================================
     // Validator Management Tests
@@ -404,13 +472,47 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ValidatorManagement_AddValidator() public {
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorAdded(validator1);
+        emit ISuperGovernor.ValidatorAdded(validator1, block.timestamp);
         superGovernor.addValidator(validator1);
 
         assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
         address[] memory validators = superGovernor.getValidators();
         assertEq(validators.length, 1, "Should have 1 validator");
         assertEq(validators[0], validator1, "Validator in list should match");
+    }
+
+    /// @notice Tests getting validators by index using getValidatorAt
+    function test_ValidatorManagement_GetValidatorAt() public {
+        // Add two validators
+        vm.startPrank(governor);
+        superGovernor.addValidator(validator1);
+        superGovernor.addValidator(validator2);
+        vm.stopPrank();
+
+        // Verify count
+        uint256 count = superGovernor.getValidatorsCount();
+        assertEq(count, 2, "Should have 2 validators");
+
+        // Get validators by index
+        address validatorAt0 = superGovernor.getValidatorAt(0);
+        address validatorAt1 = superGovernor.getValidatorAt(1);
+
+        // Verify both validators are accessible
+        assertTrue(validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2");
+        assertTrue(validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2");
+        assertTrue(validatorAt0 != validatorAt1, "Validators at different indices should be different");
+
+        // Verify we can access each validator
+        assertTrue(superGovernor.isValidator(validatorAt0), "Validator at index 0 should be registered");
+        assertTrue(superGovernor.isValidator(validatorAt1), "Validator at index 1 should be registered");
+
+        // Test that out-of-bounds index reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(2);
+
+        // Test that large out-of-bounds index also reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(999);
     }
 
     /// @notice Tests reverting when adding a validator with zero address
@@ -441,7 +543,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Remove validator
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorRemoved(validator1);
+        emit ISuperGovernor.ValidatorRemoved(validator1, block.timestamp);
         superGovernor.removeValidator(validator1);
 
         assertFalse(superGovernor.isValidator(validator1), "Validator should be removed");
@@ -477,6 +579,26 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Emergency Price Tests
+    // =============================================================
+    function test_SetEmergencyPrice() public {
+        uint256 emergencyPrice = 1e18;
+
+        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        // Set the oracle in the registry
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(oracle));
+
+        vm.prank(governor);
+        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
+
+        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
+    }
+
+    // =============================================================
     // PPS Oracle Management Tests
     // =============================================================
 
@@ -492,6 +614,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         (address proposedOracle, uint256 effectiveTime) = superGovernor.getProposedActivePPSOracle();
         assertEq(proposedOracle, ppsOracle1, "Proposed PPS Oracle address mismatch");
         assertEq(effectiveTime, expectedTime, "Effective time mismatch");
+    }
+
+    function test_SetActivePPSOracle_Revert_MustUseTimelock() public {
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.expectRevert(ISuperGovernor.MUST_USE_TIMELOCK_FOR_CHANGE.selector);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.stopPrank();
     }
 
     /// @notice Tests reverting when proposing a PPS Oracle with zero address
@@ -543,6 +673,10 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests setting the PPS Oracle quorum
     function test_PPSOracleManagement_SetPPSOracleQuorum() public {
         uint256 newQuorum = 3;
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setPPSOracleQuorum(0);
 
         vm.prank(governor);
         vm.expectEmit(true, false, false, false);
@@ -841,10 +975,8 @@ contract SuperGovernorTest is PeripheryHelpers {
             sGovernor,
             governor,
             governor, // bankManager (using governor as valid address)
-            governor, // gasManager (using governor as valid address)
-            governor, // unpauser (using governor as valid address)
-            treasury,
-            governor // prover (using governor as valid address)
+            governor, // gasManager (using governor as valid address)s
+            treasury
         );
 
         vm.prank(governor);
@@ -860,7 +992,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     /// @notice Tests slashing reverts with insufficient stake balance
-    function test_SlashStake_RevertInsufficientStake() public {
+    function test_SlashStake_PartialSlashWhenInsufficient() public {
         uint256 stakeAmount = 500e18;
         uint256 slashAmount = 1000e18;
 
@@ -871,16 +1003,29 @@ contract SuperGovernorTest is PeripheryHelpers {
         aggregator.depositStake(manager, stakeAmount);
         vm.stopPrank();
 
-        // Try to slash more than available
+        // Get SuperBank balance before
+        address superBankAddr = superGovernor.getAddress(superGovernor.SUPER_BANK());
+        uint256 superBankBalanceBefore = upToken.balanceOf(superBankAddr);
+
+        // Try to slash more than available - should slash only what's available
         vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.StakeSlashed(manager, stakeAmount); // Only stakeAmount is slashed
         superGovernor.slashStake(manager, slashAmount);
+
+        // Verify only available amount was slashed
+        assertEq(aggregator.getStakeBalance(manager), 0, "All stake should be slashed");
+        assertEq(
+            upToken.balanceOf(superBankAddr),
+            superBankBalanceBefore + stakeAmount,
+            "SuperBank should receive available amount"
+        );
     }
 
     /// @notice Tests slashing reverts when no stake deposited
     function test_SlashStake_RevertNoStake() public {
         vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
         superGovernor.slashStake(manager, 100e18);
     }
 
@@ -1043,569 +1188,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to execute before timelock expires
         vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook1);
-    }
-
-    // =============================================================
-    // Vault Bank Management Tests
-    // =============================================================
-
-    /// @notice Tests adding a vault bank successfully
-    function test_VaultBankManagement_AddVaultBank() public {
-        uint64 chainId = 1;
-        address vaultBank = _deployAccount(0x20, "VaultBank1");
-
-        vm.prank(governor);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.VaultBankAddressAdded(chainId, vaultBank);
-        superGovernor.addVaultBank(chainId, vaultBank);
-
-        assertEq(superGovernor.getVaultBank(chainId), vaultBank, "Vault bank address mismatch");
-    }
-
-    /// @notice Tests adding multiple vault banks for different chains
-    function test_VaultBankManagement_AddMultipleVaultBanks() public {
-        uint64 chainId1 = 1;
-        uint64 chainId2 = 137;
-        address vaultBank1 = _deployAccount(0x20, "VaultBank1");
-        address vaultBank2 = _deployAccount(0x21, "VaultBank2");
-
-        vm.startPrank(governor);
-        superGovernor.addVaultBank(chainId1, vaultBank1);
-        superGovernor.addVaultBank(chainId2, vaultBank2);
-        vm.stopPrank();
-
-        assertEq(superGovernor.getVaultBank(chainId1), vaultBank1, "Chain 1 vault bank mismatch");
-        assertEq(superGovernor.getVaultBank(chainId2), vaultBank2, "Chain 2 vault bank mismatch");
-    }
-
-    /// @notice Tests replacing an existing vault bank for the same chain
-    function test_VaultBankManagement_ReplaceVaultBank() public {
-        uint64 chainId = 1;
-        address oldVaultBank = _deployAccount(0x20, "OldVaultBank");
-        address newVaultBank = _deployAccount(0x21, "NewVaultBank");
-
-        // Add initial vault bank
-        vm.prank(governor);
-        superGovernor.addVaultBank(chainId, oldVaultBank);
-        assertEq(superGovernor.getVaultBank(chainId), oldVaultBank, "Initial vault bank not set");
-
-        // Replace with new vault bank
-        vm.prank(governor);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.VaultBankAddressAdded(chainId, newVaultBank);
-        superGovernor.addVaultBank(chainId, newVaultBank);
-
-        assertEq(superGovernor.getVaultBank(chainId), newVaultBank, "Vault bank not replaced");
-    }
-
-    /// @notice Tests access control - only GOVERNOR_ROLE can add vault banks
-    function test_VaultBankManagement_AccessControl() public {
-        uint64 chainId = 1;
-        address vaultBank = _deployAccount(0x20, "VaultBank");
-
-        // Test with user (should fail)
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.addVaultBank(chainId, vaultBank);
-
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.addVaultBank(chainId, vaultBank);
-
-        // Test with governor (should succeed)
-        vm.prank(governor);
-        superGovernor.addVaultBank(chainId, vaultBank);
-        assertEq(superGovernor.getVaultBank(chainId), vaultBank, "Governor should be able to add vault bank");
-    }
-
-    /// @notice Tests reverting when adding vault bank with zero chain ID
-    function test_VaultBankManagement_Revert_ZeroChainId() public {
-        address vaultBank = _deployAccount(0x20, "VaultBank");
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_CHAIN_ID.selector);
-        superGovernor.addVaultBank(0, vaultBank);
-    }
-
-    /// @notice Tests reverting when adding vault bank with zero address
-    function test_VaultBankManagement_Revert_ZeroVaultBankAddress() public {
-        uint64 chainId = 1;
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.addVaultBank(chainId, address(0));
-    }
-
-    /// @notice Tests getting vault bank for non-existent chain returns zero address
-    function test_VaultBankManagement_GetNonExistentVaultBank() public view {
-        uint64 nonExistentChainId = 999;
-        address result = superGovernor.getVaultBank(nonExistentChainId);
-        assertEq(result, address(0), "Non-existent vault bank should return zero address");
-    }
-
-    /// @notice Tests edge case with maximum chain ID
-    function test_VaultBankManagement_MaxChainId() public {
-        uint64 maxChainId = type(uint64).max;
-        address vaultBank = _deployAccount(0x20, "MaxChainVaultBank");
-
-        vm.prank(governor);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.VaultBankAddressAdded(maxChainId, vaultBank);
-        superGovernor.addVaultBank(maxChainId, vaultBank);
-
-        assertEq(superGovernor.getVaultBank(maxChainId), vaultBank, "Max chain ID vault bank mismatch");
-    }
-
-    // =============================================================
-    // Protected Keeper Registry Tests
-    // =============================================================
-
-    /// @notice Tests registering a protected keeper
-    function test_ProtectedKeeperRegistry_RegisterProtectedKeeper() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ProtectedKeeperRegistered(keeper);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should be registered as protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 1, "Should have 1 protected keeper");
-        assertEq(keepers[0], keeper, "Keeper in list should match");
-
-        assertEq(superGovernor.getProtectedKeepersCount(), 1, "Count should be 1");
-    }
-
-    /// @notice Tests registering multiple protected keepers
-    function test_ProtectedKeeperRegistry_RegisterMultipleKeepers() public {
-        address keeper1 = _deployAccount(0x30, "ProtectedKeeper1");
-        address keeper2 = _deployAccount(0x31, "ProtectedKeeper2");
-        address keeper3 = _deployAccount(0x32, "ProtectedKeeper3");
-
-        vm.startPrank(governor);
-        superGovernor.registerProtectedKeeper(keeper1);
-        superGovernor.registerProtectedKeeper(keeper2);
-        superGovernor.registerProtectedKeeper(keeper3);
-        vm.stopPrank();
-
-        assertTrue(superGovernor.isProtectedKeeper(keeper1), "Keeper1 should be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper2), "Keeper2 should be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper3), "Keeper3 should be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 3, "Should have 3 protected keepers");
-        assertEq(superGovernor.getProtectedKeepersCount(), 3, "Count should be 3");
-
-        // Verify all keepers are in the list
-        assertTrue(_addressInArray(keepers, keeper1), "keeper1 should be in list");
-        assertTrue(_addressInArray(keepers, keeper2), "keeper2 should be in list");
-        assertTrue(_addressInArray(keepers, keeper3), "keeper3 should be in list");
-    }
-
-    /// @notice Tests reverting when registering with zero address
-    function test_ProtectedKeeperRegistry_Revert_ZeroAddress() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.registerProtectedKeeper(address(0));
-    }
-
-    /// @notice Tests reverting when registering already registered keeper
-    function test_ProtectedKeeperRegistry_Revert_AlreadyRegistered() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Try to register again
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.KEEPER_ALREADY_REGISTERED.selector);
-        superGovernor.registerProtectedKeeper(keeper);
-    }
-
-    /// @notice Tests access control for registerProtectedKeeper
-    function test_ProtectedKeeperRegistry_RegisterAccessControl() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Test with user (should fail)
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with governor (should succeed)
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Governor should be able to register keeper");
-    }
-
-    /// @notice Tests unregistering a protected keeper
-    function test_ProtectedKeeperRegistry_UnregisterProtectedKeeper() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should be registered");
-
-        // Unregister keeper
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ProtectedKeeperUnregistered(keeper);
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Keeper should no longer be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 0, "Should have 0 protected keepers");
-        assertEq(superGovernor.getProtectedKeepersCount(), 0, "Count should be 0");
-    }
-
-    /// @notice Tests reverting when unregistering non-existent keeper
-    function test_ProtectedKeeperRegistry_Revert_UnregisterNotRegistered() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.KEEPER_NOT_REGISTERED.selector);
-        superGovernor.unregisterProtectedKeeper(keeper);
-    }
-
-    /// @notice Tests access control for unregisterProtectedKeeper
-    function test_ProtectedKeeperRegistry_UnregisterAccessControl() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-
-        // Register keeper first
-        vm.prank(governor);
-        superGovernor.registerProtectedKeeper(keeper);
-
-        // Test with user (should fail)
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.unregisterProtectedKeeper(keeper);
-
-        // Verify keeper is still registered
-        assertTrue(superGovernor.isProtectedKeeper(keeper), "Keeper should still be protected");
-
-        // Test with governor (should succeed)
-        vm.prank(governor);
-        superGovernor.unregisterProtectedKeeper(keeper);
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Governor should be able to unregister keeper");
-    }
-
-    /// @notice Tests unregistering keeper when multiple keepers exist
-    function test_ProtectedKeeperRegistry_UnregisterWithMultiple() public {
-        address keeper1 = _deployAccount(0x30, "ProtectedKeeper1");
-        address keeper2 = _deployAccount(0x31, "ProtectedKeeper2");
-        address keeper3 = _deployAccount(0x32, "ProtectedKeeper3");
-
-        // Register all keepers
-        vm.startPrank(governor);
-        superGovernor.registerProtectedKeeper(keeper1);
-        superGovernor.registerProtectedKeeper(keeper2);
-        superGovernor.registerProtectedKeeper(keeper3);
-        vm.stopPrank();
-
-        // Unregister middle keeper
-        vm.prank(governor);
-        superGovernor.unregisterProtectedKeeper(keeper2);
-
-        // Verify states
-        assertTrue(superGovernor.isProtectedKeeper(keeper1), "Keeper1 should still be protected");
-        assertFalse(superGovernor.isProtectedKeeper(keeper2), "Keeper2 should no longer be protected");
-        assertTrue(superGovernor.isProtectedKeeper(keeper3), "Keeper3 should still be protected");
-
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 2, "Should have 2 protected keepers remaining");
-        assertEq(superGovernor.getProtectedKeepersCount(), 2, "Count should be 2");
-
-        // Verify remaining keepers are in the list
-        assertTrue(_addressInArray(keepers, keeper1), "keeper1 should still be in list");
-        assertFalse(_addressInArray(keepers, keeper2), "keeper2 should not be in list");
-        assertTrue(_addressInArray(keepers, keeper3), "keeper3 should still be in list");
-    }
-
-    /// @notice Tests checking non-existent keeper
-    function test_ProtectedKeeperRegistry_IsProtectedKeeperFalse() public {
-        address keeper = _deployAccount(0x30, "ProtectedKeeper1");
-        assertFalse(superGovernor.isProtectedKeeper(keeper), "Non-registered keeper should return false");
-    }
-
-    /// @notice Tests getting empty keeper list initially
-    function test_ProtectedKeeperRegistry_EmptyListInitially() public view {
-        address[] memory keepers = superGovernor.getProtectedKeepers();
-        assertEq(keepers.length, 0, "Should start with empty keeper list");
-        assertEq(superGovernor.getProtectedKeepersCount(), 0, "Count should start at 0");
-    }
-
-    // =============================================================
-    // Incentive Token Management Tests
-    // =============================================================
-
-    /// @notice Tests proposing to add incentive tokens
-    function test_IncentiveTokenManagement_ProposeAddIncentiveTokens() public {
-        address token1 = address(0x111);
-        address token2 = address(0x222);
-        address[] memory tokens = new address[](2);
-        tokens[0] = token1;
-        tokens[1] = token2;
-
-        uint256 expectedTime = block.timestamp + TIMELOCK;
-
-        vm.prank(governor);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.WhitelistedIncentiveTokensProposed(tokens, expectedTime);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        // Check that tokens are in proposed state (not yet whitelisted)
-        assertFalse(superGovernor.isWhitelistedIncentiveToken(token1), "Token1 should not be whitelisted yet");
-        assertFalse(superGovernor.isWhitelistedIncentiveToken(token2), "Token2 should not be whitelisted yet");
-    }
-
-    /// @notice Tests reverting when proposing to add incentive tokens with zero address
-    function test_IncentiveTokenManagement_Revert_ProposeAddZeroAddress() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(0);
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-    }
-
-    /// @notice Tests executing addition of incentive tokens after timelock
-    function test_IncentiveTokenManagement_ExecuteAddIncentiveTokens() public {
-        address token1 = address(0x111);
-        address token2 = address(0x222);
-        address[] memory tokens = new address[](2);
-        tokens[0] = token1;
-        tokens[1] = token2;
-
-        // Propose the tokens
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        // Warp to after timelock
-        vm.warp(block.timestamp + TIMELOCK + 1);
-
-        // Execute the addition
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.WhitelistedIncentiveTokensAdded(tokens);
-        superGovernor.executeAddIncentiveTokens();
-
-        // Verify tokens are now whitelisted
-        assertTrue(superGovernor.isWhitelistedIncentiveToken(token1), "Token1 should be whitelisted");
-        assertTrue(superGovernor.isWhitelistedIncentiveToken(token2), "Token2 should be whitelisted");
-    }
-
-    /// @notice Tests reverting when executing add without proposal
-    function test_IncentiveTokenManagement_Revert_ExecuteAddNoProposal() public {
-        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeAddIncentiveTokens();
-    }
-
-    /// @notice Tests reverting when executing add before timelock expiry
-    function test_IncentiveTokenManagement_Revert_ExecuteAddBeforeTimelock() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(0x111);
-
-        // Propose the tokens
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        // Try to execute before timelock expires
-        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeAddIncentiveTokens();
-    }
-
-    /// @notice Tests proposing to remove incentive tokens
-    function test_IncentiveTokenManagement_ProposeRemoveIncentiveTokens() public {
-        address token1 = address(0x111);
-        address token2 = address(0x222);
-        address[] memory tokens = new address[](2);
-        tokens[0] = token1;
-        tokens[1] = token2;
-
-        // First add the tokens
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-        vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeAddIncentiveTokens();
-
-        // Now propose to remove them
-        vm.warp(block.timestamp + 1); // Move time forward slightly
-        uint256 expectedTime = block.timestamp + TIMELOCK;
-
-        vm.prank(governor);
-        vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.WhitelistedIncentiveTokensProposed(tokens, expectedTime);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-
-        // Tokens should still be whitelisted until execution
-        assertTrue(superGovernor.isWhitelistedIncentiveToken(token1), "Token1 should still be whitelisted");
-        assertTrue(superGovernor.isWhitelistedIncentiveToken(token2), "Token2 should still be whitelisted");
-    }
-
-    /// @notice Tests reverting when proposing to remove non-whitelisted tokens
-    function test_IncentiveTokenManagement_Revert_ProposeRemoveNotWhitelisted() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(0x111);
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.NOT_WHITELISTED_INCENTIVE_TOKEN.selector);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-    }
-
-    /// @notice Tests reverting when proposing to remove incentive tokens with zero address
-    function test_IncentiveTokenManagement_Revert_ProposeRemoveZeroAddress() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(0);
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-    }
-
-    /// @notice Tests executing removal of incentive tokens after timelock
-    function test_IncentiveTokenManagement_ExecuteRemoveIncentiveTokens() public {
-        address token1 = address(0x111);
-        address token2 = address(0x222);
-        address[] memory tokens = new address[](2);
-        tokens[0] = token1;
-        tokens[1] = token2;
-
-        // First add the tokens
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-        vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeAddIncentiveTokens();
-
-        // Now propose and execute removal
-        vm.warp(block.timestamp + 1);
-        vm.prank(governor);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-        vm.warp(block.timestamp + TIMELOCK + 1);
-
-        // Execute the removal
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.WhitelistedIncentiveTokensRemoved(tokens);
-        superGovernor.executeRemoveIncentiveTokens();
-
-        // Verify tokens are no longer whitelisted
-        assertFalse(superGovernor.isWhitelistedIncentiveToken(token1), "Token1 should not be whitelisted");
-        assertFalse(superGovernor.isWhitelistedIncentiveToken(token2), "Token2 should not be whitelisted");
-    }
-
-    /// @notice Tests reverting when executing remove without proposal
-    function test_IncentiveTokenManagement_Revert_ExecuteRemoveNoProposal() public {
-        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeRemoveIncentiveTokens();
-    }
-
-    /// @notice Tests reverting when executing remove before timelock expiry
-    function test_IncentiveTokenManagement_Revert_ExecuteRemoveBeforeTimelock() public {
-        address token1 = address(0x111);
-        address[] memory tokens = new address[](1);
-        tokens[0] = token1;
-
-        // First add the token
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-        vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeAddIncentiveTokens();
-
-        // Propose removal
-        vm.warp(block.timestamp + 1);
-        vm.prank(governor);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-
-        // Try to execute before timelock expires
-        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeRemoveIncentiveTokens();
-    }
-
-    /// @notice Tests access control for proposing incentive token changes
-    function test_IncentiveTokenManagement_AccessControl() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(0x111);
-
-        // Test proposeAddIncentiveTokens with non-governor role
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        // Test proposeRemoveIncentiveTokens with non-governor role
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
-        );
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-
-        // Test with superGovernor role (should fail - needs GOVERNOR_ROLE specifically)
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        vm.prank(sGovernor);
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
-        );
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-    }
-
-    /// @notice Tests that execution functions are public (can be called by anyone)
-    function test_IncentiveTokenManagement_PublicExecution() public {
-        address token1 = address(0x111);
-        address[] memory tokens = new address[](1);
-        tokens[0] = token1;
-
-        // Propose as governor
-        vm.prank(governor);
-        superGovernor.proposeAddIncentiveTokens(tokens);
-
-        // Execute as regular user (should work)
-        vm.warp(block.timestamp + TIMELOCK + 1);
-        vm.prank(user);
-        superGovernor.executeAddIncentiveTokens();
-
-        assertTrue(superGovernor.isWhitelistedIncentiveToken(token1), "Token should be whitelisted");
-
-        // Same for removal
-        vm.warp(block.timestamp + 1);
-        vm.prank(governor);
-        superGovernor.proposeRemoveIncentiveTokens(tokens);
-
-        vm.warp(block.timestamp + TIMELOCK + 1);
-        vm.prank(user);
-        superGovernor.executeRemoveIncentiveTokens();
-
-        assertFalse(superGovernor.isWhitelistedIncentiveToken(token1), "Token should not be whitelisted");
     }
 
     // =============================================================
@@ -2262,6 +1844,19 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
     }
+
+    function test_ExecuteOracleProviderRemoval() public { }
+
+    function test_QueueOracleProviderRemoval() public {
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.queueOracleProviderRemoval(providers);
+
+        // TODO: success flow
+    }
 }
 
 // =============================================================
@@ -2283,7 +1878,17 @@ contract MockSuperOracleForStaleness {
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
 
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
+
+    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
+        emergencyPrices[token] = emergencyPrice;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return emergencyPrices[token];
+    }
+
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }
 

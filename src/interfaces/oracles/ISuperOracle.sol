@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 /// @title ISuperOracle
@@ -56,6 +56,9 @@ interface ISuperOracle {
     /// @notice Error when provider is zero
     error ZERO_PROVIDER();
 
+    /// @notice Error when too many providers are being iterated through
+    error TOO_MANY_PROVIDERS();
+
     /// @notice Error when caller is not authorized to update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
 
@@ -110,6 +113,10 @@ interface ISuperOracle {
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
 
+    /// @notice Emitted when provider removal is cancelled
+    /// @param providers Array of provider ids that were queued for removal
+    event ProviderRemovalCancelled(bytes32[] providers);
+
     /// @notice Emitted when emergency price is updated
     /// @param token Token address
     /// @param price Emergency price
@@ -136,7 +143,6 @@ interface ISuperOracle {
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Get oracle address for a base asset and provider
     /// @param base Base asset address
     /// @param quote Quote asset address
@@ -183,6 +189,9 @@ interface ISuperOracle {
     /// @notice Execute queued provider removal after timelock period
     function executeProviderRemoval() external;
 
+    /// @notice Cancel queued provider removal
+    function cancelProviderRemoval() external;
+
     /// @notice Set the maximum staleness period for a specific provider
     /// @param feed Feed address
     /// @param newMaxStaleness New maximum staleness period in seconds
@@ -190,7 +199,7 @@ interface ISuperOracle {
 
     /// @notice Set the maximum staleness period for all providers
     /// @param newMaxStaleness New maximum staleness period in seconds
-    function setMaxStaleness(uint256 newMaxStaleness) external;
+    function setDefaultStaleness(uint256 newMaxStaleness) external;
 
     /// @notice Set the maximum staleness period for multiple providers
     /// @param feeds Array of feed addresses

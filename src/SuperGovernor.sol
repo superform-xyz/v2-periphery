@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // external
@@ -9,7 +9,6 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 // Superform
 import { ISuperGovernor, FeeType } from "./interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "./interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { ISuperAssetFactory } from "./interfaces/SuperAsset/ISuperAssetFactory.sol";
 import { ISuperOracle } from "./interfaces/oracles/ISuperOracle.sol";
 import { ISuperOracleL2 } from "./interfaces/oracles/ISuperOracleL2.sol";
 
@@ -41,37 +40,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // SuperBank Hook Target validation
     mapping(address hook => ISuperGovernor.HookMerkleRootData merkleData) private superBankHooksMerkleRoots;
 
-    // VaultBank registry
-    EnumerableSet.AddressSet private _vaultBanks;
-    mapping(uint64 chainId => address vaultBank) private _vaultBanksByChainId;
-
-    // VaultBank Hook Target validation
-    mapping(address hook => ISuperGovernor.HookMerkleRootData merkleData) private vaultBankHooksMerkleRoots;
-
     // Global freeze for manager takeovers
     bool private _managerTakeoversFrozen;
 
     // Validator registry
     EnumerableSet.AddressSet private _validators;
 
-    // Relayer registry
-    EnumerableSet.AddressSet private _relayers;
-
-    // Protected keepers registry (cannot be added as authorized callers by managers)
-    EnumerableSet.AddressSet private _protectedKeepers;
+    // Latest validator config block number (updated when validators are added/removed)
+    // it is used offchain for validator network to maintain sync between validators for config version to be used
+    uint256 private _latestValidatorConfigBlockNumber;
 
     // Executor registry
     EnumerableSet.AddressSet private _executors;
-
-    // Polymer prover
-    address private _prover;
-
-    // Whitelisted incentive tokens
-    mapping(address token => bool isWhitelisted) private _isWhitelistedIncentiveToken;
-    EnumerableSet.AddressSet private _proposedWhitelistedIncentiveTokens;
-    EnumerableSet.AddressSet private _proposedRemoveWhitelistedIncentiveTokens;
-    uint256 private _proposedAddWhitelistedIncentiveTokensEffectiveTime;
-    uint256 private _proposedRemoveWhitelistedIncentiveTokensEffectiveTime;
 
     // Fee management
     // Current fee values
@@ -100,7 +80,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address private constant USD_TOKEN = address(840);
     address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    address private constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
@@ -112,16 +92,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 private constant _GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
     bytes32 private constant _BANK_MANAGER_ROLE = keccak256("BANK_MANAGER_ROLE");
     bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
-    bytes32 private constant _SUPER_ASSET_FACTORY = keccak256("SUPER_ASSET_FACTORY");
     bytes32 private constant _GAS_MANAGER_ROLE = keccak256("GAS_MANAGER_ROLE");
     bytes32 private constant _ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
-    bytes32 private constant _UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
     bytes32 public constant SUP = keccak256("SUP");
     bytes32 public constant TREASURY = keccak256("TREASURY");
-    bytes32 public constant VAULT_BANK = keccak256("VAULT_BANK");
     bytes32 public constant SUPER_BANK = keccak256("SUPER_BANK");
     bytes32 public constant SUPER_ORACLE = keccak256("SUPER_ORACLE");
     bytes32 public constant BANK_MANAGER = keccak256("BANK_MANAGER");
@@ -129,9 +106,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bytes32 public constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
     // Fee constants
-    uint256 public constant REVENUE_SHARE = 2000; // 20% revenue share
-    uint256 public constant SUPER_VAULT_PERFORMANCE_FEE = 2000; // 20% performance fee
-    uint256 public constant SUPER_ASSET_SWAP_FEE = 4000; // 40% swap fee
+    uint256 public constant REVENUE_SHARE = 0; // 0% starting revenue share to sUP
+    uint256 public constant PERFORMANCE_FEE_SHARE = 5000; // 50% protocol share of manager's performance fee
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -140,20 +116,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param superGovernor Address of the default admin (will have SUPER_GOVERNOR_ROLE)
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
-    /// @param treasury_ Address of the treasury
-    /// @param prover_ Address of the prover
-    constructor(
-        address superGovernor,
-        address governor,
-        address bankManager,
-        address gasManager,
-        address unpauser,
-        address treasury_,
-        address prover_
-    ) {
+    /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
+    /// @param treasury Address of the treasury
+    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury) {
         if (
-            superGovernor == address(0) || treasury_ == address(0) || governor == address(0)
-                || bankManager == address(0) || prover_ == address(0) || gasManager == address(0) || unpauser == address(0)
+            superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
+                || gasManager == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -163,7 +131,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        _grantRole(_UNPAUSER_ROLE, unpauser);
         // Setup GUARDIAN_ROLE without assigning any address
         _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -173,26 +140,19 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GAS_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(_UNPAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 20% revenue share
-        _feeValues[FeeType.SUPER_VAULT_PERFORMANCE_FEE] = SUPER_VAULT_PERFORMANCE_FEE; // 20% performance fee
-        _feeValues[FeeType.SUPER_ASSET_SWAP_FEE] = SUPER_ASSET_SWAP_FEE; // 40% swap fee
+        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
+        _feeValues[FeeType.PERFORMANCE_FEE_SHARE] = PERFORMANCE_FEE_SHARE; // 50% protocol fee share
         emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
-        emit FeeUpdated(FeeType.SUPER_VAULT_PERFORMANCE_FEE, SUPER_VAULT_PERFORMANCE_FEE);
-        emit FeeUpdated(FeeType.SUPER_ASSET_SWAP_FEE, SUPER_ASSET_SWAP_FEE);
+        emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
         // Set treasury in address registry
-        _addressRegistry[TREASURY] = treasury_;
-        emit AddressSet(TREASURY, address(0), treasury_);
+        _addressRegistry[TREASURY] = treasury;
+        emit AddressSet(TREASURY, address(0), treasury);
 
         // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
         _minStaleness = 300; // 5 minutes in seconds
-
-        // Initialize prover
-        _prover = prover_;
-        emit ProverSet(address(0), prover_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -211,16 +171,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                     PERIPHERY CONFIGURATIONS
     //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function setProver(address prover) external onlyRole(_SUPER_GOVERNOR_ROLE) {
-        if (prover == address(0)) revert INVALID_ADDRESS();
-
-        address oldProver = _prover;
-
-        _prover = prover;
-        emit ProverSet(oldProver, prover);
-    }
-
     /// @inheritdoc ISuperGovernor
     function changePrimaryManager(address strategy, address newManager) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         // Check if takeovers are globally frozen
@@ -281,39 +231,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setSuperAssetManager(address superAsset, address superAssetManager) external onlyRole(_GOVERNOR_ROLE) {
-        if (superAsset == address(0) || superAssetManager == address(0)) revert INVALID_ADDRESS();
-        address value = _addressRegistry[_SUPER_ASSET_FACTORY];
-        if (value == address(0)) revert CONTRACT_NOT_FOUND();
-        ISuperAssetFactory factory = ISuperAssetFactory(value);
-        factory.setSuperAssetManager(superAsset, superAssetManager);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function addICCToWhitelist(address icc) external onlyRole(_SUPER_GOVERNOR_ROLE) {
-        if (icc == address(0)) revert INVALID_ADDRESS();
-        address value = _addressRegistry[_SUPER_ASSET_FACTORY];
-        if (value == address(0)) revert CONTRACT_NOT_FOUND();
-        ISuperAssetFactory factory = ISuperAssetFactory(value);
-        factory.addICCToWhitelist(icc);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function removeICCFromWhitelist(address icc) external onlyRole(_SUPER_GOVERNOR_ROLE) {
-        if (icc == address(0)) revert INVALID_ADDRESS();
-        address value = _addressRegistry[_SUPER_ASSET_FACTORY];
-        if (value == address(0)) revert CONTRACT_NOT_FOUND();
-        ISuperAssetFactory factory = ISuperAssetFactory(value);
-        factory.removeICCFromWhitelist(icc);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function setOracleMaxStaleness(uint256 newMaxStaleness) external onlyRole(_GOVERNOR_ROLE) {
         if (newMaxStaleness < _minStaleness) revert MAX_STALENESS_TOO_LOW();
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
-        ISuperOracle(oracle).setMaxStaleness(newMaxStaleness);
+        ISuperOracle(oracle).setDefaultStaleness(newMaxStaleness);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -431,7 +354,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (_registeredHooks.remove(hook)) {
             // Clear merkle root data for the unregistered hook to prevent stale data
             delete superBankHooksMerkleRoots[hook];
-            delete vaultBankHooksMerkleRoots[hook];
 
             emit HookRemoved(hook);
         }
@@ -456,39 +378,28 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                          RELAYER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function addRelayer(address relayer) external onlyRole(_GOVERNOR_ROLE) {
-        if (relayer == address(0)) revert INVALID_ADDRESS();
-        if (!_relayers.add(relayer)) revert RELAYER_ALREADY_REGISTERED();
-
-        emit RelayerAdded(relayer);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function removeRelayer(address relayer) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_relayers.remove(relayer)) revert RELAYER_NOT_REGISTERED();
-
-        emit RelayerRemoved(relayer);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
     function addValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (validator == address(0)) revert INVALID_ADDRESS();
         if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
+        uint256 blockNumber = block.number;
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
 
-        emit ValidatorAdded(validator);
+        emit ValidatorAdded(validator, blockNumber);
     }
 
     /// @inheritdoc ISuperGovernor
     function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
         if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
+        uint256 blockNumber = block.number;
 
-        emit ValidatorRemoved(validator);
+        // Update latest validator config block number
+        _latestValidatorConfigBlockNumber = blockNumber;
+
+        emit ValidatorRemoved(validator, blockNumber);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -545,13 +456,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function executeOracleProviderRemoval()
-        external
-        onlyRole(_ORACLE_MANAGER_ROLE)
-    {
+    function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
- 
+
         ISuperOracle(oracle).executeProviderRemoval();
     }
 
@@ -680,45 +588,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                           VAULT HOOKS MGMT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
-        if (proposedRoot == bytes32(0)) revert ZERO_PROPOSED_MERKLE_ROOT();
-
-        uint256 effectiveTime = block.timestamp + TIMELOCK;
-        ISuperGovernor.HookMerkleRootData storage data = vaultBankHooksMerkleRoots[hook];
-        data.proposedRoot = proposedRoot;
-        data.effectiveTime = effectiveTime;
-
-        emit VaultBankHookMerkleRootProposed(hook, proposedRoot, effectiveTime);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function executeVaultBankHookMerkleRootUpdate(address hook) external {
-        if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
-
-        ISuperGovernor.HookMerkleRootData storage data = vaultBankHooksMerkleRoots[hook];
-
-        // Check if there's a proposed update
-        bytes32 proposedRoot = data.proposedRoot;
-        if (proposedRoot == bytes32(0)) revert NO_PROPOSED_MERKLE_ROOT();
-
-        // Check if the effective time has passed
-        if (block.timestamp < data.effectiveTime) revert TIMELOCK_NOT_EXPIRED();
-
-        // Update the Merkle root
-        data.currentRoot = proposedRoot;
-
-        // Reset the proposal
-        data.proposedRoot = bytes32(0);
-        data.effectiveTime = 0;
-
-        emit VaultBankHookMerkleRootUpdated(hook, proposedRoot);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
@@ -758,113 +627,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        VAULT BANK MANAGEMENT
+                      SUPERFORM MANAGER MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function addVaultBank(uint64 chainId, address vaultBank) external onlyRole(_GOVERNOR_ROLE) {
-        if (chainId == 0) revert INVALID_CHAIN_ID();
-        if (vaultBank == address(0)) revert INVALID_ADDRESS();
-
-        if (_vaultBanksByChainId[chainId] != address(0)) {
-            _vaultBanks.remove(_vaultBanksByChainId[chainId]);
-        }
-
-        _vaultBanks.add(vaultBank);
-        _vaultBanksByChainId[chainId] = vaultBank;
-
-        emit VaultBankAddressAdded(chainId, vaultBank);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getVaultBank(uint64 chainId) external view returns (address) {
-        return _vaultBanksByChainId[chainId];
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                      INCENTIVE TOKEN MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function proposeAddIncentiveTokens(address[] memory tokens) external onlyRole(_GOVERNOR_ROLE) {
-        for (uint256 i; i < tokens.length; i++) {
-            if (tokens[i] == address(0)) revert INVALID_ADDRESS();
-            _proposedWhitelistedIncentiveTokens.add(tokens[i]);
-        }
-
-        _proposedAddWhitelistedIncentiveTokensEffectiveTime = block.timestamp + TIMELOCK;
-
-        emit WhitelistedIncentiveTokensProposed(
-            _proposedWhitelistedIncentiveTokens.values(), _proposedAddWhitelistedIncentiveTokensEffectiveTime
-        );
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function executeAddIncentiveTokens() external {
-        if (
-            _proposedAddWhitelistedIncentiveTokensEffectiveTime == 0
-                || block.timestamp < _proposedAddWhitelistedIncentiveTokensEffectiveTime
-        ) revert TIMELOCK_NOT_EXPIRED();
-
-        // Get all proposed tokens before modifying the set
-        address[] memory tokensToAdd = _proposedWhitelistedIncentiveTokens.values();
-        uint256 len = tokensToAdd.length;
-        address token;
-        for (uint256 i; i < len; i++) {
-            token = tokensToAdd[i];
-            _isWhitelistedIncentiveToken[token] = true;
-            // Remove from proposed whitelisted tokens
-            _proposedWhitelistedIncentiveTokens.remove(token);
-        }
-
-        // Emit event once with all tokens
-        emit WhitelistedIncentiveTokensAdded(tokensToAdd);
-
-        // Reset proposal timestamp
-        _proposedAddWhitelistedIncentiveTokensEffectiveTime = 0;
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function proposeRemoveIncentiveTokens(address[] memory tokens) external onlyRole(_GOVERNOR_ROLE) {
-        for (uint256 i; i < tokens.length; i++) {
-            if (tokens[i] == address(0)) revert INVALID_ADDRESS();
-            if (!_isWhitelistedIncentiveToken[tokens[i]]) revert NOT_WHITELISTED_INCENTIVE_TOKEN();
-
-            _proposedRemoveWhitelistedIncentiveTokens.add(tokens[i]);
-        }
-
-        _proposedRemoveWhitelistedIncentiveTokensEffectiveTime = block.timestamp + TIMELOCK;
-
-        emit WhitelistedIncentiveTokensProposed(
-            _proposedRemoveWhitelistedIncentiveTokens.values(), _proposedRemoveWhitelistedIncentiveTokensEffectiveTime
-        );
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function executeRemoveIncentiveTokens() external {
-        if (
-            _proposedRemoveWhitelistedIncentiveTokensEffectiveTime == 0
-                || block.timestamp < _proposedRemoveWhitelistedIncentiveTokensEffectiveTime
-        ) revert TIMELOCK_NOT_EXPIRED();
-
-        // Get all proposed tokens before modifying the set
-        address[] memory tokensToRemove = _proposedRemoveWhitelistedIncentiveTokens.values();
-        uint256 len = tokensToRemove.length;
-        address token;
-        for (uint256 i; i < len; i++) {
-            token = tokensToRemove[i];
-            if (_isWhitelistedIncentiveToken[token]) {
-                _isWhitelistedIncentiveToken[token] = false;
-            }
-            // Remove from proposed whitelisted tokens to be removed
-            _proposedRemoveWhitelistedIncentiveTokens.remove(token);
-        }
-
-        // Emit event once with all tokens
-        emit WhitelistedIncentiveTokensRemoved(tokensToRemove);
-
-        // Reset proposal timestamp
-        _proposedRemoveWhitelistedIncentiveTokensEffectiveTime = 0;
-    }
-
     /*//////////////////////////////////////////////////////////////
                          EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -899,16 +663,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function UNPAUSER_ROLE() external pure returns (bytes32) {
-        return _UNPAUSER_ROLE;
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function SUPER_ASSET_FACTORY() external pure returns (bytes32) {
-        return _SUPER_ASSET_FACTORY;
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getAddress(bytes32 key) external view returns (address) {
         address value = _addressRegistry[key];
         if (value == address(0)) revert CONTRACT_NOT_FOUND();
@@ -931,6 +685,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function getValidatorConfigVersion() external view returns (uint256) {
+        return _latestValidatorConfigBlockNumber;
+    }
+
+    /// @inheritdoc ISuperGovernor
     function isValidator(address validator) external view returns (bool) {
         return _validators.contains(validator);
     }
@@ -938,11 +697,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function isGuardian(address guardian) external view returns (bool) {
         return hasRole(_GUARDIAN_ROLE, guardian);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function isRelayer(address relayer) external view returns (bool) {
-        return _relayers.contains(relayer);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -961,8 +715,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getRelayers() external view returns (address[] memory) {
-        return _relayers.values();
+    function getValidatorAt(uint256 index) external view returns (address) {
+        return _validators.at(index);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -1023,12 +777,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getVaultBankHookMerkleRoot(address hook) external view returns (bytes32) {
-        if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
-        return vaultBankHooksMerkleRoots[hook].currentRoot;
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getProposedSuperBankHookMerkleRoot(address hook)
         external
         view
@@ -1037,22 +785,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
         ISuperGovernor.HookMerkleRootData storage data = superBankHooksMerkleRoots[hook];
         return (data.proposedRoot, data.effectiveTime);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProposedVaultBankHookMerkleRoot(address hook)
-        external
-        view
-        returns (bytes32 proposedRoot, uint256 effectiveTime)
-    {
-        if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
-        ISuperGovernor.HookMerkleRootData storage data = vaultBankHooksMerkleRoots[hook];
-        return (data.proposedRoot, data.effectiveTime);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProver() external view returns (address) {
-        return _prover;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -1109,43 +841,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _superformManagers.length();
     }
 
-    /// @inheritdoc ISuperGovernor
-    function isWhitelistedIncentiveToken(address token) external view returns (bool) {
-        return _isWhitelistedIncentiveToken[token];
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function registerProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (keeper == address(0)) revert INVALID_ADDRESS();
-        if (_protectedKeepers.contains(keeper)) revert KEEPER_ALREADY_REGISTERED();
-
-        _protectedKeepers.add(keeper);
-        emit ProtectedKeeperRegistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function unregisterProtectedKeeper(address keeper) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_protectedKeepers.contains(keeper)) revert KEEPER_NOT_REGISTERED();
-
-        _protectedKeepers.remove(keeper);
-        emit ProtectedKeeperUnregistered(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function isProtectedKeeper(address keeper) external view returns (bool) {
-        return _protectedKeepers.contains(keeper);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepers() external view returns (address[] memory) {
-        return _protectedKeepers.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getProtectedKeepersCount() external view returns (uint256) {
-        return _protectedKeepers.length();
-    }
-
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
     function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
         return interfaceId == type(ISuperGovernor).interfaceId || super.supportsInterface(interfaceId);
@@ -1162,19 +857,20 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Step 1: convert gas to ETH
         (uint256 weiAmount,,,) =
-            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
         (uint256 ethToUsd,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle).getQuoteFromProvider(
-            1e18, // 1 UP token (18 decimals)
-            upToken,
-            USD_TOKEN,
-            AVERAGE_PROVIDER
-        );
+        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+            .getQuoteFromProvider(
+                1e18, // 1 UP token (18 decimals)
+                upToken,
+                USD_TOKEN,
+                AVERAGE_PROVIDER
+            );
 
         // Calculate required UP tokens
         // usdAmount / upPerUsd = required UP tokens

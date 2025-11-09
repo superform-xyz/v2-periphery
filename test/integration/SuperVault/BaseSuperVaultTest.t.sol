@@ -48,14 +48,16 @@ import { MockUp } from "../../mocks/MockUp.sol";
 import { MockFeedWithRealData } from "../../mocks/MockFeedWithRealData.sol";
 import { MockERC20 } from "../../mocks/MockERC20.sol";
 import { ISuperLedgerConfiguration } from "@superform-v2-core/src/interfaces/accounting/ISuperLedgerConfiguration.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC7540YieldSourceOracle } from "@superform-v2-core/test/mocks/unused-oracles/ERC7540YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
+import { LibSort } from "solady/utils/LibSort.sol";
+import { AssetAdjustmentHelper } from "./AssetAdjustmentHelper.t.sol";
 
-
-contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
+contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjustmentHelper {
     using MessageHashUtils for bytes32;
     using ModuleKitHelpers for *;
     using Math for uint256;
+    using LibSort for address[];
 
     address public accountEth;
     AccountInstance public instanceOnEth;
@@ -95,7 +97,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     IERC4626 public aaveVault;
     address public pendleEthenaAddress;
     IStandardizedYield public pendleEthena;
-
 
     // Constants
     uint256 constant LARGE_DEPOSIT = 100_000e6; // 100k USDC
@@ -253,7 +254,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         address[] memory quotes = new address[](3);
         quotes[0] = address(840); // USD
         quotes[1] = address(840); // USD
-        quotes[2] = address(uint160(uint256(keccak256("GWEI_QUOTE")))); // GWEI
+        quotes[2] = address(uint160(uint256(keccak256("WEI_QUOTE")))); // WEI
         bytes32[] memory providers = new bytes32[](3);
         providers[0] = "CHAINLINK";
         providers[1] = "CHAINLINK";
@@ -395,7 +396,12 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         return (vaultAddr, strategyAddr, escrowAddr);
     }
 
-    function _deployVaultWithSmartAccountManager(address smartAccountManager, address svAsset, string memory name, string memory symbol)
+    function _deployVaultWithSmartAccountManager(
+        address smartAccountManager,
+        address svAsset,
+        string memory name,
+        string memory symbol
+    )
         internal
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
@@ -411,7 +417,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this) }),
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: address(this)
+                }),
                 maxUnpauseTimeLock: 0
             })
         );
@@ -425,8 +435,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         return (vaultAddr, strategyAddr, escrowAddr);
     }
-
-    
 
     /**
      * @notice Sets up the SuperVault with 7540 underlying yield source
@@ -597,7 +605,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         executeOp(userOpData);
     }
 
-
     function __deposit5115(
         AccountInstance memory accInst,
         uint256 depositAmount,
@@ -709,7 +716,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         executeOp(redeemUserOpData);
     }
 
-
     function __claimWithdraw(AccountInstance memory accInst, uint256 assets) internal {
         address[] memory claimHooksAddresses = new address[](1);
         claimHooksAddresses[0] = _getHookAddress(ETH, REDEEM_7540_VAULT_HOOK_KEY);
@@ -734,10 +740,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         bytes[] memory claimHooksData = new bytes[](1);
         claimHooksData[0] = _createWithdraw7540VaultHookData(
-            _getYieldSourceOracleId(bytes32(bytes(ERC7540_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
-            _svVault,
-            assets,
-            false
+            _getYieldSourceOracleId(bytes32(bytes(ERC7540_YIELD_SOURCE_ORACLE_KEY)), MANAGER), _svVault, assets, false
         );
 
         ISuperExecutor.ExecutorEntry memory claimEntry =
@@ -825,22 +828,42 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         _depositFreeAssetsFromSingleAmount(depositAmount, address(strategy), address(asset), vault1, vault2);
     }
 
-
-    function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address strat, address vault1, address vault2) internal {
+    function _depositFreeAssetsFromSingleAmount(
+        uint256 depositAmount,
+        address strat,
+        address vault1,
+        address vault2
+    )
+        internal
+    {
         _depositFreeAssetsFromSingleAmount(depositAmount, strat, address(asset), vault1, vault2);
     }
 
-    function _depositFreeAssetsFromSingleAmount(uint256 depositAmount, address strat, address assetToDeposit, address vault1, address vault2) internal {
+    function _depositFreeAssetsFromSingleAmount(
+        uint256 depositAmount,
+        address strat,
+        address assetToDeposit,
+        address vault1,
+        address vault2
+    )
+        internal
+    {
         (
             address[] memory fulfillHooksAddresses,
             bytes[] memory fulfillHooksData,
             uint256[] memory expectedAssetsOrSharesOut
         ) = __prepareDepositHookData(depositAmount, assetToDeposit, vault1, vault2);
-        
-        __executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
-    } 
 
-    function _depositFreeAssetsFromSingleAmount5115(uint256 depositAmount, address strategyAddress, address underlyingVault) internal {
+        __executeDepositHooks(depositAmount, strat, fulfillHooksAddresses, fulfillHooksData, expectedAssetsOrSharesOut);
+    }
+
+    function _depositFreeAssetsFromSingleAmount5115(
+        uint256 depositAmount,
+        address strategyAddress,
+        address underlyingVault
+    )
+        internal
+    {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_5115_VAULT_HOOK_KEY);
 
         address[] memory fulfillHooksAddresses = new address[](1);
@@ -859,7 +882,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         );
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = IStandardizedYield(address(underlyingVault)).previewDeposit(address(asset5115), depositAmount);
+        expectedAssetsOrSharesOut[0] =
+            IStandardizedYield(address(underlyingVault)).previewDeposit(address(asset5115), depositAmount);
 
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
@@ -907,9 +931,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             false
         );
 
-
         vars.expectedAssetsOrSharesOut = new uint256[](1);
-        vars.expectedAssetsOrSharesOut[0] = IStandardizedYield(address(underlyingVault)).previewDeposit(address(asset5115), depositAmount);
+        vars.expectedAssetsOrSharesOut[0] =
+            IStandardizedYield(address(underlyingVault)).previewDeposit(address(asset5115), depositAmount);
 
         vars.argsForProofs = new bytes[](1);
         vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
@@ -942,7 +966,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
 
         _trackDeposit(accountEth, vars.shares, depositAmount);
     }
-
 
     function _depositFreeAssetsFromSingleAmountViaSmartAccount(
         uint256 depositAmount,
@@ -1217,16 +1240,19 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vars.underlyingSharesForVault1);
         vars.expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToAssets(vars.underlyingSharesForVault2);
 
+        // Sort and unique controllers before fulfillment
+        vars.requestingUsers = _sortAndUniqueControllers(vars.requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        uint256[] memory totalAssetsOut =
+            calculateAdjustedFulfillment(strategy, vars.requestingUsers, vars.expectedAssetsOrSharesOut);
+
         vm.startPrank(MANAGER);
-        strategy.fulfillRedeemRequests(vars.requestingUsers);
+        strategy.fulfillRedeemRequests(vars.requestingUsers, totalAssetsOut);
         vm.stopPrank();
     }
 
-    function _fulfillRedeem5115(
-        uint256 redeemShares,
-        address,
-        address strat
-    ) internal {
+    function _fulfillRedeem5115(uint256 redeemShares, address, address strat) internal {
         address[] memory requestingUsers = new address[](1);
         requestingUsers[0] = accountEth;
 
@@ -1266,8 +1292,15 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        uint256[] memory totalAssetsOut =
+            calculateAdjustedFulfillment(ISuperVaultStrategy(strat), requestingUsers, expectedAssetsOrSharesOut);
+
         // Fulfill the redemption requests from liquidity
-        SuperVaultStrategy(payable(strat)).fulfillRedeemRequests(requestingUsers);
+        SuperVaultStrategy(payable(strat)).fulfillRedeemRequests(requestingUsers, totalAssetsOut);
         vm.stopPrank();
     }
 
@@ -1583,8 +1616,15 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        uint256[] memory totalAssetsOut =
+            calculateAdjustedFulfillment(strategy, requestingUsers, expectedAssetsOrSharesOut);
+
         // Fulfill the redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
         vm.stopPrank();
     }
 
@@ -1641,71 +1681,88 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
+        ExecuteRedeemHooksVars memory vars;
+
         // Convert SuperVault shares to underlying vault shares
-        uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
-        uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
+        vars.underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
+        vars.underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
+        vars.underlyingSharesVault1 = _truncateToActualBalance(vars.underlyingSharesVault1, vault1, 100);
+        vars.underlyingSharesVault2 = _truncateToActualBalance(vars.underlyingSharesVault2, vault2, 100);
 
         address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        address[] memory fulfillHooksAddresses = new address[](2);
-        fulfillHooksAddresses[0] = withdrawHookAddress;
-        fulfillHooksAddresses[1] = withdrawHookAddress;
+        vars.fulfillHooksAddresses = new address[](2);
+        vars.fulfillHooksAddresses[0] = withdrawHookAddress;
+        vars.fulfillHooksAddresses[1] = withdrawHookAddress;
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        vars.fulfillHooksData = new bytes[](2);
         // Withdraw proportionally from both vaults using underlying shares
-        fulfillHooksData[0] = _createRedeem4626HookData(
+        vars.fulfillHooksData[0] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault1,
             address(strategy),
-            underlyingSharesVault1,
+            vars.underlyingSharesVault1,
             false
         );
-        fulfillHooksData[1] = _createRedeem4626HookData(
+        vars.fulfillHooksData[1] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault2,
             address(strategy),
-            underlyingSharesVault2,
+            vars.underlyingSharesVault2,
             false
         );
 
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
-        expectedAssetsOrSharesOut[0] = IERC4626(vault1).convertToAssets(underlyingSharesVault1);
-        expectedAssetsOrSharesOut[1] = IERC4626(vault2).convertToAssets(underlyingSharesVault2);
+        vars.expectedAssetsOrSharesOut = new uint256[](2);
+        vars.expectedAssetsOrSharesOut[0] = IERC4626(vault1).convertToAssets(vars.underlyingSharesVault1);
+        vars.expectedAssetsOrSharesOut[1] = IERC4626(vault2).convertToAssets(vars.underlyingSharesVault2);
 
-        // Apply slippage tolerance
-        expectedAssetsOrSharesOut[0] = expectedAssetsOrSharesOut[0] - expectedAssetsOrSharesOut[0] * 1e3 / 1e5;
-        expectedAssetsOrSharesOut[1] = expectedAssetsOrSharesOut[1] - expectedAssetsOrSharesOut[1] * 1e3 / 1e5;
 
         console2.log("----requestingUsersLength", requestingUsers.length);
         vm.startPrank(MANAGER);
-        bytes[] memory argsForProofs = new bytes[](2);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+        vars.argsForProofs = new bytes[](2);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
 
-        console2.log("----argsForProofsLength", argsForProofs.length);
+        console2.log("----argsForProofsLength", vars.argsForProofs.length);
         console2.log("----argsForProofs[0]");
-        console2.logBytes(argsForProofs[0]);
+        console2.logBytes(vars.argsForProofs[0]);
         console2.log("----argsForProofs[1]");
-        console2.logBytes(argsForProofs[1]);
+        console2.logBytes(vars.argsForProofs[1]);
 
         // Execute hooks first
         strategy.executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                hooks: vars.fulfillHooksAddresses,
+                hookCalldata: vars.fulfillHooksData,
+                expectedAssetsOrSharesOut: vars.expectedAssetsOrSharesOut,
+                globalProofs: _getMerkleProofsForHooks(vars.fulfillHooksAddresses, vars.argsForProofs),
                 strategyProofs: new bytes32[][](2)
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        vars.totalAssetsOut = calculateAdjustedFulfillment(strategy, requestingUsers, vars.expectedAssetsOrSharesOut);
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, vars.totalAssetsOut);
         vm.stopPrank();
+    }
+
+    // Local variables struct for _executeRedeemHooks4626ForUsers
+    struct ExecuteRedeemHooks4626ForUsersVars {
+        uint256 underlyingSharesVault1;
+        uint256 underlyingSharesVault2;
+        address withdrawHookAddress;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        bytes[] argsForProofs;
+        bytes32[][] proofs;
+        uint256[] totalAssetsOut;
     }
 
     function _executeRedeemHooks4626ForUsers(
@@ -1719,44 +1776,47 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
     )
         internal
     {
+        ExecuteRedeemHooks4626ForUsersVars memory vars;
+
         // Convert SuperVault shares to underlying vault shares
-        uint256 underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
-        uint256 underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
+        vars.underlyingSharesVault1 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault1, vault1);
+        vars.underlyingSharesVault2 = _convertSVSharestoUnderlyingVaultShares(redeemSharesVault2, vault2);
 
         // Truncate to actual balance if needed (reverts if more than 1% below expected)
-        underlyingSharesVault1 = _truncateToActualBalance(underlyingSharesVault1, vault1, 100);
-        underlyingSharesVault2 = _truncateToActualBalance(underlyingSharesVault2, vault2, 100);
+        vars.underlyingSharesVault1 = _truncateToActualBalance(vars.underlyingSharesVault1, vault1, 100);
+        vars.underlyingSharesVault2 = _truncateToActualBalance(vars.underlyingSharesVault2, vault2, 100);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
             expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
         }
-        address withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        address[] memory fulfillHooksAddresses = new address[](2);
-        fulfillHooksAddresses[0] = withdrawHookAddress;
-        fulfillHooksAddresses[1] = withdrawHookAddress;
+        vars.withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        vars.fulfillHooksAddresses = new address[](2);
+        vars.fulfillHooksAddresses[0] = vars.withdrawHookAddress;
+        vars.fulfillHooksAddresses[1] = vars.withdrawHookAddress;
+
+        vars.fulfillHooksData = new bytes[](2);
         // Withdraw proportionally from both vaults using underlying shares
-        fulfillHooksData[0] = _createRedeem4626HookData(
+        vars.fulfillHooksData[0] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault1,
             address(strategy),
-            underlyingSharesVault1,
+            vars.underlyingSharesVault1,
             false
         );
-        fulfillHooksData[1] = _createRedeem4626HookData(
+        vars.fulfillHooksData[1] = _createRedeem4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
             vault2,
             address(strategy),
-            underlyingSharesVault2,
+            vars.underlyingSharesVault2,
             false
         );
-        bytes[] memory argsForProofs = new bytes[](2);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
-        argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
+        vars.argsForProofs = new bytes[](2);
+        vars.argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
+        vars.argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
 
-        bytes32[][] memory proofs = _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs);
+        vars.proofs = _getMerkleProofsForHooks(vars.fulfillHooksAddresses, vars.argsForProofs);
         vm.startPrank(MANAGER);
         if (revertSelector != bytes4(0)) {
             vm.expectRevert(revertSelector);
@@ -1764,10 +1824,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             // Execute hooks first
             strategy.executeHooks(
                 ISuperVaultStrategy.ExecuteArgs({
-                    hooks: fulfillHooksAddresses,
-                    hookCalldata: fulfillHooksData,
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
                     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: proofs,
+                    globalProofs: vars.proofs,
                     strategyProofs: new bytes32[][](2)
                 })
             );
@@ -1777,17 +1837,23 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         } else {
             strategy.executeHooks(
                 ISuperVaultStrategy.ExecuteArgs({
-                    hooks: fulfillHooksAddresses,
-                    hookCalldata: fulfillHooksData,
+                    hooks: vars.fulfillHooksAddresses,
+                    hookCalldata: vars.fulfillHooksData,
                     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: proofs,
+                    globalProofs: vars.proofs,
                     strategyProofs: new bytes32[][](2)
                 })
             );
         }
 
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        vars.totalAssetsOut = calculateAdjustedFulfillment(strategy, requestingUsers, expectedAssetsOrSharesOut);
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(requestingUsers);
+        strategy.fulfillRedeemRequests(requestingUsers, vars.totalAssetsOut);
         vm.stopPrank();
     }
 
@@ -1853,13 +1919,14 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vars.pricePerShare = vars.totalSvAssets.mulDiv(strategy.PRECISION(), vault.totalSupply(), Math.Rounding.Floor);
 
         vars.expectedAssetsOrSharesOut = new uint256[](2);
-        // 443859978 - > 521413233
         vars.expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToAssets(vars.aaveSharesOut);
         vars.expectedAssetsOrSharesOut[1] = centrifugeVault.convertToAssets(vars.centrifugeSharesOut);
 
         for (uint256 i; i < vars.expectedAssetsOrSharesOut.length; i++) {
-            vars.expectedAssetsOrSharesOut[i] =
-                vars.expectedAssetsOrSharesOut[i] - vars.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+            if (i != 0) {
+                vars.expectedAssetsOrSharesOut[i] =
+                    vars.expectedAssetsOrSharesOut[i] - vars.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+            }
         }
 
         vm.startPrank(MANAGER);
@@ -1867,6 +1934,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         argsForProofs[0] = ISuperHookInspector(vars.fulfillHooksAddresses[0]).inspect(vars.fulfillHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(vars.fulfillHooksAddresses[1]).inspect(vars.fulfillHooksData[1]);
 
+        console2.log("Execute hooks");
         // Execute hooks first
         strategy.executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
@@ -1878,8 +1946,15 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             })
         );
 
+        // Sort and unique controllers before fulfillment
+        vars.requestingUsers = _sortAndUniqueControllers(vars.requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        uint256[] memory totalAssetsOut =
+            calculateLiquidityOnlyFulfillment(strategy, address(asset), vars.requestingUsers);
+
         // Then fulfill redemption requests from liquidity
-        strategy.fulfillRedeemRequests(vars.requestingUsers);
+        strategy.fulfillRedeemRequests(vars.requestingUsers, totalAssetsOut);
         vm.stopPrank();
     }
 
@@ -2460,6 +2535,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
             expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
         }
+
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
         argsForProofs[1] = ISuperHookInspector(hooksAddresses[1]).inspect(hooksData[1]);
@@ -2502,7 +2578,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
             uint256 totalFee = profit.mulDiv(performanceFeeBps, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
 
             if (totalFee > 0) {
-                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.SUPER_VAULT_PERFORMANCE_FEE);
+                uint256 superVaultFeePercent = superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE);
                 // Calculate Superform's portion of the fee
                 superformFee = totalFee.mulDiv(superVaultFeePercent, ONE_HUNDRED_PERCENT, Math.Rounding.Floor);
                 recipientFee = totalFee - superformFee;
@@ -2532,7 +2608,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 currentTotalAssets;
         uint256 precision;
         uint256 pps;
-        uint256 ppsStdev;
         uint256 timestamp;
         bytes32 messageHash;
         bytes32 ethSignedMessageHash;
@@ -2570,8 +2645,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-        // Set the additional parameters as requested: ppsStdev=0
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
@@ -2579,7 +2652,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2606,8 +2678,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -2617,7 +2687,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -2752,6 +2821,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 actualBalance = IERC20(underlyingVault).balanceOf(address(strategy));
 
         if (actualBalance >= expectedShares) {
+            console2.log("no truncation of balance of shares");
+            console2.log("---");
             // Balance is sufficient, no truncation needed
             return expectedShares;
         }
@@ -2774,6 +2845,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 truncatedValue = expectedShares - actualBalance;
 
         console2.log("truncated value", truncatedValue);
+        console2.log("---");
 
         // Balance is lower but within tolerance, truncate to actual
         return actualBalance;
@@ -2854,7 +2926,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         return newArray;
     }
 
-
     /// @notice Updates redeem slippages for all accounts
     function _updateRedeemSlippages(uint16 slippageBps) internal {
         for (uint256 i; i < ACCOUNT_COUNT; ++i) {
@@ -2877,7 +2948,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         vars.timestamp = block.timestamp;
 
         // Set the additional parameters as in _updateSuperVaultPPS
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (exactly as in _updateSuperVaultPPS)
         bytes32 structHash = keccak256(
@@ -2885,7 +2955,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2905,16 +2974,14 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         // Call batchUpdatePPS on the ECDSAPPSOracle (exactly as in _updateSuperVaultPPS)
         address[] memory strategies = new address[](1);
         strategies[0] = strategyAddr;
-        
+
         bytes[][] memory proofsArray = new bytes[][](1);
         proofsArray[0] = vars.proofs;
-        
+
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
-        
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
-        
+
+
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
@@ -2923,11 +2990,11 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
     }
+
     function _forceUpdatePPSToTarget(address strategyAddr, uint256 targetPPS) internal {
         UpdatePPSVars memory vars;
 
@@ -2935,8 +3002,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-        // Set the additional parameters as requested: ppsStdev=0
-        vars.ppsStdev = 0;
 
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
@@ -2944,7 +3009,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 ecdsappsOracle.UPDATE_PPS_TYPEHASH(),
                 strategyAddr,
                 vars.pps,
-                vars.ppsStdev,
                 vars.timestamp,
                 ecdsappsOracle.noncePerStrategy(strategyAddr)
             )
@@ -2971,8 +3035,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = vars.ppsStdev;
 
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
@@ -2982,7 +3044,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
                 strategies: strategies,
                 proofsArray: proofsArray,
                 ppss: ppss,
-                ppsStdevs: ppsStdevs,
                 timestamps: timestamps
             })
         );
@@ -2997,6 +3058,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
      * @param targetPPS The target PPS value to achieve
      * @dev This function simulates yield by dealing additional assets to the underlying vaults
      */
+
     function _updatePPSToTarget(address strategyAddr, address vault_, uint256 targetPPS) internal {
         uint256 currentPPS = aggregator.getPPS(strategyAddr);
         uint256 currentTotalSupply = SuperVault(vault_).totalSupply();
@@ -3035,16 +3097,20 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         _updateSuperVaultPPS(strategyAddr, vault_);
     }
 
-        function __prepareDepositHookData(
+    function __prepareDepositHookData(
         uint256 depositAmount,
         address assetToDeposit,
         address vault1,
         address vault2
-    ) private view returns (
-        address[] memory fulfillHooksAddresses,
-        bytes[] memory fulfillHooksData,
-        uint256[] memory expectedAssetsOrSharesOut
-    ) {
+    )
+        private
+        view
+        returns (
+            address[] memory fulfillHooksAddresses,
+            bytes[] memory fulfillHooksData,
+            uint256[] memory expectedAssetsOrSharesOut
+        )
+    {
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
 
         fulfillHooksAddresses = new address[](2);
@@ -3079,13 +3145,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         expectedAssetsOrSharesOut[0] = IERC4626(address(vault1)).convertToShares(halfAmount);
         expectedAssetsOrSharesOut[1] = IERC4626(address(vault2)).convertToShares(depositAmount - halfAmount);
     }
+
     function __executeDepositHooks(
         uint256 depositAmount,
         address strat,
         address[] memory fulfillHooksAddresses,
         bytes[] memory fulfillHooksData,
         uint256[] memory expectedAssetsOrSharesOut
-    ) private {
+    )
+        private
+    {
         bytes[] memory argsForProofs = new bytes[](2);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
@@ -3106,5 +3175,35 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers {
         uint256 shares = depositAmount.mulDiv(SuperVaultStrategy(payable(strat)).PRECISION(), pricePerShare);
 
         _trackDeposit(accountEth, shares, depositAmount);
+    }
+
+    /// @notice Struct to hold local variables for _executeRedeemHooks4626ForUsers to avoid stack too deep
+    struct ExecuteRedeemHooksVars {
+        uint256 underlyingSharesVault1;
+        uint256 underlyingSharesVault2;
+        address[] fulfillHooksAddresses;
+        bytes[] fulfillHooksData;
+        uint256[] expectedAssetsOrSharesOut;
+        bytes[] argsForProofs;
+        uint256[] totalAssetsOut;
+    }
+
+    /// @notice Helper function to sort controllers and ensure uniqueness for fulfillRedeemRequests
+    /// @param controllers Array of controller addresses to sort and deduplicate
+    /// @return sortedControllers Sorted and deduplicated array
+    function _sortAndUniqueControllers(address[] memory controllers)
+        internal
+        pure
+        returns (address[] memory sortedControllers)
+    {
+        if (controllers.length == 0) return controllers;
+
+        // Sort the array
+        controllers.insertionSort();
+
+        // Remove duplicates
+        controllers.uniquifySorted();
+
+        return controllers;
     }
 }

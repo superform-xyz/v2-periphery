@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 import { ISuperHook, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
@@ -34,6 +34,7 @@ interface ISuperVaultStrategy {
     error INVALID_REDEEM_FILL();
     error SLIPPAGE_EXCEEDED();
     error INVALID_VAULT();
+    error INVALID_ASSET();
     error OPERATIONS_BLOCKED_BY_VETO();
     error HOOK_VALIDATION_FAILED();
     error STRATEGY_PAUSED();
@@ -44,6 +45,12 @@ interface ISuperVaultStrategy {
     error STALE_PPS();
     error PPS_EXPIRED();
     error INVALID_PPS_EXPIRY_THRESHOLD();
+    error BOUNDS_EXCEEDED(uint256 minAllowed, uint256 maxAllowed, uint256 actual);
+    error INSUFFICIENT_LIQUIDITY();
+    error CONTROLLERS_NOT_SORTED_UNIQUE();
+    error ZERO_SHARE_FULFILLMENT_DISALLOWED();
+    error NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
+    error SKIM_TIMELOCK_ACTIVE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -85,15 +92,26 @@ interface ISuperVaultStrategy {
         address indexed controller,
         uint256 assetsFulfilled,
         uint256 sharesFulfilled,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
+        uint256 averageWithdrawPrice
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
     event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
     event PPSExpiryThresholdProposalCanceled();
+
+    /// @notice DEPRECATED: Event no longer emitted after PPS-based HWM refactor
+    /// @dev Kept for interface compatibility, will be removed in future version
+    event VaultCostBasisUpdated(uint256 newTotalCostBasis);
+
+    /// @notice Emitted when the high-water mark PPS is updated after fee collection
+    /// @param newHwmPps The new high-water mark PPS (post-fee)
+    /// @param previousPps The PPS before fee collection
+    /// @param profit The total profit above HWM (in assets)
+    /// @param feeCollected The total fee collected (in assets)
+    event HWMPPSUpdated(uint256 newHwmPps, uint256 previousPps, uint256 profit, uint256 feeCollected);
+
+    event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -138,9 +156,6 @@ interface ISuperVaultStrategy {
         uint256 pendingRedeemRequest; // Shares requested
         uint256 maxWithdraw; // Assets claimable after fulfillment
         uint256 averageRequestPPS; // Average PPS at the time of redeem request
-        // Accumulators needed for fee calculation on redeem
-        uint256 accumulatorShares;
-        uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice; // Average price for claimable assets
         uint16 redeemSlippageBps; // User-defined slippage tolerance in BPS for redeem fulfillment
     }
@@ -178,6 +193,15 @@ interface ISuperVaultStrategy {
         uint256 strategyBalance;
         uint256 avgRequestPPS;
         uint256 claimableAssets;
+    }
+
+    struct FulfillRedeemVars {
+        uint256 totalRequestedShares;
+        uint256 totalSuperformFee;
+        uint256 totalRecipientFee;
+        uint256 totalNetAssetsOut;
+        uint256 currentPPS;
+        uint256 strategyBalance;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -244,9 +268,19 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing hooks, calldata, proofs, expectations.
     function executeHooks(ExecuteArgs calldata args) external payable;
 
-    /// @notice Fulfills pending redeem requests from assets already present in the strategy (async-only flow)
-    /// @param controllers Array of controller addresses to fulfill redeem requests for
-    function fulfillRedeemRequests(address[] memory controllers) external payable;
+    /// @notice Fulfills pending redeem requests with exact total assets per controller (pre-fee).
+    /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(totalAssetsOut)) first.
+    /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theoreticalGross[i].
+    /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee deduction.
+    /// @param controllers Ordered/unique controllers with pending requests.
+    /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
+    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
+
+    /// @notice Skim performance fees based on per-share High Water Mark (PPS-based)
+    /// @dev Can be called by any manager when vault PPS has grown above HWM PPS
+    /// @dev Uses PPS growth to calculate profit: (currentPPS - hwmPPS) * totalSupply / PRECISION
+    /// @dev HWM is only updated during this function, not during deposits/redemptions
+    function skimPerformanceFee() external;
 
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
@@ -273,6 +307,9 @@ interface ISuperVaultStrategy {
     /// @param performanceFeeBps New performance fee in basis points
     /// @param managementFeeBps New management fee in basis points
     /// @param recipient New fee recipient
+    /// @dev IMPORTANT: Before executing the proposed update (via executeVaultFeeConfigUpdate),
+    ///      manager should call skimPerformanceFee() to collect performance fees on existing profits
+    ///      under the current fee structure to avoid losing profit or incorrect fee calculations.
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
@@ -281,6 +318,11 @@ interface ISuperVaultStrategy {
         external;
 
     /// @notice Execute the proposed vault fee configuration update after timelock
+    /// @dev IMPORTANT: Manager should call skimPerformanceFee() before executing this update
+    ///      to collect performance fees on existing profits under the current fee structure.
+    ///      Otherwise, profit earned under the old fee percentage will be lost or incorrectly calculated.
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
+    ///      to avoid incorrect fee calculations with the new fee structure.
     function executeVaultFeeConfigUpdate() external;
 
     /// @notice Manage PPS expiry threshold
@@ -291,11 +333,6 @@ interface ISuperVaultStrategy {
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Move accumulator shares and cost basis pro-rata during share transfers
-    /// @param from The address transferring shares
-    /// @param to The address receiving shares
-    /// @param shares The amount of shares being transferred
-    function moveAccumulatorOnTransfer(address from, address to, uint256 shares) external;
 
     /*//////////////////////////////////////////////////////////////
                         USER OPERATIONS
@@ -347,19 +384,6 @@ interface ISuperVaultStrategy {
     /// @return state The super vault state
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state);
 
-    /// @notice Previews the fee that would be taken for redeeming a specific amount of shares
-    /// @param controller The address of the controller requesting the redemption
-    /// @param sharesToRedeem The number of shares to redeem
-    /// @return totalFee The estimated fee that would be taken in asset terms
-    /// @return superformFee The portion of the fee that would go to Superform treasury
-    /// @return recipientFee The portion of the fee that would go to the fee recipient
-    function previewPerformanceFee(
-        address controller,
-        uint256 sharesToRedeem
-    )
-        external
-        view
-        returns (uint256 totalFee, uint256 superformFee, uint256 recipientFee);
 
     /// @notice Get the pending redeem request amount (shares) for a controller
     /// @param controller The controller address
@@ -380,4 +404,30 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @return claimableAssets The amount of assets claimable
     function claimableWithdraw(address controller) external view returns (uint256 claimableAssets);
+
+    /// @notice Preview exact redeem fulfillment for off-chain calculation
+    /// @param controller The controller address to preview
+    /// @return shares Pending redeem shares
+    /// @return theoreticalAssets Theoretical assets at current PPS
+    /// @return minAssets Minimum acceptable assets (slippage floor)
+    function previewExactRedeem(address controller)
+        external
+        view
+        returns (uint256 shares, uint256 theoreticalAssets, uint256 minAssets);
+
+    /// @notice Batch preview exact redeem fulfillment for multiple controllers
+    /// @dev Efficiently batches multiple previewExactRedeem calls to reduce RPC overhead
+    /// @param controllers Array of controller addresses to preview
+    /// @return totalTheoAssets Total theoretical assets across all controllers
+    /// @return individualAssets Array of theoretical assets per controller
+    function previewExactRedeemBatch(address[] calldata controllers)
+        external
+        view
+        returns (uint256 totalTheoAssets, uint256[] memory individualAssets);
+
+    /// @notice Get the current unrealized profit above the High Water Mark
+    /// @return profit Current profit above High Water Mark (in assets), 0 if no profit
+    /// @dev Calculates based on PPS growth: (currentPPS - hwmPPS) * totalSupply / PRECISION
+    /// @dev Returns 0 if totalSupply is 0 or currentPPS <= hwmPPS
+    function vaultUnrealizedProfit() external view returns (uint256);
 }

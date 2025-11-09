@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -23,17 +23,16 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                                  STORAGE
     //////////////////////////////////////////////////////////////*/
     mapping(address _strategy => uint256 _nonce) public noncePerStrategy;
-    
+
     // Maximum number of strategies to process in `batchForwardPPS`
     uint256 public constant MAX_STRATEGIES = 300;
 
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
     bytes32 public constant UPDATE_PPS_TYPEHASH =
-        keccak256("UpdatePPS(address strategy,uint256 pps,uint256 ppsStdev,uint256 timestamp,uint256 strategyNonce)");
+        keccak256("UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)");
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
-
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -65,7 +64,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // Validate input array lengths
         if (
             strategiesLength != args.proofsArray.length || strategiesLength != args.ppss.length
-                || strategiesLength != args.ppsStdevs.length || strategiesLength != args.timestamps.length
+                || strategiesLength != args.timestamps.length
         ) revert ARRAY_LENGTH_MISMATCH();
 
         if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
@@ -93,13 +92,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
     /// @inheritdoc IECDSAPPSOracle
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        public
-        view
-    {
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) public view {
         _validateProofs(params, requiredQuorum);
     }
 
@@ -111,27 +104,23 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     /// @param params Validation parameters
     /// @param requiredQuorum Required quorum for validation
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function _validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        internal
-        view
-    {
+    function _validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) internal view {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
         // Quorum from batch-snapshot
         if (proofsLength < requiredQuorum) revert QUORUM_NOT_MET();
 
-        // Build EIP-712 digest
+        // [Property 1: Signature Validation & Nonce in Digest]
+        // Build EIP-712 typed data digest that includes the current nonce for this strategy.
+        // This binds the signature to a specific nonce value, preventing replay attacks.
+        // Once a signature is used and the nonce increments, the same signature becomes invalid.
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encodePacked(
                     UPDATE_PPS_TYPEHASH,
                     params.strategy,
                     params.pps,
-                    params.ppsStdev,
                     params.timestamp,
                     noncePerStrategy[params.strategy]
                 )
@@ -170,7 +159,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         // -------- existing collection logic --------
         validatedData.strategies = new address[](strategiesLength);
         validatedData.ppss = new uint256[](strategiesLength);
-        validatedData.ppsStdevs = new uint256[](strategiesLength);
         validatedData.timestamps = new uint256[](strategiesLength);
         validatedData.validatorSets = new uint256[](strategiesLength);
 
@@ -179,7 +167,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             if (isValid) {
                 validatedData.strategies[validCount] = args.strategies[i];
                 validatedData.ppss[validCount] = args.ppss[i];
-                validatedData.ppsStdevs[validCount] = args.ppsStdevs[i];
                 validatedData.timestamps[validCount] = args.timestamps[i];
                 validatedData.validatorSets[validCount] = args.proofsArray[i].length;
                 unchecked {
@@ -196,13 +183,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             mstore(mload(add(validatedData, 0x20)), validCount) // ppss.length = validCount
         }
         assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x40)), validCount) // ppsStdevs.length = validCount
+            mstore(mload(add(validatedData, 0x40)), validCount) // timestamps.length = validCount
         }
         assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x60)), validCount) // timestamps.length = validCount
-        }
-        assembly ("memory-safe") {
-            mstore(mload(add(validatedData, 0x80)), validCount) // validatorSets.length = validCount
+            mstore(mload(add(validatedData, 0x60)), validCount) // validatorSets.length = validCount
         }
     }
 
@@ -228,12 +212,11 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     strategy: _strategy,
                     proofs: args.proofsArray[index],
                     pps: args.ppss[index],
-                    ppsStdev: args.ppsStdevs[index],
                     timestamp: args.timestamps[index]
                 }),
                 requiredQuorum
             ) {
-            emit PPSValidated(_strategy, args.ppss[index], args.ppsStdevs[index], args.timestamps[index], msg.sender);
+            emit PPSValidated(_strategy, args.ppss[index], args.timestamps[index], msg.sender);
         } catch Error(string memory reason) {
             emit ProofValidationFailed(_strategy, reason);
             return false;
@@ -242,7 +225,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             return false;
         }
 
-        noncePerStrategy[_strategy]++;
         return true;
     }
 
@@ -252,13 +234,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     function _forwardValidEntries(ValidatedBatchData memory validatedData, uint256 totalValidators) internal {
         uint256 count = validatedData.strategies.length;
 
-        uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
-        uint256 gasBefore = gasleft();
-        if (gasBefore <= totalGas + gasBefore / 64) {
-            emit InsufficientGasForForward(gasBefore, totalGas);
-            return;
-        }
-        gasBefore = gasleft();
         // Only forward if there are valid entries
         if (count > 0) {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR))
@@ -266,22 +241,31 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     ISuperVaultAggregator.ForwardPPSArgs({
                         strategies: validatedData.strategies,
                         ppss: validatedData.ppss,
-                        ppsStdevs: validatedData.ppsStdevs,
                         validatorSets: validatedData.validatorSets,
                         totalValidator: totalValidators,
                         timestamps: validatedData.timestamps,
                         updateAuthority: msg.sender
                     })
-                ) { }
-            catch Error(string memory reason) {
-                // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
+                ) {
+                // [Property 2: Nonce-Based Replay Protection]
+                // Increment nonce ONLY after successful forwarding (try block succeeds).
+                // This means nonces increment when forwardPPS() returns normally, which includes:
+                // 1. Legitimate PPS updates that are accepted
+                // 2. Business logic rejections that use 'return' or 'continue' (not 'revert')
+                // The nonce burning on 'return' is INTENTIONAL to prevent replay of invalid signatures
+                // and avoid batch DoS (if one strategy reverted, all others would fail).
+                for (uint256 i; i < count; ++i) {
+                    noncePerStrategy[validatedData.strategies[i]]++;
+                }
+            } 
+                // [Property 3: Limited Retry Capability]
+                // When forwardPPS() reverts (catch blocks), nonces remain unchanged.
+                // This allows retrying with the same signatures after external failures resolve.
+                // Retry possible for: contract reverts, out of gas, network failures.
+                // Retry NOT possible for: business logic rejections (return/continue) that don't revert.
+                catch Error(string memory reason) {
                 emit BatchForwardPPSFailed(reason);
             } catch (bytes memory lowLevelData) {
-                // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
                 emit BatchForwardPPSFailedLowLevel(lowLevelData);
             }
         }

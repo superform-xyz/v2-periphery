@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 /// @title ISuperOracleL2
@@ -16,6 +16,9 @@ interface ISuperOracleL2 {
 
     /// @notice Error when the grace period after sequencer restart is not over
     error GRACE_PERIOD_NOT_OVER();
+
+    /// @notice Error when the grace period after sequencer restart is too low
+    error GRACE_PERIOD_TOO_LOW();
 
     /*//////////////////////////////////////////////////////////////
                             EVENTS

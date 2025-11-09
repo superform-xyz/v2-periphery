@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -21,7 +21,8 @@ import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
-import { IERC7540Operator, IERC7540Redeem, IERC7741, IERC7540CancelRedeem } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7540Operator, IERC7540Redeem, IERC7540CancelRedeem } from "../vendor/standards/ERC7540/IERC7540Vault.sol";
+import { IERC7741 } from "../vendor/standards/ERC7741/IERC7741.sol";
 import { IERC7575 } from "../vendor/standards/ERC7575/IERC7575.sol";
 import { ISuperVaultEscrow } from "../interfaces/SuperVault/ISuperVaultEscrow.sol";
 
@@ -32,17 +33,7 @@ import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 /// @author Superform Labs
 /// @notice SuperVault vault contract implementing ERC4626 with synchronous deposits and asynchronous redeems via
 /// ERC7540
-contract SuperVault is
-    Initializable,
-    ERC20Upgradeable,
-    IERC7540Redeem,
-    IERC7741,
-    IERC4626,
-    IERC7540CancelRedeem,
-    ISuperVault,
-    ReentrancyGuardUpgradeable,
-    EIP712Upgradeable
-{
+contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyGuardUpgradeable, EIP712Upgradeable {
     using AssetMetadataLib for address;
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -54,8 +45,9 @@ contract SuperVault is
     uint256 private constant BPS_PRECISION = 10_000;
 
     // EIP712 TypeHash
-    bytes32 public constant AUTHORIZE_OPERATOR_TYPEHASH =
-        keccak256("AuthorizeOperator(address controller,address operator,bool approved,bytes32 nonce,uint256 deadline)");
+    bytes32 public constant AUTHORIZE_OPERATOR_TYPEHASH = keccak256(
+        "AuthorizeOperator(address controller,address operator,bool approved,bytes32 nonce,uint256 deadline)"
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 STATE
@@ -108,10 +100,7 @@ contract SuperVault is
         external
         initializer
     {
-        if (asset_ == address(0)) revert INVALID_ASSET();
-        if (strategy_ == address(0)) revert INVALID_STRATEGY();
-        if (escrow_ == address(0)) revert INVALID_ESCROW();
-
+        /// @dev asset, strategy, and escrow already validated in SuperVaultAggregator during vault creation
         // Initialize parent contracts
         __ERC20_init(name_, symbol_);
         __ReentrancyGuard_init();
@@ -174,7 +163,7 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540Redeem
-    /// @notice Once owner has authorized an operator, the operator can request a redeem with any controller address
+    /// @notice Once owner has authorized an operator, controller must be the owner
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
@@ -198,7 +187,13 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function cancelRedeemRequest(uint256 /*requestId*/, address controller) external {
+    function cancelRedeemRequest(
+        uint256,
+        /*requestId*/
+        address controller
+    )
+        external
+    {
         _validateController(controller);
 
         // Forward to strategy (7540 path)
@@ -208,12 +203,18 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function claimCancelRedeemRequest(uint256 /*requestId*/, address receiver, address controller) external returns (uint256 shares) {
+    function claimCancelRedeemRequest(
+        uint256, /*requestId*/
+        address receiver,
+        address controller
+    )
+        external
+        returns (uint256 shares)
+    {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (receiver != controller) revert INVALID_CONTROLLER();
-        
+
         shares = strategy.claimableCancelRedeemRequest(controller);
 
         // Forward to strategy (7540 path)
@@ -271,7 +272,6 @@ contract SuperVault is
         return _asset.balanceOf(escrow);
     }
 
-
     //--ERC7540--
     /// @inheritdoc IERC7540Redeem
     function pendingRedeemRequest(
@@ -298,12 +298,27 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function pendingCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (bool isPending) {
+    function pendingCancelRedeemRequest(
+        uint256,
+        /*requestId*/
+        address controller
+    )
+        external
+        view
+        returns (bool isPending)
+    {
         isPending = strategy.pendingCancelRedeemRequest(controller);
     }
 
     /// @inheritdoc IERC7540CancelRedeem
-    function claimableCancelRedeemRequest(uint256 /*requestId*/, address controller) external view returns (uint256 claimableShares) {
+    function claimableCancelRedeemRequest(
+        uint256, /*requestId*/
+        address controller
+    )
+        external
+        view
+        returns (uint256 claimableShares)
+    {
         return strategy.claimableCancelRedeemRequest(controller);
     }
 
@@ -326,7 +341,6 @@ contract SuperVault is
 
         emit NonceInvalidated(msg.sender, nonce);
     }
-
 
     /*//////////////////////////////////////////////////////////////
                             STRATEGY RELATED
@@ -387,7 +401,6 @@ contract SuperVault is
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
@@ -428,12 +441,26 @@ contract SuperVault is
     }
 
     /// @inheritdoc IERC4626
-    function previewWithdraw(uint256 /* assets*/ ) public pure override returns (uint256) {
+    function previewWithdraw(
+        uint256 /* assets*/
+    )
+        public
+        pure
+        override
+        returns (uint256)
+    {
         revert NOT_IMPLEMENTED();
     }
 
     /// @inheritdoc IERC4626
-    function previewRedeem(uint256 /* shares*/ ) public pure override returns (uint256) {
+    function previewRedeem(
+        uint256 /* shares*/
+    )
+        public
+        pure
+        override
+        returns (uint256)
+    {
         revert NOT_IMPLEMENTED();
     }
 
@@ -538,22 +565,6 @@ contract SuperVault is
     function _isValidSignature(address signer, bytes32 digest, bytes memory signature) internal pure returns (bool) {
         address recoveredSigner = ECDSA.recover(digest, signature);
         return recoveredSigner == signer;
-    }
-
-    /// @notice Overrides the ERC20 _update function to update the state of the vault when a transfer occurs
-    /// @param from The address of the sender
-    /// @param to The address of the recipient
-    /// @param value The amount of shares being transferred
-    function _update(address from, address to, uint256 value) internal override(ERC20Upgradeable) {
-        /// @dev Move only accumulators pro-rata between actual users, not to/from infrastructure contracts
-        if (from != address(0) && to != address(0) && to != address(escrow) && from != address(escrow)) {
-            uint256 shares = value;
-            // Zero-value transfers are legal: treat as accounting no-op.
-            if (shares > 0) {
-                strategy.moveAccumulatorOnTransfer(from, to, shares);
-            }
-        }
-        super._update(from, to, value);
     }
 
     function _getStoredPPS() internal view returns (uint256) {
