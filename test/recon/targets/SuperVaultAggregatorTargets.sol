@@ -59,10 +59,6 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
-    function superVaultAggregator_addAuthorizedCaller(address strategy, address caller) public asAdmin {
-        superVaultAggregator.addAuthorizedCaller(strategy, caller);
-    }
-
     function superVaultAggregator_addSecondaryManager(address strategy, address manager) public asActor {
         superVaultAggregator.addSecondaryManager(strategy, manager);
     }
