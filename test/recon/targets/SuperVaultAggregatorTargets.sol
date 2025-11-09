@@ -143,14 +143,13 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
     function superVaultAggregator_updatePPSVerificationThresholds(
         address strategy,
         uint256 dispersionThreshold_,
-        uint256 deviationThreshold_,
         uint256 mnThreshold_
     )
         public
         asActor
     {
         superVaultAggregator.updatePPSVerificationThresholds(
-            strategy, dispersionThreshold_, deviationThreshold_, mnThreshold_
+            strategy, dispersionThreshold_, mnThreshold_
         );
     }
 
