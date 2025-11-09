@@ -48,10 +48,6 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeMinStalenesChange();
     }
 
-    function superGovernor_executeRemoveIncentiveTokens() public asAdmin {
-        superGovernor.executeRemoveIncentiveTokens();
-    }
-
     function superGovernor_executeUpkeepClaim(uint256 amount) public asAdmin {
         superGovernor.executeUpkeepClaim(amount);
     }
