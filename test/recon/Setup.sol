@@ -174,9 +174,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
             address(this), // governor role
             address(this), // bankManager role
             address(this), // gasManager role
-            address(this), // unpauser role
-            feeRecipient, // treasury
-            address(this) // prover
+            feeRecipient // treasury
         );
 
         // 5. Deploy implementation contracts for the aggregator
