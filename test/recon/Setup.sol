@@ -7,6 +7,7 @@ import { vm } from "@chimera/Hevm.sol";
 import { ActorManager } from "@recon/ActorManager.sol";
 import { AssetManager } from "@recon/AssetManager.sol";
 import { Utils } from "@recon/Utils.sol";
+
 // ERC4626 Hooks
 import { Deposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/Deposit4626VaultHook.sol";
 import { ApproveAndDeposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/ApproveAndDeposit4626VaultHook.sol";
@@ -31,11 +32,6 @@ import { ClaimCancelDepositRequest7540Hook } from
 import { ClaimCancelRedeemRequest7540Hook } from
     "lib/v2-core/src/hooks/vaults/7540/ClaimCancelRedeemRequest7540Hook.sol";
 import { Withdraw7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/Withdraw7540VaultHook.sol";
-
-// Super Vault Hooks
-import { CancelRedeemHook } from "lib/v2-core/src/hooks/vaults/super-vault/CancelRedeemHook.sol";
-import { Withdraw7540VaultHook as SuperVaultWithdraw7540VaultHook } from
-    "lib/v2-core/src/hooks/vaults/super-vault/Withdraw7540VaultHook.sol";
 
 // Source dependencies
 import "src/SuperVault/SuperVault.sol";
@@ -98,10 +94,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
     ClaimCancelDepositRequest7540Hook claimCancelDepositRequest7540Hook;
     ClaimCancelRedeemRequest7540Hook claimCancelRedeemRequest7540Hook;
     Withdraw7540VaultHook withdraw7540Hook;
-
-    // Super Vault Hooks
-    CancelRedeemHook cancelRedeemHook;
-    SuperVaultWithdraw7540VaultHook superVaultWithdraw7540Hook;
 
     // Mocks
     MockERC4626YieldSourceOracle erc4626YieldSourceOracle;
@@ -272,10 +264,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         claimCancelRedeemRequest7540Hook = new ClaimCancelRedeemRequest7540Hook();
         withdraw7540Hook = new Withdraw7540VaultHook();
 
-        // Deploy Super Vault Hooks
-        cancelRedeemHook = new CancelRedeemHook();
-        superVaultWithdraw7540Hook = new SuperVaultWithdraw7540VaultHook();
-
         // Register all hooks with SuperGovernor
         // ERC4626 Hooks (deposit hooks are regular hooks, redeem hooks are fulfill request hooks)
         superGovernor.registerHook(address(approveAndDeposit4626Hook));
@@ -298,10 +286,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         superGovernor.registerHook(address(claimCancelDepositRequest7540Hook));
         superGovernor.registerHook(address(claimCancelRedeemRequest7540Hook));
         superGovernor.registerHook(address(withdraw7540Hook)); // fulfill request hook
-
-        // Super Vault Hooks
-        superGovernor.registerHook(address(cancelRedeemHook));
-        superGovernor.registerHook(address(superVaultWithdraw7540Hook)); // fulfill request hook
 
         // 12. Set up approval array for contracts that need token access
         address[] memory approvalArray = new address[](6);

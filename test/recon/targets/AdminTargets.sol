@@ -261,23 +261,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
                 address(superVaultStrategy), // Owner
                 address(superVaultStrategy) // Controller
             );
-        } else if (hookType == HookType.CancelRedeem) {
-            hookAddress = address(cancelRedeemHook);
-            hookCalldata = abi.encodePacked(
-                bytes32(0), // yieldSourceOracleId placeholder
-                _getYieldSource(), // Address of the yield source
-                address(superVaultStrategy) // Controller
-            );
-        } else if (hookType == HookType.SuperVaultWithdraw7540) {
-            hookAddress = address(superVaultWithdraw7540Hook);
-            hookCalldata = abi.encodePacked(
-                bytes32(0), // yieldSourceOracleId placeholder
-                _getYieldSource(), // Address of the yield source
-                amountToInvest, // Amount to withdraw
-                address(superVaultStrategy), // Receiver
-                address(superVaultStrategy), // Owner
-                address(superVaultStrategy) // Controller
-            );
         }
     }
 
