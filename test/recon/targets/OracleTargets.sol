@@ -11,7 +11,6 @@ import { IECDSAPPSOracle } from "src/interfaces/oracles/IECDSAPPSOracle.sol";
 import "test/mocks/MockYieldSourceOracle.sol";
 import "../mocks/MockERC4626YieldSourceOracle.sol";
 import "../mocks/MockERC5115YieldSourceOracle.sol";
-import "../mocks/MockERC7540YieldSourceOracle.sol";
 
 // Test suite dependencies
 import { Properties } from "../Properties.sol";
@@ -30,10 +29,6 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         MockERC5115YieldSourceOracle(address(erc5115YieldSourceOracle)).setValidAsset(asset, isValid);
     }
 
-    function mockERC7540YieldSourceOracle_setValidAsset(address asset, bool isValid) public asActor {
-        MockERC7540YieldSourceOracle(address(erc7540YieldSourceOracle)).setValidAsset(asset, isValid);
-    }
-
     function ECDSAPPSOracle_updatePPS_clamped(uint256 pps) public {
         pps %= (100_000_000 * 1e18) + 1; // clamp to a reasonable max price
 
@@ -46,9 +41,6 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = pps;
 
-        uint256[] memory ppsStdevs = new uint256[](1);
-        ppsStdevs[0] = 0;
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
 
@@ -56,7 +48,6 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
             strategies: strategies,
             proofsArray: proofsArray,
             ppss: ppss,
-            ppsStdevs: ppsStdevs,
             timestamps: timestamps
         });
 
