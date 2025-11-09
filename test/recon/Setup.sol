@@ -49,7 +49,6 @@ import { MerkleTestHelper } from "test/recon/helpers/MerkleTestHelper.sol";
 import { UnsafeSuperVaultAggregator } from "test/recon/helpers/UnsafeSuperVaultAggregator.sol";
 import { MockERC4626YieldSourceOracle } from "test/recon/mocks/MockERC4626YieldSourceOracle.sol";
 import { MockERC5115YieldSourceOracle } from "test/recon/mocks/MockERC5115YieldSourceOracle.sol";
-import { MockERC7540YieldSourceOracle } from "test/recon/mocks/MockERC7540YieldSourceOracle.sol";
 import { MockECDSAPPSOracle } from "test/recon/mocks/MockECDSAPPSOracle.sol";
 
 abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, Utils {
@@ -98,7 +97,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
     // Mocks
     MockERC4626YieldSourceOracle erc4626YieldSourceOracle;
     MockERC5115YieldSourceOracle erc5115YieldSourceOracle;
-    MockERC7540YieldSourceOracle erc7540YieldSourceOracle;
     MockECDSAPPSOracle ECDSAPPSOracle;
 
     // Yield sources for different standards
@@ -200,7 +198,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         // Deploy specific oracles for each yield source type
         erc4626YieldSourceOracle = new MockERC4626YieldSourceOracle();
         erc5115YieldSourceOracle = new MockERC5115YieldSourceOracle();
-        erc7540YieldSourceOracle = new MockERC7540YieldSourceOracle();
         ECDSAPPSOracle = new MockECDSAPPSOracle();
 
         // ECDSAPPSOracle setup
@@ -211,7 +208,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         asset = _getAsset();
         erc4626YieldSourceOracle.setValidAsset(asset, true);
         erc5115YieldSourceOracle.setValidAsset(asset, true);
-        erc7540YieldSourceOracle.setValidAsset(asset, true);
 
         // 9. Create a vault trio using the aggregator
         ISuperVaultAggregator.VaultCreationParams memory params = ISuperVaultAggregator.VaultCreationParams({
@@ -329,8 +325,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
             return address(erc4626YieldSourceOracle);
         } else if (sourceType == YieldSourceType.ERC5115) {
             return address(erc5115YieldSourceOracle);
-        } else if (sourceType == YieldSourceType.ERC7540) {
-            return address(erc7540YieldSourceOracle);
         }
         return address(0);
     }
@@ -361,10 +355,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
 
     function _getERC5115YieldSourceOracle() internal view returns (address) {
         return address(erc5115YieldSourceOracle);
-    }
-
-    function _getERC7540YieldSourceOracle() internal view returns (address) {
-        return address(erc7540YieldSourceOracle);
     }
 
     // Helpers
