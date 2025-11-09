@@ -136,10 +136,6 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
     //     superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
     // }
 
-    function superVaultAggregator_removeAuthorizedCaller(address strategy, address caller) public asActor {
-        superVaultAggregator.removeAuthorizedCaller(strategy, caller);
-    }
-
     function superVaultAggregator_removeSecondaryManager(address strategy, address manager) public asActor {
         superVaultAggregator.removeSecondaryManager(strategy, manager);
     }
