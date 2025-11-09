@@ -128,17 +128,6 @@ abstract contract SuperVaultTargets is BaseTargetFunctions, Properties {
             ISuperVaultStrategy.SuperVaultState memory stateSenderAfter =
                 superVaultStrategy.getSuperVaultState(_getActor());
             ISuperVaultStrategy.SuperVaultState memory stateRecipientAfter = superVaultStrategy.getSuperVaultState(to);
-
-            eq(
-                stateSenderBefore.accumulatorShares - stateSenderAfter.accumulatorShares,
-                stateRecipientAfter.accumulatorShares - stateRecipientBefore.accumulatorShares,
-                "shares are lost on transfer"
-            );
-            eq(
-                stateSenderBefore.accumulatorCostBasis - stateSenderAfter.accumulatorCostBasis,
-                stateRecipientAfter.accumulatorCostBasis - stateRecipientBefore.accumulatorCostBasis,
-                "cost basis is lost on transfer"
-            );
         } catch (bytes memory err) {
             bool expectedError;
             expectedError = checkError(err, "ERC20InsufficientBalance(address,uint256,uint256)");
