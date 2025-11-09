@@ -60,14 +60,6 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.executeUpkeepPaymentsChange();
     }
 
-    function superGovernor_proposeAddIncentiveTokens(address[] memory tokens) public asAdmin {
-        superGovernor.proposeAddIncentiveTokens(tokens);
-    }
-
-    function superGovernor_executeAddIncentiveTokens() public asAdmin {
-        superGovernor.executeAddIncentiveTokens();
-    }
-
     function superGovernor_proposeGlobalHooksRoot(bytes32 newRoot) public asAdmin {
         superGovernor.proposeGlobalHooksRoot(newRoot);
     }
