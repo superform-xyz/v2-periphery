@@ -19,7 +19,6 @@ contract MockECDSAPPSOracle {
         ISuperVaultAggregator.ForwardPPSArgs memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
             strategies: args.strategies,
             ppss: args.ppss,
-            ppsStdevs: args.ppsStdevs,
             validatorSets: validatorSets,
             totalValidator: totalValidator,
             timestamps: args.timestamps,
