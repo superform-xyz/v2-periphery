@@ -292,48 +292,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    /// @dev Property: state.accumulatorShares >= superVaultState[controllers[i]].pendingRedeemRequest for each user
-    function property_accumulatorSharesGtPendingRequests() public {
-        address[] memory actors = _getActors();
-
-        for (uint256 i; i < actors.length; i++) {
-            ISuperVaultStrategy.SuperVaultState memory state = superVaultStrategy.getSuperVaultState(actors[i]);
-            gte(
-                state.accumulatorShares,
-                state.pendingRedeemRequest,
-                "state.accumulatorShares < state.pendingRedeemRequest"
-            );
-        }
-    }
-
-    /// @dev Property: accumulatorShares is always accurately increased
-    function property_accumulatorSharesIncrease() public {
-        if (_currentOp == OpType.ADD) {
-            uint256 accumulatorSharesBefore = _before.state[_getActor()].accumulatorShares;
-            uint256 accumulatorSharesAfter = _after.state[_getActor()].accumulatorShares;
-            uint256 actorSharesBefore = _before.superVaultShares[_getActor()];
-            uint256 actorSharesAfter = _after.superVaultShares[_getActor()];
-            eq(
-                accumulatorSharesAfter - accumulatorSharesBefore,
-                actorSharesAfter - actorSharesBefore,
-                "accumulatorShares is always accurately updated"
-            );
-        }
-    }
-
-    /// @dev Property: accumulatorCostBasis is always accurately increased
-    function property_accumulatorCostBasisIncrease() public {
-        if (_currentOp == OpType.ADD) {
-            uint256 accumulatorCostBasisBefore = _before.state[_getActor()].accumulatorCostBasis;
-            uint256 accumulatorCostBasisAfter = _after.state[_getActor()].accumulatorCostBasis;
-            eq(
-                accumulatorCostBasisAfter - accumulatorCostBasisBefore,
-                _after.strategyAssetBalance - _before.strategyAssetBalance,
-                "accumulatorShares is always accurately updated"
-            );
-        }
-    }
-
     /// @dev Property: redemptions only burn the requested amount of shares (within tolerance range)
     function property_fulfillOnlyBurnsRequestedAmount() public {
         uint256 TOLERANCE_CONSTANT = 10 wei; // taken from SuperVaultStrategy

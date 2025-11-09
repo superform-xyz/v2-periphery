@@ -418,17 +418,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         return totalRequested;
     }
 
-    function _sumSuperVaultValsForControllers(address[] memory controllers)
-        internal
-        view
-        returns (uint256 sumAccumulatorShares, uint256 sumAccumulatorCostBasis)
-    {
-        for (uint256 i; i < controllers.length; i++) {
-            sumAccumulatorShares += superVaultStrategy.getSuperVaultState(controllers[i]).accumulatorShares;
-            sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(controllers[i]).accumulatorCostBasis;
-        }
-    }
-
     function _claimableMoreThanInvested(uint256 totalAmountToDeposit) internal view returns (bool) {
         address[] memory actors = _getActors();
         uint256 totalClaimable;

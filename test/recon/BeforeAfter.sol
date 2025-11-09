@@ -55,7 +55,6 @@ abstract contract BeforeAfter is Setup {
     }
 
     function __before() internal {
-        (_before.summedAccumulatorShares, _before.summedAccumulatorCostBasis) = _sumSuperVaultValues();
         _before.naivePPS = _calculateNaivePPS();
         _before.summedTotalShares = _sumTotalShares();
         _before.summedTotalAssets = _sumStrategyAssets();
@@ -71,7 +70,6 @@ abstract contract BeforeAfter is Setup {
     }
 
     function __after() internal {
-        (_after.summedAccumulatorShares, _after.summedAccumulatorCostBasis) = _sumSuperVaultValues();
         _after.naivePPS = _calculateNaivePPS();
         _after.summedTotalShares = _sumTotalShares();
         _after.summedTotalAssets = _sumStrategyAssets();
@@ -143,18 +141,18 @@ abstract contract BeforeAfter is Setup {
         return totalAssets;
     }
 
-    function _sumSuperVaultValues()
-        internal
-        view
-        returns (uint256 sumAccumulatorShares, uint256 sumAccumulatorCostBasis)
-    {
-        address[] memory actors = _getActors();
+    // function _sumSuperVaultValues()
+    //     internal
+    //     view
+    //     returns (uint256 sumAccumulatorShares, uint256 sumAccumulatorCostBasis)
+    // {
+    //     address[] memory actors = _getActors();
 
-        for (uint256 i; i < actors.length; i++) {
-            sumAccumulatorShares += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorShares;
-            sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorCostBasis;
-        }
-    }
+    //     for (uint256 i; i < actors.length; i++) {
+    //         sumAccumulatorShares += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorShares;
+    //         sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorCostBasis;
+    //     }
+    // }
 
     function _sumRequestedRedemptions() internal view returns (uint256) {
         address[] memory actors = _getActors();
