@@ -80,10 +80,6 @@ abstract contract SuperVaultStrategyTargets is BaseTargetFunctions, Properties {
         superVaultStrategy.manageYieldSources(sources, oracles, actionTypes);
     }
 
-    function superVaultStrategy_moveAccumulatorOnTransfer(address from, address to, uint256 shares) public asActor {
-        superVaultStrategy.moveAccumulatorOnTransfer(from, to, shares);
-    }
-
     function superVaultStrategy_proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
