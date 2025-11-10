@@ -119,6 +119,12 @@ C.accumulatorCostBasis -= historicalCost
 - **Recipient Validation**: Fee recipients must be non-zero addresses when fees > 0
 - **Rounding Direction**: Fee calculations use ceiling for protocol benefit
 
+**Skim Operation Security:**
+- **12-Hour Post-Unpause Constraint**: `skim()` cannot execute within 12 hours after unpause
+- **Rationale**: Prevents manager exploitation of potentially aberrant PPS after catastrophic events
+- **Design**: Decoupling skim from PPS updates enables this critical safety check
+- **Defense-in-Depth**: Additional protection layer despite manager being considered trusted
+
 ---
 
 ## ECDSAPPSOracle Security Properties
@@ -223,14 +229,27 @@ treasuryAmount = upAmount - supAmount
 
 **Critical Parameter Changes:**
 ```solidity
-TIMELOCK = 7 days // For most governance changes
-_hooksRootUpdateTimelock = 15 minutes // For hook root updates
+// SuperGovernor & Manager Changes
+TIMELOCK = 7 days                    // Governance operations
+_MANAGER_CHANGE_TIMELOCK = 7 days    // Manager changes
+WITHDRAW_STAKE_TIMELOCK = 7 days     // Stake withdrawals
+
+// Hook & Strategy Operations
+_hooksRootUpdateTimelock = 15 minutes  // Hook root updates (configurable)
+_MAX_UNPAUSE_TIMELOCK = 1 day         // Maximum unpause delay
+
+// Fee & Emergency
+FEE_CONFIG_UPDATE_TIMELOCK = 7 days   // Performance fee changes
+EMERGENCY_WITHDRAWAL_TIMELOCK = 7 days // Emergency mode activation
+
+// PPS Staleness (per-strategy configurable, max = getMinStaleness from SuperGovernor)
 ```
 
 **Timelock Invariants:**
 - **Proposal Period**: Changes must be proposed before effective time
 - **Effective Time**: `block.timestamp >= effectiveTime` required for execution
 - **Single Use**: Proposals consumed upon execution
+- **Configurable vs Constant**: Some timelocks are governance-configurable (e.g., `_hooksRootUpdateTimelock`), others are immutable constants
 
 ### Registry Integrity
 
@@ -331,12 +350,90 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 - **Risk Level**: MEDIUM-LOW overall, safe for production
 - **See**: `../.claude/doc/frontrunning_attack_analysis.md` for detailed analysis
 
-### Dust and Rounding Edge Cases
 
-**Tolerance Constants:**
-- **TOLERANCE_CONSTANT**: 10 wei tolerance in `_handleClaimRedeem`
-- **Rounding Behavior**: Ensure consistent rounding direction (floor for users, ceil for protocol)
-- **Dust Prevention**: Prevent over-claims through tolerance mechanisms
+
+---
+
+## Critical Audit Focus Areas
+
+### 1. Rounding & Precision Invariants
+
+**Implementation Analysis:**
+- All share/asset conversions follow consistent rounding rules
+- User-favorable operations: floor (deposit, withdraw previews)
+- Protocol-favorable operations: ceil (fees, over-claim prevention)
+
+**Known Edge Case:**
+- Scenario: Very small dust redemptions (< 10 wei range)
+- Outcome: User may lose 1-2 wei due to conservative rounding
+- Rationale: Prevents vault insolvency; acceptable tradeoff
+- Severity: Not a security issue; documented expected behavior
+
+**Critical Invariants to Verify:**
+```solidity
+// These must NEVER be violated:
+1. Vault never loses assets due to rounding (direction check)
+2. Sum of fulfilled claims ≤ totalAssetsOut set by manager
+3. Escrow balance ≥ sum of pending requests
+4. No user can extract more than their fair share
+```
+
+### 2. PPS Oracle DoS & Frontrunning Vectors
+
+**Attack Surface Analysis:**
+
+**A. Nonce Burning Attacks:**
+- **Mechanism**: Attacker triggers business logic rejection to burn signature nonces
+- **Entry Points**: Pause strategy, manipulate staleness, trigger deviation checks
+- **Cost**: Most attacks require manager access or significant economic cost
+- **Mitigation**: Intentional design - prevents replay of invalid signatures
+- **Validators**: Pre-flight simulation prevents wasted submissions
+
+**B. Batch DoS Attacks:**
+- **Mechanism**: Manipulate per-strategy state to fail batch updates
+- **Defense**: Graceful degradation using `return` instead of `revert`
+- **Outcome**: Invalid strategies skip, batch continues
+- **Trade-off**: Nonce burning accepted to prevent batch halting
+
+**C. Validator Frontrunning:**
+- **Mechanism**: Frontrun oracle submission to change strategy state
+- **Examples**: Pause strategy, update PPS manually, exhaust upkeep
+- **Economic Cost**: Medium - requires capital or privileged access
+- **Mitigation**: Economic disincentives (forfeited upkeep), pre-flight validation
+
+**D. Staleness Manipulation:**
+- **Mechanism**: Delay fulfillment/hooks to make next PPS update stale
+- **Constraints**: Manager-controlled maxStaleness provides liveness flexibility
+- **Trade-off**: Liveness vs safety (manager trusted to configure appropriately)
+
+**Validator Network Assumptions (Critical Context):**
+```
+1. Validators simulate transactions before submission (only submit if passing)
+2. No updates before minimum interval (enforced on-chain)
+3. No future timestamps (validators measure recent past)
+4. No updates for paused strategies (checked in aggregator)
+5. Economic incentives: follow rules to earn upkeep, violations forfeit payment
+```
+
+**14-Layer Defense-in-Depth:**
+See `security_properties.md` for complete analysis of:
+- Signature validation (quorum, ordering, registry)
+- Timestamp checks (future, staleness, monotonicity)
+- State validation (pause, re-anchor, upkeep)
+- Economic limits (deviation, M/N participation, rate limiting)
+
+**Risk Assessment:**
+- **Overall**: MEDIUM-LOW
+- **Production Ready**: Yes, with documented assumptions
+- **Required Monitoring**: Off-chain validator behavior, nonce advancement patterns
+
+**Audit Priorities:**
+1. Verify all 14 validation layers function correctly
+2. Check for bypass conditions in oracle → aggregator → strategy flow
+3. Test pause/unpause boundary conditions for signature replay
+4. Validate staleness configuration prevents both DoS and stale data acceptance
+5. Review economic game theory of validator/manager incentives
+6. Examine nonce management for race conditions or griefing vectors
 
 ---
 
@@ -389,32 +486,56 @@ _hooksRootUpdateTimelock = 15 minutes // For hook root updates
 
 ### Trust Model
 
-**Strategist Trust:**
-- **Primary Strategist**: Has significant control over vault strategies
-- **Hook Selection**: Can choose hooks from approved global set
-- **Fee Management**: Can propose fee changes within bounds
-- **Mitigation**: Guardian veto, timelock delays, SuperGovernor takeover
+**Manager Trust (Extensive)**:
+- **Core Responsibilities**: Fulfillment timing, totalAssetsOut calculations, fee updates, yield source whitelisting, emergency operations, solvency maintenance
+- **MEV Protection**: Discretionary censorship power to delay MEV-positive redemptions until yield contribution
+- **Staleness Configuration**: Trusted to set meaningful `maxStaleness` thresholds per strategy
+- **Off-Chain Accountability**: Can be slashed for misbehavior (fulfillment manipulation, PPS threshold abuse, front-running)
+- **Mitigation Layers**: Guardian veto power, 7-day timelocks, SuperGovernor takeover, economic security via stake deposits
 
-**Validator Trust:**
-- **Honest Majority**: Assumes majority of validators act honestly
-- **Signature Security**: Private keys properly secured
-- **Availability**: Sufficient validators available for quorum
+**User Trust & Loss Socialization**:
+- **Accepted Behavior**: Rebalance losses are socialized across depositors by design. Redeem losses are attributed to redeemers when fulfillment occurs
+- **Protection Mechanism**: User-configurable slippage limits (default: 1% on redemptions) guard against excessive PPS variations
+- **Expected Behavior**: Users should not abuse slippage parameter changes between request and fulfillment (off-chain enforcement)
 
-**Oracle Dependencies:**
-- **PPS Accuracy**: External aggregator provides accurate PPS data
-- **Validator Signatures**: Validators sign off-chain, oracle validates on-chain
-- **Staleness Prevention**: Multi-layered staleness checks (absolute time + post-unpause)
-- **Manipulation Resistance**: Multiple validators + quorum requirements + deviation thresholds
-- **Nonce Security**: Per-strategy nonces prevent cross-strategy replay attacks
+**Validator Network Model**:
+- **Untrusted for Liveness**: No guarantee of timely PPS updates; validator availability is best-effort
+- **Honest Majority**: Assumes quorum of validators act honestly for PPS validation
+- **Economic Incentives**: Validators follow rules to earn upkeep; violations forfeit rewards
+- **Oracle Pre-Flight**: Off-chain simulation ensures transactions succeed before submission
+- **Assumptions**: No updates before minimum interval, no future timestamps, no updates for paused strategies
+
+**Oracle Dependencies**:
+- **PPS Data Source**: External off-chain validator network calculates accurate PPS from strategy state
+- **Signature Validation**: Validators sign off-chain; ECDSAPPSOracle validates on-chain
+- **Staleness Defense**: Multi-layered checks (absolute time via `maxStaleness` + post-unpause re-anchoring)
+- **Manipulation Resistance**: Multiple validators + quorum + deviation thresholds + M/N participation
+- **Nonce Security**: Per-strategy nonces prevent cross-strategy and replay attacks
+
+### Economic & Fee Design
+
+**Performance Fee Skimming**:
+- **Decoupled Design**: Skim operations separate from PPS updates for gas efficiency (hourly updates, less frequent skims)
+- **Security Constraint**: 12-hour post-unpause cooldown before skim operations allowed
+- **Rationale**: Prevents manager exploitation of aberrant PPS during recovery events
+
+**Bid-Ask Pricing Model**:
+- **Deposit (Ask)**: Users deposit at current `SV_PPS`
+- **Redemption (Bid)**: Manager sets fulfillment price in range `[user_min_slippage, SV_PPS]`, absorbing withdrawal losses
+- **ExpectedAmountOut**: Slippage protection guards honest managers from input errors during hook execution
 
 ### External Dependencies
 
-**ERC4626 Compliance:**
-- **Standard Deviation**: SuperVault deviates from standard ERC4626 for async redeems by using ERC7540 for redemptions. Also, pause state doesn't affect claims in 7540 operations
-- **Preview Functions**: `previewWithdraw` and `previewRedeem` intentionally unimplemented
-- **Rounding Direction**: Follows ERC4626 rounding conventions where applicable
+**Token Compatibility (In-Scope)**:
+- **Standard ERC20 Only**: Fee-on-transfer, ERC777, and rebasing tokens are explicitly OUT OF SCOPE
+- **Yield Sources (Day 1)**: ERC4626 vaults (Morpho Markets) + PT tokens (Pendle)
 
-**Cross-Chain Assumptions:**
-- **Bridge Security**: VaultBank cross-chain operations assume secure bridging
-- **Finality**: Cross-chain state finality assumptions
-- **Replay Protection**: Nonce-based replay attack prevention
+**ERC4626/ERC7540 Compliance**:
+- **Standard Deviation**: Async redemptions via ERC7540; pause state doesn't block 7540 claims
+- **Preview Functions**: `previewWithdraw` and `previewRedeem` intentionally revert (async model)
+- **Rounding Direction**: Floor for users, ceiling for protocol where applicable
+
+**Cross-Chain Assumptions**:
+- **Bridge Security**: VaultBank operations assume secure cross-chain messaging
+- **Finality**: Cross-chain state finality and message ordering
+- **Replay Protection**: Nonce-based mechanisms prevent cross-chain replay attacks
