@@ -72,7 +72,7 @@ contract VaultBank is IVaultBank, VaultBankSource, VaultBankDestination, Bank {
         address vaultBank = SUPER_REGISTRY.getVaultBank(toChainId);
 
         if (vaultBank == address(0)) revert INVALID_VAULT_BANK_ADDRESS();
-        if (!SUPER_GOVERNOR.isHookRegistered(hookAddress)) revert INVALID_HOOK();
+        if (!SUPER_GOVERNOR.isHookRegistered(hookAddress)) revert HOOK_NOT_REGISTERED();
 
         uint256 _nonce = nonces[toChainId];
         nonces[toChainId]++;
