@@ -225,13 +225,12 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         switchActor(1);
         superVault_requestRedeem_clamped(superVault.balanceOf(_getActor()));
 
+        address[] memory controllers = new address[](2);
+        controllers[0] = _getActor();
         switchActor(0);
-        superVaultStrategy_fulfillRedeemRequests_clamped(superVaultStrategy.pendingRedeemRequest(_getActor()));
-        console2.log("pendingRedeemRequest", "0");
-        switchActor(1);
-        superVaultStrategy_fulfillRedeemRequests_clamped(superVaultStrategy.pendingRedeemRequest(_getActor()));
-        console2.log("pendingRedeemRequest", "1");
-        switchActor(0);
+        controllers[1] = _getActor();
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;
