@@ -50,8 +50,9 @@ import { UnsafeSuperVaultAggregator } from "test/recon/helpers/UnsafeSuperVaultA
 import { MockERC4626YieldSourceOracle } from "test/recon/mocks/MockERC4626YieldSourceOracle.sol";
 import { MockERC5115YieldSourceOracle } from "test/recon/mocks/MockERC5115YieldSourceOracle.sol";
 import { MockECDSAPPSOracle } from "test/recon/mocks/MockECDSAPPSOracle.sol";
+import { AssetAdjustmentHelper } from "test/integration/SuperVault/AssetAdjustmentHelper.t.sol";
 
-abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, Utils {
+abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, Utils, AssetAdjustmentHelper {
     // Configuration constants
     uint8 internal constant DECIMALS = 18;
     address asset;

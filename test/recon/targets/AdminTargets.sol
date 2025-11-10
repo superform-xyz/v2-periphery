@@ -329,7 +329,9 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         // Execute the function
         superVaultStrategy_executeHooks(executeArgs);
-        superVaultStrategy_fulfillRedeemRequests(expectedAssetsOrSharesOut, controllers);
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+
+        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -342,19 +344,19 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
     function superVaultStrategy_fulfillRedeemRequests(
-        uint256[] memory expectedAssetsOrSharesOut,
-        address[] memory controllers
+        address[] memory controllers,
+        uint256[] memory totalAssetsOut
     )
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {   
         uint256 summedExpectedAssets;
-        for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            summedExpectedAssets += expectedAssetsOrSharesOut[i];
+        for (uint256 i; i < totalAssetsOut.length; i++) {
+            summedExpectedAssets += totalAssetsOut[i];
         }
 
         // no need to prank because called as admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 

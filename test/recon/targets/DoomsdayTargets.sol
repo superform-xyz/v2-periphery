@@ -73,11 +73,17 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemFromArgs(shares);
 
+        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
+
         // 4. Execute the redeem from the yield strategy to get assets back
         superVaultStrategy.executeHooks(executeArgs);
 
+        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
         // called by admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // 5. Claim Redemption
         uint256 sharesToRedeem = superVault.maxRedeem(_getActor());
@@ -117,11 +123,19 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
         // 3. Fulfill Withdrawal
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) = _createExecuteRedeemArgs(shares);
+
+        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
+
         // execute and fulfill as admin (address(this))
         superVaultStrategy.executeHooks(executeArgs);
+
+        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
         controllers = new address[](1);
         controllers[0] = _getActor();
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // 4. Claim Withdrawal
         uint256 withdrawableAssets = superVault.maxWithdraw(_getActor());
@@ -154,9 +168,15 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // 3. Fulfill the redemption request
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemArgs(shares);
+
         // fulfill as address(this)
+        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
         superVaultStrategy.executeHooks(executeArgs);
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // 4. Check maxRedeem before claiming
         uint256 maxRedeemBeforeClaim = superVault.maxRedeem(_getActor());
@@ -189,9 +209,17 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // 3. Fulfill the redemption request
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemArgs(shares);
+
+        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
+
         // called as admin address(this)
         superVaultStrategy.executeHooks(executeArgs);
-        superVaultStrategy.fulfillRedeemRequests(controllers);
+
+        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // 4. Check maxWithdraw after fulfillment and use that value
         uint256 maxWithdrawBefore = superVault.maxWithdraw(_getActor());
@@ -257,9 +285,15 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         }
 
         // 4. Fulfill all redemption requests at once
+        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
         // fulfill as address(this)
         superVaultStrategy.executeHooks(executeArgs);
-        superVaultStrategy.fulfillRedeemRequests(testActors);
+
+        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, testActors);
+
+        superVaultStrategy.fulfillRedeemRequests(testActors, totalAssetsOut);
 
         // 5. Calculate total pending after
         uint256 totalPendingAfter;
@@ -316,8 +350,16 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
             (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
                 _executeRedeemRequestsArgs(redeemableShares);
+
+            uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
+
             superVaultStrategy.executeHooks(executeArgs);
-            superVaultStrategy.fulfillRedeemRequests(controllers);
+
+            uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
+
+            uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+
+            superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
         }
 
         // try to withdraw max possible for all actors
