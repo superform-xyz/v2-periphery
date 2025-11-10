@@ -25,8 +25,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     mapping(bytes32 id => address address_) private _addressRegistry;
 
     // PPS Oracle management
-    // Active PPS Oracle quorum requirement
-    uint256 private _activePPSOracleQuorum;
     // Current active PPS Oracle
     address private _activePPSOracle;
     // Proposed new active PPS Oracle
@@ -43,12 +41,16 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Global freeze for manager takeovers
     bool private _managerTakeoversFrozen;
 
-    // Validator registry
-    EnumerableSet.AddressSet private _validators;
+    // Validator configuration struct
+    struct ValidatorConfig {
+        uint256 version;
+        EnumerableSet.AddressSet validators;
+        bytes[] validatorPublicKeys;
+        uint256 quorum;
+    }
 
-    // Latest validator config block number (updated when validators are added/removed)
-    // it is used offchain for validator network to maintain sync between validators for config version to be used
-    uint256 private _latestValidatorConfigBlockNumber;
+    // Validator configuration
+    ValidatorConfig private _validatorConfig;
 
     // Executor registry
     EnumerableSet.AddressSet private _executors;
@@ -391,25 +393,48 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function addValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
-        if (validator == address(0)) revert INVALID_ADDRESS();
-        if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
-        uint256 blockNumber = block.number;
-        // Update latest validator config block number
-        _latestValidatorConfigBlockNumber = blockNumber;
+    // version is provided as param and not incremented in the function to sync config versions across chains
+    // offchainConfig is not stored and simply emitted to create source for offchain validators to sync on
+    function setValidatorConfig(
+        uint256 version,
+        address[] calldata validators,
+        bytes[] calldata validatorPublicKeys,
+        uint256 quorum,
+        bytes calldata offchainConfig
+    )
+        external
+        onlyRole(_GOVERNOR_ROLE)
+    {
+        uint256 validatorsLength = validators.length;
+        uint256 validatorPublicKeysLength = validatorPublicKeys.length;
+        // Validate inputs
+        if (validatorsLength == 0) revert EMPTY_VALIDATOR_ARRAY();
+        if (validatorsLength != validatorPublicKeysLength) revert ARRAY_LENGTH_MISMATCH();
+        if (quorum == 0 || quorum > validatorsLength) revert INVALID_QUORUM();
 
-        emit ValidatorAdded(validator, blockNumber);
-    }
+        // Clear existing validators
+        uint256 oldLength = _validatorConfig.validators.length();
+        for (uint256 i; i < oldLength; i++) {
+            _validatorConfig.validators.remove(_validatorConfig.validators.at(0));
+        }
 
-    /// @inheritdoc ISuperGovernor
-    function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
-        uint256 blockNumber = block.number;
+        // Add new validators and validate no duplicates
+        for (uint256 i; i < validatorsLength; i++) {
+            if (validators[i] == address(0)) revert INVALID_ADDRESS();
+            if (!_validatorConfig.validators.add(validators[i])) revert VALIDATOR_ALREADY_REGISTERED();
+        }
 
-        // Update latest validator config block number
-        _latestValidatorConfigBlockNumber = blockNumber;
+        // Update config tracking
+        _validatorConfig.version = version;
+        _validatorConfig.quorum = quorum;
 
-        emit ValidatorRemoved(validator, blockNumber);
+        // Store public keys
+        delete _validatorConfig.validatorPublicKeys;
+        for (uint256 i; i < validatorPublicKeysLength; i++) {
+            _validatorConfig.validatorPublicKeys.push(validatorPublicKeys[i]);
+        }
+
+        emit ValidatorConfigSet(_validatorConfig.version, validators, validatorPublicKeys, quorum, offchainConfig);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -455,14 +480,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _activePPSOracleEffectiveTime = 0;
 
         emit ActivePPSOracleChanged(oldOracle, _activePPSOracle);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function setPPSOracleQuorum(uint256 quorum) external onlyRole(_GOVERNOR_ROLE) {
-        if (quorum == 0) revert INVALID_QUORUM();
-
-        _activePPSOracleQuorum = quorum;
-        emit PPSOracleQuorumUpdated(quorum);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -694,13 +711,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getValidatorConfigVersion() external view returns (uint256) {
-        return _latestValidatorConfigBlockNumber;
+    function getValidatorConfig()
+        external
+        view
+        returns (uint256 version, address[] memory validators, bytes[] memory validatorPublicKeys, uint256 quorum)
+    {
+        return (
+            _validatorConfig.version,
+            _validatorConfig.validators.values(),
+            _validatorConfig.validatorPublicKeys,
+            _validatorConfig.quorum
+        );
     }
 
     /// @inheritdoc ISuperGovernor
     function isValidator(address validator) external view returns (bool) {
-        return _validators.contains(validator);
+        return _validatorConfig.validators.contains(validator);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -715,17 +741,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getValidators() external view returns (address[] memory) {
-        return _validators.values();
+        return _validatorConfig.validators.values();
     }
 
     /// @inheritdoc ISuperGovernor
     function getValidatorsCount() external view returns (uint256) {
-        return _validators.length();
+        return _validatorConfig.validators.length();
     }
 
     /// @inheritdoc ISuperGovernor
     function getValidatorAt(uint256 index) external view returns (address) {
-        return _validators.at(index);
+        return _validatorConfig.validators.at(index);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -740,7 +766,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getPPSOracleQuorum() external view returns (uint256) {
-        return _activePPSOracleQuorum;
+        return _validatorConfig.quorum;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -838,7 +864,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (realLimit > remaining) realLimit = remaining;
 
         chunkOfManagers = new address[](realLimit);
-        for (uint256 i; i < realLimit; ++i) {
+        for (uint256 i; i < realLimit; i++) {
             chunkOfManagers[i] = _superformManagers.at(cursor + i);
         }
 

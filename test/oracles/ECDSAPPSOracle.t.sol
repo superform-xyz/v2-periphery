@@ -96,12 +96,25 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         governor.grantRole(governor.SUPER_GOVERNOR_ROLE(), governorAddress);
         vm.stopPrank();
 
-        // Add validators (requires GOVERNOR_ROLE)
+        // Set validator configuration (requires GOVERNOR_ROLE)
         vm.startPrank(governorAddress);
-        governor.addValidator(validator1);
-        governor.addValidator(validator2);
-        governor.addValidator(validator3);
-        governor.setPPSOracleQuorum(2); // Set quorum to 2 validators
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = validator3;
+
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        governor.setValidatorConfig(
+            1, // version
+            validators,
+            validatorPublicKeys,
+            2, // quorum
+            "" // offchainConfig
+        );
 
         // Set the SuperVaultAggregator
         governor.setAddress(governor.SUPER_VAULT_AGGREGATOR(), address(aggregatorSuperVault));
@@ -1087,8 +1100,17 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     function test_UpdateSuperVaultPPS_Integration() public {
         // Set the VALIDATOR_KEY from the BaseSuperVaultTest as a valid validator
         vm.startPrank(governorAddress);
-        governor.addValidator(vm.addr(VALIDATOR_KEY));
-        governor.setPPSOracleQuorum(1); // Only need one validator
+        address[] memory singleValidator = new address[](1);
+        singleValidator[0] = vm.addr(VALIDATOR_KEY);
+        bytes[] memory singleValidatorKey = new bytes[](1);
+        singleValidatorKey[0] = "";
+        governor.setValidatorConfig(
+            2, // version
+            singleValidator,
+            singleValidatorKey,
+            1, // quorum - only need one validator
+            "" // offchainConfig
+        );
 
         governor.proposeActivePPSOracle(address(oracleECDSA));
         vm.warp(block.timestamp + 7 days);
