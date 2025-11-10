@@ -480,6 +480,16 @@ interface ISuperGovernor is IAccessControl {
     /// @return True if the address is an approved executor, false otherwise
     function isExecutor(address executor) external view returns (bool);
 
+    /// @notice Returns the complete validator configuration
+    /// @return version The current configuration version number
+    /// @return validators Array of all registered validator addresses
+    /// @return validatorPublicKeys Array of validator public keys
+    /// @return quorum The number of validators required for consensus
+    function getValidatorConfig()
+        external
+        view
+        returns (uint256 version, address[] memory validators, bytes[] memory validatorPublicKeys, uint256 quorum);
+
     /// @notice Returns all registered validators
     /// @return List of validator addresses
     function getValidators() external view returns (address[] memory);

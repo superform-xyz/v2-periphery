@@ -710,7 +710,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _registeredHooks.values();
     }
 
-    /// @notice Returns the current validator configuration
+    /// @inheritdoc ISuperGovernor
     function getValidatorConfig()
         external
         view
