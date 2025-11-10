@@ -475,10 +475,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit StakeWithdrawRequested(msg.sender, amount);
     }
 
-    /// @notice Completes a pending stake withdrawal after timelock period
-    /// @dev Validates timelock and expiration, transfers UP tokens to manager
-    /// @dev Reverts if no request exists, timelock not met, or request expired
-    /// @dev Re-checks balance in case slashing occurred during timelock period
+    /// @inheritdoc ISuperVaultAggregator
     function completeStakeWithdrawal() external {
         WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
 

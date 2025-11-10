@@ -569,6 +569,10 @@ escrowAssetBalance >= Σ(maxWithdraw)
 2. Sum of fulfilled claims ≤ totalAssetsOut set by manager
 3. Escrow balance ≥ sum of pending requests
 4. No user can extract more than their fair share
+5. PPS must always be > 0
+6. totalSupply = Σ user balances + balanceOf(escrow) 
+7. requestRedeem() & cancelRedeem() should never alter the supply of SuperVault tokens (calculated by summing user share balances)
+8. redeeming maxRedeem should never revert
 ```
 
 ### 2. PPS Oracle DoS & Frontrunning Vectors
