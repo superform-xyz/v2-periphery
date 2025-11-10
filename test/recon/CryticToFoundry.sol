@@ -121,7 +121,13 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         yieldSource_simulateGain(100_000_003);
 
-        superVaultStrategy_fulfillRedeemRequests_clamped(shares);
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
+
+        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
 
         superVault_withdraw(shares);
 
