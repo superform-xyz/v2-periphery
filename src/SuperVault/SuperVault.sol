@@ -393,26 +393,26 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /// @inheritdoc IERC4626
     function convertToShares(uint256 assets) public view override returns (uint256) {
         uint256 pps = _getStoredPPS();
-        if (pps == 0) return 0;
-        return Math.mulDiv(assets, PRECISION, pps, Math.Rounding.Floor);
+        // Ternary operator more efficient than if/return
+        return pps == 0 ? 0 : Math.mulDiv(assets, PRECISION, pps, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IERC4626
     function convertToAssets(uint256 shares) public view override returns (uint256) {
         uint256 currentPPS = _getStoredPPS();
-        if (currentPPS == 0) return 0;
-        return Math.mulDiv(shares, currentPPS, PRECISION, Math.Rounding.Floor);
+        // Ternary operator more efficient than if/return
+        return currentPPS == 0 ? 0 : Math.mulDiv(shares, currentPPS, PRECISION, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IERC4626
     function maxDeposit(address) public view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
+        if (!_canAcceptDeposits()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxMint(address) external view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
+        if (!_canAcceptDeposits()) return 0;
         return type(uint256).max;
     }
 
@@ -602,23 +602,21 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         return strategy.getStoredPPS();
     }
 
-    /// @notice Checks if the vault is currently paused
-    /// @dev Makes 2 external calls: governor.getAddress() -> aggregator.isStrategyPaused()
-    /// @dev Pause prevents all deposits/mints (maxDeposit/maxMint return 0)
-    /// @return True if the strategy is paused, false otherwise
-    function _isPaused() internal view returns (bool) {
-        address aggregatorAddress = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR());
-        return ISuperVaultAggregator(aggregatorAddress).isStrategyPaused(address(strategy));
+    /// @notice Combined check for deposits acceptance
+    /// @dev Reduces external calls by fetching aggregator address once
+    /// @dev Previously: 4 external calls (2x getAddress + 2x aggregator checks)
+    /// @dev Now: 3 external calls (1x getAddress + 2x aggregator checks)
+    /// @return True if deposits can be accepted (not paused and PPS not stale)
+    function _canAcceptDeposits() internal view returns (bool) {
+        address aggregatorAddress = _getAggregatorAddress();
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(aggregatorAddress);
+        return !aggregator.isStrategyPaused(address(strategy)) && !aggregator.isPPSStale(address(strategy));
     }
 
-    /// @notice Checks if the vault's price per share (PPS) is stale
-    /// @dev Makes 2 external calls: governor.getAddress() -> aggregator.isPPSStale()
-    /// @dev Staleness prevents deposits/mints to protect users from outdated pricing
-    /// @dev Staleness is determined by aggregator based on last PPS update timestamp
-    /// @return True if the PPS is stale, false otherwise
-    function _isPPSStale() internal view returns (bool) {
-        address aggregatorAddress = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR());
-        return ISuperVaultAggregator(aggregatorAddress).isPPSStale(address(strategy));
+    /// @notice Helper to get aggregator address once
+    /// @return Address of the SuperVaultAggregator contract
+    function _getAggregatorAddress() internal view returns (address) {
+        return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR());
     }
 
     /// @dev Read management fee config (view-only for previews)

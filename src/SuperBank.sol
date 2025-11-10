@@ -49,34 +49,36 @@ contract SuperBank is ISuperBank, Bank {
     function distribute(uint256 upAmount) external onlyBankManager {
         if (upAmount == 0) revert ZERO_LENGTH_ARRAY();
 
-        // Get UP token address from SuperGovernor
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
-        // Get the UP token instance
-        IERC20 up = IERC20(upToken);
-        // Ensure we have the tokens
-        if (up.balanceOf(address(this)) < upAmount) revert INVALID_UP_AMOUNT_TO_DISTRIBUTE();
+        // Cache SUPER_GOVERNOR reference to reduce external calls
+        ISuperGovernor gov = SUPER_GOVERNOR;
 
-        address supToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUP());
-        address treasury = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.TREASURY());
+        // Get UP token address from SuperGovernor
+        address upToken = gov.getAddress(gov.UP());
+
+        // Validate early before fetching more addresses
+        if (IERC20(upToken).balanceOf(address(this)) < upAmount) revert INVALID_UP_AMOUNT_TO_DISTRIBUTE();
 
         // Get revenue share percentage from SuperGovernor
-        uint256 revenueShare = SUPER_GOVERNOR.getFee(FeeType.REVENUE_SHARE);
+        uint256 revenueShare = gov.getFee(FeeType.REVENUE_SHARE);
 
         // Validate revenue share is within bounds
         if (revenueShare > BPS_PRECISION) revert INVALID_REVENUE_SHARE();
 
+        // Get remaining addresses after validation
+        address supToken = gov.getAddress(gov.SUP());
+        address treasury = gov.getAddress(gov.TREASURY());
+
         // Calculate amounts for sUP and Treasury
         uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_PRECISION, Math.Rounding.Ceil);
-
         uint256 treasuryAmount = upAmount - supAmount;
 
-        // Transfer tokens to sUP and Treasury
+        // Direct usage instead of intermediate IERC20 variable
         if (supAmount > 0) {
-            up.safeTransfer(supToken, supAmount);
+            IERC20(upToken).safeTransfer(supToken, supAmount);
         }
 
         if (treasuryAmount > 0) {
-            up.safeTransfer(treasury, treasuryAmount);
+            IERC20(upToken).safeTransfer(treasury, treasuryAmount);
         }
 
         emit RevenueDistributed(upToken, supToken, treasury, supAmount, treasuryAmount);

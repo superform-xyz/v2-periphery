@@ -55,13 +55,16 @@ interface ISuperVaultAggregator {
     /// @param mainManager Address of the primary manager controlling the strategy
     /// @param secondaryManagers Set of secondary managers that can manage the strategy
     struct StrategyData {
-        uint256 pps;
-        uint256 lastUpdateTimestamp;
-        uint256 minUpdateInterval;
-        uint256 maxStaleness;
-        bool ppsStale;
-        bool isPaused;
-        address mainManager;
+        uint256 pps; // Slot 0: 32 bytes
+        uint256 lastUpdateTimestamp; // Slot 1: 32 bytes
+        uint256 minUpdateInterval; // Slot 2: 32 bytes
+        uint256 maxStaleness; // Slot 3: 32 bytes
+        // Packed slot 4: saves 2 storage slots (~4000 gas per read)
+        address mainManager; // 20 bytes
+        bool ppsStale; // 1 byte
+        bool isPaused; // 1 byte
+        bool hooksRootVetoed; // 1 byte
+        uint72 __gap1; // 9 bytes padding
         EnumerableSet.AddressSet secondaryManagers;
         // Manager change proposal data
         address proposedManager;
@@ -71,8 +74,6 @@ interface ISuperVaultAggregator {
         // Hook root update proposal data
         bytes32 proposedHooksRoot;
         uint256 hooksRootEffectiveTime;
-        // Veto status
-        bool hooksRootVetoed;
         // PPS Verification thresholds
         uint256 deviationThreshold; // Threshold for abs(new - current) / current
         // Banned global leaves mapping

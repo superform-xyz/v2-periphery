@@ -55,13 +55,13 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Executor registry
     EnumerableSet.AddressSet private _executors;
 
-    // Fee management
-    // Current fee values
-    mapping(FeeType type_ => uint256 value) private _feeValues;
-    // Proposed fee values
-    mapping(FeeType type_ => uint256 proposedValue) private _proposedFeeValues;
-    // Effective times for proposed fee updates
-    mapping(FeeType type_ => uint256 effectiveTime) private _feeEffectiveTimes;
+    // Fee management - packed struct for gas optimization
+    struct FeeData {
+        uint128 value; // Current fee value (BPS, max 10000)
+        uint128 proposedValue; // Proposed fee value
+        uint256 effectiveTime; // Timestamp when proposed value becomes effective
+    }
+    mapping(FeeType => FeeData) private _feeData;
 
     mapping(address _oracle => uint256 _entryGas) private _gasPerEntry;
 
@@ -150,8 +150,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
-        _feeValues[FeeType.PERFORMANCE_FEE_SHARE] = PERFORMANCE_FEE_SHARE; // 50% protocol fee share
+        // casting to 'uint128' is safe because REVENUE_SHARE and PERFORMANCE_FEE_SHARE are constants < BPS_MAX (10000)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _feeData[FeeType.REVENUE_SHARE].value = uint128(REVENUE_SHARE); // 0% revenue share (changeable via governance)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _feeData[FeeType.PERFORMANCE_FEE_SHARE].value = uint128(PERFORMANCE_FEE_SHARE); // 50% protocol fee share
         emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
         emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
@@ -497,28 +500,32 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function proposeFee(FeeType feeType, uint256 value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value > BPS_MAX) revert INVALID_FEE_VALUE();
 
-        _proposedFeeValues[feeType] = value;
-        _feeEffectiveTimes[feeType] = block.timestamp + TIMELOCK;
+        FeeData storage feeData = _feeData[feeType];
+        // casting to 'uint128' is safe because value is validated to be <= BPS_MAX (10000)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        feeData.proposedValue = uint128(value);
+        feeData.effectiveTime = block.timestamp + TIMELOCK;
 
-        emit FeeProposed(feeType, value, _feeEffectiveTimes[feeType]);
+        emit FeeProposed(feeType, value, feeData.effectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
     function executeFeeUpdate(FeeType feeType) external {
-        uint256 effectiveTime = _feeEffectiveTimes[feeType];
+        FeeData storage feeData = _feeData[feeType];
+        uint256 effectiveTime = feeData.effectiveTime;
         if (effectiveTime == 0) revert NO_PROPOSED_FEE(feeType);
         if (block.timestamp < effectiveTime) {
             revert TIMELOCK_NOT_EXPIRED();
         }
 
-        // Update the fee value
-        _feeValues[feeType] = _proposedFeeValues[feeType];
+        // Update the fee value from proposed
+        feeData.value = feeData.proposedValue;
 
         // Reset proposal data
-        delete _proposedFeeValues[feeType];
-        delete _feeEffectiveTimes[feeType];
+        feeData.proposedValue = 0;
+        feeData.effectiveTime = 0;
 
-        emit FeeUpdated(feeType, _feeValues[feeType]);
+        emit FeeUpdated(feeType, feeData.value);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -782,7 +789,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getFee(FeeType feeType) external view returns (uint256) {
-        return _feeValues[feeType];
+        return _feeData[feeType].value;
     }
 
     /// @inheritdoc ISuperGovernor
