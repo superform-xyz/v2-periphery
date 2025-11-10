@@ -23,14 +23,17 @@ import { Deposit7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/Deposit7
 import { Redeem7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/Redeem7540VaultHook.sol";
 import { RequestDeposit7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/RequestDeposit7540VaultHook.sol";
 import { RequestRedeem7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/RequestRedeem7540VaultHook.sol";
-import { ApproveAndRequestDeposit7540VaultHook } from
-    "lib/v2-core/src/hooks/vaults/7540/ApproveAndRequestDeposit7540VaultHook.sol";
+import {
+    ApproveAndRequestDeposit7540VaultHook
+} from "lib/v2-core/src/hooks/vaults/7540/ApproveAndRequestDeposit7540VaultHook.sol";
 import { CancelDepositRequest7540Hook } from "lib/v2-core/src/hooks/vaults/7540/CancelDepositRequest7540Hook.sol";
 import { CancelRedeemRequest7540Hook } from "lib/v2-core/src/hooks/vaults/7540/CancelRedeemRequest7540Hook.sol";
-import { ClaimCancelDepositRequest7540Hook } from
-    "lib/v2-core/src/hooks/vaults/7540/ClaimCancelDepositRequest7540Hook.sol";
-import { ClaimCancelRedeemRequest7540Hook } from
-    "lib/v2-core/src/hooks/vaults/7540/ClaimCancelRedeemRequest7540Hook.sol";
+import {
+    ClaimCancelDepositRequest7540Hook
+} from "lib/v2-core/src/hooks/vaults/7540/ClaimCancelDepositRequest7540Hook.sol";
+import {
+    ClaimCancelRedeemRequest7540Hook
+} from "lib/v2-core/src/hooks/vaults/7540/ClaimCancelRedeemRequest7540Hook.sol";
 import { Withdraw7540VaultHook } from "lib/v2-core/src/hooks/vaults/7540/Withdraw7540VaultHook.sol";
 
 // Source dependencies
@@ -191,7 +194,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
 
         address[] memory assets = _getAssets();
         superGovernor.setAddress(superGovernor.UP(), assets[1]); // the second deployed token in the AssetManager is the
-            // UPToken
+        // UPToken
         superGovernor.setAddress(superGovernor.SUPER_BANK(), address(this));
 
         // 8. Deploy Mocks and Oracles
