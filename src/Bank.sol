@@ -7,7 +7,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 // Superform
 import { IHookExecutionData } from "./interfaces/IHookExecutionData.sol";
-import { ISuperHook, ISuperHookInspector, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import {
+    ISuperHook,
+    ISuperHookInspector,
+    ISuperHookResult,
+    Execution
+} from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 abstract contract Bank is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
@@ -51,7 +56,10 @@ abstract contract Bank is ReentrancyGuard {
         if (hooksLength == 0) revert ZERO_LENGTH_ARRAY();
 
         // Validate arrays have matching lengths
-        if (hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length) {
+        if (
+            hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length
+                || hooksLength != executionData.expectedAssetsOrSharesOut.length
+        ) {
             revert INVALID_ARRAY_LENGTH();
         }
 
