@@ -1201,7 +1201,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         vm.prank(sGovernor);
         vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.MinStalenesProposed(newMinStaleness, expectedTime);
+        emit ISuperGovernor.MinStalenessProposed(newMinStaleness, expectedTime);
         superGovernor.proposeMinStaleness(newMinStaleness);
 
         (uint256 proposedMinStaleness, uint256 effectiveTime) = superGovernor.getProposedMinStaleness();
@@ -1250,8 +1250,8 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Execute the change
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.MinStalenesChanged(newMinStaleness);
-        superGovernor.executeMinStalenesChange();
+        emit ISuperGovernor.MinStalenessChanged(newMinStaleness);
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
 
@@ -1263,7 +1263,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests reverting when executing without a proposal
     function test_MinStalenesManagement_Revert_ExecuteNoProposal() public {
         vm.expectRevert(ISuperGovernor.NO_PROPOSED_MIN_STALENESS.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests reverting when executing before timelock expiry
@@ -1276,7 +1276,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Try to execute before timelock expires
         vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests the initial minimum staleness value
@@ -1296,7 +1296,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Execute as regular user (should work)
         vm.warp(block.timestamp + TIMELOCK + 1);
         vm.prank(user);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
     }
@@ -1467,7 +1467,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.proposeMinStaleness(newMinStaleness);
         vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         // Now values that were previously valid should be rejected
         uint256 previouslyValidStaleness = 600; // Was > 300, but now < 800

@@ -196,11 +196,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a new minimum staleness is proposed
     /// @param newMinStaleness The proposed minimum staleness value
     /// @param effectiveTime The timestamp when the new value will be effective
-    event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime);
+    event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime);
 
     /// @notice Emitted when the minimum staleness is changed
     /// @param newMinStaleness The new minimum staleness value
-    event MinStalenesChanged(uint256 newMinStaleness);
+    event MinStalenessChanged(uint256 newMinStaleness);
 
     /// @notice Emitted when a superform manager is added
     /// @param manager The address of the added manager
@@ -417,7 +417,7 @@ interface ISuperGovernor is IAccessControl {
     function proposeMinStaleness(uint256 newMinStaleness) external;
 
     /// @notice Executes a previously proposed minimum staleness change after timelock has expired
-    function executeMinStalenesChange() external;
+    function executeMinStalenessChange() external;
 
     /*//////////////////////////////////////////////////////////////
                         SUPERFORM MANAGER MANAGEMENT
