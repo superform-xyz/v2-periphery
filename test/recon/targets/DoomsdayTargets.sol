@@ -73,12 +73,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemFromArgs(shares);
 
-        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
-
         // 4. Execute the redeem from the yield strategy to get assets back
         superVaultStrategy.executeHooks(executeArgs);
-
-        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
@@ -130,8 +126,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // execute and fulfill as admin (address(this))
         superVaultStrategy.executeHooks(executeArgs);
 
-        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
-
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
         controllers = new address[](1);
@@ -171,9 +165,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             _createExecuteRedeemArgs(shares);
 
         // fulfill as address(this)
-        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
         superVaultStrategy.executeHooks(executeArgs);
-        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
@@ -211,12 +203,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemArgs(shares);
 
-        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
-
         // called as admin address(this)
         superVaultStrategy.executeHooks(executeArgs);
-
-        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
@@ -286,11 +274,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         }
 
         // 4. Fulfill all redemption requests at once
-        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
         // fulfill as address(this)
         superVaultStrategy.executeHooks(executeArgs);
-
-        uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, testActors);
 
@@ -353,11 +338,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
             (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
                 _executeRedeemRequestsArgs(redeemableShares);
 
-            uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
-
             superVaultStrategy.executeHooks(executeArgs);
-
-            uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
             uint256[] memory totalAssetsOut =
                 calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);

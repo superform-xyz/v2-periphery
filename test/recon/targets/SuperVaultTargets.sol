@@ -119,16 +119,10 @@ abstract contract SuperVaultTargets is BaseTargetFunctions, Properties {
     // NOTE: _update only gets called on transfer of Vault shares
     function superVault_transfer(uint256 entropy, uint256 value) public updateGhostsWithOpType(OpType.TRANSFER) {
         address to = _getRandomActor(entropy);
-        ISuperVaultStrategy.SuperVaultState memory stateSenderBefore =
-            superVaultStrategy.getSuperVaultState(_getActor());
-        ISuperVaultStrategy.SuperVaultState memory stateRecipientBefore = superVaultStrategy.getSuperVaultState(to);
 
         vm.prank(_getActor());
-        try superVault.transfer(to, value) {
-            ISuperVaultStrategy.SuperVaultState memory stateSenderAfter =
-                superVaultStrategy.getSuperVaultState(_getActor());
-            ISuperVaultStrategy.SuperVaultState memory stateRecipientAfter = superVaultStrategy.getSuperVaultState(to);
-        } catch (bytes memory err) {
+        try superVault.transfer(to, value) { }
+        catch (bytes memory err) {
             bool expectedError;
             expectedError = checkError(err, "ERC20InsufficientBalance(address,uint256,uint256)");
             t(expectedError, "_update should never revert in transfer");
