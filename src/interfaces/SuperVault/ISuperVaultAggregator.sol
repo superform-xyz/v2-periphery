@@ -75,7 +75,6 @@ interface ISuperVaultAggregator {
         bool hooksRootVetoed;
         // PPS Verification thresholds
         uint256 deviationThreshold; // Threshold for abs(new - current) / current
-        uint256 mnThreshold; // Threshold for validatorSet / totalValidators ratio, scaled by 1e18
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
         // Min update interval proposal data
@@ -285,11 +284,10 @@ interface ISuperVaultAggregator {
     /// @param root The root value affected
     event StrategyHooksRootVetoStatusChanged(address indexed strategy, bool vetoed, bytes32 indexed root);
 
-    /// @notice Emitted when a strategy's PPS verification thresholds are updated
+    /// @notice Emitted when a strategy's deviation threshold is updated
     /// @param strategy Address of the strategy
     /// @param deviationThreshold New deviation threshold (abs diff/current)
-    /// @param mnThreshold New M/N threshold (validatorSet/totalValidators)
-    event PPSVerificationThresholdsUpdated(address indexed strategy, uint256 deviationThreshold, uint256 mnThreshold);
+    event DeviationThresholdUpdated(address indexed strategy, uint256 deviationThreshold);
 
     /// @notice Emitted when the hooks root update timelock is changed
     /// @param newTimelock New timelock duration in seconds
@@ -653,16 +651,10 @@ interface ISuperVaultAggregator {
     /// @param vetoed Whether to veto (true) or unveto (false)
     function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external;
 
-    /// @notice Updates the PPS verification thresholds for a strategy
+    /// @notice Updates the deviation threshold for a strategy
     /// @param strategy Address of the strategy
     /// @param deviationThreshold_ New deviation threshold (abs diff/current ratio, scaled by 1e18)
-    /// @param mnThreshold_ New M/N threshold (validatorSet/totalValidators ratio, scaled by 1e18)
-    function updatePPSVerificationThresholds(
-        address strategy,
-        uint256 deviationThreshold_,
-        uint256 mnThreshold_
-    )
-        external;
+    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external;
 
     /// @notice Changes the banned status of global leaves for a specific strategy
     /// @dev Only callable by the primary manager of the strategy
@@ -742,14 +734,10 @@ interface ISuperVaultAggregator {
     /// @return staleness Maximum time allowed between updates
     function getMaxStaleness(address strategy) external view returns (uint256 staleness);
 
-    /// @notice Gets the PPS verification thresholds for a strategy
+    /// @notice Gets the deviation threshold for a strategy
     /// @param strategy Address of the strategy
     /// @return deviationThreshold The current deviation threshold (abs diff/current ratio, scaled by 1e18)
-    /// @return mnThreshold The current M/N threshold (validatorSet/totalValidators ratio, scaled by 1e18)
-    function getPPSVerificationThresholds(address strategy)
-        external
-        view
-        returns (uint256 deviationThreshold, uint256 mnThreshold);
+    function getDeviationThreshold(address strategy) external view returns (uint256 deviationThreshold);
 
     /// @notice Checks if a strategy is currently paused
     /// @param strategy Address of the strategy
