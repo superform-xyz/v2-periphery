@@ -69,6 +69,15 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
         if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
 
+        // Validate strategies are sorted and unique to prevent nonce burning
+        // This prevents attackers from submitting duplicate strategies to skip nonces
+        // Strategies must be in ascending order: strategies[i] < strategies[i+1]
+        for (uint256 i = 1; i < strategiesLength; i++) {
+            if (args.strategies[i] <= args.strategies[i - 1]) {
+                revert STRATEGIES_NOT_SORTED_UNIQUE();
+            }
+        }
+
         uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
 
         // Early validation checks

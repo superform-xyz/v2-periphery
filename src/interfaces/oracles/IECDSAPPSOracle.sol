@@ -39,6 +39,8 @@ interface IECDSAPPSOracle {
     error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
     /// @notice Thrown when the number of strategies exceeds the maximum allowed
     error MAX_STRATEGIES_EXCEEDED();
+    /// @notice Thrown when strategies are not sorted in ascending order or contain duplicates
+    error STRATEGIES_NOT_SORTED_UNIQUE();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

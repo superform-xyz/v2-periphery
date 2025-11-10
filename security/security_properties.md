@@ -44,7 +44,7 @@ This document describes all security properties enforced by the PPS oracle and a
 ├─────────────────────────────────────────────────────────────┤
 │ Property 4: Future Timestamp Rejection                     │
 │ Property 5: Pause Rejection                                │
-│ Property 6: Staleness Enforcement (if payments enabled)    │
+│ Property 6: Staleness Enforcement        │
 ├─────────────────────────────────────────────────────────────┤
 │                SuperVaultAggregator._forwardPPS()           │
 ├─────────────────────────────────────────────────────────────┤
@@ -219,13 +219,15 @@ All business logic rejections use `return`/`continue` to prevent batch DoS. This
   C - T ≤ maxStaleness → may be accepted (if other checks pass)
 ```
 
-**Implementation:** `forwardPPS()` line 258-266  
-**Location:** `src/SuperVault/SuperVaultAggregator.sol`  
-**Status:** ✓ Verified (Fix Option A)
+Staleness is enforced, regardless of payment status
 
 **Note:** Staleness check uses `continue` which means the function returns normally (no revert). From the oracle's perspective, the try block succeeds and nonces burn for the stale strategy. This is correct behavior to prevent replay of stale signatures.
 
-**Defense-in-Depth:** Works in conjunction with Property 8 (Post-Unpause) to provide complete protection against stale PPS replay attacks.
+**Defense-in-Depth:** Works in conjunction with:
+- Property 7 (Timestamp Monotonicity) - prevents out-of-order updates
+- Property 8 (Post-Unpause) - prevents pre-unpause signature replay
+- Property 1 (Nonce-based replay protection) - cryptographic binding
+Together these provide comprehensive protection against timestamp manipulation attacks.
 
 ---
 
