@@ -44,5 +44,6 @@ interface ISuperOracleL2 {
         address[] calldata dataOracles,
         address[] calldata uptimeOracles,
         uint256[] calldata gracePeriods
-    ) external;
+    )
+        external;
 }

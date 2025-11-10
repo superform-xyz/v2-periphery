@@ -89,9 +89,7 @@ abstract contract AssetAdjustmentHelper is Test {
             revert INSUFFICIENT_AVAILABLE_ASSETS();
         }
 
-        console2.log(
-            "Adjusting assets: Theoretical=%s, Available=%s", totalTheoreticalAssets, totalAvailableAssets
-        );
+        console2.log("Adjusting assets: Theoretical=%s, Available=%s", totalTheoreticalAssets, totalAvailableAssets);
 
         // Distribute available assets pro-rata based on theoretical amounts
         uint256 totalAdjusted = 0;
@@ -208,8 +206,7 @@ abstract contract AssetAdjustmentHelper is Test {
         uint256 strategyBalance = IERC20(asset).balanceOf(address(strategy));
 
         // Step 2: Get theoretical assets for all controllers using strategy's batch preview
-        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) =
-            strategy.previewExactRedeemBatch(controllers);
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = strategy.previewExactRedeemBatch(controllers);
 
         // Step 3: If strategy has enough balance, use theoretical amounts
         if (strategyBalance >= totalTheoretical) {

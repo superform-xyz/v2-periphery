@@ -50,9 +50,7 @@ interface IECDSAPPSOracle {
     /// @param pps The validated price-per-share value
     /// @param timestamp Timestamp when the value was generated
     /// @param sender Address that submitted the update
-    event PPSValidated(
-        address indexed strategy, uint256 pps, uint256 timestamp, address indexed sender
-    );
+    event PPSValidated(address indexed strategy, uint256 pps, uint256 timestamp, address indexed sender);
 
     /// @notice Emitted when proof validation failed
     /// @param strategy Address of the strategy
@@ -144,12 +142,7 @@ interface IECDSAPPSOracle {
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @param params Validation parameters
     /// @param requiredQuorum Required quorum for validation
-    function validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        external
-        view;
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) external view;
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS

@@ -102,7 +102,7 @@ contract ConfigureV2Periphery is DeployV2Base {
             saltNamespace: saltNamespace,
             coreSalt: coreSalt,
             superGovernor: address(0) // Will be populated
-         });
+        });
 
         console2.log("=== Configuring V2 Periphery Hooks ===");
         console2.log("Chain ID:", chainId);
@@ -348,13 +348,11 @@ contract ConfigureV2Periphery is DeployV2Base {
 
         // Vault hooks
         successCount += _registerHook(governor, hooks.deposit4626VaultHook, "deposit4626VaultHook");
-        successCount +=
-            _registerHook(governor, hooks.approveAndDeposit4626VaultHook, "approveAndDeposit4626VaultHook");
+        successCount += _registerHook(governor, hooks.approveAndDeposit4626VaultHook, "approveAndDeposit4626VaultHook");
         successCount += _registerHook(governor, hooks.redeem4626VaultHook, "redeem4626VaultHook");
         successCount += _registerHook(governor, hooks.deposit5115VaultHook, "deposit5115VaultHook");
         successCount += _registerHook(governor, hooks.redeem5115VaultHook, "redeem5115VaultHook");
-        successCount +=
-            _registerHook(governor, hooks.approveAndDeposit5115VaultHook, "approveAndDeposit5115VaultHook");
+        successCount += _registerHook(governor, hooks.approveAndDeposit5115VaultHook, "approveAndDeposit5115VaultHook");
         successCount += _registerHook(governor, hooks.deposit7540VaultHook, "deposit7540VaultHook");
         successCount += _registerHook(governor, hooks.redeem7540VaultHook, "redeem7540VaultHook");
         successCount += _registerHook(
@@ -364,14 +362,15 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Async request hooks (isFulfillRequestsHook = true)
         successCount += _registerHook(governor, hooks.requestDeposit7540VaultHook, "requestDeposit7540VaultHook");
         successCount += _registerHook(governor, hooks.requestRedeem7540VaultHook, "requestRedeem7540VaultHook");
-        successCount +=
-            _registerHook(governor, hooks.claimCancelDepositRequest7540Hook, "claimCancelDepositRequest7540Hook");
-        successCount +=
-            _registerHook(governor, hooks.claimCancelRedeemRequest7540Hook, "claimCancelRedeemRequest7540Hook");
+        successCount += _registerHook(
+            governor, hooks.claimCancelDepositRequest7540Hook, "claimCancelDepositRequest7540Hook"
+        );
+        successCount += _registerHook(
+            governor, hooks.claimCancelRedeemRequest7540Hook, "claimCancelRedeemRequest7540Hook"
+        );
 
         // Other vault hooks
-        successCount +=
-            _registerHook(governor, hooks.cancelDepositRequest7540Hook, "cancelDepositRequest7540Hook");
+        successCount += _registerHook(governor, hooks.cancelDepositRequest7540Hook, "cancelDepositRequest7540Hook");
         successCount += _registerHook(governor, hooks.cancelRedeemRequest7540Hook, "cancelRedeemRequest7540Hook");
 
         // Bridge hooks
@@ -397,10 +396,10 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Circle Gateway hooks
         successCount += _registerHook(governor, hooks.circleGatewayWalletHook, "circleGatewayWalletHook");
         successCount += _registerHook(governor, hooks.circleGatewayMinterHook, "circleGatewayMinterHook");
-        successCount +=
-            _registerHook(governor, hooks.circleGatewayAddDelegateHook, "circleGatewayAddDelegateHook");
-        successCount +=
-            _registerHook(governor, hooks.circleGatewayRemoveDelegateHook, "circleGatewayRemoveDelegateHook");
+        successCount += _registerHook(governor, hooks.circleGatewayAddDelegateHook, "circleGatewayAddDelegateHook");
+        successCount += _registerHook(
+            governor, hooks.circleGatewayRemoveDelegateHook, "circleGatewayRemoveDelegateHook"
+        );
 
         console2.log("Hook registration complete:");
         console2.log("- Successfully registered:", successCount);
@@ -422,11 +421,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         }
 
         try governor.registerHook(hookAddress) {
-            console2.log(
-                "SUCCESS: Registered %s at %s",
-                hookName,
-                hookAddress
-            );
+            console2.log("SUCCESS: Registered %s at %s", hookName, hookAddress);
             return 1;
         } catch Error(string memory reason) {
             console2.log("FAILED: %s registration failed - %s", hookName, reason);

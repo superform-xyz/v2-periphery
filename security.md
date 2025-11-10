@@ -8,19 +8,31 @@
 
 **Critical Invariants:**
 - **PPS Validity**: `currentPPS > 0` always (reverts on `INVALID_PPS()`)
-- **Share Calculation**: Net shares minted must equal `floor(assetsNet * PRECISION / currentPPS)`
-- **Fee Deduction**: Management fees are deducted from gross assets before share calculation
+- **State Validation**: Strategy not paused, PPS not stale, PPS recently updated
 - **Asset Transfer**: Exact `assets` amount transferred from `msg.sender` to strategy before minting
+- **Fee Deduction**: Management fees deducted from gross assets, transferred to fee recipient
+- **Share Calculation**: Net shares minted equal `floor(assetsNet * PRECISION / currentPPS)`
 - **Zero Amount Protection**: Both functions revert on zero amounts
+- **No HWM Update**: Deposits are PPS-neutral by design (no performance fee trigger)
 
 **Mathematical Properties:**
 ```solidity
-// For deposit():
-shares = floor((assets - managementFee) * PRECISION / currentPPS)
+// For deposit(assets):
+feeAssets = ceil(assets * managementFeeBps / BPS_PRECISION)
+assetsNet = assets - feeAssets
+shares = floor(assetsNet * PRECISION / currentPPS)
 
-// For mint():
-assetsGross = ceil(shares * currentPPS / PRECISION * BPS_PRECISION / (BPS_PRECISION - feeBps))
+// For mint(shares):
+assetsNet = ceil(shares * currentPPS / PRECISION)
+assetsGross = ceil(assetsNet * BPS_PRECISION / (BPS_PRECISION - managementFeeBps))
+// Fee = assetsGross - assetsNet
 ```
+
+**Flow:**
+1. Vault transfers assets from user to strategy
+2. Strategy skims management fee (if configured)
+3. Strategy calculates shares on net assets
+4. Vault mints shares to receiver
 
 #### Redeem Request Operations (`requestRedeem()`)
 
@@ -32,21 +44,54 @@ assetsGross = ceil(shares * currentPPS / PRECISION * BPS_PRECISION / (BPS_PRECIS
 - **Supply Conservation**: `totalSupply()` remains unchanged (shares moved, not burned)
 - **Controller Validation**: Currently enforced that `controller == owner` (auditor requirement)
 
-#### Cancel Redeem Operations (`cancelRedeem()`)
+#### Fulfillment Operations (`fulfillRedeemRequests()`)
+
+**Fulfillment Invariants:**
+- **Manager Only**: Only authorized managers can fulfill
+- **State Validation**: Strategy not paused, PPS not stale, PPS recently updated
+- **Sorted Controllers**: Controllers array must be strictly ascending (prevents duplicates)
+- **Non-Zero Fulfillment**: Cannot fulfill for controllers with zero pending shares
+- **Slippage Bounds**: `minAssets ≤ totalAssetsOut ≤ theoreticalAssets` for each controller
+- **Share Burning**: Exact pending shares burned from escrow for all controllers
+- **Asset Transfer**: Total assets transferred to escrow for user claims
+- **State Updates**: `pendingRedeemRequest` cleared, `maxWithdraw` incremented, `averageWithdrawPrice` updated (weighted)
+
+**Slippage Validation:**
+```solidity
+// Per-controller bounds check
+slippageBps = user.redeemSlippageBps > 0 ? user.redeemSlippageBps : DEFAULT_REDEEM_SLIPPAGE_BPS
+minAssets = computeMinNetOut(pendingShares, avgRequestPPS, slippageBps, PRECISION)
+theoreticalAssets = pendingShares * currentPPS / PRECISION
+require(totalAssetsOut >= minAssets && totalAssetsOut <= theoreticalAssets)
+```
+
+**Weighted Average Withdraw Price:**
+```solidity
+// Tracks historical fulfillment prices across multiple partial fulfillments
+newAvgPrice = (oldMaxWithdraw * oldAvgPrice + pendingShares * newFulfillmentPrice) / newMaxWithdraw
+```
+
+#### Cancel Redeem Operations (`cancelRedeemRequest()` & `claimCancelRedeemRequest()`)
+
+**Cancellation Flow:**
+1. **Request Cancel**: User calls `cancelRedeemRequest()` → sets `pendingCancelRedeemRequest = true`
+2. **Manager Fulfills**: Manager calls `fulfillCancelRedeemRequests()` → moves pending shares to `claimableCancelRedeemRequest`, clears `pendingRedeemRequest` and `averageRequestPPS`
+3. **User Claims**: User calls `claimCancelRedeemRequest()` → escrow returns shares, clears `claimableCancelRedeemRequest`
 
 **Reversal Invariants:**
-- **Pending Clearing**: `strategy.pendingRedeemRequest(controller)` set to 0
-- **Average PPS Reset**: `strategy.averageRequestPPS(controller)` cleared
-- **Share Return**: Escrow returns exact shares to controller
-- **Supply Conservation**: `totalSupply()` unchanged throughout operation
+- **Pending Flag**: `pendingCancelRedeemRequest` must be true during cancellation
+- **Share Conservation**: Shares remain in escrow until claim
+- **State Clearing**: All request state cleared after successful claim
+- **Supply Conservation**: `totalSupply()` unchanged (shares never burned)
 
 #### Withdraw/Redeem Claims (`withdraw()` & `redeem()`)
 
 **Claim Invariants:**
-- **Price Consistency**: Uses `strategy.getAverageWithdrawPrice(controller)` for conversion
+- **Price Consistency**: Uses `strategy.getAverageWithdrawPrice(controller)` for share/asset conversion
 - **Amount Limits**: Cannot exceed `maxWithdraw(controller)` or `maxRedeem(controller)`
-- **Share Burning**: Shares burned from escrow by exact fulfilled amount
-- **Asset Distribution**: Assets sent directly to receiver from strategy
+- **Asset Transfer**: Assets extracted from escrow and sent to receiver
+- **State Updates**: `maxWithdraw` decremented by claimed assets
+- **No Share Burning**: Shares were already burned during fulfillment
 
 ### System-Level Properties
 
@@ -83,47 +128,96 @@ if (getAverageWithdrawPrice(C) > 0) then maxRedeem(C) == floor(maxWithdraw(C) * 
 - **Intentional Limitation**: `previewWithdraw()` and `previewRedeem()` revert by design
 - **No Preview Parity**: Invariant tests should not expect preview parity for async withdrawal functions
 
-### Accumulator Movement on Transfer
+### Per-User Redemption State
 
-**Transfer Invariants (between external users):**
+**SuperVaultState Tracking (per controller):**
 ```solidity
-// When transferring between users (not involving escrow/mint/burn):
-from.accumulatorShares -= min(transferAmount, from.accumulatorShares)
-to.accumulatorShares += same_amount
-// Proportional cost basis movement
-costBasisMoved = floor(transferAmount * from.accumulatorCostBasis / from.accumulatorShares)
-from.accumulatorCostBasis -= costBasisMoved
-to.accumulatorCostBasis += costBasisMoved
-
-// Global conservation:
-Σ(user.accumulatorShares) unchanged by pure transfers
-Σ(user.accumulatorCostBasis) unchanged by pure transfers
+struct SuperVaultState {
+    uint256 pendingRedeemRequest;        // Shares awaiting fulfillment
+    uint256 averageRequestPPS;           // Weighted average PPS at request time(s)
+    uint256 maxWithdraw;                 // Claimable assets after fulfillment
+    uint256 averageWithdrawPrice;        // Weighted average fulfillment price
+    uint16 redeemSlippageBps;            // User-configured slippage tolerance
+    bool pendingCancelRedeemRequest;     // Cancellation in progress
+    uint256 claimableCancelRedeemRequest; // Shares claimable from cancellation
+}
 ```
 
-### Cost Basis on Fulfill
+**Request Lifecycle:**
+1. **Request**: `requestRedeem()` → shares moved to escrow, `pendingRedeemRequest` incremented, `averageRequestPPS` updated (weighted)
+2. **Fulfillment**: Manager executes hooks, calls `fulfillRedeemRequests()` → validates slippage bounds, updates `maxWithdraw` and `averageWithdrawPrice` (weighted), burns shares
+3. **Claim**: User calls `withdraw()` or `redeem()` → transfers assets from escrow, decrements `maxWithdraw`
 
-**Fulfillment Accounting:**
+**Weighted Average PPS Protection:**
 ```solidity
-// When fulfilling requestedShares for controller C:
-historicalCost = floor(requestedShares * C.accumulatorCostBasis / C.accumulatorShares)
-C.accumulatorShares -= requestedShares
-C.accumulatorCostBasis -= historicalCost
-// Must not underflow: requestedShares <= C.accumulatorShares
+// Multiple requests: weighted average prevents PPS manipulation
+if (existingPending > 0) {
+    avgPPS = (existingShares * oldPPS + newShares * currentPPS) / totalShares
+}
+// First request: baseline PPS for slippage protection
+else {
+    avgPPS = currentPPS
+}
+```
+
+**Fulfillment Validation:**
+```solidity
+// Manager must fulfill within slippage bounds
+minAssets = computeMinNetOut(shares, avgRequestPPS, slippageBps, PRECISION)
+theoreticalAssets = shares * currentPPS / PRECISION
+require(totalAssetsOut >= minAssets && totalAssetsOut <= theoreticalAssets)
 ```
 
 ### Fee Correctness Properties
 
-**Fee Calculation Invariants:**
-- **Profit-Only Fees**: Performance fees only charged on positive returns
-- **Fee Bounds**: All fees respect configured bounds (0 ≤ fee ≤ BPS_PRECISION)
-- **Recipient Validation**: Fee recipients must be non-zero addresses when fees > 0
-- **Rounding Direction**: Fee calculations use ceiling for protocol benefit
+**Management Fee (Entry Fee):**
+```solidity
+// Charged on deposits/mints as asset-side fee before share calculation
+feeBps = feeConfig.managementFeeBps  // Max: 100% (10000 BPS)
+feeAssets = ceil(assetsGross * feeBps / BPS_PRECISION)
+assetsNet = assetsGross - feeAssets
+sharesNet = floor(assetsNet * PRECISION / currentPPS)
+```
+
+**Performance Fee (PPS-Based High Water Mark):**
+```solidity
+// Global vault HWM tracking
+vaultHwmPps  // Initialized to 1.0 (PRECISION), updated only on skim/fee config changes
+
+// Skim calculation (only when currentPPS > vaultHwmPps)
+ppsGrowth = currentPPS - vaultHwmPps
+profit = floor(ppsGrowth * totalSupply / PRECISION)
+fee = ceil(profit * performanceFeeBps / BPS_PRECISION)  // Max: 51% (5100 BPS)
+
+// Fee split between Superform treasury and strategy recipient
+sfFee = floor(fee * PERFORMANCE_FEE_SHARE / BPS_PRECISION)
+recipientFee = fee - sfFee
+
+// PPS reduction after fee extraction
+ppsReduction = floor(fee * PRECISION / totalSupply)
+newPPS = currentPPS - ppsReduction
+vaultHwmPps = newPPS  // Update HWM to post-fee PPS
+```
+
+**Fee Invariants:**
+- **Profit-Only Fees**: Performance fees only charged when `currentPPS > vaultHwmPps`
+- **Fee Bounds**: Management ≤ 100%, Performance ≤ 51% (MAX_PERFORMANCE_FEE)
+- **Recipient Validation**: Fee recipients must be non-zero when fees > 0
+- **Rounding Direction**: Fees use ceiling (favor protocol), shares use floor (favor vault)
+- **PPS Consistency**: HWM reset on fee config changes prevents incorrect calculations
 
 **Skim Operation Security:**
-- **12-Hour Post-Unpause Constraint**: `skim()` cannot execute within 12 hours after unpause
+- **12-Hour Post-Unpause Timelock**: `skimPerformanceFee()` blocked for `POST_UNPAUSE_SKIM_TIMELOCK` after unpause
 - **Rationale**: Prevents manager exploitation of potentially aberrant PPS after catastrophic events
-- **Design**: Decoupling skim from PPS updates enables this critical safety check
+- **Mechanism**: Fee extraction reduces vault assets → lowers PPS → new HWM set to post-fee PPS
+- **Decoupled Design**: Skim separated from PPS updates enables critical safety check
 - **Defense-in-Depth**: Additional protection layer despite manager being considered trusted
+
+**HWM Lifecycle:**
+1. **Initialization**: Set to 1.0 (PRECISION) at deployment
+2. **Normal Operation**: Only increases via skimPerformanceFee() to post-fee PPS
+3. **Fee Config Change**: Reset to current PPS to avoid incorrect fee calculations with new structure
+4. **Never Decreases**: Except during controlled skim operations
 
 ---
 
@@ -131,21 +225,50 @@ C.accumulatorCostBasis -= historicalCost
 
 **Note:** For comprehensive security properties documentation, see `security_properties.md`
 
+### Batch Processing & Validation
+
+**Batch Constraints:**
+```solidity
+MAX_STRATEGIES = 300  // Maximum strategies per batch
+```
+
+**Batch-Level Validations:**
+- **Sorted Strategies**: Input strategies must be strictly ascending (prevents nonce burning via duplicates)
+- **Array Length Matching**: `strategies.length == proofsArray.length == ppss.length == timestamps.length`
+- **Total Validator Check**: `SUPER_GOVERNOR.getValidatorsCount() > 0`
+- **Quorum Snapshot**: Quorum fetched once at batch start (consistent for all strategies)
+
+**Individual Strategy Processing:**
+```solidity
+// For each strategy in batch:
+1. Validate proofs (quorum, ordering, registry)
+2. On success: Mark as valid, emit PPSValidated
+3. On failure: Mark as invalid, emit ProofValidationFailed, continue to next
+4. Collect valid entries into resized arrays
+5. Forward only valid entries to SuperVaultAggregator
+```
+
+**Graceful Degradation:**
+- Invalid strategies skipped (not reverted) to allow batch to continue
+- Partial batch success possible (some valid, some invalid)
+- Nonce increment only for successfully forwarded strategies
+
 ### Signature Validation Invariants
 
 **Quorum Requirements:**
 ```solidity
 validSignatures >= SUPER_GOVERNOR.getPPSOracleQuorum()
-validatorSet == proofs.length
-totalValidators == SUPER_GOVERNOR.getValidators().length
+validatorSet == proofs.length  // Per-strategy validator count
+totalValidators == SUPER_GOVERNOR.getValidatorsCount()  // Network-wide
 ```
 
-**Signature Ordering:**
-- **Ascending Order**: Signer addresses must be in strictly ascending order
-- **No Duplicates**: `signer > lastSigner` enforced for each proof
-- **Validator Registry**: Each signer must be registered in `SUPER_GOVERNOR.isValidator(signer)`
+**Signature Ordering (Duplicate Prevention):**
+- **Ascending Order**: Signer addresses must be strictly ascending (`signer > lastSigner`)
+- **Reverts on Duplicate**: `signer <= lastSigner` triggers `INVALID_PROOF()`
+- **Validator Registry**: Each signer must be registered via `SUPER_GOVERNOR.isValidator(signer)`
+- **Per-Signature Check**: Every signature recovered and validated individually
 
-**Message Integrity (EIP-712):**
+**EIP-712 Message Integrity:**
 ```solidity
 // UPDATE_PPS_TYPEHASH: "UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)"
 digest = _hashTypedDataV4(
@@ -155,48 +278,94 @@ digest = _hashTypedDataV4(
             strategy,
             pps,
             timestamp,
-            noncePerStrategy[strategy]  // Per-strategy nonce
+            noncePerStrategy[strategy]  // Binds signature to current nonce
         )
     )
 )
+// Each validator signs: ECDSA(digest, privateKey)
+// Recovery: signer = ECDSA.recover(digest, signature)
 ```
+
+**Domain Separation:**
+- EIP-712 domain includes: name (e.g., "SuperformOraclePPS"), version (e.g., "1"), chainId, verifyingContract
+- Domain separator MUST match between on-chain and off-chain signing
+- Domain parameters immutable after deployment
 
 ### Oracle State Management
 
-**Per-Strategy Nonce Model:**
-- **Independent Nonces**: Each strategy maintains its own nonce counter
-- **Increment Timing**: Nonce increments ONLY after successful `forwardPPS()` (try block succeeds)
-- **Replay Protection**: Same nonce cannot be used twice for the same strategy
-- **Retry Capability**: On external failures (reverts), nonce remains unchanged allowing retry with same signatures
+**Per-Strategy Nonce Model (Property 1 & 2):**
+```solidity
+mapping(address strategy => uint256 nonce) public noncePerStrategy;
 
-**Nonce Burning Strategy:**
-- **Business Logic Rejections**: When `forwardPPS()` returns normally (via `return` or `continue`), nonces increment
-- **Intentional Design**: Burns signatures for fundamentally invalid data (prevents replay of invalid signatures)
-- **Batch Protection**: Prevents DoS of entire batch when one strategy has invalid data
+// Nonce increment logic:
+try SuperVaultAggregator.forwardPPS(...) {
+    // SUCCESS PATH: forwardPPS() returned normally (no revert)
+    for (each valid strategy) {
+        noncePerStrategy[strategy]++;  // Increment even for business logic rejections
+    }
+} catch {
+    // FAILURE PATH: forwardPPS() reverted (contract error)
+    // Nonces unchanged - retry possible with same signatures
+}
+```
+
+**Nonce Increment Conditions (Property 2):**
+
+*Increments (signature burned):*
+1. ✓ Legitimate PPS updates accepted and stored
+2. ✓ Business logic rejections using `return` or `continue` (rate limits, deviation, insufficient upkeep, pause, staleness)
+3. ✓ Any scenario where `forwardPPS()` completes without revert
+
+*Preserved (retry allowed):*
+1. ✗ Contract reverts (system errors)
+2. ✗ Out of gas conditions
+3. ✗ Network/RPC failures
+4. ✗ Any scenario where `forwardPPS()` reverts (catch blocks)
+
+**Nonce Burning Rationale:**
+- **Prevents Replay**: Invalid data cannot be retried with same signatures
+- **Batch Continuity**: Failed strategy validation doesn't halt entire batch
+- **Intentional Design**: Forces validators to re-sign after business logic changes (e.g., unpause, upkeep deposit)
 
 **Active Oracle Validation:**
-- **Authorization Check**: Only active PPS oracle can submit updates
-- **Single Source**: `SUPER_GOVERNOR.isActivePPSOracle(address(this))` must be true
+- **Authorization Check**: SuperVaultAggregator verifies `SUPER_GOVERNOR.isActivePPSOracle(oracle)` before accepting updates
+- **Single Source**: Only one active oracle can submit updates at a time
+- **Oracle Rotation**: Governance can change active oracle via SuperGovernor
 
 ---
 
 ## SuperBank & Hook Execution Security
 
-### Hook Validation Properties
+### Hook Validation Properties (Bank.sol Pattern)
 
-**Merkle Proof Requirements:**
+**Merkle Leaf Structure:**
 ```solidity
-// For each execution step with target != hookAddress:
-targetLeaf = keccak256(bytes.concat(keccak256(abi.encodePacked(executionStep.target))))
-MerkleProof.verify(merkleProof, merkleRoot, targetLeaf) == true
+// Hook configuration validation via inspect method
+hookArgs = ISuperHookInspector(hookAddress).inspect(hookData)  // Extract hook arguments
+leaf = keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))))
+require(MerkleProof.verify(proof, merkleRoot, leaf))
 ```
 
-**Hook Execution Flow:**
-1. **Context Setting**: `hook.setExecutionContext(address(this))`
-2. **Build Phase**: `executions = hook.build(prevHook, address(this), hookData)`
-3. **Validation**: Each target verified against Merkle root
-4. **Execution**: Calls executed with proper value and calldata
+**Validation Requirements:**
+- **inspect() Method**: Hooks must implement `ISuperHookInspector.inspect()` to extract configuration arguments
+- **Configuration-Level**: Validates entire hook configuration (hookAddress + hookArgs from inspect)
+- **Unified Pattern**: SuperBank and SuperVaultStrategy use identical validation logic via Bank.sol base contract
+- **Single-Leaf Trees**: Empty proof array valid when `merkleRoot == leaf`
+- **Non-Empty Arguments**: Hooks with empty inspect() results are rejected
+
+**Hook Execution Flow (5 Phases):**
+1. **Registration Check**: Verify hook is registered in SuperGovernor
+2. **Configuration Validation**: Validate hook configuration via Merkle proof against governance-controlled root
+3. **Context Setting**: `hook.setExecutionContext(address(this))`
+4. **Build & Execute**: `executions = hook.build(prevHook, address(this), hookData)` → execute all steps with unlimited gas (hooks are trusted)
 5. **Cleanup**: `hook.resetExecutionState(address(this))`
+
+**Security Properties:**
+- **Governance Control**: Merkle root managed by SuperGovernor with 7-day timelock
+- **Hook Registration**: Only registered hooks can execute
+- **Configuration Immutability**: Once validated against Merkle tree, hookArgs define allowed operations
+- **Unlimited Gas**: Hooks execute with all available gas (acceptable since hooks are governance-approved)
+- **Atomic Execution**: Any step failure reverts entire hook execution
 
 ### Revenue Distribution Invariants
 
@@ -288,11 +457,23 @@ EMERGENCY_WITHDRAWAL_TIMELOCK = 7 days // Emergency mode activation
 
 ### Escrow ↔ Vault Integration
 
-**Share Custody:**
+**Share Custody (Request → Fulfill/Cancel):**
 - **Approval Mechanism**: Vault approves escrow for share transfers
-- **Custody Transfer**: `escrowShares()` moves shares from user to escrow
-- **Return Mechanism**: `returnShares()` moves shares back to user
-- **Burn Authorization**: Only strategy can trigger share burns from escrow
+- **Escrow Transfer**: `escrowShares()` moves shares from user to escrow during `requestRedeem()`
+- **Return Mechanism**: `returnShares()` returns shares to user during cancellation claim
+- **Burn Authorization**: Only strategy (via vault) can trigger `burnShares()` from escrow during fulfillment
+
+**Asset Custody (Fulfill → Claim):**
+- **Asset Storage**: Escrow holds assets after fulfillment until user claims
+- **Asset Transfer**: Strategy transfers fulfilled assets to escrow during `fulfillRedeemRequests()`
+- **Asset Return**: `returnAssets()` sends assets to receiver during `withdraw()`/`redeem()` claim
+
+**State Invariants:**
+```solidity
+// During redemption lifecycle:
+escrowShareBalance >= Σ(pendingRedeemRequest + claimableCancelRedeemRequest)
+escrowAssetBalance >= Σ(maxWithdraw)
+```
 
 ---
 
@@ -318,15 +499,27 @@ EMERGENCY_WITHDRAWAL_TIMELOCK = 7 days // Emergency mode activation
 
 ### Hook Execution Risks
 
-**Malicious Hooks:**
-- **Merkle Root Veto**: Guardian can veto malicious hook roots
-- **Target Validation**: All execution targets must be in approved Merkle tree
-- **Execution Context**: Hooks cannot escape their execution context
+**Malicious Hook Configurations:**
+- **Merkle Root Veto**: Guardian can veto malicious hook roots (both global and strategy-specific)
+- **Configuration Validation**: Entire hook configuration (hookAddress + hookArgs) must be in approved Merkle tree
+- **inspect() Dependency**: Hook configuration extracted via `ISuperHookInspector.inspect()` - if inspect() fails, hook rejected
+- **Empty hookArgs Rejection**: Hooks with no address parameters (empty inspect() result) are rejected
 
-**Hook Ordering:**
-- **Dependency Chain**: Hooks may depend on previous hook state
-- **State Isolation**: Each hook's state properly reset after execution
-- **Failure Handling**: Hook execution failures cause entire transaction revert
+**Execution Context & Isolation:**
+- **Context Binding**: `setExecutionContext(address(this))` binds hook to executor (SuperBank or SuperVaultStrategy)
+- **State Isolation**: Each hook's state reset via `resetExecutionState(address(this))` after execution
+- **Unlimited Gas**: Hooks execute with all available gas (acceptable since hooks are governance-approved and registered)
+- **Atomic Failure**: Any execution step failure reverts entire hook (not just that step)
+
+**Hook Ordering & Dependencies:**
+- **Sequential Execution**: Hooks processed in array order, each can access previous hook via `prevHook` parameter
+- **Dependency Chain**: Later hooks can read state from earlier hooks via `ISuperHookResult(prevHook).getOutAmount()`
+- **Failure Propagation**: First hook failure halts entire hook sequence (atomic batch)
+
+**SuperVaultStrategy-Specific Risks:**
+- **Slippage Protection**: Manager must set `expectedAssetsOrSharesOut` to protect against honest errors
+- **Bypass Risk**: Manager setting `expectedAssetsOrSharesOut = 0` bypasses slippage protection (off-chain enforcement via slashing)
+- **Hook Validation**: Dual Merkle proof system (global root + strategy root) with strategy-level leaf banning
 
 ### Oracle & Validator Risks
 
@@ -434,51 +627,6 @@ See `security_properties.md` for complete analysis of:
 4. Validate staleness configuration prevents both DoS and stale data acceptance
 5. Review economic game theory of validator/manager incentives
 6. Examine nonce management for race conditions or griefing vectors
-
----
-
-## Testing Recommendations
-
-### Invariant Testing Focus Areas
-
-1. **ERC4626 Compliance**: Test deviations from standard due to ERC7540 integration
-2. **Supply Conservation**: Verify total supply accounting across all operations
-3. **Fee Calculation**: Test fee bounds and calculation accuracy
-4. **Access Control**: Verify role-based restrictions are enforced
-5. **Timelock Compliance**: Test premature execution prevention
-6. **Oracle Quorum**: Test insufficient signature scenarios
-7. **Hook Validation**: Test Merkle proof verification edge cases
-8. **Nonce Management**: Test nonce increment timing and replay protection
-9. **PPS Validation**: Test all 14 security properties (see [security_properties.md](security_properties.md))
-10. **Pause State**: Test pause rejection independent of payment settings
-11. **Batch Processing**: Test graceful rejection (return vs revert) for batch continuity
-
-### Negative Testing Scenarios
-
-**Paused State Testing:**
-- **Deposit Blocking**: Verify deposits fail when strategy paused
-- **PPS Update Blocking**: Verify PPS updates rejected when paused (PPSUpdateRejectedStrategyPaused event)
-- **Withdrawal Continuation**: Verify withdrawals continue when paused
-- **Hook Execution**: Test hook execution during various pause states
-- **Payment Independence**: Verify pause check works regardless of payment settings
-
-**Extreme Market Conditions:**
-- **High Volatility**: Test rapid PPS changes and slippage protection
-- **Zero Balances**: Test behavior with zero assets/shares
-- **Maximum Values**: Test behavior at uint256 limits
-
-### Property-Based Testing
-
-**Mathematical Properties:**
-- **Conversion Consistency**: `convertToShares(convertToAssets(x)) ≈ x`
-- **Fee Calculation**: Verify fee deduction accuracy
-- **Accumulator Movement**: Test pro-rata accumulator transfers
-
-**State Transition Properties:**
-- **Redeem Flow**: Request → Cancel/Fulfill state transitions
-- **Share Movement**: Mint → Transfer → Burn lifecycle
-- **PPS Updates**: Oracle (validation + nonce) → Aggregator (multi-layer checks) → Strategy (storage)
-- **Nonce Lifecycle**: Validate → Forward → Success/Revert → Increment/Preserve
 
 ---
 

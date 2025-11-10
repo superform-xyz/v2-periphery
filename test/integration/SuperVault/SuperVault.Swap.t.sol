@@ -25,11 +25,11 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
     using Math for uint256;
 
     address operator = address(0x123);
-    uint256 constant userPrivateKey = 0xA11CE; 
+    uint256 constant userPrivateKey = 0xA11CE;
     address userAddress;
-    
+
     MockOdosRouterV2 public odosRouter;
-    address public odosRouterAddress; 
+    address public odosRouterAddress;
 
     struct MerklHookWithSwapVars {
         uint256 depositAmount;
@@ -55,7 +55,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         uint256 fluidBalanceAfterClaim;
         uint256 aaveBalanceAfterClaim;
     }
-    
+
     struct DepositAndSwapParams {
         uint256 fullAmount;
         address assetToDeposit;
@@ -93,19 +93,18 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         bytes[] argsForProofs;
     }
 
-
     function setUp() public override {
         useLatestFork = true;
 
         super.setUp();
-        userAddress = vm.addr(userPrivateKey); 
+        userAddress = vm.addr(userPrivateKey);
 
         updateTestVaultPredictions();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         useRealOdosRouter = false;
-        
+
         // Setup Odos router based on flag
         if (useRealOdosRouter) {
             odosRouterAddress = CHAIN_1_ODOS_ROUTER;
@@ -113,7 +112,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             odosRouter = new MockOdosRouterV2();
             odosRouterAddress = address(odosRouter);
         }
-        
+
         // Deploy ApproveAndSwapOdosV2Hook with the correct router
         approveAndSwapOdosHookAddressETH = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
         superGovernor.registerHook(approveAndSwapOdosHookAddressETH);
@@ -158,12 +157,18 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         assertEq(asset.balanceOf(address(strategy)), depositAmount, "Wrong strategy balance");
 
         // Allocate the assets to yield sources
-        _depositAndSwapWithCustomRatios(1000e6, address(asset), address(strategy), address(fluidVault), address(aaveVault), 3, 1);
+        _depositAndSwapWithCustomRatios(
+            1000e6, address(asset), address(strategy), address(fluidVault), address(aaveVault), 3, 1
+        );
 
         // Verify allocation state
         assertGt(fluidVault.balanceOf(address(strategy)), 0, "No fluid shares allocated");
         assertGt(aaveVault.balanceOf(address(strategy)), 0, "No aave shares allocated");
-        assertGt(fluidVault.balanceOf(address(strategy)), aaveVault.balanceOf(address(strategy)), "Fluid vault has more shares than aave vault");
+        assertGt(
+            fluidVault.balanceOf(address(strategy)),
+            aaveVault.balanceOf(address(strategy)),
+            "Fluid vault has more shares than aave vault"
+        );
 
         // Verify swap happened
         uint256 balanceOfUsdt = IERC20(CHAIN_1_USDT).balanceOf(address(strategy));
@@ -183,12 +188,13 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
         // Allocate ALL vault funds to only fluidVault (ratio 1:0)
         _depositAndSwapWithCustomRatios(
-        depositAmount, 
-            address(asset), 
-            address(strategy), 
-            address(fluidVault), 
-            address(aaveVault), 
-            1, 1  // 100% to fluid, 0% to aave
+            depositAmount,
+            address(asset),
+            address(strategy),
+            address(fluidVault),
+            address(aaveVault),
+            1,
+            1 // 100% to fluid, 0% to aave
         );
 
         // Verify only fluidVault has allocations
@@ -198,7 +204,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // Verify swap still happened (30% of total)
         uint256 balanceOfUsdt = IERC20(CHAIN_1_USDT).balanceOf(address(strategy));
         assertGt(balanceOfUsdt, 0, "No USDT allocated");
-        
+
         // Verify the amounts are correct
         uint256 expectedSwapAmount = depositAmount * 30 / 100; // 300 USDC worth of USDT
         assertApproxEqRel(balanceOfUsdt, expectedSwapAmount, 0.05e18, "USDT amount should be ~300 USDC equivalent");
@@ -237,7 +243,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         (bytes32[][] memory proofs, bytes32 root,) = _createClaimsTree(users, tokens, amounts);
         // set the tree
         vm.startPrank(CHAIN_1_MERKL_TREE_UPDATER_EOA);
-        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({merkleRoot: root, ipfsHash: ""}));
+        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({ merkleRoot: root, ipfsHash: "" }));
         vm.stopPrank();
         // advance time for the new tree to become active
         vm.warp(block.timestamp + 100 days);
@@ -249,7 +255,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // - claim
         // - deposit usdc
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-        address claimHookAddress =  _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
+        address claimHookAddress = _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
 
         address[] memory hooksAddresses = new address[](3);
         bytes[] memory hooksData = new bytes[](3);
@@ -259,12 +265,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         hooksAddresses[1] = depositHookAddress;
         hooksAddresses[2] = depositHookAddress;
 
-
-        hooksData[0] = _createMerklClaimRewardHookData(
-            tokens,
-            amounts,
-            proofs
-        );
+        hooksData[0] = _createMerklClaimRewardHookData(tokens, amounts, proofs);
         hooksData[1] = _createApproveAndDeposit4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
             address(fluidVault),
@@ -284,11 +285,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             0
         );
 
-
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -340,7 +338,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         (vars.proofs, vars.root, vars.leaves) = _createClaimsTree(vars.users, vars.tokens, vars.amounts);
         // set the tree
         vm.startPrank(CHAIN_1_MERKL_TREE_UPDATER_EOA);
-        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({merkleRoot: vars.root, ipfsHash: ""}));
+        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({ merkleRoot: vars.root, ipfsHash: "" }));
         vm.stopPrank();
         // advance time for the new tree to become active
         vm.warp(block.timestamp + 100 days);
@@ -348,12 +346,12 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // deal some tokens
         deal(address(CHAIN_1_USDT), address(MERKL_DISTRIBUTOR), 10e6);
 
-         // execute hooks
+        // execute hooks
         // - claim
         // - swap
         // - deposit usdc
         vars.depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-        vars.claimHookAddress =  _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
+        vars.claimHookAddress = _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
 
         vars.hooksAddresses = new address[](4);
         vars.hooksData = new bytes[](4);
@@ -364,13 +362,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         vars.hooksAddresses[2] = vars.depositHookAddress;
         vars.hooksAddresses[3] = vars.depositHookAddress;
 
-
         // -- claim
-        vars.hooksData[0] = _createMerklClaimRewardHookData(
-            vars.tokens,
-            vars.amounts,
-            vars.proofs
-        );
+        vars.hooksData[0] = _createMerklClaimRewardHookData(vars.tokens, vars.amounts, vars.proofs);
 
         // --swap data
         vars.quoteInputTokens = new QuoteInputToken[](1);
@@ -397,7 +390,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         } else {
             // Mock scenario: deal tokens to mock router and create simplified calldata
             deal(address(asset), address(odosRouter), 10e6);
-            
+
             vars.odosCalldata = _createOdosSwapHookData(
                 address(CHAIN_1_USDT),
                 10e6,
@@ -412,7 +405,6 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             );
         }
         vars.hooksData[1] = vars.odosCalldata;
-
 
         // -- deposit to fluid
         vars.hooksData[2] = _createApproveAndDeposit4626HookData(
@@ -436,11 +428,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             0
         );
 
-
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -492,7 +481,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         (bytes32[][] memory proofs, bytes32 root,) = _createClaimsTree(users, tokens, amounts);
         // set the tree
         vm.startPrank(CHAIN_1_MERKL_TREE_UPDATER_EOA);
-        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({merkleRoot: root, ipfsHash: ""}));
+        IDistributor(MERKL_DISTRIBUTOR).updateTree(IDistributor.MerkleTree({ merkleRoot: root, ipfsHash: "" }));
         vm.stopPrank();
         // advance time for the new tree to become active
         vm.warp(block.timestamp + 100 days);
@@ -504,7 +493,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // - claim
         // - deposit usdc
         address depositHookAddress = _getHookAddress(ETH, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
-        address claimHookAddress =  _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
+        address claimHookAddress = _getHookAddress(ETH, MERKL_CLAIM_REWARD_HOOK_KEY);
 
         address[] memory hooksAddresses = new address[](2);
         bytes[] memory hooksData = new bytes[](2);
@@ -513,11 +502,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         hooksAddresses[0] = claimHookAddress;
         hooksAddresses[1] = depositHookAddress;
 
-        hooksData[0] = _createMerklClaimRewardHookData(
-            tokens,
-            amounts,
-            proofs
-        );
+        hooksData[0] = _createMerklClaimRewardHookData(tokens, amounts, proofs);
         hooksData[1] = _createApproveAndDeposit4626HookData(
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), address(this)),
             address(fluidVault),
@@ -528,11 +513,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             0
         );
 
-
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -547,19 +529,29 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             })
         );
         vm.stopPrank();
-
     }
 
     /*//////////////////////////////////////////////////////////////
                        PRIVATE
     //////////////////////////////////////////////////////////////*/
-    function _depositAndSwapWithCustomRatios(uint256 fullAmount, address assetToDeposit, address strat, address vault1, address vault2, uint256 ratio1, uint256 ratio2) private {
+    function _depositAndSwapWithCustomRatios(
+        uint256 fullAmount,
+        address assetToDeposit,
+        address strat,
+        address vault1,
+        address vault2,
+        uint256 ratio1,
+        uint256 ratio2
+    )
+        private
+    {
         RatioCalculationVars memory ratioVars;
         ratioVars.totalRatio = ratio1 + ratio2;
         ratioVars.vaultAllocation = fullAmount * 70 / 100; // Reserve 70% for vaults, 30% for swap
         ratioVars.vault1Amount = ratioVars.vaultAllocation * ratio1 / ratioVars.totalRatio;
         ratioVars.vault2Amount = ratioVars.vaultAllocation * ratio2 / ratioVars.totalRatio;
-        ratioVars.yieldSourceOracleId = _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
+        ratioVars.yieldSourceOracleId =
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -580,11 +572,11 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             expectedAssetsOrSharesOut: new uint256[](3),
             argsForProofs: new bytes[](3)
         });
-        
+
         arrays.executeHookAddresses[0] = params.depositHookAddress;
         arrays.executeHookAddresses[1] = params.depositHookAddress;
         arrays.executeHookAddresses[2] = params.approveAndSwapOdos;
-        
+
         arrays.executeHooksData[0] = _createApproveAndDeposit4626HookData(
             ratioVars.yieldSourceOracleId,
             params.vault1,
@@ -606,43 +598,55 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         );
 
         _processSwapData(params, arrays);
-        
+
         arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
-            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3/1e5;
+            arrays.expectedAssetsOrSharesOut[i] =
+                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
         }
-        
-        arrays.argsForProofs[0] = ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
-        arrays.argsForProofs[1] = ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
-        arrays.argsForProofs[2] = ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
+
+        arrays.argsForProofs[0] =
+            ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
+        arrays.argsForProofs[1] =
+            ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
+        arrays.argsForProofs[2] =
+            ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
-        ISuperVaultStrategy(payable(params.strat)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: arrays.executeHookAddresses,
-                hookCalldata: arrays.executeHooksData,
-                expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
-                globalProofs: new bytes32[][](3),
-                strategyProofs: new bytes32[][](3)
-            })
-        );
+        ISuperVaultStrategy(payable(params.strat))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: arrays.executeHookAddresses,
+                    hookCalldata: arrays.executeHooksData,
+                    expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
+                    globalProofs: new bytes32[][](3),
+                    strategyProofs: new bytes32[][](3)
+                })
+            );
         vm.stopPrank();
     }
 
-    function _depositAndSwap(uint256 fullAmount, address assetToDeposit, address strat, address vault1, address vault2) private {
+    function _depositAndSwap(
+        uint256 fullAmount,
+        address assetToDeposit,
+        address strat,
+        address vault1,
+        address vault2
+    )
+        private
+    {
         RatioCalculationVars memory ratioVars;
         ratioVars.vaultAllocation = fullAmount / 2;
         ratioVars.vault1Amount = ratioVars.vaultAllocation / 2;
         ratioVars.vault2Amount = ratioVars.vaultAllocation - ratioVars.vault1Amount;
-        ratioVars.yieldSourceOracleId = _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
+        ratioVars.yieldSourceOracleId =
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -663,11 +667,11 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             expectedAssetsOrSharesOut: new uint256[](3),
             argsForProofs: new bytes[](3)
         });
-        
+
         arrays.executeHookAddresses[0] = params.depositHookAddress;
         arrays.executeHookAddresses[1] = params.depositHookAddress;
         arrays.executeHookAddresses[2] = params.approveAndSwapOdos;
-        
+
         arrays.executeHooksData[0] = _createApproveAndDeposit4626HookData(
             ratioVars.yieldSourceOracleId,
             params.vault1,
@@ -689,47 +693,52 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         );
 
         _processSwapData(params, arrays);
-        
+
         arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
-            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3/1e5;
+            arrays.expectedAssetsOrSharesOut[i] =
+                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
         }
 
-        arrays.argsForProofs[0] = ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
-        arrays.argsForProofs[1] = ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
-        arrays.argsForProofs[2] = ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
+        arrays.argsForProofs[0] =
+            ISuperHookInspector(arrays.executeHookAddresses[0]).inspect(arrays.executeHooksData[0]);
+        arrays.argsForProofs[1] =
+            ISuperHookInspector(arrays.executeHookAddresses[1]).inspect(arrays.executeHooksData[1]);
+        arrays.argsForProofs[2] =
+            ISuperHookInspector(arrays.executeHookAddresses[2]).inspect(arrays.executeHooksData[2]);
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
-        ISuperVaultStrategy(payable(params.strat)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: arrays.executeHookAddresses,
-                hookCalldata: arrays.executeHooksData,
-                expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
-                globalProofs: new bytes32[][](3),
-                strategyProofs: new bytes32[][](3)
-            })
-        );
+        ISuperVaultStrategy(payable(params.strat))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: arrays.executeHookAddresses,
+                    hookCalldata: arrays.executeHooksData,
+                    expectedAssetsOrSharesOut: arrays.expectedAssetsOrSharesOut,
+                    globalProofs: new bytes32[][](3),
+                    strategyProofs: new bytes32[][](3)
+                })
+            );
         vm.stopPrank();
     }
 
     function _processSwapData(DepositAndSwapParams memory params, ExecutionArrays memory arrays) private {
         SwapProcessingVars memory swapVars;
-        
+
         swapVars.quoteInputTokens = new QuoteInputToken[](1);
-        swapVars.quoteInputTokens[0] = QuoteInputToken({ tokenAddress: params.assetToDeposit, amount: params.swapAmount });
+        swapVars.quoteInputTokens[0] =
+            QuoteInputToken({ tokenAddress: params.assetToDeposit, amount: params.swapAmount });
         swapVars.quoteOutputTokens = new QuoteOutputToken[](1);
         swapVars.quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: CHAIN_1_USDT, proportion: 1 });
 
         if (useRealOdosRouter) {
-            swapVars.path = surlCallQuoteV2(swapVars.quoteInputTokens, swapVars.quoteOutputTokens, params.strat, ETH, true);
+            swapVars.path =
+                surlCallQuoteV2(swapVars.quoteInputTokens, swapVars.quoteOutputTokens, params.strat, ETH, true);
             swapVars.requestBody = surlCallAssemble(swapVars.path, params.strat);
 
             swapVars.odosDecodedSwap = decodeOdosSwapCalldata(fromHex(swapVars.requestBody));
@@ -750,7 +759,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         } else {
             // Mock scenario: deal tokens to mock router and create simplified calldata
             deal(CHAIN_1_USDT, address(odosRouter), params.swapAmount);
-            
+
             swapVars.odosCalldata = _createOdosSwapHookData(
                 params.assetToDeposit,
                 params.swapAmount,

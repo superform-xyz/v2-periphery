@@ -170,33 +170,33 @@ contract SuperOracleL2Test is Test {
         // MIN_GRACE_PERIOD_TIME is 600 seconds in SuperOracleL2
         // Test with grace period below minimum (e.g., 599)
         uint256 tooLowGracePeriod = 599;
-        
+
         address[] memory dataOracles = new address[](1);
         address[] memory uptimeOracles = new address[](1);
         uint256[] memory gracePeriods = new uint256[](1);
-        
+
         dataOracles[0] = address(dataFeed);
         uptimeOracles[0] = address(uptimeFeed);
         gracePeriods[0] = tooLowGracePeriod;
-        
+
         bytes memory encodedError = abi.encodeWithSelector(ISuperOracleL2.GRACE_PERIOD_TOO_LOW.selector);
         vm.expectRevert(encodedError);
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
-        
+
         // Test with grace period = 1 (also below minimum)
         gracePeriods[0] = 1;
         vm.expectRevert(encodedError);
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
-        
+
         // Test that grace period = 0 does NOT revert (uses default)
         gracePeriods[0] = 0;
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
-        
+
         // Test that grace period = 600 (MIN) does NOT revert
         gracePeriods[0] = 600;
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
         assertEq(oracle.gracePeriods(address(uptimeFeed)), 600);
-        
+
         // Test that grace period > 600 does NOT revert
         gracePeriods[0] = 601;
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);

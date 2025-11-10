@@ -24,8 +24,6 @@ library SuperVaultAccountingLib {
                         ACCOUNTING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-
-
     /// @notice Compute minimum acceptable assets (slippage floor)
     /// @param requestedShares Number of shares being redeemed
     /// @param averageRequestPPS PPS at time of request (slippage anchor)

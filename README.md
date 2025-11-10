@@ -345,10 +345,6 @@ Executes protocol revenue distribution and hook-based operations under governanc
 - Standard ERC20 tokens only (no fee-on-transfer, no ERC777, no rebasing)
 - These edge cases are explicitly out of scope
 
-**Underlying Yield Sources (Day 1)**:
-- Type 1: ERC4626 vaults (Morpho Markets) - deposit/withdraw + Merkl reward claiming
-- Type 2: PT tokens - buy/sell (pre-maturity) and redeem (post-maturity)
-
 ### Some extra suggested audit Focus Areas
 
 **1. Rounding & Dust Handling**

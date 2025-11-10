@@ -32,7 +32,8 @@ contract MockSuperOracle is IOracle {
     )
         external
         view
-        returns (uint256, uint256, uint256, uint256) {
+        returns (uint256, uint256, uint256, uint256)
+    {
         if (providerRemoved) {
             revert("Provider removed");
         }

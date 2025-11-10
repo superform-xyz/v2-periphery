@@ -52,23 +52,17 @@ contract MockMultiTargetHook is ISuperHookInspector {
 
         // 2. Transfer to recipient1 (EXTERNAL TARGET 1)
         executions[1] = Execution({
-            target: token,
-            value: 0,
-            callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient1, amount)
+            target: token, value: 0, callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient1, amount)
         });
 
         // 3. Transfer to recipient2 (EXTERNAL TARGET 2)
         executions[2] = Execution({
-            target: token,
-            value: 0,
-            callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient2, amount)
+            target: token, value: 0, callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient2, amount)
         });
 
         // 4. Transfer to recipient3 (EXTERNAL TARGET 3)
         executions[3] = Execution({
-            target: token,
-            value: 0,
-            callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient3, amount)
+            target: token, value: 0, callData: abi.encodeWithSelector(IERC20.transfer.selector, recipient3, amount)
         });
 
         // 5. PostExecute call to self

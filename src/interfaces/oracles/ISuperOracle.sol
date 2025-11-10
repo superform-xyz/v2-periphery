@@ -65,7 +65,7 @@ interface ISuperOracle {
     /// @notice Error when oracle decimals call fails
     error ORACLE_DECIMALS_CALL_FAIL(address oracle);
 
-    /// @notice Error when oracle round data call fails 
+    /// @notice Error when oracle round data call fails
     error ORACLE_ROUND_DATA_CALL_FAIL(address oracle);
 
     /// @notice Error when external call gas is insufficient
