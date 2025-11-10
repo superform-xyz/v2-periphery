@@ -99,19 +99,19 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the approved hook
     event HookApproved(address indexed hook);
 
+    /// @notice Emitted when validator configuration is set
+    /// @param version The version of the configuration
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys (for signature verification)
+    /// @param quorum The quorum required for validator consensus
+    /// @param offchainConfig Offchain configuration data
+    event ValidatorConfigSet(
+        uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig
+    );
+
     /// @notice Emitted when a hook is removed
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
-
-    /// @notice Emitted when a validator is registered
-    /// @param validator The address of the registered validator
-    /// @param blockNumber The block number when the validator was added
-    event ValidatorAdded(address indexed validator, uint256 blockNumber);
-
-    /// @notice Emitted when a validator is removed
-    /// @param validator The address of the removed validator
-    /// @param blockNumber The block number when the validator was removed
-    event ValidatorRemoved(address indexed validator, uint256 blockNumber);
 
     /// @notice Emitted when a new fee is proposed
     /// @param feeType The type of fee being proposed
@@ -248,7 +248,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Sets the maximum staleness periods for multiple oracle feeds in batch
     /// @param feeds The addresses of the feeds to set staleness for
     /// @param newMaxStalenessList The new maximum staleness periods in seconds
-    function setOracleFeedMaxStalenessBatch(address[] calldata feeds, uint256[] calldata newMaxStalenessList) external;
+    function setOracleFeedMaxStalenessBatch(
+        address[] calldata feeds,
+        uint256[] calldata newMaxStalenessList
+    )
+        external;
 
     /// @notice Queues an oracle update for execution after timelock period
     /// @param bases Base asset addresses
@@ -312,21 +316,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Removes an executor from the approved list
     /// @param executor The address of the executor to remove
     function removeExecutor(address executor) external;
-
-    /*//////////////////////////////////////////////////////////////
-                      VALIDATOR MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @notice Adds a validator to the approved list
-    /// @param validator The address of the validator to add
-    function addValidator(address validator) external;
-
-    /// @notice Removes a validator from the approved list
-    /// @param validator The address of the validator to remove
-    function removeValidator(address validator) external;
-
-    /// @notice Gets the latest validator config block number
-    /// @return The block number when validators were last added/removed
-    function getValidatorConfigVersion() external view returns (uint256);
 
     /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
