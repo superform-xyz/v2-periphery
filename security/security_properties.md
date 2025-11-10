@@ -27,7 +27,7 @@ This document describes all security properties enforced by the PPS oracle and a
 1. **ECDSAPPSOracle._validateProofs()** → Property 1
 2. **ECDSAPPSOracle._forwardValidEntries()** → Properties 2-3
 3. **SuperVaultAggregator.forwardPPS()** → Properties 4-6
-4. **SuperVaultAggregator._forwardPPS()** → Properties 7-12
+4. **SuperVaultAggregator._forwardPPS()** → Properties 7-11
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -52,8 +52,7 @@ This document describes all security properties enforced by the PPS oracle and a
 │ Property 8: Post-Unpause Timestamp Validation              │
 │ Property 9: Rate Limit Enforcement                         │
 │ Property 10: Deviation Threshold                           │
-│ Property 11: M/N Threshold Validation                      │
-│ Property 12: Upkeep Balance Check                          │
+│ Property 11: Upkeep Balance Check                          │
 ├─────────────────────────────────────────────────────────────┤
 │               Success: Store PPS                            │
 ├─────────────────────────────────────────────────────────────┤
@@ -338,32 +337,7 @@ if (checksFailed && !_strategyData[args.strategy].isPaused) {
 
 ---
 
-### Property 11: M/N Threshold Validation (C2 Check)
-
-**Formal Specification:**
-```
-∀ PPS update with M validators signed out of N total:
-  M/N < mnThreshold → check fails → auto-pause
-  M/N ≥ mnThreshold → check passes
-```
-
-**Implementation:** `_forwardPPS()` line 1255-1267  
-**Location:** `src/SuperVault/SuperVaultAggregator.sol`  
-**Status:** ✓ Verified
-
-**Purpose:** Ensures sufficient validator participation. Low participation may indicate consensus issues. Auto-pauses strategy and marks PPS stale on failure.
-
-**Participation Calculation:**
-```solidity
-uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
-if (participationRate < _strategyData[args.strategy].mnThreshold) {
-    checksFailed = true;
-}
-```
-
----
-
-### Property 12: Upkeep Balance Check
+### Property 11: Upkeep Balance Check
 
 **Formal Specification:**
 ```
@@ -372,7 +346,7 @@ if (participationRate < _strategyData[args.strategy].mnThreshold) {
   managerBalance ≥ upkeepCost → accepted, cost deducted
 ```
 
-**Implementation:** `_forwardPPS()` line 1277-1292  
+**Implementation:** `_forwardPPS()` line 1282-1297  
 **Location:** `src/SuperVault/SuperVaultAggregator.sol`  
 **Status:** ✓ Verified
 

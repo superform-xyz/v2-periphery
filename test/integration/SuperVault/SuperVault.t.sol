@@ -7805,11 +7805,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Arrange: Set a strict deviation threshold to trigger pause (5% = 0.05 * 1e18)
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            0.05e18, // deviationThreshold (5%)
-            type(uint256).max // mnThreshold (disabled)
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), 0.05e18); // deviationThreshold (5%)
 
         // Get the current PPS to calculate a deviation that will trigger pause
         uint256 currentPPS = aggregator.getPPS(address(testStrategy));
@@ -7850,11 +7846,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Arrange: Set a strict deviation threshold to trigger pause (5% = 0.05 * 1e18)
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            0.05e18, // deviationThreshold (5%)
-            type(uint256).max // mnThreshold (disabled)
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), 0.05e18); // deviationThreshold (5%)
 
         // Get the current PPS to calculate a deviation that will trigger pause
         uint256 currentPPS = aggregator.getPPS(address(testStrategy));
@@ -7914,11 +7906,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Set strict deviation threshold to trigger pause (5%)
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            0.05e18, // deviationThreshold (5%)
-            type(uint256).max // mnThreshold (disabled)
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), 0.05e18); // deviationThreshold (5%)
 
         // Calculate a PPS that deviates by 10% to trigger pause
         uint256 currentPPS = aggregator.getPPS(address(testStrategy));
@@ -8037,11 +8025,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Reset deviation threshold to permissive value to avoid re-triggering pause
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            type(uint256).max, // deviationThreshold (disabled)
-            0 // mnThreshold (0 = disabled, max would cause check to fail)
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), type(uint256).max); // deviationThreshold (disabled)
 
         // Update PPS to clear the stale flag
         vm.warp(block.timestamp + 10);
@@ -9133,11 +9117,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Set strict deviation threshold (5% = 0.05 * 1e18)
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            0.05e18, // deviationThreshold: 5% max deviation
-            type(uint256).max // mnThreshold (disabled)
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), 0.05e18); // deviationThreshold: 5% max deviation
 
         // Get current PPS and create extreme deviation (50% drop)
         vars.currentPPS = aggregator.getPPS(address(testStrategy));
@@ -9318,11 +9298,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Update thresholds to disable deviation and validator participation checks
         // This allows emergency PPS update to restore the strategy to a known state
         vm.prank(MANAGER);
-        aggregator.updatePPSVerificationThresholds(
-            address(testStrategy),
-            type(uint256).max, // deviationThreshold: disabled
-            0 // mnThreshold: disabled
-        );
+        aggregator.updateDeviationThreshold(address(testStrategy), type(uint256).max); // deviationThreshold: disabled
 
         // deal some assets as a donation to allow PPS updates
         deal(address(asset), address(testVault), 100e6);
