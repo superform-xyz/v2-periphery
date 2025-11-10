@@ -216,7 +216,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[1] = new bytes32[](1);
 
         IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs });
 
         vm.expectRevert(Bank.INVALID_ARRAY_LENGTH.selector);
         superBank.executeHooks(executionData);
@@ -295,7 +295,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](0); // Empty proof for single-leaf tree
 
         IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data,  expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs });
 
         vm.mockCall(
             address(superGovernor),
@@ -760,7 +760,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](0);
 
         IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs });
 
         // Mock a valid Merkle root (doesn't matter, will fail on empty args first)
         vm.mockCall(

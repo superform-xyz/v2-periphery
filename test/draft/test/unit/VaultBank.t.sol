@@ -1269,7 +1269,7 @@ contract VaultBankTest is PeripheryHelpers {
         merkleProofs[0] = new bytes32[](0);
 
         IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs });
 
         vm.mockCall(
             address(superRegistry),
