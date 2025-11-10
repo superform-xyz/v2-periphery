@@ -329,15 +329,20 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
 
-        // Set PPS Oracle quorum to 1
-        SuperGovernor(peripheryContracts.superGovernor).setPPSOracleQuorum(1);
-        console2.log("Set PPS Oracle quorum to: 1");
-
-        // Add all configured validators
+        // Set validator configuration with quorum of 1
+        bytes[] memory validatorPublicKeys = new bytes[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
-            SuperGovernor(peripheryContracts.superGovernor).addValidator(validators[i]);
-            console2.log("Added validator:", validators[i]);
+            validatorPublicKeys[i] = ""; // Empty public keys for now
         }
+
+        SuperGovernor(peripheryContracts.superGovernor).setValidatorConfig(
+            1, // version
+            validators,
+            validatorPublicKeys,
+            1, // quorum
+            "" // offchainConfig
+        );
+        console2.log("Set validator configuration with", validators.length, "validators and quorum of 1");
 
         // Configure SuperGovernor with aggregator
         SuperGovernor(peripheryContracts.superGovernor)
