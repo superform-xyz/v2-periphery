@@ -138,25 +138,25 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // NOTE: incorrect return value in maxRedeem causes the property to break but fundamentally is an issue with the
     // share calculation in maxRedeem because user doesn't end up redeeming more than their max available
     function test_crytic_erc7540_4_redeem_1() public {
-        yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
-
         superVaultStrategy_manageYieldSource_clamped(0);
 
-        superVault_deposit(3);
+        superVault_deposit(3000e6);
 
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 5);
-        superVault_requestRedeem_clamped(2);
+        vm.warp(block.timestamp + 1 days);
+        superVault_requestRedeem_clamped(2000e6);
 
         console2.log("PPS before: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
-        ECDSAPPSOracle_updatePPS_clamped(950_051_690_458_586_526);
+        ECDSAPPSOracle_updatePPS_clamped(9_550_051_690_458_586_526);
         console2.log("PPS after: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
 
         console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
-        superVaultStrategy_fulfillRedeemRequests_clamped(2);
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
 
         console2.log("avg withdraw price after fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
-        crytic_erc7540_4_redeem(1);
+        crytic_erc7540_4_redeem(2000e6);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
