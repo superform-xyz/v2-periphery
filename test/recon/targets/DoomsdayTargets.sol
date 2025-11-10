@@ -122,7 +122,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 3. Fulfill Withdrawal
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) = _createExecuteRedeemArgs(shares);
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemArgs(shares);
 
         uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
 
@@ -316,8 +317,9 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // Since address(this) has SUPER_GOVERNOR_ROLE, this should always succeed
         vm.prank(address(this));
         try superGovernor.changePrimaryManager(strategy, newManager) {
-            // Call succeeded - this is expected behavior
-        } catch (bytes memory err) {
+        // Call succeeded - this is expected behavior
+        }
+        catch (bytes memory err) {
             bool expectedError;
             expectedError = checkError(err, "MANAGER_TAKEOVERS_FROZEN()"); // custom error
             t(!expectedError, "Primary manager should always be changeable if not paused");
@@ -357,7 +359,8 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
             uint256 strategyBalanceAfter = IERC20(asset).balanceOf(address(superVaultStrategy));
 
-            uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+            uint256[] memory totalAssetsOut =
+                calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
 
             superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
         }
@@ -616,7 +619,9 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Helper function to create ExecuteArgs for redeeming from yield strategy
-    function _createExecuteRedeemFromArgs(uint256 /*sharesToRedeem*/)
+    function _createExecuteRedeemFromArgs(
+        uint256 /*sharesToRedeem*/
+    )
         internal
         view
         returns (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers)
@@ -666,7 +671,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         // Use a conservative estimate for expected assets out
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
         expectedAssetsOrSharesOut[0] = actualSharesToRedeem > 0 ? 1 : 0; // Minimum 1 asset expected if redeeming
-            // anything
+        // anything
 
         bytes32[][] memory globalProofs = new bytes32[][](1);
         globalProofs[0] = new bytes32[](0);

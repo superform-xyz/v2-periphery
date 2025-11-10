@@ -329,7 +329,8 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         // Execute the function
         superVaultStrategy_executeHooks(executeArgs);
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
+        uint256[] memory totalAssetsOut =
+            calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
 
         superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
     }
@@ -349,7 +350,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     )
         public
         updateGhostsWithOpType(OpType.FULFILL)
-    {   
+    {
         uint256 summedExpectedAssets;
         for (uint256 i; i < totalAssetsOut.length; i++) {
             summedExpectedAssets += totalAssetsOut[i];
