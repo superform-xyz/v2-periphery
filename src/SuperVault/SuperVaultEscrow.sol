@@ -66,6 +66,7 @@ contract SuperVaultEscrow is ISuperVaultEscrow {
     /// @inheritdoc ISuperVaultEscrow
     function returnAssets(address to, uint256 amount) external onlyVault {
         if (amount == 0) revert ZERO_AMOUNT();
+        if (to == address(0)) revert ZERO_ADDRESS();
         IERC20(IERC4626(vault).asset()).safeTransfer(to, amount);
         emit AssetsReturned(to, amount);
     }
