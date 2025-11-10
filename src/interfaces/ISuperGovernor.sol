@@ -318,6 +318,23 @@ interface ISuperGovernor is IAccessControl {
     function removeExecutor(address executor) external;
 
     /*//////////////////////////////////////////////////////////////
+                        VALIDATOR MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Sets the validator configuration for the protocol
+    /// @param version The version number for the configuration (for cross-chain sync)
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys for signature verification
+    /// @param quorum The number of validators required for consensus
+    /// @param offchainConfig Offchain configuration data (emitted but not stored)
+    function setValidatorConfig(
+        uint256 version,
+        address[] calldata validators,
+        bytes[] calldata validatorPublicKeys,
+        uint256 quorum,
+        bytes calldata offchainConfig
+    ) external;
+
+    /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets the active PPS oracle (only if there is no active oracle yet)
@@ -331,9 +348,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Executes a previously proposed PPS oracle change after timelock has expired
     function executeActivePPSOracleChange() external;
 
-    /// @notice Sets the quorum requirement for the active PPS Oracle
-    /// @param quorum The new quorum value
-    function setPPSOracleQuorum(uint256 quorum) external;
 
     /*//////////////////////////////////////////////////////////////
                       REVENUE SHARE MANAGEMENT

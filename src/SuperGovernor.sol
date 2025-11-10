@@ -488,14 +488,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setPPSOracleQuorum(uint256 quorum) external onlyRole(_GOVERNOR_ROLE) {
-        if (quorum == 0) revert INVALID_QUORUM();
-
-        _validatorConfig.quorum = quorum;
-        emit PPSOracleQuorumUpdated(quorum);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -729,7 +721,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return _registeredHooks.values();
     }
 
-    /// @inheritdoc ISuperGovernor
+    /// @notice Returns the current validator configuration
     function getValidatorConfig()
         external
         view

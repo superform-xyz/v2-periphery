@@ -2592,11 +2592,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Set very low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            1, // Very low deviation threshold (0.000000000000000001%)
-            0 // Keep M/N threshold at 0 (disabled)
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 1); // Very low deviation threshold (0.000000000000000001%)
 
         // Update timestamp to current (valid)
         timestamps[0] = block.timestamp;
@@ -2656,11 +2652,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Set very low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            1, // Very low deviation threshold
-            0 // Keep M/N threshold at 0 (disabled)
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 1); // Very low deviation threshold
 
         // Update timestamp to current (valid)
         timestamps[0] = block.timestamp;
@@ -2683,11 +2675,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // let's do a valid update now
 
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            type(uint256).max, // Keep deviation threshold at max (disabled)
-            0 // Keep M/N threshold at 0 (disabled)
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, type(uint256).max); // Keep deviation threshold at max (disabled)
 
         ppss[0] = 1e18 + 1e15;
         validatorSets[0] = 1;
@@ -3188,11 +3176,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Set low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            1e17, // 10% threshold
-            0
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 1e17); // 10% threshold
 
         // Forward aberrant PPS
         superVaultAggregator.forwardPPS(
@@ -3313,11 +3297,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Set very low deviation threshold
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            1e15, // 0.1% threshold (very strict)
-            0
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 1e15); // 0.1% threshold (very strict)
 
         // Wait for minimum interval
         vm.warp(block.timestamp + 10);
@@ -3426,11 +3406,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Configure M/N threshold (80% participation required)
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            0, // No deviation check
-            8e17 // 80% threshold
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 0); // No deviation check
 
         // Wait for minimum interval
         vm.warp(block.timestamp + 10);
@@ -3486,11 +3462,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Configure strict deviation threshold (1%)
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy,
-            1e16, // 1% threshold
-            0
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, 1e16); // 1% threshold
 
         // Wait for minimum interval
         vm.warp(block.timestamp + 10);
