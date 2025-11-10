@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { Execution, ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
+import { ISuperHook } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 /// @notice Mock SuperHook implementation for testing
-contract MockSuperHook is ISuperHookInspector {
+contract MockSuperHook is BaseHook {
     // Events for testing
     event PreExecuteCalled(address prevHook, address sender, bytes data);
     event PostExecuteCalled(address prevHook, address sender, bytes data);
@@ -14,9 +16,8 @@ contract MockSuperHook is ISuperHookInspector {
     bool public shouldReturnEmptyExecutions;
     address public targetToReturn;
     bytes public callDataToReturn;
-    address public caller;
 
-    constructor(address _targetToReturn) {
+    constructor(address _targetToReturn) BaseHook(ISuperHook.HookType.NONACCOUNTING, keccak256("MockSuperHook")) {
         targetToReturn = _targetToReturn;
         callDataToReturn = abi.encodeWithSignature("execute()");
     }
@@ -33,11 +34,13 @@ contract MockSuperHook is ISuperHookInspector {
         callDataToReturn = _callData;
     }
 
-    function preExecute(address prevHook, address sender, bytes calldata data) external {
-        emit PreExecuteCalled(prevHook, sender, data);
-    }
-
-    function build(address, address, bytes calldata) external view returns (Execution[] memory) {
+    /// @notice Override _buildHookExecutions to provide custom execution logic
+    function _buildHookExecutions(address, address, bytes calldata)
+        internal
+        view
+        override
+        returns (Execution[] memory)
+    {
         if (shouldFailBuild) {
             revert("MockSuperHook: build failed");
         }
@@ -52,20 +55,20 @@ contract MockSuperHook is ISuperHookInspector {
         return executions;
     }
 
-    function postExecute(address prevHook, address sender, bytes calldata data) external {
-        emit PostExecuteCalled(prevHook, sender, data);
-    }
-
-    /// @notice Resets execution state - ONLY callable by executor after accounting
-    function resetExecutionState(address) external { }
-
-    function setExecutionContext(address _caller) external {
-        caller = _caller;
-    }
-
-    /// @notice Inspect implementation - returns the target address as encoded args
-    function inspect(bytes calldata) external view returns (bytes memory) {
-        // Return the target address as the only "argument"
+    /// @notice Override inspect to return the target address
+    function inspect(bytes calldata) external view override returns (bytes memory) {
         return abi.encodePacked(targetToReturn);
+    }
+
+    /// @notice Override _preExecute
+    function _preExecute(address prevHook, address sender, bytes calldata data) internal override {
+        emit PreExecuteCalled(prevHook, sender, data);
+        // Set output amount to 0 for non-accounting mock
+        _setOutAmount(0, sender);
+    }
+
+    /// @notice Override _postExecute
+    function _postExecute(address prevHook, address sender, bytes calldata data) internal override {
+        emit PostExecuteCalled(prevHook, sender, data);
     }
 }

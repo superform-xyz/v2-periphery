@@ -7,7 +7,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 // Superform
 import { IHookExecutionData } from "./interfaces/IHookExecutionData.sol";
-import { ISuperHook, ISuperHookInspector, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import {
+    ISuperHook,
+    ISuperHookInspector,
+    ISuperHookResult,
+    Execution
+} from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 abstract contract Bank is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
@@ -21,6 +26,7 @@ abstract contract Bank is ReentrancyGuard {
     error ZERO_LENGTH_ARRAY();
     error INVALID_ARRAY_LENGTH();
     error ZERO_ADDRESS();
+    error MINIMUM_OUTPUT_AMOUNT_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -51,7 +57,10 @@ abstract contract Bank is ReentrancyGuard {
         if (hooksLength == 0) revert ZERO_LENGTH_ARRAY();
 
         // Validate arrays have matching lengths
-        if (hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length) {
+        if (
+            hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length
+                || hooksLength != executionData.expectedAssetsOrSharesOut.length
+        ) {
             revert INVALID_ARRAY_LENGTH();
         }
 
@@ -64,6 +73,8 @@ abstract contract Bank is ReentrancyGuard {
         Execution[] memory executions;
         Execution memory executionStep;
         bool success;
+        uint256 expectedOutput;
+        uint256 actualOutput;
 
         for (uint256 i; i < hooksLength; i++) {
             hookAddress = executionData.hooks[i];
@@ -73,6 +84,7 @@ abstract contract Bank is ReentrancyGuard {
 
             hookData = executionData.data[i];
             merkleProof = executionData.merkleProofs[i];
+            expectedOutput = executionData.expectedAssetsOrSharesOut[i];
 
             hook = ISuperHook(hookAddress);
 
@@ -126,6 +138,19 @@ abstract contract Bank is ReentrancyGuard {
                 if (!success) {
                     revert HOOK_EXECUTION_FAILED();
                 }
+            }
+
+            // 6.5. VALIDATE OUTPUT AMOUNT (Slippage Protection)
+            // Query the hook for actual output amount
+            actualOutput = ISuperHookResult(hookAddress).getOutAmount(address(this));
+
+            // Validate actual output meets or exceeds expected output
+            // This protects against:
+            // - MEV/front-running attacks
+            // - Operator mistakes with wrong parameters
+            // - Excessive slippage in swaps/conversions
+            if (actualOutput < expectedOutput) {
+                revert MINIMUM_OUTPUT_AMOUNT_NOT_MET();
             }
 
             // 7. Reset execution state after each hook
