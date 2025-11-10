@@ -393,14 +393,12 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /// @inheritdoc IERC4626
     function convertToShares(uint256 assets) public view override returns (uint256) {
         uint256 pps = _getStoredPPS();
-        // Ternary operator more efficient than if/return
         return pps == 0 ? 0 : Math.mulDiv(assets, PRECISION, pps, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IERC4626
     function convertToAssets(uint256 shares) public view override returns (uint256) {
         uint256 currentPPS = _getStoredPPS();
-        // Ternary operator more efficient than if/return
         return currentPPS == 0 ? 0 : Math.mulDiv(shares, currentPPS, PRECISION, Math.Rounding.Floor);
     }
 
