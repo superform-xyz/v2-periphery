@@ -581,25 +581,17 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function updatePPSVerificationThresholds(
-        address strategy,
-        uint256 deviationThreshold_,
-        uint256 mnThreshold_
-    )
-        external
-        validStrategy(strategy)
-    {
+    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external validStrategy(strategy) {
         // Since this is a risky call, we only allow main managers as callers
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Update the thresholds
+        // Update the threshold
         _strategyData[strategy].deviationThreshold = deviationThreshold_;
-        _strategyData[strategy].mnThreshold = mnThreshold_;
 
         // Emit the event
-        emit PPSVerificationThresholdsUpdated(strategy, deviationThreshold_, mnThreshold_);
+        emit DeviationThresholdUpdated(strategy, deviationThreshold_);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -996,13 +988,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function getPPSVerificationThresholds(address strategy)
+    function getDeviationThreshold(address strategy)
         external
         view
         validStrategy(strategy)
-        returns (uint256 deviationThreshold, uint256 mnThreshold)
+        returns (uint256 deviationThreshold)
     {
-        return (_strategyData[strategy].deviationThreshold, _strategyData[strategy].mnThreshold);
+        return _strategyData[strategy].deviationThreshold;
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1207,13 +1199,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                          INTERNAL HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Internal implementation of forwarding PPS updates
-    /// @dev Implements Properties 7-12 from /security/security_properties.md:
+    /// @dev Implements Properties 7-11 from /security/security_properties.md:
     ///      - Property 7: Timestamp Monotonicity (line 1213)
     ///      - Property 8: Post-Unpause Timestamp Validation / C1-RE_ANCHOR (line 1222)
     ///      - Property 9: Rate Limit Enforcement (line 1231)
     ///      - Property 10: Deviation Threshold / C1 Check (line 1242)
-    ///      - Property 11: M/N Threshold Validation / C2 Check (line 1262)
-    ///      - Property 12: Upkeep Balance Check (line 1284)
+    ///      - Property 11: Upkeep Balance Check (line 1284)
     /// @dev Uses 'return' (not 'revert') for business logic rejections to enable batch processing
     /// @dev Auto-pauses strategy and marks PPS stale on validation failures
     /// @param args Struct containing all parameters for PPS update
@@ -1277,20 +1268,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // [Property 11: M/N Threshold Validation (C2 Check)]
-        // Check if sufficient validators participated in signing this PPS update.
-        // Low participation may indicate consensus issues or validator availability problems.
-        // Participation rate = (validators who signed) / (total registered validators).
-        // Failures trigger auto-pause and mark PPS as stale (handled below).
-        if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
-            // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
-            if (participationRate < _strategyData[args.strategy].mnThreshold) {
-                checksFailed = true;
-                emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");
-            }
-        }
-
         // Pause strategy if any check failed and mark PPS as stale
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
@@ -1299,7 +1276,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit StrategyPPSStale(args.strategy);
         }
 
-        // [Property 12: Upkeep Balance Check]
+        // [Property 11: Upkeep Balance Check]
         // Ensure the strategy manager has sufficient upkeep balance to pay for this update.
         // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
         // continued operation without proper oracle funding.

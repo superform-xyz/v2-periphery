@@ -135,13 +135,13 @@ Single source of truth for Price-Per-Share (PPS) updates. Manages managers, depl
 
 **Key Points for Auditors:**
 
-- **PPS Oracle Security (14 Validation Layers)**:
+- **PPS Oracle Security (11 Validation Properties)**:
   - Multi-signature validation via ECDSAPPSOracle (quorum + ordering + registry checks)
-  - Defense-in-depth: timestamp checks, monotonicity, staleness, deviation thresholds, M/N participation
+  - Defense-in-depth: timestamp checks, monotonicity, staleness, deviation thresholds
   - Post-unpause re-anchoring (C1-RE_ANCHOR): prevents replay of pre-pause signatures
   - Graceful degradation: business logic rejections use `return` not `revert` to continue batch processing
   - Nonce burning on rejection: prevents replay of fundamentally invalid data
-  - See `security_properties.md` for complete 14-property analysis
+  - See `security_properties.md` for complete 11-property analysis
 
 - **DoS/Frontrunning Resistance**:
   - Validator pre-flight simulation: only submit transactions that will succeed
@@ -371,7 +371,7 @@ Executes protocol revenue distribution and hook-based operations under governanc
   - Most attacks require privileged access or have medium economic cost
 - **Risk Assessment**: MEDIUM-LOW overall, safe for production
 - **Auditor Focus**: 
-  - Validate all 14 PPS validation layers (see `security_properties.md`)
+  - Validate all 11 PPS validation properties (see `security_properties.md`)
   - Check for new attack vectors in oracle → aggregator → strategy flow
   - Verify staleness/liveness tradeoffs in pause/unpause scenarios
   - Review validator network assumptions for completeness
