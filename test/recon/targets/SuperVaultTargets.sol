@@ -58,6 +58,11 @@ abstract contract SuperVaultTargets is BaseTargetFunctions, Properties {
         vm.prank(_getActor());
         superVault.cancelRedeemRequest(0, _getActor());
 
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
+
+        superVaultStrategy.fulfillCancelRedeemRequests(controllers);
+
         uint256 pendingRedeemRequestsAfter = superVault.pendingRedeemRequest(0, _getActor());
         uint256 averageRequestPPS = superVaultStrategy.getSuperVaultState(_getActor()).averageRequestPPS;
         uint256 balanceAfter = MockERC20(superVault.asset()).balanceOf(_getActor());
