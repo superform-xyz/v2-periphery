@@ -21,6 +21,18 @@ contract MockERC4626YieldSourceOracle is IYieldSourceOracle {
         return IERC4626(yieldSourceAddress).previewDeposit(assetsIn);
     }
 
+    function getWithdrawalShareOutput(
+        address yieldSourceAddress,
+        address,
+        uint256 assetsIn
+    )
+        external
+        view
+        returns (uint256)
+    {
+        return IERC4626(yieldSourceAddress).previewWithdraw(assetsIn);
+    }
+
     function getAssetOutput(address yieldSourceAddress, address, uint256 sharesIn) public view returns (uint256) {
         return IERC4626(yieldSourceAddress).previewRedeem(sharesIn);
     }

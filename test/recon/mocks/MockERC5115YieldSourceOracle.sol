@@ -30,6 +30,20 @@ contract MockERC5115YieldSourceOracle is IYieldSourceOracle {
         return MockERC5115Tester(yieldSourceAddress).previewDeposit(assetIn, assetsIn);
     }
 
+    function getWithdrawalShareOutput(
+        address yieldSourceAddress,
+        address assetIn,
+        uint256 assetsIn
+    )
+        external
+        view
+        returns (uint256)
+    {
+        uint256 assetsPerShare = MockERC5115Tester(yieldSourceAddress).previewRedeem(assetIn, 1e18);
+        if (assetsPerShare == 0) return 0;
+        return Math.mulDiv(assetsIn, 1e18, assetsPerShare, Math.Rounding.Ceil);
+    }
+
     function getAssetOutput(
         address yieldSourceAddress,
         address assetOut,
