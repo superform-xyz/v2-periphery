@@ -8,11 +8,16 @@ import { Panic } from "@recon/Panic.sol";
 import { MockERC20 } from "@recon/MockERC20.sol";
 
 // System dependencies
-import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
 // Test dependencies
+import { MockERC7540Tester } from "test/recon/mocks/MockERC7540Tester.sol";
 import { YieldSourceType } from "test/recon/managers/YieldManager.sol";
+import { IStandardizedYield } from "@superform-v2-core/src/vendor/pendle/IStandardizedYield.sol";
 import { BeforeAfter, OpType } from "../BeforeAfter.sol";
 import { Properties } from "../Properties.sol";
 
@@ -267,72 +272,14 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     function superVaultStrategy_fulfillRedeemRequests_clamped(uint256 redeemAmount) public {
         // Find a controller that has pending redeem requests
         address selectedController = _getActor();
-        uint256 pendingAmount = superVaultStrategy.pendingRedeemRequest(selectedController);
 
         // Clamp using the actor's pending amount
-        uint256 actualRedeemAmount = redeemAmount % (pendingAmount + 1);
+        // uint256 actualRedeemAmount = redeemAmount % (pendingAmount + 1);
 
         address[] memory controllers = new address[](1);
         controllers[0] = selectedController;
 
-        // Determine yield source type from currently active yield source
-        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(_getYieldSource());
-        address redeemHook = _getRedeemHookForType(activeYieldSourceType);
-
-        // Create realistic hook calldata for redeem operation
-        bytes memory redeemHookCalldata;
-
-        if (activeYieldSourceType == YieldSourceType.ERC4626 || activeYieldSourceType == YieldSourceType.ERC5115) {
-            // ERC4626/ERC5115 Layout: bytes32 oracleId, address yieldSource, address owner, uint256 shares, bool
-            // usePrevAmount
-            redeemHookCalldata = abi.encodePacked(
-                bytes32(0), // yieldSourceOracleId placeholder
-                _getYieldSource(), // Current active yield source
-                address(superVaultStrategy), // Owner (strategy owns the yield source shares)
-                actualRedeemAmount, // Amount to redeem (matches controller's pending request)
-                false // Don't use previous hook amount
-            );
-        } else {
-            // ERC7540 Layout: bytes32 oracleId, address yieldSource, uint256 shares, bool usePrevAmount
-            redeemHookCalldata = abi.encodePacked(
-                bytes32(0), // yieldSourceOracleId placeholder
-                _getYieldSource(), // Current active yield source
-                actualRedeemAmount, // Amount to redeem (matches controller's pending request)
-                false // Don't use previous hook amount
-            );
-        }
-
-        // Create arrays for ExecuteArgs
-        address[] memory hooks = new address[](1);
-        hooks[0] = redeemHook;
-
-        bytes[] memory hookCalldata = new bytes[](1);
-        hookCalldata[0] = redeemHookCalldata;
-
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = 1; // Allow max losse amount matching the actual redeem
-
-        bytes32[][] memory globalProofs = new bytes32[][](1);
-        globalProofs[0] = new bytes32[](0); // Empty proof for UnsafeSuperVaultAggregator
-
-        bytes32[][] memory strategyProofs = new bytes32[][](1);
-        strategyProofs[0] = new bytes32[](0); // Empty proof
-
-        // Create the ExecuteArgs struct
-        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
-            hooks: hooks,
-            hookCalldata: hookCalldata,
-            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-            globalProofs: globalProofs,
-            strategyProofs: strategyProofs
-        });
-
-        // Execute the function
-        superVaultStrategy_executeHooks(executeArgs);
-        uint256[] memory totalAssetsOut =
-            calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
-
-        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
+        _executeRedeemFulfillment(redeemAmount, controllers);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -344,19 +291,20 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(
-        address[] memory controllers,
-        uint256[] memory totalAssetsOut
-    )
+    function superVaultStrategy_fulfillRedeemRequests(address[] memory controllers)
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {
-        uint256 assetBalanceBefore = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
-        // no need to prank because called as admin address(this)
-        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
+        uint256 redeemShares;
+        for (uint256 i; i < controllers.length; i++) {
+            redeemShares += superVault.pendingRedeemRequest(0, controllers[i]);
+        }
 
-        uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        _executeRedeemFulfillment(redeemShares, controllers);
+
+        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
     }
@@ -441,5 +389,128 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         }
 
         return false;
+    }
+
+    function _executeRedeemFulfillment(uint256 totalRedeemShares, address[] memory requestingUsers) internal {
+        (uint256 expectedAssetsOut, address hookAddress, bytes memory hookData) =
+            _convertSVStoUnderlyingShares(totalRedeemShares);
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = hookAddress;
+
+        bytes[] memory hooksDataArray = new bytes[](1);
+        hooksDataArray[0] = hookData;
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = expectedAssetsOut;
+
+        bytes[] memory hookCalldata = new bytes[](1);
+        hookCalldata[0] = hookData;
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(hookAddress).inspect(hookData);
+
+        superVaultStrategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooks,
+                hookCalldata: hookCalldata,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        uint256[] memory totalAssetsOut =
+            calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsOrSharesOut);
+
+        // Fulfill the redemption requests from liquidity
+        superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
+        vm.stopPrank();
+    }
+
+    function _convertSVStoUnderlyingShares(uint256 redeemShares)
+        internal
+        view
+        returns (
+            uint256 expectedAssetsOrSharesOut,
+            address hookAddress,
+            bytes memory hookData
+        )
+    {
+        address underlyingVault = _getYieldSource();
+        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(underlyingVault);
+
+        uint256 sharesAsAssetsFromSV = superVault.convertToAssets(redeemShares);
+
+        uint256 underlyingShares;
+        if (activeYieldSourceType == YieldSourceType.ERC4626) {
+            underlyingShares = IERC4626(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
+
+            expectedAssetsOrSharesOut = IERC4626(underlyingVault).previewRedeem(underlyingShares);
+
+            hookAddress = address(redeem4626Hook);
+
+            hookData =
+                abi.encodePacked(bytes32(0), underlyingVault, address(superVaultStrategy), underlyingShares, false);
+        } else if (activeYieldSourceType == YieldSourceType.ERC5115) {
+            uint256 assetsPerShare = IStandardizedYield(underlyingVault).previewRedeem(superVault.asset(), 1e18);
+            underlyingShares = Math.mulDiv(sharesAsAssetsFromSV, 1e18, assetsPerShare, Math.Rounding.Ceil);
+
+            expectedAssetsOrSharesOut =
+                IStandardizedYield(underlyingVault).previewRedeem(superVault.asset(), underlyingShares);
+
+            hookAddress = address(redeem5115Hook);
+
+            hookData =
+                abi.encodePacked(bytes32(0), underlyingVault, address(superVaultStrategy), underlyingShares, false);
+        } else {
+            underlyingShares = MockERC7540Tester(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
+
+            expectedAssetsOrSharesOut = MockERC7540Tester(underlyingVault).previewRedeem(underlyingShares);
+
+            hookAddress = address(redeem7540Hook);
+
+            hookData = abi.encodePacked(bytes32(0), underlyingVault, underlyingShares, false);
+        }
+
+        underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 100);
+    }
+
+    function _truncateToActualBalance(
+        uint256 expectedShares,
+        address underlyingVault,
+        uint256 toleranceBps
+    )
+        internal
+        view
+        returns (uint256 adjustedShares)
+    {
+        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(_getYieldSource());
+
+        address vaultShareToken;
+        if (activeYieldSourceType == YieldSourceType.ERC7540) {
+            vaultShareToken = MockERC7540Tester(_getYieldSource()).share();
+        } else {
+            vaultShareToken = underlyingVault;
+        }
+
+        // For ERC20 tokens (like 7540 share tokens), just check balance directly
+        // For ERC4626 vaults, the vault is also the token
+        uint256 actualBalance = IERC20(vaultShareToken).balanceOf(address(superVaultStrategy));
+        if (actualBalance >= expectedShares) {
+            // Balance is sufficient, no truncation needed
+            return expectedShares;
+        }
+
+        // Calculate minimum acceptable balance based on tolerance
+        uint256 minAcceptableBalance = expectedShares * (10_000 - toleranceBps) / 10_000;
+
+        if (actualBalance < minAcceptableBalance) {
+            revert();
+        }
+
+        // Balance is lower but within tolerance, truncate to actual
+        return actualBalance;
     }
 }

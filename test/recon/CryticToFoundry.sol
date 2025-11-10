@@ -124,10 +124,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         address[] memory controllers = new address[](1);
         controllers[0] = _getActor();
 
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
-        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
-
-        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
+        superVaultStrategy_fulfillRedeemRequests(controllers);
 
         superVault_withdraw(shares);
 
@@ -158,8 +155,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
         address[] memory controllers = new address[](1);
         controllers[0] = _getActor();
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
-        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
+
+        superVaultStrategy_fulfillRedeemRequests(controllers);
 
         console2.log("avg withdraw price after fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
         crytic_erc7540_4_redeem(2000e6);
@@ -235,8 +232,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         controllers[0] = _getActor();
         switchActor(0);
         controllers[1] = _getActor();
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
-        superVaultStrategy_fulfillRedeemRequests(controllers, totalAssetsOut);
+
+        superVaultStrategy_fulfillRedeemRequests(controllers);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;
