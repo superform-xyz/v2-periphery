@@ -78,9 +78,7 @@ contract MockHook is ISuperHook, ISuperHookResult, ISuperHookResultOutflow {
 
         // FIRST: preExecute
         _executions[0] = Execution({
-            target: address(this),
-            value: 0,
-            callData: abi.encodeCall(this.preExecute, (prevHook, account, hookData))
+            target: address(this), value: 0, callData: abi.encodeCall(this.preExecute, (prevHook, account, hookData))
         });
 
         // MIDDLE: hook-specific operations
@@ -90,9 +88,7 @@ contract MockHook is ISuperHook, ISuperHookResult, ISuperHookResultOutflow {
 
         // LAST: postExecute
         _executions[_executions.length - 1] = Execution({
-            target: address(this),
-            value: 0,
-            callData: abi.encodeCall(this.postExecute, (prevHook, account, hookData))
+            target: address(this), value: 0, callData: abi.encodeCall(this.postExecute, (prevHook, account, hookData))
         });
     }
 

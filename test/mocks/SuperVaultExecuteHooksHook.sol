@@ -19,7 +19,7 @@ contract SuperVaultExecuteHooksHook is BaseHook {
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
-    
+
     address public immutable strategy;
 
     constructor(address _strategy) BaseHook(HookType.NONACCOUNTING, HookSubTypes.CLAIM) {
@@ -30,7 +30,7 @@ contract SuperVaultExecuteHooksHook is BaseHook {
     /*//////////////////////////////////////////////////////////////
                               VIEW METHODS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @inheritdoc BaseHook
     function _buildHookExecutions(
         address,
@@ -47,9 +47,7 @@ contract SuperVaultExecuteHooksHook is BaseHook {
 
         executions = new Execution[](1);
         executions[0] = Execution({
-            target: strategy,
-            value: 0,
-            callData: abi.encodeCall(ISuperVaultStrategy.executeHooks, (executeArgs))
+            target: strategy, value: 0, callData: abi.encodeCall(ISuperVaultStrategy.executeHooks, (executeArgs))
         });
     }
 
@@ -57,7 +55,7 @@ contract SuperVaultExecuteHooksHook is BaseHook {
     function inspect(bytes calldata data) external pure override returns (bytes memory addressData) {
         // Decode the ExecuteArgs to extract hook addresses for inspection
         ISuperVaultStrategy.ExecuteArgs memory executeArgs = abi.decode(data, (ISuperVaultStrategy.ExecuteArgs));
-        
+
         uint256 length = executeArgs.hooks.length;
         for (uint256 i; i < length; i++) {
             addressData = bytes.concat(addressData, bytes20(executeArgs.hooks[i]));
@@ -69,7 +67,7 @@ contract SuperVaultExecuteHooksHook is BaseHook {
     /*//////////////////////////////////////////////////////////////
                             INTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
-    
+
     function _preExecute(address, address account, bytes calldata) internal override {
         _setOutAmount(0, account);
     }

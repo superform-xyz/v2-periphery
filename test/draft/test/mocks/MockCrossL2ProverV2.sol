@@ -31,7 +31,9 @@ contract MockCrossL2ProverV2 {
         _emittingContract = emittingContract_;
     }
 
-    function validateEvent(bytes calldata /*proof*/ )
+    function validateEvent(
+        bytes calldata /*proof*/
+    )
         external
         view
         returns (uint32 chainId, address emittingContract, bytes memory topics, bytes memory unindexedData)
@@ -39,7 +41,9 @@ contract MockCrossL2ProverV2 {
         return (_chainId, _emittingContract, _topics, _unindexedData);
     }
 
-    function inspectLogIdentifier(bytes calldata /*proof*/ )
+    function inspectLogIdentifier(
+        bytes calldata /*proof*/
+    )
         external
         pure
         returns (uint32 srcChain, uint64 blockNumber, uint16 receiptIndex, uint8 logIndex)
@@ -69,10 +73,10 @@ contract MockCrossL2ProverV2 {
 
         // Write to bytes at correct offsets
         assembly {
-            mstore(add(topics, 32), eventSelector)        // topics[0] = event signature
-            mstore(add(topics, 64), yieldSourceOracleId)  // topics[1] = yieldSourceOracleId (not hashed)
-            mstore(add(topics, 96), encodedAccount)       // topics[2] = account (as bytes32)
-            mstore(add(topics, 128), encodedToken)        // topics[3] = token (hashed)
+            mstore(add(topics, 32), eventSelector) // topics[0] = event signature
+            mstore(add(topics, 64), yieldSourceOracleId) // topics[1] = yieldSourceOracleId (not hashed)
+            mstore(add(topics, 96), encodedAccount) // topics[2] = account (as bytes32)
+            mstore(add(topics, 128), encodedToken) // topics[3] = token (hashed)
         }
 
         // Create event data
@@ -87,7 +91,9 @@ contract MockCrossL2ProverV2 {
 
     /// @notice Mock implementation of inspectPolymerState - returns dummy values
     /// @dev This implementation is required to satisfy the ICrossL2ProverV2 interface
-    function inspectPolymerState(bytes calldata /*proof*/ )
+    function inspectPolymerState(
+        bytes calldata /*proof*/
+    )
         external
         view
         returns (bytes32 stateRoot, uint64 height, bytes memory signature)

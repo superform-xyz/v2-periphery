@@ -8,7 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 // Superform
 import { SuperVault } from "./SuperVault.sol";
@@ -95,16 +94,24 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates that msg.sender is the active PPS Oracle
     modifier onlyPPSOracle() {
+        _onlyPPSOracle();
+        _;
+    }
+
+    function _onlyPPSOracle() internal view {
         if (!SUPER_GOVERNOR.isActivePPSOracle(msg.sender)) {
             revert UNAUTHORIZED_PPS_ORACLE();
         }
-        _;
     }
 
     /// @notice Validates that a strategy exists (has been created by this aggregator)
     modifier validStrategy(address strategy) {
-        if (!_superVaultStrategies.contains(strategy)) revert UNKNOWN_STRATEGY();
+        _validStrategy(strategy);
         _;
+    }
+
+    function _validStrategy(address strategy) internal view {
+        if (!_superVaultStrategies.contains(strategy)) revert UNKNOWN_STRATEGY();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -146,13 +153,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         ///       it's up to the creator to ensure that the vault
         ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
-            revert ZERO_AMOUNT();
+            revert INVALID_VAULT_PARAMS();
         }
 
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
-        // Increment nonce before creating proxies
         vars.currentNonce = _vaultCreationNonce++;
         vars.salt = keccak256(abi.encode(msg.sender, params.asset, params.name, params.symbol, vars.currentNonce));
 
@@ -165,7 +171,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         SuperVault(superVault).initialize(params.asset, params.name, params.symbol, strategy, escrow);
 
         // Initialize escrow
-        SuperVaultEscrow(escrow).initialize(superVault, strategy);
+        SuperVaultEscrow(escrow).initialize(superVault);
 
         // Initialize strategy
         SuperVaultStrategy(payable(strategy)).initialize(superVault, params.feeConfig);
@@ -178,7 +184,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Get asset decimals
         (bool success, uint8 assetDecimals) = params.asset.tryGetAssetDecimals();
         if (!success) revert INVALID_ASSET();
-        vars.initialPPS = 10 ** assetDecimals; // 1.0 as initial PPS
+        // Initial PPS is always 1.0 (scaled by asset decimals) for new vaults
+        // This means 1 vault share = 1 unit of underlying asset at inception
+        vars.initialPPS = 10 ** assetDecimals;
 
         // Validate maxStaleness against minimum required staleness
         if (params.maxStaleness < SUPER_GOVERNOR.getMinStaleness()) {
@@ -187,7 +195,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Initialize StrategyData individually to avoid mapping assignment issues
         _strategyData[strategy].pps = vars.initialPPS;
-        // Initialize standard deviation to 0
         _strategyData[strategy].lastUpdateTimestamp = block.timestamp;
         _strategyData[strategy].minUpdateInterval = params.minUpdateInterval;
         _strategyData[strategy].maxStaleness = params.maxStaleness;
@@ -202,7 +209,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
-        // Set default threshold values
         _strategyData[strategy].deviationThreshold = type(uint256).max; // Default: max (disabled)
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
@@ -469,6 +475,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit StakeWithdrawRequested(msg.sender, amount);
     }
 
+    /// @inheritdoc ISuperVaultAggregator
     function completeStakeWithdrawal() external {
         WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
 
@@ -506,8 +513,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @param manager The manager whose stake will be slashed
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external {
+        // Cache SUPER_GOVERNOR reference
+        ISuperGovernor gov = SUPER_GOVERNOR;
+
         // Only SUPER_GOVERNOR can slash stake
-        if (msg.sender != address(SUPER_GOVERNOR)) {
+        if (msg.sender != address(gov)) {
             revert CALLER_NOT_AUTHORIZED();
         }
 
@@ -515,21 +525,22 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
         if (amount == 0) revert ZERO_AMOUNT();
 
-        // Calculate actual slash amount (take minimum to prevent revert on frontrun)
-        uint256 slashAmount = Math.min(_managerStakeBalance[manager], amount);
+        // ache storage read and use ternary
+        uint256 currentStake = _managerStakeBalance[manager];
+        uint256 slashAmount = amount > currentStake ? currentStake : amount;
 
         // If no stake available, revert
         if (slashAmount == 0) revert ZERO_AMOUNT();
 
         // Reduce manager's stake balance
-        _managerStakeBalance[manager] -= slashAmount;
+        _managerStakeBalance[manager] = currentStake - slashAmount;
 
         // Clear any pending withdrawal requests
         delete managerWithdrawalRequests[manager];
 
-        // Get the UP token address and SuperBank address
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
-        address superBank = _getSuperBank();
+        // Direct call to cached gov instead of _getSuperBank()
+        address upToken = gov.getAddress(gov.UP());
+        address superBank = gov.getAddress(gov.SUPER_BANK());
 
         // Transfer slashed amount directly to SuperBank
         IERC20(upToken).safeTransfer(superBank, slashAmount);
@@ -574,25 +585,17 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function updatePPSVerificationThresholds(
-        address strategy,
-        uint256 deviationThreshold_,
-        uint256 mnThreshold_
-    )
-        external
-        validStrategy(strategy)
-    {
+    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external validStrategy(strategy) {
         // Since this is a risky call, we only allow main managers as callers
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Update the thresholds
+        // Update the threshold
         _strategyData[strategy].deviationThreshold = deviationThreshold_;
-        _strategyData[strategy].mnThreshold = mnThreshold_;
 
         // Emit the event
-        emit PPSVerificationThresholdsUpdated(strategy, deviationThreshold_, mnThreshold_);
+        emit DeviationThresholdUpdated(strategy, deviationThreshold_);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -624,6 +627,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    /// @dev SECURITY: This is the emergency governance override function
+    /// @dev Clears ALL pending proposals and secondary managers to prevent malicious manager attacks:
+    ///      - Pending manager change proposals
+    ///      - Pending hooks root proposals
+    ///      - Pending minUpdateInterval proposals
+    ///      - ALL secondary managers (they may be controlled by malicious manager)
+    /// @dev This ensures clean slate for new manager without inherited vulnerabilities
     function changePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
@@ -982,13 +992,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function getPPSVerificationThresholds(address strategy)
+    function getDeviationThreshold(address strategy)
         external
         view
         validStrategy(strategy)
-        returns (uint256 deviationThreshold, uint256 mnThreshold)
+        returns (uint256 deviationThreshold)
     {
-        return (_strategyData[strategy].deviationThreshold, _strategyData[strategy].mnThreshold);
+        return _strategyData[strategy].deviationThreshold;
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1049,13 +1059,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function isAnyManager(address manager, address strategy) public view returns (bool) {
-        // Check if primary manager
-        if (_strategyData[strategy].mainManager == manager) {
-            return true;
-        }
-
-        // Check if secondary manager using EnumerableSet
-        return _strategyData[strategy].secondaryManagers.contains(manager);
+        // Single storage pointer read instead of multiple
+        StrategyData storage data = _strategyData[strategy];
+        return (data.mainManager == manager) || data.secondaryManagers.contains(manager);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1193,6 +1199,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                          INTERNAL HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Internal implementation of forwarding PPS updates
+    /// @dev Implements Properties 7-11 from /security/security_properties.md:
+    ///      - Property 7: Timestamp Monotonicity (line 1213)
+    ///      - Property 8: Post-Unpause Timestamp Validation / C1-RE_ANCHOR (line 1222)
+    ///      - Property 9: Rate Limit Enforcement (line 1231)
+    ///      - Property 10: Deviation Threshold / C1 Check (line 1242)
+    ///      - Property 11: Upkeep Balance Check (line 1284)
+    /// @dev Uses 'return' (not 'revert') for business logic rejections to enable batch processing
+    /// @dev Auto-pauses strategy and marks PPS stale on validation failures
     /// @param args Struct containing all parameters for PPS update
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
@@ -1254,20 +1268,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // [Property 11: M/N Threshold Validation (C2 Check)]
-        // Check if sufficient validators participated in signing this PPS update.
-        // Low participation may indicate consensus issues or validator availability problems.
-        // Participation rate = (validators who signed) / (total registered validators).
-        // Failures trigger auto-pause and mark PPS as stale (handled below).
-        if (args.totalValidators > 0 && _strategyData[args.strategy].mnThreshold > 0) {
-            // Calculate participation rate, scaled by 1e18
-            uint256 participationRate = Math.mulDiv(args.validatorSet, 1e18, args.totalValidators);
-            if (participationRate < _strategyData[args.strategy].mnThreshold) {
-                checksFailed = true;
-                emit StrategyCheckFailed(args.strategy, "INSUFFICIENT_VALIDATOR_PARTICIPATION");
-            }
-        }
-
         // Pause strategy if any check failed and mark PPS as stale
         if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
             _strategyData[args.strategy].isPaused = true;
@@ -1276,7 +1276,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit StrategyPPSStale(args.strategy);
         }
 
-        // [Property 12: Upkeep Balance Check]
+        // [Property 11: Upkeep Balance Check]
         // Ensure the strategy manager has sufficient upkeep balance to pay for this update.
         // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
         // continued operation without proper oracle funding.
@@ -1350,15 +1350,21 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         view
         returns (bool)
     {
-        // Create leaf node from the hook address and arguments
-        bytes32 leaf = _createLeaf(hookAddress, hookArgs);
-
+        // Early return for common veto cases (avoid leaf creation cost)
         if (isGlobalProof) {
-            // Validate against global root
             if (cache.globalHooksRootVetoed || cache.globalHooksRoot == bytes32(0)) {
                 return false;
             }
+        } else {
+            if (cache.strategyHooksRootVetoed || cache.strategyRoot == bytes32(0)) {
+                return false;
+            }
+        }
 
+        // Only create leaf if checks pass
+        bytes32 leaf = _createLeaf(hookAddress, hookArgs);
+
+        if (isGlobalProof) {
             // Check if this leaf is banned by the manager
             if (_strategyData[strategy].bannedLeaves[leaf]) {
                 return false;
@@ -1370,10 +1376,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
             return MerkleProof.verify(proof, cache.globalHooksRoot, leaf);
         } else {
-            // Validate against strategy root
-            if (cache.strategyHooksRootVetoed || cache.strategyRoot == bytes32(0)) {
-                return false;
-            }
             // For single-leaf trees, empty proof is valid when root equals leaf
             if (proof.length == 0) {
                 return cache.strategyRoot == leaf;

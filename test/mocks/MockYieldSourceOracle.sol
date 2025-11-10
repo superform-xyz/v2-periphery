@@ -54,13 +54,7 @@ contract MockYieldSourceOracle is IYieldSourceOracle {
         return sharesIn;
     }
 
-    function getAssetOutputWithFees(
-        bytes32,
-        address,
-        address,
-        address,
-        uint256 sharesIn
-    )
+    function getAssetOutputWithFees(bytes32, address, address, address, uint256 sharesIn)
         public
         pure
         returns (uint256)

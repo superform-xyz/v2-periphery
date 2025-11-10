@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
-import "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 /*//////////////////////////////////////////////////////////////
                                   ENUMS
@@ -31,22 +31,12 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Thrown when a function that should only be called by governor is called by someone else
-    error ONLY_GOVERNOR();
-    /// @notice Thrown when trying to register a contract that is already registered
-    error CONTRACT_ALREADY_REGISTERED();
     /// @notice Thrown when trying to access a contract that is not registered
     error CONTRACT_NOT_FOUND();
     /// @notice Thrown when providing an invalid address (typically zero address)
     error INVALID_ADDRESS();
-    /// @notice Thrown when providing an invalid chain ID
-    error INVALID_CHAIN_ID();
-    /// @notice Thrown when a hook is already approved
-    error HOOK_ALREADY_APPROVED();
     /// @notice Thrown when a hook is not approved but expected to be
     error HOOK_NOT_APPROVED();
-    /// @notice Thrown when provided revenue share is invalid (exceeds 100%)
-    error INVALID_REVENUE_SHARE();
     /// @notice Thrown when an invalid fee value is proposed (must be <= BPS_MAX)
     error INVALID_FEE_VALUE();
     /// @notice Thrown when no proposed fee exists but one is expected
@@ -60,9 +50,15 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Thrown when trying to change active PPS oracle directly
     error MUST_USE_TIMELOCK_FOR_CHANGE();
     /// @notice Thrown when a SuperBank hook Merkle root is not registered but expected to be
+    /// @dev This error is defined here for use by other contracts in the system (SuperVaultStrategy,
+    /// SuperVaultAggregator, ECDSAPPSOracle)
     error INVALID_TIMESTAMP();
     /// @notice Thrown when attempting to set an invalid quorum value (typically zero)
     error INVALID_QUORUM();
+    /// @notice Thrown when validator and public key array lengths don't match
+    error ARRAY_LENGTH_MISMATCH();
+    /// @notice Thrown when trying to set validator config with an empty validator array
+    error EMPTY_VALIDATOR_ARRAY();
     /// @notice Thrown when no active PPS oracle is set but one is required
     error NO_ACTIVE_PPS_ORACLE();
     /// @notice Thrown when no proposed PPS oracle exists but one is expected
@@ -87,14 +83,6 @@ interface ISuperGovernor is IAccessControl {
     error MANAGER_NOT_REGISTERED();
     /// @notice Thrown when a manager is already registered
     error MANAGER_ALREADY_REGISTERED();
-    /// @notice Thrown when trying to register a keeper that is already registered
-    error KEEPER_ALREADY_REGISTERED();
-    /// @notice Thrown when trying to unregister a keeper that is not registered
-    error KEEPER_NOT_REGISTERED();
-    /// @notice Thrown when the price is not found
-    error PRICE_NOT_FOUND();
-    /// @notice Thrown when the price is stale
-    error STALE_ORACLE_PRICE();
     /// @notice Thrown when the super oracle is not found
     error SUPER_ORACLE_NOT_FOUND();
     /// @notice Thrown when the up token is not found
@@ -115,23 +103,19 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the approved hook
     event HookApproved(address indexed hook);
 
+    /// @notice Emitted when validator configuration is set
+    /// @param version The version of the configuration
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys (for signature verification)
+    /// @param quorum The quorum required for validator consensus
+    /// @param offchainConfig Offchain configuration data
+    event ValidatorConfigSet(
+        uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig
+    );
+
     /// @notice Emitted when a hook is removed
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
-
-    /// @notice Emitted when a validator is registered
-    /// @param validator The address of the registered validator
-    /// @param blockNumber The block number when the validator was added
-    event ValidatorAdded(address indexed validator, uint256 blockNumber);
-
-    /// @notice Emitted when a validator is removed
-    /// @param validator The address of the removed validator
-    /// @param blockNumber The block number when the validator was removed
-    event ValidatorRemoved(address indexed validator, uint256 blockNumber);
-
-    /// @notice Emitted when revenue share is updated
-    /// @param share The new revenue share percentage
-    event RevenueShareUpdated(uint256 share);
 
     /// @notice Emitted when a new fee is proposed
     /// @param feeType The type of fee being proposed
@@ -196,11 +180,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a new minimum staleness is proposed
     /// @param newMinStaleness The proposed minimum staleness value
     /// @param effectiveTime The timestamp when the new value will be effective
-    event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime);
+    event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime);
 
     /// @notice Emitted when the minimum staleness is changed
     /// @param newMinStaleness The new minimum staleness value
-    event MinStalenesChanged(uint256 newMinStaleness);
+    event MinStalenessChanged(uint256 newMinStaleness);
 
     /// @notice Emitted when a superform manager is added
     /// @param manager The address of the added manager
@@ -209,14 +193,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a superform manager is removed
     /// @param manager The address of the removed manager
     event SuperformManagerRemoved(address indexed manager);
-
-    /// @notice Emitted when a protected keeper is registered
-    /// @param keeper Address of the keeper being registered
-    event ProtectedKeeperRegistered(address indexed keeper);
-
-    /// @notice Emitted when a protected keeper is unregistered
-    /// @param keeper Address of the keeper being unregistered
-    event ProtectedKeeperUnregistered(address indexed keeper);
 
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
@@ -276,11 +252,7 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Sets the maximum staleness periods for multiple oracle feeds in batch
     /// @param feeds The addresses of the feeds to set staleness for
     /// @param newMaxStalenessList The new maximum staleness periods in seconds
-    function setOracleFeedMaxStalenessBatch(
-        address[] calldata feeds,
-        uint256[] calldata newMaxStalenessList
-    )
-        external;
+    function setOracleFeedMaxStalenessBatch(address[] calldata feeds, uint256[] calldata newMaxStalenessList) external;
 
     /// @notice Queues an oracle update for execution after timelock period
     /// @param bases Base asset addresses
@@ -346,19 +318,26 @@ interface ISuperGovernor is IAccessControl {
     function removeExecutor(address executor) external;
 
     /*//////////////////////////////////////////////////////////////
-                      VALIDATOR MANAGEMENT
+                        VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Adds a validator to the approved list
-    /// @param validator The address of the validator to add
-    function addValidator(address validator) external;
-
-    /// @notice Removes a validator from the approved list
-    /// @param validator The address of the validator to remove
-    function removeValidator(address validator) external;
-
-    /// @notice Gets the latest validator config block number
-    /// @return The block number when validators were last added/removed
-    function getValidatorConfigVersion() external view returns (uint256);
+    /// @notice Sets the validator configuration for the protocol
+    /// @dev This function atomically updates all validator configuration including quorum.
+    ///      The entire validator set is replaced (not incrementally updated).
+    ///      Version must be managed externally for cross-chain synchronization.
+    ///      Quorum updates require providing the full validator list.
+    /// @param version The version number for the configuration (for cross-chain sync)
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys for signature verification
+    /// @param quorum The number of validators required for consensus
+    /// @param offchainConfig Offchain configuration data (emitted but not stored)
+    function setValidatorConfig(
+        uint256 version,
+        address[] calldata validators,
+        bytes[] calldata validatorPublicKeys,
+        uint256 quorum,
+        bytes calldata offchainConfig
+    )
+        external;
 
     /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
@@ -373,10 +352,6 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Executes a previously proposed PPS oracle change after timelock has expired
     function executeActivePPSOracleChange() external;
-
-    /// @notice Sets the quorum requirement for the active PPS Oracle
-    /// @param quorum The new quorum value
-    function setPPSOracleQuorum(uint256 quorum) external;
 
     /*//////////////////////////////////////////////////////////////
                       REVENUE SHARE MANAGEMENT
@@ -500,6 +475,16 @@ interface ISuperGovernor is IAccessControl {
     /// @param executor The address to check
     /// @return True if the address is an approved executor, false otherwise
     function isExecutor(address executor) external view returns (bool);
+
+    /// @notice Returns the complete validator configuration
+    /// @return version The current configuration version number
+    /// @return validators Array of all registered validator addresses
+    /// @return validatorPublicKeys Array of validator public keys
+    /// @return quorum The number of validators required for consensus
+    function getValidatorConfig()
+        external
+        view
+        returns (uint256 version, address[] memory validators, bytes[] memory validatorPublicKeys, uint256 quorum);
 
     /// @notice Returns all registered validators
     /// @return List of validator addresses

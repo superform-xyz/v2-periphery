@@ -216,7 +216,9 @@ contract SuperAsset is ERC20, ISuperAsset {
     function setWeight(address vault, uint256 weight) external {
         _onlyManager();
         if (vault == address(0)) revert ZERO_ADDRESS();
-        if (!tokenData[vault].isSupportedUnderlyingVault && !tokenData[vault].isSupportedERC20) revert NOT_SUPPORTED_TOKEN();
+        if (!tokenData[vault].isSupportedUnderlyingVault && !tokenData[vault].isSupportedERC20) {
+            revert NOT_SUPPORTED_TOKEN();
+        }
         tokenData[vault].weights = weight;
         emit WeightSet(vault, weight);
     }
@@ -292,9 +294,7 @@ contract SuperAsset is ERC20, ISuperAsset {
 
         // Create preview deposit args
         PreviewDepositArgs memory previewArgs = PreviewDepositArgs({
-            tokenIn: args.tokenIn,
-            amountTokenToDeposit: args.amountTokenToDeposit,
-            isSoft: false
+            tokenIn: args.tokenIn, amountTokenToDeposit: args.amountTokenToDeposit, isSoft: false
         });
 
         // Call previewDeposit with the new struct approach
@@ -355,7 +355,6 @@ contract SuperAsset is ERC20, ISuperAsset {
         );
     }
 
-
     /// @inheritdoc ISuperAsset
     function redeem(RedeemArgs memory args) public returns (RedeemReturnVars memory ret) {
         // First validate parameters
@@ -369,11 +368,14 @@ contract SuperAsset is ERC20, ISuperAsset {
         PreviewRedeemArgs memory previewArgs = PreviewRedeemArgs({
             tokenOut: args.tokenOut,
             amountSharesToRedeem: args.amountSharesToRedeem,
-            // NOTE: Here we set isSoft=true on purpose since the desired behavior is to make the redeem() flow not to revert even in case of circtuit breakers triggered
-            // The reason is the redeem() allows SuperAsset to sell assets and if an asset has circuit breakers triggered then it's likely an asset whose risk profile does not match the kind of risk that we desire in the SuperAsset balance sheet
-            // This can be considered opinionated and an argument could be it should be the SuperAsset manager making decision on that, we think it can be discussed
+            // NOTE: Here we set isSoft=true on purpose since the desired behavior is to make the redeem() flow not to
+            // revert even in case of circtuit breakers triggered The reason is the redeem() allows SuperAsset to sell
+            // assets and if an asset has circuit breakers triggered then it's likely an asset whose risk profile does
+            // not match the kind of risk that we desire in the SuperAsset balance sheet
+            // This can be considered opinionated and an argument could be it should be the SuperAsset manager making
+            // decision on that, we think it can be discussed
             isSoft: true // isSoft = true for soft checks that won't revert on circuit breaker triggers
-         });
+        });
 
         // Call previewRedeem with the new struct approach
         PreviewRedeemReturnVars memory previewRet = previewRedeem(previewArgs);
@@ -520,17 +522,18 @@ contract SuperAsset is ERC20, ISuperAsset {
         // Calculate incentives (via ICC)
         if (IIncentiveFundContract(factory.getIncentiveFundContract(address(this))).incentivesEnabled()) {
             (ret.amountIncentiveUSDDeposit, ret.incentiveCalculationSuccess) = IIncentiveCalculationContract(
-                factory.getIncentiveCalculationContract(address(this))
-            ).calculateIncentive(
-                allocRet.absoluteAllocationPreOperation,
-                allocRet.absoluteAllocationPostOperation,
-                allocRet.absoluteTargetAllocation,
-                allocRet.vaultWeights,
-                allocRet.totalAllocationPreOperation,
-                allocRet.totalAllocationPostOperation,
-                allocRet.totalTargetAllocation,
-                energyToUSDExchangeRatio
-            );
+                    factory.getIncentiveCalculationContract(address(this))
+                )
+                .calculateIncentive(
+                    allocRet.absoluteAllocationPreOperation,
+                    allocRet.absoluteAllocationPostOperation,
+                    allocRet.absoluteTargetAllocation,
+                    allocRet.vaultWeights,
+                    allocRet.totalAllocationPreOperation,
+                    allocRet.totalAllocationPostOperation,
+                    allocRet.totalTargetAllocation,
+                    energyToUSDExchangeRatio
+                );
         } else {
             // if incentives disabled, soft return incentiveCalculationSuccess as true
             ret.incentiveCalculationSuccess = true;
@@ -568,17 +571,18 @@ contract SuperAsset is ERC20, ISuperAsset {
         // Calculate incentives (via ICC)
         if (IIncentiveFundContract(factory.getIncentiveFundContract(address(this))).incentivesEnabled()) {
             (ret.amountIncentiveUSDRedeem, ret.incentiveCalculationSuccess) = IIncentiveCalculationContract(
-                factory.getIncentiveCalculationContract(address(this))
-            ).calculateIncentive(
-                allocRet.absoluteAllocationPreOperation,
-                allocRet.absoluteAllocationPostOperation,
-                allocRet.absoluteTargetAllocation,
-                allocRet.vaultWeights,
-                allocRet.totalAllocationPreOperation,
-                allocRet.totalAllocationPostOperation,
-                allocRet.totalTargetAllocation,
-                energyToUSDExchangeRatio
-            );
+                    factory.getIncentiveCalculationContract(address(this))
+                )
+                .calculateIncentive(
+                    allocRet.absoluteAllocationPreOperation,
+                    allocRet.absoluteAllocationPostOperation,
+                    allocRet.absoluteTargetAllocation,
+                    allocRet.vaultWeights,
+                    allocRet.totalAllocationPreOperation,
+                    allocRet.totalAllocationPostOperation,
+                    allocRet.totalTargetAllocation,
+                    energyToUSDExchangeRatio
+                );
         } else {
             // if incentives disabled, soft return incentiveCalculationSuccess as true
             ret.incentiveCalculationSuccess = true;
@@ -590,9 +594,7 @@ contract SuperAsset is ERC20, ISuperAsset {
         uint256 amountSharesMinted;
         // Create preview deposit args
         PreviewDepositArgs memory depositArgs = PreviewDepositArgs({
-            tokenIn: args.tokenIn,
-            amountTokenToDeposit: args.amountTokenToDeposit,
-            isSoft: args.isSoft
+            tokenIn: args.tokenIn, amountTokenToDeposit: args.amountTokenToDeposit, isSoft: args.isSoft
         });
 
         // Call previewDeposit with the new struct approach
@@ -625,9 +627,7 @@ contract SuperAsset is ERC20, ISuperAsset {
 
         // Create preview redeem args
         PreviewRedeemArgs memory redeemArgs = PreviewRedeemArgs({
-            tokenOut: args.tokenOut,
-            amountSharesToRedeem: amountSharesMinted,
-            isSoft: args.isSoft
+            tokenOut: args.tokenOut, amountSharesToRedeem: amountSharesMinted, isSoft: args.isSoft
         });
 
         // Call previewRedeem with the new struct approach
@@ -975,13 +975,11 @@ contract SuperAsset is ERC20, ISuperAsset {
     function _settleIncentive(address user, int256 amountIncentiveUSD) internal {
         // Pay or take incentives based on the sign of amountIncentive
         if (amountIncentiveUSD > 0) {
-            IIncentiveFundContract(factory.getIncentiveFundContract(address(this))).payIncentive(
-                user, uint256(amountIncentiveUSD)
-            );
+            IIncentiveFundContract(factory.getIncentiveFundContract(address(this)))
+                .payIncentive(user, uint256(amountIncentiveUSD));
         } else if (amountIncentiveUSD < 0) {
-            IIncentiveFundContract(factory.getIncentiveFundContract(address(this))).takeIncentive(
-                user, uint256(-amountIncentiveUSD)
-            );
+            IIncentiveFundContract(factory.getIncentiveFundContract(address(this)))
+                .takeIncentive(user, uint256(-amountIncentiveUSD));
         }
     }
 

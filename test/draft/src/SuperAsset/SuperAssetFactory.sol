@@ -62,7 +62,7 @@ contract SuperAssetFactory is ISuperAssetFactory {
         if (_superAssetManager == address(0)) revert ZERO_ADDRESS();
         if (
             (msg.sender != data[superAsset].superAssetManager) && (msg.sender != superRegistry) // NOTE: This role can
-                // take over
+            // take over
         ) revert UNAUTHORIZED();
         data[superAsset].superAssetManager = _superAssetManager;
     }
@@ -132,20 +132,20 @@ contract SuperAssetFactory is ISuperAssetFactory {
 
         // Deploy SuperAsset with its dependencies
         superAsset = superAssetImplementation.clone();
-        SuperAsset(superAsset).initialize(
-            params.name,
-            params.symbol,
-            params.asset,
-            superGovernor,
-            superRegistry,
-            params.swapFeeInPercentage,
-            params.swapFeeOutPercentage
-        );
+        SuperAsset(superAsset)
+            .initialize(
+                params.name,
+                params.symbol,
+                params.asset,
+                superGovernor,
+                superRegistry,
+                params.swapFeeInPercentage,
+                params.swapFeeOutPercentage
+            );
 
         // Initialize IncentiveFund
-        IncentiveFundContract(incentiveFundContract).initialize(
-            superGovernor, superRegistry, superAsset, params.tokenInIncentive, params.tokenOutIncentive
-        );
+        IncentiveFundContract(incentiveFundContract)
+            .initialize(superGovernor, superRegistry, superAsset, params.tokenInIncentive, params.tokenOutIncentive);
 
         data[superAsset] = SuperAssetData({
             superAssetManager: params.superAssetManager,

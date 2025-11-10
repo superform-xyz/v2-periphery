@@ -7,5 +7,4 @@ interface ISuperPositions {
     //////////////////////////////////////////////////////////////*/
     error INVALID_DECIMALS();
     error INVALID_YIELD_SOURCE_ORACLE_ID();
-    
 }

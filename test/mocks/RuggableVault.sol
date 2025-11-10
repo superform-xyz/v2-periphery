@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
-import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { ERC20 } from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import { SafeERC20 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC4626 } from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /**
  * @title RuggableVault
@@ -26,7 +26,7 @@ contract RuggableVault is ERC20, IERC4626 {
     uint256 public rugPercentage; // 0-10000, where 10000 = 100%
 
     uint256 public constant PRECISION = 1e18;
-    
+
     // Events for testing
     event RugPull(string action, address user, uint256 amount, uint256 ruggedAmount);
 
@@ -37,7 +37,9 @@ contract RuggableVault is ERC20, IERC4626 {
         bool rugOnDeposit_,
         bool rugOnWithdraw_,
         uint256 rugPercentage_
-    ) ERC20(name_, symbol_) {
+    )
+        ERC20(name_, symbol_)
+    {
         _asset = asset_;
         _decimals = IERC20Metadata(address(asset_)).decimals();
 

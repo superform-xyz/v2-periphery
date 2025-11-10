@@ -117,14 +117,7 @@ contract TotalAssetHelper {
     /// @param strategy Address of the SuperVaultStrategy contract
     /// @param source Address of the yield source
     /// @return oracle Address of the yield source oracle
-    function _getYieldSourceOracle(
-        address strategy,
-        address source
-    )
-        internal
-        view
-        returns (address oracle)
-    {
+    function _getYieldSourceOracle(address strategy, address source) internal view returns (address oracle) {
         try ISuperVaultStrategy(strategy).getYieldSource(source) returns (
             ISuperVaultStrategy.YieldSource memory yieldSource
         ) {

@@ -31,7 +31,7 @@ var (
 
 // ISuperGovernorMetaData contains all meta data concerning the ISuperGovernor contract.
 var ISuperGovernorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"BANK_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ECDSAPPSORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GAS_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ORACLE_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_BANK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_ORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_VAULT_AGGREGATOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"TREASURY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetEmergencyPrices\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"prices\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetOracleUptimeFeed\",\"inputs\":[{\"name\":\"dataOracles\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"uptimeOracles\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"gracePeriods\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeActivePPSOracleChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeFeeUpdate\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeMinStalenesChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleProviderRemoval\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeSuperBankHookMerkleRootUpdate\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepClaim\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepPaymentsChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeManagerTakeover\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperformManagers\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getExecutors\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGasInfo\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getManagersPaginated\",\"inputs\":[{\"name\":\"cursor\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"chunkOfManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"next\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSOracleQuorum\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedUpkeepPaymentsStatus\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRegisteredHooks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperformManagersCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepCostPerSingleUpdate\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorAt\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorConfigVersion\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isManagerTakeoverFrozen\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUpkeepPaymentsEnabled\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeMinStaleness\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeUpkeepPaymentsChange\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleProviderRemoval\",\"inputs\":[{\"name\":\"providers\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleUpdate\",\"inputs\":[{\"name\":\"bases\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"quotes\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"providers\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"feeds\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEmergencyPrice\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGasInfo\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStaleness\",\"inputs\":[{\"name\":\"feed\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStalenessBatch\",\"inputs\":[{\"name\":\"feeds\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"newMaxStalenessList\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleMaxStaleness\",\"inputs\":[{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPPSOracleQuorum\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashStake\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unregisterHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ActivePPSOracleChanged\",\"inputs\":[{\"name\":\"oldOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleProposed\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AddressSet\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"oldValue\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorAdded\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorRemoved\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeProposed\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeUpdated\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GasInfoSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookApproved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookRemoved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ManagerTakeoversFrozen\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenesChanged\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenesProposed\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSOracleQuorumUpdated\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProtectedKeeperRegistered\",\"inputs\":[{\"name\":\"keeper\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProtectedKeeperUnregistered\",\"inputs\":[{\"name\":\"keeper\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RevenueShareUpdated\",\"inputs\":[{\"name\":\"share\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootProposed\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootUpdated\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerAdded\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerRemoved\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChangeProposed\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChanged\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorAdded\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorRemoved\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CONTRACT_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CONTRACT_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_ALREADY_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_NOT_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_CHAIN_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_FEE_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_GAS_INFO\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_QUORUM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_REVENUE_SHARE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"KEEPER_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"KEEPER_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_TAKEOVERS_FROZEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MUST_USE_TIMELOCK_FOR_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_ACTIVE_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_FEE\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MIN_STALENESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ONLY_GOVERNOR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PRICE_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STALE_ORACLE_PRICE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SUPER_ORACLE_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UP_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"BANK_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ECDSAPPSORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GAS_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ORACLE_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_BANK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_ORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_VAULT_AGGREGATOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"TREASURY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetEmergencyPrices\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"prices\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetOracleUptimeFeed\",\"inputs\":[{\"name\":\"dataOracles\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"uptimeOracles\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"gracePeriods\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeActivePPSOracleChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeFeeUpdate\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeMinStalenesChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleProviderRemoval\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeSuperBankHookMerkleRootUpdate\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepClaim\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepPaymentsChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeManagerTakeover\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperformManagers\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getExecutors\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGasInfo\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getManagersPaginated\",\"inputs\":[{\"name\":\"cursor\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"chunkOfManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"next\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSOracleQuorum\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedUpkeepPaymentsStatus\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRegisteredHooks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperformManagersCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepCostPerSingleUpdate\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorAt\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isManagerTakeoverFrozen\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUpkeepPaymentsEnabled\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeMinStaleness\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeUpkeepPaymentsChange\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleProviderRemoval\",\"inputs\":[{\"name\":\"providers\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleUpdate\",\"inputs\":[{\"name\":\"bases\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"quotes\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"providers\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"feeds\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEmergencyPrice\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGasInfo\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStaleness\",\"inputs\":[{\"name\":\"feed\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStalenessBatch\",\"inputs\":[{\"name\":\"feeds\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"newMaxStalenessList\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleMaxStaleness\",\"inputs\":[{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setValidatorConfig\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"offchainConfig\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashStake\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unregisterHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ActivePPSOracleChanged\",\"inputs\":[{\"name\":\"oldOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleProposed\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AddressSet\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"oldValue\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorAdded\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorRemoved\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeProposed\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeUpdated\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GasInfoSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookApproved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookRemoved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ManagerTakeoversFrozen\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenessChanged\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenessProposed\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSOracleQuorumUpdated\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootProposed\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootUpdated\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerAdded\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerRemoved\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChangeProposed\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChanged\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorConfigSet\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"indexed\":false,\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"offchainConfig\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CONTRACT_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EMPTY_VALIDATOR_ARRAY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_NOT_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_FEE_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_GAS_INFO\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_QUORUM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_TAKEOVERS_FROZEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MUST_USE_TIMELOCK_FOR_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_ACTIVE_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_FEE\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MIN_STALENESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SUPER_ORACLE_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UP_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]}]",
 }
 
 // ISuperGovernorABI is the input ABI used to generate the binding from.
@@ -1242,35 +1242,59 @@ func (_ISuperGovernor *ISuperGovernorCallerSession) GetValidatorAt(index *big.In
 	return _ISuperGovernor.Contract.GetValidatorAt(&_ISuperGovernor.CallOpts, index)
 }
 
-// GetValidatorConfigVersion is a free data retrieval call binding the contract method 0x5bd68dbc.
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
 //
-// Solidity: function getValidatorConfigVersion() view returns(uint256)
-func (_ISuperGovernor *ISuperGovernorCaller) GetValidatorConfigVersion(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_ISuperGovernor *ISuperGovernorCaller) GetValidatorConfig(opts *bind.CallOpts) (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
 	var out []interface{}
-	err := _ISuperGovernor.contract.Call(opts, &out, "getValidatorConfigVersion")
+	err := _ISuperGovernor.contract.Call(opts, &out, "getValidatorConfig")
 
+	outstruct := new(struct {
+		Version             *big.Int
+		Validators          []common.Address
+		ValidatorPublicKeys [][]byte
+		Quorum              *big.Int
+	})
 	if err != nil {
-		return *new(*big.Int), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Version = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Validators = *abi.ConvertType(out[1], new([]common.Address)).(*[]common.Address)
+	outstruct.ValidatorPublicKeys = *abi.ConvertType(out[2], new([][]byte)).(*[][]byte)
+	outstruct.Quorum = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
-	return out0, err
+	return *outstruct, err
 
 }
 
-// GetValidatorConfigVersion is a free data retrieval call binding the contract method 0x5bd68dbc.
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
 //
-// Solidity: function getValidatorConfigVersion() view returns(uint256)
-func (_ISuperGovernor *ISuperGovernorSession) GetValidatorConfigVersion() (*big.Int, error) {
-	return _ISuperGovernor.Contract.GetValidatorConfigVersion(&_ISuperGovernor.CallOpts)
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_ISuperGovernor *ISuperGovernorSession) GetValidatorConfig() (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
+	return _ISuperGovernor.Contract.GetValidatorConfig(&_ISuperGovernor.CallOpts)
 }
 
-// GetValidatorConfigVersion is a free data retrieval call binding the contract method 0x5bd68dbc.
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
 //
-// Solidity: function getValidatorConfigVersion() view returns(uint256)
-func (_ISuperGovernor *ISuperGovernorCallerSession) GetValidatorConfigVersion() (*big.Int, error) {
-	return _ISuperGovernor.Contract.GetValidatorConfigVersion(&_ISuperGovernor.CallOpts)
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_ISuperGovernor *ISuperGovernorCallerSession) GetValidatorConfig() (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
+	return _ISuperGovernor.Contract.GetValidatorConfig(&_ISuperGovernor.CallOpts)
 }
 
 // GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
@@ -1654,27 +1678,6 @@ func (_ISuperGovernor *ISuperGovernorSession) AddSuperformManager(manager common
 // Solidity: function addSuperformManager(address manager) returns()
 func (_ISuperGovernor *ISuperGovernorTransactorSession) AddSuperformManager(manager common.Address) (*types.Transaction, error) {
 	return _ISuperGovernor.Contract.AddSuperformManager(&_ISuperGovernor.TransactOpts, manager)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorTransactor) AddValidator(opts *bind.TransactOpts, validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.contract.Transact(opts, "addValidator", validator)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorSession) AddValidator(validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.AddValidator(&_ISuperGovernor.TransactOpts, validator)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorTransactorSession) AddValidator(validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.AddValidator(&_ISuperGovernor.TransactOpts, validator)
 }
 
 // BatchSetEmergencyPrices is a paid mutator transaction binding the contract method 0x00f1131f.
@@ -2202,27 +2205,6 @@ func (_ISuperGovernor *ISuperGovernorTransactorSession) RemoveSuperformManager(m
 	return _ISuperGovernor.Contract.RemoveSuperformManager(&_ISuperGovernor.TransactOpts, manager)
 }
 
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorTransactor) RemoveValidator(opts *bind.TransactOpts, validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.contract.Transact(opts, "removeValidator", validator)
-}
-
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorSession) RemoveValidator(validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.RemoveValidator(&_ISuperGovernor.TransactOpts, validator)
-}
-
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_ISuperGovernor *ISuperGovernorTransactorSession) RemoveValidator(validator common.Address) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.RemoveValidator(&_ISuperGovernor.TransactOpts, validator)
-}
-
 // RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
 //
 // Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
@@ -2433,27 +2415,6 @@ func (_ISuperGovernor *ISuperGovernorTransactorSession) SetOracleMaxStaleness(ne
 	return _ISuperGovernor.Contract.SetOracleMaxStaleness(&_ISuperGovernor.TransactOpts, newMaxStaleness)
 }
 
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_ISuperGovernor *ISuperGovernorTransactor) SetPPSOracleQuorum(opts *bind.TransactOpts, quorum *big.Int) (*types.Transaction, error) {
-	return _ISuperGovernor.contract.Transact(opts, "setPPSOracleQuorum", quorum)
-}
-
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_ISuperGovernor *ISuperGovernorSession) SetPPSOracleQuorum(quorum *big.Int) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.SetPPSOracleQuorum(&_ISuperGovernor.TransactOpts, quorum)
-}
-
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_ISuperGovernor *ISuperGovernorTransactorSession) SetPPSOracleQuorum(quorum *big.Int) (*types.Transaction, error) {
-	return _ISuperGovernor.Contract.SetPPSOracleQuorum(&_ISuperGovernor.TransactOpts, quorum)
-}
-
 // SetStrategyHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xf5297a47.
 //
 // Solidity: function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) returns()
@@ -2473,6 +2434,27 @@ func (_ISuperGovernor *ISuperGovernorSession) SetStrategyHooksRootVetoStatus(str
 // Solidity: function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) returns()
 func (_ISuperGovernor *ISuperGovernorTransactorSession) SetStrategyHooksRootVetoStatus(strategy common.Address, vetoed bool) (*types.Transaction, error) {
 	return _ISuperGovernor.Contract.SetStrategyHooksRootVetoStatus(&_ISuperGovernor.TransactOpts, strategy, vetoed)
+}
+
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
+//
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_ISuperGovernor *ISuperGovernorTransactor) SetValidatorConfig(opts *bind.TransactOpts, version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _ISuperGovernor.contract.Transact(opts, "setValidatorConfig", version, validators, validatorPublicKeys, quorum, offchainConfig)
+}
+
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
+//
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_ISuperGovernor *ISuperGovernorSession) SetValidatorConfig(version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _ISuperGovernor.Contract.SetValidatorConfig(&_ISuperGovernor.TransactOpts, version, validators, validatorPublicKeys, quorum, offchainConfig)
+}
+
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
+//
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_ISuperGovernor *ISuperGovernorTransactorSession) SetValidatorConfig(version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _ISuperGovernor.Contract.SetValidatorConfig(&_ISuperGovernor.TransactOpts, version, validators, validatorPublicKeys, quorum, offchainConfig)
 }
 
 // SlashStake is a paid mutator transaction binding the contract method 0x98d1c5a8.
@@ -4266,9 +4248,9 @@ func (_ISuperGovernor *ISuperGovernorFilterer) ParseManagerTakeoversFrozen(log t
 	return event, nil
 }
 
-// ISuperGovernorMinStalenesChangedIterator is returned from FilterMinStalenesChanged and is used to iterate over the raw logs and unpacked data for MinStalenesChanged events raised by the ISuperGovernor contract.
-type ISuperGovernorMinStalenesChangedIterator struct {
-	Event *ISuperGovernorMinStalenesChanged // Event containing the contract specifics and raw log
+// ISuperGovernorMinStalenessChangedIterator is returned from FilterMinStalenessChanged and is used to iterate over the raw logs and unpacked data for MinStalenessChanged events raised by the ISuperGovernor contract.
+type ISuperGovernorMinStalenessChangedIterator struct {
+	Event *ISuperGovernorMinStalenessChanged // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -4282,7 +4264,7 @@ type ISuperGovernorMinStalenesChangedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorMinStalenesChangedIterator) Next() bool {
+func (it *ISuperGovernorMinStalenessChangedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -4291,7 +4273,7 @@ func (it *ISuperGovernorMinStalenesChangedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ISuperGovernorMinStalenesChanged)
+			it.Event = new(ISuperGovernorMinStalenessChanged)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4306,7 +4288,7 @@ func (it *ISuperGovernorMinStalenesChangedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ISuperGovernorMinStalenesChanged)
+		it.Event = new(ISuperGovernorMinStalenessChanged)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4322,41 +4304,41 @@ func (it *ISuperGovernorMinStalenesChangedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorMinStalenesChangedIterator) Error() error {
+func (it *ISuperGovernorMinStalenessChangedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ISuperGovernorMinStalenesChangedIterator) Close() error {
+func (it *ISuperGovernorMinStalenessChangedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ISuperGovernorMinStalenesChanged represents a MinStalenesChanged event raised by the ISuperGovernor contract.
-type ISuperGovernorMinStalenesChanged struct {
+// ISuperGovernorMinStalenessChanged represents a MinStalenessChanged event raised by the ISuperGovernor contract.
+type ISuperGovernorMinStalenessChanged struct {
 	NewMinStaleness *big.Int
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterMinStalenesChanged is a free log retrieval operation binding the contract event 0x5ef721aefae68d3af172090ad589f1eb72736af265747458daf734c5c60d7daa.
+// FilterMinStalenessChanged is a free log retrieval operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
 //
-// Solidity: event MinStalenesChanged(uint256 newMinStaleness)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterMinStalenesChanged(opts *bind.FilterOpts) (*ISuperGovernorMinStalenesChangedIterator, error) {
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_ISuperGovernor *ISuperGovernorFilterer) FilterMinStalenessChanged(opts *bind.FilterOpts) (*ISuperGovernorMinStalenessChangedIterator, error) {
 
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "MinStalenesChanged")
+	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "MinStalenessChanged")
 	if err != nil {
 		return nil, err
 	}
-	return &ISuperGovernorMinStalenesChangedIterator{contract: _ISuperGovernor.contract, event: "MinStalenesChanged", logs: logs, sub: sub}, nil
+	return &ISuperGovernorMinStalenessChangedIterator{contract: _ISuperGovernor.contract, event: "MinStalenessChanged", logs: logs, sub: sub}, nil
 }
 
-// WatchMinStalenesChanged is a free log subscription operation binding the contract event 0x5ef721aefae68d3af172090ad589f1eb72736af265747458daf734c5c60d7daa.
+// WatchMinStalenessChanged is a free log subscription operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
 //
-// Solidity: event MinStalenesChanged(uint256 newMinStaleness)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesChanged(opts *bind.WatchOpts, sink chan<- *ISuperGovernorMinStalenesChanged) (event.Subscription, error) {
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenessChanged(opts *bind.WatchOpts, sink chan<- *ISuperGovernorMinStalenessChanged) (event.Subscription, error) {
 
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "MinStalenesChanged")
+	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "MinStalenessChanged")
 	if err != nil {
 		return nil, err
 	}
@@ -4366,8 +4348,8 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesChanged(opts *bin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorMinStalenesChanged)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenesChanged", log); err != nil {
+				event := new(ISuperGovernorMinStalenessChanged)
+				if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenessChanged", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4388,21 +4370,21 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesChanged(opts *bin
 	}), nil
 }
 
-// ParseMinStalenesChanged is a log parse operation binding the contract event 0x5ef721aefae68d3af172090ad589f1eb72736af265747458daf734c5c60d7daa.
+// ParseMinStalenessChanged is a log parse operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
 //
-// Solidity: event MinStalenesChanged(uint256 newMinStaleness)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseMinStalenesChanged(log types.Log) (*ISuperGovernorMinStalenesChanged, error) {
-	event := new(ISuperGovernorMinStalenesChanged)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenesChanged", log); err != nil {
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_ISuperGovernor *ISuperGovernorFilterer) ParseMinStalenessChanged(log types.Log) (*ISuperGovernorMinStalenessChanged, error) {
+	event := new(ISuperGovernorMinStalenessChanged)
+	if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenessChanged", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// ISuperGovernorMinStalenesProposedIterator is returned from FilterMinStalenesProposed and is used to iterate over the raw logs and unpacked data for MinStalenesProposed events raised by the ISuperGovernor contract.
-type ISuperGovernorMinStalenesProposedIterator struct {
-	Event *ISuperGovernorMinStalenesProposed // Event containing the contract specifics and raw log
+// ISuperGovernorMinStalenessProposedIterator is returned from FilterMinStalenessProposed and is used to iterate over the raw logs and unpacked data for MinStalenessProposed events raised by the ISuperGovernor contract.
+type ISuperGovernorMinStalenessProposedIterator struct {
+	Event *ISuperGovernorMinStalenessProposed // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -4416,7 +4398,7 @@ type ISuperGovernorMinStalenesProposedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorMinStalenesProposedIterator) Next() bool {
+func (it *ISuperGovernorMinStalenessProposedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -4425,7 +4407,7 @@ func (it *ISuperGovernorMinStalenesProposedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ISuperGovernorMinStalenesProposed)
+			it.Event = new(ISuperGovernorMinStalenessProposed)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4440,7 +4422,7 @@ func (it *ISuperGovernorMinStalenesProposedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ISuperGovernorMinStalenesProposed)
+		it.Event = new(ISuperGovernorMinStalenessProposed)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4456,42 +4438,42 @@ func (it *ISuperGovernorMinStalenesProposedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorMinStalenesProposedIterator) Error() error {
+func (it *ISuperGovernorMinStalenessProposedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ISuperGovernorMinStalenesProposedIterator) Close() error {
+func (it *ISuperGovernorMinStalenessProposedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ISuperGovernorMinStalenesProposed represents a MinStalenesProposed event raised by the ISuperGovernor contract.
-type ISuperGovernorMinStalenesProposed struct {
+// ISuperGovernorMinStalenessProposed represents a MinStalenessProposed event raised by the ISuperGovernor contract.
+type ISuperGovernorMinStalenessProposed struct {
 	NewMinStaleness *big.Int
 	EffectiveTime   *big.Int
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterMinStalenesProposed is a free log retrieval operation binding the contract event 0xae30e7c9277d9f36ab2ab07d353aa93dcc567106b5d571ebead929f12ebcd7ad.
+// FilterMinStalenessProposed is a free log retrieval operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
 //
-// Solidity: event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterMinStalenesProposed(opts *bind.FilterOpts) (*ISuperGovernorMinStalenesProposedIterator, error) {
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_ISuperGovernor *ISuperGovernorFilterer) FilterMinStalenessProposed(opts *bind.FilterOpts) (*ISuperGovernorMinStalenessProposedIterator, error) {
 
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "MinStalenesProposed")
+	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "MinStalenessProposed")
 	if err != nil {
 		return nil, err
 	}
-	return &ISuperGovernorMinStalenesProposedIterator{contract: _ISuperGovernor.contract, event: "MinStalenesProposed", logs: logs, sub: sub}, nil
+	return &ISuperGovernorMinStalenessProposedIterator{contract: _ISuperGovernor.contract, event: "MinStalenessProposed", logs: logs, sub: sub}, nil
 }
 
-// WatchMinStalenesProposed is a free log subscription operation binding the contract event 0xae30e7c9277d9f36ab2ab07d353aa93dcc567106b5d571ebead929f12ebcd7ad.
+// WatchMinStalenessProposed is a free log subscription operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
 //
-// Solidity: event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesProposed(opts *bind.WatchOpts, sink chan<- *ISuperGovernorMinStalenesProposed) (event.Subscription, error) {
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenessProposed(opts *bind.WatchOpts, sink chan<- *ISuperGovernorMinStalenessProposed) (event.Subscription, error) {
 
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "MinStalenesProposed")
+	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "MinStalenessProposed")
 	if err != nil {
 		return nil, err
 	}
@@ -4501,8 +4483,8 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesProposed(opts *bi
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorMinStalenesProposed)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenesProposed", log); err != nil {
+				event := new(ISuperGovernorMinStalenessProposed)
+				if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenessProposed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4523,12 +4505,12 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchMinStalenesProposed(opts *bi
 	}), nil
 }
 
-// ParseMinStalenesProposed is a log parse operation binding the contract event 0xae30e7c9277d9f36ab2ab07d353aa93dcc567106b5d571ebead929f12ebcd7ad.
+// ParseMinStalenessProposed is a log parse operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
 //
-// Solidity: event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseMinStalenesProposed(log types.Log) (*ISuperGovernorMinStalenesProposed, error) {
-	event := new(ISuperGovernorMinStalenesProposed)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenesProposed", log); err != nil {
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_ISuperGovernor *ISuperGovernorFilterer) ParseMinStalenessProposed(log types.Log) (*ISuperGovernorMinStalenessProposed, error) {
+	event := new(ISuperGovernorMinStalenessProposed)
+	if err := _ISuperGovernor.contract.UnpackLog(event, "MinStalenessProposed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4663,428 +4645,6 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchPPSOracleQuorumUpdated(opts 
 func (_ISuperGovernor *ISuperGovernorFilterer) ParsePPSOracleQuorumUpdated(log types.Log) (*ISuperGovernorPPSOracleQuorumUpdated, error) {
 	event := new(ISuperGovernorPPSOracleQuorumUpdated)
 	if err := _ISuperGovernor.contract.UnpackLog(event, "PPSOracleQuorumUpdated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ISuperGovernorProtectedKeeperRegisteredIterator is returned from FilterProtectedKeeperRegistered and is used to iterate over the raw logs and unpacked data for ProtectedKeeperRegistered events raised by the ISuperGovernor contract.
-type ISuperGovernorProtectedKeeperRegisteredIterator struct {
-	Event *ISuperGovernorProtectedKeeperRegistered // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorProtectedKeeperRegisteredIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ISuperGovernorProtectedKeeperRegistered)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ISuperGovernorProtectedKeeperRegistered)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorProtectedKeeperRegisteredIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ISuperGovernorProtectedKeeperRegisteredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ISuperGovernorProtectedKeeperRegistered represents a ProtectedKeeperRegistered event raised by the ISuperGovernor contract.
-type ISuperGovernorProtectedKeeperRegistered struct {
-	Keeper common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterProtectedKeeperRegistered is a free log retrieval operation binding the contract event 0x5a17551f8f59aacc175aed9daecc2461b2161d1ca643c75612710502de9d57b1.
-//
-// Solidity: event ProtectedKeeperRegistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterProtectedKeeperRegistered(opts *bind.FilterOpts, keeper []common.Address) (*ISuperGovernorProtectedKeeperRegisteredIterator, error) {
-
-	var keeperRule []interface{}
-	for _, keeperItem := range keeper {
-		keeperRule = append(keeperRule, keeperItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "ProtectedKeeperRegistered", keeperRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ISuperGovernorProtectedKeeperRegisteredIterator{contract: _ISuperGovernor.contract, event: "ProtectedKeeperRegistered", logs: logs, sub: sub}, nil
-}
-
-// WatchProtectedKeeperRegistered is a free log subscription operation binding the contract event 0x5a17551f8f59aacc175aed9daecc2461b2161d1ca643c75612710502de9d57b1.
-//
-// Solidity: event ProtectedKeeperRegistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchProtectedKeeperRegistered(opts *bind.WatchOpts, sink chan<- *ISuperGovernorProtectedKeeperRegistered, keeper []common.Address) (event.Subscription, error) {
-
-	var keeperRule []interface{}
-	for _, keeperItem := range keeper {
-		keeperRule = append(keeperRule, keeperItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "ProtectedKeeperRegistered", keeperRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorProtectedKeeperRegistered)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "ProtectedKeeperRegistered", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseProtectedKeeperRegistered is a log parse operation binding the contract event 0x5a17551f8f59aacc175aed9daecc2461b2161d1ca643c75612710502de9d57b1.
-//
-// Solidity: event ProtectedKeeperRegistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseProtectedKeeperRegistered(log types.Log) (*ISuperGovernorProtectedKeeperRegistered, error) {
-	event := new(ISuperGovernorProtectedKeeperRegistered)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "ProtectedKeeperRegistered", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ISuperGovernorProtectedKeeperUnregisteredIterator is returned from FilterProtectedKeeperUnregistered and is used to iterate over the raw logs and unpacked data for ProtectedKeeperUnregistered events raised by the ISuperGovernor contract.
-type ISuperGovernorProtectedKeeperUnregisteredIterator struct {
-	Event *ISuperGovernorProtectedKeeperUnregistered // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorProtectedKeeperUnregisteredIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ISuperGovernorProtectedKeeperUnregistered)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ISuperGovernorProtectedKeeperUnregistered)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorProtectedKeeperUnregisteredIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ISuperGovernorProtectedKeeperUnregisteredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ISuperGovernorProtectedKeeperUnregistered represents a ProtectedKeeperUnregistered event raised by the ISuperGovernor contract.
-type ISuperGovernorProtectedKeeperUnregistered struct {
-	Keeper common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterProtectedKeeperUnregistered is a free log retrieval operation binding the contract event 0xd5f663a5782ccd5e7465e8419aa75f38fdc175262978753ee490757f48d7318b.
-//
-// Solidity: event ProtectedKeeperUnregistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterProtectedKeeperUnregistered(opts *bind.FilterOpts, keeper []common.Address) (*ISuperGovernorProtectedKeeperUnregisteredIterator, error) {
-
-	var keeperRule []interface{}
-	for _, keeperItem := range keeper {
-		keeperRule = append(keeperRule, keeperItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "ProtectedKeeperUnregistered", keeperRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ISuperGovernorProtectedKeeperUnregisteredIterator{contract: _ISuperGovernor.contract, event: "ProtectedKeeperUnregistered", logs: logs, sub: sub}, nil
-}
-
-// WatchProtectedKeeperUnregistered is a free log subscription operation binding the contract event 0xd5f663a5782ccd5e7465e8419aa75f38fdc175262978753ee490757f48d7318b.
-//
-// Solidity: event ProtectedKeeperUnregistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchProtectedKeeperUnregistered(opts *bind.WatchOpts, sink chan<- *ISuperGovernorProtectedKeeperUnregistered, keeper []common.Address) (event.Subscription, error) {
-
-	var keeperRule []interface{}
-	for _, keeperItem := range keeper {
-		keeperRule = append(keeperRule, keeperItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "ProtectedKeeperUnregistered", keeperRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorProtectedKeeperUnregistered)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "ProtectedKeeperUnregistered", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseProtectedKeeperUnregistered is a log parse operation binding the contract event 0xd5f663a5782ccd5e7465e8419aa75f38fdc175262978753ee490757f48d7318b.
-//
-// Solidity: event ProtectedKeeperUnregistered(address indexed keeper)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseProtectedKeeperUnregistered(log types.Log) (*ISuperGovernorProtectedKeeperUnregistered, error) {
-	event := new(ISuperGovernorProtectedKeeperUnregistered)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "ProtectedKeeperUnregistered", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ISuperGovernorRevenueShareUpdatedIterator is returned from FilterRevenueShareUpdated and is used to iterate over the raw logs and unpacked data for RevenueShareUpdated events raised by the ISuperGovernor contract.
-type ISuperGovernorRevenueShareUpdatedIterator struct {
-	Event *ISuperGovernorRevenueShareUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorRevenueShareUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ISuperGovernorRevenueShareUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ISuperGovernorRevenueShareUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorRevenueShareUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ISuperGovernorRevenueShareUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ISuperGovernorRevenueShareUpdated represents a RevenueShareUpdated event raised by the ISuperGovernor contract.
-type ISuperGovernorRevenueShareUpdated struct {
-	Share *big.Int
-	Raw   types.Log // Blockchain specific contextual infos
-}
-
-// FilterRevenueShareUpdated is a free log retrieval operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterRevenueShareUpdated(opts *bind.FilterOpts) (*ISuperGovernorRevenueShareUpdatedIterator, error) {
-
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "RevenueShareUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return &ISuperGovernorRevenueShareUpdatedIterator{contract: _ISuperGovernor.contract, event: "RevenueShareUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchRevenueShareUpdated is a free log subscription operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchRevenueShareUpdated(opts *bind.WatchOpts, sink chan<- *ISuperGovernorRevenueShareUpdated) (event.Subscription, error) {
-
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "RevenueShareUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorRevenueShareUpdated)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "RevenueShareUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseRevenueShareUpdated is a log parse operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseRevenueShareUpdated(log types.Log) (*ISuperGovernorRevenueShareUpdated, error) {
-	event := new(ISuperGovernorRevenueShareUpdated)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "RevenueShareUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -6425,9 +5985,9 @@ func (_ISuperGovernor *ISuperGovernorFilterer) ParseUpkeepPaymentsChanged(log ty
 	return event, nil
 }
 
-// ISuperGovernorValidatorAddedIterator is returned from FilterValidatorAdded and is used to iterate over the raw logs and unpacked data for ValidatorAdded events raised by the ISuperGovernor contract.
-type ISuperGovernorValidatorAddedIterator struct {
-	Event *ISuperGovernorValidatorAdded // Event containing the contract specifics and raw log
+// ISuperGovernorValidatorConfigSetIterator is returned from FilterValidatorConfigSet and is used to iterate over the raw logs and unpacked data for ValidatorConfigSet events raised by the ISuperGovernor contract.
+type ISuperGovernorValidatorConfigSetIterator struct {
+	Event *ISuperGovernorValidatorConfigSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -6441,7 +6001,7 @@ type ISuperGovernorValidatorAddedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorValidatorAddedIterator) Next() bool {
+func (it *ISuperGovernorValidatorConfigSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -6450,7 +6010,7 @@ func (it *ISuperGovernorValidatorAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(ISuperGovernorValidatorAdded)
+			it.Event = new(ISuperGovernorValidatorConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -6465,7 +6025,7 @@ func (it *ISuperGovernorValidatorAddedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(ISuperGovernorValidatorAdded)
+		it.Event = new(ISuperGovernorValidatorConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -6481,52 +6041,45 @@ func (it *ISuperGovernorValidatorAddedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorValidatorAddedIterator) Error() error {
+func (it *ISuperGovernorValidatorConfigSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *ISuperGovernorValidatorAddedIterator) Close() error {
+func (it *ISuperGovernorValidatorConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// ISuperGovernorValidatorAdded represents a ValidatorAdded event raised by the ISuperGovernor contract.
-type ISuperGovernorValidatorAdded struct {
-	Validator   common.Address
-	BlockNumber *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
+// ISuperGovernorValidatorConfigSet represents a ValidatorConfigSet event raised by the ISuperGovernor contract.
+type ISuperGovernorValidatorConfigSet struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+	OffchainConfig      []byte
+	Raw                 types.Log // Blockchain specific contextual infos
 }
 
-// FilterValidatorAdded is a free log retrieval operation binding the contract event 0x9000b209805850a65058f21361a9978cb30f1413ed555553ab52a59b440b5d99.
+// FilterValidatorConfigSet is a free log retrieval operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterValidatorAdded(opts *bind.FilterOpts, validator []common.Address) (*ISuperGovernorValidatorAddedIterator, error) {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_ISuperGovernor *ISuperGovernorFilterer) FilterValidatorConfigSet(opts *bind.FilterOpts) (*ISuperGovernorValidatorConfigSetIterator, error) {
 
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "ValidatorAdded", validatorRule)
+	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "ValidatorConfigSet")
 	if err != nil {
 		return nil, err
 	}
-	return &ISuperGovernorValidatorAddedIterator{contract: _ISuperGovernor.contract, event: "ValidatorAdded", logs: logs, sub: sub}, nil
+	return &ISuperGovernorValidatorConfigSetIterator{contract: _ISuperGovernor.contract, event: "ValidatorConfigSet", logs: logs, sub: sub}, nil
 }
 
-// WatchValidatorAdded is a free log subscription operation binding the contract event 0x9000b209805850a65058f21361a9978cb30f1413ed555553ab52a59b440b5d99.
+// WatchValidatorConfigSet is a free log subscription operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchValidatorAdded(opts *bind.WatchOpts, sink chan<- *ISuperGovernorValidatorAdded, validator []common.Address) (event.Subscription, error) {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_ISuperGovernor *ISuperGovernorFilterer) WatchValidatorConfigSet(opts *bind.WatchOpts, sink chan<- *ISuperGovernorValidatorConfigSet) (event.Subscription, error) {
 
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "ValidatorAdded", validatorRule)
+	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "ValidatorConfigSet")
 	if err != nil {
 		return nil, err
 	}
@@ -6536,8 +6089,8 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchValidatorAdded(opts *bind.Wa
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorValidatorAdded)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorAdded", log); err != nil {
+				event := new(ISuperGovernorValidatorConfigSet)
+				if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -6558,157 +6111,12 @@ func (_ISuperGovernor *ISuperGovernorFilterer) WatchValidatorAdded(opts *bind.Wa
 	}), nil
 }
 
-// ParseValidatorAdded is a log parse operation binding the contract event 0x9000b209805850a65058f21361a9978cb30f1413ed555553ab52a59b440b5d99.
+// ParseValidatorConfigSet is a log parse operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseValidatorAdded(log types.Log) (*ISuperGovernorValidatorAdded, error) {
-	event := new(ISuperGovernorValidatorAdded)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ISuperGovernorValidatorRemovedIterator is returned from FilterValidatorRemoved and is used to iterate over the raw logs and unpacked data for ValidatorRemoved events raised by the ISuperGovernor contract.
-type ISuperGovernorValidatorRemovedIterator struct {
-	Event *ISuperGovernorValidatorRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ISuperGovernorValidatorRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ISuperGovernorValidatorRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ISuperGovernorValidatorRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ISuperGovernorValidatorRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ISuperGovernorValidatorRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ISuperGovernorValidatorRemoved represents a ValidatorRemoved event raised by the ISuperGovernor contract.
-type ISuperGovernorValidatorRemoved struct {
-	Validator   common.Address
-	BlockNumber *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
-}
-
-// FilterValidatorRemoved is a free log retrieval operation binding the contract event 0x50ecbf35c0ff0910f48ecaf45471c41781b549230264f6cb51997d7d425a02c3.
-//
-// Solidity: event ValidatorRemoved(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) FilterValidatorRemoved(opts *bind.FilterOpts, validator []common.Address) (*ISuperGovernorValidatorRemovedIterator, error) {
-
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.FilterLogs(opts, "ValidatorRemoved", validatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ISuperGovernorValidatorRemovedIterator{contract: _ISuperGovernor.contract, event: "ValidatorRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchValidatorRemoved is a free log subscription operation binding the contract event 0x50ecbf35c0ff0910f48ecaf45471c41781b549230264f6cb51997d7d425a02c3.
-//
-// Solidity: event ValidatorRemoved(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) WatchValidatorRemoved(opts *bind.WatchOpts, sink chan<- *ISuperGovernorValidatorRemoved, validator []common.Address) (event.Subscription, error) {
-
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _ISuperGovernor.contract.WatchLogs(opts, "ValidatorRemoved", validatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ISuperGovernorValidatorRemoved)
-				if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseValidatorRemoved is a log parse operation binding the contract event 0x50ecbf35c0ff0910f48ecaf45471c41781b549230264f6cb51997d7d425a02c3.
-//
-// Solidity: event ValidatorRemoved(address indexed validator, uint256 blockNumber)
-func (_ISuperGovernor *ISuperGovernorFilterer) ParseValidatorRemoved(log types.Log) (*ISuperGovernorValidatorRemoved, error) {
-	event := new(ISuperGovernorValidatorRemoved)
-	if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorRemoved", log); err != nil {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_ISuperGovernor *ISuperGovernorFilterer) ParseValidatorConfigSet(log types.Log) (*ISuperGovernorValidatorConfigSet, error) {
+	event := new(ISuperGovernorValidatorConfigSet)
+	if err := _ISuperGovernor.contract.UnpackLog(event, "ValidatorConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
