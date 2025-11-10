@@ -78,6 +78,11 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         SUPER_GOVERNOR = superGovernor_;
         defaultStaleness = 1 days;
 
+        uint256 len = bases.length;
+        if (len != quotes.length || len != providers.length || len != feeds.length) {
+            revert ARRAY_LENGTH_MISMATCH();
+        }
+
         // validate oracle inputs
         _validateOracleInputs(bases, quotes, providers, feeds);
 
