@@ -1110,9 +1110,11 @@ contract VaultBankTest is PeripheryHelpers {
         address[] memory hooks = new address[](0);
         bytes[] memory data = new bytes[](0);
         bytes32[][] memory merkleProofs = new bytes32[][](0);
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
+        });
 
         vm.startPrank(address(this));
         vm.expectRevert(Bank.ZERO_LENGTH_ARRAY.selector);
@@ -1130,12 +1132,17 @@ contract VaultBankTest is PeripheryHelpers {
         bytes[] memory data = new bytes[](1);
         data[0] = "data1";
 
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut[0] = 100;
+        expectedAssetsOrSharesOut[1] = 200;
+
         bytes32[][] memory merkleProofs = new bytes32[][](2);
         merkleProofs[0] = new bytes32[](1);
         merkleProofs[1] = new bytes32[](1);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
+        });
 
         vm.expectRevert(Bank.INVALID_ARRAY_LENGTH.selector);
         vaultBank.executeHooks(executionData);
@@ -1166,12 +1173,16 @@ contract VaultBankTest is PeripheryHelpers {
         bytes[] memory data = new bytes[](1);
         data[0] = "data1";
 
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 100;
+
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](1);
         merkleProofs[0][0] = bytes32(uint256(1));
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
+        });
 
         vm.mockCall(
             address(superRegistry),
@@ -1206,11 +1217,15 @@ contract VaultBankTest is PeripheryHelpers {
         bytes[] memory data = new bytes[](1);
         data[0] = "data1";
 
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 100;
+
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
+        });
 
         vm.mockCall(
             address(superRegistry),
@@ -1246,6 +1261,9 @@ contract VaultBankTest is PeripheryHelpers {
 
         bytes[] memory data = new bytes[](1);
         data[0] = "data1";
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 0;
 
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0);
@@ -1303,12 +1321,17 @@ contract VaultBankTest is PeripheryHelpers {
         data[0] = "data1";
         data[1] = "data2";
 
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
+        expectedAssetsOrSharesOut[0] = 0;
+        expectedAssetsOrSharesOut[1] = 0;
+
         bytes32[][] memory merkleProofs = new bytes32[][](2);
         merkleProofs[0] = new bytes32[](0);
         merkleProofs[1] = new bytes32[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
+        });
 
         vm.mockCall(
             address(superRegistry),
