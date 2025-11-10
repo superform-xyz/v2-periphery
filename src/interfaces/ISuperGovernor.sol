@@ -103,15 +103,15 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the removed hook
     event HookRemoved(address indexed hook);
 
-    /// @notice Emitted when a validator is registered
-    /// @param validator The address of the registered validator
-    /// @param blockNumber The block number when the validator was added
-    event ValidatorAdded(address indexed validator, uint256 blockNumber);
-
-    /// @notice Emitted when a validator is removed
-    /// @param validator The address of the removed validator
-    /// @param blockNumber The block number when the validator was removed
-    event ValidatorRemoved(address indexed validator, uint256 blockNumber);
+    /// @notice Emitted when validator configuration is set
+    /// @param version The version of the configuration
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys (for signature verification)
+    /// @param quorum The quorum required for validator consensus
+    /// @param offchainConfig Offchain configuration data
+    event ConfigSet(
+        uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig
+    );
 
     /// @notice Emitted when a new fee is proposed
     /// @param feeType The type of fee being proposed
@@ -248,7 +248,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Sets the maximum staleness periods for multiple oracle feeds in batch
     /// @param feeds The addresses of the feeds to set staleness for
     /// @param newMaxStalenessList The new maximum staleness periods in seconds
-    function setOracleFeedMaxStalenessBatch(address[] calldata feeds, uint256[] calldata newMaxStalenessList) external;
+    function setOracleFeedMaxStalenessBatch(
+        address[] calldata feeds,
+        uint256[] calldata newMaxStalenessList
+    )
+        external;
 
     /// @notice Queues an oracle update for execution after timelock period
     /// @param bases Base asset addresses
@@ -316,17 +320,30 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                       VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @notice Adds a validator to the approved list
-    /// @param validator The address of the validator to add
-    function addValidator(address validator) external;
+    /// @notice Sets the validator configuration
+    /// @param version The version of the configuration
+    /// @param validators Array of validator addresses
+    /// @param validatorPublicKeys Array of validator public keys (for signature verification)
+    /// @param quorum The quorum required for validator consensus
+    /// @param offchainConfig Offchain configuration data
+    function setValidatorConfig(
+        uint256 version,
+        address[] calldata validators,
+        bytes[] calldata validatorPublicKeys,
+        uint256 quorum,
+        bytes calldata offchainConfig
+    )
+        external;
 
-    /// @notice Removes a validator from the approved list
-    /// @param validator The address of the validator to remove
-    function removeValidator(address validator) external;
-
-    /// @notice Gets the latest validator config block number
-    /// @return The block number when validators were last added/removed
-    function getValidatorConfigVersion() external view returns (uint256);
+    /// @notice Gets the complete validator configuration
+    /// @return version The version of the configuration
+    /// @return validators Array of validator addresses
+    /// @return validatorPublicKeys Array of validator public keys
+    /// @return quorum The quorum required for validator consensus
+    function getValidatorConfig()
+        external
+        view
+        returns (uint256 version, address[] memory validators, bytes[] memory validatorPublicKeys, uint256 quorum);
 
     /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
