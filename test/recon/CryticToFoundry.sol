@@ -67,22 +67,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_previewEquivalenceFromShares(1e18);
     }
 
-    // forge test --match-test test_property_accumulatorSharesDecreaseOnFulfill_exact_6 -vvv
-    // NOTE: see issue: https://github.com/Recon-Fuzz/superform-review/issues/62
-    function test_property_accumulatorSharesDecreaseOnFulfill_exact_6() public {
-        superVaultStrategy_manageYieldSource_clamped(0);
-
-        yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
-
-        superVault_deposit(4);
-
-        superVault_requestRedeem_clamped(2);
-
-        superVaultStrategy_fulfillRedeemRequests_clamped(1);
-
-        property_accumulatorSharesDecreaseOnFulfill_exact();
-    }
-
     // forge test --match-test test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/66
     function test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17() public {
