@@ -18,14 +18,22 @@ abstract contract Bank is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
-    error INVALID_HOOK();
+    /// @notice Error thrown when an invalid Merkle proof is provided.
     error INVALID_MERKLE_PROOF();
+    /// @notice Error thrown when a hooks validation fails.
     error HOOK_VALIDATION_FAILED();
+    /// @notice Error thrown when a hooks execution fails.
     error HOOK_EXECUTION_FAILED();
+    /// @notice Error thrown when an unregistered hook is provided.
     error HOOK_NOT_REGISTERED();
+    /// @notice Error thrown when an array has a zero length.
     error ZERO_LENGTH_ARRAY();
+    /// @notice Error thrown when an arrays have mismatched lengths.
     error INVALID_ARRAY_LENGTH();
+    /// @notice Error thrown when an address is zero.
     error ZERO_ADDRESS();
+    /// @notice Error thrown when the actual output amount is less than the expected output amount.
+    error MINIMUM_OUTPUT_AMOUNT_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -138,6 +146,12 @@ abstract contract Bank is ReentrancyGuard {
 
             // 7. Reset execution state after each hook
             ISuperHook(hookAddress).resetExecutionState(address(this));
+
+            // 8. Validate output amount
+            uint256 actualOutput = ISuperHookResult(hookAddress).getOutAmount(address(this));
+            if (actualOutput < executionData.expectedAssetsOrSharesOut[i]) {
+                revert MINIMUM_OUTPUT_AMOUNT_NOT_MET();
+            }
 
             prevHook = hookAddress;
         }
