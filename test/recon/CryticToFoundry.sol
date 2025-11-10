@@ -308,7 +308,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_superVault_cancelRedeem_3() public {
         superVault_deposit(40_000);
         uint256 shares = superVault.balanceOf(_getActor());
-        vm.warp(block.timestamp + 2 weeks);
+        vm.warp(block.timestamp + 1 days);
         
         //superVault_requestRedeem_clamped(shares);
         vm.prank(_getActor());
