@@ -351,17 +351,14 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {
-        uint256 summedExpectedAssets;
-        for (uint256 i; i < totalAssetsOut.length; i++) {
-            summedExpectedAssets += totalAssetsOut[i];
-        }
+        uint256 assetBalanceBefore = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         // no need to prank because called as admin address(this)
         superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         uint256 assetBalanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
-        gte(assetBalanceAfter, summedExpectedAssets, "strategy incurs loss on fulfillment");
+        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
     }
 
     // Functions that require SuperGovernor access
