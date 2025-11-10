@@ -78,7 +78,6 @@ interface ISuperVaultAggregator {
         uint256 mnThreshold; // Threshold for validatorSet / totalValidators ratio, scaled by 1e18
         // Banned global leaves mapping
         mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
-        uint256 maxUnpauseTimeLock;
         // Min update interval proposal data
         uint256 proposedMinUpdateInterval;
         uint256 minUpdateIntervalEffectiveTime;
@@ -102,7 +101,6 @@ interface ISuperVaultAggregator {
         uint256 minUpdateInterval;
         uint256 maxStaleness;
         ISuperVaultStrategy.FeeConfig feeConfig;
-        uint256 maxUnpauseTimeLock;
     }
 
     /// @notice Struct to hold cached hook validation state variables to avoid stack too deep
@@ -230,14 +228,6 @@ interface ISuperVaultAggregator {
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
     event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager);
-
-    /// @notice Emitted when a primary manager is changed to a superform manager
-    /// @param strategy Address of the strategy
-    /// @param oldManager Address of the old primary manager
-    /// @param newManager Address of the new primary manager (superform manager)
-    event PrimaryManagerChangedToSuperform(
-        address indexed strategy, address indexed oldManager, address indexed newManager
-    );
 
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy
@@ -413,6 +403,8 @@ interface ISuperVaultAggregator {
     error ZERO_ADDRESS();
     /// @notice Thrown when amount provided is zero
     error ZERO_AMOUNT();
+    /// @notice Thrown when vault creation parameters are invalid (empty name or symbol)
+    error INVALID_VAULT_PARAMS();
     /// @notice Thrown when array length is zero
     error ZERO_ARRAY_LENGTH();
     /// @notice Thrown when array length is zero
@@ -578,10 +570,16 @@ interface ISuperVaultAggregator {
     /// @param amount Amount of UP tokens to withdraw from stake
     function requestStakeWithdrawal(uint256 amount) external;
 
-    /// @notice Executes the withdrawal of UP tokens from manager stake balance
+    /// @notice Completes a pending stake withdrawal after timelock period
+    /// @dev Validates timelock and expiration, transfers UP tokens to manager
+    /// @dev Reverts if no request exists, timelock not met, or request expired
+    /// @dev Re-checks balance in case slashing occurred during timelock period
     function completeStakeWithdrawal() external;
 
     /// @notice Slashes a manager's stake balance by a specified amount
+    /// @dev Only callable by SUPER_GOVERNOR. Transfers slashed amount to SuperBank
+    /// @dev Uses Math.min to prevent revert if balance is insufficient
+    /// @dev Automatically cancels any pending withdrawal requests
     /// @param manager The manager whose stake will be slashed
     /// @param amount The amount of UP tokens to slash from the manager's stake balance
     function slashStake(address manager, uint256 amount) external;

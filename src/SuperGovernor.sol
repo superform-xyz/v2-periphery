@@ -76,14 +76,20 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     uint256 private _proposedMinStaleness;
     uint256 private _minStalenessEffectiveTime;
 
-    // Oracle constants
+    // Oracle constants for price conversions in _convertGasToUp()
+    // Standard ERC-7281 address for native token (ETH)
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    // ISO 4217 numeric code for USD (840)
     address private constant USD_TOKEN = address(840);
+    // Synthetic address for gas units in oracle pricing
     address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    // Synthetic address for wei units in oracle pricing
     address private constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
+    // Provider identifier for averaged oracle prices
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
+    // 7-day timelock for critical parameter changes (standard governance delay)
     uint256 private constant TIMELOCK = 7 days;
     uint256 private constant BPS_MAX = 10_000; // 100% in basis points
 
@@ -151,8 +157,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _addressRegistry[TREASURY] = treasury;
         emit AddressSet(TREASURY, address(0), treasury);
 
-        // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
-        _minStaleness = 300; // 5 minutes in seconds
+        // Initialize minimum staleness to 5 minutes (300 seconds)
+        // Prevents oracle manipulation via extremely low staleness values
+        // Ensures sufficient time for price feed updates across providers
+        _minStaleness = 300;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -200,6 +208,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
         if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
 
+        // Note: Zero timelock is intentionally allowed for SUPER_GOVERNOR_ROLE
+        // to enable immediate hook updates in emergency situations
         // Call the SuperVaultAggregator to change the hooks root update timelock
         ISuperVaultAggregator(aggregator).setHooksRootUpdateTimelock(newTimelock);
     }
@@ -514,6 +524,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit GasInfoSet(oracle, gasIncreasePerEntryBatch);
     }
 
+    /// @inheritdoc ISuperGovernor
     /// @notice Proposes a change to the upkeep payments enabled status
     /// @param enabled The proposed new status for upkeep payments
     function proposeUpkeepPaymentsChange(bool enabled) external onlyRole(_SUPER_GOVERNOR_ROLE) {
@@ -523,6 +534,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit UpkeepPaymentsChangeProposed(enabled, _upkeepPaymentsChangeEffectiveTime);
     }
 
+    /// @inheritdoc ISuperGovernor
     /// @notice Executes a previously proposed change to upkeep payments status after timelock expires
     function executeUpkeepPaymentsChange() external {
         if (_upkeepPaymentsChangeEffectiveTime == 0) revert NO_PENDING_CHANGE();
@@ -543,7 +555,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _proposedMinStaleness = newMinStaleness;
         _minStalenessEffectiveTime = block.timestamp + TIMELOCK;
 
-        emit MinStalenesProposed(newMinStaleness, _minStalenessEffectiveTime);
+        emit MinStalenessProposed(newMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -558,7 +570,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _proposedMinStaleness = 0;
         _minStalenessEffectiveTime = 0;
 
-        emit MinStalenesChanged(_minStaleness);
+        emit MinStalenessChanged(_minStaleness);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -626,9 +638,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperBankHookMerkleRootUpdated(hook, proposedRoot);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                      SUPERFORM MANAGER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
     /*//////////////////////////////////////////////////////////////
                          EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -849,6 +858,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Converts gas units to UP token cost using multi-step oracle pricing
+    /// @dev Performs 3 oracle conversions: Gas->ETH, ETH->USD, USD->UP
+    /// @dev Uses AVERAGE_PROVIDER for all price feeds to ensure consistency
+    /// @dev Uses Math.Rounding.Ceil to ensure sufficient upkeep coverage
+    /// @param gasAmount The gas units to convert
+    /// @return requiredUpTokens The equivalent amount in UP tokens (18 decimals)
     function _convertGasToUp(uint256 gasAmount) internal view returns (uint256) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert SUPER_ORACLE_NOT_FOUND();

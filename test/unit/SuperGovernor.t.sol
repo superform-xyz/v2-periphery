@@ -98,8 +98,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
                         performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                    }),
-                    maxUnpauseTimeLock: 0
+                    })
                 })
             );
         strategy1 = strategy;
@@ -498,8 +497,12 @@ contract SuperGovernorTest is PeripheryHelpers {
         address validatorAt1 = superGovernor.getValidatorAt(1);
 
         // Verify both validators are accessible
-        assertTrue(validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2");
-        assertTrue(validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2");
+        assertTrue(
+            validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2"
+        );
+        assertTrue(
+            validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2"
+        );
         assertTrue(validatorAt0 != validatorAt1, "Validators at different indices should be different");
 
         // Verify we can access each validator
@@ -1201,7 +1204,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         vm.prank(sGovernor);
         vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.MinStalenesProposed(newMinStaleness, expectedTime);
+        emit ISuperGovernor.MinStalenessProposed(newMinStaleness, expectedTime);
         superGovernor.proposeMinStaleness(newMinStaleness);
 
         (uint256 proposedMinStaleness, uint256 effectiveTime) = superGovernor.getProposedMinStaleness();
@@ -1250,7 +1253,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Execute the change
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.MinStalenesChanged(newMinStaleness);
+        emit ISuperGovernor.MinStalenessChanged(newMinStaleness);
         superGovernor.executeMinStalenesChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");

@@ -84,8 +84,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
@@ -695,8 +694,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
@@ -770,8 +768,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
@@ -1264,7 +1261,8 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create signatures JUST BEFORE unpause (within staleness window)
         // This signature is fresh enough to pass staleness check but still pre-unpause
         uint256 timestampBeforePause = unpauseTime - 10; // 10 seconds before unpause
-        bytes[] memory proofsBeforePause = _createValidProofs(svStrategy, PPS * 2, timestampBeforePause, new uint256[](0));
+        bytes[] memory proofsBeforePause =
+            _createValidProofs(svStrategy, PPS * 2, timestampBeforePause, new uint256[](0));
 
         // Wait 20 seconds after unpause to submit
         vm.warp(unpauseTime + 20);
@@ -1326,7 +1324,8 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create fresh signatures AFTER unpause
         vm.warp(block.timestamp + 1 hours);
         uint256 timestampAfterUnpause = block.timestamp;
-        bytes[] memory proofsAfterUnpause = _createValidProofs(svStrategy, PPS * 3, timestampAfterUnpause, new uint256[](0));
+        bytes[] memory proofsAfterUnpause =
+            _createValidProofs(svStrategy, PPS * 3, timestampAfterUnpause, new uint256[](0));
 
         // Submit fresh PPS - should succeed
         vm.prank(user);
@@ -1482,7 +1481,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Security fix: Prevents nonce burning attacks where attackers submit duplicates
     function test_UpdatePPS_RevertsDuplicateStrategies() public {
         // Create second strategy for testing
-        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+        (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "TestVault2",
@@ -1493,14 +1492,13 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
         // Create proofs for both strategies
         bytes[] memory proofs1 = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
-        bytes[] memory proofs2 = _createValidProofs(address(svStrategy2), PPS, block.timestamp, new uint256[](0));
+        _createValidProofs(address(svStrategy2), PPS, block.timestamp, new uint256[](0));
 
         // Try to submit with duplicate strategy (same strategy twice)
         address[] memory strategies = new address[](2);
@@ -1523,10 +1521,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.STRATEGIES_NOT_SORTED_UNIQUE.selector);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -1535,7 +1530,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Security fix: Enforces sorted order to catch both duplicates and wrong ordering
     function test_UpdatePPS_RevertsUnsortedStrategies() public {
         // Create second strategy for testing
-        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+        (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "TestVault2",
@@ -1546,8 +1541,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
@@ -1560,9 +1554,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Ensure svStrategy2 > svStrategy for this test to work
         if (uint160(svStrategy2) > uint160(svStrategy)) {
             strategies[0] = address(svStrategy2); // Higher address first (wrong)
-            strategies[1] = address(svStrategy);  // Lower address second
+            strategies[1] = address(svStrategy); // Lower address second
         } else {
-            strategies[0] = address(svStrategy);  // Higher address first (wrong)
+            strategies[0] = address(svStrategy); // Higher address first (wrong)
             strategies[1] = address(svStrategy2); // Lower address second
         }
 
@@ -1582,10 +1576,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.STRATEGIES_NOT_SORTED_UNIQUE.selector);
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -1594,7 +1585,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Ensures the deduplication check doesn't break valid use cases
     function test_UpdatePPS_SucceedsSortedUniqueStrategies() public {
         // Create second strategy for testing
-        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+        (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "TestVault2",
@@ -1605,8 +1596,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
 
@@ -1645,10 +1635,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Should succeed
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 

@@ -8,7 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 // Superform
 import { SuperVault } from "./SuperVault.sol";
@@ -95,16 +94,24 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates that msg.sender is the active PPS Oracle
     modifier onlyPPSOracle() {
+        _onlyPPSOracle();
+        _;
+    }
+
+    function _onlyPPSOracle() internal view {
         if (!SUPER_GOVERNOR.isActivePPSOracle(msg.sender)) {
             revert UNAUTHORIZED_PPS_ORACLE();
         }
-        _;
     }
 
     /// @notice Validates that a strategy exists (has been created by this aggregator)
     modifier validStrategy(address strategy) {
-        if (!_superVaultStrategies.contains(strategy)) revert UNKNOWN_STRATEGY();
+        _validStrategy(strategy);
         _;
+    }
+
+    function _validStrategy(address strategy) internal view {
+        if (!_superVaultStrategies.contains(strategy)) revert UNKNOWN_STRATEGY();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -146,13 +153,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         ///       it's up to the creator to ensure that the vault
         ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
-            revert ZERO_AMOUNT();
+            revert INVALID_VAULT_PARAMS();
         }
 
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
-        // Increment nonce before creating proxies
         vars.currentNonce = _vaultCreationNonce++;
         vars.salt = keccak256(abi.encode(msg.sender, params.asset, params.name, params.symbol, vars.currentNonce));
 
@@ -165,7 +171,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         SuperVault(superVault).initialize(params.asset, params.name, params.symbol, strategy, escrow);
 
         // Initialize escrow
-        SuperVaultEscrow(escrow).initialize(superVault, strategy);
+        SuperVaultEscrow(escrow).initialize(superVault);
 
         // Initialize strategy
         SuperVaultStrategy(payable(strategy)).initialize(superVault, params.feeConfig);
@@ -178,7 +184,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Get asset decimals
         (bool success, uint8 assetDecimals) = params.asset.tryGetAssetDecimals();
         if (!success) revert INVALID_ASSET();
-        vars.initialPPS = 10 ** assetDecimals; // 1.0 as initial PPS
+        // Initial PPS is always 1.0 (scaled by asset decimals) for new vaults
+        // This means 1 vault share = 1 unit of underlying asset at inception
+        vars.initialPPS = 10 ** assetDecimals;
 
         // Validate maxStaleness against minimum required staleness
         if (params.maxStaleness < SUPER_GOVERNOR.getMinStaleness()) {
@@ -187,7 +195,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Initialize StrategyData individually to avoid mapping assignment issues
         _strategyData[strategy].pps = vars.initialPPS;
-        // Initialize standard deviation to 0
         _strategyData[strategy].lastUpdateTimestamp = block.timestamp;
         _strategyData[strategy].minUpdateInterval = params.minUpdateInterval;
         _strategyData[strategy].maxStaleness = params.maxStaleness;
@@ -202,7 +209,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
-        // Set default threshold values
         _strategyData[strategy].deviationThreshold = type(uint256).max; // Default: max (disabled)
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
@@ -469,6 +475,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit StakeWithdrawRequested(msg.sender, amount);
     }
 
+    /// @notice Completes a pending stake withdrawal after timelock period
+    /// @dev Validates timelock and expiration, transfers UP tokens to manager
+    /// @dev Reverts if no request exists, timelock not met, or request expired
+    /// @dev Re-checks balance in case slashing occurred during timelock period
     function completeStakeWithdrawal() external {
         WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
 
@@ -624,6 +634,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    /// @dev SECURITY: This is the emergency governance override function
+    /// @dev Clears ALL pending proposals and secondary managers to prevent malicious manager attacks:
+    ///      - Pending manager change proposals
+    ///      - Pending hooks root proposals
+    ///      - Pending minUpdateInterval proposals
+    ///      - ALL secondary managers (they may be controlled by malicious manager)
+    /// @dev This ensures clean slate for new manager without inherited vulnerabilities
     function changePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
@@ -1193,6 +1210,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                          INTERNAL HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Internal implementation of forwarding PPS updates
+    /// @dev Implements Properties 7-12 from /security/security_properties.md:
+    ///      - Property 7: Timestamp Monotonicity (line 1213)
+    ///      - Property 8: Post-Unpause Timestamp Validation / C1-RE_ANCHOR (line 1222)
+    ///      - Property 9: Rate Limit Enforcement (line 1231)
+    ///      - Property 10: Deviation Threshold / C1 Check (line 1242)
+    ///      - Property 11: M/N Threshold Validation / C2 Check (line 1262)
+    ///      - Property 12: Upkeep Balance Check (line 1284)
+    /// @dev Uses 'return' (not 'revert') for business logic rejections to enable batch processing
+    /// @dev Auto-pauses strategy and marks PPS stale on validation failures
     /// @param args Struct containing all parameters for PPS update
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting

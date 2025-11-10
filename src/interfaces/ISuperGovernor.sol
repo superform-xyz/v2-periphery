@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
-import "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 /*//////////////////////////////////////////////////////////////
                                   ENUMS
@@ -31,22 +31,12 @@ interface ISuperGovernor is IAccessControl {
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Thrown when a function that should only be called by governor is called by someone else
-    error ONLY_GOVERNOR();
-    /// @notice Thrown when trying to register a contract that is already registered
-    error CONTRACT_ALREADY_REGISTERED();
     /// @notice Thrown when trying to access a contract that is not registered
     error CONTRACT_NOT_FOUND();
     /// @notice Thrown when providing an invalid address (typically zero address)
     error INVALID_ADDRESS();
-    /// @notice Thrown when providing an invalid chain ID
-    error INVALID_CHAIN_ID();
-    /// @notice Thrown when a hook is already approved
-    error HOOK_ALREADY_APPROVED();
     /// @notice Thrown when a hook is not approved but expected to be
     error HOOK_NOT_APPROVED();
-    /// @notice Thrown when provided revenue share is invalid (exceeds 100%)
-    error INVALID_REVENUE_SHARE();
     /// @notice Thrown when an invalid fee value is proposed (must be <= BPS_MAX)
     error INVALID_FEE_VALUE();
     /// @notice Thrown when no proposed fee exists but one is expected
@@ -60,6 +50,8 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Thrown when trying to change active PPS oracle directly
     error MUST_USE_TIMELOCK_FOR_CHANGE();
     /// @notice Thrown when a SuperBank hook Merkle root is not registered but expected to be
+    /// @dev This error is defined here for use by other contracts in the system (SuperVaultStrategy,
+    /// SuperVaultAggregator, ECDSAPPSOracle)
     error INVALID_TIMESTAMP();
     /// @notice Thrown when attempting to set an invalid quorum value (typically zero)
     error INVALID_QUORUM();
@@ -87,14 +79,6 @@ interface ISuperGovernor is IAccessControl {
     error MANAGER_NOT_REGISTERED();
     /// @notice Thrown when a manager is already registered
     error MANAGER_ALREADY_REGISTERED();
-    /// @notice Thrown when trying to register a keeper that is already registered
-    error KEEPER_ALREADY_REGISTERED();
-    /// @notice Thrown when trying to unregister a keeper that is not registered
-    error KEEPER_NOT_REGISTERED();
-    /// @notice Thrown when the price is not found
-    error PRICE_NOT_FOUND();
-    /// @notice Thrown when the price is stale
-    error STALE_ORACLE_PRICE();
     /// @notice Thrown when the super oracle is not found
     error SUPER_ORACLE_NOT_FOUND();
     /// @notice Thrown when the up token is not found
@@ -128,10 +112,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param validator The address of the removed validator
     /// @param blockNumber The block number when the validator was removed
     event ValidatorRemoved(address indexed validator, uint256 blockNumber);
-
-    /// @notice Emitted when revenue share is updated
-    /// @param share The new revenue share percentage
-    event RevenueShareUpdated(uint256 share);
 
     /// @notice Emitted when a new fee is proposed
     /// @param feeType The type of fee being proposed
@@ -196,11 +176,11 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a new minimum staleness is proposed
     /// @param newMinStaleness The proposed minimum staleness value
     /// @param effectiveTime The timestamp when the new value will be effective
-    event MinStalenesProposed(uint256 newMinStaleness, uint256 effectiveTime);
+    event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime);
 
     /// @notice Emitted when the minimum staleness is changed
     /// @param newMinStaleness The new minimum staleness value
-    event MinStalenesChanged(uint256 newMinStaleness);
+    event MinStalenessChanged(uint256 newMinStaleness);
 
     /// @notice Emitted when a superform manager is added
     /// @param manager The address of the added manager
@@ -209,14 +189,6 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Emitted when a superform manager is removed
     /// @param manager The address of the removed manager
     event SuperformManagerRemoved(address indexed manager);
-
-    /// @notice Emitted when a protected keeper is registered
-    /// @param keeper Address of the keeper being registered
-    event ProtectedKeeperRegistered(address indexed keeper);
-
-    /// @notice Emitted when a protected keeper is unregistered
-    /// @param keeper Address of the keeper being unregistered
-    event ProtectedKeeperUnregistered(address indexed keeper);
 
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
@@ -276,11 +248,7 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Sets the maximum staleness periods for multiple oracle feeds in batch
     /// @param feeds The addresses of the feeds to set staleness for
     /// @param newMaxStalenessList The new maximum staleness periods in seconds
-    function setOracleFeedMaxStalenessBatch(
-        address[] calldata feeds,
-        uint256[] calldata newMaxStalenessList
-    )
-        external;
+    function setOracleFeedMaxStalenessBatch(address[] calldata feeds, uint256[] calldata newMaxStalenessList) external;
 
     /// @notice Queues an oracle update for execution after timelock period
     /// @param bases Base asset addresses

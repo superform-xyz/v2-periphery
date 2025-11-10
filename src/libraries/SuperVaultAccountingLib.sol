@@ -13,8 +13,6 @@ library SuperVaultAccountingLib {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
-    error INSUFFICIENT_SHARES();
-    error SLIPPAGE_EXCEEDED();
     error INSUFFICIENT_LIQUIDITY();
 
     /*//////////////////////////////////////////////////////////////
@@ -46,25 +44,6 @@ library SuperVaultAccountingLib {
     {
         uint256 expectedAssets = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
         minAssetsOut = expectedAssets.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
-    }
-
-    /// @notice Validate redemption share amounts are within tolerance bounds
-    /// @param intendedShares Shares intended to be redeemed
-    /// @param totalRequestedShares Total shares requested by users
-    /// @param toleranceConstant Tolerance in wei
-    function validateRedemptionBounds(
-        uint256 intendedShares,
-        uint256 totalRequestedShares,
-        uint256 toleranceConstant
-    )
-        internal
-        pure
-    {
-        // Lower bound check
-        require(intendedShares + toleranceConstant >= totalRequestedShares, "Below tolerance");
-
-        // Upper bound check
-        require(intendedShares <= totalRequestedShares + toleranceConstant, "Above tolerance");
     }
 
     /// @notice Calculate updated average withdraw price

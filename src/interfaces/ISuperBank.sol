@@ -18,6 +18,8 @@ interface ISuperBank is IHookExecutionData {
     error INVALID_UP_AMOUNT_TO_DISTRIBUTE();
     /// @notice Error thrown when an invalid bank manager is provided.
     error INVALID_BANK_MANAGER();
+    /// @notice Error thrown when revenue share exceeds maximum allowed (BPS_PRECISION).
+    error INVALID_REVENUE_SHARE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS

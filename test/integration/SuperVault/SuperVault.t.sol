@@ -135,7 +135,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         emit Initializable.Initialized(type(uint64).max);
         SuperVault vault = new SuperVault(address(superGovernor));
 
-        assertEq(address(vault.superGovernor()), address(superGovernor));
+        assertEq(address(vault.SUPER_GOVERNOR()), address(superGovernor));
 
         SuperVault vaultError = new SuperVault(address(superGovernor));
         vm.expectRevert(Initializable.InvalidInitialization.selector);
@@ -151,8 +151,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
-            maxUnpauseTimeLock: 0
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER })
         });
         aggregator.createVault(params);
 
@@ -175,8 +174,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
-            maxUnpauseTimeLock: 0
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER })
         });
         vm.expectRevert(ISuperVault.INVALID_ASSET.selector);
         aggregator.createVault(params1);
@@ -1390,7 +1388,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_ClaimCancelRedeem_RevertCases() public {
         // Try to cancel when there's no request
         vm.prank(accountEth);
-        vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
+        vm.expectRevert(ISuperVaultStrategy.REQUEST_NOT_FOUND.selector);
         vault.cancelRedeemRequest(0, accountEth);
 
         vm.startPrank(MANAGER);
@@ -3003,7 +3001,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Check escrow state
         assertTrue(escrowContract.initialized(), "Escrow not initialized");
         assertEq(escrowContract.vault(), vaultAddr, "Wrong vault in escrow");
-        assertEq(escrowContract.strategy(), strategyAddr, "Wrong strategy in escrow");
     }
 
     function test_DeployMultipleVaults() public {
@@ -3099,8 +3096,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
     }
@@ -3123,8 +3119,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
+                })
             })
         );
     }
@@ -4693,7 +4688,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Step 6: User tries to claim cancellation (should return 0 shares since there was nothing to cancel)
         uint256 sharesBefore = vault.balanceOf(accInstances[0].account);
         vm.prank(accInstances[0].account);
-        vm.expectRevert(ISuperVault.REQUEST_NOT_FOUND.selector);
+        vm.expectRevert(ISuperVaultStrategy.REQUEST_NOT_FOUND.selector);
         uint256 claimedShares = vault.claimCancelRedeemRequest(0, accInstances[0].account, accInstances[0].account);
 
         uint256 sharesAfter = vault.balanceOf(accInstances[0].account);

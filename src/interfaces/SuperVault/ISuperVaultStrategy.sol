@@ -89,10 +89,7 @@ interface ISuperVaultStrategy {
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
     event RedeemClaimable(
-        address indexed controller,
-        uint256 assetsFulfilled,
-        uint256 sharesFulfilled,
-        uint256 averageWithdrawPrice
+        address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
@@ -168,37 +165,8 @@ interface ISuperVaultStrategy {
         Execution[] executions;
     }
 
-    struct OutflowExecutionVars {
-        bool success;
-        address targetedYieldSource;
-        address svAsset;
-        uint256 outAmount;
-        uint256 superVaultShares;
-        uint256 amountOfAssets;
-        uint256 amountConvertedToUnderlyingShares;
-        uint256 balanceAssetBefore;
-        Execution[] executions;
-        ISuperHook hookContract;
-        ISuperHook.HookType hookType;
-    }
-
-    struct LiquidityRedeemVars {
-        uint256 requestedShares;
-        uint256 historicalAssets;
-        uint256 claimableAssetsWithFees;
-        uint256 totalFee;
-        uint256 superformFee;
-        uint256 recipientFee;
-        uint16 slippageBps;
-        uint256 strategyBalance;
-        uint256 avgRequestPPS;
-        uint256 claimableAssets;
-    }
-
     struct FulfillRedeemVars {
         uint256 totalRequestedShares;
-        uint256 totalSuperformFee;
-        uint256 totalRecipientFee;
         uint256 totalNetAssetsOut;
         uint256 currentPPS;
         uint256 strategyBalance;
@@ -227,12 +195,7 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @param assetsGross The amount of gross assets user has to deposit
     /// @return sharesNet The amount of net shares to mint
-    function handleOperations4626Deposit(
-        address controller,
-        uint256 assetsGross
-    )
-        external
-        returns (uint256 sharesNet);
+    function handleOperations4626Deposit(address controller, uint256 assetsGross) external returns (uint256 sharesNet);
 
     /// @notice Execute a 4626 mint by processing shares.
     /// @param controller The controller address
@@ -268,11 +231,17 @@ interface ISuperVaultStrategy {
     /// @param args Execution arguments containing hooks, calldata, proofs, expectations.
     function executeHooks(ExecuteArgs calldata args) external payable;
 
+    /// @notice Fulfills pending cancel redeem requests by making shares claimable
+    /// @dev Processes all controllers with pending cancellation flags
+    /// @dev Can only be called by authorized managers
+    /// @param controllers Array of controller addresses with pending cancel requests
+    function fulfillCancelRedeemRequests(address[] memory controllers) external;
+
     /// @notice Fulfills pending redeem requests with exact total assets per controller (pre-fee).
     /// @dev PRE: Off-chain sort/unique controllers. Call executeHooks(sum(totalAssetsOut)) first.
     /// @dev Social: totalAssetsOut[i] = theoreticalGross[i] (full). Selective: totalAssetsOut[i] < theoreticalGross[i].
-    /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee deduction.
-    /// @param controllers Ordered/unique controllers with pending requests.
+    /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee
+    /// deduction. @param controllers Ordered/unique controllers with pending requests.
     /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
     function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
 
@@ -383,7 +352,6 @@ interface ISuperVaultStrategy {
     /// @param controller The controller address
     /// @return state The super vault state
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state);
-
 
     /// @notice Get the pending redeem request amount (shares) for a controller
     /// @param controller The controller address

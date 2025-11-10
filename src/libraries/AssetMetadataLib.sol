@@ -17,13 +17,15 @@ library AssetMetadataLib {
      * @return assetDecimals The token's decimals if successful, 0 otherwise
      */
     function tryGetAssetDecimals(address asset_) internal view returns (bool ok, uint8 assetDecimals) {
-        if(asset_.code.length == 0) revert INVALID_ASSET();
-        
+        if (asset_.code.length == 0) revert INVALID_ASSET();
+
         (bool success, bytes memory encodedDecimals) =
             address(asset_).staticcall(abi.encodeCall(IERC20Metadata.decimals, ()));
         if (success && encodedDecimals.length >= 32) {
             uint256 returnedDecimals = abi.decode(encodedDecimals, (uint256));
             if (returnedDecimals <= type(uint8).max) {
+                // casting to 'uint8' is safe because the returned decimals is a valid uint8
+                // forge-lint: disable-next-line(unsafe-typecast)
                 return (true, uint8(returnedDecimals));
             }
         }

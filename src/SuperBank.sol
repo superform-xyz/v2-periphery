@@ -19,7 +19,7 @@ contract SuperBank is ISuperBank, Bank {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
-    uint256 private constant BPS_MAX = 10_000;
+    uint256 private constant BPS_PRECISION = 10_000;
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
     constructor(address superGovernor_) {
@@ -28,10 +28,14 @@ contract SuperBank is ISuperBank, Bank {
     }
 
     modifier onlyBankManager() {
+        _onlyBankManager();
+        _;
+    }
+
+    function _onlyBankManager() internal view {
         if (!IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.BANK_MANAGER_ROLE(), msg.sender)) {
             revert INVALID_BANK_MANAGER();
         }
-        _;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -58,8 +62,11 @@ contract SuperBank is ISuperBank, Bank {
         // Get revenue share percentage from SuperGovernor
         uint256 revenueShare = SUPER_GOVERNOR.getFee(FeeType.REVENUE_SHARE);
 
+        // Validate revenue share is within bounds
+        if (revenueShare > BPS_PRECISION) revert INVALID_REVENUE_SHARE();
+
         // Calculate amounts for sUP and Treasury
-        uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_MAX, Math.Rounding.Ceil);
+        uint256 supAmount = upAmount.mulDiv(revenueShare, BPS_PRECISION, Math.Rounding.Ceil);
 
         uint256 treasuryAmount = upAmount - supAmount;
 

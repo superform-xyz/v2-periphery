@@ -20,6 +20,7 @@ abstract contract Bank is ReentrancyGuard {
     error HOOK_NOT_REGISTERED();
     error ZERO_LENGTH_ARRAY();
     error INVALID_ARRAY_LENGTH();
+    error ZERO_ADDRESS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -66,6 +67,10 @@ abstract contract Bank is ReentrancyGuard {
 
         for (uint256 i; i < hooksLength; i++) {
             hookAddress = executionData.hooks[i];
+
+            // Validate hook address is not zero
+            if (hookAddress == address(0)) revert ZERO_ADDRESS();
+
             hookData = executionData.data[i];
             merkleProof = executionData.merkleProofs[i];
 
@@ -92,6 +97,11 @@ abstract contract Bank is ReentrancyGuard {
             uint256 len = executions.length;
 
             // 6. Execute all steps (no per-target validation needed)
+            // Note: Uses all available gas for hook execution. Hooks are trusted and registered,
+            // so unlimited gas is acceptable. This allows hooks to perform complex operations.
+            // Note: Return data is discarded for gas efficiency. Hook failures will result in
+            // generic HOOK_EXECUTION_FAILED error. For debugging, check hook contract logs or
+            // use off-chain tooling to inspect failed transactions.
             for (uint256 j; j < len; ++j) {
                 executionStep = executions[j];
 
@@ -103,7 +113,7 @@ abstract contract Bank is ReentrancyGuard {
                 // We call via assembly to avoid memcopying the returndata
                 assembly {
                     success := call(
-                        gas(), // gas
+                        gas(), // gas - forwards all remaining gas (hooks are trusted)
                         targetToCall, // recipient
                         valueToSend, // ether value
                         add(callData, 0x20), // inloc
