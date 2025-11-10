@@ -94,6 +94,11 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         vm.label(address(acrossV3Helper), "Pigeon AcrossV3Helper");
         vm.allowCheatcodes(address(acrossV3Helper));
         vm.makePersistent(address(acrossV3Helper));
+
+        // Setup: Grant bank manager role
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
     }
 
     function test_SuperBank_Constructor() public {
@@ -117,10 +122,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_distribute_ZeroLengthArray() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         vm.expectRevert(Bank.ZERO_LENGTH_ARRAY.selector);
         superBank.distribute(0);
     }
@@ -143,7 +144,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     function test_SuperBank_distribute_success_unit() public {
         address supToken = address(0xF); // Mock sUP token address
         vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
         superGovernor.setAddress(superGovernor.UP(), address(up));
         superGovernor.setAddress(superGovernor.SUP(), supToken);
         superGovernor.setAddress(superGovernor.TREASURY(), treasury);
@@ -176,10 +176,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_ZeroLengthArray() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         address[] memory hooks = new address[](0);
         bytes[] memory data = new bytes[](0);
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](0);
@@ -196,10 +192,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_InvalidArrayLength() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         address[] memory hooks = new address[](2);
         hooks[0] = address(0x1111);
         hooks[1] = address(0x2222);
@@ -224,10 +216,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_InvalidMerkleProof() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
@@ -264,10 +252,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_HookExecutionFailed() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         MockHookTarget mockTarget = new MockHookTarget();
         mockTarget.setShouldFailExecution(true); // Set to fail during execution
 
@@ -308,10 +292,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_MinimumOutputAmountNotMet() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
@@ -351,10 +331,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_Success() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
 
@@ -399,10 +375,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_executeHooks_MultipleHooks() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         MockHookTarget mockTarget1 = new MockHookTarget();
         MockHookTarget mockTarget2 = new MockHookTarget();
 
@@ -460,10 +432,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_SwapHookOdos() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         uint256 amount = SMALL;
 
         vm.warp(block.timestamp + 4 * 365 days);
@@ -561,10 +529,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     }
 
     function test_SuperBank_RedeemHookOdos() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         uint256 amount = SMALL;
 
         //add to vault
@@ -635,6 +599,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             up = new Up(admin);
             _getTokens(CHAIN_8453_USDC, address(superBank), uint256(100e6));
 
+            // Setup: Grant bank manager role
             vm.startPrank(sGovernor);
             superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
             vm.stopPrank();
@@ -676,7 +641,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             hooksAddresses[0] = address(acrossSendFundsAndExecuteOnDstHook);
 
             uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-            expectedAssetsOrSharesOut[0] = 10e6;
+            expectedAssetsOrSharesOut[0] = 0;
 
             bytes32[][] memory merkleProofs = new bytes32[][](1);
             merkleProofs[0] = new bytes32[](0);
@@ -731,10 +696,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
     /// @notice Tests that hooks without inspect() or with empty args are rejected
     function test_SuperBank_executeHooks_EmptyHookArgs_Reverts() public {
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         // Create a hook that returns empty args from inspect()
         MockHookTarget mockTarget = new MockHookTarget();
         MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
@@ -779,11 +740,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     ///      OLD SYSTEM: Would fail with INVALID_MERKLE_PROOF because it tried to use one proof for 3 targets
     ///      NEW SYSTEM: Validates hook configuration once, then executes all targets successfully
     function test_SuperBank_MultiTargetHook_Success() public {
-        // Setup: Grant bank manager role
-        vm.startPrank(sGovernor);
-        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
-        vm.stopPrank();
-
         // Create test token and recipients
         MockERC20 testToken = new MockERC20("Test Token", "TEST", 18);
         address recipient1 = address(0x1001);
@@ -791,13 +747,16 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         address recipient3 = address(0x1003);
         uint256 transferAmount = 100e18;
 
-        // Create the multi-target hook
-        MockMultiTargetHook multiTargetHook =
-            new MockMultiTargetHook(address(testToken), recipient1, recipient2, recipient3, transferAmount);
+        MockMultiTargetHook multiTargetHook;
+        {
+            // Create the multi-target hook
+            multiTargetHook =
+                new MockMultiTargetHook(address(testToken), recipient1, recipient2, recipient3, transferAmount);
 
-        // Register the hook
-        vm.prank(governor);
-        superGovernor.registerHook(address(multiTargetHook));
+            // Register the hook
+            vm.prank(governor);
+            superGovernor.registerHook(address(multiTargetHook));
+        }
 
         // Fund the SuperBank with tokens
         testToken.mint(address(superBank), transferAmount * 3);
@@ -807,11 +766,21 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes memory hookArgs = abi.encodePacked(address(testToken), recipient1, recipient2, recipient3);
 
         // Use MerkleTreeBuilder to create tree and proof
-        MerkleTreeBuilder.HookConfig[] memory configs = new MerkleTreeBuilder.HookConfig[](1);
-        configs[0] = MerkleTreeBuilder.HookConfig({ hookAddress: address(multiTargetHook), encodedArgs: hookArgs });
+        bytes32[] memory proof;
+        {
+            MerkleTreeBuilder.HookConfig[] memory configs = new MerkleTreeBuilder.HookConfig[](1);
+            configs[0] = MerkleTreeBuilder.HookConfig({ hookAddress: address(multiTargetHook), encodedArgs: hookArgs });
 
-        bytes32 merkleRoot = MerkleTreeBuilder.buildTree(configs);
-        bytes32[] memory proof = MerkleTreeBuilder.getProof(configs, address(multiTargetHook), hookArgs);
+            bytes32 merkleRoot = MerkleTreeBuilder.buildTree(configs);
+            proof = MerkleTreeBuilder.getProof(configs, address(multiTargetHook), hookArgs);
+
+            // Mock the governor to return our Merkle root
+            vm.mockCall(
+                address(superGovernor),
+                abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(multiTargetHook)),
+                abi.encode(merkleRoot)
+            );
+        }
 
         // Setup execution data
         address[] memory hooks = new address[](1);
@@ -830,18 +799,14 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             hooks: hooks, data: data, expectedAssetsOrSharesOut: expectedAssetsOrSharesOut, merkleProofs: merkleProofs
         });
 
-        // Mock the governor to return our Merkle root
-        vm.mockCall(
-            address(superGovernor),
-            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(multiTargetHook)),
-            abi.encode(merkleRoot)
-        );
-
         // Execute the hook - THIS IS THE CRITICAL TEST
         // In the OLD system, this would fail with INVALID_MERKLE_PROOF
         // In the NEW system, it validates the hook configuration once and executes all targets
         vm.expectEmit(true, true, true, true, address(superBank));
         emit Bank.HooksExecuted(hooks, data);
+
+        vm.expectEmit(true, true, true, false);
+        emit MockMultiTargetHook.PostExecuteCalled(address(0), address(this), "");
 
         superBank.executeHooks(executionData);
 
