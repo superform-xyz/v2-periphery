@@ -250,17 +250,25 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 continue; // Skip processing paused strategies
             }
 
+            // [Property 6: Staleness Enforcement (Absolute Time)]
+            // Always enforce staleness check, regardless of payment status.
+            // This prevents attackers from submitting stale signatures to manipulate PPS.
+            // The check must occur before payment calculation to protect all strategies.
+            if (block.timestamp - ts > data.maxStaleness) {
+                emit StaleUpdate(strategy, args.updateAuthority, ts);
+                continue; // Skip processing stale updates
+            }
+
             uint256 upkeepCost = 0;
             if (paymentsEnabled) {
-                // [Property 6: Staleness Enforcement (Absolute Time)]
-                // Reject PPS updates with timestamps older than maxStaleness relative to current block time.
-                if (block.timestamp - ts > data.maxStaleness) {
-                    emit StaleUpdate(strategy, args.updateAuthority, ts);
-                    continue; // Skip processing stale updates
-                } else {
-                    // Query cost directly per entry
-                    // Everyone pays the upkeep cost
-                    upkeepCost = SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender);
+                // Query cost directly per entry
+                // Everyone pays the upkeep cost
+                try SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender) returns (uint256 cost) {
+                    upkeepCost = cost;
+                } catch {
+                    // If upkeep cost computation fails (e.g., oracle misconfiguration),
+                    // allow PPS update to proceed without charging upkeep.
+                    upkeepCost = 0;
                 }
             }
 

@@ -722,9 +722,21 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         data.timestamps[0] = block.timestamp;
         data.timestamps[1] = block.timestamp;
 
+        // SECURITY FIX: Strategies must be sorted in ascending order
+        if (uint160(data.strategy1) > uint160(data.strategy2)) {
+            // Swap strategies
+            address temp = data.strategies[0];
+            data.strategies[0] = data.strategies[1];
+            data.strategies[1] = temp;
+            // Swap ppss accordingly
+            uint256 tempPPS = data.ppss[0];
+            data.ppss[0] = data.ppss[1];
+            data.ppss[1] = tempPPS;
+        }
+
         data.proofsArray = new bytes[][](2);
-        data.proofsArray[0] = _createValidProofs(data.strategy1, data.ppss[0], data.timestamps[0], new uint256[](0));
-        data.proofsArray[1] = _createValidProofs(data.strategy2, data.ppss[1], data.timestamps[1], new uint256[](0));
+        data.proofsArray[0] = _createValidProofs(data.strategies[0], data.ppss[0], data.timestamps[0], new uint256[](0));
+        data.proofsArray[1] = _createValidProofs(data.strategies[1], data.ppss[1], data.timestamps[1], new uint256[](0));
 
         data.updateAuthorities = new address[](2);
         data.updateAuthorities[0] = user;
@@ -785,9 +797,21 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         data.timestamps[0] = block.timestamp;
         data.timestamps[1] = block.timestamp;
 
+        // SECURITY FIX: Strategies must be sorted in ascending order
+        if (uint160(data.strategy1) > uint160(data.strategy2)) {
+            // Swap strategies
+            address temp = data.strategies[0];
+            data.strategies[0] = data.strategies[1];
+            data.strategies[1] = temp;
+            // Swap ppss accordingly
+            uint256 tempPPS = data.ppss[0];
+            data.ppss[0] = data.ppss[1];
+            data.ppss[1] = tempPPS;
+        }
+
         data.proofsArray = new bytes[][](2);
-        data.proofsArray[0] = _createValidProofs(data.strategy1, data.ppss[0], data.timestamps[0], new uint256[](0));
-        data.proofsArray[1] = _createValidProofs(data.strategy2, data.ppss[1], data.timestamps[1], new uint256[](0));
+        data.proofsArray[0] = _createValidProofs(data.strategies[0], data.ppss[0], data.timestamps[0], new uint256[](0));
+        data.proofsArray[1] = _createValidProofs(data.strategies[1], data.ppss[1], data.timestamps[1], new uint256[](0));
 
         // Gas pre-check has been removed - now we test that OOG is handled gracefully
         // With insufficient gas, the external call will OOG but nonces will remain unchanged
@@ -1224,26 +1248,31 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             })
         );
 
-        // Create signatures BEFORE pause (but don't submit)
-        vm.warp(block.timestamp + 1 days);
-        uint256 timestampBeforePause = block.timestamp;
-        bytes[] memory proofsBeforePause = _createValidProofs(svStrategy, PPS * 2, timestampBeforePause, new uint256[](0));
-
         // Pause strategy
         vm.warp(block.timestamp + 1 days);
         vm.prank(mockManager);
         aggregatorSuperVault.pauseStrategy(svStrategy);
 
-        // Wait 30 days (long pause)
-        vm.warp(block.timestamp + 30 days);
+        // Wait 1 day
+        vm.warp(block.timestamp + 1 days);
 
         // Unpause strategy
         vm.prank(mockManager);
         aggregatorSuperVault.unpauseStrategy(svStrategy);
         uint256 unpauseTime = block.timestamp;
 
-        // Attempt to replay signatures from before pause
-        // Should fail with StaleSignatureAfterUnpause event
+        // Create signatures JUST BEFORE unpause (within staleness window)
+        // This signature is fresh enough to pass staleness check but still pre-unpause
+        uint256 timestampBeforePause = unpauseTime - 10; // 10 seconds before unpause
+        bytes[] memory proofsBeforePause = _createValidProofs(svStrategy, PPS * 2, timestampBeforePause, new uint256[](0));
+
+        // Wait 20 seconds after unpause to submit
+        vm.warp(unpauseTime + 20);
+
+        // Attempt to replay signatures from just before unpause
+        // Staleness check: 20 + 10 = 30 seconds < 300 seconds (maxStaleness) ✅ PASSES
+        // Post-unpause check: timestampBeforePause < unpauseTime ❌ FAILS
+        // Should emit StaleSignatureAfterUnpause (Property 8)
         vm.expectEmit(true, false, false, false);
         emit ISuperVaultAggregator.StaleSignatureAfterUnpause(svStrategy, timestampBeforePause, unpauseTime);
 
@@ -1443,6 +1472,189 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             // Verify retry succeeded
             assertEq(oracleECDSA.noncePerStrategy(svStrategy), nonceBefore + 1, "Retry should succeed");
         }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    STRATEGY DEDUPLICATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test that duplicate strategies in the same batch are rejected
+    /// @dev Security fix: Prevents nonce burning attacks where attackers submit duplicates
+    function test_UpdatePPS_RevertsDuplicateStrategies() public {
+        // Create second strategy for testing
+        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "TestVault2",
+                symbol: "TV2",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Create proofs for both strategies
+        bytes[] memory proofs1 = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
+        bytes[] memory proofs2 = _createValidProofs(address(svStrategy2), PPS, block.timestamp, new uint256[](0));
+
+        // Try to submit with duplicate strategy (same strategy twice)
+        address[] memory strategies = new address[](2);
+        strategies[0] = address(svStrategy);
+        strategies[1] = address(svStrategy); // DUPLICATE
+
+        bytes[][] memory proofsArray = new bytes[][](2);
+        proofsArray[0] = proofs1;
+        proofsArray[1] = proofs1;
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = PPS;
+        ppss[1] = PPS;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = block.timestamp;
+        timestamps[1] = block.timestamp;
+
+        // Should revert with STRATEGIES_NOT_SORTED_UNIQUE
+        vm.expectRevert(IECDSAPPSOracle.STRATEGIES_NOT_SORTED_UNIQUE.selector);
+        oracleECDSA.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                timestamps: timestamps
+            })
+        );
+    }
+
+    /// @notice Test that unsorted strategies are rejected
+    /// @dev Security fix: Enforces sorted order to catch both duplicates and wrong ordering
+    function test_UpdatePPS_RevertsUnsortedStrategies() public {
+        // Create second strategy for testing
+        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "TestVault2",
+                symbol: "TV2",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Create proofs for both strategies
+        bytes[] memory proofs1 = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
+        bytes[] memory proofs2 = _createValidProofs(address(svStrategy2), PPS, block.timestamp, new uint256[](0));
+
+        // Submit in DESCENDING order (wrong order)
+        address[] memory strategies = new address[](2);
+        // Ensure svStrategy2 > svStrategy for this test to work
+        if (uint160(svStrategy2) > uint160(svStrategy)) {
+            strategies[0] = address(svStrategy2); // Higher address first (wrong)
+            strategies[1] = address(svStrategy);  // Lower address second
+        } else {
+            strategies[0] = address(svStrategy);  // Higher address first (wrong)
+            strategies[1] = address(svStrategy2); // Lower address second
+        }
+
+        bytes[][] memory proofsArray = new bytes[][](2);
+        proofsArray[0] = proofs2;
+        proofsArray[1] = proofs1;
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = PPS;
+        ppss[1] = PPS;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = block.timestamp;
+        timestamps[1] = block.timestamp;
+
+        // Should revert with STRATEGIES_NOT_SORTED_UNIQUE
+        vm.expectRevert(IECDSAPPSOracle.STRATEGIES_NOT_SORTED_UNIQUE.selector);
+        oracleECDSA.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                timestamps: timestamps
+            })
+        );
+    }
+
+    /// @notice Test that sorted unique strategies succeed
+    /// @dev Ensures the deduplication check doesn't break valid use cases
+    function test_UpdatePPS_SucceedsSortedUniqueStrategies() public {
+        // Create second strategy for testing
+        (,address svStrategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "TestVault2",
+                symbol: "TV2",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                }),
+                maxUnpauseTimeLock: 0
+            })
+        );
+
+        // Create proofs for both strategies
+        bytes[] memory proofs1 = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
+        bytes[] memory proofs2 = _createValidProofs(address(svStrategy2), PPS, block.timestamp, new uint256[](0));
+
+        // Record nonces before
+        uint256 nonce1Before = oracleECDSA.noncePerStrategy(svStrategy);
+        uint256 nonce2Before = oracleECDSA.noncePerStrategy(svStrategy2);
+
+        // Submit in ASCENDING order (correct order)
+        address[] memory strategies = new address[](2);
+        bytes[][] memory proofsArray = new bytes[][](2);
+
+        if (uint160(svStrategy) < uint160(svStrategy2)) {
+            strategies[0] = address(svStrategy);
+            strategies[1] = address(svStrategy2);
+            proofsArray[0] = proofs1;
+            proofsArray[1] = proofs2;
+        } else {
+            strategies[0] = address(svStrategy2);
+            strategies[1] = address(svStrategy);
+            proofsArray[0] = proofs2;
+            proofsArray[1] = proofs1;
+        }
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = PPS;
+        ppss[1] = PPS;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = block.timestamp;
+        timestamps[1] = block.timestamp;
+
+        // Should succeed
+        oracleECDSA.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                timestamps: timestamps
+            })
+        );
+
+        // Verify both nonces incremented exactly once
+        assertEq(oracleECDSA.noncePerStrategy(svStrategy), nonce1Before + 1, "Strategy 1 nonce should increment once");
+        assertEq(oracleECDSA.noncePerStrategy(svStrategy2), nonce2Before + 1, "Strategy 2 nonce should increment once");
     }
 
     /*//////////////////////////////////////////////////////////////
