@@ -231,13 +231,14 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             validators[0] = VALIDATOR;
             bytes[] memory validatorPublicKeys = new bytes[](1);
             validatorPublicKeys[0] = "";
-            PA[i].superGovernor.setValidatorConfig(
-                1, // version
-                validators,
-                validatorPublicKeys,
-                1, // quorum
-                "" // offchainConfig
-            );
+            PA[i].superGovernor
+                .setValidatorConfig(
+                    1, // version
+                    validators,
+                    validatorPublicKeys,
+                    1, // quorum
+                    "" // offchainConfig
+                );
         }
         return PA;
     }

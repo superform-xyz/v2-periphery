@@ -252,11 +252,7 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Sets the maximum staleness periods for multiple oracle feeds in batch
     /// @param feeds The addresses of the feeds to set staleness for
     /// @param newMaxStalenessList The new maximum staleness periods in seconds
-    function setOracleFeedMaxStalenessBatch(
-        address[] calldata feeds,
-        uint256[] calldata newMaxStalenessList
-    )
-        external;
+    function setOracleFeedMaxStalenessBatch(address[] calldata feeds, uint256[] calldata newMaxStalenessList) external;
 
     /// @notice Queues an oracle update for execution after timelock period
     /// @param bases Base asset addresses
@@ -340,7 +336,8 @@ interface ISuperGovernor is IAccessControl {
         bytes[] calldata validatorPublicKeys,
         uint256 quorum,
         bytes calldata offchainConfig
-    ) external;
+    )
+        external;
 
     /*//////////////////////////////////////////////////////////////
                        PPS ORACLE MANAGEMENT
@@ -355,7 +352,6 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Executes a previously proposed PPS oracle change after timelock has expired
     function executeActivePPSOracleChange() external;
-
 
     /*//////////////////////////////////////////////////////////////
                       REVENUE SHARE MANAGEMENT

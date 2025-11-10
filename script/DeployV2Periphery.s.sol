@@ -335,13 +335,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             validatorPublicKeys[i] = ""; // Empty public keys for now
         }
 
-        SuperGovernor(peripheryContracts.superGovernor).setValidatorConfig(
-            1, // version
-            validators,
-            validatorPublicKeys,
-            1, // quorum
-            "" // offchainConfig
-        );
+        SuperGovernor(peripheryContracts.superGovernor)
+            .setValidatorConfig(
+                1, // version
+                validators,
+                validatorPublicKeys,
+                1, // quorum
+                "" // offchainConfig
+            );
         console2.log("Set validator configuration with", validators.length, "validators and quorum of 1");
 
         // Configure SuperGovernor with aggregator

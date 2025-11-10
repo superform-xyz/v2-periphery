@@ -2592,7 +2592,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Set very low deviation threshold to trigger pause
         address mainManager = superVaultAggregator.getMainManager(strategy);
         vm.prank(mainManager);
-        superVaultAggregator.updateDeviationThreshold(strategy, 1); // Very low deviation threshold (0.000000000000000001%)
+        superVaultAggregator.updateDeviationThreshold(strategy, 1); // Very low deviation threshold
+        // (0.000000000000000001%)
 
         // Update timestamp to current (valid)
         timestamps[0] = block.timestamp;
@@ -2675,7 +2676,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // let's do a valid update now
 
         vm.prank(mainManager);
-        superVaultAggregator.updateDeviationThreshold(strategy, type(uint256).max); // Keep deviation threshold at max (disabled)
+        superVaultAggregator.updateDeviationThreshold(strategy, type(uint256).max); // Keep deviation threshold at max
+        // (disabled)
 
         ppss[0] = 1e18 + 1e15;
         validatorSets[0] = 1;

@@ -958,13 +958,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(governor);
         vm.expectEmit(true, false, false, true);
         emit ISuperGovernor.ValidatorConfigSet(version, validators, validatorPublicKeys, newQuorum, "");
-        superGovernor.setValidatorConfig(
-            version,
-            validators,
-            validatorPublicKeys,
-            newQuorum,
-            ""
-        );
+        superGovernor.setValidatorConfig(version, validators, validatorPublicKeys, newQuorum, "");
 
         assertEq(superGovernor.getPPSOracleQuorum(), newQuorum, "PPS Oracle quorum mismatch");
     }
