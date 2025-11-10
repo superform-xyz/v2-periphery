@@ -71,6 +71,7 @@ contract SuperVaultEscrow {
     /// @param to The address to return assets to
     /// @param amount The amount of assets to return
     function returnAssets(address to, uint256 amount) external onlyVault {
+        if (to == address(0)) revert ZERO_ADDRESS();
         IERC20(IERC4626(vault).asset()).safeTransfer(to, amount);
     }
 }

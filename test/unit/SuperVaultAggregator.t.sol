@@ -12,6 +12,7 @@ import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { IECDSAPPSOracle } from "../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { ECDSAPPSOracle } from "../../src/oracles/ECDSAPPSOracle.sol";
+import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockUp } from "../mocks/MockUp.sol";
@@ -3635,6 +3636,73 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Verify strategy still paused
         assertTrue(superVaultAggregator.isStrategyPaused(strategy), "Strategy should still be paused");
+    }
+
+    /// @notice Test that PPS updates succeed even when upkeep cost calculation fails (try-catch)
+    /// @dev Security fix: Validates resilience against oracle misconfiguration
+    function test_ForwardPPS_UpkeepCostFailure_ContinuesWithoutCharge() public {
+        // Setup: Make this test contract the active PPS oracle so we can call forwardPPS directly
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+        vm.stopPrank();
+
+        // Setup: Enable upkeep payments (requires GOVERNOR_ROLE)
+        vm.startPrank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+        vm.warp(block.timestamp + 8 days);
+        superGovernor.executeUpkeepPaymentsChange();
+        vm.stopPrank();
+
+        assertTrue(superGovernor.isUpkeepPaymentsEnabled(), "Upkeep payments should be enabled");
+
+        // Break oracle configuration by removing AVERAGE_PROVIDER
+        // This will cause getQuoteFromProvider to revert when getUpkeepCostPerSingleUpdate is called
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = averageProvider;
+
+        vm.startPrank(governor);
+        superGovernor.queueOracleProviderRemoval(providersToRemove);
+        vm.warp(block.timestamp + 1 hours + 1); // Wait for timelock
+        ISuperOracle(superOracle).executeProviderRemoval();
+        vm.stopPrank();
+
+        // Record initial PPS
+        uint256 initialPPS = superVaultAggregator.getPPS(strategy);
+
+        // Prepare valid PPS update
+        address[] memory strategies = new address[](1);
+        uint256[] memory ppss = new uint256[](1);
+        uint256[] memory validatorSets = new uint256[](1);
+        uint256[] memory timestamps = new uint256[](1);
+
+        strategies[0] = strategy;
+        ppss[0] = initialPPS * 2; // Valid PPS increase
+        validatorSets[0] = 1;
+        timestamps[0] = block.timestamp + 100;
+
+        vm.warp(timestamps[0]);
+
+        // Submit PPS update - should succeed with upkeepCost = 0 due to try-catch
+        // No revert expected, update proceeds without charging upkeep
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: 1,
+                timestamps: timestamps,
+                updateAuthority: user
+            })
+        );
+
+        // Verify PPS was updated successfully despite oracle failure
+        assertEq(superVaultAggregator.getPPS(strategy), ppss[0], "PPS should have updated");
+
+        // Verify no upkeep was deducted (upkeepCost was 0 due to catch block)
+        // The update was treated as exempt
+        uint256 finalBalance = superVaultAggregator.getUpkeepBalance(manager);
+        assertEq(finalBalance, 0, "No upkeep should have been deducted");
     }
 }
 

@@ -31,7 +31,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Pending provider removal
     PendingRemoval public pendingRemoval;
 
-    /// @notice Mapping of base asset to array of oracle providers to oracle feed address
+    /// @notice Mapping of base asset to quote asset to oracle provider id to oracle feed address
     mapping(address base => mapping(address quote => mapping(bytes32 provider => address feed))) internal oracles;
 
     /// @notice Array of active provider ids
