@@ -121,8 +121,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
             _createExecuteRedeemArgs(shares);
 
-        uint256 strategyBalanceBefore = IERC20(asset).balanceOf(address(superVaultStrategy));
-
         // execute and fulfill as admin (address(this))
         superVaultStrategy.executeHooks(executeArgs);
 
