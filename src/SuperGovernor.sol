@@ -126,13 +126,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
     /// @param treasury Address of the treasury
-    constructor(
-        address superGovernor,
-        address governor,
-        address bankManager,
-        address gasManager,
-        address treasury
-    ) {
+    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
                 || gasManager == address(0)
@@ -411,19 +405,21 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         external
         onlyRole(_GOVERNOR_ROLE)
     {
+        uint256 validatorsLength = validators.length;
+        uint256 validatorPublicKeysLength = validatorPublicKeys.length;
         // Validate inputs
-        if (validators.length != validatorPublicKeys.length) revert INVALID_ADDRESS();
-        if (validators.length == 0) revert INVALID_ADDRESS();
-        if (quorum == 0 || quorum > validators.length) revert INVALID_QUORUM();
+        if (validatorsLength == 0) revert EMPTY_VALIDATOR_ARRAY();
+        if (validatorsLength != validatorPublicKeysLength) revert ARRAY_LENGTH_MISMATCH();
+        if (quorum == 0 || quorum > validatorsLength) revert INVALID_QUORUM();
 
         // Clear existing validators
         uint256 oldLength = _validatorConfig.validators.length();
-        for (uint256 i = 0; i < oldLength; i++) {
+        for (uint256 i; i < oldLength; i++) {
             _validatorConfig.validators.remove(_validatorConfig.validators.at(0));
         }
 
         // Add new validators and validate no duplicates
-        for (uint256 i = 0; i < validators.length; i++) {
+        for (uint256 i; i < validatorsLength; i++) {
             if (validators[i] == address(0)) revert INVALID_ADDRESS();
             if (!_validatorConfig.validators.add(validators[i])) revert VALIDATOR_ALREADY_REGISTERED();
         }
@@ -434,11 +430,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Store public keys
         delete _validatorConfig.validatorPublicKeys;
-        for (uint256 i = 0; i < validatorPublicKeys.length; i++) {
+        for (uint256 i; i < validatorPublicKeysLength; i++) {
             _validatorConfig.validatorPublicKeys.push(validatorPublicKeys[i]);
         }
 
-        emit PPSOracleQuorumUpdated(quorum);
         emit ValidatorConfigSet(_validatorConfig.version, validators, validatorPublicKeys, quorum, offchainConfig);
     }
 
@@ -625,13 +620,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function proposeSuperBankHookMerkleRoot(
-        address hook,
-        bytes32 proposedRoot
-    )
-        external
-        onlyRole(_GOVERNOR_ROLE)
-    {
+    function proposeSuperBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_GOVERNOR_ROLE) {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
         if (proposedRoot == bytes32(0)) revert ZERO_PROPOSED_MERKLE_ROOT();
 
@@ -875,7 +864,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (realLimit > remaining) realLimit = remaining;
 
         chunkOfManagers = new address[](realLimit);
-        for (uint256 i; i < realLimit; ++i) {
+        for (uint256 i; i < realLimit; i++) {
             chunkOfManagers[i] = _superformManagers.at(cursor + i);
         }
 

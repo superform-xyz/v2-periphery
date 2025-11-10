@@ -55,6 +55,10 @@ interface ISuperGovernor is IAccessControl {
     error INVALID_TIMESTAMP();
     /// @notice Thrown when attempting to set an invalid quorum value (typically zero)
     error INVALID_QUORUM();
+    /// @notice Thrown when validator and public key array lengths don't match
+    error ARRAY_LENGTH_MISMATCH();
+    /// @notice Thrown when trying to set validator config with an empty validator array
+    error EMPTY_VALIDATOR_ARRAY();
     /// @notice Thrown when no active PPS oracle is set but one is required
     error NO_ACTIVE_PPS_ORACLE();
     /// @notice Thrown when no proposed PPS oracle exists but one is expected
@@ -321,6 +325,10 @@ interface ISuperGovernor is IAccessControl {
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets the validator configuration for the protocol
+    /// @dev This function atomically updates all validator configuration including quorum.
+    ///      The entire validator set is replaced (not incrementally updated).
+    ///      Version must be managed externally for cross-chain synchronization.
+    ///      Quorum updates require providing the full validator list.
     /// @param version The version number for the configuration (for cross-chain sync)
     /// @param validators Array of validator addresses
     /// @param validatorPublicKeys Array of validator public keys for signature verification

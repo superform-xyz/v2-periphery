@@ -619,6 +619,222 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(validatorsList[0], validator2, "Remaining validator should be validator2");
     }
 
+    /// @notice Tests reverting when trying to set empty validator array
+    function test_ValidatorManagement_Revert_EmptyValidatorArray() public {
+        address[] memory emptyValidators = new address[](0);
+        bytes[] memory emptyKeys = new bytes[](0);
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EMPTY_VALIDATOR_ARRAY.selector);
+        superGovernor.setValidatorConfig(1, emptyValidators, emptyKeys, 0, "");
+    }
+
+    /// @notice Tests reverting when validator and public key array lengths mismatch
+    function test_ValidatorManagement_Revert_ArrayLengthMismatch() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](1); // Length mismatch
+        validatorPublicKeys[0] = "";
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.ARRAY_LENGTH_MISMATCH.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+    }
+
+    /// @notice Tests reverting when quorum exceeds validator count
+    function test_ValidatorManagement_Revert_QuorumExceedsValidators() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 3, ""); // quorum > validators
+    }
+
+    /// @notice Tests edge case where quorum equals validator count
+    function test_ValidatorManagement_QuorumEqualsValidators() public {
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = address(0x123);
+
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 3, ""); // quorum == validators
+
+        assertEq(superGovernor.getPPSOracleQuorum(), 3, "Quorum should equal validator count");
+        assertEq(superGovernor.getValidatorsCount(), 3, "Should have 3 validators");
+    }
+
+    /// @notice Tests edge case with quorum of 1
+    function test_ValidatorManagement_MinimumQuorum() public {
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = address(0x123);
+
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, ""); // minimum quorum
+
+        assertEq(superGovernor.getPPSOracleQuorum(), 1, "Quorum should be 1");
+    }
+
+    /// @notice Tests version tracking across multiple config updates
+    function test_ValidatorManagement_VersionTracking() public {
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
+        // Set version 1
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+
+        (uint256 version1,,,) = superGovernor.getValidatorConfig();
+        assertEq(version1, 1, "Version should be 1");
+
+        // Update to version 5
+        validators[0] = validator2;
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(5, validators, validatorPublicKeys, 1, "");
+
+        (uint256 version2,,,) = superGovernor.getValidatorConfig();
+        assertEq(version2, 5, "Version should be 5");
+    }
+
+    /// @notice Tests public keys storage and retrieval
+    function test_ValidatorManagement_PublicKeysStorage() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = hex"abcdef";
+        validatorPublicKeys[1] = hex"123456";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 2, "");
+
+        (,, bytes[] memory storedKeys,) = superGovernor.getValidatorConfig();
+        assertEq(storedKeys.length, 2, "Should have 2 public keys");
+        assertEq(storedKeys[0], validatorPublicKeys[0], "First public key should match");
+        assertEq(storedKeys[1], validatorPublicKeys[1], "Second public key should match");
+    }
+
+    /// @notice Tests offchain config parameter emission (not stored)
+    function test_ValidatorManagement_OffchainConfigEmission() public {
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+        bytes memory offchainConfig = hex"deadbeef";
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(1, validators, validatorPublicKeys, 1, offchainConfig);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, offchainConfig);
+
+        // Offchain config is not stored, only emitted
+        // We verify it was emitted via the expectEmit above
+    }
+
+    /// @notice Tests that old validators are properly cleared when setting new config
+    function test_ValidatorManagement_ValidatorClearing() public {
+        // Set initial config with 3 validators
+        address[] memory validators1 = new address[](3);
+        validators1[0] = validator1;
+        validators1[1] = validator2;
+        validators1[2] = address(0x123);
+        bytes[] memory validatorPublicKeys1 = new bytes[](3);
+        validatorPublicKeys1[0] = "";
+        validatorPublicKeys1[1] = "";
+        validatorPublicKeys1[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators1, validatorPublicKeys1, 2, "");
+
+        assertEq(superGovernor.getValidatorsCount(), 3, "Should have 3 validators");
+        assertTrue(superGovernor.isValidator(validator1), "validator1 should be registered");
+        assertTrue(superGovernor.isValidator(validator2), "validator2 should be registered");
+
+        // Replace with single validator
+        address[] memory validators2 = new address[](1);
+        validators2[0] = address(0x456);
+        bytes[] memory validatorPublicKeys2 = new bytes[](1);
+        validatorPublicKeys2[0] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(2, validators2, validatorPublicKeys2, 1, "");
+
+        // Verify old validators are cleared
+        assertEq(superGovernor.getValidatorsCount(), 1, "Should have 1 validator");
+        assertFalse(superGovernor.isValidator(validator1), "validator1 should be cleared");
+        assertFalse(superGovernor.isValidator(validator2), "validator2 should be cleared");
+        assertFalse(superGovernor.isValidator(address(0x123)), "validator3 should be cleared");
+        assertTrue(superGovernor.isValidator(address(0x456)), "New validator should be registered");
+    }
+
+    /// @notice Tests setting validator config with a large validator set
+    function test_ValidatorManagement_LargeValidatorSet() public {
+        uint256 validatorCount = 50;
+        address[] memory validators = new address[](validatorCount);
+        bytes[] memory validatorPublicKeys = new bytes[](validatorCount);
+
+        for (uint256 i = 0; i < validatorCount; i++) {
+            validators[i] = address(uint160(1000 + i));
+            validatorPublicKeys[i] = "";
+        }
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 25, "");
+
+        assertEq(superGovernor.getValidatorsCount(), validatorCount, "Should have 50 validators");
+        assertEq(superGovernor.getPPSOracleQuorum(), 25, "Quorum should be 25");
+
+        // Verify a few validators are registered
+        assertTrue(superGovernor.isValidator(validators[0]), "First validator should be registered");
+        assertTrue(superGovernor.isValidator(validators[25]), "Middle validator should be registered");
+        assertTrue(superGovernor.isValidator(validators[49]), "Last validator should be registered");
+    }
+
+    /// @notice Tests that ValidatorConfigSet event is emitted with quorum included
+    function test_ValidatorManagement_EventEmissionWithQuorum() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        uint256 quorum = 2;
+        uint256 version = 1;
+
+        vm.prank(governor);
+        // Verify that ValidatorConfigSet event includes quorum parameter
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(version, validators, validatorPublicKeys, quorum, "");
+        superGovernor.setValidatorConfig(version, validators, validatorPublicKeys, quorum, "");
+
+        // Verify state was updated correctly
+        assertEq(superGovernor.getPPSOracleQuorum(), quorum, "Quorum should be updated");
+        assertEq(superGovernor.getValidatorsCount(), 2, "Should have 2 validators");
+    }
+
     // =============================================================
     // Emergency Price Tests
     // =============================================================
@@ -740,8 +956,6 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Test valid configuration
         vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.PPSOracleQuorumUpdated(newQuorum);
         vm.expectEmit(true, false, false, true);
         emit ISuperGovernor.ValidatorConfigSet(version, validators, validatorPublicKeys, newQuorum, "");
         superGovernor.setValidatorConfig(
