@@ -345,7 +345,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Update upkeep balance for this strategy
         _strategyUpkeepBalance[strategy] += amount;
 
-        emit UpkeepDeposited(strategy, amount);
+        emit UpkeepDeposited(strategy, msg.sender, amount);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -418,7 +418,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Transfer UP tokens to the original initiator (not msg.sender)
         IERC20(upToken).safeTransfer(request.initiator, withdrawalAmount);
 
-        emit UpkeepWithdrawn(strategy, withdrawalAmount);
+        emit UpkeepWithdrawn(strategy, request.initiator, withdrawalAmount);
     }
 
     /*//////////////////////////////////////////////////////////////

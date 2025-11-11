@@ -183,13 +183,15 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when upkeep tokens are deposited
     /// @param strategy Address of the strategy
+    /// @param depositor Address of the depositor
     /// @param amount Amount of UP tokens deposited
-    event UpkeepDeposited(address indexed strategy, uint256 amount);
+    event UpkeepDeposited(address indexed strategy, address indexed depositor, uint256 amount);
 
     /// @notice Emitted when upkeep tokens are withdrawn
     /// @param strategy Address of the strategy
+    /// @param withdrawer Address of the withdrawer (initiator of the withdrawal request)
     /// @param amount Amount of UP tokens withdrawn
-    event UpkeepWithdrawn(address indexed strategy, uint256 amount);
+    event UpkeepWithdrawn(address indexed strategy, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when an upkeep withdrawal is proposed (start of 24h timelock)
     /// @param strategy Address of the strategy

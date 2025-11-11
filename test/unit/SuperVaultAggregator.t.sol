@@ -1506,6 +1506,96 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    UPKEEP EVENT EMISSION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test: UpkeepDeposited event is emitted with correct depositor
+    function test_UpkeepDeposited_EmitsCorrectDepositor() public {
+        uint256 depositAmount = 1000e18;
+        address depositor = _deployAccount(0x93, "Depositor");
+
+        // Mint and approve tokens for depositor
+        MockUp(upToken).mint(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(upToken).approve(address(superVaultAggregator), depositAmount);
+
+        // Expect event with correct depositor (msg.sender)
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor, depositAmount);
+
+        // Deposit upkeep
+        superVaultAggregator.depositUpkeep(strategy, depositAmount);
+        vm.stopPrank();
+
+        // Verify balance updated
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), depositAmount);
+    }
+
+    /// @notice Test: UpkeepWithdrawn event is emitted with correct withdrawer (initiator)
+    function test_UpkeepWithdrawn_EmitsCorrectWithdrawer() public {
+        uint256 depositAmount = 1000e18;
+
+        // Manager deposits upkeep
+        MockUp(upToken).mint(manager, depositAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), depositAmount);
+        superVaultAggregator.depositUpkeep(strategy, depositAmount);
+
+        // Manager proposes withdrawal
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.stopPrank();
+
+        // Warp past timelock
+        vm.warp(block.timestamp + 24 hours + 1);
+
+        // Expect event with correct withdrawer (request.initiator, which is manager)
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepWithdrawn(strategy, manager, depositAmount);
+
+        // Anyone can execute, but event should show original initiator as withdrawer
+        address randomExecutor = _deployAccount(0x92, "RandomExecutor");
+        vm.prank(randomExecutor);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify balance is zero
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0);
+        // Verify funds went to manager (initiator), not executor
+        assertEq(IERC20(upToken).balanceOf(manager), depositAmount);
+        assertEq(IERC20(upToken).balanceOf(randomExecutor), 0);
+    }
+
+    /// @notice Test: Multiple depositors emit correct depositor addresses
+    function test_UpkeepDeposited_MultipleDepositors() public {
+        address depositor1 = _deployAccount(0x91, "Depositor1");
+        address depositor2 = _deployAccount(0x90, "Depositor2");
+        uint256 amount1 = 500e18;
+        uint256 amount2 = 750e18;
+
+        // First depositor
+        MockUp(upToken).mint(depositor1, amount1);
+        vm.startPrank(depositor1);
+        IERC20(upToken).approve(address(superVaultAggregator), amount1);
+
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor1, amount1);
+        superVaultAggregator.depositUpkeep(strategy, amount1);
+        vm.stopPrank();
+
+        // Second depositor
+        MockUp(upToken).mint(depositor2, amount2);
+        vm.startPrank(depositor2);
+        IERC20(upToken).approve(address(superVaultAggregator), amount2);
+
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor2, amount2);
+        superVaultAggregator.depositUpkeep(strategy, amount2);
+        vm.stopPrank();
+
+        // Verify total balance
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), amount1 + amount2);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                            HOOK VALIDATION TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -2216,8 +2306,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Execute withdrawal (anyone can execute)
         uint256 managerBalBefore = IERC20(upToken).balanceOf(manager);
         vm.prank(user);  // Different user executes
-        vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.UpkeepWithdrawn(strategy, upkeepAmount);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepWithdrawn(strategy, manager, upkeepAmount);
         superVaultAggregator.executeWithdrawUpkeep(strategy);
 
         // Verify transfer to initiator (manager)
