@@ -73,10 +73,6 @@ interface ISuperGovernor is IAccessControl {
     error NO_PROPOSED_MIN_STALENESS();
     /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
     error MAX_STALENESS_TOO_LOW();
-    /// @notice Thrown when an executor is not registered
-    error EXECUTOR_NOT_REGISTERED();
-    /// @notice Thrown when an executor is already registered
-    error EXECUTOR_ALREADY_REGISTERED();
     /// @notice Thrown when there's no pending change but one is expected
     error NO_PENDING_CHANGE();
     /// @notice Thrown when a manager is not registered
@@ -159,14 +155,6 @@ interface ISuperGovernor is IAccessControl {
 
     /// @notice Event emitted when manager takeovers are permanently frozen
     event ManagerTakeoversFrozen();
-
-    /// @notice Emitted when an executor is added
-    /// @param executor The address of the added executor
-    event ExecutorAdded(address indexed executor);
-
-    /// @notice Emitted when an executor is removed
-    /// @param executor The address of the removed executor
-    event ExecutorRemoved(address indexed executor);
 
     /// @notice Emitted when a change to upkeep payments status is proposed
     /// @param enabled The proposed status (enabled/disabled)
@@ -307,17 +295,6 @@ interface ISuperGovernor is IAccessControl {
     function unregisterHook(address hook) external;
 
     /*//////////////////////////////////////////////////////////////
-                        EXECUTOR MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @notice Adds an executor to the approved list
-    /// @param executor The address of the executor to add
-    function addExecutor(address executor) external;
-
-    /// @notice Removes an executor from the approved list
-    /// @param executor The address of the executor to remove
-    function removeExecutor(address executor) external;
-
-    /*//////////////////////////////////////////////////////////////
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @notice Sets the validator configuration for the protocol
@@ -405,11 +382,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param manager Address of the manager to remove
     function removeSuperformManager(address manager) external;
 
-    /// @notice Slashes a manager's stake balance by a specified amount
-    /// @param manager The manager whose stake will be slashed
-    /// @param amount The amount of UP tokens to slash from the manager's stake balance
-    function slashStake(address manager, uint256 amount) external;
-
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
@@ -471,11 +443,6 @@ interface ISuperGovernor is IAccessControl {
     /// @return true if the address has the GUARDIAN_ROLE
     function isGuardian(address guardian) external view returns (bool);
 
-    /// @notice Checks if an address is an approved executor
-    /// @param executor The address to check
-    /// @return True if the address is an approved executor, false otherwise
-    function isExecutor(address executor) external view returns (bool);
-
     /// @notice Returns the complete validator configuration
     /// @return version The current configuration version number
     /// @return validators Array of all registered validator addresses
@@ -497,10 +464,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param index The index into the validators set
     /// @return validator The validator address at the given index
     function getValidatorAt(uint256 index) external view returns (address validator);
-
-    /// @notice Returns all registered executors
-    /// @return List of executor addresses
-    function getExecutors() external view returns (address[] memory);
 
     /// @notice Gets the proposed active PPS oracle and its effective time
     /// @return proposedOracle The proposed oracle address
@@ -587,9 +550,9 @@ interface ISuperGovernor is IAccessControl {
     /// @return The number of superform managers
     function getSuperformManagersCount() external view returns (uint256);
 
-    /// @notice Gets the SUP ID
-    /// @return The ID of the SUP token
-    function SUP() external view returns (bytes32);
+    /// @notice Gets the SUP strategy ID
+    /// @return The ID of the SUP strategy vault
+    function SUP_STRATEGY() external view returns (bytes32);
 
     /// @notice Gets the UP ID
     /// @return The ID of the UP token

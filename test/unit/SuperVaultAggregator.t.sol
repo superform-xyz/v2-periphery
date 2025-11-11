@@ -291,6 +291,142 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    // =============================================================
+    // Cancel Primary Manager Change Tests
+    // =============================================================
+
+    /// @notice Tests that mainManager can cancel a pending manager change proposal
+    function test_CancelChangePrimaryManager_Success() public {
+        address newManager = _deployAccount(0xBB, "NewManager");
+
+        // Secondary manager proposes a change
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Verify proposal exists
+        (address proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
+        assertEq(proposedManager, newManager, "Proposal should exist");
+
+        // Main manager cancels the proposal
+        vm.expectEmit(true, true, false, false);
+        emit ISuperVaultAggregator.PrimaryManagerChangeCancelled(strategy, newManager);
+
+        vm.prank(manager);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Verify proposal was cleared
+        (proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
+        assertEq(proposedManager, address(0), "Proposal should be cleared");
+    }
+
+    /// @notice Tests that only the current mainManager can cancel
+    function test_CancelChangePrimaryManager_OnlyMainManager() public {
+        address newManager = _deployAccount(0xBC, "NewManager");
+
+        // Secondary manager proposes a change
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Secondary manager tries to cancel - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Random user tries to cancel - should revert
+        address randomUser = _deployAccount(0xBD, "RandomUser");
+        vm.prank(randomUser);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Main manager can cancel
+        vm.prank(manager);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+    }
+
+    /// @notice Tests that canceling requires a pending proposal
+    function test_CancelChangePrimaryManager_RequiresPendingProposal() public {
+        // Try to cancel when there's no proposal
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.NO_PENDING_MANAGER_CHANGE.selector);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Create and execute a proposal
+        address newManager = _deployAccount(0xBE, "NewManager");
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(secondaryManager);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Try to cancel after execution - should revert
+        vm.prank(newManager); // New manager is now mainManager
+        vm.expectRevert(ISuperVaultAggregator.NO_PENDING_MANAGER_CHANGE.selector);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+    }
+
+    /// @notice Tests social engineering protection scenario
+    function test_CancelChangePrimaryManager_SocialEngineeringProtection() public {
+        // Scenario: Manager is socially engineered to make attacker a secondary manager
+        address attacker = _deployAccount(0xBF, "Attacker");
+
+        // Manager adds attacker as secondary (social engineering success)
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(strategy, attacker);
+
+        // Attacker immediately proposes themselves as primary manager
+        vm.prank(attacker);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, attacker);
+
+        // Manager realizes the mistake and cancels within 7-day timelock
+        vm.warp(block.timestamp + 3 days); // 3 days later, manager notices
+
+        vm.prank(manager);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Verify manager retained control
+        assertEq(superVaultAggregator.getMainManager(strategy), manager, "Manager should retain control");
+
+        // Verify proposal was cleared
+        (address proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
+        assertEq(proposedManager, address(0), "Proposal should be cleared");
+
+        // Manager can now remove the attacker
+        vm.prank(manager);
+        superVaultAggregator.removeSecondaryManager(strategy, attacker);
+
+        // Verify attacker is removed
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        bool attackerFound = false;
+        for (uint256 i = 0; i < secondaryManagers.length; i++) {
+            if (secondaryManagers[i] == attacker) {
+                attackerFound = true;
+            }
+        }
+        assertFalse(attackerFound, "Attacker should be removed");
+    }
+
+    /// @notice Tests that cancelled proposal can be re-proposed
+    function test_CancelChangePrimaryManager_CanRepropose() public {
+        address newManager = _deployAccount(0xC0, "NewManager");
+
+        // Secondary manager proposes a change
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Main manager cancels
+        vm.prank(manager);
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+
+        // Same proposal can be made again
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Verify new proposal exists
+        (address proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
+        assertEq(proposedManager, newManager, "New proposal should exist");
+    }
+
     /// @notice Tests the complete attack scenario - malicious manager cannot regain control
     function test_ChangePrimaryManager_PreventsAttackScenario() public {
         // Setup malicious scenario:
@@ -666,7 +802,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         uint256 upkeepCost = superGovernor.getUpkeepCostPerSingleUpdate(address(this));
 
-        uint256 upkeepBalance = superVaultAggregator.getUpkeepBalance(manager);
+        uint256 upkeepBalance = superVaultAggregator.getUpkeepBalance(strategy);
 
         console2.log("upkeepCost", upkeepCost);
         console2.log("upkeepBalance", upkeepBalance);
@@ -676,7 +812,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultAggregator.StrategyPPSStale(strategy);
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultAggregator.InsufficientUpkeep(strategy, manager, upkeepBalance, upkeepCost);
+        emit ISuperVaultAggregator.InsufficientUpkeep(strategy, strategy, upkeepBalance, upkeepCost);
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
@@ -1035,10 +1171,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     //////////////////////////////////////////////////////////////*/
     function test_Upkeep_RevertCases() public {
         vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.depositUpkeep(manager, 0);
+        superVaultAggregator.depositUpkeep(strategy, 0);
 
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
-        superVaultAggregator.withdrawUpkeep(1);
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
     }
 
     function test_WithdrawUpkeep_RevertCases() public {
@@ -1046,21 +1183,416 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
         IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
-        superVaultAggregator.depositUpkeep(manager, upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
         vm.stopPrank();
 
-        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep balance should be the same");
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeepAmount, "Upkeep balance should be the same");
 
-        vm.startPrank(manager);
+        // Test executing withdrawal before proposing - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UPKEEP_WITHDRAWAL_NOT_FOUND.selector);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Propose and execute withdrawal
+        vm.prank(manager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(manager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Try proposing withdrawal again with zero balance - should revert
+        vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.withdrawUpkeep(0);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    PER-STRATEGY UPKEEP SECURITY TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test: Attacker creates vault with victim as mainManager → strategy has $0 balance
+    function test_PerStrategyUpkeep_AttackerCreatesVaultWithVictim() public {
+        address victim = _deployAccount(0x99, "Victim");
+        address attacker = _deployAccount(0x98, "Attacker");
+
+        // Attacker creates a vault with victim as mainManager (no consent required)
+        vm.prank(attacker);
+        (, address attackerStrategy,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Attacker Vault",
+                symbol: "ATK",
+                mainManager: victim,  // Victim set as manager without consent
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: attacker
+                })
+            })
+        );
+
+        // Verify the strategy was created with victim as mainManager
+        assertEq(
+            superVaultAggregator.getMainManager(attackerStrategy),
+            victim,
+            "Victim should be mainManager (attack succeeded)"
+        );
+
+        // CRITICAL: Verify strategy has $0 upkeep balance
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(attackerStrategy),
+            0,
+            "Attacker-created strategy should have zero upkeep"
+        );
+
+        // Victim's legitimate strategy remains unaffected
+        uint256 victimUpkeep = 1000e18;
+        MockUp(upToken).mint(victim, victimUpkeep);
+        vm.startPrank(victim);
+        IERC20(upToken).approve(address(superVaultAggregator), victimUpkeep);
+
+        // Create victim's legitimate strategy
+        (, address victimStrategy,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Victim Vault",
+                symbol: "VIC",
+                mainManager: victim,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: victim
+                })
+            })
+        );
+
+        // Victim deposits upkeep to their legitimate strategy
+        superVaultAggregator.depositUpkeep(victimStrategy, victimUpkeep);
         vm.stopPrank();
 
+        // Verify complete isolation
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(victimStrategy),
+            victimUpkeep,
+            "Victim's strategy should have upkeep"
+        );
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(attackerStrategy),
+            0,
+            "Attacker's strategy should still have zero upkeep"
+        );
+    }
+
+    /// @notice Test: Secondary manager attempts withdrawUpkeep() → reverts
+    function test_PerStrategyUpkeep_SecondaryManagerCannotWithdraw() public {
+        uint256 upkeepAmount = 1000e18;
+
+        // MainManager deposits upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        superVaultAggregator.withdrawUpkeep(upkeepAmount);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP_BALANCE.selector);
-        superVaultAggregator.withdrawUpkeep(upkeepAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
         vm.stopPrank();
+
+        // Verify upkeep deposited
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeepAmount);
+
+        // Secondary manager tries to propose withdrawal - should REVERT
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+
+        // Verify upkeep unchanged
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeepAmount, "Upkeep should be unchanged");
+
+        // MainManager CAN withdraw using two-step process
+        vm.prank(manager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(manager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0, "MainManager should be able to withdraw");
+    }
+
+    /// @notice Test: Non-manager cannot withdraw upkeep
+    function test_PerStrategyUpkeep_NonManagerCannotWithdraw() public {
+        uint256 upkeepAmount = 1000e18;
+
+        // Deposit upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        vm.stopPrank();
+
+        // Random user tries to propose withdrawal - should REVERT
+        address randomUser = _deployAccount(0x97, "RandomUser");
+        vm.prank(randomUser);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+
+        // Verify upkeep unchanged
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeepAmount);
+    }
+
+    /// @notice Test: Cross-strategy isolation - strategies cannot affect each other
+    function test_PerStrategyUpkeep_CrossStrategyIsolation() public {
+        // Create second strategy with same manager
+        vm.prank(manager);
+        (, address strategy2,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+
+        // Deposit different amounts to each strategy
+        uint256 upkeep1 = 1000e18;
+        uint256 upkeep2 = 2000e18;
+
+        MockUp(upToken).mint(manager, upkeep1 + upkeep2);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeep1 + upkeep2);
+        superVaultAggregator.depositUpkeep(strategy, upkeep1);
+        superVaultAggregator.depositUpkeep(strategy2, upkeep2);
+        vm.stopPrank();
+
+        // Verify independent balances
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeep1, "Strategy 1 should have upkeep1");
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy2), upkeep2, "Strategy 2 should have upkeep2");
+
+        // Withdraw from strategy1 using two-step process
+        vm.prank(manager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(manager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify strategy2 unaffected
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0, "Strategy 1 should be empty");
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(strategy2),
+            upkeep2,
+            "Strategy 2 should be UNCHANGED"
+        );
+
+        // Deposit to strategy1 again
+        MockUp(upToken).mint(manager, upkeep1);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeep1);
+        superVaultAggregator.depositUpkeep(strategy, upkeep1);
+        vm.stopPrank();
+
+        // Verify both strategies have independent balances
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), upkeep1);
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy2), upkeep2);
+    }
+
+    /// @notice Test: Anyone can deposit upkeep to any strategy (permissionless)
+    function test_PerStrategyUpkeep_PermissionlessDeposit() public {
+        address randomDepositor = _deployAccount(0x96, "RandomDepositor");
+        uint256 depositAmount = 500e18;
+
+        // Random user deposits to manager's strategy
+        MockUp(upToken).mint(randomDepositor, depositAmount);
+        vm.startPrank(randomDepositor);
+        IERC20(upToken).approve(address(superVaultAggregator), depositAmount);
+        superVaultAggregator.depositUpkeep(strategy, depositAmount);
+        vm.stopPrank();
+
+        // Verify deposit succeeded
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), depositAmount);
+
+        // Manager (mainManager) can withdraw it using two-step process
+        vm.prank(manager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(manager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0);
+    }
+
+    /// @notice Test: Manager takeover scenario - upkeep inheritance
+    function test_PerStrategyUpkeep_ManagerTakeoverInheritance() public {
+        uint256 upkeepAmount = 1000e18;
+        address newManager = _deployAccount(0x95, "NewManager");
+
+        // Deposit upkeep to strategy
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        vm.stopPrank();
+
+        // Secondary manager proposes takeover
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Fast forward past timelock
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute manager change
+        vm.prank(secondaryManager);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify new manager owns the strategy
+        assertEq(superVaultAggregator.getMainManager(strategy), newManager);
+
+        // Upkeep balance remains with the strategy
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(strategy),
+            upkeepAmount,
+            "Upkeep should remain with strategy"
+        );
+
+        // Old manager cannot propose withdrawal
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+
+        // New manager CAN withdraw using two-step process
+        vm.prank(newManager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(newManager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0);
+    }
+
+    /// @notice Test: Victim can withdraw upkeep during 7-day timelock
+    function test_PerStrategyUpkeep_VictimCanWithdrawDuringTimelock() public {
+        uint256 upkeepAmount = 1000e18;
+        address newManager = _deployAccount(0x94, "NewManager");
+
+        // Deposit upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        vm.stopPrank();
+
+        // Secondary proposes takeover
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Manager (victim) withdraws upkeep during timelock using two-step process
+        vm.prank(manager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(manager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify withdrawal succeeded
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0);
+
+        // Fast forward and execute takeover (already warped 24h, need 6 more days)
+        vm.warp(block.timestamp + 6 days);
+        vm.prank(secondaryManager);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // New manager inherits strategy with zero upkeep
+        assertEq(superVaultAggregator.getMainManager(strategy), newManager);
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0, "Should have zero upkeep after victim withdrew");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    UPKEEP EVENT EMISSION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test: UpkeepDeposited event is emitted with correct depositor
+    function test_UpkeepDeposited_EmitsCorrectDepositor() public {
+        uint256 depositAmount = 1000e18;
+        address depositor = _deployAccount(0x93, "Depositor");
+
+        // Mint and approve tokens for depositor
+        MockUp(upToken).mint(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(upToken).approve(address(superVaultAggregator), depositAmount);
+
+        // Expect event with correct depositor (msg.sender)
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor, depositAmount);
+
+        // Deposit upkeep
+        superVaultAggregator.depositUpkeep(strategy, depositAmount);
+        vm.stopPrank();
+
+        // Verify balance updated
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), depositAmount);
+    }
+
+    /// @notice Test: UpkeepWithdrawn event is emitted with correct withdrawer (initiator)
+    function test_UpkeepWithdrawn_EmitsCorrectWithdrawer() public {
+        uint256 depositAmount = 1000e18;
+
+        // Manager deposits upkeep
+        MockUp(upToken).mint(manager, depositAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), depositAmount);
+        superVaultAggregator.depositUpkeep(strategy, depositAmount);
+
+        // Manager proposes withdrawal
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.stopPrank();
+
+        // Warp past timelock
+        vm.warp(block.timestamp + 24 hours + 1);
+
+        // Expect event with correct withdrawer (request.initiator, which is manager)
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepWithdrawn(strategy, manager, depositAmount);
+
+        // Anyone can execute, but event should show original initiator as withdrawer
+        address randomExecutor = _deployAccount(0x92, "RandomExecutor");
+        vm.prank(randomExecutor);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify balance is zero
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), 0);
+        // Verify funds went to manager (initiator), not executor
+        assertEq(IERC20(upToken).balanceOf(manager), depositAmount);
+        assertEq(IERC20(upToken).balanceOf(randomExecutor), 0);
+    }
+
+    /// @notice Test: Multiple depositors emit correct depositor addresses
+    function test_UpkeepDeposited_MultipleDepositors() public {
+        address depositor1 = _deployAccount(0x91, "Depositor1");
+        address depositor2 = _deployAccount(0x90, "Depositor2");
+        uint256 amount1 = 500e18;
+        uint256 amount2 = 750e18;
+
+        // First depositor
+        MockUp(upToken).mint(depositor1, amount1);
+        vm.startPrank(depositor1);
+        IERC20(upToken).approve(address(superVaultAggregator), amount1);
+
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor1, amount1);
+        superVaultAggregator.depositUpkeep(strategy, amount1);
+        vm.stopPrank();
+
+        // Second depositor
+        MockUp(upToken).mint(depositor2, amount2);
+        vm.startPrank(depositor2);
+        IERC20(upToken).approve(address(superVaultAggregator), amount2);
+
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepDeposited(strategy, depositor2, amount2);
+        superVaultAggregator.depositUpkeep(strategy, amount2);
+        vm.stopPrank();
+
+        // Verify total balance
+        assertEq(superVaultAggregator.getUpkeepBalance(strategy), amount1 + amount2);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1703,612 +2235,273 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     // =============================================================
-    // Stake Management Tests
+    // Upkeep Withdrawal Tests (Two-Step with 24h Timelock)
     // =============================================================
-    /// @notice Tests successful stake deposit by any user for a manager
-    function test_DepositStake_Success() public {
-        uint256 stakeAmount = 1000e18;
 
-        // Mint UP tokens to user
-        MockUp(upToken).mint(user, stakeAmount);
+    /// @notice Tests successful upkeep withdrawal proposal
+    function test_ProposeWithdrawUpkeep_Success() public {
+        uint256 upkeepAmount = 1000e18;
 
-        // User approves and deposits stake for manager
-        vm.startPrank(user);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-
-        vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.StakeDeposited(manager, stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Verify stake balance
-        assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            stakeAmount,
-            "Manager stake balance should match deposited amount"
-        );
-
-        // Verify tokens were transferred
-        assertEq(
-            IERC20(upToken).balanceOf(address(superVaultAggregator)),
-            stakeAmount,
-            "Contract should hold the staked tokens"
-        );
-        assertEq(IERC20(upToken).balanceOf(user), 0, "User balance should be zero after deposit");
-    }
-
-    /// @notice Tests manager can deposit stake for themselves
-    function test_DepositStake_SelfDeposit() public {
-        uint256 stakeAmount = 500e18;
-
-        // Mint UP tokens to manager
-        MockUp(upToken).mint(manager, stakeAmount);
-
-        // Manager deposits stake for themselves
+        // Setup: Deposit upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
 
-        // Verify stake balance
-        assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            stakeAmount,
-            "Manager stake balance should match deposited amount"
+        // Propose withdrawal
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepWithdrawalProposed(
+            strategy,
+            manager,
+            upkeepAmount,
+            block.timestamp + 24 hours
         );
-    }
-
-    /// @notice Tests multiple stake deposits accumulate correctly
-    function test_DepositStake_MultipleDeposits() public {
-        uint256 firstDeposit = 300e18;
-        uint256 secondDeposit = 700e18;
-        uint256 totalStake = firstDeposit + secondDeposit;
-
-        // Mint UP tokens to user
-        MockUp(upToken).mint(user, totalStake);
-
-        vm.startPrank(user);
-        IERC20(upToken).approve(address(superVaultAggregator), totalStake);
-
-        // First deposit
-        superVaultAggregator.depositStake(manager, firstDeposit);
-        assertEq(superVaultAggregator.getStakeBalance(manager), firstDeposit, "First deposit should be recorded");
-
-        // Second deposit
-        superVaultAggregator.depositStake(manager, secondDeposit);
-        assertEq(superVaultAggregator.getStakeBalance(manager), totalStake, "Total stake should be sum of deposits");
-        vm.stopPrank();
-    }
-
-    /// @notice Tests stake deposit reverts with zero amount
-    function test_DepositStake_RevertZeroAmount() public {
-        vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.depositStake(manager, 0);
-    }
-
-    /// @notice Tests stake deposit reverts with zero manager address
-    function test_DepositStake_RevertZeroManager() public {
-        vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.depositStake(address(0), 1000e18);
-    }
-
-    /// @notice Tests successful stake withdrawal
-    function test_WithdrawStake_Success() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 withdrawAmount = 400e18;
-        uint256 remainingStake = stakeAmount - withdrawAmount;
-
-        // Setup: Deposit stake first
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-
-        // Withdraw stake
-        vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.StakeWithdrawRequested(manager, withdrawAmount);
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
-
-        vm.warp(block.timestamp + 8 days);
-        vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.StakeWithdrawn(manager, withdrawAmount);
-        superVaultAggregator.completeStakeWithdrawal();
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        // Verify balances
-        assertEq(superVaultAggregator.getStakeBalance(manager), remainingStake, "Remaining stake should be correct");
-        assertEq(IERC20(upToken).balanceOf(manager), withdrawAmount, "Manager should receive withdrawn tokens");
-        assertEq(
-            IERC20(upToken).balanceOf(address(superVaultAggregator)),
-            remainingStake,
-            "Contract should hold remaining stake"
-        );
+        // Verify request created
+        (address initiator, uint256 amount, uint256 effectiveTime) =
+            superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(initiator, manager, "Initiator should be manager");
+        assertEq(amount, upkeepAmount, "Amount should match balance");
+        assertEq(effectiveTime, block.timestamp + 24 hours, "Effective time should be 24h later");
     }
 
-    /// @notice Tests complete stake withdrawal
-    function test_WithdrawStake_CompleteWithdrawal() public {
-        uint256 stakeAmount = 1000e18;
+    /// @notice Tests that only main manager can propose withdrawal
+    function test_ProposeWithdrawUpkeep_OnlyMainManager() public {
+        uint256 upkeepAmount = 1000e18;
 
-        // Setup: Deposit stake first
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-
-        // Withdraw all stake
-        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
-        vm.warp(block.timestamp + 8 days);
-        superVaultAggregator.completeStakeWithdrawal();
-        vm.stopPrank();
-
-        // Verify balances
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
-        assertEq(IERC20(upToken).balanceOf(manager), stakeAmount, "Manager should receive all tokens back");
-    }
-
-    /// @notice Tests stake withdrawal reverts with zero amount
-    function test_WithdrawStake_RevertZeroAmount() public {
+        // Setup: Deposit upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.requestStakeWithdrawal(0);
-    }
-
-    /// @notice Tests stake withdrawal reverts with insufficient balance
-    function test_WithdrawStake_RevertInsufficientBalance() public {
-        uint256 stakeAmount = 500e18;
-        uint256 withdrawAmount = 1000e18;
-
-        // Setup: Deposit smaller stake
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Try to withdraw more than deposited
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
-    }
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
 
-    function test_WithdrawStakeInsufficientBalance() public {
-        uint256 stakeAmount = 500e18;
-        uint256 withdrawAmount = 1000e18;
-
-        // Setup: Deposit smaller stake
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Try to withdraw more than deposited
+        // Add secondary manager
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
+        superVaultAggregator.addSecondaryManager(strategy, address(0x999));
+
+        // Secondary manager tries to propose - should revert
+        vm.prank(address(0x999));
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
     }
 
-    /// @notice Tests stake withdrawal reverts when no stake deposited
-    function test_WithdrawStake_RevertNoStake() public {
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.requestStakeWithdrawal(100e18);
-    }
+    /// @notice Tests successful withdrawal execution after timelock
+    function test_ExecuteWithdrawUpkeep_AfterTimelock() public {
+        uint256 upkeepAmount = 1000e18;
 
-    /// @notice Tests stake withdrawal reverts when withdrawal request is not found
-    function test_WithdrawStake_RevertWithdrawalRequestNotFound() public {
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.WITHDRAW_STAKE_REQUEST_NOT_FOUND.selector);
-        superVaultAggregator.completeStakeWithdrawal();
-    }
-
-    /// @notice Tests stake withdrawal reverts when withdrawal request is not ready
-    function test_WithdrawStake_RevertWithdrawalRequestNotReady() public {
-        uint256 stakeAmount = 500e18;
-
-        // Setup: Deposit smaller stake
-        MockUp(upToken).mint(manager, stakeAmount);
+        // Setup: Deposit and propose withdrawal
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        // Try to withdraw more than deposited
-        vm.startPrank(manager);
-        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
-        vm.expectRevert(ISuperVaultAggregator.WITHDRAW_STAKE_REQUEST_NOT_READY.selector);
-        superVaultAggregator.completeStakeWithdrawal();
-        vm.stopPrank();
-    }
+        // Warp past timelock
+        vm.warp(block.timestamp + 24 hours + 1);
 
-    function test_WithdrawStake_RevertWithdrawalRequestExpired() public {
-        uint256 stakeAmount = 500e18;
-        uint256 withdrawAmount = 100e18;
+        // Execute withdrawal (anyone can execute)
+        uint256 managerBalBefore = IERC20(upToken).balanceOf(manager);
+        vm.prank(user);  // Different user executes
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultAggregator.UpkeepWithdrawn(strategy, manager, upkeepAmount);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
 
-        // Setup: Deposit stake
-        MockUp(upToken).mint(manager, stakeAmount);
-
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-
-        vm.warp(block.timestamp + 7 days);
-
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
-
-        vm.warp(block.timestamp + 20 days);
-
-        vm.expectRevert(ISuperVaultAggregator.WITHDRAWAL_REQUEST_EXPIRED.selector);
-        superVaultAggregator.completeStakeWithdrawal();
-        vm.stopPrank();
-    }
-
-    function test_WithdrawStake_RevertInsufficientBalance_AfterSlashing() public {
-        uint256 stakeAmount = 500e18;
-        uint256 withdrawAmount = 1000e18;
-
-        // Setup: Deposit smaller stake
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, stakeAmount);
-
-        // Try to withdraw more than deposited
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_STAKE_BALANCE.selector);
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
-    }
-
-    /// @notice Tests successful stake slashing by SuperGovernor
-    function test_SlashStake_Success() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 slashAmount = 300e18;
-        uint256 remainingStake = stakeAmount - slashAmount;
-
-        // Setup: Deposit stake first
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Record initial SuperBank balance
-        uint256 initialBankBalance = IERC20(upToken).balanceOf(superBank);
-
-        // SuperGovernor slashes stake
-        vm.prank(address(superGovernor));
-        vm.expectEmit(true, false, false, true);
-        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
-        superVaultAggregator.slashStake(manager, slashAmount);
-
-        // Verify balances
-        assertEq(superVaultAggregator.getStakeBalance(manager), remainingStake, "Manager stake should be reduced");
+        // Verify transfer to initiator (manager)
         assertEq(
-            IERC20(upToken).balanceOf(superBank),
-            initialBankBalance + slashAmount,
-            "SuperBank should receive slashed tokens"
+            IERC20(upToken).balanceOf(manager),
+            managerBalBefore + upkeepAmount,
+            "Manager should receive upkeep"
         );
         assertEq(
-            IERC20(upToken).balanceOf(address(superVaultAggregator)),
-            remainingStake,
-            "Contract should hold remaining stake"
-        );
-    }
-
-    /// @notice Tests complete stake slashing
-    function test_SlashStake_CompleteSlashing() public {
-        uint256 stakeAmount = 1000e18;
-
-        // Setup: Deposit stake first
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // SuperGovernor slashes all stake
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, stakeAmount);
-
-        // Verify balances
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Manager stake should be zero");
-        assertEq(IERC20(upToken).balanceOf(superBank), stakeAmount, "SuperBank should receive all slashed tokens");
-    }
-
-    /// @notice Tests slashing with multiple managers
-    function test_SlashStake_MultipleManagers() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 slashAmount = 200e18;
-
-        // Create second strategy with different manager
-        address manager2 = _deployAccount(0xBB, "Manager2");
-        vm.prank(manager2);
-        superVaultAggregator.createVault(
-            ISuperVaultAggregator.VaultCreationParams({
-                asset: address(asset),
-                name: "Test Vault 2",
-                symbol: "TV2",
-                mainManager: manager2,
-                secondaryManagers: new address[](0),
-                minUpdateInterval: 5,
-                maxStaleness: 300,
-                feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2
-                })
-            })
+            superVaultAggregator.getUpkeepBalance(strategy),
+            0,
+            "Strategy upkeep should be zero"
         );
 
-        // Setup: Both managers deposit stake
-        MockUp(upToken).mint(manager, stakeAmount);
-        MockUp(upToken).mint(manager2, stakeAmount);
+        // Verify pending request cleared
+        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(initiator, address(0), "Pending request should be cleared");
+    }
 
+    /// @notice Tests that execution before timelock reverts
+    function test_ExecuteWithdrawUpkeep_BeforeTimelock_Reverts() public {
+        uint256 upkeepAmount = 1000e18;
+
+        // Setup: Deposit and propose withdrawal
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        vm.startPrank(manager2);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager2, stakeAmount);
+        // Try to execute before timelock (warp only 23 hours)
+        vm.warp(block.timestamp + 23 hours);
+
+        vm.expectRevert(ISuperVaultAggregator.UPKEEP_WITHDRAWAL_NOT_READY.selector);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+    }
+
+    /// @notice Tests that funds go to initiator, not executor
+    function test_ExecuteWithdrawUpkeep_SendsToInitiator_NotCaller() public {
+        uint256 upkeepAmount = 1000e18;
+        address executor = address(0xEEEE);
+
+        // Setup: Deposit and propose withdrawal
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        // Slash only first manager's stake
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, slashAmount);
+        // Warp past timelock
+        vm.warp(block.timestamp + 24 hours + 1);
 
-        // Verify only first manager was slashed
+        // Different address executes
+        uint256 managerBalBefore = IERC20(upToken).balanceOf(manager);
+        uint256 executorBalBefore = IERC20(upToken).balanceOf(executor);
+
+        vm.prank(executor);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify funds went to initiator (manager), not executor
         assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            stakeAmount - slashAmount,
-            "First manager stake should be reduced"
+            IERC20(upToken).balanceOf(manager),
+            managerBalBefore + upkeepAmount,
+            "Manager should receive funds"
         );
         assertEq(
-            superVaultAggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged"
+            IERC20(upToken).balanceOf(executor),
+            executorBalBefore,
+            "Executor should not receive funds"
         );
     }
 
-    /// @notice Tests slashing reverts when called by non-SuperGovernor
-    function test_SlashStake_RevertUnauthorized() public {
-        uint256 stakeAmount = 1000e18;
+    /// @notice Tests that governance takeover cancels pending withdrawal
+    function test_ChangePrimaryManager_CancelsPendingWithdrawal() public {
+        uint256 upkeepAmount = 1000e18;
+        address newManager = address(0xB0B);
 
-        // Setup: Deposit stake first
-        MockUp(upToken).mint(manager, stakeAmount);
+        // Setup: Deposit and propose withdrawal
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        // Test various unauthorized callers
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
-        superVaultAggregator.slashStake(manager, 100e18);
+        // Verify pending withdrawal exists
+        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(initiator, manager, "Pending withdrawal should exist");
 
-        vm.prank(user);
-        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
-        superVaultAggregator.slashStake(manager, 100e18);
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
-        superVaultAggregator.slashStake(manager, 100e18);
-    }
-
-    /// @notice Tests slashing reverts with zero address manager
-    function test_SlashStake_RevertZeroAddress() public {
+        // Governance takes over
         vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.slashStake(address(0), 100e18);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperVaultAggregator.UpkeepWithdrawalCancelled(strategy);
+        superVaultAggregator.changePrimaryManager(strategy, newManager);
+
+        // Verify pending withdrawal cancelled
+        (initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(initiator, address(0), "Pending withdrawal should be cancelled");
+
+        // Old manager cannot execute
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.expectRevert(ISuperVaultAggregator.UPKEEP_WITHDRAWAL_NOT_FOUND.selector);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
     }
 
-    /// @notice Tests slashing reverts with zero amount
-    function test_SlashStake_RevertZeroAmount() public {
-        vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.slashStake(manager, 0);
-    }
+    /// @notice Tests that democratic transition cancels pending withdrawal
+    function test_ExecuteChangePrimaryManager_CancelsPendingWithdrawal() public {
+        uint256 upkeepAmount = 1000e18;
+        address newSecondaryManager = address(0x5EC);
 
-    /// @notice Tests slashing takes minimum when requested amount exceeds balance
-    function test_SlashStake_PartialSlashWhenInsufficient() public {
-        uint256 stakeAmount = 500e18;
-        uint256 slashAmount = 1000e18;
-
-        // Setup: Deposit smaller stake
-        MockUp(upToken).mint(manager, stakeAmount);
+        // Setup: Deposit upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
         vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+
+        // Add secondary manager
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+
+        // Primary manager proposes withdrawal
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
         vm.stopPrank();
 
-        // Get SuperBank balance before
-        address _superBank = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(_superBank);
+        // Secondary proposes to become primary
+        vm.prank(newSecondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newSecondaryManager);
 
-        // Try to slash more than available - should slash only what's available
+        // Warp past manager change timelock (7 days)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute manager change
+        vm.expectEmit(true, false, false, false);
+        emit ISuperVaultAggregator.UpkeepWithdrawalCancelled(strategy);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify withdrawal cancelled
+        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(initiator, address(0), "Pending withdrawal should be cancelled");
+    }
+
+    /// @notice Tests that governance can withdraw forfeited upkeep after takeover
+    function test_GovernanceTakeover_CanWithdrawForfeitedUpkeep() public {
+        uint256 upkeepAmount = 1000e18;
+        address governanceManager = address(superGovernor);
+
+        // Setup: Manager deposits upkeep
+        MockUp(upToken).mint(manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+        vm.stopPrank();
+
+        // Governance takes over (emergency)
         vm.prank(address(superGovernor));
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultAggregator.StakeSlashed(manager, stakeAmount); // Only stakeAmount is slashed
-        superVaultAggregator.slashStake(manager, slashAmount);
+        superVaultAggregator.changePrimaryManager(strategy, governanceManager);
 
-        // Verify only available amount was slashed
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "All stake should be slashed");
+        // Verify governance is now manager
         assertEq(
-            IERC20(upToken).balanceOf(_superBank),
-            superBankBalanceBefore + stakeAmount,
-            "SuperBank should receive available amount"
+            superVaultAggregator.getMainManager(strategy),
+            governanceManager,
+            "Governance should be manager"
         );
-    }
 
-    /// @notice Tests slashing reverts when no stake deposited
-    function test_SlashStake_RevertNoStake() public {
-        vm.prank(address(superGovernor));
-        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superVaultAggregator.slashStake(manager, 100e18);
-    }
-
-    /// @notice Tests stake and upkeep systems are independent
-    function test_StakeUpkeepIndependence() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 upkeepAmount = 500e18;
-
-        // Mint tokens to manager
-        MockUp(upToken).mint(manager, stakeAmount + upkeepAmount);
-
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
-
-        // Deposit both stake and upkeep
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        superVaultAggregator.depositUpkeep(manager, upkeepAmount);
-        vm.stopPrank();
-
-        // Verify independent balances
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
-        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep balance should be independent");
-
-        // Slash stake - should not affect upkeep
-        uint256 slashAmount = 300e18;
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, slashAmount);
-
-        // Verify only stake was affected
+        // Verify upkeep still exists (forfeited by old manager)
         assertEq(
-            superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced"
+            superVaultAggregator.getUpkeepBalance(strategy),
+            upkeepAmount,
+            "Forfeited upkeep should remain"
         );
-        assertEq(superVaultAggregator.getUpkeepBalance(manager), upkeepAmount, "Upkeep should be unchanged");
 
-        // Withdraw upkeep - should not affect stake
-        uint256 withdrawUpkeep = 200e18;
-        vm.prank(manager);
-        superVaultAggregator.withdrawUpkeep(withdrawUpkeep);
+        // Governance proposes withdrawal
+        vm.prank(governanceManager);
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
 
-        // Verify only upkeep was affected
-        assertEq(superVaultAggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Stake should be unchanged");
+        // Warp past timelock
+        vm.warp(block.timestamp + 24 hours + 1);
+
+        // Execute withdrawal
+        uint256 govBalBefore = IERC20(upToken).balanceOf(governanceManager);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+
+        // Verify governance received forfeited upkeep
         assertEq(
-            superVaultAggregator.getUpkeepBalance(manager),
-            upkeepAmount - withdrawUpkeep,
-            "Only upkeep should be reduced"
+            IERC20(upToken).balanceOf(governanceManager),
+            govBalBefore + upkeepAmount,
+            "Governance should receive forfeited upkeep"
         );
     }
 
-    /// @notice Tests getStakeBalance returns zero for addresses with no stake
-    function test_GetStakeBalance_ZeroForNoStake() public view {
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Initial stake balance should be zero");
-        assertEq(superVaultAggregator.getStakeBalance(user), 0, "User stake balance should be zero");
-        assertEq(superVaultAggregator.getStakeBalance(address(0)), 0, "Zero address stake balance should be zero");
-    }
-
-    function test_GetStakeBalance_WithPendingWithdrawal() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 withdrawalAmount = 500e18;
-        MockUp(upToken).mint(manager, stakeAmount);
-
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        vm.prank(manager);
-        superVaultAggregator.requestStakeWithdrawal(withdrawalAmount);
-
-        assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            stakeAmount - withdrawalAmount,
-            "Stake balance should be reduced by the withdrawal amount"
-        );
-    }
-
-    function test_GetStakeBalance_WithPendingWithdrawal_AfterSlashing() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 withdrawalAmount = 500e18;
-        MockUp(upToken).mint(manager, stakeAmount);
-
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        vm.prank(manager);
-        superVaultAggregator.requestStakeWithdrawal(withdrawalAmount);
-
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, withdrawalAmount);
-
-        assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            withdrawalAmount,
-            "Stake balance should be reduced by the withdrawal amount"
-        );
-
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, withdrawalAmount);
-
-        assertEq(superVaultAggregator.getStakeBalance(manager), 0, "Stake balance should be zero");
-    }
-
-    function testSlashStake_ClearsWithdrawalRequest() public {
-        uint256 stakeAmount = 1000e18;
-
-        // Setup: Deposit stake
-        MockUp(upToken).mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), stakeAmount);
-        superVaultAggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Request withdrawal
-        vm.prank(manager);
-        superVaultAggregator.requestStakeWithdrawal(stakeAmount);
-
-        // Slash stake
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, stakeAmount);
-
-        // Verify withdrawal request is cleared
-        (uint256 amount, uint256 timestamp) = superVaultAggregator.managerWithdrawalRequests(manager);
-        assertEq(amount, 0, "Withdrawal request should be cleared");
-        assertEq(timestamp, 0, "Withdrawal request should be cleared");
-    }
-
-    /// @notice Tests edge case: slashing after partial withdrawal
-    function test_SlashStake_AfterPartialWithdrawal() public {
-        uint256 initialStake = 1000e18;
-        uint256 withdrawAmount = 300e18;
-        uint256 slashAmount = 200e18;
-        uint256 finalStake = initialStake - withdrawAmount - slashAmount;
-
-        // Setup: Deposit stake
-        MockUp(upToken).mint(manager, initialStake);
-        vm.startPrank(manager);
-        IERC20(upToken).approve(address(superVaultAggregator), initialStake);
-        superVaultAggregator.depositStake(manager, initialStake);
-
-        // Partial withdrawal
-        superVaultAggregator.requestStakeWithdrawal(withdrawAmount);
-        vm.warp(block.timestamp + 8 days);
-        superVaultAggregator.completeStakeWithdrawal();
-        vm.stopPrank();
-
-        // Verify state after withdrawal
-        assertEq(
-            superVaultAggregator.getStakeBalance(manager),
-            initialStake - withdrawAmount,
-            "Stake after withdrawal should be correct"
-        );
-
-        // Slash remaining stake
-        vm.prank(address(superGovernor));
-        superVaultAggregator.slashStake(manager, slashAmount);
-
-        // Verify final state
-        assertEq(superVaultAggregator.getStakeBalance(manager), finalStake, "Final stake should be correct");
-        assertEq(IERC20(upToken).balanceOf(superBank), slashAmount, "SuperBank should receive slashed amount");
-        assertEq(IERC20(upToken).balanceOf(manager), withdrawAmount, "Manager should have withdrawn amount");
-    }
+    // =============================================================
+    // Other Tests
+    // =============================================================
 
     /// @notice Test fair cost distribution in batchForwardPPS with mixed stale and fresh entries
     /// @dev Validates that only non-stale entries are charged and costs are distributed fairly
@@ -2419,14 +2612,18 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         updateAuthorities[2] = user;
         updateAuthorities[3] = user;
 
-        // Fund and deposit upkeep balance for the manager
-        // Manager needs sufficient upkeep balance to cover the costs
+        // Fund and deposit upkeep balance for each strategy
+        // Each strategy needs upkeep to cover PPS update costs
         deal(address(asset), manager, vars.totalUpkeepCost);
         vm.startPrank(manager);
         address _upToken = superGovernor.getAddress(superGovernor.UP());
-        deal(_upToken, manager, vars.totalUpkeepCost);
-        IERC20(_upToken).approve(address(superVaultAggregator), vars.totalUpkeepCost);
-        superVaultAggregator.depositUpkeep(manager, vars.totalUpkeepCost);
+        deal(_upToken, manager, vars.totalUpkeepCost * 4); // Enough for all 4 strategies
+        IERC20(_upToken).approve(address(superVaultAggregator), vars.totalUpkeepCost * 4);
+        // Deposit upkeep to each strategy
+        superVaultAggregator.depositUpkeep(strategy, vars.totalUpkeepCost);
+        superVaultAggregator.depositUpkeep(vars.strategy2, vars.totalUpkeepCost);
+        superVaultAggregator.depositUpkeep(vars.strategy3, vars.totalUpkeepCost);
+        superVaultAggregator.depositUpkeep(vars.strategy4, vars.totalUpkeepCost);
         vm.stopPrank();
 
         // Record initial balances
@@ -2456,11 +2653,27 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.expectedCostPerEntry = vars.totalUpkeepCost / 2; // 5e17
         vars.expectedTotalCharged = vars.expectedCostPerEntry * 2; // 1e18
 
-        // Verify manager's upkeep balance was deducted correctly
+        // Verify upkeep balances were deducted correctly from each strategy
+        // Only strategies[0] and strategies[2] are fresh (non-stale), so only they get charged
         assertEq(
-            superVaultAggregator.getUpkeepBalance(manager),
-            0, // All upkeep should be consumed for the 2 chargeable entries
-            "Manager upkeep balance should be fully consumed"
+            superVaultAggregator.getUpkeepBalance(strategy),
+            vars.totalUpkeepCost - vars.expectedCostPerEntry, // 1e18 deposited, 5e17 charged
+            "Strategy 1 upkeep should be partially consumed"
+        );
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(vars.strategy2),
+            vars.totalUpkeepCost, // Stale, not charged
+            "Strategy 2 upkeep should be unchanged (stale)"
+        );
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(vars.strategy3),
+            vars.totalUpkeepCost - vars.expectedCostPerEntry, // 1e18 deposited, 5e17 charged
+            "Strategy 3 upkeep should be partially consumed"
+        );
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(vars.strategy4),
+            vars.totalUpkeepCost, // Stale, not charged
+            "Strategy 4 upkeep should be unchanged (stale)"
         );
 
         // Verify claimable upkeep increased by the charged amount
@@ -3632,6 +3845,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Record initial PPS
         uint256 initialPPS = superVaultAggregator.getPPS(strategy);
+
+        // Disable deviation threshold for this test (focuses on upkeep cost failure handling)
+        vm.prank(manager);
+        superVaultAggregator.updateDeviationThreshold(strategy, type(uint256).max);
 
         // Prepare valid PPS update
         address[] memory strategies = new address[](1);

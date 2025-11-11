@@ -44,9 +44,9 @@ graph TD
     ECDSAPPSOracle -->|Forward PPS| SuperVaultAggregator
     SuperVaultAggregator -->|Update PPS| SuperVaultStrategy
     
-    Manager[Manager] -->|Deposit Upkeep/Stake| SuperVaultAggregator
+    Manager[Manager] -->|Deposit Upkeep| SuperVaultAggregator
     SuperVaultAggregator -->|Deduct Upkeep| SuperBank[SuperBank]
-    SuperGovernor[SuperGovernor] -->|Slash Stake| SuperBank
+    SuperGovernor[SuperGovernor] -->|Takeover & Forfeit| SuperBank
     
     sUP[sUP Stakers] -->|Governance| SuperGovernor
     SuperGovernor -->|Protocol Config| SuperVaultAggregator
@@ -179,44 +179,33 @@ This mechanism ensures that hook execution is always subject to both governance 
   - Initialization parameter validation
   - Integration with SuperBank for protocol coordination and fee collection
 
-#### Operational Costs vs Economic Security: Dual System Architecture
-
-The SuperVaultAggregator implements a dual system that separates operational costs from economic security mechanisms, providing both efficient protocol operations and robust defense against malicious behavior.
+#### Upkeep System & Manager Trust Model
 
 **Upkeep System (Operational Costs)**:
 - **Purpose**: Covers gas costs for PPS updates and oracle operations
 - **Mechanism**: Managers deposit UP tokens via `depositUpkeep()` to fund ongoing operations
 - **Usage**: Automatically deducted during PPS updates to compensate keepers and validators
 - **Accumulation**: Spent upkeep accumulates in `claimableUpkeep` for batch distribution to SuperBank
+- **Two-Step Withdrawal**: Managers must propose withdrawal (24-hour timelock) before execution, giving governance intervention window
 
-**Stake System (Economic Security)**:
-- **Purpose**: Provides economic security against malicious manager behavior
-- **Mechanism**: Managers deposit UP tokens via `depositStake()` as collateral for good behavior
-- **Slashing**: SuperGovernor can slash stakes (off-chain enforced) via `slashStake()` for malicious actions
-- **Immediate Transfer**: Slashed funds transfer directly to SuperBank without accumulation
-- **Independence**: Completely separate from upkeep system - slashing doesn't affect operational costs
+**Economic Security Model (V2)**:
+- **Trusted Manager Approach**: Managers are KYC'd with off-chain accountability
+- **Real-World Enforcement**: Misbehavior penalized via legal agreements, reputation systems, business relationships
+- **Governance Protection**: 24-hour upkeep withdrawal timelock prevents manager frontrunning during takeovers
+- **Emergency Powers**: SuperGovernor can immediately take over malicious strategies and claim forfeited upkeep
+- **Future Enhancement**: On-chain staking/slashing planned for V2.1 when democratizing manager access
 
-**Key Design Benefits**:
+**Malicious Behavior Mitigations**:
+- **Governance Takeover**: SuperGovernor can immediately replace malicious managers (7-day timelocks for normal changes)
+- **Guardian Veto**: Guardians can veto malicious hook updates
+- **Slippage Protection**: User-configurable limits on redemption fulfillment prices
+- **Off-Chain Enforcement**: Legal and reputation mechanisms for serious violations (front-running, fund theft, slippage bypass)
+- **Upkeep Forfeiture**: Managers lose deposited upkeep if governance takes over (acts as soft slashing)
 
-1. **Separation of Concerns**: 
-   - Upkeep ensures protocol operations continue regardless of manager behavior
-   - Stakes create economic disincentives for malicious actions without affecting operations
-
-2. **Flexible Enforcement**:
-   - Stake requirements can be enforced off-chain for featured strategies
-   - No mandatory staking amounts - governance can set requirements per strategy tier
-   - Allows different risk profiles for different types of strategies
-
-3. **Malicious Behavior Defense**:
-   - **Slippage Bypass**: Managers who manipulate `expectedAssetsOrSharesOut` to disable slippage protection
-   - **Front-running**: Strategists who front-run their own hook executions to extract value
-   - **Redemption Manipulation**: Providing arbitrary expected outputs during `fulfillRedeemRequests`
-   - **Hook Abuse**: Executing hooks with malicious parameters despite Merkle validation
-
-4. **Operational Efficiency**:
-   - Upkeep costs are predictable and separate from security deposits
+**Operational Efficiency**:
+   - Upkeep costs are predictable and manageable
    - Batch processing of upkeep payments reduces gas costs
-   - Immediate slashing provides rapid response to detected malicious behavior
+   - Governance takeover provides rapid response to detected malicious behavior
 
 **Example Attack Scenario and Mitigation**:
 
@@ -309,10 +298,10 @@ Executes protocol revenue distribution and hook-based operations under governanc
 ### Trust Model & Economic Incentives
 
 **Manager Trust Assumptions**:
-- Managers are trusted for: fulfillment timing, fee configuration, yield source selection, emergency operations, and solvency maintenance
+- Managers are KYC'd and trusted for: fulfillment timing, fee configuration, yield source selection, emergency operations, and solvency maintenance
 - MEV Guardian role: Managers have discretionary fulfillment power to protect against MEV extraction
-- Off-chain enforcement: Managers can be slashed for misbehavior via SuperGovernor
-- Mitigation: Guardian veto, 7-day timelocks, SuperGovernor takeover, economic security via stake system
+- Off-chain enforcement: Misbehavior penalized via real-world mechanisms (legal agreements, reputation, business relationships) - no on-chain slashing in V2
+- Mitigation: Guardian veto, 7-day timelocks, SuperGovernor emergency takeover, 24-hour upkeep withdrawal timelock
 
 **Validator Network Model**:
 - Validators are NOT trusted for timely PPS updates (liveness is best-effort)

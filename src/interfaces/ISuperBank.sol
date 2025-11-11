@@ -26,13 +26,13 @@ interface ISuperBank is IHookExecutionData {
     //////////////////////////////////////////////////////////////*/
     /// @notice Emitted when revenue is distributed to sUP and Treasury.
     /// @param upToken The address of the UP token.
-    /// @param supToken The address of the sUP token.
+    /// @param supStrategyVault The address of the sUP strategy.
     /// @param treasury The address of the Treasury.
     /// @param supAmount The amount sent to sUP.
     /// @param treasuryAmount The amount sent to Treasury.
     event RevenueDistributed(
         address indexed upToken,
-        address indexed supToken,
+        address indexed supStrategyVault,
         address indexed treasury,
         uint256 supAmount,
         uint256 treasuryAmount

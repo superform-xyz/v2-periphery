@@ -52,9 +52,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Validator configuration
     ValidatorConfig private _validatorConfig;
 
-    // Executor registry
-    EnumerableSet.AddressSet private _executors;
-
     // Fee management - packed struct for gas optimization
     struct FeeData {
         uint128 value; // Current fee value (BPS, max 10000)
@@ -105,7 +102,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
-    bytes32 public constant SUP = keccak256("SUP");
+    bytes32 public constant SUP_STRATEGY = keccak256("SUP_STRATEGY");
     bytes32 public constant TREASURY = keccak256("TREASURY");
     bytes32 public constant SUPER_BANK = keccak256("SUPER_BANK");
     bytes32 public constant SUPER_ORACLE = keccak256("SUPER_ORACLE");
@@ -375,24 +372,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EXECUTORS MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function addExecutor(address executor) external onlyRole(_GOVERNOR_ROLE) {
-        if (executor == address(0)) revert INVALID_ADDRESS();
-        if (!_executors.add(executor)) revert EXECUTOR_ALREADY_REGISTERED();
-
-        emit ExecutorAdded(executor);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function removeExecutor(address executor) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_executors.remove(executor)) revert EXECUTOR_NOT_REGISTERED();
-
-        emit ExecutorRemoved(executor);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
@@ -615,14 +594,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperformManagerRemoved(manager);
     }
 
-    /// @inheritdoc ISuperGovernor
-    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
-        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
-        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
-
-        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
-    }
-
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
@@ -742,11 +713,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function isExecutor(address executor) external view returns (bool) {
-        return _executors.contains(executor);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getValidators() external view returns (address[] memory) {
         return _validatorConfig.validators.values();
     }
@@ -759,11 +725,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function getValidatorAt(uint256 index) external view returns (address) {
         return _validatorConfig.validators.at(index);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getExecutors() external view returns (address[] memory) {
-        return _executors.values();
     }
 
     /// @inheritdoc ISuperGovernor

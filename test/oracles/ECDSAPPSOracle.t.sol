@@ -37,7 +37,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     address public svStrategy;
 
     // Mock data
-    uint256 public constant PPS = 1e18; // 1.0
+    uint256 public constant PPS = 1e6; // 1.0
     uint256 public constant PPS_STDEV = 1e16; // 0.01
 
     ECDSAPPSOracle public oracleECDSA;
@@ -1380,7 +1380,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Mint and approve UP tokens for upkeep
         deal(upToken, mockManager, 100 ether);
         IERC20(upToken).approve(address(aggregatorSuperVault), 100 ether);
-        aggregatorSuperVault.depositUpkeep(mockManager, 100 ether);
+        aggregatorSuperVault.depositUpkeep(svStrategy, 100 ether);
         vm.stopPrank();
 
         // Setup: Submit initial PPS

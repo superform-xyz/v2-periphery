@@ -136,7 +136,6 @@ contract VaultBankTest is PeripheryHelpers {
         vaultBank = new TestVaultBank(address(superGovernor), address(superRegistry));
 
         vm.startPrank(governor);
-        superGovernor.addExecutor(address(this));
         superRegistry.addVaultBank(uint64(block.chainid), address(vaultBank));
         superRegistry.addVaultBank(uint64(DST_CHAIN_ID), address(vaultBank));
         vm.stopPrank();

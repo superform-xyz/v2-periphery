@@ -146,7 +146,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
         superGovernor.setAddress(superGovernor.UP(), address(up));
-        superGovernor.setAddress(superGovernor.SUP(), supToken);
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
         superGovernor.setAddress(superGovernor.TREASURY(), treasury);
         vm.stopPrank();
 

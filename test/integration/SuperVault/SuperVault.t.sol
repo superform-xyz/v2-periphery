@@ -9683,6 +9683,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 depositAmount = 1000e6;
         address user = address(0x1234);
 
+        // Disable deviation threshold to allow test's artificial setup
+        vm.startPrank(MANAGER);
+        aggregator.updateDeviationThreshold(address(strategy), type(uint256).max);
+        vm.stopPrank();
+
         deal(address(asset), user, depositAmount);
         deal(address(asset), address(strategy), depositAmount * 2);
 
@@ -9763,6 +9768,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 depositAmount = 1000e6;
         address user = address(0x1234);
 
+        // Disable deviation threshold to allow test's artificial setup
+        vm.startPrank(MANAGER);
+        aggregator.updateDeviationThreshold(address(strategy), type(uint256).max);
+        vm.stopPrank();
+
         deal(address(asset), user, depositAmount);
         deal(address(asset), address(strategy), depositAmount * 2);
 
@@ -9794,6 +9804,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_SkimFeeFlow_RedemptionPreviewsNoFees() public {
         uint256 depositAmount = 1000e6;
         address user = address(0x1234);
+
+        // Disable deviation threshold to allow test's artificial setup
+        vm.startPrank(MANAGER);
+        aggregator.updateDeviationThreshold(address(strategy), type(uint256).max);
+        vm.stopPrank();
 
         deal(address(asset), user, depositAmount);
         deal(address(asset), address(strategy), depositAmount * 2);

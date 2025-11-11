@@ -127,9 +127,14 @@ interface ISuperVaultAggregator {
         bytes32[] strategyProof;
     }
 
-    struct WithdrawStakeRequest {
+    /// @notice Two-step upkeep withdrawal request
+    /// @param initiator Manager who requested withdrawal
+    /// @param amount Amount to withdraw (full balance at time of request)
+    /// @param effectiveTime When withdrawal can be executed (timestamp + 24h)
+    struct UpkeepWithdrawalRequest {
+        address initiator;
         uint256 amount;
-        uint256 timestamp;
+        uint256 effectiveTime;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -177,41 +182,34 @@ interface ISuperVaultAggregator {
     event StrategyCheckFailed(address indexed strategy, string reason);
 
     /// @notice Emitted when upkeep tokens are deposited
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
+    /// @param depositor Address of the depositor
     /// @param amount Amount of UP tokens deposited
-    event UpkeepDeposited(address indexed manager, uint256 amount);
+    event UpkeepDeposited(address indexed strategy, address indexed depositor, uint256 amount);
 
     /// @notice Emitted when upkeep tokens are withdrawn
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
+    /// @param withdrawer Address of the withdrawer (initiator of the withdrawal request)
     /// @param amount Amount of UP tokens withdrawn
-    event UpkeepWithdrawn(address indexed manager, uint256 amount);
+    event UpkeepWithdrawn(address indexed strategy, address indexed withdrawer, uint256 amount);
+
+    /// @notice Emitted when an upkeep withdrawal is proposed (start of 24h timelock)
+    /// @param strategy Address of the strategy
+    /// @param initiator Address of the manager who proposed the withdrawal
+    /// @param amount Amount of UP tokens to withdraw
+    /// @param effectiveTime Timestamp when withdrawal can be executed
+    event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime);
+
+    /// @notice Emitted when a pending upkeep withdrawal is cancelled (e.g., during governance takeover)
+    /// @param strategy Address of the strategy
+    event UpkeepWithdrawalCancelled(address indexed strategy);
 
     /// @notice Emitted when upkeep tokens are spent for validation
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
     /// @param amount Amount of UP tokens spent
-    /// @param balance Current balance of the manager
-    /// @param claimableUpkeep Amount of upkeep tokens claimable by the manager
-    event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep);
-
-    /// @notice Emitted when stake tokens are deposited
-    /// @param manager Address of the manager
-    /// @param amount Amount of UP tokens deposited as stake
-    event StakeDeposited(address indexed manager, uint256 amount);
-
-    /// @notice Emitted when a stake withdrawal request is initiated
-    /// @param manager Address of the manager
-    /// @param amount Amount of UP tokens to withdraw
-    event StakeWithdrawRequested(address indexed manager, uint256 amount);
-
-    /// @notice Emitted when stake tokens are withdrawn
-    /// @param manager Address of the manager
-    /// @param amount Amount of UP tokens withdrawn from stake
-    event StakeWithdrawn(address indexed manager, uint256 amount);
-
-    /// @notice Emitted when a manager's stake is slashed
-    /// @param manager The manager whose stake was slashed
-    /// @param amount The amount of UP tokens slashed
-    event StakeSlashed(address indexed manager, uint256 amount);
+    /// @param balance Current balance of the strategy
+    /// @param claimableUpkeep Amount of upkeep tokens claimable
+    event UpkeepSpent(address indexed strategy, uint256 amount, uint256 balance, uint256 claimableUpkeep);
 
     /// @notice Emitted when a secondary manager is added to a strategy
     /// @param strategy Address of the strategy
@@ -237,6 +235,11 @@ interface ISuperVaultAggregator {
     event PrimaryManagerChangeProposed(
         address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime
     );
+
+    /// @notice Emitted when a primary manager change proposal is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledManager Address of the manager that was proposed
+    event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
 
     /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
     /// @param strategy Address of the strategy
@@ -327,8 +330,8 @@ interface ISuperVaultAggregator {
         address indexed strategy, uint256 signatureTimestamp, uint256 lastUnpauseTimestamp
     );
 
-    /// @notice Emitted when a manager does not have enough upkeep balance
-    event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
+    /// @notice Emitted when a strategy does not have enough upkeep balance
+    event InsufficientUpkeep(address indexed strategy, address indexed strategyAddr, uint256 balance, uint256 cost);
 
     /// @notice Emitted when the provided timestamp is too large
     event ProvidedTimestampExceedsBlockTimestamp(
@@ -426,8 +429,6 @@ interface ISuperVaultAggregator {
     error UNKNOWN_STRATEGY();
     /// @notice Thrown when withdrawing more upkeep than available
     error INSUFFICIENT_UPKEEP_BALANCE();
-    /// @notice Thrown when withdrawing more stake than available
-    error INSUFFICIENT_STAKE_BALANCE();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
@@ -470,12 +471,10 @@ interface ISuperVaultAggregator {
     error INVALID_TIMESTAMP(uint256 index);
     /// @notice Thrown when too many secondary managers are added
     error TOO_MANY_SECONDARY_MANAGERS();
-    /// @notice Thrown when withdrawal request is expired
-    error WITHDRAWAL_REQUEST_EXPIRED();
-    /// @notice Thrown when withdrawal request is not ready
-    error WITHDRAW_STAKE_REQUEST_NOT_READY();
-    /// @notice Thrown when withdrawal request is not found
-    error WITHDRAW_STAKE_REQUEST_NOT_FOUND();
+    /// @notice Thrown when upkeep withdrawal timelock has not passed yet
+    error UPKEEP_WITHDRAWAL_NOT_READY();
+    /// @notice Thrown when no pending upkeep withdrawal request exists
+    error UPKEEP_WITHDRAWAL_NOT_FOUND();
     /// @notice Thrown when PPS is too stale to unpause a strategy
     error UNPAUSE_TIMELOCK_NOT_MET();
     /// @notice PPS must decrease after skimming fees
@@ -531,14 +530,20 @@ interface ISuperVaultAggregator {
                         UPKEEP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposits UP tokens for manager upkeep
-    /// @param manager Address of the manager to deposit for
+    /// @notice Deposits UP tokens for strategy upkeep
+    /// @param strategy Address of the strategy to deposit for
     /// @param amount Amount of UP tokens to deposit
-    function depositUpkeep(address manager, uint256 amount) external;
+    function depositUpkeep(address strategy, uint256 amount) external;
 
-    /// @notice Withdraws UP tokens from manager upkeep balance
-    /// @param amount Amount of UP tokens to withdraw
-    function withdrawUpkeep(uint256 amount) external;
+    /// @notice Proposes withdrawal of UP tokens from strategy upkeep balance (starts 24h timelock)
+    /// @dev Only the main manager can propose. Withdraws full balance at time of proposal.
+    /// @param strategy Address of the strategy to withdraw from
+    function proposeWithdrawUpkeep(address strategy) external;
+
+    /// @notice Executes a pending upkeep withdrawal after 24h timelock
+    /// @dev Anyone can execute, but funds go to the original initiator
+    /// @param strategy Address of the strategy to withdraw from
+    function executeWithdrawUpkeep(address strategy) external;
 
     /// @notice Claims upkeep tokens from the contract
     /// @param amount Amount of UP tokens to claim
@@ -555,33 +560,6 @@ interface ISuperVaultAggregator {
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
     function unpauseStrategy(address strategy) external;
-
-    /*//////////////////////////////////////////////////////////////
-                        STAKE MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Deposits UP tokens as stake for manager economic security
-    /// @param manager Address of the manager to deposit stake for
-    /// @param amount Amount of UP tokens to deposit as stake
-    function depositStake(address manager, uint256 amount) external;
-
-    /// @notice Initiates withdrawal of staked UP tokens
-    /// @param amount Amount of UP tokens to withdraw from stake
-    function requestStakeWithdrawal(uint256 amount) external;
-
-    /// @notice Completes a pending stake withdrawal after timelock period
-    /// @dev Validates timelock and expiration, transfers UP tokens to manager
-    /// @dev Reverts if no request exists, timelock not met, or request expired
-    /// @dev Re-checks balance in case slashing occurred during timelock period
-    function completeStakeWithdrawal() external;
-
-    /// @notice Slashes a manager's stake balance by a specified amount
-    /// @dev Only callable by SUPER_GOVERNOR. Transfers slashed amount to SuperBank
-    /// @dev Uses Math.min to prevent revert if balance is insufficient
-    /// @dev Automatically cancels any pending withdrawal requests
-    /// @param manager The manager whose stake will be slashed
-    /// @param amount The amount of UP tokens to slash from the manager's stake balance
-    function slashStake(address manager, uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
@@ -609,6 +587,11 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
     function proposeChangePrimaryManager(address strategy, address newManager) external;
+
+    /// @notice Cancels a pending primary manager change proposal
+    /// @dev Only the current primary manager can cancel the proposal
+    /// @param strategy Address of the strategy
+    function cancelChangePrimaryManager(address strategy) external;
 
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
@@ -757,20 +740,24 @@ interface ISuperVaultAggregator {
     /// @return timestamp Last unpause timestamp (0 if never unpaused)
     function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp);
 
-    /// @notice Gets the current upkeep balance for a manager
-    /// @param manager Address of the manager
+    /// @notice Gets the current upkeep balance for a strategy
+    /// @param strategy Address of the strategy
     /// @return balance Current upkeep balance in UP tokens
-    function getUpkeepBalance(address manager) external view returns (uint256 balance);
-
-    /// @notice Gets the current stake balance for a manager
-    /// @param manager Address of the manager
-    /// @return balance Current stake balance in UP tokens
-    function getStakeBalance(address manager) external view returns (uint256 balance);
+    function getUpkeepBalance(address strategy) external view returns (uint256 balance);
 
     /// @notice Gets the main manager for a strategy
     /// @param strategy Address of the strategy
     /// @return manager Address of the main manager
     function getMainManager(address strategy) external view returns (address manager);
+
+    /// @notice Gets pending primary manager change details
+    /// @param strategy Address of the strategy
+    /// @return proposedManager Address of the proposed new manager (address(0) if no pending change)
+    /// @return effectiveTime Timestamp when the change can be executed (0 if no pending change)
+    function getPendingManagerChange(address strategy)
+        external
+        view
+        returns (address proposedManager, uint256 effectiveTime);
 
     /// @notice Checks if an address is the main manager for a strategy
     /// @param manager Address of the manager
