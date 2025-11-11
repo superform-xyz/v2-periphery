@@ -573,6 +573,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         if (manager == address(0)) revert ZERO_ADDRESS();
 
+        if (!managerConsent[manager]) revert MANAGER_NOT_CONSENTED();
+        managerConsent[manager] = false;
+
         // Check if manager is already the primary manager
         if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
@@ -696,6 +699,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         if (!managerConsent[newManager]) revert MANAGER_NOT_CONSENTED();
+        managerConsent[newManager] = false;
 
         if (newManager == address(0)) revert ZERO_ADDRESS();
 
