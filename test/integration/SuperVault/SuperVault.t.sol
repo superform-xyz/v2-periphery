@@ -151,9 +151,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER })
-        });
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
+            });
+        vm.startPrank(MANAGER);
         aggregator.createVault(params);
+        vm.stopPrank();
 
         // Test that the reentrancy guard is initialized properly
         uint256 NOT_ENTERED = 1;
@@ -174,10 +178,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
             secondaryManagers: new address[](0),
             minUpdateInterval: 0,
             maxStaleness: 300,
-            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER })
-        });
+            feeConfig: ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 0, managementFeeBps: 0, recipient: MANAGER }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
+            });
+        vm.startPrank(MANAGER);
         vm.expectRevert(ISuperVault.INVALID_ASSET.selector);
         aggregator.createVault(params1);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -3085,6 +3093,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         internal
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
+        vm.startPrank(params.manager);
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: params.asset,
@@ -3096,9 +3105,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
+        vm.stopPrank();
     }
 
     function _createVaultWithSecondaryManagers(
@@ -3108,6 +3120,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         internal
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
+        vm.startPrank(params.manager);
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: params.asset,
@@ -3119,9 +3132,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
                 maxStaleness: params.maxStaleness,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: params.performanceFeeBps, managementFeeBps: 0, recipient: address(this)
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////

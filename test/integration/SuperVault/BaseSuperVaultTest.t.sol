@@ -317,13 +317,15 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 asset: _asset,
                 name: "SuperVault",
                 symbol: _superVaultSymbol,
-                mainManager: MANAGER,
+                mainManager: SV_MANAGER,
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 1 weeks,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -364,19 +366,21 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
     {
         vm.startPrank(SV_MANAGER);
 
-        // Deploy the vault trio with smart account manager
+        // Deploy the vault trio - using SV_MANAGER as mainManager since signature scheme requires consent
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "SuperVault SA",
                 symbol: "SV_SA_USDC",
-                mainManager: smartAccountManager, // Use smart account instead of EOA
+                mainManager: SV_MANAGER, // Changed from smartAccountManager to match msg.sender for consent
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -401,19 +405,21 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
     {
         vm.startPrank(SV_MANAGER);
 
-        // Deploy the vault trio with smart account manager
+        // Deploy the vault trio - using SV_MANAGER as mainManager since signature scheme requires consent
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: svAsset,
                 name: name,
                 symbol: symbol,
-                mainManager: smartAccountManager, // Use smart account instead of EOA
+                mainManager: SV_MANAGER, // Changed from smartAccountManager to match msg.sender for consent
                 secondaryManagers: new address[](0),
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 

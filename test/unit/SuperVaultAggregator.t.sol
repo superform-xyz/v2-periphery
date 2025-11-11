@@ -93,7 +93,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
         strategy = strategyAddress;
@@ -453,7 +455,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -526,7 +530,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -708,7 +714,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -785,8 +793,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
                         performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                    })
-                })
+                    }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
+            })
             );
             allStrategies[i] = newStrategy;
         }
@@ -937,7 +947,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 400, // Shorter staleness period for testing (must be >= minStaleness of 300)
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -1646,7 +1658,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -2040,7 +2054,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager2
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -2343,7 +2359,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -2359,7 +2377,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -2375,7 +2395,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 

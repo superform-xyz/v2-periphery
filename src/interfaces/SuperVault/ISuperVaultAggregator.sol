@@ -92,6 +92,8 @@ interface ISuperVaultAggregator {
     /// @param minUpdateInterval Minimum time interval between PPS updates
     /// @param maxStaleness Maximum time allowed between PPS updates before staleness
     /// @param feeConfig Fee configuration for the vault
+    /// @param mainManagerSignature EIP-712 signature from mainManager consenting to assignment (empty = msg.sender must be mainManager)
+    /// @param signatureDeadline Deadline timestamp for signature validity (0 if no signature)
     struct VaultCreationParams {
         address asset;
         string name;
@@ -101,6 +103,8 @@ interface ISuperVaultAggregator {
         uint256 minUpdateInterval;
         uint256 maxStaleness;
         ISuperVaultStrategy.FeeConfig feeConfig;
+        bytes mainManagerSignature;
+        uint256 signatureDeadline;
     }
 
     /// @notice Struct to hold cached hook validation state variables to avoid stack too deep
@@ -152,6 +156,12 @@ interface ISuperVaultAggregator {
         string symbol,
         uint256 indexed nonce
     );
+
+    /// @notice Emitted when mainManager signature is successfully verified during vault creation
+    /// @param vault Address of the created SuperVault
+    /// @param mainManager Address of the mainManager who signed
+    /// @param nonce The nonce used in the signature
+    event MainManagerSignatureVerified(address indexed vault, address indexed mainManager, uint256 nonce);
 
     /// @notice Emitted when a PPS value is updated
     /// @param strategy Address of the strategy
@@ -486,11 +496,16 @@ interface ISuperVaultAggregator {
     error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
     /// @notice Thrown when minUpdateInterval >= maxStaleness
     error MIN_UPDATE_INTERVAL_TOO_HIGH();
+    /// @notice Thrown when mainManager signature is invalid
+    error INVALID_MAIN_MANAGER_SIGNATURE();
+    /// @notice Thrown when signature has expired
+    error SIGNATURE_EXPIRED();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
     //////////////////////////////////////////////////////////////*/
     /// @notice Creates a new SuperVault trio (SuperVault, SuperVaultStrategy, SuperVaultEscrow)
+    /// @dev Security: mainManager consent required via either (1) valid EIP-712 signature OR (2) msg.sender == mainManager
     /// @param params Parameters for the new vault creation
     /// @return superVault Address of the created SuperVault
     /// @return strategy Address of the created SuperVaultStrategy
@@ -863,4 +878,8 @@ interface ISuperVaultAggregator {
     /// @return root The proposed strategy hooks Merkle root
     /// @return effectiveTime The timestamp when the proposed root becomes effective
     function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32 root, uint256 effectiveTime);
+
+    /// @notice Returns the EIP-712 domain separator for signature verification
+    /// @return The domain separator hash
+    function domainSeparatorV4() external view returns (bytes32);
 }

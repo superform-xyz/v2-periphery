@@ -8,6 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 // Superform
 import { SuperVault } from "./SuperVault.sol";
@@ -40,6 +41,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Governance
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
+    // EIP-712 Domain Separator Components
+    bytes32 private immutable _CACHED_DOMAIN_SEPARATOR;
+    uint256 private immutable _CACHED_CHAIN_ID;
+    address private immutable _CACHED_THIS;
+    bytes32 private immutable _HASHED_NAME;
+    bytes32 private immutable _HASHED_VERSION;
+    bytes32 private immutable _TYPE_HASH;
+
     // Claimable upkeep
     uint256 public claimableUpkeep;
 
@@ -65,6 +74,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Maximum performance fee allowed (51%)
     uint256 private constant MAX_PERFORMANCE_FEE = 5100;
+
+    // EIP-712 TypeHash for CreateVault signature
+    bytes32 private constant CREATE_VAULT_TYPEHASH = keccak256(
+        "CreateVault(address mainManager,address asset,string name,string symbol,uint256 nonce,uint256 deadline)"
+    );
 
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
@@ -132,6 +146,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         VAULT_IMPLEMENTATION = vaultImpl_;
         STRATEGY_IMPLEMENTATION = strategyImpl_;
         ESCROW_IMPLEMENTATION = escrowImpl_;
+
+        // Initialize EIP-712 domain separator components
+        _HASHED_NAME = keccak256(bytes("SuperVaultAggregator"));
+        _HASHED_VERSION = keccak256(bytes("1"));
+        _CACHED_CHAIN_ID = block.chainid;
+        _CACHED_THIS = address(this);
+        _TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+        _CACHED_DOMAIN_SEPARATOR = _buildDomainSeparator();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -159,7 +181,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
-        vars.currentNonce = _vaultCreationNonce++;
+        vars.currentNonce = _vaultCreationNonce;
+
+        // Verify mainManager signature if provided (before nonce increment for replay protection)
+        _verifyMainManagerSignature(params, vars.currentNonce);
+
+        _vaultCreationNonce++;
         vars.salt = keccak256(abi.encode(msg.sender, params.asset, params.name, params.symbol, vars.currentNonce));
 
         // Create minimal proxies
@@ -213,6 +240,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
         emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+
+        // Emit signature verification event if signature was provided
+        if (params.mainManagerSignature.length > 0) {
+            emit MainManagerSignatureVerified(superVault, params.mainManager, vars.currentNonce);
+        }
 
         return (superVault, strategy, escrow);
     }
@@ -1390,5 +1422,74 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
      */
     function _getSuperBank() internal view returns (address) {
         return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_BANK());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        EIP-712 SIGNATURE VERIFICATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the EIP-712 domain separator for signature verification
+    /// @return The domain separator hash
+    function domainSeparatorV4() public view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    /// @notice Internal function to get domain separator, handling chain ID changes
+    /// @dev Returns cached separator if chain ID hasn't changed, otherwise rebuilds it
+    /// @return The current domain separator hash
+    function _domainSeparatorV4() internal view returns (bytes32) {
+        if (address(this) == _CACHED_THIS && block.chainid == _CACHED_CHAIN_ID) {
+            return _CACHED_DOMAIN_SEPARATOR;
+        } else {
+            return _buildDomainSeparator();
+        }
+    }
+
+    /// @notice Builds the EIP-712 domain separator
+    /// @dev Uses cached hashed name, version, and type hash
+    /// @return The built domain separator hash
+    function _buildDomainSeparator() private view returns (bytes32) {
+        return keccak256(abi.encode(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION, block.chainid, address(this)));
+    }
+
+    /// @notice Verifies mainManager's consent for vault creation
+    /// @dev Two modes: (1) With signature: EIP-712 verification, (2) Without: msg.sender must be mainManager
+    /// @param params The vault creation parameters containing signature and deadline
+    /// @param nonce The current vault creation nonce for replay protection
+    function _verifyMainManagerSignature(VaultCreationParams calldata params, uint256 nonce) internal view {
+        // If no signature provided, msg.sender must be the mainManager (prevents unauthorized assignment)
+        if (params.mainManagerSignature.length == 0) {
+            if (msg.sender != params.mainManager) {
+                revert INVALID_MAIN_MANAGER_SIGNATURE();
+            }
+            return;
+        }
+
+        // Check deadline
+        if (block.timestamp > params.signatureDeadline) {
+            revert SIGNATURE_EXPIRED();
+        }
+
+        // Build the struct hash
+        bytes32 structHash = keccak256(
+            abi.encode(
+                CREATE_VAULT_TYPEHASH,
+                params.mainManager,
+                params.asset,
+                keccak256(bytes(params.name)),
+                keccak256(bytes(params.symbol)),
+                nonce,
+                params.signatureDeadline
+            )
+        );
+
+        // Build the digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+
+        // Recover signer and verify
+        address recoveredSigner = ECDSA.recover(digest, params.mainManagerSignature);
+        if (recoveredSigner != params.mainManager) {
+            revert INVALID_MAIN_MANAGER_SIGNATURE();
+        }
     }
 }

@@ -73,6 +73,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Deploy SuperVaultAggregator
         aggregatorSuperVault = new SuperVaultAggregator(address(governor), vaultImpl, strategyImpl, escrowImpl);
 
+        vm.prank(mockManager);
         (sv, svStrategy,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -84,7 +85,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -145,7 +148,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         assertEq(address(oracleECDSA.SUPER_GOVERNOR()), address(governor));
     }
 
-    function test_Constructor_ZeroAddressReverts() public {
+    function test_Constructor_ZeroAddressRevertsX() public {
         // Test constructor reverts with invalid address
         vm.expectRevert(IECDSAPPSOracle.INVALID_VALIDATOR.selector);
         new ECDSAPPSOracle(address(0), ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION);
@@ -696,6 +699,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create two strategies and valid proofs for them
         data.strategy1 = address(svStrategy);
 
+        vm.prank(mockManager);
         (, data.strategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -707,7 +711,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -770,6 +776,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create two strategies and valid proofs for them
         data.strategy1 = address(svStrategy);
 
+        vm.prank(mockManager);
         (, data.strategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -781,7 +788,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -1503,6 +1512,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Security fix: Prevents nonce burning attacks where attackers submit duplicates
     function test_UpdatePPS_RevertsDuplicateStrategies() public {
         // Create second strategy for testing
+        vm.prank(mockManager);
         (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -1514,7 +1524,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -1552,6 +1564,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Security fix: Enforces sorted order to catch both duplicates and wrong ordering
     function test_UpdatePPS_RevertsUnsortedStrategies() public {
         // Create second strategy for testing
+        vm.prank(mockManager);
         (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -1563,7 +1576,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 
@@ -1607,6 +1622,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     /// @dev Ensures the deduplication check doesn't break valid use cases
     function test_UpdatePPS_SucceedsSortedUniqueStrategies() public {
         // Create second strategy for testing
+        vm.prank(mockManager);
         (, address svStrategy2,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -1618,7 +1634,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
-                })
+                }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
             })
         );
 

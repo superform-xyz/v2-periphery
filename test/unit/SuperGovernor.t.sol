@@ -98,8 +98,10 @@ contract SuperGovernorTest is PeripheryHelpers {
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
                         performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                    })
-                })
+                    }),
+                mainManagerSignature: "",
+                signatureDeadline: 0
+            })
             );
         strategy1 = strategy;
 
