@@ -209,7 +209,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
-        _strategyData[strategy].deviationThreshold = type(uint256).max; // Default: max (disabled)
+        _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
         emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);

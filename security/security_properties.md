@@ -317,11 +317,19 @@ Ensures `minInterval` never exceeds `maxStaleness` to prevent impossible update 
   Check skipped if: threshold disabled, no previous PPS, or PPS marked stale
 ```
 
-**Implementation:** `_forwardPPS()` line 1240-1259  
-**Location:** `src/SuperVault/SuperVaultAggregator.sol`  
+**Implementation:** `_forwardPPS()` line 1240-1259
+**Location:** `src/SuperVault/SuperVaultAggregator.sol`
 **Status:** ✓ Verified
 
 **Purpose:** Detects abnormal PPS deviations that may indicate data errors or extreme market conditions. Auto-pauses strategy and marks PPS stale on failure.
+
+**Default Configuration:**
+- **Initial Value:** `5e17` (50% deviation threshold)
+- **Rationale:** Provides meaningful protection from deployment while accommodating:
+  - Maximum legitimate performance fee skims (up to 51% via `MAX_PERFORMANCE_FEE`)
+  - Extreme market volatility and black swan events
+  - Emergency liquidation scenarios
+- **Manager Responsibility:** Main manager should adjust threshold based on strategy characteristics.
 
 **Escape Hatch:** Check is skipped when PPS is already marked stale, allowing emergency updates during liquidation scenarios.
 
