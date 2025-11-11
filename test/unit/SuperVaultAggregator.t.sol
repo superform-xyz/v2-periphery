@@ -155,6 +155,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Setup: Create pending manager proposal
         address newManager = _deployAccount(0xC, "NewManager");
 
+        vm.prank(newManager);
+        superVaultAggregator.updateVaultCreationConsent(true);
+
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
         superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
@@ -278,6 +281,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address currentManager = superVaultAggregator.getMainManager(strategy);
         address newPrimaryManager = _deployAccount(0x12, "NewManager");
 
+        vm.prank(newPrimaryManager);
+        superVaultAggregator.updateVaultCreationConsent(true);
+
         vm.startPrank(secondaryManagers[0]);
         superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
         vm.warp(block.timestamp + 1 weeks);
@@ -295,6 +301,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
+
+        vm.prank(nextPrimaryManager);
+        superVaultAggregator.updateVaultCreationConsent(true);
 
         vm.startPrank(secondaryManagers[0]);
         superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
@@ -324,6 +333,15 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
     }
 
+    function test_ExecuteChangePrimaryManager_Revert_NotConsented() public {
+        address newPrimaryManager = _deployAccount(0x12, "NewManager");
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+
+        vm.prank(secondaryManagers[0]);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_NOT_CONSENTED.selector);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
+    }
+
     /// @notice Tests the complete attack scenario - malicious manager cannot regain control
     function test_ChangePrimaryManager_PreventsAttackScenario() public {
         // Setup malicious scenario:
@@ -338,6 +356,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // 2. Malicious manager creates a proposal to regain control after emergency replacement
         address controlledAccount = _deployAccount(0x14, "ControlledAccount");
+        vm.prank(controlledAccount);
+        superVaultAggregator.updateVaultCreationConsent(true);
+
         vm.prank(maliciousSecondary1);
         superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
 
@@ -474,7 +495,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setActivePPSOracle(address(this));
 
         // Create second strategy for batch testing
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -489,6 +511,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Get initial timestamps
         uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
@@ -547,7 +570,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setActivePPSOracle(address(this));
 
         // Create second strategy for batch testing
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -562,6 +586,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Get initial timestamps
         uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
@@ -729,7 +754,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.setActivePPSOracle(address(this));
 
         // Create second strategy for batch testing
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -744,6 +770,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Get initial timestamps
         uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
@@ -806,7 +833,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Create 9 additional strategies
         for (uint256 i = 1; i < 10; i++) {
-            vm.prank(manager);
+            vm.startPrank(manager);
+            superVaultAggregator.updateVaultCreationConsent(true);
             (, address newStrategy,) = superVaultAggregator.createVault(
                 ISuperVaultAggregator.VaultCreationParams({
                     asset: address(asset),
@@ -821,6 +849,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                     })
                 })
             );
+            vm.stopPrank();
             allStrategies[i] = newStrategy;
         }
 
@@ -958,7 +987,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superGovernor.executeUpkeepPaymentsChange();
 
         // Create second strategy for batch testing with shorter maxStaleness
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -973,6 +1003,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Get initial timestamps
         uint256 timestamp1 = superVaultAggregator.getLastUpdateTimestamp(strategy);
@@ -1667,7 +1698,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests that different strategies have independent banned leaves
     function test_ChangeGlobalLeavesStatus_StrategyIndependence() public {
         // Create second strategy
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, address strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -1682,6 +1714,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Set up global root with a test leaf
         address hookAddress = address(0x123);
@@ -2366,7 +2399,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.totalUpkeepCost = 2e18; // 1 token total cost per entry (2 etnries)
 
         // Create additional strategies for comprehensive testing
-        vm.prank(manager);
+        vm.startPrank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, vars.strategy2,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -2382,7 +2416,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             })
         );
 
-        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, vars.strategy3,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -2397,8 +2431,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
-
-        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
         (, vars.strategy4,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -2413,6 +2446,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Get initial timestamps
         vars.baseTimestamp = block.timestamp;
