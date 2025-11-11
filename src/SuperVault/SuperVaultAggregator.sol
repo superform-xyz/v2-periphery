@@ -52,6 +52,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Stake balances
     mapping(address manager => uint256 stake) private _managerStakeBalance;
 
+    // Manager consent for vault creation
+    mapping(address manager => bool consented) public managerConsent;
+
     // Withdraw stake requests
     mapping(address manager => WithdrawStakeRequest withdrawalRequest) public managerWithdrawalRequests;
 
@@ -154,6 +157,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
             revert INVALID_VAULT_PARAMS();
+        }
+
+        if (!managerConsent[params.mainManager]) {
+            revert MANAGER_NOT_CONSENTED();
         }
 
         // Initialize local variables struct to avoid stack too deep
@@ -552,6 +559,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ISuperVaultAggregator
+    function updateVaultCreationConsent(bool consented) external {
+        managerConsent[msg.sender] = consented;
+        emit ManagerConsentUpdated(msg.sender, consented);
+    }
+
     /// @inheritdoc ISuperVaultAggregator
     function addSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
         // Only the primary manager can add secondary managers

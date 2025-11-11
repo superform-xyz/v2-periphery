@@ -135,6 +135,11 @@ interface ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Emitted when a manager's consent for vault creation is updated
+    /// @param manager Address of the manager
+    /// @param consent Whether the manager has consented to vault creation
+    event ManagerConsentUpdated(address indexed manager, bool consent);
+
     /// @notice Emitted when a new vault trio is created
     /// @param vault Address of the created SuperVault
     /// @param strategy Address of the created SuperVaultStrategy
@@ -442,6 +447,8 @@ interface ISuperVaultAggregator {
     error NO_PENDING_GLOBAL_ROOT_CHANGE();
     /// @notice Thrown when attempting to execute an in-progress manager change before timelock elapsed
     error MANAGER_CHANGE_NOT_READY();
+    /// @notice Thrown when manager is not consented to create vaults
+    error MANAGER_NOT_CONSENTED();
     /// @notice Thrown when attempting to execute a hooks root change before timelock has elapsed
     error ROOT_UPDATE_NOT_READY();
     /// @notice Thrown when a provided hook fails Merkle proof validation
@@ -586,6 +593,9 @@ interface ISuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Adds consent for a manager to manage a vault
+    function updateVaultCreationConsent(bool consented) external;
 
     /// @notice Adds a secondary manager to a strategy
     /// @notice A manager can either be secondary or primary
