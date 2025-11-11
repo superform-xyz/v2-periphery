@@ -18,8 +18,6 @@ import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggre
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
-import { console2 } from "forge-std/console2.sol";
-
 /// @title SuperVaultAggregator
 /// @author Superform Labs
 /// @notice Registry and PPS oracle for all SuperVaults
@@ -1300,8 +1298,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
                 checksFailed = true;
-                console2.log("currentPPS", currentPPS);
-                console2.log("args.pps", args.pps);
                 emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
             }
         }
