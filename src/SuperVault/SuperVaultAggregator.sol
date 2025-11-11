@@ -49,11 +49,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Upkeep balances (per strategy)
     mapping(address strategy => uint256 upkeep) private _strategyUpkeepBalance;
 
-    // Stake balances
-    mapping(address manager => uint256 stake) private _managerStakeBalance;
-
-    // Withdraw stake requests
-    mapping(address manager => WithdrawStakeRequest withdrawalRequest) public managerWithdrawalRequests;
+    // Two-step upkeep withdrawal system
+    mapping(address strategy => UpkeepWithdrawalRequest) public pendingUpkeepWithdrawals;
 
     // Registry of created vaults
     EnumerableSet.AddressSet private _superVaults;
@@ -69,9 +66,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
-    // Time lock for stake withdrawal requests
-    uint256 public constant WITHDRAW_STAKE_TIMELOCK = 7 days;
-    uint256 public constant WITHDRAWAL_REQUEST_TIMEOUT = 10 days;
+    // Timelock for upkeep withdrawal (24 hours)
+    uint256 public constant UPKEEP_WITHDRAWAL_TIMELOCK = 24 hours;
 
     // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
@@ -349,7 +345,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Update upkeep balance for this strategy
         _strategyUpkeepBalance[strategy] += amount;
 
-        emit UpkeepDeposited(strategy, amount);
+        emit UpkeepDeposited(strategy, msg.sender, amount);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -372,33 +368,57 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function withdrawUpkeep(address strategy, uint256 amount) external validStrategy(strategy) {
-        if (amount == 0) revert ZERO_AMOUNT();
-
-        // Only mainManager can withdraw upkeep from a strategy
-        // This prevents secondary managers from draining upkeep funds
+    function proposeWithdrawUpkeep(address strategy) external validStrategy(strategy) {
+        // Only mainManager can propose upkeep withdrawal from a strategy
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Check sufficient balance
-        if (_strategyUpkeepBalance[strategy] < amount) {
-            revert INSUFFICIENT_UPKEEP_BALANCE();
-        }
+        // Get current strategy upkeep balance (full balance withdrawal)
+        uint256 currentBalance = _strategyUpkeepBalance[strategy];
+        if (currentBalance == 0) revert ZERO_AMOUNT();
+
+        // Create withdrawal request
+        pendingUpkeepWithdrawals[strategy] = UpkeepWithdrawalRequest({
+            initiator: msg.sender, amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
+        });
+
+        emit UpkeepWithdrawalProposed(
+            strategy, msg.sender, currentBalance, block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
+        );
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function executeWithdrawUpkeep(address strategy) external validStrategy(strategy) {
+        UpkeepWithdrawalRequest memory request = pendingUpkeepWithdrawals[strategy];
+
+        // Check that a request exists
+        if (request.initiator == address(0)) revert UPKEEP_WITHDRAWAL_NOT_FOUND();
+
+        // Check that timelock has passed
+        if (block.timestamp < request.effectiveTime) revert UPKEEP_WITHDRAWAL_NOT_READY();
+
+        // Calculate actual withdrawal amount (use current balance, may be less if upkeep was spent)
+        uint256 currentBalance = _strategyUpkeepBalance[strategy];
+        uint256 withdrawalAmount = currentBalance < request.amount ? currentBalance : request.amount;
+
+        if (withdrawalAmount == 0) revert ZERO_AMOUNT();
+
+        // Clear the pending request
+        delete pendingUpkeepWithdrawals[strategy];
 
         // Get the UP token address from SUPER_GOVERNOR
         address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
 
         // Update upkeep balance
-        /// @dev unchecked because amount validated above
         unchecked {
-            _strategyUpkeepBalance[strategy] -= amount;
+            _strategyUpkeepBalance[strategy] -= withdrawalAmount;
         }
 
-        // Transfer UP tokens to manager
-        IERC20(upToken).safeTransfer(msg.sender, amount);
+        // Transfer UP tokens to the original initiator (not msg.sender)
+        IERC20(upToken).safeTransfer(request.initiator, withdrawalAmount);
 
-        emit UpkeepWithdrawn(strategy, amount);
+        emit UpkeepWithdrawn(strategy, request.initiator, withdrawalAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -442,117 +462,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].lastUnpauseTimestamp = block.timestamp; // Track for skim timelock
         // ppsStale already true from pause - no need to set again (gas savings)
         emit StrategyUnpaused(strategy);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        STAKE MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @notice Deposits UP tokens as stake for manager economic security
-    /// @param manager Address of the manager to deposit stake for
-    /// @param amount Amount of UP tokens to deposit as stake
-    function depositStake(address manager, uint256 amount) external {
-        if (amount == 0) revert ZERO_AMOUNT();
-        if (manager == address(0)) revert ZERO_ADDRESS();
-
-        // Get the UP token address from SUPER_GOVERNOR
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
-
-        // Transfer UP tokens from msg.sender to this contract
-        IERC20(upToken).safeTransferFrom(msg.sender, address(this), amount);
-
-        // Update stake balance
-        _managerStakeBalance[manager] += amount;
-
-        emit StakeDeposited(manager, amount);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function requestStakeWithdrawal(uint256 amount) external {
-        if (amount == 0) revert ZERO_AMOUNT();
-
-        // Check sufficient balance
-        if (_managerStakeBalance[msg.sender] < amount) {
-            revert INSUFFICIENT_STAKE_BALANCE();
-        }
-
-        // Create withdrawal request
-        managerWithdrawalRequests[msg.sender] = WithdrawStakeRequest({ amount: amount, timestamp: block.timestamp });
-
-        emit StakeWithdrawRequested(msg.sender, amount);
-    }
-
-    /// @inheritdoc ISuperVaultAggregator
-    function completeStakeWithdrawal() external {
-        WithdrawStakeRequest memory request = managerWithdrawalRequests[msg.sender];
-
-        if (request.amount == 0 || request.timestamp == 0) revert WITHDRAW_STAKE_REQUEST_NOT_FOUND();
-
-        if (request.timestamp + WITHDRAW_STAKE_TIMELOCK > block.timestamp) {
-            revert WITHDRAW_STAKE_REQUEST_NOT_READY();
-        }
-
-        if (block.timestamp > request.timestamp + WITHDRAWAL_REQUEST_TIMEOUT) {
-            revert WITHDRAWAL_REQUEST_EXPIRED();
-        }
-
-        /// Get the UP token address from SUPER_GOVERNOR
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
-
-        // Update stake balance
-        /// @dev re-check for sufficient balance in case slashing occurred
-        if (_managerStakeBalance[msg.sender] >= request.amount) {
-            _managerStakeBalance[msg.sender] -= request.amount;
-        } else {
-            revert INSUFFICIENT_STAKE_BALANCE();
-        }
-
-        // Clear withdrawal request
-        delete managerWithdrawalRequests[msg.sender];
-
-        emit StakeWithdrawn(msg.sender, request.amount);
-
-        // Transfer UP tokens to manager
-        IERC20(upToken).safeTransfer(msg.sender, request.amount);
-    }
-
-    /// @notice Slashes a manager's stake balance by a specified amount
-    /// @param manager The manager whose stake will be slashed
-    /// @param amount The amount of UP tokens to slash from the manager's stake balance
-    function slashStake(address manager, uint256 amount) external {
-        // Cache SUPER_GOVERNOR reference
-        ISuperGovernor gov = SUPER_GOVERNOR;
-
-        // Only SUPER_GOVERNOR can slash stake
-        if (msg.sender != address(gov)) {
-            revert CALLER_NOT_AUTHORIZED();
-        }
-
-        // Validate inputs
-        if (manager == address(0)) revert ZERO_ADDRESS();
-        if (amount == 0) revert ZERO_AMOUNT();
-
-        // ache storage read and use ternary
-        uint256 currentStake = _managerStakeBalance[manager];
-        uint256 slashAmount = amount > currentStake ? currentStake : amount;
-
-        // If no stake available, revert
-        if (slashAmount == 0) revert ZERO_AMOUNT();
-
-        // Reduce manager's stake balance
-        _managerStakeBalance[manager] = currentStake - slashAmount;
-
-        // Clear any pending withdrawal requests
-        delete managerWithdrawalRequests[manager];
-
-        // Direct call to cached gov instead of _getSuperBank()
-        address upToken = gov.getAddress(gov.UP());
-        address superBank = gov.getAddress(gov.SUPER_BANK());
-
-        // Transfer slashed amount directly to SuperBank
-        IERC20(upToken).safeTransfer(superBank, slashAmount);
-
-        // Emit event for transparency
-        emit StakeSlashed(manager, slashAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -674,6 +583,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit SecondaryManagerRemoved(strategy, clearedSecondaryManagers[i]);
         }
 
+        // SECURITY: Cancel any pending upkeep withdrawal to prevent old manager from withdrawing
+        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+            delete pendingUpkeepWithdrawals[strategy];
+            emit UpkeepWithdrawalCancelled(strategy);
+        }
+
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
@@ -739,6 +654,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _strategyData[strategy].secondaryManagers.add(oldManager);
         } else {
             emit OldPrimaryManagerRemoved(strategy, oldManager);
+        }
+
+        // Cancel any pending upkeep withdrawal to ensure clean transition
+        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+            delete pendingUpkeepWithdrawals[strategy];
+            emit UpkeepWithdrawalCancelled(strategy);
         }
 
         // Set the new primary manager
@@ -1047,22 +968,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function getUpkeepBalance(address strategy) external view returns (uint256 balance) {
         return _strategyUpkeepBalance[strategy];
-    }
-
-    /// @notice Gets the current stake balance for a manager
-    /// @notice If a withdrawal request is pending, the balance is reduced by the amount of the request
-    /// @param manager Address of the manager
-    /// @return balance Current stake balance in UP tokens
-    function getStakeBalance(address manager) external view returns (uint256 balance) {
-        uint256 _requestAmount = managerWithdrawalRequests[manager].amount;
-        if (_requestAmount > 0) {
-            if (_requestAmount > _managerStakeBalance[manager]) {
-                return 0;
-            } else {
-                return _managerStakeBalance[manager] - _requestAmount;
-            }
-        }
-        return _managerStakeBalance[manager];
     }
 
     /// @inheritdoc ISuperVaultAggregator
