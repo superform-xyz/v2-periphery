@@ -4074,6 +4074,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Record initial PPS
         uint256 initialPPS = superVaultAggregator.getPPS(strategy);
 
+        // Disable deviation threshold for this test (focuses on upkeep cost failure handling)
+        vm.prank(manager);
+        superVaultAggregator.updateDeviationThreshold(strategy, type(uint256).max);
+
         // Prepare valid PPS update
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
