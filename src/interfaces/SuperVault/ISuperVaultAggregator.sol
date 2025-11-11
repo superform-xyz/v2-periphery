@@ -606,7 +606,15 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param manager Address of the manager to add
-    function addSecondaryManager(address strategy, address manager) external;
+    /// @param mainManagerSignature EIP-712 signature from mainManager consenting to addition (empty = msg.sender must be mainManager)
+    /// @param deadline Deadline timestamp for signature validity (0 if no signature)
+    function addSecondaryManager(
+        address strategy,
+        address manager,
+        bytes calldata mainManagerSignature,
+        uint256 deadline
+    )
+        external;
 
     /// @notice Removes a secondary manager from a strategy
     /// @param strategy Address of the strategy
@@ -623,7 +631,17 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
-    function proposeChangePrimaryManager(address strategy, address newManager) external;
+    /// @param secondaryManager Address of the secondary manager proposing the change
+    /// @param secondaryManagerSignature EIP-712 signature from secondaryManager consenting to proposal (empty = msg.sender must be secondaryManager)
+    /// @param deadline Deadline timestamp for signature validity (0 if no signature)
+    function proposeChangePrimaryManager(
+        address strategy,
+        address newManager,
+        address secondaryManager,
+        bytes calldata secondaryManagerSignature,
+        uint256 deadline
+    )
+        external;
 
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
@@ -716,6 +734,12 @@ interface ISuperVaultAggregator {
     /// @dev This nonce is incremented every time a new vault is created
     /// @return Current vault creation nonce
     function getCurrentNonce() external view returns (uint256);
+
+    /// @notice Returns the current nonce for a manager (for signature operations)
+    /// @dev This nonce is incremented for addSecondaryManager and proposeChangePrimaryManager operations
+    /// @param manager Address of the manager
+    /// @return Current nonce for the manager
+    function getManagerNonce(address manager) external view returns (uint256);
 
     /// @notice Check if the global hooks root is currently vetoed
     /// @return vetoed True if the global hooks root is vetoed

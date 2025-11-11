@@ -102,7 +102,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Add secondary manager for testing
         vm.prank(manager);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManager);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManager, "", 0);
 
         // Register UP token on SuperGovernor
         upToken = address(new MockUp(address(this)));
@@ -126,7 +126,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, secondaryManager, "", 0);
 
         // SuperGovernor performs emergency replacement
         address emergencyManager = _deployAccount(0xD, "EmergencyManager");
@@ -145,8 +145,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address secondaryManager3 = _deployAccount(0xF, "SecondaryManager3");
 
         vm.startPrank(manager);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManager2);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManager3);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManager2, "", 0);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManager3, "", 0);
         vm.stopPrank();
 
         // Verify secondary managers exist
@@ -183,27 +183,27 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         vm.startPrank(manager);
         for (uint256 i = 0; i < len - 2; ++i) {
-            superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i]);
+            superVaultAggregator.addSecondaryManager(strategy, secondaryManagers[i], "", 0);
         }
         address lastSecondaryManager = _deployAccount(20, "SecondaryManager");
         vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
-        superVaultAggregator.addSecondaryManager(strategy, lastSecondaryManager);
+        superVaultAggregator.addSecondaryManager(strategy, lastSecondaryManager, "", 0);
         vm.stopPrank();
     }
 
     function test_AddSecondaryManager() public {
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.addSecondaryManager(strategy, manager);
+        superVaultAggregator.addSecondaryManager(strategy, manager, "", 0);
 
         vm.startPrank(manager);
         vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
-        superVaultAggregator.addSecondaryManager(strategy, manager);
+        superVaultAggregator.addSecondaryManager(strategy, manager, "", 0);
         vm.stopPrank();
 
         address newSecondaryManager = _deployAccount(0x10, "NewSecondaryManager");
 
         vm.prank(manager);
-        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager, "", 0);
 
         address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
         assertEq(secondaryManagers.length, 2, "Should have 2 secondary managers");
@@ -248,7 +248,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address newPrimaryManager = _deployAccount(0x12, "NewManager");
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, secondaryManagers[0], "", 0);
         vm.warp(block.timestamp + 1 weeks);
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
@@ -266,7 +266,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, secondaryManagers[0], "", 0);
         vm.warp(block.timestamp + 1 weeks);
 
         vm.expectEmit(true, true, false, false);
@@ -275,12 +275,12 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         vm.startPrank(nextPrimaryManager);
-        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x15, "NewSecondaryManager"));
-        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x16, "NewSecondaryManager"));
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x15, "NewSecondaryManager"), "", 0);
+        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x16, "NewSecondaryManager"), "", 0);
         vm.stopPrank();
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, secondaryManagers[0], "", 0);
         vm.warp(block.timestamp + 1 weeks);
 
         vm.expectEmit(true, true, false, false);
@@ -301,14 +301,14 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address maliciousSecondary2 = _deployAccount(0x13, "MaliciousSecondary2");
 
         vm.startPrank(manager); // manager is acting maliciously
-        superVaultAggregator.addSecondaryManager(strategy, maliciousSecondary1);
-        superVaultAggregator.addSecondaryManager(strategy, maliciousSecondary2);
+        superVaultAggregator.addSecondaryManager(strategy, maliciousSecondary1, "", 0);
+        superVaultAggregator.addSecondaryManager(strategy, maliciousSecondary2, "", 0);
         vm.stopPrank();
 
         // 2. Malicious manager creates a proposal to regain control after emergency replacement
         address controlledAccount = _deployAccount(0x14, "ControlledAccount");
         vm.prank(maliciousSecondary1);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, maliciousSecondary1, "", 0);
 
         // 3. SuperGovernor detects malicious behavior and performs emergency replacement
         address emergencyManager = _deployAccount(0x15, "EmergencyManager");
@@ -328,11 +328,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // 5. Malicious accounts can no longer propose changes
         vm.prank(maliciousSecondary1);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, maliciousSecondary1, "", 0);
 
         vm.prank(maliciousSecondary2);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, maliciousSecondary2, "", 0);
     }
 
     /// @notice Tests that only SuperGovernor can call changePrimaryManager
@@ -415,7 +415,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Setup: Add secondary managers for event testing
         address secondaryManager2 = _deployAccount(0x1B, "SecondaryManager2");
         vm.prank(manager);
-        superVaultAggregator.addSecondaryManager(strategy, secondaryManager2);
+        superVaultAggregator.addSecondaryManager(strategy, secondaryManager2, "", 0);
 
         address emergencyManager = _deployAccount(0x1C, "EmergencyManager");
 

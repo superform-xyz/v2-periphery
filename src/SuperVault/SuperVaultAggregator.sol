@@ -80,6 +80,16 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         "CreateVault(address mainManager,address asset,string name,string symbol,uint256 nonce,uint256 deadline)"
     );
 
+    // EIP-712 TypeHash for AddSecondaryManager signature
+    bytes32 private constant ADD_SECONDARY_MANAGER_TYPEHASH = keccak256(
+        "AddSecondaryManager(address strategy,address manager,uint256 nonce,uint256 deadline)"
+    );
+
+    // EIP-712 TypeHash for ProposeChangePrimaryManager signature
+    bytes32 private constant PROPOSE_CHANGE_PRIMARY_MANAGER_TYPEHASH = keccak256(
+        "ProposeChangePrimaryManager(address strategy,address newManager,uint256 nonce,uint256 deadline)"
+    );
+
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
@@ -102,6 +112,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     // Nonce for vault creation tracking
     uint256 private _vaultCreationNonce;
+
+    // Nonce tracking for manager operations (per-address)
+    mapping(address => uint256) private _managerNonces;
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -585,9 +598,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
-    function addSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
-        // Only the primary manager can add secondary managers
-        if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+    function addSecondaryManager(
+        address strategy,
+        address manager,
+        bytes calldata mainManagerSignature,
+        uint256 deadline
+    )
+        external
+        validStrategy(strategy)
+    {
+        // Verify mainManager consent via signature or direct call
+        address mainManager = _strategyData[strategy].mainManager;
+        _verifyMainManagerSignatureForAddSecondaryManager(strategy, manager, mainManagerSignature, deadline, mainManager);
 
         if (manager == address(0)) revert ZERO_ADDRESS();
 
@@ -707,11 +729,20 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function proposeChangePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
-        // Only secondary managers can propose changes to the primary manager
-        if (!_strategyData[strategy].secondaryManagers.contains(msg.sender)) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
+    function proposeChangePrimaryManager(
+        address strategy,
+        address newManager,
+        address secondaryManager,
+        bytes calldata secondaryManagerSignature,
+        uint256 deadline
+    )
+        external
+        validStrategy(strategy)
+    {
+        // Verify secondaryManager consent via signature or direct call
+        _verifySecondaryManagerSignatureForProposeChange(
+            strategy, newManager, secondaryManager, secondaryManagerSignature, deadline
+        );
 
         if (newManager == address(0)) revert ZERO_ADDRESS();
 
@@ -722,7 +753,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedManager = newManager;
         _strategyData[strategy].managerChangeEffectiveTime = effectiveTime;
 
-        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, effectiveTime);
+        emit PrimaryManagerChangeProposed(strategy, secondaryManager, newManager, effectiveTime);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -996,6 +1027,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function getCurrentNonce() external view returns (uint256) {
         return _vaultCreationNonce;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getManagerNonce(address manager) external view returns (uint256) {
+        return _managerNonces[manager];
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1489,6 +1525,107 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Recover signer and verify
         address recoveredSigner = ECDSA.recover(digest, params.mainManagerSignature);
         if (recoveredSigner != params.mainManager) {
+            revert INVALID_MAIN_MANAGER_SIGNATURE();
+        }
+    }
+
+    /// @notice Verifies mainManager's consent for adding a secondary manager
+    /// @dev Two modes: (1) With signature: EIP-712 verification, (2) Without: msg.sender must be mainManager
+    /// @param strategy Address of the strategy
+    /// @param manager Address of the manager to add
+    /// @param signature EIP-712 signature from mainManager (empty = msg.sender must be mainManager)
+    /// @param deadline Deadline timestamp for signature validity
+    /// @param mainManager Address of the main manager (for verification)
+    function _verifyMainManagerSignatureForAddSecondaryManager(
+        address strategy,
+        address manager,
+        bytes calldata signature,
+        uint256 deadline,
+        address mainManager
+    )
+        internal
+    {
+        // If no signature provided, msg.sender must be the mainManager
+        if (signature.length == 0) {
+            if (msg.sender != mainManager) {
+                revert UNAUTHORIZED_UPDATE_AUTHORITY();
+            }
+            return;
+        }
+
+        // Check deadline
+        if (block.timestamp > deadline) {
+            revert SIGNATURE_EXPIRED();
+        }
+
+        // Get and increment nonce
+        uint256 nonce = _managerNonces[mainManager];
+        _managerNonces[mainManager] = nonce + 1;
+
+        // Build the struct hash
+        bytes32 structHash = keccak256(
+            abi.encode(ADD_SECONDARY_MANAGER_TYPEHASH, strategy, manager, nonce, deadline)
+        );
+
+        // Build the digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+
+        // Recover signer and verify
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != mainManager) {
+            revert INVALID_MAIN_MANAGER_SIGNATURE();
+        }
+    }
+
+    /// @notice Verifies secondaryManager's consent for proposing primary manager change
+    /// @dev Two modes: (1) With signature: EIP-712 verification, (2) Without: msg.sender must be secondaryManager
+    /// @param strategy Address of the strategy
+    /// @param newManager Address of the proposed new manager
+    /// @param secondaryManager Address of the secondary manager proposing the change
+    /// @param signature EIP-712 signature from secondaryManager (empty = msg.sender must be secondaryManager)
+    /// @param deadline Deadline timestamp for signature validity
+    function _verifySecondaryManagerSignatureForProposeChange(
+        address strategy,
+        address newManager,
+        address secondaryManager,
+        bytes calldata signature,
+        uint256 deadline
+    )
+        internal
+    {
+        // Verify that the secondaryManager is actually a secondary manager
+        if (!_strategyData[strategy].secondaryManagers.contains(secondaryManager)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // If no signature provided, msg.sender must be the secondaryManager
+        if (signature.length == 0) {
+            if (msg.sender != secondaryManager) {
+                revert UNAUTHORIZED_UPDATE_AUTHORITY();
+            }
+            return;
+        }
+
+        // Check deadline
+        if (block.timestamp > deadline) {
+            revert SIGNATURE_EXPIRED();
+        }
+
+        // Get and increment nonce
+        uint256 nonce = _managerNonces[secondaryManager];
+        _managerNonces[secondaryManager] = nonce + 1;
+
+        // Build the struct hash
+        bytes32 structHash = keccak256(
+            abi.encode(PROPOSE_CHANGE_PRIMARY_MANAGER_TYPEHASH, strategy, newManager, nonce, deadline)
+        );
+
+        // Build the digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparatorV4(), structHash));
+
+        // Recover signer and verify
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != secondaryManager) {
             revert INVALID_MAIN_MANAGER_SIGNATURE();
         }
     }
