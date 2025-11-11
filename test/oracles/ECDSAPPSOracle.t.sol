@@ -37,7 +37,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     address public svStrategy;
 
     // Mock data
-    uint256 public constant PPS = 1e18; // 1.0
+    uint256 public constant PPS = 1e6; // 1.0
     uint256 public constant PPS_STDEV = 1e16; // 0.01
 
     ECDSAPPSOracle public oracleECDSA;
