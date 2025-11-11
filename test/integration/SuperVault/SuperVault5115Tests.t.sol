@@ -164,6 +164,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         AccountInstance memory managerAccount = accInstances[1]; // Use a different account as manager
         _getTokens(address(asset5115), managerAccount.account, 1 ether); // Fund the manager account
 
+        vm.prank(managerAccount.account);
+        aggregator.updateVaultCreationConsent(true);
+
         // Deploy vault with smart account manager
         (address newVaultAddr, address newStrategyAddr,) =
             _deployVaultWithSmartAccountManager(managerAccount.account, address(asset5115), "SA-5115", "SA-5115");

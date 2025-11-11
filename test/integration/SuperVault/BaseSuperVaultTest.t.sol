@@ -153,6 +153,9 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         // Get aggregator
         aggregator = SuperVaultAggregator(_getContract(ETH, SUPER_VAULT_AGGREGATOR_KEY));
 
+        vm.prank(MANAGER);
+        aggregator.updateVaultCreationConsent(true);
+
         // Deploy MockUp
         upToken = address(new MockUp(address(this)));
 
@@ -310,6 +313,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
         vm.startPrank(SV_MANAGER);
+        aggregator.updateVaultCreationConsent(true);
 
         // Deploy the vault trio
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
@@ -363,6 +367,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
         vm.startPrank(SV_MANAGER);
+        aggregator.updateVaultCreationConsent(true);
 
         // Deploy the vault trio with smart account manager
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(
@@ -400,6 +405,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         returns (address vaultAddr, address strategyAddr, address escrowAddr)
     {
         vm.startPrank(SV_MANAGER);
+        aggregator.updateVaultCreationConsent(true);
 
         // Deploy the vault trio with smart account manager
         (vaultAddr, strategyAddr, escrowAddr) = aggregator.createVault(

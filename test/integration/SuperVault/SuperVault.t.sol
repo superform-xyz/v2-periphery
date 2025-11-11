@@ -256,6 +256,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
         AccountInstance memory managerAccount = accInstances[1]; // Use a different account as manager
         _getTokens(address(asset), managerAccount.account, 1 ether); // Fund the manager account
 
+        vm.prank(managerAccount.account);
+        aggregator.updateVaultCreationConsent(true);
+
         // Deploy vault with smart account manager
         (address newVaultAddr, address newStrategyAddr,) = _deployVaultWithSmartAccountManager(managerAccount.account);
 
@@ -3051,6 +3054,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     function test_CreateVaultWithSecondaryManagers() public {
+        aggregator.updateVaultCreationConsent(true);
+
         address[] memory secondaryManagers = new address[](2);
         secondaryManagers[0] = address(0x1);
         secondaryManagers[1] = address(0x2);

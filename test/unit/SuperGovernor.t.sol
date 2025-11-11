@@ -85,6 +85,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superVaultAggregator =
             address(new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl));
         aggregator = SuperVaultAggregator(superVaultAggregator);
+        aggregator.updateVaultCreationConsent(true);
 
         (, address strategy,) = ISuperVaultAggregator(superVaultAggregator)
             .createVault(
@@ -1324,6 +1325,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.startPrank(manager2);
         upToken.approve(address(superVaultAggregator), stakeAmount);
         aggregator.depositStake(manager2, stakeAmount);
+        aggregator.updateVaultCreationConsent(true);
         vm.stopPrank();
 
         // Slash only first manager's stake

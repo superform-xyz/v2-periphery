@@ -72,6 +72,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Deploy SuperVaultAggregator
         aggregatorSuperVault = new SuperVaultAggregator(address(governor), vaultImpl, strategyImpl, escrowImpl);
+        aggregatorSuperVault.updateVaultCreationConsent(true);
+
+        vm.prank(mockManager);
+        aggregatorSuperVault.updateVaultCreationConsent(true);
 
         (sv, svStrategy,) = aggregatorSuperVault.createVault(
             ISuperVaultAggregator.VaultCreationParams({

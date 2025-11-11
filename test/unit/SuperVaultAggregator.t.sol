@@ -77,6 +77,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         superVaultAggregator = new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl);
 
+        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
+
         // Deploy ECDSAPPSOracle
         ecdsaPPSOracle = new ECDSAPPSOracle(address(superGovernor), "ECDSAPPSOracle", "1");
 
@@ -114,9 +117,39 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Manager Consent Tests
+    // =============================================================
+    function test_UpdateVaultCreationConsent() public {
+        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(true);
+        assertTrue(superVaultAggregator.managerConsent(manager), "Vault creation consent should be true");
+
+        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(false);
+        assertFalse(superVaultAggregator.managerConsent(manager), "Vault creation consent should be false");
+    }
+
+    function test_CreateVault_Revert_NotConsented() public {
+        vm.prank(manager);
+        superVaultAggregator.updateVaultCreationConsent(false);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_NOT_CONSENTED.selector);
+        superVaultAggregator.createVault(ISuperVaultAggregator.VaultCreationParams({
+            asset: address(asset),
+            name: "Test Vault",
+            symbol: "TV",
+            mainManager: manager,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: 5,
+            maxStaleness: 300,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+            })
+        }));
+    }
+
+    // =============================================================
     // Emergency Manager Replacement Tests
     // =============================================================
-
     /// @notice Tests emergency manager replacement clears pending proposals
     function test_ChangePrimaryManager_ClearsPendingProposals() public {
         // Setup: Create pending manager proposal
@@ -2028,7 +2061,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Create second strategy with different manager
         address manager2 = _deployAccount(0xBB, "Manager2");
-        vm.prank(manager2);
+        vm.startPrank(manager2);
+        superVaultAggregator.updateVaultCreationConsent(true);
         superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
@@ -2043,6 +2077,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+        vm.stopPrank();
 
         // Setup: Both managers deposit stake
         MockUp(upToken).mint(manager, stakeAmount);
