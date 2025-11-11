@@ -65,7 +65,7 @@ contract SuperBank is ISuperBank, Bank {
         if (revenueShare > BPS_PRECISION) revert INVALID_REVENUE_SHARE();
 
         // Get remaining addresses after validation
-        address supToken = gov.getAddress(gov.SUP());
+        address supStrategyVault = gov.getAddress(gov.SUP_STRATEGY());
         address treasury = gov.getAddress(gov.TREASURY());
 
         // Calculate amounts for sUP and Treasury
@@ -74,14 +74,14 @@ contract SuperBank is ISuperBank, Bank {
 
         // Direct usage instead of intermediate IERC20 variable
         if (supAmount > 0) {
-            IERC20(upToken).safeTransfer(supToken, supAmount);
+            IERC20(upToken).safeTransfer(supStrategyVault, supAmount);
         }
 
         if (treasuryAmount > 0) {
             IERC20(upToken).safeTransfer(treasury, treasuryAmount);
         }
 
-        emit RevenueDistributed(upToken, supToken, treasury, supAmount, treasuryAmount);
+        emit RevenueDistributed(upToken, supStrategyVault, treasury, supAmount, treasuryAmount);
     }
 
     /// @inheritdoc ISuperBank

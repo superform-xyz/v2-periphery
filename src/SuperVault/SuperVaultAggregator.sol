@@ -746,6 +746,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Clear the proposal
         _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].managerChangeEffectiveTime = 0;
 
         emit PrimaryManagerChanged(strategy, oldManager, newManager);
     }

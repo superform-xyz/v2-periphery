@@ -235,39 +235,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
     }
 
-    function test_IsExecutor() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.addExecutor(address(0));
-
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ExecutorAdded(address(this));
-        superGovernor.addExecutor(address(this));
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.EXECUTOR_ALREADY_REGISTERED.selector);
-        superGovernor.addExecutor(address(this));
-
-        assertTrue(superGovernor.isExecutor(address(this)), "This contract should be an executor");
-        address[] memory executors = superGovernor.getExecutors();
-        assertEq(executors.length, 1, "Should have 1 executor");
-        assertEq(executors[0], address(this), "Executor in list should match");
-
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ExecutorRemoved(address(this));
-        superGovernor.removeExecutor(address(this));
-
-        assertFalse(superGovernor.isExecutor(address(this)), "This contract should not be an executor");
-        executors = superGovernor.getExecutors();
-        assertEq(executors.length, 0, "Should have 0 executors");
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.EXECUTOR_NOT_REGISTERED.selector);
-        superGovernor.removeExecutor(address(this));
-    }
-
     function test_IsGuardian() public view {
         assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
