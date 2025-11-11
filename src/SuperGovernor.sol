@@ -594,14 +594,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperformManagerRemoved(manager);
     }
 
-    /// @inheritdoc ISuperGovernor
-    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
-        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
-        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
-
-        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
-    }
-
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/

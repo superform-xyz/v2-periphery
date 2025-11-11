@@ -642,8 +642,9 @@ See `security_properties.md` for complete analysis of:
 - **Core Responsibilities**: Fulfillment timing, totalAssetsOut calculations, fee updates, yield source whitelisting, emergency operations, solvency maintenance
 - **MEV Protection**: Discretionary censorship power to delay MEV-positive redemptions until yield contribution
 - **Staleness Configuration**: Trusted to set meaningful `maxStaleness` thresholds per strategy
-- **Off-Chain Accountability**: Can be slashed for misbehavior (fulfillment manipulation, PPS threshold abuse, front-running)
-- **Mitigation Layers**: Guardian veto power, 7-day timelocks, SuperGovernor takeover, economic security via stake deposits
+- **Off-Chain Accountability**: Managers are KYC'd and trusted. Enforcement via off-chain mechanisms (legal agreements, reputation, business relationships) for misbehavior (fulfillment manipulation, PPS threshold abuse, front-running)
+- **Mitigation Layers**: Guardian veto power, 7-day timelocks, SuperGovernor emergency takeover, 24-hour upkeep withdrawal timelock
+- **No On-Chain Slashing**: V2 does not include on-chain staking/slashing system. Relies on trusted manager model with real-world enforcement. On-chain slashing planned for V2.1 when democratizing manager access.
 
 **User Trust & Loss Socialization**:
 - **Accepted Behavior**: Rebalance losses are socialized across depositors by design. Redeem losses are attributed to redeemers when fulfillment occurs

@@ -382,11 +382,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param manager Address of the manager to remove
     function removeSuperformManager(address manager) external;
 
-    /// @notice Slashes a manager's stake balance by a specified amount
-    /// @param manager The manager whose stake will be slashed
-    /// @param amount The amount of UP tokens to slash from the manager's stake balance
-    function slashStake(address manager, uint256 amount) external;
-
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
