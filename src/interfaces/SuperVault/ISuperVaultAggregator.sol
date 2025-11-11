@@ -177,21 +177,21 @@ interface ISuperVaultAggregator {
     event StrategyCheckFailed(address indexed strategy, string reason);
 
     /// @notice Emitted when upkeep tokens are deposited
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
     /// @param amount Amount of UP tokens deposited
-    event UpkeepDeposited(address indexed manager, uint256 amount);
+    event UpkeepDeposited(address indexed strategy, uint256 amount);
 
     /// @notice Emitted when upkeep tokens are withdrawn
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
     /// @param amount Amount of UP tokens withdrawn
-    event UpkeepWithdrawn(address indexed manager, uint256 amount);
+    event UpkeepWithdrawn(address indexed strategy, uint256 amount);
 
     /// @notice Emitted when upkeep tokens are spent for validation
-    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
     /// @param amount Amount of UP tokens spent
-    /// @param balance Current balance of the manager
-    /// @param claimableUpkeep Amount of upkeep tokens claimable by the manager
-    event UpkeepSpent(address indexed manager, uint256 amount, uint256 balance, uint256 claimableUpkeep);
+    /// @param balance Current balance of the strategy
+    /// @param claimableUpkeep Amount of upkeep tokens claimable
+    event UpkeepSpent(address indexed strategy, uint256 amount, uint256 balance, uint256 claimableUpkeep);
 
     /// @notice Emitted when stake tokens are deposited
     /// @param manager Address of the manager
@@ -237,6 +237,11 @@ interface ISuperVaultAggregator {
     event PrimaryManagerChangeProposed(
         address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime
     );
+
+    /// @notice Emitted when a primary manager change proposal is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledManager Address of the manager that was proposed
+    event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
 
     /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
     /// @param strategy Address of the strategy
@@ -327,8 +332,8 @@ interface ISuperVaultAggregator {
         address indexed strategy, uint256 signatureTimestamp, uint256 lastUnpauseTimestamp
     );
 
-    /// @notice Emitted when a manager does not have enough upkeep balance
-    event InsufficientUpkeep(address indexed strategy, address indexed manager, uint256 balance, uint256 cost);
+    /// @notice Emitted when a strategy does not have enough upkeep balance
+    event InsufficientUpkeep(address indexed strategy, address indexed strategyAddr, uint256 balance, uint256 cost);
 
     /// @notice Emitted when the provided timestamp is too large
     event ProvidedTimestampExceedsBlockTimestamp(
@@ -531,14 +536,15 @@ interface ISuperVaultAggregator {
                         UPKEEP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposits UP tokens for manager upkeep
-    /// @param manager Address of the manager to deposit for
+    /// @notice Deposits UP tokens for strategy upkeep
+    /// @param strategy Address of the strategy to deposit for
     /// @param amount Amount of UP tokens to deposit
-    function depositUpkeep(address manager, uint256 amount) external;
+    function depositUpkeep(address strategy, uint256 amount) external;
 
-    /// @notice Withdraws UP tokens from manager upkeep balance
+    /// @notice Withdraws UP tokens from strategy upkeep balance
+    /// @param strategy Address of the strategy to withdraw from
     /// @param amount Amount of UP tokens to withdraw
-    function withdrawUpkeep(uint256 amount) external;
+    function withdrawUpkeep(address strategy, uint256 amount) external;
 
     /// @notice Claims upkeep tokens from the contract
     /// @param amount Amount of UP tokens to claim
@@ -609,6 +615,11 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
     function proposeChangePrimaryManager(address strategy, address newManager) external;
+
+    /// @notice Cancels a pending primary manager change proposal
+    /// @dev Only the current primary manager can cancel the proposal
+    /// @param strategy Address of the strategy
+    function cancelChangePrimaryManager(address strategy) external;
 
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
@@ -757,10 +768,10 @@ interface ISuperVaultAggregator {
     /// @return timestamp Last unpause timestamp (0 if never unpaused)
     function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp);
 
-    /// @notice Gets the current upkeep balance for a manager
-    /// @param manager Address of the manager
+    /// @notice Gets the current upkeep balance for a strategy
+    /// @param strategy Address of the strategy
     /// @return balance Current upkeep balance in UP tokens
-    function getUpkeepBalance(address manager) external view returns (uint256 balance);
+    function getUpkeepBalance(address strategy) external view returns (uint256 balance);
 
     /// @notice Gets the current stake balance for a manager
     /// @param manager Address of the manager
@@ -771,6 +782,15 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @return manager Address of the main manager
     function getMainManager(address strategy) external view returns (address manager);
+
+    /// @notice Gets pending primary manager change details
+    /// @param strategy Address of the strategy
+    /// @return proposedManager Address of the proposed new manager (address(0) if no pending change)
+    /// @return effectiveTime Timestamp when the change can be executed (0 if no pending change)
+    function getPendingManagerChange(address strategy)
+        external
+        view
+        returns (address proposedManager, uint256 effectiveTime);
 
     /// @notice Checks if an address is the main manager for a strategy
     /// @param manager Address of the manager

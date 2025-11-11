@@ -1349,13 +1349,13 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.startPrank(manager);
         upToken.approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
         aggregator.depositStake(manager, stakeAmount);
-        ISuperVaultAggregator(superVaultAggregator).depositUpkeep(manager, upkeepAmount);
+        ISuperVaultAggregator(superVaultAggregator).depositUpkeep(strategy1, upkeepAmount);
         vm.stopPrank();
 
         // Verify independent balances
         assertEq(aggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
         assertEq(
-            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(strategy1),
             upkeepAmount,
             "Upkeep balance should be independent"
         );
@@ -1372,7 +1372,7 @@ contract SuperGovernorTest is PeripheryHelpers {
             "Only stake should be reduced"
         );
         assertEq(
-            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
+            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(strategy1),
             upkeepAmount,
             "Upkeep should be unchanged"
         );

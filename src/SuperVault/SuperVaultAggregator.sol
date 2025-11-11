@@ -46,8 +46,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Strategy data storage
     mapping(address strategy => StrategyData) private _strategyData;
 
-    // Upkeep balances
-    mapping(address manager => uint256 upkeep) private _managerUpkeepBalance;
+    // Upkeep balances (per strategy)
+    mapping(address strategy => uint256 upkeep) private _strategyUpkeepBalance;
 
     // Stake balances
     mapping(address manager => uint256 stake) private _managerStakeBalance;
@@ -337,7 +337,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                         UPKEEP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
-    function depositUpkeep(address manager, uint256 amount) external {
+    function depositUpkeep(address strategy, uint256 amount) external validStrategy(strategy) {
         if (amount == 0) revert ZERO_AMOUNT();
 
         // Get the UP token address from SUPER_GOVERNOR
@@ -346,10 +346,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Transfer UP tokens from msg.sender to this contract
         IERC20(upToken).safeTransferFrom(msg.sender, address(this), amount);
 
-        // Update upkeep balance
-        _managerUpkeepBalance[manager] += amount;
+        // Update upkeep balance for this strategy
+        _strategyUpkeepBalance[strategy] += amount;
 
-        emit UpkeepDeposited(manager, amount);
+        emit UpkeepDeposited(strategy, amount);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -372,11 +372,17 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function withdrawUpkeep(uint256 amount) external {
+    function withdrawUpkeep(address strategy, uint256 amount) external validStrategy(strategy) {
         if (amount == 0) revert ZERO_AMOUNT();
 
+        // Only mainManager can withdraw upkeep from a strategy
+        // This prevents secondary managers from draining upkeep funds
+        if (msg.sender != _strategyData[strategy].mainManager) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
         // Check sufficient balance
-        if (_managerUpkeepBalance[msg.sender] < amount) {
+        if (_strategyUpkeepBalance[strategy] < amount) {
             revert INSUFFICIENT_UPKEEP_BALANCE();
         }
 
@@ -386,13 +392,13 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Update upkeep balance
         /// @dev unchecked because amount validated above
         unchecked {
-            _managerUpkeepBalance[msg.sender] -= amount;
+            _strategyUpkeepBalance[strategy] -= amount;
         }
 
         // Transfer UP tokens to manager
         IERC20(upToken).safeTransfer(msg.sender, amount);
 
-        emit UpkeepWithdrawn(msg.sender, amount);
+        emit UpkeepWithdrawn(strategy, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -691,6 +697,27 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].managerChangeEffectiveTime = effectiveTime;
 
         emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, effectiveTime);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function cancelChangePrimaryManager(address strategy) external validStrategy(strategy) {
+        // Only the current main manager can cancel the proposal
+        if (_strategyData[strategy].mainManager != msg.sender) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].proposedManager == address(0)) {
+            revert NO_PENDING_MANAGER_CHANGE();
+        }
+
+        address cancelledManager = _strategyData[strategy].proposedManager;
+
+        // Clear the proposal
+        _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].managerChangeEffectiveTime = 0;
+
+        emit PrimaryManagerChangeCancelled(strategy, cancelledManager);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1017,8 +1044,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function getUpkeepBalance(address manager) external view returns (uint256 balance) {
-        return _managerUpkeepBalance[manager];
+    function getUpkeepBalance(address strategy) external view returns (uint256 balance) {
+        return _strategyUpkeepBalance[strategy];
     }
 
     /// @notice Gets the current stake balance for a manager
@@ -1040,6 +1067,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function getMainManager(address strategy) external view returns (address manager) {
         return _strategyData[strategy].mainManager;
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getPendingManagerChange(address strategy)
+        external
+        view
+        returns (address proposedManager, uint256 effectiveTime)
+    {
+        return (_strategyData[strategy].proposedManager, _strategyData[strategy].managerChangeEffectiveTime);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -1241,9 +1277,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             return;
         }
 
-        // Get the strategy's manager to deduct upkeep cost from
-        address manager = _strategyData[args.strategy].mainManager;
-
         // Flag to track if any check failed
         bool checksFailed;
 
@@ -1277,28 +1310,28 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // [Property 11: Upkeep Balance Check]
-        // Ensure the strategy manager has sufficient upkeep balance to pay for this update.
+        // Ensure the strategy has sufficient upkeep balance to pay for this update.
         // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
         // continued operation without proper oracle funding.
-        uint256 managerUpkeepBalance = _managerUpkeepBalance[manager];
+        uint256 strategyUpkeepBalance = _strategyUpkeepBalance[args.strategy];
         if (!args.isExempt) {
-            // Check if manager has sufficient upkeep balance
-            if (managerUpkeepBalance < args.upkeepCost) {
+            // Check if strategy has sufficient upkeep balance
+            if (strategyUpkeepBalance < args.upkeepCost) {
                 _strategyData[args.strategy].isPaused = true;
                 _strategyData[args.strategy].ppsStale = true;
                 emit StrategyPaused(args.strategy);
                 emit StrategyPPSStale(args.strategy);
-                emit InsufficientUpkeep(args.strategy, manager, managerUpkeepBalance, args.upkeepCost);
+                emit InsufficientUpkeep(args.strategy, args.strategy, strategyUpkeepBalance, args.upkeepCost);
                 return;
             }
 
             // Deduct the upkeep cost and emit event
-            _managerUpkeepBalance[manager] -= args.upkeepCost;
+            _strategyUpkeepBalance[args.strategy] -= args.upkeepCost;
 
             // Add claimable upkeep for the `feeRecipient`
             claimableUpkeep += args.upkeepCost;
 
-            emit UpkeepSpent(manager, args.upkeepCost, managerUpkeepBalance, claimableUpkeep);
+            emit UpkeepSpent(args.strategy, args.upkeepCost, strategyUpkeepBalance, claimableUpkeep);
         }
 
         // Only store PPS, timestamp and clear stale flag when validation passes

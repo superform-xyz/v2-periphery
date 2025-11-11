@@ -691,3 +691,69 @@ See `security_properties.md` for complete analysis of:
 - **Bridge Security**: VaultBank operations assume secure cross-chain messaging
 - **Finality**: Cross-chain state finality and message ordering
 - **Replay Protection**: Nonce-based mechanisms prevent cross-chain replay attacks
+
+---
+
+## Upkeep Payment Security
+
+### Per-Strategy Upkeep System
+
+**Design:** SuperVaultAggregator uses **per-strategy upkeep** tracking to prevent unauthorized upkeep drain attacks.
+
+**Implementation:**
+```solidity
+// Storage: Per-strategy upkeep balance (isolated)
+mapping(address strategy => uint256 upkeep) private _strategyUpkeepBalance;
+
+// Deposit: Anyone can deposit to any strategy
+function depositUpkeep(address strategy, uint256 amount) external validStrategy(strategy);
+
+// Withdraw: ONLY mainManager can withdraw from their strategy
+function withdrawUpkeep(address strategy, uint256 amount) external validStrategy(strategy) {
+    require(msg.sender == _strategyData[strategy].mainManager);  // CRITICAL
+}
+
+// PPS Updates: Deduct from strategy balance, not manager balance
+function _forwardPPS(PPSUpdateData memory args) internal {
+    uint256 strategyUpkeepBalance = _strategyUpkeepBalance[args.strategy];
+    if (strategyUpkeepBalance < args.upkeepCost) {
+        // Pause only this strategy, no cross-strategy impact
+        _strategyData[args.strategy].isPaused = true;
+    }
+}
+```
+
+### Security Properties
+
+**Complete Isolation:**
+- Each strategy has independent upkeep balance
+- Attacker-created strategies start with $0 upkeep
+- PPS updates deduct from specific strategy balance only
+- No cross-strategy contamination possible
+
+**Access Control:**
+- `depositUpkeep()`: Permissionless (anyone can deposit to any strategy)
+- `withdrawUpkeep()`: **Restricted to mainManager only** (not `isAnyManager()`)
+- Critical security control prevents secondary managers from draining funds
+
+
+### Edge Cases
+
+**Secondary Manager Scenarios:**
+1. **Attacker is secondary, tries to withdraw:** Transaction reverts (`UNAUTHORIZED_UPDATE_AUTHORITY`)
+2. **Attacker adds victim as secondary:** Victim has no upkeep in attacker's strategy, can't withdraw
+3. **Manager takeover (7-day timelock):** Limited to single strategy, victim can withdraw during timelock
+
+**Acknowledged Behaviors:**
+- Managers can be added to strategies without consent (manager association griefing)
+- **No fund theft possible** unless victim explicitly deposits upkeep into that strategy
+- Strategy upkeep inheritance follows strategy ownership (like TVL)
+
+### Audit Focus
+
+**Critical Invariants:**
+```solidity
+1. withdrawUpkeep() MUST check mainManager (NOT isAnyManager())
+2. _strategyUpkeepBalance[strategyA] cannot affect _strategyUpkeepBalance[strategyB]
+3. Insufficient upkeep pauses only that specific strategy
+4. Upkeep deduction occurs BEFORE storing new PPS (fail-safe)

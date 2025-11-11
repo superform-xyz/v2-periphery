@@ -1380,7 +1380,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Mint and approve UP tokens for upkeep
         deal(upToken, mockManager, 100 ether);
         IERC20(upToken).approve(address(aggregatorSuperVault), 100 ether);
-        aggregatorSuperVault.depositUpkeep(mockManager, 100 ether);
+        aggregatorSuperVault.depositUpkeep(svStrategy, 100 ether);
         vm.stopPrank();
 
         // Setup: Submit initial PPS
