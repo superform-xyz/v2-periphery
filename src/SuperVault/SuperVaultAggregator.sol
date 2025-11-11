@@ -162,6 +162,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!managerConsent[params.mainManager]) {
             revert MANAGER_NOT_CONSENTED();
         }
+        managerConsent[params.mainManager] = false;
 
         // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
@@ -693,6 +694,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (!_strategyData[strategy].secondaryManagers.contains(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+
+        if (!managerConsent[newManager]) revert MANAGER_NOT_CONSENTED();
 
         if (newManager == address(0)) revert ZERO_ADDRESS();
 
