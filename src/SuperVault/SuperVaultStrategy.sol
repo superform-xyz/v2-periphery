@@ -44,11 +44,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
+    uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
+    
     uint256 private constant BPS_PRECISION = 10_000;
     uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
-    uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
     /// @dev Minimum allowed staleness threshold for PPS updates (prevents too-frequent validation)
     uint256 private constant MIN_PPS_EXPIRATION_THRESHOLD = 1 minutes;

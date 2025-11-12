@@ -194,6 +194,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(symbol, "SV_USDC");
     }
 
+    function test_DefaultRedeemSlippageBps() public view {
+        uint16 defaultSlippage = strategy.DEFAULT_REDEEM_SLIPPAGE_BPS();
+        assertEq(defaultSlippage, 100, "DEFAULT_REDEEM_SLIPPAGE_BPS should be 100 (1%)");
+    }
+
     function test_DepositXQ() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
