@@ -186,7 +186,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: maxWithdraw is reset to 0 after full withdrawal
-    function doomsday_maxWithdrawResetsAfterFullWithdrawal(uint256 assetsToDeposit) public stateless {
+    function doomsday_maxWithdrawResetsAfterFullWithdrawal(uint256 assetsToDeposit) public {
         // 1. Deposit to get shares
         vm.prank(_getActor());
         superVault.deposit(assetsToDeposit, _getActor());
