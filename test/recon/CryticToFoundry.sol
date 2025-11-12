@@ -70,10 +70,12 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/66
     function test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
         address yieldSource = _getYieldSource();
 
         superVault_deposit(3000e6);
+        uint256 shares = superVault.balanceOf(_getActor());
 
         // Deposit into underlying yield source
         address[] memory hooks = new address[](1);
@@ -92,24 +94,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
             globalProofs: new bytes32[][](1),
             strategyProofs: new bytes32[][](1)
         });
-
         superVaultStrategy_executeHooks(executeArgs);
-
-        uint256 shares = superVault.balanceOf(_getActor());
 
         superVault_requestRedeem_clamped(shares);
 
         vm.warp(block.timestamp + 1 days);
-        ECDSAPPSOracle_updatePPS_clamped(17_300_000_000_000_000_000);
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
-        // yieldSource_simulateGain(973_782);
+        yieldSource_simulateGain(9_738_782);
 
-        address[] memory controllers = new address[](1);
-        controllers[0] = _getActor();
-
-        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
-
-        //superVault_requestRedeem_clamped(1);
+        superVaultStrategy_fulfillRedeemRequests_clamped(shares);
 
         // doomsday_maxWithdrawResetsAfterFullWithdrawal(988_620);
     }
@@ -117,6 +111,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_sumOfClaimable_5 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/67
     function test_property_sumOfClaimable_5() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVault_deposit(3);
 
         superVault_requestRedeem_clamped(1);
@@ -127,35 +122,35 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_assetBacking_10 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/68
     function test_property_assetBacking_10() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVault_deposit(40_000);
-
-        yieldSource_deposit(40_000, address(superVaultStrategy));
-
         uint256 shares = superVault.balanceOf(_getActor());
+
+        uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(40_000);
+
+        yieldSource_mint(sharesUnderlying, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
 
         superVault_requestRedeem(shares);
 
         yieldSource_simulateGain(100_000_003);
 
-        address[] memory controllers = new address[](1);
-        controllers[0] = _getActor();
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
-        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
+        superVaultStrategy_fulfillRedeemRequests_clamped(shares);
 
-        superVault_withdraw(shares);
+        uint256 maxWithdraw = superVault.maxWithdraw(_getActor());
+
+        superVault_withdraw(maxWithdraw);
 
         int256 difference = optimize_assetBackingDifference();
         console2.log("difference: ", difference);
 
         // have 2 unbacked shares
-        // console2.log("totalSupply: ", superVault.totalSupply());
+        console2.log("totalSupply: ", superVault.totalSupply());
         property_assetBacking();
     }
 
     // forge test --match-test test_crytic_erc7540_4_redeem_1 -vvv
-    // see issue here: https://github.com/Recon-Fuzz/superform-review/issues/76
-    // NOTE: incorrect return value in maxRedeem causes the property to break but fundamentally is an issue with the
-    // share calculation in maxRedeem because user doesn't end up redeeming more than their max available
     function test_crytic_erc7540_4_redeem_1() public {
         superVaultStrategy_manageYieldSource_clamped(0);
         address yieldSource = _getYieldSource();
@@ -166,41 +161,29 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 shares = superVault.balanceOf(_getActor());
 
-        address[] memory hooks = new address[](1);
-        hooks[0] = address(approveAndDeposit4626Hook);
-
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = MockERC4626Tester(yieldSource).previewDeposit(2000e6);
-
-        bytes[] memory hookCalldata = new bytes[](1);
-        hookCalldata[0] = abi.encodePacked(bytes32(0), yieldSource, superVault.asset(), uint256(2000e6), false);
-
-        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
-            hooks: hooks,
-            hookCalldata: hookCalldata,
-            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-            globalProofs: new bytes32[][](1),
-            strategyProofs: new bytes32[][](1)
-        });
-
-        superVaultStrategy_executeHooks(executeArgs);
+        yieldSource_mint(shares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
 
         vm.warp(block.timestamp + 1 days);
         superVault_requestRedeem_clamped(shares);
 
-        console2.log("PPS before: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
-        ECDSAPPSOracle_updatePPS_clamped(1_001_000_000_000_000_000);
-        console2.log("PPS after: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
         console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
+
+        yieldSource_simulateGain(1_121_895);
 
         address[] memory controllers = new address[](1);
         controllers[0] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
+        superVaultStrategy_fulfillRedeemRequests_clamped(shares);
 
         console2.log("avg withdraw price after fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
-        crytic_erc7540_4_redeem(shares);
+
+        uint256 maxDep = superVault.maxRedeem(_getActor());
+        vm.expectRevert();
+        superVault.redeem(maxDep + 1, _getActor(), _getActor());
+
+        superVault_redeem(shares);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
@@ -231,9 +214,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     /// @dev Test: Multi-actor deposit, withdrawal request, loss simulation, and distribution validation
     function test_multiActorDepositWithdrawLossDistribution() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+
         console2.log("Assets in Strategy B4", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
         console2.log("Shares in vault B4", MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy)));
         console2.log("Max Redeem B4", MockERC4626Tester(_getYieldSource()).maxRedeem(address(superVaultStrategy)));
+
+        // Add yield source
+        superVaultStrategy_manageYieldSource_clamped(0);
 
         // Deposit
         superVault_deposit(1000e18);
@@ -241,9 +229,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_deposit(1000e18);
 
         switchActor(0); // Back to 0
-
-        // Add yield source
-        superVaultStrategy_manageYieldSource_clamped(0);
 
         // Deposit into it
         uint256[] memory hookTypeInts = new uint256[](1);
@@ -274,6 +259,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         switchActor(1);
         superVault_requestRedeem_clamped(shares1);
 
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+
         address[] memory controllers = new address[](2);
         controllers[0] = _getActor();
         switchActor(0);
@@ -302,6 +289,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_superVaultStrategy_fulfillRedeemRequests_clamped_0 -vvv
     function test_superVaultStrategy_fulfillRedeemRequests_clamped_0() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
 
         yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
@@ -312,9 +300,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.warp(block.timestamp + 5);
         superVault_requestRedeem_clamped(1);
 
-        ECDSAPPSOracle_updatePPS_clamped(
-            94_828_176_912_403_810_418_829_620_192_424_272_151_546_062_289_895_417_675_768_111_400_040_900
-        );
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
         yieldSource_simulateGain(1_121_895);
 
@@ -354,6 +340,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_superVault_cancelRedeem_3 -vvv
     function test_superVault_cancelRedeem_3() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVault_deposit(40_000);
         uint256 shares = superVault.balanceOf(_getActor());
         vm.warp(block.timestamp + 1 days);
