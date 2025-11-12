@@ -261,6 +261,11 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         claimCancelRedeemRequest7540Hook = new ClaimCancelRedeemRequest7540Hook();
         withdraw7540Hook = new Withdraw7540VaultHook();
 
+        // Disable upkeep payments
+        superGovernor.proposeUpkeepPaymentsChange(false);
+        vm.warp(block.timestamp + 2 weeks);
+        superGovernor.executeUpkeepPaymentsChange();
+
         // Register all hooks with SuperGovernor
         // ERC4626 Hooks (deposit hooks are regular hooks, redeem hooks are fulfill request hooks)
         superGovernor.registerHook(address(approveAndDeposit4626Hook));
