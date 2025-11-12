@@ -147,7 +147,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         superGovernor.registerHook(address(pendleRouterSwapHook));
     }
 
-    function test_PendleRouterSwap() public {
+    function test_PendleRouterSwapQQ() public {
         uint256 amount = 100e6;
 
         // Direct deposit
