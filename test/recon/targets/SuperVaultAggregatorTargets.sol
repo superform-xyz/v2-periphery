@@ -17,6 +17,10 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         superVaultAggregator_proposeChangePrimaryManager(address(superVaultStrategy), _getActor());
     }
 
+    function superVaultAggregator_cancelChangePrimaryManager_clamped() public {
+        superVaultAggregator_cancelChangePrimaryManager(address(superVaultStrategy));
+    }
+
     function superVaultAggregator_executeChangePrimaryManager_clamped() public {
         superVaultAggregator_executeChangePrimaryManager(address(superVaultStrategy));
     }
@@ -123,6 +127,10 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
     }
 
+    function superVaultAggregator_cancelChangePrimaryManager(address strategy) public asActor {
+        superVaultAggregator.cancelChangePrimaryManager(strategy);
+    }
+
     /// @dev removed because we're bypassing hook validation
     // function superVaultAggregator_proposeStrategyHooksRoot(
     //     address strategy,
@@ -147,7 +155,11 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         );
     }
 
-    function superVaultAggregator_withdrawUpkeep(uint256 amount) public asActor {
-        superVaultAggregator.withdrawUpkeep(amount);
+    function superVaultAggregator_proposeWithdrawUpkeep(address strategy) public asActor {
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+    }
+
+    function superVaultAggregator_executeWithdrawUpkeep(address strategy) public asActor {
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
     }
 }
