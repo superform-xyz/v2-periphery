@@ -6,14 +6,14 @@ After running Echidna for 100 million+ runs the following issues were discovered
 
 ## Findings
 
-1. [`previewMint` return value with 100% fees](https://github.com/Recon-Fuzz/superform-review/issues/49)
-2. [`previewDeposit` and `previewMint` divergence](https://github.com/Recon-Fuzz/superform-review/issues/55)
-3. [Donations to yield source cause a loss on withdrawal for users](https://github.com/Recon-Fuzz/superform-review/issues/61)
-4. [`fulfillRedeemRequests` can cause `accumulatorShares` and `accumulatorCostBasis` to not decrease correctly](https://github.com/Recon-Fuzz/superform-review/issues/62)
-5. [Attempting to withdraw `maxWithdraw` reverts](https://github.com/Recon-Fuzz/superform-review/issues/66)
-6. [Insolvency in `SuperVaultStrategy`](https://github.com/Recon-Fuzz/superform-review/issues/67)
-7. [Unbacked shares remain on withdrawal](https://github.com/Recon-Fuzz/superform-review/issues/68)
-8. [Users can lose value on mint/redeem](https://github.com/Recon-Fuzz/superform-review/issues/70)
+1. [`previewMint` return value with 100% fees](https://github.com/Recon-Fuzz/superform-review/issues/49) - ACK
+2. [`previewDeposit` and `previewMint` divergence](https://github.com/Recon-Fuzz/superform-review/issues/55) - Fixed ✅
+3. [Donations to yield source cause a loss on withdrawal for users](https://github.com/Recon-Fuzz/superform-review/issues/61) - Fixed ✅
+4. [`fulfillRedeemRequests` can cause `accumulatorShares` and `accumulatorCostBasis` to not decrease correctly](https://github.com/Recon-Fuzz/superform-review/issues/62) - `accumulatorShares` and `accumulatorCostBasis` removed
+5. [Attempting to withdraw `maxWithdraw` reverts](https://github.com/Recon-Fuzz/superform-review/issues/66) - Fixed ✅
+6. [Insolvency in `SuperVaultStrategy`](https://github.com/Recon-Fuzz/superform-review/issues/67) - Fixed ✅
+7. [Unbacked shares remain on withdrawal](https://github.com/Recon-Fuzz/superform-review/issues/68) - Fixed ✅
+8. [Users can lose value on mint/redeem](https://github.com/Recon-Fuzz/superform-review/issues/70) - Fixed ✅
 
 ## Recommendations
 
