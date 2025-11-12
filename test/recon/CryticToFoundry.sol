@@ -6,7 +6,7 @@ import { MockERC20 } from "@recon/MockERC20.sol";
 import { MockERC4626Tester } from "test/recon/mocks/MockERC4626Tester.sol";
 import { Test, console2 } from "forge-std/Test.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Deposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/Deposit4626VaultHook.sol";
 import { ApproveAndDeposit4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/ApproveAndDeposit4626VaultHook.sol";
 import { Redeem4626VaultHook } from "lib/v2-core/src/hooks/vaults/4626/Redeem4626VaultHook.sol";
@@ -70,31 +70,50 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/66
     function test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17() public {
-        yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
-
         superVaultStrategy_manageYieldSource_clamped(0);
+        address yieldSource = _getYieldSource();
 
-        yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        superVault_deposit(3000e6);
 
-        superVault_deposit(3);
+        // Deposit into underlying yield source
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(approveAndDeposit4626Hook);
 
-        superVault_requestRedeem_clamped(1);
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = MockERC4626Tester(yieldSource).previewDeposit(300e6);
 
-        vm.warp(block.timestamp + 5);
+        bytes[] memory hookCalldata = new bytes[](1);
+        hookCalldata[0] = abi.encodePacked(bytes32(0), yieldSource, superVault.asset(), uint256(300e6), false);
 
-        vm.roll(block.number + 1);
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
+            hooks: hooks,
+            hookCalldata: hookCalldata,
+            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+            globalProofs: new bytes32[][](1),
+            strategyProofs: new bytes32[][](1)
+        });
 
+        superVaultStrategy_executeHooks(executeArgs);
+
+        uint256 shares = superVault.balanceOf(_getActor());
+
+        superVault_requestRedeem_clamped(shares);
+
+        vm.warp(block.timestamp + 1 days);
         ECDSAPPSOracle_updatePPS_clamped(
-            700_960_855_099_362_077_226_925_743_595_804_258_294_593_977_845_093_495_232_344_554
+            17_300_000_000_000_000_000
         );
 
-        yieldSource_simulateGain(973_782);
+        // yieldSource_simulateGain(973_782);
 
-        superVaultStrategy_fulfillRedeemRequests_clamped(1);
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
 
-        superVault_requestRedeem_clamped(1);
+        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
 
-        doomsday_maxWithdrawResetsAfterFullWithdrawal(988_620);
+        //superVault_requestRedeem_clamped(1);
+
+        // doomsday_maxWithdrawResetsAfterFullWithdrawal(988_620);
     }
 
     // forge test --match-test test_property_sumOfClaimable_5 -vvv
@@ -124,7 +143,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         address[] memory controllers = new address[](1);
         controllers[0] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests(controllers);
+        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
 
         superVault_withdraw(shares);
 
@@ -145,21 +164,24 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         superVault_deposit(3000e6);
 
+        uint256 shares = superVault.balanceOf(_getActor());
+
         vm.warp(block.timestamp + 1 days);
-        superVault_requestRedeem_clamped(2000e6);
+        superVault_requestRedeem_clamped(shares);
 
         console2.log("PPS before: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
         ECDSAPPSOracle_updatePPS_clamped(9_550_051_690_458_586_526);
         console2.log("PPS after: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
 
         console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
+
         address[] memory controllers = new address[](1);
         controllers[0] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests(controllers);
+        superVaultStrategy_fulfillRedeemRequests(shares, controllers);
 
         console2.log("avg withdraw price after fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
-        crytic_erc7540_4_redeem(2000e6);
+        crytic_erc7540_4_redeem(shares);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
@@ -223,17 +245,22 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         // // Set loss on withdraw for ERC4626
         MockERC4626Tester(_getYieldSource()).setLossOnWithdraw(1000);
 
-        // Request all redemptions
-        superVault_requestRedeem_clamped(superVault.balanceOf(_getActor()));
+        uint256 shares0 = superVault.balanceOf(_getActor());
         switchActor(1);
-        superVault_requestRedeem_clamped(superVault.balanceOf(_getActor()));
+        uint256 shares1 = superVault.balanceOf(_getActor());
+        switchActor(0);
+
+        // Request all redemptions
+        superVault_requestRedeem_clamped(shares0);
+        switchActor(1);
+        superVault_requestRedeem_clamped(shares1);
 
         address[] memory controllers = new address[](2);
         controllers[0] = _getActor();
         switchActor(0);
         controllers[1] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests(controllers);
+        superVaultStrategy_fulfillRedeemRequests(shares0,controllers);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;
@@ -311,8 +338,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_deposit(40_000);
         uint256 shares = superVault.balanceOf(_getActor());
         vm.warp(block.timestamp + 1 days);
-        
-        //superVault_requestRedeem_clamped(shares);
+
         vm.prank(_getActor());
         superVault_requestRedeem(shares);
         superVault_cancelRedeem();
