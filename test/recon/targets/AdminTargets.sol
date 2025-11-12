@@ -311,6 +311,16 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
     }
 
+    function superVaultStrategy_fulfillRedeemRequests_WithLoss(uint256 redeemShares, address[] memory controllers) public {
+        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        _executeRedeemFulfillmentWithLoss(redeemShares, controllers);
+
+        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
+    }
+
     // Functions that require SuperGovernor access
     /// @dev removed because we're bypassing hook validation
     // function superVaultAggregator_setHooksRootUpdateTimelock(
@@ -422,11 +432,62 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), requestingUsers);
+
+        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
+
+        for (uint256 i; i < totalAssetsOut.length; i++) {
+            console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
+        }
+
+        console2.log("---PPS", superVaultStrategy.getStoredPPS());
+
+        // Fulfill the redemption requests from liquidity
+        superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
+        vm.stopPrank();
+    }
+
+    function _executeRedeemFulfillmentWithLoss(uint256 totalRedeemShares, address[] memory requestingUsers) internal {
+        (uint256 expectedAssetsOut, address hookAddress, bytes memory hookData) =
+            _convertSVStoUnderlyingShares(totalRedeemShares);
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = hookAddress;
+
+        bytes[] memory hooksDataArray = new bytes[](1);
+        hooksDataArray[0] = hookData;
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 1;
+
+        bytes[] memory hookCalldata = new bytes[](1);
+        hookCalldata[0] = hookData;
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(hookAddress).inspect(hookData);
+
+        superVaultStrategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooks,
+                hookCalldata: hookCalldata,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = superVaultStrategy.previewExactRedeemBatch(requestingUsers);
+
+        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        uint256[] memory expectedAssetsArr = new uint256[](1);
+        expectedAssetsArr[0] = expectedAssetsOut;
+
         // Calculate adjusted totalAssetsOut accounting for execution losses
-        // uint256[] memory totalAssetsOut =
-        //     calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsOrSharesOut);
+        uint256[] memory totalAssetsOut =
+            calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsArr);
         //uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
-        uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
+        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
 
         for (uint256 i; i < totalAssetsOut.length; i++) {
             console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
