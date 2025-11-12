@@ -7,7 +7,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 // Superform
 import { IHookExecutionData } from "./interfaces/IHookExecutionData.sol";
-import { ISuperHook, ISuperHookInspector, Execution } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
+import {
+    ISuperHook,
+    ISuperHookInspector,
+    ISuperHookResult,
+    Execution
+} from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 abstract contract Bank is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
@@ -20,6 +25,8 @@ abstract contract Bank is ReentrancyGuard {
     error HOOK_NOT_REGISTERED();
     error ZERO_LENGTH_ARRAY();
     error INVALID_ARRAY_LENGTH();
+    error ZERO_ADDRESS();
+    error MINIMUM_OUTPUT_AMOUNT_NOT_MET();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -50,7 +57,10 @@ abstract contract Bank is ReentrancyGuard {
         if (hooksLength == 0) revert ZERO_LENGTH_ARRAY();
 
         // Validate arrays have matching lengths
-        if (hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length) {
+        if (
+            hooksLength != executionData.data.length || hooksLength != executionData.merkleProofs.length
+                || hooksLength != executionData.expectedAssetsOrSharesOut.length
+        ) {
             revert INVALID_ARRAY_LENGTH();
         }
 
@@ -63,11 +73,18 @@ abstract contract Bank is ReentrancyGuard {
         Execution[] memory executions;
         Execution memory executionStep;
         bool success;
+        uint256 expectedOutput;
+        uint256 actualOutput;
 
         for (uint256 i; i < hooksLength; i++) {
             hookAddress = executionData.hooks[i];
+
+            // Validate hook address is not zero
+            if (hookAddress == address(0)) revert ZERO_ADDRESS();
+
             hookData = executionData.data[i];
             merkleProof = executionData.merkleProofs[i];
+            expectedOutput = executionData.expectedAssetsOrSharesOut[i];
 
             hook = ISuperHook(hookAddress);
 
@@ -92,6 +109,11 @@ abstract contract Bank is ReentrancyGuard {
             uint256 len = executions.length;
 
             // 6. Execute all steps (no per-target validation needed)
+            // Note: Uses all available gas for hook execution. Hooks are trusted and registered,
+            // so unlimited gas is acceptable. This allows hooks to perform complex operations.
+            // Note: Return data is discarded for gas efficiency. Hook failures will result in
+            // generic HOOK_EXECUTION_FAILED error. For debugging, check hook contract logs or
+            // use off-chain tooling to inspect failed transactions.
             for (uint256 j; j < len; ++j) {
                 executionStep = executions[j];
 
@@ -103,7 +125,7 @@ abstract contract Bank is ReentrancyGuard {
                 // We call via assembly to avoid memcopying the returndata
                 assembly {
                     success := call(
-                        gas(), // gas
+                        gas(), // gas - forwards all remaining gas (hooks are trusted)
                         targetToCall, // recipient
                         valueToSend, // ether value
                         add(callData, 0x20), // inloc
@@ -116,6 +138,19 @@ abstract contract Bank is ReentrancyGuard {
                 if (!success) {
                     revert HOOK_EXECUTION_FAILED();
                 }
+            }
+
+            // 6.5. VALIDATE OUTPUT AMOUNT (Slippage Protection)
+            // Query the hook for actual output amount
+            actualOutput = ISuperHookResult(hookAddress).getOutAmount(address(this));
+
+            // Validate actual output meets or exceeds expected output
+            // This protects against:
+            // - MEV/front-running attacks
+            // - Operator mistakes with wrong parameters
+            // - Excessive slippage in swaps/conversions
+            if (actualOutput < expectedOutput) {
+                revert MINIMUM_OUTPUT_AMOUNT_NOT_MET();
             }
 
             // 7. Reset execution state after each hook

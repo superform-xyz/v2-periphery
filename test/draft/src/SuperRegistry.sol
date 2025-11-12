@@ -68,7 +68,9 @@ contract SuperRegistry is ISuperRegistry, AccessControl {
     /// @param registryAdmin Address that will have registry admin role
     /// @param prover_ Address of the Polymer prover
     constructor(address superRegistryAdmin, address registryAdmin, address prover_) {
-        if (superRegistryAdmin == address(0) || registryAdmin == address(0) || prover_ == address(0)) revert INVALID_ADDRESS();
+        if (superRegistryAdmin == address(0) || registryAdmin == address(0) || prover_ == address(0)) {
+            revert INVALID_ADDRESS();
+        }
 
         // Setup roles
         _grantRole(DEFAULT_ADMIN_ROLE, superRegistryAdmin);
@@ -112,7 +114,13 @@ contract SuperRegistry is ISuperRegistry, AccessControl {
     }
 
     /// @inheritdoc ISuperRegistry
-    function setSuperAssetManager(address superAsset, address superAssetManager) external onlyRole(_REGISTRY_ADMIN_ROLE) {
+    function setSuperAssetManager(
+        address superAsset,
+        address superAssetManager
+    )
+        external
+        onlyRole(_REGISTRY_ADMIN_ROLE)
+    {
         if (superAsset == address(0) || superAssetManager == address(0)) revert INVALID_ADDRESS();
 
         address factoryAddress = _addressRegistry[_SUPER_ASSET_FACTORY];
@@ -190,7 +198,13 @@ contract SuperRegistry is ISuperRegistry, AccessControl {
                            VAULT HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperRegistry
-    function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) external onlyRole(_REGISTRY_ADMIN_ROLE) {
+    function proposeVaultBankHookMerkleRoot(
+        address hook,
+        bytes32 proposedRoot
+    )
+        external
+        onlyRole(_REGISTRY_ADMIN_ROLE)
+    {
         if (!_registeredHooks.contains(hook)) revert HOOK_NOT_APPROVED();
         if (proposedRoot == bytes32(0)) revert ZERO_PROPOSED_MERKLE_ROOT();
 

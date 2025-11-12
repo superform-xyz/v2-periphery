@@ -5,7 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-
 /// @title MockEmergencyVault
 /// @notice Emergency vault implementation for holding and managing tokens during emergency situations
 contract MockEmergencyVault {
@@ -87,7 +86,16 @@ contract MockEmergencyVault {
     /// @param vault_ The vault to deposit into
     /// @param amount_ The amount to reinvest
     /// @return shares The amount of shares received
-    function reinvestIntoVault(address token_, address vault_, uint256 amount_, address receiver_) external onlyOwner returns (uint256 shares) {
+    function reinvestIntoVault(
+        address token_,
+        address vault_,
+        uint256 amount_,
+        address receiver_
+    )
+        external
+        onlyOwner
+        returns (uint256 shares)
+    {
         if (token_ == address(0)) revert ZERO_ADDRESS();
         if (vault_ == address(0)) revert ZERO_ADDRESS();
         if (amount_ == 0) revert ZERO_AMOUNT();
@@ -102,10 +110,10 @@ contract MockEmergencyVault {
         } else {
             tokenBalances[token_] = 0;
         }
-        
+
         // Approve vault to spend tokens
         IERC20(token_).approve(vault_, amount_);
-        
+
         // Deposit into vault and receive shares
         shares = vault.deposit(amount_, receiver_);
 
@@ -116,7 +124,7 @@ contract MockEmergencyVault {
     /// @param newOwner_ The new owner address
     function updateOwner(address newOwner_) external onlyOwner {
         if (newOwner_ == address(0)) revert ZERO_ADDRESS();
-        
+
         address oldOwner = owner;
         owner = newOwner_;
 

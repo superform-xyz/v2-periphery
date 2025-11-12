@@ -18,19 +18,21 @@ interface ISuperBank is IHookExecutionData {
     error INVALID_UP_AMOUNT_TO_DISTRIBUTE();
     /// @notice Error thrown when an invalid bank manager is provided.
     error INVALID_BANK_MANAGER();
+    /// @notice Error thrown when revenue share exceeds maximum allowed (BPS_PRECISION).
+    error INVALID_REVENUE_SHARE();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
     /// @notice Emitted when revenue is distributed to sUP and Treasury.
     /// @param upToken The address of the UP token.
-    /// @param supToken The address of the sUP token.
+    /// @param supStrategyVault The address of the sUP strategy.
     /// @param treasury The address of the Treasury.
     /// @param supAmount The amount sent to sUP.
     /// @param treasuryAmount The amount sent to Treasury.
     event RevenueDistributed(
         address indexed upToken,
-        address indexed supToken,
+        address indexed supStrategyVault,
         address indexed treasury,
         uint256 supAmount,
         uint256 treasuryAmount

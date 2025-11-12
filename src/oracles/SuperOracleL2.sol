@@ -24,7 +24,13 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
     mapping(address dataOracle => address uptimeOracle) public uptimeFeeds;
     mapping(address uptimeOracle => uint256 gracePeriod) public gracePeriods;
 
+    /// @notice Default grace period after L2 sequencer restart (1 hour)
+    /// @dev Prevents stale prices from being used immediately after sequencer downtime.
+    ///      Price feeds collected during downtime may be unreliable or manipulated.
     uint256 private constant DEFAULT_GRACE_PERIOD_TIME = 3600;
+
+    /// @notice Minimum allowed grace period (10 minutes)
+    /// @dev Lower bound to ensure reasonable protection against stale data after sequencer restart
     uint256 private constant MIN_GRACE_PERIOD_TIME = 600;
 
     constructor(
@@ -46,12 +52,13 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         address[] calldata uptimeOracles,
         uint256[] calldata gracePeriods_
     )
-        external override
+        external
+        override
     {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
         uint256 length = dataOracles.length;
-        if (length == 0) revert ZERO_ADDRESS(); // Reusing error code
+        if (length == 0) revert ZERO_ARRAY_LENGTH();
         if (length != uptimeOracles.length || length != gracePeriods_.length) {
             revert ARRAY_LENGTH_MISMATCH();
         }
@@ -123,19 +130,29 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(oracle).latestRoundData();
 
         // Validate data
-        uint256 limit = feedMaxStaleness[oracle] == 0 ? defaultStaleness : Math.min(feedMaxStaleness[oracle], defaultStaleness);
+        uint256 limit =
+            feedMaxStaleness[oracle] == 0 ? defaultStaleness : Math.min(feedMaxStaleness[oracle], defaultStaleness);
         if (answer <= 0 || block.timestamp - updatedAt > limit) {
             if (revertOnError) revert ORACLE_UNTRUSTED_DATA();
             return 0;
         }
 
-        // Get decimals
-        uint8 feedDecimals = _getOracleDecimals(AggregatorV3Interface(oracle));
-        uint8 baseDecimals = IERC20(base).safeDecimals();
-        uint8 quoteDecimals = IERC20(quote).safeDecimals();
+        // Get decimals with error handling
+        uint256 gasBefore = gasleft();
+        try AggregatorV3Interface(oracle).decimals() returns (uint8 feedDecimals) {
+            uint8 baseDecimals = IERC20(base).safeDecimals();
+            uint8 quoteDecimals = IERC20(quote).safeDecimals();
 
-        // Calculate quote amount with proper decimal scaling
-        quoteAmount = Math.mulDiv(baseAmount, uint256(answer), 10 ** feedDecimals);
-        quoteAmount = Math.mulDiv(quoteAmount, 10 ** quoteDecimals, 10 ** baseDecimals);
+            // Calculate quote amount with proper decimal scaling using shared function
+            // casting to 'uint256' is safe because the answer is a valid int256
+            // forge-lint: disable-next-line(unsafe-typecast)
+            quoteAmount = _scaleQuoteAmount(baseAmount, uint256(answer), feedDecimals, baseDecimals, quoteDecimals);
+        } catch {
+            // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
+            // oracle failures
+            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
+            return 0;
+        }
     }
 }

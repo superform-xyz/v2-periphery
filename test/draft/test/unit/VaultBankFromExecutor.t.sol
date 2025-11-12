@@ -100,7 +100,6 @@ contract VaultBankFromExecutor is
 
         superGovernor = new SuperGovernor(address(this), address(this), address(this), address(this), address(this));
         superRegistry = new SuperRegistry(address(superGovernor), address(this), address(this));
-        superGovernor.addExecutor(address(superExecutor));
         vaultBank = new VaultBank(address(superGovernor), address(superRegistry));
         superRegistry.addVaultBank(uint64(block.chainid), address(vaultBank));
         superGovernor.registerHook(address(approveHook));

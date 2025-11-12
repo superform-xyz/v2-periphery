@@ -65,7 +65,7 @@ interface ISuperOracle {
     /// @notice Error when oracle decimals call fails
     error ORACLE_DECIMALS_CALL_FAIL(address oracle);
 
-    /// @notice Error when oracle round data call fails 
+    /// @notice Error when oracle round data call fails
     error ORACLE_ROUND_DATA_CALL_FAIL(address oracle);
 
     /// @notice Error when external call gas is insufficient
@@ -156,6 +156,9 @@ interface ISuperOracle {
     /// @param quote Quote asset address
     /// @param oracleProvider Id of oracle provider to use
     /// @return quoteAmount The quote amount
+    /// @return deviation Standard deviation of oracle quotes in quote asset units (0 for single provider)
+    /// @return totalProviders Total number of providers that have a configured oracle for this pair
+    /// @return availableProviders Number of providers that successfully returned a valid quote
     function getQuoteFromProvider(
         uint256 baseAmount,
         address base,

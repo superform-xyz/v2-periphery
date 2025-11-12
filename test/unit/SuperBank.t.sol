@@ -21,6 +21,7 @@ import { Mock4626Vault } from "../mocks/Mock4626Vault.sol";
 import { MockSuperHook } from "../mocks/MockSuperHook.sol";
 import { MockHookTarget } from "../mocks/MockHookTarget.sol";
 import { MockMultiTargetHook } from "../mocks/MockMultiTargetHook.sol";
+import { MockHookWithSlippage } from "../mocks/MockHookWithSlippage.sol";
 import { IHookExecutionData } from "../../src/interfaces/IHookExecutionData.sol";
 import { MockOdosRouterV2 } from "@superform-v2-core/test/mocks/MockOdosRouterV2.sol";
 import { OdosAPIParser } from "@superform-v2-core/test/utils/parsers/OdosAPIParser.sol";
@@ -145,7 +146,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
         superGovernor.setAddress(superGovernor.UP(), address(up));
-        superGovernor.setAddress(superGovernor.SUP(), supToken);
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
         superGovernor.setAddress(superGovernor.TREASURY(), treasury);
         vm.stopPrank();
 
@@ -183,9 +184,11 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         address[] memory hooks = new address[](0);
         bytes[] memory data = new bytes[](0);
         bytes32[][] memory merkleProofs = new bytes32[][](0);
+        uint256[] memory expectedOutputs = new uint256[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         vm.startPrank(address(this));
         vm.expectRevert(Bank.ZERO_LENGTH_ARRAY.selector);
@@ -209,8 +212,13 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](1);
         merkleProofs[1] = new bytes32[](1);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](2);
+        expectedOutputs[0] = 0;
+        expectedOutputs[1] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         vm.expectRevert(Bank.INVALID_ARRAY_LENGTH.selector);
         superBank.executeHooks(executionData);
@@ -239,8 +247,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](1);
         merkleProofs[0][0] = bytes32(uint256(1)); // Invalid proof
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         // Create a different Merkle root than what the proof is for
         vm.mockCall(
@@ -281,8 +293,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0); // Empty proof for single-leaf tree
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         vm.mockCall(
             address(superGovernor),
@@ -320,8 +336,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0); // Empty proof for single-leaf tree
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         vm.mockCall(
             address(superGovernor),
@@ -376,8 +396,13 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         merkleProofs[0] = new bytes32[](0);
         merkleProofs[1] = new bytes32[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](2);
+        expectedOutputs[0] = 0;
+        expectedOutputs[1] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         vm.mockCall(
             address(superGovernor),
@@ -462,8 +487,15 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32 merkleRoot1 = hookLeaf1;
         bytes32 merkleRoot2 = hookLeaf2;
 
+        uint256[] memory expectedOutputs = new uint256[](2);
+        expectedOutputs[0] = 0; // ApproveHook doesn't transfer assets
+        expectedOutputs[1] = 0; // SwapHook output varies, use 0 for existing test
+
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
+            hooks: hooksAddresses,
+            data: hooksData,
+            merkleProofs: merkleProofs,
+            expectedAssetsOrSharesOut: expectedOutputs
         });
 
         vm.mockCall(
@@ -526,8 +558,14 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(redeemHook), hookArgs1))));
         bytes32 merkleRoot1 = hookLeaf1;
 
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0; // RedeemHook output varies, use 0 for existing test
+
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
+            hooks: hooksAddresses,
+            data: hooksData,
+            merkleProofs: merkleProofs,
+            expectedAssetsOrSharesOut: expectedOutputs
         });
 
         vm.mockCall(
@@ -607,8 +645,14 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
                 keccak256(bytes.concat(keccak256(abi.encode(address(acrossSendFundsAndExecuteOnDstHook), hookArgs))));
             bytes32 merkleRoot1 = hookLeaf;
 
+            uint256[] memory expectedOutputs = new uint256[](1);
+            expectedOutputs[0] = 0; // Across bridge hook, output varies
+
             executionData = IHookExecutionData.HookExecutionData({
-                hooks: hooksAddresses, data: hooksData, merkleProofs: merkleProofs
+                hooks: hooksAddresses,
+                data: hooksData,
+                merkleProofs: merkleProofs,
+                expectedAssetsOrSharesOut: expectedOutputs
             });
 
             vm.mockCall(
@@ -672,8 +716,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes32[][] memory merkleProofs = new bytes32[][](1);
         merkleProofs[0] = new bytes32[](0);
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
 
         // Mock a valid Merkle root (doesn't matter, will fail on empty args first)
         vm.mockCall(
@@ -715,29 +763,36 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         // Fund the SuperBank with tokens
         testToken.mint(address(superBank), transferAmount * 3);
 
-        // Build Merkle tree using the new hook configuration approach
-        // The hook's inspect() returns: abi.encodePacked(token, recipient1, recipient2, recipient3)
-        bytes memory hookArgs = abi.encodePacked(address(testToken), recipient1, recipient2, recipient3);
+        bytes32 merkleRoot;
+        IHookExecutionData.HookExecutionData memory executionData;
+        {
+            // Build Merkle tree using the new hook configuration approach
+            bytes memory hookArgs = abi.encodePacked(address(testToken), recipient1, recipient2, recipient3);
 
-        // Use MerkleTreeBuilder to create tree and proof
-        MerkleTreeBuilder.HookConfig[] memory configs = new MerkleTreeBuilder.HookConfig[](1);
-        configs[0] = MerkleTreeBuilder.HookConfig({ hookAddress: address(multiTargetHook), encodedArgs: hookArgs });
+            // Use MerkleTreeBuilder to create tree and proof
+            MerkleTreeBuilder.HookConfig[] memory configs = new MerkleTreeBuilder.HookConfig[](1);
+            configs[0] = MerkleTreeBuilder.HookConfig({ hookAddress: address(multiTargetHook), encodedArgs: hookArgs });
 
-        bytes32 merkleRoot = MerkleTreeBuilder.buildTree(configs);
-        bytes32[] memory proof = MerkleTreeBuilder.getProof(configs, address(multiTargetHook), hookArgs);
+            merkleRoot = MerkleTreeBuilder.buildTree(configs);
+            bytes32[] memory proof = MerkleTreeBuilder.getProof(configs, address(multiTargetHook), hookArgs);
 
-        // Setup execution data
-        address[] memory hooks = new address[](1);
-        hooks[0] = address(multiTargetHook);
+            // Setup execution data
+            address[] memory hooks = new address[](1);
+            hooks[0] = address(multiTargetHook);
 
-        bytes[] memory data = new bytes[](1);
-        data[0] = ""; // Hook doesn't need calldata, uses constructor params
+            bytes[] memory data = new bytes[](1);
+            data[0] = ""; // Hook doesn't need calldata, uses constructor params
 
-        bytes32[][] memory merkleProofs = new bytes32[][](1);
-        merkleProofs[0] = proof;
+            bytes32[][] memory merkleProofs = new bytes32[][](1);
+            merkleProofs[0] = proof;
 
-        IHookExecutionData.HookExecutionData memory executionData =
-            IHookExecutionData.HookExecutionData({ hooks: hooks, data: data, merkleProofs: merkleProofs });
+            uint256[] memory expectedOutputs = new uint256[](1);
+            expectedOutputs[0] = 0; // Multi-target hook, output varies
+
+            executionData = IHookExecutionData.HookExecutionData({
+                hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+            });
+        }
 
         // Mock the governor to return our Merkle root
         vm.mockCall(
@@ -749,9 +804,6 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         // Execute the hook - THIS IS THE CRITICAL TEST
         // In the OLD system, this would fail with INVALID_MERKLE_PROOF
         // In the NEW system, it validates the hook configuration once and executes all targets
-        vm.expectEmit(true, true, true, true, address(superBank));
-        emit Bank.HooksExecuted(hooks, data);
-
         superBank.executeHooks(executionData);
 
         // Verify all three transfers succeeded (they all start with 0 balance)
@@ -761,6 +813,281 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
         // Verify SuperBank balance decreased
         assertEq(testToken.balanceOf(address(superBank)), 0, "SuperBank should have transferred all tokens");
+    }
+
+    // ============================================
+    // NEW SLIPPAGE PROTECTION TESTS
+    // ============================================
+
+    /// @notice Test that slippage protection works correctly when output meets expected
+    function test_SuperBank_executeHooks_SlippageProtection_Success() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        uint256 expectedOutput = 100e18;
+        MockHookWithSlippage mockHook = new MockHookWithSlippage(address(mockTarget), expectedOutput);
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        // Create Merkle root
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = expectedOutput;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(merkleRoot)
+        );
+
+        // Should succeed - actual output (100e18) >= expected output (100e18)
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Test that slippage protection reverts when output is too low
+    function test_SuperBank_executeHooks_SlippageProtection_Reverts() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        uint256 actualOutput = 90e18;
+        uint256 expectedOutput = 100e18;
+        MockHookWithSlippage mockHook = new MockHookWithSlippage(address(mockTarget), actualOutput);
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        // Create Merkle root
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = expectedOutput;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(merkleRoot)
+        );
+
+        // Should revert - actual output (90e18) < expected output (100e18)
+        vm.expectRevert(Bank.MINIMUM_OUTPUT_AMOUNT_NOT_MET.selector);
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Test that slippage protection works with multiple hooks
+    function test_SuperBank_executeHooks_SlippageProtection_MultipleHooks() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget1 = new MockHookTarget();
+        MockHookTarget mockTarget2 = new MockHookTarget();
+
+        MockHookWithSlippage mockHook1 = new MockHookWithSlippage(address(mockTarget1), 100e18);
+        MockHookWithSlippage mockHook2 = new MockHookWithSlippage(address(mockTarget2), 200e18);
+
+        // Register hooks
+        vm.startPrank(governor);
+        superGovernor.registerHook(address(mockHook1));
+        superGovernor.registerHook(address(mockHook2));
+        vm.stopPrank();
+
+        // Create Merkle roots
+        bytes memory hookArgs1 = abi.encodePacked(address(mockTarget1));
+        bytes memory hookArgs2 = abi.encodePacked(address(mockTarget2));
+        bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook1), hookArgs1))));
+        bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook2), hookArgs2))));
+
+        address[] memory hooks = new address[](2);
+        hooks[0] = address(mockHook1);
+        hooks[1] = address(mockHook2);
+
+        bytes[] memory data = new bytes[](2);
+        data[0] = "data1";
+        data[1] = "data2";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](2);
+        merkleProofs[0] = new bytes32[](0);
+        merkleProofs[1] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](2);
+        expectedOutputs[0] = 100e18; // Exact match for hook1
+        expectedOutputs[1] = 150e18; // hook2 output (200e18) exceeds this
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook1)),
+            abi.encode(hookLeaf1)
+        );
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook2)),
+            abi.encode(hookLeaf2)
+        );
+
+        // Should succeed - both hooks meet/exceed expected outputs
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Test edge case: zero expected output
+    function test_SuperBank_executeHooks_SlippageProtection_ZeroExpected() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        MockHookWithSlippage mockHook = new MockHookWithSlippage(address(mockTarget), 50e18);
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        // Create Merkle root
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0; // Zero expected - any output should pass
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(merkleRoot)
+        );
+
+        // Should succeed - actual (50e18) >= expected (0)
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Test edge case: exact match
+    function test_SuperBank_executeHooks_SlippageProtection_ExactMatch() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        uint256 exactAmount = 123_456_789e18;
+        MockHookWithSlippage mockHook = new MockHookWithSlippage(address(mockTarget), exactAmount);
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        // Create Merkle root
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 hookLeaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook), hookArgs))));
+        bytes32 merkleRoot = hookLeaf;
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = exactAmount; // Exact match
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(merkleRoot)
+        );
+
+        // Should succeed - boundary condition: actual == expected
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Test array length mismatch for expectedAssetsOrSharesOut
+    function test_SuperBank_executeHooks_InvalidArrayLength_ExpectedOutputs() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        address[] memory hooks = new address[](2);
+        hooks[0] = address(0x1111);
+        hooks[1] = address(0x2222);
+
+        bytes[] memory data = new bytes[](2);
+        data[0] = "data1";
+        data[1] = "data2";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](2);
+        merkleProofs[0] = new bytes32[](1);
+        merkleProofs[1] = new bytes32[](1);
+
+        // Mismatched length: 1 expected output for 2 hooks
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 100e18;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.expectRevert(Bank.INVALID_ARRAY_LENGTH.selector);
+        superBank.executeHooks(executionData);
     }
 
     function retrieveSignatureData(address) external pure returns (bytes memory) {

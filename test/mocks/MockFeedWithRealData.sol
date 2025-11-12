@@ -12,14 +12,18 @@ import "forge-std/console2.sol";
 ///      the feed being considered stale
 contract MockFeedWithRealData {
     AggregatorV3Interface public feed;
-    
+
     constructor(address feed_) {
         feed = AggregatorV3Interface(feed_);
     }
 
-    function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         console2.log("latestRoundData ------ block.timestamp", block.timestamp);
-        (roundId, answer, startedAt,updatedAt, answeredInRound) = AggregatorV3Interface(feed).latestRoundData();
+        (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(feed).latestRoundData();
         updatedAt = block.timestamp;
     }
 

@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 // External
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 // Superform
@@ -17,7 +16,6 @@ import { IECDSAPPSOracle } from "../interfaces/oracles/IECDSAPPSOracle.sol";
 /// @dev Implements the IECDSAPPSOracle interface for validating and forwarding PPS updates
 contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     /*//////////////////////////////////////////////////////////////
                                  STORAGE
@@ -25,10 +23,21 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     mapping(address _strategy => uint256 _nonce) public noncePerStrategy;
 
     // Maximum number of strategies to process in `batchForwardPPS`
+    /// @notice Maximum number of strategies that can be processed in a single batch
+    /// @dev Set to 300 to stay well below gas limits while allowing efficient batch updates.
     uint256 public constant MAX_STRATEGIES = 300;
 
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
+
+    /// @notice EIP-712 typehash for PPS update signatures
+    /// @dev Defines the structure: UpdatePPS(address strategy, uint256 pps, uint256 timestamp, uint256 strategyNonce)
+    ///      - strategy: The strategy contract address
+    ///      - pps: The price-per-share value being signed
+    ///      - timestamp: The blockchain state timestamp this PPS represents
+    ///      - strategyNonce: Current nonce for this strategy (prevents replay attacks)
+    ///      This typehash MUST match the off-chain signing format exactly. Changing this typehash would
+    ///      invalidate all existing signatures. See Property 1 in security_properties.md for nonce details.
     bytes32 public constant UPDATE_PPS_TYPEHASH =
         keccak256("UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)");
 
@@ -39,6 +48,10 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     //////////////////////////////////////////////////////////////*/
     /// @notice Initializes the ECDSAPPSOracle contract
     /// @param superGovernor_ Address of the SuperGovernor contract
+    /// @param name_ EIP-712 domain name (e.g., "SuperformOraclePPS"). Used for domain separation.
+    /// @param version_ EIP-712 domain version (e.g., "1"). Must match off-chain signing version.
+    /// @dev The name_ and version_ parameters define the EIP-712 domain separator and cannot be changed
+    ///      after deployment. All validator signatures must be signed with matching domain parameters.
     constructor(address superGovernor_, string memory name_, string memory version_) EIP712(name_, version_) {
         if (superGovernor_ == address(0)) revert INVALID_VALIDATOR();
 
@@ -109,9 +122,27 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @dev Implements Property 1: Signature Validation & Nonce in Digest (security_properties.md)
+    ///
+    ///      SECURITY GUARANTEES:
+    ///      1. All signatures are EIP-712 typed structured data
+    ///      2. Each signature includes the current nonce for the strategy (replay protection)
+    ///      3. All signers must be registered validators (checked via SUPER_GOVERNOR)
+    ///      4. All signers must be unique (enforced via ascending order check)
+    ///      5. Quorum requirement must be met (M validators out of N total)
+    ///
+    ///      SIGNATURE STRUCTURE:
+    ///      digest = EIP-712(strategy, pps, timestamp, noncePerStrategy[strategy])
+    ///
+    ///      FAILURE MODES:
+    ///      - Reverts if quorum not met (QUORUM_NOT_MET)
+    ///      - Reverts if any signer is not a registered validator (INVALID_VALIDATOR)
+    ///      - Reverts if duplicate signers detected (INVALID_PROOF)
+    ///      - Reverts if signatures in wrong order (INVALID_PROOF)
+    ///
+    /// @param params Validation parameters containing strategy, proofs, pps, timestamp
+    /// @param requiredQuorum Required number of validator signatures (M out of N)
     /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
-    /// @param params Validation parameters
-    /// @param requiredQuorum Required quorum for validation
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
     function _validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) internal view {
         uint256 proofsLength = params.proofs.length;
@@ -257,12 +288,19 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     })
                 ) {
                 // [Property 2: Nonce-Based Replay Protection]
-                // Increment nonce ONLY after successful forwarding (try block succeeds).
-                // This means nonces increment when forwardPPS() returns normally, which includes:
-                // 1. Legitimate PPS updates that are accepted
-                // 2. Business logic rejections that use 'return' or 'continue' (not 'revert')
-                // The nonce burning on 'return' is INTENTIONAL to prevent replay of invalid signatures
-                // and avoid batch DoS (if one strategy reverted, all others would fail).
+                // See security_properties.md Property 2 for full specification.
+                //
+                // CRITICAL DESIGN DECISION: Increment nonce ONLY after successful forwarding (try block succeeds).
+                //
+                // Nonces increment when forwardPPS() returns normally (no revert), which includes:
+                // 1. ✓ Legitimate PPS updates that are accepted and stored
+                // 2. ✓ Business logic rejections using 'return' or 'continue' (not 'revert')
+                //    Examples: rate limits exceeded, deviation threshold failures, insufficient upkeep
+                //
+                // Nonces preserved when forwardPPS() reverts (catch blocks), allowing retry:
+                // 3. ✗ Contract reverts (system errors)
+                // 4. ✗ Out of gas conditions
+                // 5. ✗ Network/RPC failures
                 for (uint256 i; i < count; ++i) {
                     noncePerStrategy[validatedData.strategies[i]]++;
                 }

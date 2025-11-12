@@ -50,9 +50,7 @@ interface IECDSAPPSOracle {
     /// @param pps The validated price-per-share value
     /// @param timestamp Timestamp when the value was generated
     /// @param sender Address that submitted the update
-    event PPSValidated(
-        address indexed strategy, uint256 pps, uint256 timestamp, address indexed sender
-    );
+    event PPSValidated(address indexed strategy, uint256 pps, uint256 timestamp, address indexed sender);
 
     /// @notice Emitted when proof validation failed
     /// @param strategy Address of the strategy
@@ -120,8 +118,17 @@ interface IECDSAPPSOracle {
     /// @return The current nonce
     function noncePerStrategy(address strategy_) external view returns (uint256);
 
-    /// @notice Returns the domain separator for the contract
-    /// @return The domain separator
+    /// @notice Returns the EIP-712 domain separator for this contract
+    /// @return The domain separator used for signature validation
+    /// @dev The domain separator is derived from:
+    ///      - Contract name (set in constructor)
+    ///      - Contract version (set in constructor)
+    ///      - Chain ID (from block.chainid)
+    ///      - Contract address (address(this))
+    ///      Off-chain signers MUST use this exact domain separator when creating signatures.
+    ///      The domain separator is computed on-demand using EIP-712's _domainSeparatorV4(),
+    ///      which handles chain ID changes (e.g., after hard forks).
+    ///      See EIP-712 specification: https://eips.ethereum.org/EIPS/eip-712
     function domainSeparator() external view returns (bytes32);
 
     /// @notice Returns the signature typehash
@@ -135,12 +142,7 @@ interface IECDSAPPSOracle {
     /// @notice Validates an array of proofs for a strategy's PPS update
     /// @param params Validation parameters
     /// @param requiredQuorum Required quorum for validation
-    function validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        external
-        view;
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) external view;
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
