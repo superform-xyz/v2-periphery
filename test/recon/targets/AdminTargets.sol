@@ -274,13 +274,16 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         // Find a controller that has pending redeem requests
         address selectedController = _getActor();
 
-        // Clamp using the actor's pending amount
-        // uint256 actualRedeemAmount = redeemAmount % (pendingAmount + 1);
-
         address[] memory controllers = new address[](1);
         controllers[0] = selectedController;
 
+        uint256 balanceBefore = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
         _executeRedeemFulfillment(redeemAmount, controllers);
+
+        uint256 balanceAfter = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        gte(balanceAfter, balanceBefore, "strategy incurs loss on fulfillment");
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -415,9 +418,15 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             })
         );
 
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = superVaultStrategy.previewExactRedeemBatch(requestingUsers);
+
+        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
         // Calculate adjusted totalAssetsOut accounting for execution losses
-        uint256[] memory totalAssetsOut =
-            calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsOrSharesOut);
+        // uint256[] memory totalAssetsOut =
+        //     calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsOrSharesOut);
+        //uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
+        uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
 
         for (uint256 i; i < totalAssetsOut.length; i++) {
             console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
