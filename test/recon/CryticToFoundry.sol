@@ -160,6 +160,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVaultStrategy_manageYieldSource_clamped(0);
         address yieldSource = _getYieldSource();
 
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+
         superVault_deposit(3000e6);
 
         uint256 shares = superVault.balanceOf(_getActor());
@@ -168,10 +170,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         hooks[0] = address(approveAndDeposit4626Hook);
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = MockERC4626Tester(yieldSource).previewDeposit(3000e6);
+        expectedAssetsOrSharesOut[0] = MockERC4626Tester(yieldSource).previewDeposit(2000e6);
 
         bytes[] memory hookCalldata = new bytes[](1);
-        hookCalldata[0] = abi.encodePacked(bytes32(0), yieldSource, superVault.asset(), uint256(3000e6), false);
+        hookCalldata[0] = abi.encodePacked(bytes32(0), yieldSource, superVault.asset(), uint256(2000e6), false);
 
         ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
             hooks: hooks,
@@ -187,7 +189,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_requestRedeem_clamped(shares);
 
         console2.log("PPS before: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
-        ECDSAPPSOracle_updatePPS_clamped(9_550_051_690_458_586_526);
+        ECDSAPPSOracle_updatePPS_clamped(1_001_000_000_000_000_000);
         console2.log("PPS after: %e", superVaultAggregator.getPPS(address(superVaultStrategy)));
 
         console2.log("avg withdraw price before fulfill: %e", superVaultStrategy.getAverageWithdrawPrice(_getActor()));
