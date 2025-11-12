@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 // External dependencies
-import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
 import { vm } from "@chimera/Hevm.sol";
 import { Panic } from "@recon/Panic.sol";
 import { MockERC20 } from "@recon/MockERC20.sol";
+import { BaseTargetFunctions } from "@chimera/BaseTargetFunctions.sol";
 
 // System dependencies
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -15,6 +15,7 @@ import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHoo
 import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
 // Test dependencies
+import { console2 } from "forge-std/console2.sol";
 import { MockERC7540Tester } from "test/recon/mocks/MockERC7540Tester.sol";
 import { YieldSourceType } from "test/recon/managers/YieldManager.sol";
 import { IStandardizedYield } from "@superform-v2-core/src/vendor/pendle/IStandardizedYield.sol";
@@ -291,16 +292,14 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(address[] memory controllers)
+    function superVaultStrategy_fulfillRedeemRequests(
+        uint256 redeemShares,
+        address[] memory controllers
+    )
         public
         updateGhostsWithOpType(OpType.FULFILL)
     {
         uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        uint256 redeemShares;
-        for (uint256 i; i < controllers.length; i++) {
-            redeemShares += superVault.pendingRedeemRequest(0, controllers[i]);
-        }
 
         _executeRedeemFulfillment(redeemShares, controllers);
 
@@ -424,6 +423,12 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         uint256[] memory totalAssetsOut =
             calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsOrSharesOut);
 
+        for (uint256 i; i < totalAssetsOut.length; i++) {
+            console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
+        }
+
+        console2.log("---PPS", superVaultStrategy.getStoredPPS());
+
         // Fulfill the redemption requests from liquidity
         superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
         vm.stopPrank();
@@ -432,11 +437,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     function _convertSVStoUnderlyingShares(uint256 redeemShares)
         internal
         view
-        returns (
-            uint256 expectedAssetsOrSharesOut,
-            address hookAddress,
-            bytes memory hookData
-        )
+        returns (uint256 expectedAssetsOrSharesOut, address hookAddress, bytes memory hookData)
     {
         address underlyingVault = _getYieldSource();
         YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(underlyingVault);
@@ -445,7 +446,11 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         uint256 underlyingShares;
         if (activeYieldSourceType == YieldSourceType.ERC4626) {
-            underlyingShares = IERC4626(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
+            // underlyingShares = IERC4626(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
+
+            // underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 2500);
+
+            underlyingShares = IERC20(underlyingVault).balanceOf(address(superVaultStrategy));
 
             expectedAssetsOrSharesOut = IERC4626(underlyingVault).previewRedeem(underlyingShares);
 
@@ -474,7 +479,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             hookData = abi.encodePacked(bytes32(0), underlyingVault, underlyingShares, false);
         }
 
-        underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 100);
+        // underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 100);
     }
 
     function _truncateToActualBalance(
@@ -495,13 +500,13 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             vaultShareToken = underlyingVault;
         }
 
-        // For ERC20 tokens (like 7540 share tokens), just check balance directly
-        // For ERC4626 vaults, the vault is also the token
         uint256 actualBalance = IERC20(vaultShareToken).balanceOf(address(superVaultStrategy));
         if (actualBalance >= expectedShares) {
             // Balance is sufficient, no truncation needed
             return expectedShares;
         }
+
+        console2.log("---");
 
         // Calculate minimum acceptable balance based on tolerance
         uint256 minAcceptableBalance = expectedShares * (10_000 - toleranceBps) / 10_000;
