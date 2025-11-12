@@ -21,8 +21,8 @@ abstract contract SuperVaultEscrowTargets is BaseTargetFunctions, Properties {
         superVaultEscrow.escrowShares(from, amount);
     }
 
-    function superVaultEscrow_initialize(address vaultAddress, address strategyAddress) public asActor {
-        superVaultEscrow.initialize(vaultAddress, strategyAddress);
+    function superVaultEscrow_initialize(address vaultAddress) public asActor {
+        superVaultEscrow.initialize(vaultAddress);
     }
 
     function superVaultEscrow_returnShares(address to, uint256 amount) public asActor {
