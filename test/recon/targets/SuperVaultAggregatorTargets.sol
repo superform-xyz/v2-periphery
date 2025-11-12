@@ -50,8 +50,7 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
                 performanceFeeBps: performanceFeeBps,
                 managementFeeBps: managementFeeBps,
                 recipient: address(this)
-            }),
-            maxUnpauseTimeLock: 0
+            })
         });
 
         superVaultAggregator_createVault(params);
@@ -97,10 +96,6 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         hasDeployedNewVault = true;
     }
 
-    function superVaultAggregator_depositStake(address manager, uint256 amount) public asActor {
-        superVaultAggregator.depositStake(manager, amount);
-    }
-
     function superVaultAggregator_depositUpkeep(uint256 amount) public asActor {
         superVaultAggregator.depositUpkeep(_getActor(), amount);
     }
@@ -140,23 +135,16 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         superVaultAggregator.removeSecondaryManager(strategy, manager);
     }
 
-    function superVaultAggregator_updatePPSVerificationThresholds(
+    function superVaultAggregator_updateDeviationThreshold(
         address strategy,
-        uint256 dispersionThreshold_,
-        uint256 mnThreshold_
+        uint256 deviationThreshold_
     )
         public
         asActor
     {
-        superVaultAggregator.updatePPSVerificationThresholds(
-            strategy, dispersionThreshold_, mnThreshold_
+        superVaultAggregator.updateDeviationThreshold(
+            strategy, deviationThreshold_
         );
-    }
-
-    function superVaultAggregator_withdrawStake(uint256 amount) public asActor {
-        superVaultAggregator.requestStakeWithdrawal(amount);
-        vm.warp(block.timestamp + 8 days);
-        superVaultAggregator.completeStakeWithdrawal();
     }
 
     function superVaultAggregator_withdrawUpkeep(uint256 amount) public asActor {

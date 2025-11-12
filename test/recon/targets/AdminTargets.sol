@@ -350,10 +350,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         superVaultAggregator.changePrimaryManager(strategy, newManager);
     }
 
-    function superVaultAggregator_slashStake(address manager, uint256 amount) public asAdmin {
-        superVaultAggregator.slashStake(manager, amount);
-    }
-
     /// Helpers
 
     function _requestedSharesForControllers(address[] memory controllers) internal view returns (uint256) {
