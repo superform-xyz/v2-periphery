@@ -84,9 +84,11 @@ wrap_comments = true
 84532 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 
 [lint]
-lint_on_build = false
-exclude_lints = ["mixed-case-function"]
+lint_on_build = true
+exclude_lints = ["mixed-case-function", "mixed-case-variable", "pascal-case-struct", "asm-keccak256"]
 ignore = [
+    "script/**",
+    "script/**/*.sol",
     "src/vendor/**",
     "src/vendor/**/*.sol",
     "./src/vendor/**",

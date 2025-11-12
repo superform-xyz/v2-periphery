@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-
-abstract contract HooksHelpers  {
+abstract contract HooksHelpers {
     function _createApproveAndDeposit5115HookData(
         bytes32 yieldSourceOracleId,
         address vault,
@@ -15,8 +14,6 @@ abstract contract HooksHelpers  {
         pure
         returns (bytes memory hookData)
     {
-        hookData = abi.encodePacked(
-            yieldSourceOracleId, vault, tokenIn, amount, minSharesOut, usePrevHookAmount
-        );
+        hookData = abi.encodePacked(yieldSourceOracleId, vault, tokenIn, amount, minSharesOut, usePrevHookAmount);
     }
 }

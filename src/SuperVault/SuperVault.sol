@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -45,6 +45,16 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     uint256 private constant BPS_PRECISION = 10_000;
 
     // EIP712 TypeHash
+    /// @notice EIP-712 typehash for operator authorization signatures
+    /// @dev Used to construct the digest for EIP-712 signature validation in authorizeOperator()
+    ///      Format: "AuthorizeOperator(address controller,address operator,bool approved,bytes32 nonce,uint256
+    // deadline)" /      - controller: The address authorizing the operator
+    ///      - operator: The address being authorized/deauthorized
+    ///      - approved: True to authorize, false to revoke
+    ///      - nonce: Unique nonce for replay protection (one-time use)
+    ///      - deadline: Timestamp after which signature expires
+    /// @dev This typehash MUST remain constant. Any changes invalidate all existing signatures.
+    /// @dev Off-chain signers must use this exact structure when creating signatures for authorizeOperator()
     bytes32 public constant AUTHORIZE_OPERATOR_TYPEHASH = keccak256(
         "AuthorizeOperator(address controller,address operator,bool approved,bytes32 nonce,uint256 deadline)"
     );
@@ -60,7 +70,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     uint256 public PRECISION;
 
     // Core contracts
-    ISuperGovernor public immutable superGovernor;
+    ISuperGovernor public immutable SUPER_GOVERNOR;
 
     /// @inheritdoc IERC7540Operator
     mapping(address owner => mapping(address operator => bool)) public isOperator;
@@ -74,7 +84,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
 
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
-        superGovernor = ISuperGovernor(superGovernor_);
+        SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
 
         _disableInitializers();
@@ -85,11 +95,16 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Initialize the vault with required parameters
-    /// @param asset_ The underlying asset token address
-    /// @param name_ The name of the vault token
+    /// @dev This function can only be called once due to initializer modifier
+    /// @dev SECURITY: asset, strategy, and escrow are pre-validated in SuperVaultAggregator.createVault()
+    ///      to prevent initialization with invalid addresses. No additional validation needed here.
+    /// @dev PRECISION is set to 10^decimals for consistent share/asset conversions
+    /// @dev EIP-712 domain separator is initialized with vault name and version "1" for signature validation
+    /// @param asset_ The underlying asset token address (pre-validated by aggregator)
+    /// @param name_ The name of the vault token (used for ERC20 and EIP-712 domain)
     /// @param symbol_ The symbol of the vault token
-    /// @param strategy_ The strategy contract address
-    /// @param escrow_ The escrow contract address
+    /// @param strategy_ The strategy contract address (pre-validated by aggregator)
+    /// @param escrow_ The escrow contract address (pre-validated by aggregator)
     function initialize(
         address asset_,
         string memory name_,
@@ -100,10 +115,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         external
         initializer
     {
-        if (asset_ == address(0)) revert INVALID_ASSET();
-        if (strategy_ == address(0)) revert INVALID_STRATEGY();
-        if (escrow_ == address(0)) revert INVALID_ESCROW();
-
+        /// @dev asset, strategy, and escrow already validated in SuperVaultAggregator during vault creation
         // Initialize parent contracts
         __ERC20_init(name_, symbol_);
         __ReentrancyGuard_init();
@@ -132,7 +144,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         if (receiver == address(0)) revert ZERO_ADDRESS();
         if (assets == 0) revert ZERO_AMOUNT();
 
-        // Forward assets from msg-sender to strategy
+        // Forward assets from msg.sender to strategy
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);
 
         // Single executor call: strategy skims entry fee, accounts on NET, returns net shares
@@ -153,7 +165,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         uint256 assetsNet;
         (assets, assetsNet) = strategy.quoteMintAssetsGross(shares);
 
-        // Forward quoted gross assets from msg-sender to strategy
+        // Forward quoted gross assets from msg.sender to strategy
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);
 
         // Single executor call: strategy handles fees and accounts on NET
@@ -216,7 +228,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     {
         _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
         if (receiver != controller) revert INVALID_CONTROLLER();
 
         shares = strategy.claimableCancelRedeemRequest(controller);
@@ -361,10 +372,12 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /*//////////////////////////////////////////////////////////////
                             ERC4626 IMPLEMENTATION
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IERC20Metadata
     function decimals() public view virtual override(ERC20Upgradeable, IERC20Metadata) returns (uint8) {
         return _underlyingDecimals;
     }
 
+    /// @inheritdoc IERC4626
     function asset() public view virtual override returns (address) {
         return address(_asset);
     }
@@ -380,32 +393,29 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /// @inheritdoc IERC4626
     function convertToShares(uint256 assets) public view override returns (uint256) {
         uint256 pps = _getStoredPPS();
-        if (pps == 0) return 0;
-        return Math.mulDiv(assets, PRECISION, pps, Math.Rounding.Floor);
+        return pps == 0 ? 0 : Math.mulDiv(assets, PRECISION, pps, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IERC4626
     function convertToAssets(uint256 shares) public view override returns (uint256) {
         uint256 currentPPS = _getStoredPPS();
-        if (currentPPS == 0) return 0;
-        return Math.mulDiv(shares, currentPPS, PRECISION, Math.Rounding.Floor);
+        return currentPPS == 0 ? 0 : Math.mulDiv(shares, currentPPS, PRECISION, Math.Rounding.Floor);
     }
 
     /// @inheritdoc IERC4626
     function maxDeposit(address) public view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
+        if (!_canAcceptDeposits()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxMint(address) external view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
+        if (!_canAcceptDeposits()) return 0;
         return type(uint256).max;
     }
 
     /// @inheritdoc IERC4626
     function maxWithdraw(address owner) public view override returns (uint256) {
-        if (_isPaused() || _isPPSStale()) return 0;
         return strategy.claimableWithdraw(owner);
     }
 
@@ -432,6 +442,10 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     }
 
     /// @inheritdoc IERC4626
+    /// @dev Returns gross assets required to mint exact shares after management fees
+    /// @dev Formula: gross = net * BPS_PRECISION / (BPS_PRECISION - feeBps)
+    /// @dev Edge case: If feeBps >= 100% (10000), returns 0 (impossible to mint with 100%+ fees)
+    ///      This prevents division by zero and represents mathematical impossibility.
     function previewMint(uint256 shares) public view override returns (uint256) {
         uint256 pps = _getStoredPPS();
         if (pps == 0) return 0;
@@ -533,13 +547,13 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
 
-    // @inheritdoc ISuperVault
+    /// @inheritdoc ISuperVault
     function burnShares(uint256 amount) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         _burn(escrow, amount);
     }
 
-    // @inheritdoc ISuperVault
+    /// @inheritdoc ISuperVault
     function mintShares(address to, uint256 amount) external {
         if (msg.sender != address(strategy)) revert UNAUTHORIZED();
         _mint(to, amount);
@@ -548,6 +562,10 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /*//////////////////////////////////////////////////////////////
                             ERC165 INTERFACE
     //////////////////////////////////////////////////////////////*/
+    /// @notice Checks if contract supports a given interface
+    /// @dev Implements ERC165 for ERC7540, ERC7741, ERC4626, ERC7575 support detection
+    /// @param interfaceId The interface identifier to check
+    /// @return True if the interface is supported, false otherwise
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
         return interfaceId == type(IERC7540Redeem).interfaceId || interfaceId == type(IERC165).interfaceId
             || interfaceId == type(IERC7741).interfaceId || interfaceId == type(IERC4626).interfaceId
@@ -557,8 +575,14 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Validates that the controller is the msg.sender or has been authorized by the controller
-    /// @param controller The controller to validate
+    /// @notice Validates that the caller is authorized to act on behalf of the controller
+    /// @dev Enforces ERC7540Operator pattern: either direct call from controller or authorized operator
+    /// @dev Operators must be authorized via setOperator() or authorizeOperator() (EIP-712 signature)
+    /// @dev Used in redemption flows to prevent unauthorized claims
+    /// @param controller The controller address to validate authorization for
+    /// @dev Reverts with INVALID_CONTROLLER if:
+    ///      - caller is not the controller AND
+    ///      - caller is not an authorized operator for the controller
     function _validateController(address controller) internal view {
         if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_CONTROLLER();
     }
@@ -576,17 +600,21 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         return strategy.getStoredPPS();
     }
 
-    /// @notice Checks if the vault is currently paused
-    /// @dev This accesses the SuperVaultAggregator directly via the governor to determine pause status
-    /// @return True if the vault is paused, false otherwise
-    function _isPaused() internal view returns (bool) {
-        address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
-        return ISuperVaultAggregator(aggregatorAddress).isStrategyPaused(address(strategy));
+    /// @notice Combined check for deposits acceptance
+    /// @dev Reduces external calls by fetching aggregator address once
+    /// @dev Previously: 4 external calls (2x getAddress + 2x aggregator checks)
+    /// @dev Now: 3 external calls (1x getAddress + 2x aggregator checks)
+    /// @return True if deposits can be accepted (not paused and PPS not stale)
+    function _canAcceptDeposits() internal view returns (bool) {
+        address aggregatorAddress = _getAggregatorAddress();
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(aggregatorAddress);
+        return !aggregator.isStrategyPaused(address(strategy)) && !aggregator.isPPSStale(address(strategy));
     }
 
-    function _isPPSStale() internal view returns (bool) {
-        address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
-        return ISuperVaultAggregator(aggregatorAddress).isPPSStale(address(strategy));
+    /// @notice Helper to get aggregator address once
+    /// @return Address of the SuperVaultAggregator contract
+    function _getAggregatorAddress() internal view returns (address) {
+        return SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR());
     }
 
     /// @dev Read management fee config (view-only for previews)

@@ -64,7 +64,7 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle = new SuperOracle(address(this), bases, quotes, providers, feeds);
 
         // Set a longer max staleness period for tests that involve time warping
-        superOracle.setMaxStaleness(2 weeks);
+        superOracle.setDefaultStaleness(2 weeks);
     }
 
     function test_GetQuote() public view {
@@ -77,43 +77,43 @@ contract SuperOracleTest is PeripheryHelpers {
 
     function test_GetQuoteWithInsufficientGasCheck() public view {
         console.log("test_GetQuoteWithInsufficientGasCheck() Start");
-        
+
         // Test the gas check directly by calling with calculated gas limits
         // The check is: if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-        
+
         bytes4 expectedSelector = bytes4(keccak256("INSUFFICIENT_GAS_FOR_EXTERNAL_CALL()"));
         console.log("Expected error selector:");
         console.logBytes4(expectedSelector);
-        
+
         // Try different gas amounts to find the threshold
         uint256[] memory gasAmounts = new uint256[](8);
-        gasAmounts[0] = 200000;
-        gasAmounts[1] = 150000;
-        gasAmounts[2] = 100000;
-        gasAmounts[3] = 80000;
-        gasAmounts[4] = 60000;
-        gasAmounts[5] = 40000;
-        gasAmounts[6] = 20000;
-        gasAmounts[7] = 10000;
-        
+        gasAmounts[0] = 200_000;
+        gasAmounts[1] = 150_000;
+        gasAmounts[2] = 100_000;
+        gasAmounts[3] = 80_000;
+        gasAmounts[4] = 60_000;
+        gasAmounts[5] = 40_000;
+        gasAmounts[6] = 20_000;
+        gasAmounts[7] = 10_000;
+
         for (uint256 i = 0; i < gasAmounts.length; i++) {
             console.log("\n--- Testing with gas:", gasAmounts[i], "---");
-            
-            try this.testOracleGasCheckDirectly{gas: gasAmounts[i]}() {
+
+            try this.testOracleGasCheckDirectly{ gas: gasAmounts[i] }() {
                 console.log("Call succeeded - no gas check triggered");
             } catch (bytes memory reason) {
                 console.log("Call reverted");
                 console.log("Error length:", reason.length);
-                
+
                 if (reason.length >= 4) {
                     bytes4 actualSelector;
                     assembly {
                         actualSelector := mload(add(reason, 0x20))
                     }
-                    
+
                     console.log("Actual error selector:");
                     console.logBytes4(actualSelector);
-                    
+
                     if (actualSelector == expectedSelector) {
                         console.log("SUCCESS: INSUFFICIENT_GAS_FOR_EXTERNAL_CALL triggered at gas:", gasAmounts[i]);
                         return;
@@ -126,35 +126,35 @@ contract SuperOracleTest is PeripheryHelpers {
                 console.logBytes(reason);
             }
         }
-        
+
         console.log("Test completed - check results above");
     }
-    
+
     // Direct test function that simulates the gas check scenario for oracle calls
     function testOracleGasCheckDirectly() external view {
         // This function simulates the scenario in SuperOracleBase where the gas check occurs
         uint256 gasBefore = gasleft();
         console.log("Gas at start:", gasBefore);
-        
+
         // Calculate how much gas we need to consume to trigger the condition
         uint256 threshold = gasBefore / 64;
-        
+
         console.log("Threshold (gasBefore/64):", threshold);
-        
+
         // Use a more efficient gas consumption method with limited iterations
         // Consume gas in chunks to avoid excessive memory usage
         uint256 maxIterations = 500; // Limit iterations to prevent memory issues
-        
+
         for (uint256 i = 0; i < maxIterations; i++) {
             // Simple gas consumption without excessive memory allocation
             uint256 temp = gasleft();
-            
+
             // Check if we're close to the threshold
             if (temp <= threshold + 500) {
                 console.log("Approaching threshold, stopping iterations");
                 break;
             }
-            
+
             // Consume some gas with a simple operation
             assembly {
                 let x := add(temp, i)
@@ -164,11 +164,11 @@ contract SuperOracleTest is PeripheryHelpers {
                 mstore(0x0, z)
             }
         }
-        
+
         uint256 gasAfter = gasleft();
         console.log("Gas after consumption:", gasAfter);
         console.log("Check condition (gasAfter <= gasBefore/64):", gasAfter <= gasBefore / 64);
-        
+
         // This is the exact check from SuperOracleBase
         if (gasleft() <= gasBefore / 64) {
             // Use assembly to revert with the exact custom error selector
@@ -178,7 +178,7 @@ contract SuperOracleTest is PeripheryHelpers {
                 revert(ptr, 4)
             }
         }
-        
+
         console.log("Gas check passed - threshold not reached");
     }
 
@@ -299,8 +299,8 @@ contract SuperOracleTest is PeripheryHelpers {
         // Queue provider removal
         superOracle.queueProviderRemoval(providersToRemove);
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed1.setUpdatedAt(block.timestamp);
@@ -321,12 +321,13 @@ contract SuperOracleTest is PeripheryHelpers {
         }
 
         // Test getting quote uses average of remaining providers
-        (uint256 quoteAmount,,,) = superOracle.getQuoteFromProvider(
-            1e18, // 1 ETH
-            address(mockETH),
-            address(mockUSD),
-            AVERAGE_PROVIDER
-        );
+        (uint256 quoteAmount,,,) =
+            superOracle.getQuoteFromProvider(
+                1e18, // 1 ETH
+                address(mockETH),
+                address(mockUSD),
+                AVERAGE_PROVIDER
+            );
 
         // Average of provider 1 ($1100) and provider 2 ($1000)
         assertEq(quoteAmount, 1.05e6, "Average quote should be $1050 after removal");
@@ -339,10 +340,10 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_SetMaxStaleness() public {
         // Set a new max staleness period
         uint256 newMaxStaleness = 12 hours;
-        superOracle.setMaxStaleness(newMaxStaleness);
+        superOracle.setDefaultStaleness(newMaxStaleness);
 
         // Check it was updated
-        assertEq(superOracle.maxDefaultStaleness(), newMaxStaleness, "Max staleness should be updated");
+        assertEq(superOracle.defaultStaleness(), newMaxStaleness, "Max staleness should be updated");
     }
 
     function test_SetFeedMaxStaleness() public {
@@ -512,14 +513,15 @@ contract SuperOracleTest is PeripheryHelpers {
     }
 
     function test_RevertIfNoOraclesConfigured() public {
-        // Try to get oracle for a pair that doesn't exist
-        vm.expectRevert(ISuperOracle.NO_ORACLES_CONFIGURED.selector);
+        // Try to get oracle for a provider that was never registered
+        // The new logic checks isProviderSet BEFORE accessing the mapping
+        vm.expectRevert(ISuperOracle.INVALID_ORACLE_PROVIDER.selector);
         superOracle.getOracleAddress(address(mockBTC), address(mockUSD), NEW_PROVIDER);
     }
 
     function test_RevertIfMaxStalenessExceeded() public {
         // Set max staleness to 12 hours
-        superOracle.setMaxStaleness(12 hours);
+        superOracle.setDefaultStaleness(12 hours);
 
         // Try to set a feed staleness greater than max
         vm.expectRevert(ISuperOracle.MAX_STALENESS_EXCEEDED.selector);
@@ -564,8 +566,8 @@ contract SuperOracleTest is PeripheryHelpers {
         vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
         superOracle.executeProviderRemoval();
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed2.setUpdatedAt(block.timestamp);
@@ -583,6 +585,35 @@ contract SuperOracleTest is PeripheryHelpers {
                 revert("Provider 1 should have been removed");
             }
         }
+    }
+
+    function test_ProviderRemovalTimelockPeriod() public {
+        // Verify that provider removal uses 1 hour timelock (not 1 week like oracle updates)
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = PROVIDER_1;
+
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Cannot execute immediately
+        vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
+        superOracle.executeProviderRemoval();
+
+        // Cannot execute just before 1 hour (59 minutes 59 seconds)
+        vm.warp(block.timestamp + 59 minutes + 59 seconds);
+        vm.expectRevert(ISuperOracle.TIMELOCK_NOT_ELAPSED.selector);
+        superOracle.executeProviderRemoval();
+
+        // Should succeed after exactly 1 hour
+        vm.warp(block.timestamp + 2 seconds); // Now at 1 hour + 1 second total
+        mockFeed2.setUpdatedAt(block.timestamp);
+        mockFeed3.setUpdatedAt(block.timestamp);
+
+        superOracle.executeProviderRemoval();
+
+        // Verify provider was removed
+        bytes32[] memory activeProviders = superOracle.getActiveProviders();
+        assertEq(activeProviders.length, 2, "Should have 2 providers after removal");
+        assertFalse(superOracle.isProviderSet(PROVIDER_1), "Provider 1 should not be set");
     }
 
     function test_NegativeOracleValues() public {
@@ -611,8 +642,8 @@ contract SuperOracleTest is PeripheryHelpers {
 
         superOracle.queueProviderRemoval(providersToRemove);
 
-        // Warp to pass timelock
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        // Warp to pass timelock (1 hour for provider removal)
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
 
         // Update timestamps to avoid staleness after warping
         mockFeed3.setUpdatedAt(block.timestamp);
@@ -625,13 +656,13 @@ contract SuperOracleTest is PeripheryHelpers {
         assertEq(activeProviders.length, 1, "Should have 1 provider after removal");
         assertEq(activeProviders[0], PROVIDER_3, "Only Provider 3 should remain");
 
-        // Even though the providers were removed from activeProviders,
-        // their oracle mappings still exist (the implementation doesn't clear them)
-        address oracle1 = superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_1);
-        address oracle2 = superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_2);
+        // When a provider is removed, isProviderSet becomes false
+        // The getOracleAddress function now checks isProviderSet FIRST and reverts with INVALID_ORACLE_PROVIDER
+        vm.expectRevert(ISuperOracle.INVALID_ORACLE_PROVIDER.selector);
+        superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_1);
 
-        assertEq(oracle1, address(0), "Oracle mapping for Provider 1 should not exist");
-        assertEq(oracle2, address(0), "Oracle mapping for Provider 2 should not exist");
+        vm.expectRevert(ISuperOracle.INVALID_ORACLE_PROVIDER.selector);
+        superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_2);
 
         bool isProvider1Set = superOracle.isProviderSet(PROVIDER_1);
         bool isProvider2Set = superOracle.isProviderSet(PROVIDER_2);
@@ -644,6 +675,73 @@ contract SuperOracleTest is PeripheryHelpers {
             superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_3);
 
         assertEq(quoteAmount, 0.9e6, "Quote should be $900 from Provider 3");
+    }
+
+    function test_CancelProviderRemoval() public {
+        // Queue provider removal
+        bytes32[] memory providersToRemove = new bytes32[](2);
+        providersToRemove[0] = PROVIDER_1;
+        providersToRemove[1] = PROVIDER_2;
+
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Verify providers are still active before cancellation
+        bytes32[] memory activeProvidersBefore = superOracle.getActiveProviders();
+        assertEq(activeProvidersBefore.length, 3, "Should still have 3 providers before cancellation");
+
+        // Cancel the pending removal
+        vm.expectEmit(true, false, false, false);
+        emit ISuperOracle.ProviderRemovalCancelled(providersToRemove);
+        superOracle.cancelProviderRemoval();
+
+        // Verify providers are still active after cancellation
+        bytes32[] memory activeProvidersAfter = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfter.length, 3, "Should still have 3 providers after cancellation");
+
+        // Verify we can still get quotes from the providers that were queued for removal
+        (uint256 quoteAmount1,,,) =
+            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_1);
+        assertEq(quoteAmount1, 1.1e6, "Should still be able to get quote from Provider 1");
+
+        (uint256 quoteAmount2,,,) =
+            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_2);
+        assertEq(quoteAmount2, 1e6, "Should still be able to get quote from Provider 2");
+
+        // Verify provider is still set
+        bool isProvider1Set = superOracle.isProviderSet(PROVIDER_1);
+        bool isProvider2Set = superOracle.isProviderSet(PROVIDER_2);
+        assertTrue(isProvider1Set, "Provider 1 should still be set");
+        assertTrue(isProvider2Set, "Provider 2 should still be set");
+
+        // Verify we can queue a new removal after cancellation
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // This time execute it to verify cancellation didn't break anything
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
+        mockFeed3.setUpdatedAt(block.timestamp);
+        superOracle.executeProviderRemoval();
+
+        // Verify providers were removed this time
+        bytes32[] memory activeProvidersAfterExecution = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfterExecution.length, 1, "Should have 1 provider after execution");
+    }
+
+    function test_CancelProviderRemoval_Revert_NoPendingUpdate() public {
+        // Try to cancel when there's no pending removal
+        vm.expectRevert(ISuperOracle.NO_PENDING_UPDATE.selector);
+        superOracle.cancelProviderRemoval();
+    }
+
+    function test_CancelProviderRemoval_Revert_OnlyOwner() public {
+        // Queue provider removal as owner
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = PROVIDER_1;
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Try to cancel as non-owner
+        vm.prank(makeAddr("nonOwner"));
+        vm.expectRevert();
+        superOracle.cancelProviderRemoval();
     }
 
     function test_DecimalConversion() public {
@@ -722,12 +820,13 @@ contract SuperOracleTest is PeripheryHelpers {
         mockFeed3.setUpdatedAt(block.timestamp);
 
         // Get average quote for ETH/USD - should only use providers that have ETH/USD oracles
-        (uint256 quoteAmount,, uint256 totalProviders, uint256 availableProviders) = superOracle.getQuoteFromProvider(
-            1e18, // 1 ETH
-            address(mockETH),
-            address(mockUSD),
-            AVERAGE_PROVIDER
-        );
+        (uint256 quoteAmount,, uint256 totalProviders, uint256 availableProviders) =
+            superOracle.getQuoteFromProvider(
+                1e18, // 1 ETH
+                address(mockETH),
+                address(mockUSD),
+                AVERAGE_PROVIDER
+            );
 
         // Even though we have 4 active providers, only 3 have ETH/USD oracles
         assertEq(totalProviders, 3, "Total providers should be 3");
@@ -735,13 +834,13 @@ contract SuperOracleTest is PeripheryHelpers {
         assertEq(quoteAmount, 1e6, "Average quote should still be $1000 from the 3 ETH/USD providers");
 
         // Get average quote for BTC/USD - should only use providers that have BTC/USD oracles
-        (uint256 btcQuoteAmount,, uint256 btcTotalProviders, uint256 btcAvailableProviders) = superOracle
-            .getQuoteFromProvider(
-            1e8, // 1 BTC
-            address(mockBTC),
-            address(mockUSD),
-            AVERAGE_PROVIDER
-        );
+        (uint256 btcQuoteAmount,, uint256 btcTotalProviders, uint256 btcAvailableProviders) =
+            superOracle.getQuoteFromProvider(
+                1e8, // 1 BTC
+                address(mockBTC),
+                address(mockUSD),
+                AVERAGE_PROVIDER
+            );
 
         // Only 1 provider (BTC_ONLY_PROVIDER) has BTC/USD oracle
         assertEq(btcTotalProviders, 1, "Total providers should be 1");
@@ -781,7 +880,7 @@ contract SuperOracleTest is PeripheryHelpers {
 
         // Try to set max staleness (should revert)
         vm.expectRevert();
-        superOracle.setMaxStaleness(1 days);
+        superOracle.setDefaultStaleness(1 days);
 
         // Try to set feed max staleness (should revert)
         vm.expectRevert();
@@ -819,7 +918,7 @@ contract SuperOracleTest is PeripheryHelpers {
     function test_DefaultFeedStalenessWhenZeroProvided() public {
         // Set maxDefaultStaleness to a specific value
         uint256 defaultStaleness = 3 days;
-        superOracle.setMaxStaleness(defaultStaleness);
+        superOracle.setDefaultStaleness(defaultStaleness);
 
         // Set feed staleness to 0, which should default to maxDefaultStaleness
         superOracle.setFeedMaxStaleness(address(mockFeed1), 0);
@@ -855,12 +954,13 @@ contract SuperOracleTest is PeripheryHelpers {
         assertEq(activeProviders[0], NEW_PROVIDER, "Active provider should be NEW_PROVIDER");
 
         // Verify we can get the quote from this provider
-        (uint256 quoteAmount,,,) = newOracle.getQuoteFromProvider(
-            1e8, // 1 BTC
-            address(mockBTC),
-            address(mockUSD),
-            NEW_PROVIDER
-        );
+        (uint256 quoteAmount,,,) =
+            newOracle.getQuoteFromProvider(
+                1e8, // 1 BTC
+                address(mockBTC),
+                address(mockUSD),
+                NEW_PROVIDER
+            );
 
         assertEq(quoteAmount, 2e6, "Quote should be $20000");
     }
@@ -872,7 +972,7 @@ contract SuperOracleTest is PeripheryHelpers {
         providersToRemove[1] = PROVIDER_2;
 
         superOracle.queueProviderRemoval(providersToRemove);
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
         mockFeed3.setUpdatedAt(block.timestamp);
         superOracle.executeProviderRemoval();
 
@@ -890,15 +990,15 @@ contract SuperOracleTest is PeripheryHelpers {
         providersToRemove[0] = PROVIDER_1;
 
         superOracle.queueProviderRemoval(providersToRemove);
-        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        vm.warp(block.timestamp + 1 hours + 1 seconds);
         superOracle.executeProviderRemoval();
 
-        // When a provider is removed, its oracle mapping still exists but isProviderSet is false
-        // The getOracleAddress function checks isProviderSet and returns address(0) if false
-        address oracle = superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_1);
-        assertEq(oracle, address(0), "Oracle address should be address(0) for removed provider");
+        // When a provider is removed, isProviderSet becomes false
+        // The getOracleAddress function now checks isProviderSet FIRST and reverts with INVALID_ORACLE_PROVIDER
+        vm.expectRevert(ISuperOracle.INVALID_ORACLE_PROVIDER.selector);
+        superOracle.getOracleAddress(address(mockETH), address(mockUSD), PROVIDER_1);
 
-        // When getting a quote, the oracle exists but its data is considered untrusted
+        // When getting a quote, the function checks isProviderSet and reverts with ORACLE_UNTRUSTED_DATA
         vm.expectRevert(ISuperOracle.ORACLE_UNTRUSTED_DATA.selector);
         superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), PROVIDER_1);
     }
@@ -981,12 +1081,8 @@ contract SuperOracleTest is PeripheryHelpers {
         uint256 _dev;
         uint256 _total;
         uint256 _avail;
-        (quoteAmount, _dev, _total, _avail) = superOracle.getQuoteFromProvider(
-            uint256(baseAmount_),
-            address(mockETH),
-            address(mockUSD),
-            PROVIDER_1
-        );
+        (quoteAmount, _dev, _total, _avail) =
+            superOracle.getQuoteFromProvider(uint256(baseAmount_), address(mockETH), address(mockUSD), PROVIDER_1);
 
         // Compute expected using the same scaling logic used in _getQuoteFromOracle
         uint8 feedDecimals = 8; // mockFeed1 constructed with 8 decimals
@@ -994,9 +1090,7 @@ contract SuperOracleTest is PeripheryHelpers {
         uint8 quoteDecimals = MockERC20(address(mockUSD)).decimals();
 
         uint256 expected = Math.mulDiv(
-            uint256(baseAmount_),
-            uint256(answerRaw_) * 10 ** quoteDecimals,
-            10 ** (feedDecimals + baseDecimals)
+            uint256(baseAmount_), uint256(answerRaw_) * 10 ** quoteDecimals, 10 ** (feedDecimals + baseDecimals)
         );
 
         assertEq(quoteAmount, expected, "Quote should equal mulDiv result without overflow");

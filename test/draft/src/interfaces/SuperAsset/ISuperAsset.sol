@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -693,10 +693,7 @@ interface ISuperAsset is IERC20 {
     /// @notice Preview deposit to SuperAsset.
     /// @param args The preview deposit arguments (tokenIn, amountTokenToDeposit, isSoft)
     /// @return ret The preview deposit return variables
-    function previewDeposit(PreviewDepositArgs memory args)
-        external
-        view
-        returns (PreviewDepositReturnVars memory ret);
+    function previewDeposit(PreviewDepositArgs memory args) external view returns (PreviewDepositReturnVars memory ret);
 
     /// @notice Preview a redemption.
     /// @notice Preview redeem from SuperAsset.

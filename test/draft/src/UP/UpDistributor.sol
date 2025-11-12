@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.30;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -71,13 +71,7 @@ contract UpDistributor is Ownable2Step {
      * @param amount The amount of tokens to claim
      * @param merkleProof A proof of inclusion in the merkle tree
      */
-    function claimOnBehalf(
-        address recipient,
-        uint256 amount,
-        bytes32[] calldata merkleProof
-    )
-        external
-    {
+    function claimOnBehalf(address recipient, uint256 amount, bytes32[] calldata merkleProof) external {
         // Verify user hasn't already claimed
         if (hasClaimed[recipient]) revert ALREADY_CLAIMED();
 

@@ -12,21 +12,21 @@ contract MockETHReceiver is ERC20, IERC4626 {
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Total ETH received
     uint256 public totalReceived;
-    
+
     /// @notice Number of times ETH was received
     uint256 public receiveCount;
-    
+
     /// @notice Event emitted when ETH is received
     event ETHReceived(address sender, uint256 amount, uint256 totalReceived);
-    
+
     /// @notice Event emitted when execute function is called
     event ExecuteCalled(address indexed sender, uint256 value);
 
     IERC20 public immutable USDC;
-    
+
     constructor(address usdc_) ERC20("MockETHReceiver", "mETH") {
         USDC = IERC20(usdc_);
     }
@@ -120,12 +120,12 @@ contract MockETHReceiver is ERC20, IERC4626 {
     /*//////////////////////////////////////////////////////////////
                             FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Simple execute function that can be called by hooks
     function execute() external payable {
         emit ExecuteCalled(msg.sender, msg.value);
         totalReceived += msg.value;
-        
+
         // Transfer USDC back to the caller (simulate yield generation)
         // Convert ETH (18 decimals) to USDC (6 decimals) - 1:1 value ratio
         if (msg.value > 0) {
@@ -135,7 +135,7 @@ contract MockETHReceiver is ERC20, IERC4626 {
             }
         }
     }
-    
+
     /// @notice Execute function with data parameter
     function executeWithData(bytes calldata) external payable {
         emit ExecuteCalled(msg.sender, msg.value);
@@ -144,13 +144,13 @@ contract MockETHReceiver is ERC20, IERC4626 {
             receiveCount++;
         }
     }
-    
+
     /// @notice Reset counters for testing
     function reset() external {
         totalReceived = 0;
         receiveCount = 0;
     }
-    
+
     /// @notice Withdraw all ETH (for cleanup)
     function withdraw() external {
         payable(msg.sender).transfer(address(this).balance);
@@ -159,7 +159,7 @@ contract MockETHReceiver is ERC20, IERC4626 {
     /*//////////////////////////////////////////////////////////////
                             RECEIVE FUNCTION
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Allows the contract to receive ETH
     receive() external payable {
         totalReceived += msg.value;

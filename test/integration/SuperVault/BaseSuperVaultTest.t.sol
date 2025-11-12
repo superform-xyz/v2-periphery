@@ -48,7 +48,7 @@ import { MockUp } from "../../mocks/MockUp.sol";
 import { MockFeedWithRealData } from "../../mocks/MockFeedWithRealData.sol";
 import { MockERC20 } from "../../mocks/MockERC20.sol";
 import { ISuperLedgerConfiguration } from "@superform-v2-core/src/interfaces/accounting/ISuperLedgerConfiguration.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC7540YieldSourceOracle } from "@superform-v2-core/test/mocks/unused-oracles/ERC7540YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { LibSort } from "solady/utils/LibSort.sol";
 import { AssetAdjustmentHelper } from "./AssetAdjustmentHelper.t.sol";
@@ -254,7 +254,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         address[] memory quotes = new address[](3);
         quotes[0] = address(840); // USD
         quotes[1] = address(840); // USD
-        quotes[2] = address(uint160(uint256(keccak256("GWEI_QUOTE")))); // GWEI
+        quotes[2] = address(uint160(uint256(keccak256("WEI_QUOTE")))); // WEI
         bytes32[] memory providers = new bytes32[](3);
         providers[0] = "CHAINLINK";
         providers[1] = "CHAINLINK";
@@ -322,11 +322,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 minUpdateInterval: 5,
                 maxStaleness: 1 weeks,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                })
             })
         );
 
@@ -378,11 +375,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                })
             })
         );
 
@@ -418,11 +412,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: address(this)
-                }),
-                maxUnpauseTimeLock: 0
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                })
             })
         );
 
@@ -508,8 +499,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         actionTypes[1] = 0; // Add yield source
         actionTypes[2] = 0; // Add yield source
 
-        SuperVaultManageYieldSourceHook.ManageYieldSourcesArgs memory args = SuperVaultManageYieldSourceHook
-            .ManageYieldSourcesArgs({ sources: sources, oracles: oracles, actionTypes: actionTypes });
+        SuperVaultManageYieldSourceHook.ManageYieldSourcesArgs memory args =
+            SuperVaultManageYieldSourceHook.ManageYieldSourcesArgs({
+                sources: sources, oracles: oracles, actionTypes: actionTypes
+            });
 
         // Deploy the SuperVaultManageYieldSourceHook
         address manageYieldSourceHook = address(new SuperVaultManageYieldSourceHook(address(targetStrategy)));
@@ -889,15 +882,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
 
         vm.startPrank(MANAGER);
-        SuperVaultStrategy(payable(strategyAddress)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](1)
-            })
-        );
+        SuperVaultStrategy(payable(strategyAddress))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](1)
+                })
+            );
         vm.stopPrank();
 
         (uint256 pricePerShare) = _getSuperVaultPricePerShare();
@@ -1282,15 +1276,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         argsForProofs[0] = ISuperHookInspector(hooksAddresses[0]).inspect(hooksData[0]);
 
         vm.startPrank(MANAGER);
-        SuperVaultStrategy(payable(strat)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: hooksAddresses,
-                hookCalldata: hooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](1)
-            })
-        );
+        SuperVaultStrategy(payable(strat))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: hooksAddresses,
+                    hookCalldata: hooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _getMerkleProofsForHooks(hooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](1)
+                })
+            );
 
         // Sort and unique controllers before fulfillment
         requestingUsers = _sortAndUniqueControllers(requestingUsers);
@@ -1717,7 +1712,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = IERC4626(vault1).convertToAssets(vars.underlyingSharesVault1);
         vars.expectedAssetsOrSharesOut[1] = IERC4626(vault2).convertToAssets(vars.underlyingSharesVault2);
-
 
         console2.log("----requestingUsersLength", requestingUsers.length);
         vm.startPrank(MANAGER);
@@ -2354,7 +2348,7 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
 
         vars.totalShareValue = vault.convertToAssets(vars.totalShares);
         assertApproxEqRel(vars.totalShareValue, vars.firstDepositAmount + vars.secondDepositAmount, 0.01e18); // 1%
-            // tolerance
+        // tolerance
 
         console2.log(
             "first deposit - vault1 allocation:", vars.firstAllocationVault1 * 100 / vars.firstDepositAmount, "%"
@@ -2645,7 +2639,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
 
-
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
             abi.encodePacked(
@@ -2678,16 +2671,12 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -2981,16 +2970,12 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
     }
@@ -3001,7 +2986,6 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         vars.pps = targetPPS;
         // Get the current timestamp for the signature
         vars.timestamp = block.timestamp;
-
 
         // Create the message hash with all parameters (using simplified format)
         bytes32 structHash = keccak256(
@@ -3035,16 +3019,12 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = vars.pps;
 
-
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -3160,15 +3140,16 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         argsForProofs[1] = ISuperHookInspector(fulfillHooksAddresses[1]).inspect(fulfillHooksData[1]);
 
         vm.startPrank(MANAGER);
-        SuperVaultStrategy(payable(strat)).executeHooks(
-            ISuperVaultStrategy.ExecuteArgs({
-                hooks: fulfillHooksAddresses,
-                hookCalldata: fulfillHooksData,
-                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
-                strategyProofs: new bytes32[][](2)
-            })
-        );
+        SuperVaultStrategy(payable(strat))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](2)
+                })
+            );
         vm.stopPrank();
 
         (uint256 pricePerShare) = _getSuperVaultPricePerShare();

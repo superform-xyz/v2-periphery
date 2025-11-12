@@ -80,11 +80,7 @@ library SuperBankTestHelpers {
     /// @notice Builds a multi-hook Merkle tree
     /// @param configs Array of hook configurations
     /// @return root The Merkle root
-    function setupMultiHookTree(MerkleTreeBuilder.HookConfig[] memory configs)
-        internal
-        pure
-        returns (bytes32 root)
-    {
+    function setupMultiHookTree(MerkleTreeBuilder.HookConfig[] memory configs) internal pure returns (bytes32 root) {
         return MerkleTreeBuilder.buildTree(configs);
     }
 

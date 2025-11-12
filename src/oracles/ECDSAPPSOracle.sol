@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 // Superform
@@ -17,29 +16,42 @@ import { IECDSAPPSOracle } from "../interfaces/oracles/IECDSAPPSOracle.sol";
 /// @dev Implements the IECDSAPPSOracle interface for validating and forwarding PPS updates
 contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     /*//////////////////////////////////////////////////////////////
                                  STORAGE
     //////////////////////////////////////////////////////////////*/
     mapping(address _strategy => uint256 _nonce) public noncePerStrategy;
-    
+
     // Maximum number of strategies to process in `batchForwardPPS`
+    /// @notice Maximum number of strategies that can be processed in a single batch
+    /// @dev Set to 300 to stay well below gas limits while allowing efficient batch updates.
     uint256 public constant MAX_STRATEGIES = 300;
 
     /// @notice The SuperGovernor contract for validator verification
     ISuperGovernor public immutable SUPER_GOVERNOR;
+
+    /// @notice EIP-712 typehash for PPS update signatures
+    /// @dev Defines the structure: UpdatePPS(address strategy, uint256 pps, uint256 timestamp, uint256 strategyNonce)
+    ///      - strategy: The strategy contract address
+    ///      - pps: The price-per-share value being signed
+    ///      - timestamp: The blockchain state timestamp this PPS represents
+    ///      - strategyNonce: Current nonce for this strategy (prevents replay attacks)
+    ///      This typehash MUST match the off-chain signing format exactly. Changing this typehash would
+    ///      invalidate all existing signatures. See Property 1 in security_properties.md for nonce details.
     bytes32 public constant UPDATE_PPS_TYPEHASH =
         keccak256("UpdatePPS(address strategy,uint256 pps,uint256 timestamp,uint256 strategyNonce)");
 
     bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
-
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
     /// @notice Initializes the ECDSAPPSOracle contract
     /// @param superGovernor_ Address of the SuperGovernor contract
+    /// @param name_ EIP-712 domain name (e.g., "SuperformOraclePPS"). Used for domain separation.
+    /// @param version_ EIP-712 domain version (e.g., "1"). Must match off-chain signing version.
+    /// @dev The name_ and version_ parameters define the EIP-712 domain separator and cannot be changed
+    ///      after deployment. All validator signatures must be signed with matching domain parameters.
     constructor(address superGovernor_, string memory name_, string memory version_) EIP712(name_, version_) {
         if (superGovernor_ == address(0)) revert INVALID_VALIDATOR();
 
@@ -70,6 +82,15 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
         if (strategiesLength > MAX_STRATEGIES) revert MAX_STRATEGIES_EXCEEDED();
 
+        // Validate strategies are sorted and unique to prevent nonce burning
+        // This prevents attackers from submitting duplicate strategies to skip nonces
+        // Strategies must be in ascending order: strategies[i] < strategies[i+1]
+        for (uint256 i = 1; i < strategiesLength; i++) {
+            if (args.strategies[i] <= args.strategies[i - 1]) {
+                revert STRATEGIES_NOT_SORTED_UNIQUE();
+            }
+        }
+
         uint256 cachedTotalValidators = SUPER_GOVERNOR.getValidatorsCount();
 
         // Early validation checks
@@ -93,13 +114,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
     /// @inheritdoc IECDSAPPSOracle
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        public
-        view
-    {
+    function validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) public view {
         _validateProofs(params, requiredQuorum);
     }
 
@@ -107,24 +122,39 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Validates an array of proofs for a strategy's PPS update
+    /// @dev Implements Property 1: Signature Validation & Nonce in Digest (security_properties.md)
+    ///
+    ///      SECURITY GUARANTEES:
+    ///      1. All signatures are EIP-712 typed structured data
+    ///      2. Each signature includes the current nonce for the strategy (replay protection)
+    ///      3. All signers must be registered validators (checked via SUPER_GOVERNOR)
+    ///      4. All signers must be unique (enforced via ascending order check)
+    ///      5. Quorum requirement must be met (M validators out of N total)
+    ///
+    ///      SIGNATURE STRUCTURE:
+    ///      digest = EIP-712(strategy, pps, timestamp, noncePerStrategy[strategy])
+    ///
+    ///      FAILURE MODES:
+    ///      - Reverts if quorum not met (QUORUM_NOT_MET)
+    ///      - Reverts if any signer is not a registered validator (INVALID_VALIDATOR)
+    ///      - Reverts if duplicate signers detected (INVALID_PROOF)
+    ///      - Reverts if signatures in wrong order (INVALID_PROOF)
+    ///
+    /// @param params Validation parameters containing strategy, proofs, pps, timestamp
+    /// @param requiredQuorum Required number of validator signatures (M out of N)
     /// @dev Check for this being the active PPS Oracle already done by SuperVaultAggregator
-    /// @param params Validation parameters
-    /// @param requiredQuorum Required quorum for validation
     /// @dev Reverts immediately if duplicate signers are found or quorum is not met
-    function _validateProofs(
-        IECDSAPPSOracle.ValidationParams memory params,
-        uint256 requiredQuorum
-    )
-        internal
-        view
-    {
+    function _validateProofs(IECDSAPPSOracle.ValidationParams memory params, uint256 requiredQuorum) internal view {
         uint256 proofsLength = params.proofs.length;
         if (proofsLength == 0) revert ZERO_LENGTH_ARRAY();
 
         // Quorum from batch-snapshot
         if (proofsLength < requiredQuorum) revert QUORUM_NOT_MET();
 
-        // Build EIP-712 digest
+        // [Property 1: Signature Validation & Nonce in Digest]
+        // Build EIP-712 typed data digest that includes the current nonce for this strategy.
+        // This binds the signature to a specific nonce value, preventing replay attacks.
+        // Once a signature is used and the nonce increments, the same signature becomes invalid.
         bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encodePacked(
@@ -235,7 +265,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
             return false;
         }
 
-        noncePerStrategy[_strategy]++;
         return true;
     }
 
@@ -245,13 +274,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
     function _forwardValidEntries(ValidatedBatchData memory validatedData, uint256 totalValidators) internal {
         uint256 count = validatedData.strategies.length;
 
-        uint256 totalGas = count * SUPER_GOVERNOR.getGasInfo(address(this));
-        uint256 gasBefore = gasleft();
-        if (gasBefore <= totalGas + gasBefore / 64) {
-            emit InsufficientGasForForward(gasBefore, totalGas);
-            return;
-        }
-        gasBefore = gasleft();
         // Only forward if there are valid entries
         if (count > 0) {
             try ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR))
@@ -264,16 +286,33 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                         timestamps: validatedData.timestamps,
                         updateAuthority: msg.sender
                     })
-                ) { }
-            catch Error(string memory reason) {
-                // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
+                ) {
+                // [Property 2: Nonce-Based Replay Protection]
+                // See security_properties.md Property 2 for full specification.
+                //
+                // CRITICAL DESIGN DECISION: Increment nonce ONLY after successful forwarding (try block succeeds).
+                //
+                // Nonces increment when forwardPPS() returns normally (no revert), which includes:
+                // 1. ✓ Legitimate PPS updates that are accepted and stored
+                // 2. ✓ Business logic rejections using 'return' or 'continue' (not 'revert')
+                //    Examples: rate limits exceeded, deviation threshold failures, insufficient upkeep
+                //
+                // Nonces preserved when forwardPPS() reverts (catch blocks), allowing retry:
+                // 3. ✗ Contract reverts (system errors)
+                // 4. ✗ Out of gas conditions
+                // 5. ✗ Network/RPC failures
+                for (uint256 i; i < count; ++i) {
+                    noncePerStrategy[validatedData.strategies[i]]++;
+                }
+            } 
+                // [Property 3: Limited Retry Capability]
+                // When forwardPPS() reverts (catch blocks), nonces remain unchanged.
+                // This allows retrying with the same signatures after external failures resolve.
+                // Retry possible for: contract reverts, out of gas, network failures.
+                // Retry NOT possible for: business logic rejections (return/continue) that don't revert.
+                catch Error(string memory reason) {
                 emit BatchForwardPPSFailed(reason);
             } catch (bytes memory lowLevelData) {
-                // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
                 emit BatchForwardPPSFailedLowLevel(lowLevelData);
             }
         }

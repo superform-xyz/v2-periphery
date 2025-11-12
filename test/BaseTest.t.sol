@@ -235,7 +235,20 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
 
             // Set up governor configurations
             PA[i].superGovernor.setActivePPSOracle(address(PA[i].ecdsappsOracle));
-            PA[i].superGovernor.addValidator(VALIDATOR);
+
+            // Set validator configuration
+            address[] memory validators = new address[](1);
+            validators[0] = VALIDATOR;
+            bytes[] memory validatorPublicKeys = new bytes[](1);
+            validatorPublicKeys[0] = "";
+            PA[i].superGovernor
+                .setValidatorConfig(
+                    1, // version
+                    validators,
+                    validatorPublicKeys,
+                    1, // quorum
+                    "" // offchainConfig
+                );
         }
         return PA;
     }

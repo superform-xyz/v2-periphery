@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // External
@@ -30,8 +30,6 @@ import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggre
 import { SuperVaultAccountingLib } from "../libraries/SuperVaultAccountingLib.sol";
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
-import "forge-std/console2.sol";
-
 /// @title SuperVaultStrategy
 /// @author Superform Labs
 /// @notice Strategy implementation for SuperVault that executes strategies
@@ -49,33 +47,41 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint256 private constant BPS_PRECISION = 10_000;
     uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
-    // Slippage tolerance in BPS (1%)
-    uint256 private constant SV_SLIPPAGE_TOLERANCE_BPS = 100;
-
     /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
     uint16 private constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
 
+    /// @dev Minimum allowed staleness threshold for PPS updates (prevents too-frequent validation)
     uint256 private constant MIN_PPS_EXPIRATION_THRESHOLD = 1 minutes;
+
+    /// @dev Maximum allowed staleness threshold for PPS updates (prevents indefinite stale data usage)
     uint256 private constant MAX_PPS_EXPIRATION_THRESHOLD = 1 weeks;
 
-    uint256 public PRECISION;
+    /// @dev Timelock period after unpause during which performance fee skimming is disabled (rug prevention)
+    uint256 private constant POST_UNPAUSE_SKIM_TIMELOCK = 12 hours;
+
+    uint256 public PRECISION; // Slot 0: 32 bytes
 
     /*//////////////////////////////////////////////////////////////
                                 STATE
     //////////////////////////////////////////////////////////////*/
-    address private _vault;
-    IERC20 private _asset;
-    uint8 private _vaultDecimals;
+    // Packed slot 1: saves 1 storage slot
+    address private _vault; // 20 bytes
+    uint8 private _vaultDecimals; // 1 byte
+    uint88 private __gap1; // 11 bytes padding
+
+    // Packed slot 2
+    IERC20 private _asset; // 20 bytes (address)
+    uint96 private __gap2; // 12 bytes padding
 
     // Global configuration
 
     // Fee configuration
-    FeeConfig private feeConfig;
+    FeeConfig private feeConfig; // Slots 3-5 (96 bytes: 2 uint256 + 1 address)
     FeeConfig private proposedFeeConfig;
     uint256 private feeConfigEffectiveTime;
 
     // Core contracts
-    ISuperGovernor public immutable superGovernor;
+    ISuperGovernor public immutable SUPER_GOVERNOR;
 
     // PPS expiry threshold
     uint256 public proposedPPSExpiryThreshold;
@@ -99,7 +105,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
 
-        superGovernor = ISuperGovernor(superGovernor_);
+        SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
         emit SuperGovernorSet(superGovernor_);
         _disableInitializers();
     }
@@ -248,10 +254,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
             _validateStrategyState(aggregator);
             _handleRequestRedeem(controller, amount); // amount = shares
         } else if (operation == Operation.ClaimCancelRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimCancelRedeem(controller);
         } else if (operation == Operation.ClaimRedeem) {
-            if (_isPaused(aggregator)) revert STRATEGY_PAUSED();
             _handleClaimRedeem(controller, receiver, amount); // amount = assets
         } else if (operation == Operation.CancelRedeemRequest) {
             _handleCancelRedeemRequest(controller);
@@ -290,6 +294,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit HooksExecuted(args.hooks);
     }
 
+    /// @inheritdoc ISuperVaultStrategy
     function fulfillCancelRedeemRequests(address[] memory controllers) external nonReentrant {
         _isManager(msg.sender);
 
@@ -370,9 +375,11 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperVaultAggregator aggregator = _getSuperVaultAggregator();
         _validateStrategyState(aggregator);
 
-        // CHANGE 7: Prevent skim for 12 hours after unpause (rug prevention)
+        // Prevent skim for 12 hours after unpause
+        // This timelock gives a detection window for potential abuse of fee skimming
+        // post unpausing with an abnormal PPS update
         uint256 lastUnpause = aggregator.getLastUnpauseTimestamp(address(this));
-        if (block.timestamp < lastUnpause + 12 hours) {
+        if (block.timestamp < lastUnpause + POST_UNPAUSE_SKIM_TIMELOCK) {
             revert SKIM_TIMELOCK_ACTIVE();
         }
 
@@ -412,16 +419,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (fee == 0) return;
 
         // Split fee between Superform treasury and strategy recipient
-        uint256 sfFee = Math.mulDiv(
-            fee, superGovernor.getFee(FeeType.PERFORMANCE_FEE_SHARE), BPS_PRECISION, Math.Rounding.Floor
-        );
+        uint256 sfFee =
+            Math.mulDiv(fee, SUPER_GOVERNOR.getFee(FeeType.PERFORMANCE_FEE_SHARE), BPS_PRECISION, Math.Rounding.Floor);
         uint256 recipientFee = fee - sfFee;
 
         // Check if strategy has sufficient liquid assets for fee transfer
         if (_getTokenBalance(address(_asset), address(this)) < fee) revert NOT_ENOUGH_FREE_ASSETS_FEE_SKIM();
 
         // Transfer fees to recipients
-        _safeTokenTransfer(address(_asset), superGovernor.getAddress(superGovernor.TREASURY()), sfFee);
+        _safeTokenTransfer(address(_asset), SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.TREASURY()), sfFee);
         _safeTokenTransfer(address(_asset), feeConfig.recipient, recipientFee);
 
         emit PerformanceFeeSkimmed(fee, sfFee);
@@ -451,13 +457,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function manageYieldSource(address source, address oracle, uint8 actionType) external {
         _isPrimaryManager(msg.sender);
         _manageYieldSource(source, oracle, actionType);
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function manageYieldSources(
         address[] calldata sources,
         address[] calldata oracles,
@@ -477,7 +483,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         }
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
@@ -497,7 +503,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         emit VaultFeeConfigProposed(performanceFeeBps, managementFeeBps, recipient, feeConfigEffectiveTime);
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function executeVaultFeeConfigUpdate() external {
         _isPrimaryManager(msg.sender);
 
@@ -534,10 +540,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /*//////////////////////////////////////////////////////////////
-                        ACCOUNTING MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-
-    /*//////////////////////////////////////////////////////////////
                         USER OPERATIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultStrategy
@@ -552,35 +554,34 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    // @inheritdoc ISuperVaultStrategy
-
+    /// @inheritdoc ISuperVaultStrategy
     function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {
         vault = _vault;
         asset = address(_asset);
         vaultDecimals = _vaultDecimals;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getConfigInfo() external view returns (FeeConfig memory feeConfig_) {
         feeConfig_ = feeConfig;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getStoredPPS() public view returns (uint256) {
         return _getSuperVaultAggregator().getPPS(address(this));
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getSuperVaultState(address controller) external view returns (SuperVaultState memory state) {
         return superVaultState[controller];
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getYieldSource(address source) external view returns (YieldSource memory) {
         return YieldSource({ oracle: yieldSources[source] });
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getYieldSourcesList() external view returns (YieldSourceInfo[] memory) {
         uint256 length = yieldSourcesList.length();
         YieldSourceInfo[] memory sourcesInfo = new YieldSourceInfo[](length);
@@ -595,12 +596,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return sourcesInfo;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getYieldSources() external view returns (address[] memory) {
         return yieldSourcesList.values();
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getYieldSourcesCount() external view returns (uint256) {
         return yieldSourcesList.length();
     }
@@ -625,33 +626,33 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         return Math.mulDiv(ppsGrowth, totalSupplyLocal, PRECISION, Math.Rounding.Floor);
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function containsYieldSource(address source) external view returns (bool) {
         return yieldSourcesList.contains(source);
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function pendingRedeemRequest(address controller) external view returns (uint256 pendingShares) {
         return superVaultState[controller].pendingRedeemRequest;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function claimableWithdraw(address controller) external view returns (uint256 claimableAssets) {
         return superVaultState[controller].maxWithdraw;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function pendingCancelRedeemRequest(address controller) external view returns (bool) {
         return superVaultState[controller].pendingCancelRedeemRequest;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function claimableCancelRedeemRequest(address controller) external view returns (uint256 claimableShares) {
         if (!superVaultState[controller].pendingCancelRedeemRequest) return 0;
         return superVaultState[controller].claimableCancelRedeemRequest;
     }
 
-    // @inheritdoc ISuperVaultStrategy
+    /// @inheritdoc ISuperVaultStrategy
     function getAverageWithdrawPrice(address controller) external view returns (uint256 averageWithdrawPrice) {
         return superVaultState[controller].averageWithdrawPrice;
     }
@@ -752,6 +753,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Process exact fulfillment for batch processing
+    /// @dev Handles all accounting updates for fulfilled redemption:
+    ///      1. Validates slippage bounds (minAssets <= actual <= theoretical)
+    ///      2. Updates weighted average withdraw price across multiple fulfillments
+    ///      3. Clears pending state and makes assets claimable
+    ///      4. Resets cancellation flags
+    /// @dev SECURITY: Bounds validation ensures manager cannot underfill/overfill
+    /// @dev ACCOUNTING: Average withdraw price uses weighted formula to track historical execution prices
     /// @param controller Controller address
     /// @param totalAssetsOut Total assets available for this controller (from executeHooks)
     /// @param currentPPS Current price per share
@@ -801,7 +809,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Internal function to get the SuperVaultAggregator
     /// @return The SuperVaultAggregator
     function _getSuperVaultAggregator() internal view returns (ISuperVaultAggregator) {
-        address aggregatorAddress = superGovernor.getAddress(superGovernor.SUPER_VAULT_AGGREGATOR());
+        address aggregatorAddress = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR());
 
         return ISuperVaultAggregator(aggregatorAddress);
     }
@@ -925,7 +933,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param hook Address of the hook
     /// @return True if the hook is registered, false otherwise
     function _isRegisteredHook(address hook) private view returns (bool) {
-        return superGovernor.isHookRegistered(hook);
+        return SUPER_GOVERNOR.isHookRegistered(hook);
     }
 
     /// @notice Internal function to decode a hook's use previous hook amount
@@ -961,18 +969,19 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         // Calculate weighted average of PPS if there's an existing request
         if (state.pendingRedeemRequest > 0) {
-            // Calculate weighted average of PPS based on share amounts
+            // Incremental request: Calculate weighted average PPS
+            // This protects users from PPS manipulation between multiple requests
+            // Formula: avgPPS = (oldShares * oldPPS + newShares * newPPS) / totalShares
             uint256 existingSharesInRequest = state.pendingRedeemRequest;
             uint256 newTotalSharesInRequest = existingSharesInRequest + shares;
 
-            // Use weighted average formula: (existingShares * existingPPS + newShares * currentPPS) / totalShares
+            // Weighted average ensures fair pricing across multiple request timestamps
             state.averageRequestPPS =
                 ((existingSharesInRequest * state.averageRequestPPS) + (shares * currentPPS)) / newTotalSharesInRequest;
 
-            // Update total shares
             state.pendingRedeemRequest = newTotalSharesInRequest;
         } else {
-            // First request for this controller
+            // First request: Initialize with current PPS as baseline for slippage protection
             state.pendingRedeemRequest = shares;
             state.averageRequestPPS = currentPPS;
         }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 /// @title ISuperOracle
@@ -65,7 +65,7 @@ interface ISuperOracle {
     /// @notice Error when oracle decimals call fails
     error ORACLE_DECIMALS_CALL_FAIL(address oracle);
 
-    /// @notice Error when oracle round data call fails 
+    /// @notice Error when oracle round data call fails
     error ORACLE_ROUND_DATA_CALL_FAIL(address oracle);
 
     /// @notice Error when external call gas is insufficient
@@ -109,12 +109,13 @@ interface ISuperOracle {
     /// @param timestamp Timestamp when removal was queued
     event ProviderRemovalQueued(bytes32[] providers, uint256 timestamp);
 
-    /// @notice Emitted when provider removal is cancelled
-    event ProviderRemovalCancelled();
-
     /// @notice Emitted when provider removal is executed
     /// @param providers Array of provider ids that were removed
     event ProviderRemovalExecuted(bytes32[] providers);
+
+    /// @notice Emitted when provider removal is cancelled
+    /// @param providers Array of provider ids that were queued for removal
+    event ProviderRemovalCancelled(bytes32[] providers);
 
     /// @notice Emitted when emergency price is updated
     /// @param token Token address
@@ -155,6 +156,9 @@ interface ISuperOracle {
     /// @param quote Quote asset address
     /// @param oracleProvider Id of oracle provider to use
     /// @return quoteAmount The quote amount
+    /// @return deviation Standard deviation of oracle quotes in quote asset units (0 for single provider)
+    /// @return totalProviders Total number of providers that have a configured oracle for this pair
+    /// @return availableProviders Number of providers that successfully returned a valid quote
     function getQuoteFromProvider(
         uint256 baseAmount,
         address base,
@@ -188,6 +192,9 @@ interface ISuperOracle {
     /// @notice Execute queued provider removal after timelock period
     function executeProviderRemoval() external;
 
+    /// @notice Cancel queued provider removal
+    function cancelProviderRemoval() external;
+
     /// @notice Set the maximum staleness period for a specific provider
     /// @param feed Feed address
     /// @param newMaxStaleness New maximum staleness period in seconds
@@ -195,7 +202,7 @@ interface ISuperOracle {
 
     /// @notice Set the maximum staleness period for all providers
     /// @param newMaxStaleness New maximum staleness period in seconds
-    function setMaxStaleness(uint256 newMaxStaleness) external;
+    function setDefaultStaleness(uint256 newMaxStaleness) external;
 
     /// @notice Set the maximum staleness period for multiple providers
     /// @param feeds Array of feed addresses

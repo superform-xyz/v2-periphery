@@ -25,7 +25,7 @@ import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IERC7540Redeem, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { ERC7540YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC7540YieldSourceOracle.sol";
+import { ERC7540YieldSourceOracle } from "@superform-v2-core/test/mocks/unused-oracles/ERC7540YieldSourceOracle.sol";
 import { ERC5115YieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/ERC5115YieldSourceOracle.sol";
 import { ISuperLedger } from "@superform-v2-core/src/interfaces/accounting/ISuperLedger.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
@@ -380,7 +380,10 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         _updateSuperVaultPPS_ToZero(address(strategy5115SuperVault));
 
         // Verify strategy is paused
-        assertTrue(aggregator.isStrategyPaused(address(strategy5115SuperVault)), "Strategy should be paused after zero PPS attempt");
+        assertTrue(
+            aggregator.isStrategyPaused(address(strategy5115SuperVault)),
+            "Strategy should be paused after zero PPS attempt"
+        );
 
         // Verify that PPS was NOT stored (protection for external integrators)
         uint256 ppsAfterAttempt = aggregator.getPPS(address(strategy5115SuperVault));
@@ -749,13 +752,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         uint256 pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(sv5115.PRECISION()) : sv5115.PRECISION();
         uint256 expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth,
-            address(sv5115),
-            actualAssetsWithdrawn1,
-            claimableShares1,
-            100,
-            pps,
-            sv5115.decimals()
+            accountEth, address(sv5115), actualAssetsWithdrawn1, claimableShares1, 100, pps, sv5115.decimals()
         );
         // Note: expectedLedgerFee may be 0 when totalSupply() is 0. Calculate actual fee instead.
         console2.log("Expected fee for redemption 1 (preview):", expectedLedgerFee);
@@ -808,13 +805,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
 
         pps = sv5115.totalSupply() > 0 ? sv5115.convertToAssets(sv5115.PRECISION()) : sv5115.PRECISION();
         expectedLedgerFee = superLedgerETH.previewFees(
-            accountEth,
-            address(sv5115),
-            actualAssetsWithdrawn2,
-            claimableShares2,
-            100,
-            pps,
-            sv5115.decimals()
+            accountEth, address(sv5115), actualAssetsWithdrawn2, claimableShares2, 100, pps, sv5115.decimals()
         );
         // Note: expectedLedgerFee may be 0 when totalSupply() is 0. Calculate actual fee instead.
         console2.log("Expected fee for redemption 2 (preview):", expectedLedgerFee);
@@ -957,7 +948,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vars.expectedAssetsOrSharesOut[0] = vars.assetAmountToReallocateFrom5115; // Expected assets from 5115 redeem
         vars.expectedAssetsOrSharesOut[1] =
             Mock4626Vault(test11_Allocate_NewYieldSource).convertToShares(vars.assetAmountToReallocateFrom5115); // Expected
-            // shares from 4626 deposit
+        // shares from 4626 deposit
 
         vars.argsForProofs = new bytes[](2);
         vars.argsForProofs[0] = ISuperHookInspector(vars.hooksAddresses[0]).inspect(vars.hooksData[0]);
@@ -1107,8 +1098,9 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vars.expectedAssetsOrSharesOut = new uint256[](2);
         vars.expectedAssetsOrSharesOut[0] = vars.assetAmountToReallocateFrom5115; // Expected assets from 4626 redeem
         vars.expectedAssetsOrSharesOut[1] =
-            pendleEthena.previewDeposit(address(asset5115), vars.assetAmountToReallocateFrom5115); // Expected shares from
-            // 5115 deposit
+            pendleEthena.previewDeposit(address(asset5115), vars.assetAmountToReallocateFrom5115); // Expected shares
+        // from
+        // 5115 deposit
 
         vars.argsForProofs = new bytes[](2);
         vars.argsForProofs[0] = ISuperHookInspector(vars.hooksAddresses[0]).inspect(vars.hooksData[0]);

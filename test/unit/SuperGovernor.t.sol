@@ -98,8 +98,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
                         performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
-                    }),
-                    maxUnpauseTimeLock: 0
+                    })
                 })
             );
         strategy1 = strategy;
@@ -108,6 +107,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
         vm.stopPrank();
     }
 
@@ -164,15 +164,21 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests that only GOVERNOR_ROLE can call GOVERNOR_ROLE functions.
     function test_Role_GovernorOnlyFunctions() public {
+        // Setup validator config
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
         vm.prank(sGovernor); // Admin has SUPER_GOVERNOR_ROLE but not GOVERNOR_ROLE by default
         // Expected role hash for GOVERNOR_ROLE
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
         );
-        superGovernor.addValidator(validator1);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
 
         vm.prank(governor);
-        superGovernor.addValidator(validator1); // Should succeed
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, ""); // Should succeed
     }
 
     // =============================================================
@@ -217,6 +223,21 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_AddressRegistry_GetAddress_Revert_NotFound() public {
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.getAddress(keccak256("NON_EXISTENT"));
+    }
+
+    // =============================================================
+    // Getters Tests
+    // =============================================================
+    function test_RoleGetters() public view {
+        assertEq(superGovernor.SUPER_GOVERNOR_ROLE(), keccak256("SUPER_GOVERNOR_ROLE"));
+        assertEq(superGovernor.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
+        assertEq(superGovernor.ORACLE_MANAGER_ROLE(), keccak256("ORACLE_MANAGER_ROLE"));
+        assertEq(superGovernor.GUARDIAN_ROLE(), keccak256("GUARDIAN_ROLE"));
+    }
+
+    function test_IsGuardian() public view {
+        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
     // =============================================================
@@ -394,84 +415,411 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertTrue(hooks[0] == hook2 || hooks[1] == hook2, "hook2 should be in the list");
     }
 
+    function test_ChangeHooksRootUpdateTimelock() public {
+        vm.prank(sGovernor);
+        superGovernor.changeHooksRootUpdateTimelock(100);
+        uint256 timelock = aggregator.getHooksRootUpdateTimelock();
+        assertEq(timelock, 100, "Timelock should be 100");
+    }
+
+    function test_SetGlobalHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setGlobalHooksRootVetoStatus(true);
+        bool vetoed = aggregator.isGlobalHooksRootVetoed();
+        assertTrue(vetoed, "Global hooks should be vetoed");
+    }
+
+    function test_SetStrategyHooksVetoStatus() public {
+        vm.prank(governor);
+        superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
+        bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
+        assertTrue(vetoed, "Strategy hooks should be vetoed");
+    }
+
     // =============================================================
     // Validator Management Tests
     // =============================================================
 
-    /// @notice Tests adding a validator
-    function test_ValidatorManagement_AddValidator() public {
+    /// @notice Tests setting validator configuration
+    function test_ValidatorManagement_SetValidatorConfig() public {
+        // Setup validator config
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
         vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorAdded(validator1, block.timestamp);
-        superGovernor.addValidator(validator1);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(1, validators, validatorPublicKeys, 1, "");
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
 
         assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
-        address[] memory validators = superGovernor.getValidators();
-        assertEq(validators.length, 1, "Should have 1 validator");
-        assertEq(validators[0], validator1, "Validator in list should match");
+        address[] memory validatorsList = superGovernor.getValidators();
+        assertEq(validatorsList.length, 1, "Should have 1 validator");
+        assertEq(validatorsList[0], validator1, "Validator in list should match");
     }
 
-    /// @notice Tests reverting when adding a validator with zero address
-    function test_ValidatorManagement_Revert_ZeroAddress() public {
+    /// @notice Tests getting validators by index using getValidatorAt
+    function test_ValidatorManagement_GetValidatorAt() public {
+        // Setup validators config with two validators
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+
         vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.addValidator(address(0));
-    }
-
-    /// @notice Tests reverting when adding an already registered validator
-    function test_ValidatorManagement_Revert_AlreadyRegistered() public {
-        // Add validator first
-        vm.prank(governor);
-        superGovernor.addValidator(validator1);
-
-        // Try to add again
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.VALIDATOR_ALREADY_REGISTERED.selector);
-        superGovernor.addValidator(validator1);
-    }
-
-    /// @notice Tests removing a validator
-    function test_ValidatorManagement_RemoveValidator() public {
-        // Add validator first
-        vm.prank(governor);
-        superGovernor.addValidator(validator1);
-
-        // Remove validator
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.ValidatorRemoved(validator1, block.timestamp);
-        superGovernor.removeValidator(validator1);
-
-        assertFalse(superGovernor.isValidator(validator1), "Validator should be removed");
-        address[] memory validators = superGovernor.getValidators();
-        assertEq(validators.length, 0, "Should have 0 validators");
-    }
-
-    /// @notice Tests reverting when removing a non-existent validator
-    function test_ValidatorManagement_Revert_NotRegistered() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.VALIDATOR_NOT_REGISTERED.selector);
-        superGovernor.removeValidator(validator1);
-    }
-
-    /// @notice Tests removing a validator when multiple validators exist
-    function test_ValidatorManagement_RemoveValidatorWithMultiple() public {
-        // Add two validators
-        vm.startPrank(governor);
-        superGovernor.addValidator(validator1);
-        superGovernor.addValidator(validator2);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 2, "");
         vm.stopPrank();
 
-        // Remove the first validator
+        // Verify count
+        uint256 count = superGovernor.getValidatorsCount();
+        assertEq(count, 2, "Should have 2 validators");
+
+        // Get validators by index
+        address validatorAt0 = superGovernor.getValidatorAt(0);
+        address validatorAt1 = superGovernor.getValidatorAt(1);
+
+        // Verify both validators are accessible
+        assertTrue(
+            validatorAt0 == validator1 || validatorAt0 == validator2, "Index 0 should be validator1 or validator2"
+        );
+        assertTrue(
+            validatorAt1 == validator1 || validatorAt1 == validator2, "Index 1 should be validator1 or validator2"
+        );
+        assertTrue(validatorAt0 != validatorAt1, "Validators at different indices should be different");
+
+        // Verify we can access each validator
+        assertTrue(superGovernor.isValidator(validatorAt0), "Validator at index 0 should be registered");
+        assertTrue(superGovernor.isValidator(validatorAt1), "Validator at index 1 should be registered");
+
+        // Test that out-of-bounds index reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(2);
+
+        // Test that large out-of-bounds index also reverts
+        vm.expectRevert();
+        superGovernor.getValidatorAt(999);
+    }
+
+    /// @notice Tests reverting when setting validator config with zero address
+    function test_ValidatorManagement_Revert_ZeroAddress() public {
+        address[] memory validators = new address[](1);
+        validators[0] = address(0);
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
         vm.prank(governor);
-        superGovernor.removeValidator(validator1);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+    }
+
+    /// @notice Tests reverting when adding duplicate validators in config
+    function test_ValidatorManagement_Revert_DuplicateValidators() public {
+        // Try to add duplicate validators in the same config
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator1; // duplicate
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.VALIDATOR_ALREADY_REGISTERED.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 2, "");
+    }
+
+    /// @notice Tests removing validators by updating config
+    function test_ValidatorManagement_RemoveValidatorByConfig() public {
+        // Add validator first
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+        assertTrue(superGovernor.isValidator(validator1), "Validator should be added");
+
+        // Remove validator by setting empty config
+        address[] memory emptyValidators = new address[](1);
+        emptyValidators[0] = validator2; // Different validator
+        bytes[] memory emptyKeys = new bytes[](1);
+        emptyKeys[0] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(2, emptyValidators, emptyKeys, 1, "");
+
+        assertFalse(superGovernor.isValidator(validator1), "Validator1 should be removed");
+        assertTrue(superGovernor.isValidator(validator2), "Validator2 should be added");
+    }
+
+    /// @notice Tests updating validator config with multiple validators
+    function test_ValidatorManagement_UpdateConfigWithMultiple() public {
+        // Set initial config with two validators
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+
+        vm.startPrank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 2, "");
+        vm.stopPrank();
+
+        // Update config to remove the first validator
+        address[] memory newValidators = new address[](1);
+        newValidators[0] = validator2;
+        bytes[] memory newKeys = new bytes[](1);
+        newKeys[0] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(2, newValidators, newKeys, 1, "");
 
         assertFalse(superGovernor.isValidator(validator1), "validator1 should be removed");
         assertTrue(superGovernor.isValidator(validator2), "validator2 should still be registered");
 
-        address[] memory validators = superGovernor.getValidators();
-        assertEq(validators.length, 1, "Should have 1 validator remaining");
-        assertEq(validators[0], validator2, "Remaining validator should be validator2");
+        address[] memory validatorsList = superGovernor.getValidators();
+        assertEq(validatorsList.length, 1, "Should have 1 validator remaining");
+        assertEq(validatorsList[0], validator2, "Remaining validator should be validator2");
+    }
+
+    /// @notice Tests reverting when trying to set empty validator array
+    function test_ValidatorManagement_Revert_EmptyValidatorArray() public {
+        address[] memory emptyValidators = new address[](0);
+        bytes[] memory emptyKeys = new bytes[](0);
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.EMPTY_VALIDATOR_ARRAY.selector);
+        superGovernor.setValidatorConfig(1, emptyValidators, emptyKeys, 0, "");
+    }
+
+    /// @notice Tests reverting when validator and public key array lengths mismatch
+    function test_ValidatorManagement_Revert_ArrayLengthMismatch() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](1); // Length mismatch
+        validatorPublicKeys[0] = "";
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.ARRAY_LENGTH_MISMATCH.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+    }
+
+    /// @notice Tests reverting when quorum exceeds validator count
+    function test_ValidatorManagement_Revert_QuorumExceedsValidators() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 3, ""); // quorum > validators
+    }
+
+    /// @notice Tests edge case where quorum equals validator count
+    function test_ValidatorManagement_QuorumEqualsValidators() public {
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = address(0x123);
+
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 3, ""); // quorum == validators
+
+        assertEq(superGovernor.getPPSOracleQuorum(), 3, "Quorum should equal validator count");
+        assertEq(superGovernor.getValidatorsCount(), 3, "Should have 3 validators");
+    }
+
+    /// @notice Tests edge case with quorum of 1
+    function test_ValidatorManagement_MinimumQuorum() public {
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = address(0x123);
+
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, ""); // minimum quorum
+
+        assertEq(superGovernor.getPPSOracleQuorum(), 1, "Quorum should be 1");
+    }
+
+    /// @notice Tests version tracking across multiple config updates
+    function test_ValidatorManagement_VersionTracking() public {
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+
+        // Set version 1
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, "");
+
+        (uint256 version1,,,) = superGovernor.getValidatorConfig();
+        assertEq(version1, 1, "Version should be 1");
+
+        // Update to version 5
+        validators[0] = validator2;
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(5, validators, validatorPublicKeys, 1, "");
+
+        (uint256 version2,,,) = superGovernor.getValidatorConfig();
+        assertEq(version2, 5, "Version should be 5");
+    }
+
+    /// @notice Tests public keys storage and retrieval
+    function test_ValidatorManagement_PublicKeysStorage() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = hex"abcdef";
+        validatorPublicKeys[1] = hex"123456";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 2, "");
+
+        (,, bytes[] memory storedKeys,) = superGovernor.getValidatorConfig();
+        assertEq(storedKeys.length, 2, "Should have 2 public keys");
+        assertEq(storedKeys[0], validatorPublicKeys[0], "First public key should match");
+        assertEq(storedKeys[1], validatorPublicKeys[1], "Second public key should match");
+    }
+
+    /// @notice Tests offchain config parameter emission (not stored)
+    function test_ValidatorManagement_OffchainConfigEmission() public {
+        address[] memory validators = new address[](1);
+        validators[0] = validator1;
+        bytes[] memory validatorPublicKeys = new bytes[](1);
+        validatorPublicKeys[0] = "";
+        bytes memory offchainConfig = hex"deadbeef";
+
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(1, validators, validatorPublicKeys, 1, offchainConfig);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, offchainConfig);
+
+        // Offchain config is not stored, only emitted
+        // We verify it was emitted via the expectEmit above
+    }
+
+    /// @notice Tests that old validators are properly cleared when setting new config
+    function test_ValidatorManagement_ValidatorClearing() public {
+        // Set initial config with 3 validators
+        address[] memory validators1 = new address[](3);
+        validators1[0] = validator1;
+        validators1[1] = validator2;
+        validators1[2] = address(0x123);
+        bytes[] memory validatorPublicKeys1 = new bytes[](3);
+        validatorPublicKeys1[0] = "";
+        validatorPublicKeys1[1] = "";
+        validatorPublicKeys1[2] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators1, validatorPublicKeys1, 2, "");
+
+        assertEq(superGovernor.getValidatorsCount(), 3, "Should have 3 validators");
+        assertTrue(superGovernor.isValidator(validator1), "validator1 should be registered");
+        assertTrue(superGovernor.isValidator(validator2), "validator2 should be registered");
+
+        // Replace with single validator
+        address[] memory validators2 = new address[](1);
+        validators2[0] = address(0x456);
+        bytes[] memory validatorPublicKeys2 = new bytes[](1);
+        validatorPublicKeys2[0] = "";
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(2, validators2, validatorPublicKeys2, 1, "");
+
+        // Verify old validators are cleared
+        assertEq(superGovernor.getValidatorsCount(), 1, "Should have 1 validator");
+        assertFalse(superGovernor.isValidator(validator1), "validator1 should be cleared");
+        assertFalse(superGovernor.isValidator(validator2), "validator2 should be cleared");
+        assertFalse(superGovernor.isValidator(address(0x123)), "validator3 should be cleared");
+        assertTrue(superGovernor.isValidator(address(0x456)), "New validator should be registered");
+    }
+
+    /// @notice Tests setting validator config with a large validator set
+    function test_ValidatorManagement_LargeValidatorSet() public {
+        uint256 validatorCount = 50;
+        address[] memory validators = new address[](validatorCount);
+        bytes[] memory validatorPublicKeys = new bytes[](validatorCount);
+
+        for (uint256 i = 0; i < validatorCount; i++) {
+            validators[i] = address(uint160(1000 + i));
+            validatorPublicKeys[i] = "";
+        }
+
+        vm.prank(governor);
+        superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 25, "");
+
+        assertEq(superGovernor.getValidatorsCount(), validatorCount, "Should have 50 validators");
+        assertEq(superGovernor.getPPSOracleQuorum(), 25, "Quorum should be 25");
+
+        // Verify a few validators are registered
+        assertTrue(superGovernor.isValidator(validators[0]), "First validator should be registered");
+        assertTrue(superGovernor.isValidator(validators[25]), "Middle validator should be registered");
+        assertTrue(superGovernor.isValidator(validators[49]), "Last validator should be registered");
+    }
+
+    /// @notice Tests that ValidatorConfigSet event is emitted with quorum included
+    function test_ValidatorManagement_EventEmissionWithQuorum() public {
+        address[] memory validators = new address[](2);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        bytes[] memory validatorPublicKeys = new bytes[](2);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        uint256 quorum = 2;
+        uint256 version = 1;
+
+        vm.prank(governor);
+        // Verify that ValidatorConfigSet event includes quorum parameter
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(version, validators, validatorPublicKeys, quorum, "");
+        superGovernor.setValidatorConfig(version, validators, validatorPublicKeys, quorum, "");
+
+        // Verify state was updated correctly
+        assertEq(superGovernor.getPPSOracleQuorum(), quorum, "Quorum should be updated");
+        assertEq(superGovernor.getValidatorsCount(), 2, "Should have 2 validators");
+    }
+
+    // =============================================================
+    // Emergency Price Tests
+    // =============================================================
+    function test_SetEmergencyPrice() public {
+        uint256 emergencyPrice = 1e18;
+
+        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        // Set the oracle in the registry
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(oracle));
+
+        vm.prank(governor);
+        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
+
+        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
     }
 
     // =============================================================
@@ -490,6 +838,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         (address proposedOracle, uint256 effectiveTime) = superGovernor.getProposedActivePPSOracle();
         assertEq(proposedOracle, ppsOracle1, "Proposed PPS Oracle address mismatch");
         assertEq(effectiveTime, expectedTime, "Effective time mismatch");
+    }
+
+    function test_SetActivePPSOracle_Revert_MustUseTimelock() public {
+        vm.startPrank(sGovernor);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.expectRevert(ISuperGovernor.MUST_USE_TIMELOCK_FOR_CHANGE.selector);
+        superGovernor.setActivePPSOracle(ppsOracle1);
+        vm.stopPrank();
     }
 
     /// @notice Tests reverting when proposing a PPS Oracle with zero address
@@ -538,14 +894,38 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.executeActivePPSOracleChange();
     }
 
-    /// @notice Tests setting the PPS Oracle quorum
-    function test_PPSOracleManagement_SetPPSOracleQuorum() public {
-        uint256 newQuorum = 3;
+    /// @notice Tests setting the validator configuration including quorum
+    function test_ValidatorManagement_SetValidatorConfigWithQuorum() public {
+        // Setup validators
+        address[] memory validators = new address[](3);
+        validators[0] = address(0x1);
+        validators[1] = address(0x2);
+        validators[2] = address(0x3);
 
+        bytes[] memory validatorPublicKeys = new bytes[](3);
+        validatorPublicKeys[0] = "";
+        validatorPublicKeys[1] = "";
+        validatorPublicKeys[2] = "";
+
+        uint256 newQuorum = 2;
+        uint256 version = 1;
+
+        // Test invalid quorum (0)
         vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.PPSOracleQuorumUpdated(newQuorum);
-        superGovernor.setPPSOracleQuorum(newQuorum);
+        vm.expectRevert(ISuperGovernor.INVALID_QUORUM.selector);
+        superGovernor.setValidatorConfig(
+            version,
+            validators,
+            validatorPublicKeys,
+            0, // invalid quorum
+            ""
+        );
+
+        // Test valid configuration
+        vm.prank(governor);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperGovernor.ValidatorConfigSet(version, validators, validatorPublicKeys, newQuorum, "");
+        superGovernor.setValidatorConfig(version, validators, validatorPublicKeys, newQuorum, "");
 
         assertEq(superGovernor.getPPSOracleQuorum(), newQuorum, "PPS Oracle quorum mismatch");
     }
@@ -754,217 +1134,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         return false;
     }
 
-    // =============================================================
-    // Slash Stake Validation Tests
-    // =============================================================
-    /// @notice Tests successful stake slashing
-    function test_SlashStake_Success() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 slashAmount = 200e18;
-        uint256 remainingStake = stakeAmount - slashAmount;
-
-        // Setup: Deposit stake first
-        upToken.mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Record initial SuperBank balance
-        uint256 initialBankBalance = upToken.balanceOf(superBank);
-
-        // SuperGovernor slashes stake
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperVaultAggregator.StakeSlashed(manager, slashAmount);
-        superGovernor.slashStake(manager, slashAmount);
-
-        // Verify balances
-        assertEq(aggregator.getStakeBalance(manager), remainingStake, "Manager stake should be reduced");
-        assertEq(
-            upToken.balanceOf(superBank), initialBankBalance + slashAmount, "SuperBank should receive slashed tokens"
-        );
-        assertEq(upToken.balanceOf(address(aggregator)), remainingStake, "Contract should hold remaining stake");
-    }
-
-    /// @notice Tests complete stake slashing
-    function test_SlashStake_CompleteSlashing() public {
-        uint256 stakeAmount = 1000e18;
-
-        // Setup: Deposit stake first
-        upToken.mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // SuperGovernor slashes all stake
-        vm.prank(governor);
-        superGovernor.slashStake(manager, stakeAmount);
-
-        // Verify balances
-        assertEq(aggregator.getStakeBalance(manager), 0, "Manager stake should be zero");
-        assertEq(upToken.balanceOf(superBank), stakeAmount, "SuperBank should receive all slashed tokens");
-    }
-
-    /// @notice Tests slashing reverts when called by non-governor
-    function test_SlashStake_RevertUnauthorized() public {
-        uint256 stakeAmount = 1000e18;
-
-        // Setup: Deposit stake first
-        upToken.mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Test various unauthorized callers
-        vm.prank(manager);
-        vm.expectRevert();
-        superGovernor.slashStake(manager, 100e18);
-
-        vm.prank(user);
-        vm.expectRevert();
-        superGovernor.slashStake(manager, 100e18);
-
-        vm.prank(sGovernor);
-        vm.expectRevert();
-        superGovernor.slashStake(manager, 100e18);
-    }
-
-    /// @notice Tests slashing reverts when SuperVaultAggregator is not set
-    function test_SlashStake_RevertContractNotFound() public {
-        // Deploy a new SuperGovernor with valid addresses but without setting the aggregator
-        SuperGovernor newSuperGovernor = new SuperGovernor(
-            sGovernor,
-            governor,
-            governor, // bankManager (using governor as valid address)
-            governor, // gasManager (using governor as valid address)s
-            treasury
-        );
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        newSuperGovernor.slashStake(manager, 100e18);
-    }
-
-    /// @notice Tests slashing reverts with zero address manager
-    function test_SlashStake_RevertZeroAddress() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superGovernor.slashStake(address(0), 100e18);
-    }
-
-    /// @notice Tests slashing reverts with insufficient stake balance
-    function test_SlashStake_PartialSlashWhenInsufficient() public {
-        uint256 stakeAmount = 500e18;
-        uint256 slashAmount = 1000e18;
-
-        // Setup: Deposit smaller stake
-        upToken.mint(manager, stakeAmount);
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        // Get SuperBank balance before
-        address superBankAddr = superGovernor.getAddress(superGovernor.SUPER_BANK());
-        uint256 superBankBalanceBefore = upToken.balanceOf(superBankAddr);
-
-        // Try to slash more than available - should slash only what's available
-        vm.prank(governor);
-        vm.expectEmit(true, true, true, true);
-        emit ISuperVaultAggregator.StakeSlashed(manager, stakeAmount); // Only stakeAmount is slashed
-        superGovernor.slashStake(manager, slashAmount);
-
-        // Verify only available amount was slashed
-        assertEq(aggregator.getStakeBalance(manager), 0, "All stake should be slashed");
-        assertEq(
-            upToken.balanceOf(superBankAddr),
-            superBankBalanceBefore + stakeAmount,
-            "SuperBank should receive available amount"
-        );
-    }
-
-    /// @notice Tests slashing reverts when no stake deposited
-    function test_SlashStake_RevertNoStake() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
-        superGovernor.slashStake(manager, 100e18);
-    }
-
-    /// @notice Tests slashing with multiple managers
-    function test_SlashStake_MultipleManagers() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 slashAmount = 200e18;
-        address manager2 = _deployAccount(0x9, "Manager2");
-
-        // Setup: Deposit stake for both managers
-        upToken.mint(manager, stakeAmount);
-        upToken.mint(manager2, stakeAmount);
-
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        vm.stopPrank();
-
-        vm.startPrank(manager2);
-        upToken.approve(address(superVaultAggregator), stakeAmount);
-        aggregator.depositStake(manager2, stakeAmount);
-        vm.stopPrank();
-
-        // Slash only first manager's stake
-        vm.prank(governor);
-        superGovernor.slashStake(manager, slashAmount);
-
-        // Verify only first manager was slashed
-        assertEq(
-            aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "First manager stake should be reduced"
-        );
-        assertEq(aggregator.getStakeBalance(manager2), stakeAmount, "Second manager stake should be unchanged");
-    }
-
-    /// @notice Tests stake and upkeep systems are independent
-    function test_SlashStake_StakeUpkeepIndependence() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 upkeepAmount = 500e18;
-
-        // Mint tokens to manager
-        upToken.mint(manager, stakeAmount + upkeepAmount);
-
-        // Deposit both stake and upkeep
-        vm.startPrank(manager);
-        upToken.approve(address(superVaultAggregator), stakeAmount + upkeepAmount);
-        aggregator.depositStake(manager, stakeAmount);
-        ISuperVaultAggregator(superVaultAggregator).depositUpkeep(manager, upkeepAmount);
-        vm.stopPrank();
-
-        // Verify independent balances
-        assertEq(aggregator.getStakeBalance(manager), stakeAmount, "Stake balance should be independent");
-        assertEq(
-            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
-            upkeepAmount,
-            "Upkeep balance should be independent"
-        );
-
-        // Slash stake - should not affect upkeep
-        uint256 slashAmount = 300e18;
-        vm.prank(governor);
-        superGovernor.slashStake(manager, slashAmount);
-
-        // Verify only stake was affected
-        assertEq(
-            ISuperVaultAggregator(superVaultAggregator).getStakeBalance(manager),
-            stakeAmount - slashAmount,
-            "Only stake should be reduced"
-        );
-        assertEq(
-            ISuperVaultAggregator(superVaultAggregator).getUpkeepBalance(manager),
-            upkeepAmount,
-            "Upkeep should be unchanged"
-        );
-        assertEq(aggregator.getStakeBalance(manager), stakeAmount - slashAmount, "Only stake should be reduced");
-    }
 
     // =============================================================
     // SuperBank Hook Merkle Root Tests
@@ -1065,7 +1234,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         vm.prank(sGovernor);
         vm.expectEmit(true, true, false, false);
-        emit ISuperGovernor.MinStalenesProposed(newMinStaleness, expectedTime);
+        emit ISuperGovernor.MinStalenessProposed(newMinStaleness, expectedTime);
         superGovernor.proposeMinStaleness(newMinStaleness);
 
         (uint256 proposedMinStaleness, uint256 effectiveTime) = superGovernor.getProposedMinStaleness();
@@ -1114,7 +1283,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Execute the change
         vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.MinStalenesChanged(newMinStaleness);
+        emit ISuperGovernor.MinStalenessChanged(newMinStaleness);
         superGovernor.executeMinStalenesChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
@@ -1708,6 +1877,19 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
     }
+
+    function test_ExecuteOracleProviderRemoval() public { }
+
+    function test_QueueOracleProviderRemoval() public {
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = keccak256("PROVIDER1");
+
+        vm.prank(governor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.queueOracleProviderRemoval(providers);
+
+        // TODO: success flow
+    }
 }
 
 // =============================================================
@@ -1729,7 +1911,17 @@ contract MockSuperOracleForStaleness {
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
 
-    function setMaxStaleness(uint256 newMaxStaleness) external {
+    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
+
+    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
+        emergencyPrices[token] = emergencyPrice;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return emergencyPrices[token];
+    }
+
+    function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
     }
 

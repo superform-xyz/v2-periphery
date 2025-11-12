@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
 // external
@@ -25,8 +25,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     mapping(bytes32 id => address address_) private _addressRegistry;
 
     // PPS Oracle management
-    // Active PPS Oracle quorum requirement
-    uint256 private _activePPSOracleQuorum;
     // Current active PPS Oracle
     address private _activePPSOracle;
     // Proposed new active PPS Oracle
@@ -43,23 +41,24 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     // Global freeze for manager takeovers
     bool private _managerTakeoversFrozen;
 
-    // Validator registry
-    EnumerableSet.AddressSet private _validators;
+    // Validator configuration struct
+    struct ValidatorConfig {
+        uint256 version;
+        EnumerableSet.AddressSet validators;
+        bytes[] validatorPublicKeys;
+        uint256 quorum;
+    }
 
-    // Latest validator config block number (updated when validators are added/removed)
-    // it is used offchain for validator network to maintain sync between validators for config version to be used
-    uint256 private _latestValidatorConfigBlockNumber;
+    // Validator configuration
+    ValidatorConfig private _validatorConfig;
 
-    // Executor registry
-    EnumerableSet.AddressSet private _executors;
-
-    // Fee management
-    // Current fee values
-    mapping(FeeType type_ => uint256 value) private _feeValues;
-    // Proposed fee values
-    mapping(FeeType type_ => uint256 proposedValue) private _proposedFeeValues;
-    // Effective times for proposed fee updates
-    mapping(FeeType type_ => uint256 effectiveTime) private _feeEffectiveTimes;
+    // Fee management - packed struct for gas optimization
+    struct FeeData {
+        uint128 value; // Current fee value (BPS, max 10000)
+        uint128 proposedValue; // Proposed fee value
+        uint256 effectiveTime; // Timestamp when proposed value becomes effective
+    }
+    mapping(FeeType => FeeData) private _feeData;
 
     mapping(address _oracle => uint256 _entryGas) private _gasPerEntry;
 
@@ -76,14 +75,20 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     uint256 private _proposedMinStaleness;
     uint256 private _minStalenessEffectiveTime;
 
-    // Oracle constants
+    // Oracle constants for price conversions in _convertGasToUp()
+    // Standard ERC-7281 address for native token (ETH)
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    // ISO 4217 numeric code for USD (840)
     address private constant USD_TOKEN = address(840);
+    // Synthetic address for gas units in oracle pricing
     address private constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
-    address private constant GWEI_QUOTE = address(uint160(uint256(keccak256("GWEI_QUOTE"))));
+    // Synthetic address for wei units in oracle pricing
+    address private constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
+    // Provider identifier for averaged oracle prices
     bytes32 private constant AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
     // Timelock configuration
+    // 7-day timelock for critical parameter changes (standard governance delay)
     uint256 private constant TIMELOCK = 7 days;
     uint256 private constant BPS_MAX = 10_000; // 100% in basis points
 
@@ -97,7 +102,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
-    bytes32 public constant SUP = keccak256("SUP");
+    bytes32 public constant SUP_STRATEGY = keccak256("SUP_STRATEGY");
     bytes32 public constant TREASURY = keccak256("TREASURY");
     bytes32 public constant SUPER_BANK = keccak256("SUPER_BANK");
     bytes32 public constant SUPER_ORACLE = keccak256("SUPER_ORACLE");
@@ -142,8 +147,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _setRoleAdmin(_ORACLE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
 
         // Initialize with default fees
-        _feeValues[FeeType.REVENUE_SHARE] = REVENUE_SHARE; // 0% revenue share (changeable via governance)
-        _feeValues[FeeType.PERFORMANCE_FEE_SHARE] = PERFORMANCE_FEE_SHARE; // 50% protocol fee share
+        // casting to 'uint128' is safe because REVENUE_SHARE and PERFORMANCE_FEE_SHARE are constants < BPS_MAX (10000)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _feeData[FeeType.REVENUE_SHARE].value = uint128(REVENUE_SHARE); // 0% revenue share (changeable via governance)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _feeData[FeeType.PERFORMANCE_FEE_SHARE].value = uint128(PERFORMANCE_FEE_SHARE); // 50% protocol fee share
         emit FeeUpdated(FeeType.REVENUE_SHARE, REVENUE_SHARE);
         emit FeeUpdated(FeeType.PERFORMANCE_FEE_SHARE, PERFORMANCE_FEE_SHARE);
 
@@ -151,8 +159,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _addressRegistry[TREASURY] = treasury;
         emit AddressSet(TREASURY, address(0), treasury);
 
-        // Initialize minimum staleness (5 minutes to prevent extremely low staleness values)
-        _minStaleness = 300; // 5 minutes in seconds
+        // Initialize minimum staleness to 5 minutes (300 seconds)
+        // Prevents oracle manipulation via extremely low staleness values
+        // Ensures sufficient time for price feed updates across providers
+        _minStaleness = 300;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -200,6 +210,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
         if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
 
+        // Note: Zero timelock is intentionally allowed for SUPER_GOVERNOR_ROLE
+        // to enable immediate hook updates in emergency situations
         // Call the SuperVaultAggregator to change the hooks root update timelock
         ISuperVaultAggregator(aggregator).setHooksRootUpdateTimelock(newTimelock);
     }
@@ -236,7 +248,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
-        ISuperOracle(oracle).setMaxStaleness(newMaxStaleness);
+        ISuperOracle(oracle).setDefaultStaleness(newMaxStaleness);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -360,46 +372,51 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EXECUTORS MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function addExecutor(address executor) external onlyRole(_GOVERNOR_ROLE) {
-        if (executor == address(0)) revert INVALID_ADDRESS();
-        if (!_executors.add(executor)) revert EXECUTOR_ALREADY_REGISTERED();
-
-        emit ExecutorAdded(executor);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function removeExecutor(address executor) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_executors.remove(executor)) revert EXECUTOR_NOT_REGISTERED();
-
-        emit ExecutorRemoved(executor);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         VALIDATOR MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function addValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
-        if (validator == address(0)) revert INVALID_ADDRESS();
-        if (!_validators.add(validator)) revert VALIDATOR_ALREADY_REGISTERED();
-        uint256 blockNumber = block.number;
-        // Update latest validator config block number
-        _latestValidatorConfigBlockNumber = blockNumber;
+    // version is provided as param and not incremented in the function to sync config versions across chains
+    // offchainConfig is not stored and simply emitted to create source for offchain validators to sync on
+    function setValidatorConfig(
+        uint256 version,
+        address[] calldata validators,
+        bytes[] calldata validatorPublicKeys,
+        uint256 quorum,
+        bytes calldata offchainConfig
+    )
+        external
+        onlyRole(_GOVERNOR_ROLE)
+    {
+        uint256 validatorsLength = validators.length;
+        uint256 validatorPublicKeysLength = validatorPublicKeys.length;
+        // Validate inputs
+        if (validatorsLength == 0) revert EMPTY_VALIDATOR_ARRAY();
+        if (validatorsLength != validatorPublicKeysLength) revert ARRAY_LENGTH_MISMATCH();
+        if (quorum == 0 || quorum > validatorsLength) revert INVALID_QUORUM();
 
-        emit ValidatorAdded(validator, blockNumber);
-    }
+        // Clear existing validators
+        uint256 oldLength = _validatorConfig.validators.length();
+        for (uint256 i; i < oldLength; i++) {
+            _validatorConfig.validators.remove(_validatorConfig.validators.at(0));
+        }
 
-    /// @inheritdoc ISuperGovernor
-    function removeValidator(address validator) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_validators.remove(validator)) revert VALIDATOR_NOT_REGISTERED();
-        uint256 blockNumber = block.number;
+        // Add new validators and validate no duplicates
+        for (uint256 i; i < validatorsLength; i++) {
+            if (validators[i] == address(0)) revert INVALID_ADDRESS();
+            if (!_validatorConfig.validators.add(validators[i])) revert VALIDATOR_ALREADY_REGISTERED();
+        }
 
-        // Update latest validator config block number
-        _latestValidatorConfigBlockNumber = blockNumber;
+        // Update config tracking
+        _validatorConfig.version = version;
+        _validatorConfig.quorum = quorum;
 
-        emit ValidatorRemoved(validator, blockNumber);
+        // Store public keys
+        delete _validatorConfig.validatorPublicKeys;
+        for (uint256 i; i < validatorPublicKeysLength; i++) {
+            _validatorConfig.validatorPublicKeys.push(validatorPublicKeys[i]);
+        }
+
+        emit ValidatorConfigSet(_validatorConfig.version, validators, validatorPublicKeys, quorum, offchainConfig);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -448,14 +465,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setPPSOracleQuorum(uint256 quorum) external onlyRole(_GOVERNOR_ROLE) {
-        if (quorum == 0) revert INVALID_QUORUM();
-
-        _activePPSOracleQuorum = quorum;
-        emit PPSOracleQuorumUpdated(quorum);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function executeOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -470,28 +479,32 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     function proposeFee(FeeType feeType, uint256 value) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (value > BPS_MAX) revert INVALID_FEE_VALUE();
 
-        _proposedFeeValues[feeType] = value;
-        _feeEffectiveTimes[feeType] = block.timestamp + TIMELOCK;
+        FeeData storage feeData = _feeData[feeType];
+        // casting to 'uint128' is safe because value is validated to be <= BPS_MAX (10000)
+        // forge-lint: disable-next-line(unsafe-typecast)
+        feeData.proposedValue = uint128(value);
+        feeData.effectiveTime = block.timestamp + TIMELOCK;
 
-        emit FeeProposed(feeType, value, _feeEffectiveTimes[feeType]);
+        emit FeeProposed(feeType, value, feeData.effectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
     function executeFeeUpdate(FeeType feeType) external {
-        uint256 effectiveTime = _feeEffectiveTimes[feeType];
+        FeeData storage feeData = _feeData[feeType];
+        uint256 effectiveTime = feeData.effectiveTime;
         if (effectiveTime == 0) revert NO_PROPOSED_FEE(feeType);
         if (block.timestamp < effectiveTime) {
             revert TIMELOCK_NOT_EXPIRED();
         }
 
-        // Update the fee value
-        _feeValues[feeType] = _proposedFeeValues[feeType];
+        // Update the fee value from proposed
+        feeData.value = feeData.proposedValue;
 
         // Reset proposal data
-        delete _proposedFeeValues[feeType];
-        delete _feeEffectiveTimes[feeType];
+        feeData.proposedValue = 0;
+        feeData.effectiveTime = 0;
 
-        emit FeeUpdated(feeType, _feeValues[feeType]);
+        emit FeeUpdated(feeType, feeData.value);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -514,6 +527,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit GasInfoSet(oracle, gasIncreasePerEntryBatch);
     }
 
+    /// @inheritdoc ISuperGovernor
     /// @notice Proposes a change to the upkeep payments enabled status
     /// @param enabled The proposed new status for upkeep payments
     function proposeUpkeepPaymentsChange(bool enabled) external onlyRole(_SUPER_GOVERNOR_ROLE) {
@@ -523,6 +537,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit UpkeepPaymentsChangeProposed(enabled, _upkeepPaymentsChangeEffectiveTime);
     }
 
+    /// @inheritdoc ISuperGovernor
     /// @notice Executes a previously proposed change to upkeep payments status after timelock expires
     function executeUpkeepPaymentsChange() external {
         if (_upkeepPaymentsChangeEffectiveTime == 0) revert NO_PENDING_CHANGE();
@@ -543,7 +558,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _proposedMinStaleness = newMinStaleness;
         _minStalenessEffectiveTime = block.timestamp + TIMELOCK;
 
-        emit MinStalenesProposed(newMinStaleness, _minStalenessEffectiveTime);
+        emit MinStalenessProposed(newMinStaleness, _minStalenessEffectiveTime);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -558,7 +573,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _proposedMinStaleness = 0;
         _minStalenessEffectiveTime = 0;
 
-        emit MinStalenesChanged(_minStaleness);
+        emit MinStalenessChanged(_minStaleness);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -577,14 +592,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (!_superformManagers.remove(manager)) revert MANAGER_NOT_REGISTERED();
 
         emit SuperformManagerRemoved(manager);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function slashStake(address manager, uint256 amount) external onlyRole(_GOVERNOR_ROLE) {
-        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
-        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
-
-        ISuperVaultAggregator(aggregator).slashStake(manager, amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -626,9 +633,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         emit SuperBankHookMerkleRootUpdated(hook, proposedRoot);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                      SUPERFORM MANAGER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
     /*//////////////////////////////////////////////////////////////
                          EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -685,13 +689,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function getValidatorConfigVersion() external view returns (uint256) {
-        return _latestValidatorConfigBlockNumber;
+    function getValidatorConfig()
+        external
+        view
+        returns (uint256 version, address[] memory validators, bytes[] memory validatorPublicKeys, uint256 quorum)
+    {
+        return (
+            _validatorConfig.version,
+            _validatorConfig.validators.values(),
+            _validatorConfig.validatorPublicKeys,
+            _validatorConfig.quorum
+        );
     }
 
     /// @inheritdoc ISuperGovernor
     function isValidator(address validator) external view returns (bool) {
-        return _validators.contains(validator);
+        return _validatorConfig.validators.contains(validator);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -700,23 +713,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function isExecutor(address executor) external view returns (bool) {
-        return _executors.contains(executor);
-    }
-
-    /// @inheritdoc ISuperGovernor
     function getValidators() external view returns (address[] memory) {
-        return _validators.values();
+        return _validatorConfig.validators.values();
     }
 
     /// @inheritdoc ISuperGovernor
     function getValidatorsCount() external view returns (uint256) {
-        return _validators.length();
+        return _validatorConfig.validators.length();
     }
 
     /// @inheritdoc ISuperGovernor
-    function getExecutors() external view returns (address[] memory) {
-        return _executors.values();
+    function getValidatorAt(uint256 index) external view returns (address) {
+        return _validatorConfig.validators.at(index);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -726,7 +734,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getPPSOracleQuorum() external view returns (uint256) {
-        return _activePPSOracleQuorum;
+        return _validatorConfig.quorum;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -742,7 +750,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getFee(FeeType feeType) external view returns (uint256) {
-        return _feeValues[feeType];
+        return _feeData[feeType].value;
     }
 
     /// @inheritdoc ISuperGovernor
@@ -824,7 +832,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (realLimit > remaining) realLimit = remaining;
 
         chunkOfManagers = new address[](realLimit);
-        for (uint256 i; i < realLimit; ++i) {
+        for (uint256 i; i < realLimit; i++) {
             chunkOfManagers[i] = _superformManagers.at(cursor + i);
         }
 
@@ -844,6 +852,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Converts gas units to UP token cost using multi-step oracle pricing
+    /// @dev Performs 3 oracle conversions: Gas->ETH, ETH->USD, USD->UP
+    /// @dev Uses AVERAGE_PROVIDER for all price feeds to ensure consistency
+    /// @dev Uses Math.Rounding.Ceil to ensure sufficient upkeep coverage
+    /// @param gasAmount The gas units to convert
+    /// @return requiredUpTokens The equivalent amount in UP tokens (18 decimals)
     function _convertGasToUp(uint256 gasAmount) internal view returns (uint256) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert SUPER_ORACLE_NOT_FOUND();
@@ -852,7 +866,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Step 1: convert gas to ETH
         (uint256 weiAmount,,,) =
-            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, GWEI_QUOTE, AVERAGE_PROVIDER);
+            ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
 
         // Step 2: convert ETH to USD
         (uint256 ethToUsd,,,) =
