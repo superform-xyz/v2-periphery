@@ -100,9 +100,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_requestRedeem_clamped(shares);
 
         vm.warp(block.timestamp + 1 days);
-        ECDSAPPSOracle_updatePPS_clamped(
-            17_300_000_000_000_000_000
-        );
+        ECDSAPPSOracle_updatePPS_clamped(17_300_000_000_000_000_000);
 
         // yieldSource_simulateGain(973_782);
 
@@ -119,7 +117,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_property_sumOfClaimable_5 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/67
     function test_property_sumOfClaimable_5() public {
-
         superVault_deposit(3);
 
         superVault_requestRedeem_clamped(1);
@@ -165,6 +162,25 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_deposit(3000e6);
 
         uint256 shares = superVault.balanceOf(_getActor());
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(approveAndDeposit4626Hook);
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = MockERC4626Tester(yieldSource).previewDeposit(3000e6);
+
+        bytes[] memory hookCalldata = new bytes[](1);
+        hookCalldata[0] = abi.encodePacked(bytes32(0), yieldSource, superVault.asset(), uint256(3000e6), false);
+
+        ISuperVaultStrategy.ExecuteArgs memory executeArgs = ISuperVaultStrategy.ExecuteArgs({
+            hooks: hooks,
+            hookCalldata: hookCalldata,
+            expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+            globalProofs: new bytes32[][](1),
+            strategyProofs: new bytes32[][](1)
+        });
+
+        superVaultStrategy_executeHooks(executeArgs);
 
         vm.warp(block.timestamp + 1 days);
         superVault_requestRedeem_clamped(shares);
@@ -260,7 +276,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         switchActor(0);
         controllers[1] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests(shares0,controllers);
+        superVaultStrategy_fulfillRedeemRequests(shares0, controllers);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;
