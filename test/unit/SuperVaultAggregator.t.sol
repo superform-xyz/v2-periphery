@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
+import { ISuperGovernor } from "../../src/interfaces/ISuperGovernor.sol";
 import { SuperVaultAggregator } from "../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
@@ -823,6 +824,35 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 updateAuthority: address(this)
             })
         );
+    }
+
+    /// @notice Tests that getUpkeepCostPerSingleUpdate reverts when UP token address is not set
+    function test_GetUpkeepCost_RevertsWhenUpTokenNotSet() public {
+        // Create a fresh SuperGovernor without setting the UP token address
+        address freshSGovernor = makeAddr("FreshSuperGovernor");
+        address freshGovernor = makeAddr("FreshGovernor");
+        address freshTreasury = makeAddr("FreshTreasury");
+
+        SuperGovernor freshSuperGovernor = new SuperGovernor(
+            freshSGovernor,
+            freshGovernor,
+            freshGovernor,
+            freshGovernor,
+            freshTreasury
+        );
+
+        // Set the SUPER_ORACLE address (required for _convertGasToUp)
+        bytes32 superOracleKey = freshSuperGovernor.SUPER_ORACLE();
+        vm.prank(freshSGovernor);
+        freshSuperGovernor.setAddress(superOracleKey, superOracle);
+
+        // Set gas info for an oracle (required so _gasPerEntry is not 0)
+        vm.prank(freshGovernor);
+        freshSuperGovernor.setGasInfo(address(this), 100000);
+
+        // Try to get upkeep cost - should revert because UP token is not set
+        vm.expectRevert(ISuperGovernor.UP_NOT_FOUND.selector);
+        freshSuperGovernor.getUpkeepCostPerSingleUpdate(address(this));
     }
 
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
