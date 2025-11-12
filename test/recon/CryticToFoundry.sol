@@ -158,6 +158,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // share calculation in maxRedeem because user doesn't end up redeeming more than their max available
     function test_crytic_erc7540_4_redeem_1() public {
         superVaultStrategy_manageYieldSource_clamped(0);
+        address yieldSource = _getYieldSource();
 
         superVault_deposit(3000e6);
 
