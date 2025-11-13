@@ -114,6 +114,8 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         // Execute all hooks
         this.superVaultStrategy_executeHooks{ value: msg.value }(executeArgs);
+
+        executeHooksClampedSuccess = true;
     }
 
     function _getHookAddressAndCalldata(
