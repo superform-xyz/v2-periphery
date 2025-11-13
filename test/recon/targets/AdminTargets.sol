@@ -294,33 +294,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         executeHooksSuccess = true;
     }
 
-    /// @dev Property: superVaultStrategy does not incur loss on fulfillment
-    function superVaultStrategy_fulfillRedeemRequests(
-        uint256 redeemShares,
-        address[] memory controllers
-    )
-        public
-        updateGhostsWithOpType(OpType.FULFILL)
-    {
-        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        _executeRedeemFulfillment(redeemShares, controllers);
-
-        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
-    }
-
-    function superVaultStrategy_fulfillRedeemRequests_WithLoss(uint256 redeemShares, address[] memory controllers) public {
-        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        _executeRedeemFulfillmentWithLoss(redeemShares, controllers);
-
-        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
-    }
-
     // Functions that require SuperGovernor access
     /// @dev removed because we're bypassing hook validation
     // function superVaultAggregator_setHooksRootUpdateTimelock(
@@ -365,6 +338,41 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
     /// Helpers
 
+    /// @dev Property: superVaultStrategy does not incur loss on fulfillment
+    function superVaultStrategy_fulfillRedeemRequests(
+        uint256 redeemShares,
+        address[] memory controllers
+    )
+        public
+        updateGhostsWithOpType(OpType.FULFILL)
+    {
+        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        _executeRedeemFulfillment(redeemShares, controllers);
+
+        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
+    }
+
+    /// @dev Same as superVaultStrategy_fulfillRedeemRequests but with lowered exepectedAssetsOrSharesOut so that hook
+    /// execution goes through
+    function superVaultStrategy_fulfillRedeemRequests_WithLoss(
+        uint256 lossOnWithdraw,
+        uint256 redeemShares,
+        address[] memory controllers
+    )
+        public
+    {
+        uint256 assetBalanceBefore = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        _executeRedeemFulfillmentWithLoss(lossOnWithdraw, redeemShares, controllers);
+
+        uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+
+        gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
+    }
+
     function _requestedSharesForControllers(address[] memory controllers) internal view returns (uint256) {
         uint256 totalRequested;
         for (uint256 i; i < controllers.length; i++) {
@@ -402,6 +410,7 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     function _executeRedeemFulfillment(uint256 totalRedeemShares, address[] memory requestingUsers) internal {
         (uint256 expectedAssetsOut, address hookAddress, bytes memory hookData) =
             _convertSVStoUnderlyingShares(totalRedeemShares);
+        console2.log("Expected Assets Out redeem hooks", expectedAssetsOut);
 
         address[] memory hooks = new address[](1);
         hooks[0] = hookAddress;
@@ -428,28 +437,47 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             })
         );
 
-        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = superVaultStrategy.previewExactRedeemBatch(requestingUsers);
-
-        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), requestingUsers);
-
-        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
-
-        for (uint256 i; i < totalAssetsOut.length; i++) {
-            console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
-        }
-
-        console2.log("---PPS", superVaultStrategy.getStoredPPS());
+        uint256[] memory totalAssetsOut =
+            calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), requestingUsers);
 
         // Fulfill the redemption requests from liquidity
         superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
-        vm.stopPrank();
+
+        for (uint256 i; i < totalAssetsOut.length; i++) {
+            console2.log("Total Assets Out", totalAssetsOut[i]);
+        }
     }
 
-    function _executeRedeemFulfillmentWithLoss(uint256 totalRedeemShares, address[] memory requestingUsers) internal {
-        (uint256 expectedAssetsOut, address hookAddress, bytes memory hookData) =
-            _convertSVStoUnderlyingShares(totalRedeemShares);
+    function _executeRedeemFulfillmentWithLoss(uint256 lossOnWithdraw, uint256 totalRedeemShares, address[] memory requestingUsers) internal {
+        (uint256 expectedAssets,,) = _convertSVStoUnderlyingShares_WithLoss(totalRedeemShares, lossOnWithdraw);
+         _executeRedeemHooksWithLoss(totalRedeemShares, lossOnWithdraw);
+         console2.log("Expected Assets Out redeem hooks with loss", expectedAssets);
+
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) =
+            superVaultStrategy.previewExactRedeemBatch(requestingUsers);
+        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        
+        uint256[] memory expectedAssetsArr = new uint256[](1);
+        expectedAssetsArr[0] = expectedAssets;
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses
+        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers,
+        // theoreticalAssets, totalTheoretical, strategyBalance);
+        // uint256[] memory totalAssetsOut =
+        //     calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), requestingUsers);
+        uint256[] memory totalAssetsOut = calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsArr);
+
+        for (uint256 i; i < totalAssetsOut.length; i++) {
+            console2.log("Total Assets Out", totalAssetsOut[i]);
+        }
+
+        superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
+    }
+    
+
+    function _executeRedeemHooksWithLoss(uint256 totalRedeemShares, uint256 lossOnWithdraw) internal{
+        (, address hookAddress, bytes memory hookData) =
+            _convertSVStoUnderlyingShares_WithLoss(totalRedeemShares, lossOnWithdraw);
 
         address[] memory hooks = new address[](1);
         hooks[0] = hookAddress;
@@ -475,29 +503,56 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
                 strategyProofs: new bytes32[][](1)
             })
         );
+    }
 
-        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = superVaultStrategy.previewExactRedeemBatch(requestingUsers);
+    function _convertSVStoUnderlyingShares_WithLoss(uint256 redeemShares, uint256 lossOnWithdraw)
+        internal
+        view
+        returns (uint256 expectedAssetsOrSharesOut, address hookAddress, bytes memory hookData)
+    {
+        address underlyingVault = _getYieldSource();
+        YieldSourceType activeYieldSourceType = _getYieldSourceTypeFromAddress(underlyingVault);
 
-        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
+        uint256 sharesAsAssetsFromSV = superVault.convertToAssets(redeemShares);
 
-        uint256[] memory expectedAssetsArr = new uint256[](1);
-        expectedAssetsArr[0] = expectedAssetsOut;
+        uint256 underlyingShares;
+        if (activeYieldSourceType == YieldSourceType.ERC4626) {
+            // underlyingShares = IERC4626(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
 
-        // Calculate adjusted totalAssetsOut accounting for execution losses
-        uint256[] memory totalAssetsOut =
-            calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsArr);
-        //uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
-        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers, theoreticalAssets, totalTheoretical, strategyBalance);
+            // underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 2500);
 
-        for (uint256 i; i < totalAssetsOut.length; i++) {
-            console2.log("----totalAssetsOut[i]", totalAssetsOut[i]);
+            underlyingShares = IERC20(underlyingVault).balanceOf(address(superVaultStrategy));
+
+            uint256 expectedAssets = IERC4626(underlyingVault).previewRedeem(underlyingShares);
+
+            expectedAssetsOrSharesOut = expectedAssets - ((expectedAssets * lossOnWithdraw) / 10_000);
+
+            hookAddress = address(redeem4626Hook);
+
+            hookData =
+                abi.encodePacked(bytes32(0), underlyingVault, address(superVaultStrategy), underlyingShares, false);
+        } else if (activeYieldSourceType == YieldSourceType.ERC5115) {
+            uint256 assetsPerShare = IStandardizedYield(underlyingVault).previewRedeem(superVault.asset(), 1e18);
+            underlyingShares = Math.mulDiv(sharesAsAssetsFromSV, 1e18, assetsPerShare, Math.Rounding.Ceil);
+
+            expectedAssetsOrSharesOut =
+                IStandardizedYield(underlyingVault).previewRedeem(superVault.asset(), underlyingShares);
+
+            hookAddress = address(redeem5115Hook);
+
+            hookData =
+                abi.encodePacked(bytes32(0), underlyingVault, address(superVaultStrategy), underlyingShares, false);
+        } else {
+            underlyingShares = MockERC7540Tester(underlyingVault).previewWithdraw(sharesAsAssetsFromSV);
+
+            expectedAssetsOrSharesOut = MockERC7540Tester(underlyingVault).previewRedeem(underlyingShares);
+
+            hookAddress = address(redeem7540Hook);
+
+            hookData = abi.encodePacked(bytes32(0), underlyingVault, underlyingShares, false);
         }
 
-        console2.log("---PPS", superVaultStrategy.getStoredPPS());
-
-        // Fulfill the redemption requests from liquidity
-        superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
-        vm.stopPrank();
+        // underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 100);
     }
 
     function _convertSVStoUnderlyingShares(uint256 redeemShares)
@@ -544,8 +599,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
             hookData = abi.encodePacked(bytes32(0), underlyingVault, underlyingShares, false);
         }
-
-        // underlyingShares = _truncateToActualBalance(underlyingShares, underlyingVault, 100);
     }
 
     function _truncateToActualBalance(
