@@ -429,46 +429,46 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     // ERC7540 Properties from erc7540-reusable-properties
 
     /// @dev Property 7540-1: convertToAssets(totalSupply) == totalAssets unless price is 0.0
-    function crytic_erc7540_1() public stateless {
+    function crytic_erc7540_1() public {
         actor = _getActor();
         t(erc7540_1(address(superVault)), "ERC7540-1: convertToAssets(totalSupply) == totalAssets failed");
     }
 
     /// @dev Property 7540-2: convertToShares(totalAssets) == totalSupply unless price is 0.0
-    function crytic_erc7540_2() public stateless {
+    function crytic_erc7540_2() public {
         actor = _getActor();
         t(erc7540_2(address(superVault)), "ERC7540-2: convertToShares(totalAssets) == totalSupply failed");
     }
 
     /// @dev Property 7540-3: max* never reverts
-    function crytic_erc7540_3() public stateless {
+    function crytic_erc7540_3() public {
         actor = _getActor();
         t(erc7540_3(address(superVault)), "ERC7540-3: max* functions should never revert");
     }
 
     /// @dev Property 7540-4: claiming more than max always reverts
-    function crytic_erc7540_4_deposit(uint256 amt) public stateless {
+    function crytic_erc7540_4_deposit(uint256 amt) public {
         actor = _getActor();
         t(erc7540_4_deposit(address(superVault), amt), "ERC7540-4: deposit with more than max should revert");
     }
 
-    function crytic_erc7540_4_mint(uint256 amt) public stateless {
+    function crytic_erc7540_4_mint(uint256 amt) public {
         actor = _getActor();
         t(erc7540_4_mint(address(superVault), amt), "ERC7540-4: mint with more than max should revert");
     }
 
-    function crytic_erc7540_4_withdraw(uint256 amt) public stateless {
+    function crytic_erc7540_4_withdraw(uint256 amt) public {
         actor = _getActor();
         t(erc7540_4_withdraw(address(superVault), amt), "ERC7540-4: withdraw with more than max should revert");
     }
 
-    function crytic_erc7540_4_redeem(uint256 amt) public stateless {
+    function crytic_erc7540_4_redeem(uint256 amt) public {
         actor = _getActor();
         t(erc7540_4_redeem(address(superVault), amt), "ERC7540-4: redeem with more than max should revert");
     }
 
     /// @dev Property 7540-5: requestRedeem reverts if the share balance is less than amount
-    function crytic_erc7540_5(uint256 shares) public stateless {
+    function crytic_erc7540_5(uint256 shares) public {
         actor = _getActor();
         t(
             erc7540_5(address(superVault), address(superVault), shares),
@@ -505,14 +505,14 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     //     );
     // }
 
-    function crytic_erc7540_7_withdraw(uint256 amt) public stateless {
+    function crytic_erc7540_7_withdraw(uint256 amt) public {
         actor = _getActor();
         t(erc7540_7_withdraw(address(superVault), amt), "ERC7540-7: withdraw should not revert when amount <= max");
     }
 
     // NOTE: this implements the check from ERC7540Properties directly because SuperVault logic implementation allows
     // amt to be nonzero but round down to 0 when assets passed into redeem are calculated
-    function crytic_erc7540_7_redeem(uint256 amt) public stateless {
+    function crytic_erc7540_7_redeem(uint256 amt) public {
         actor = _getActor();
 
         uint256 maxRedeem = superVault.maxRedeem(actor);
