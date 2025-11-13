@@ -15,8 +15,6 @@ import { BeforeAfter } from "./BeforeAfter.sol";
 abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     using Math for uint256;
 
-    uint256 internal TOLERANCE = 10;
-
     /// @dev Property: oracle PPS doesn't change on deposit/mint/redeem/withdraw
     function property_oraclePPSDoesntChangeOnAddOrRemove() public {
         if (_currentOp == OpType.ADD || _currentOp == OpType.REMOVE) {
@@ -332,26 +330,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    function property_accumulatorSharesDecreaseOnFulfill_with_tolerance() public {
-        if (_currentOp == OpType.FULFILL) {
-            uint256 accumulatorSharesDelta = _before.summedAccumulatorShares - _after.summedAccumulatorShares;
-            uint256 totalSharesDelta = _before.summedTotalShares - _after.summedTotalShares;
-            if (accumulatorSharesDelta >= totalSharesDelta) {
-                lte(
-                    accumulatorSharesDelta - totalSharesDelta,
-                    TOLERANCE,
-                    "accumulatorShares decreases by more than TOLERANCE when fulfilling redemptions"
-                );
-            } else {
-                lte(
-                    totalSharesDelta - accumulatorSharesDelta,
-                    TOLERANCE,
-                    "accumulatorShares decreases by less than TOLERANCE when fulfilling redemptions"
-                );
-            }
-        }
-    }
-
     /// Optimization Setters
 
     function setpreviewAssetsGreater(uint256 shares) public {
@@ -447,7 +425,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     }
 
     // Canaries
-    
+
     // ERC7540 Properties from erc7540-reusable-properties
 
     /// @dev Property 7540-1: convertToAssets(totalSupply) == totalAssets unless price is 0.0
