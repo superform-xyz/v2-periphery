@@ -156,7 +156,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         vm.expectRevert();
         superVault.redeem(maxDep + 1, _getActor(), _getActor());
 
-        superVault_redeem(shares);
+        doomsday_redemptionsNeverReverts(shares);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
