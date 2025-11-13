@@ -127,7 +127,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     // forge test --match-test test_crytic_erc7540_4_redeem_1 -vvv
     function test_crytic_erc7540_4_redeem_1() public {
         superVaultStrategy_manageYieldSource_clamped(0);
-        address yieldSource = _getYieldSource();
 
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
@@ -190,9 +189,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_multiActorDepositWithdrawLossDistribution() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
-        // console2.log("Assets in Strategy B4", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
-        // console2.log("Shares in vault B4", MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy)));
-        // console2.log("Max Redeem B4", MockERC4626Tester(_getYieldSource()).maxRedeem(address(superVaultStrategy)));
+        console2.log("Assets in Strategy B4", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
 
         // Add yield source
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -203,51 +200,46 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_deposit(depositAmount);
         switchActor(1);
         superVault_deposit(depositAmount);
-
         switchActor(0); // Back to 0
 
         uint256 shares0 = superVault.balanceOf(_getActor());
+        console2.log("Actor 0 Shares", shares0);
         switchActor(1);
         uint256 shares1 = superVault.balanceOf(_getActor());
-        switchActor(0);
+        console2.log("Actor 1 Shares", shares1);
         uint256 totalShares = shares0 + shares1;
 
         uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(depositAmount * 2);
-
+        console2.log("Strategy Shares in underlying vault", sharesUnderlying);
         yieldSource_mint(sharesUnderlying, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
 
-        // // Deposit into it
-        // uint256[] memory hookTypeInts = new uint256[](1);
-        // hookTypeInts[0] = 0; // ApproveAndDeposit4626
-
-        // uint256[] memory amountsToInvest = new uint256[](1);
-        // amountsToInvest[0] = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
-        // bool[] memory usePrevAmounts = new bool[](1);
-        // usePrevAmounts[0] = false;
-
-        // superVaultStrategy_executeHooks_clamped(hookTypeInts, amountsToInvest, usePrevAmounts);
-
-        // console2.log("Assets in Strategy", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
-        // console2.log("Shares in vault", MockERC20(_getYieldSource()).balanceOf(address(superVaultStrategy)));
-        // console2.log("Max Redeem", MockERC4626Tester(_getYieldSource()).maxRedeem(address(superVaultStrategy)));
-
         // // Set loss on withdraw for ERC4626
-        MockERC4626Tester(_getYieldSource()).setLossOnWithdraw(1000);
+        uint256 lossOnWithdraw = 1000;
+        console2.log("Loss on Withdraw", lossOnWithdraw);
+        MockERC4626Tester(_getYieldSource()).setLossOnWithdraw(lossOnWithdraw);
 
         // Request all redemptions
+        switchActor(0); // Back to 0
+        superVaultStrategy.setRedeemSlippage(10000);
         superVault_requestRedeem_clamped(shares0);
+
         switchActor(1);
+        superVaultStrategy.setRedeemSlippage(10000);
         superVault_requestRedeem_clamped(shares1);
 
+        console2.log("Actors both requesting Redeem with 100% slippage");
+
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        console2.log("PPS updated, 1e18");
 
         address[] memory controllers = new address[](2);
         controllers[0] = _getActor();
         switchActor(0);
         controllers[1] = _getActor();
 
-        superVaultStrategy_fulfillRedeemRequests_WithLoss(totalShares, controllers);
+        assert(controllers[0] != controllers[1]);
+
+        superVaultStrategy_fulfillRedeemRequests_WithLoss(lossOnWithdraw, totalShares, controllers);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;
@@ -255,8 +247,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
             maxWithdrawAcc += superVault.maxWithdraw(_getActors()[i]);
         }
 
-        console2.log("Max Withdraw Acc", maxWithdrawAcc);
-        console2.log("Strategy Balance Solvency", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
+        // console2.log("Max Withdraw Acc", maxWithdrawAcc);
+        // console2.log("Strategy Balance Solvency", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
 
         // Show the revert
         console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
