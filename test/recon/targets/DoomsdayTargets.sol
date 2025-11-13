@@ -293,7 +293,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: primary manager can always be replaced by governance via `changePrimaryManager`
-    function doomsday_primaryManagerAlwaysChangeable() public stateless {
+    function doomsday_primaryManagerAlwaysChangeable() public {
         address strategy = address(superVaultStrategy);
         address newManager = _getActor();
 
