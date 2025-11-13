@@ -314,35 +314,9 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     // YieldSourceTargets would be called to switch the yield source
     // this should allow fulfillments to eventually succeed so we don't need to sort through all yield sources that have
     // currently been deposited into before fulfilling
-    function doomsday_allUsersCanWithdraw() public stateless {
+    function doomsday_allUsersCanWithdraw() public {
         address[] memory actors = _getActors();
         bool paused = superVaultAggregator.isStrategyPaused(address(superVaultStrategy));
-
-        // request redemption for all actors
-        for (uint256 i; i < actors.length; i++) {
-            uint256 redeemableShares = superVault.balanceOf(actors[i]);
-
-            vm.prank(actors[i]);
-            superVault.requestRedeem(redeemableShares, actors[i], actors[i]);
-        }
-
-        // fulfill redemption for all actors
-        for (uint256 i; i < actors.length; i++) {
-            uint256 redeemableShares = superVault.pendingRedeemRequest(0, actors[i]);
-
-            // switch the actor
-            _switchActor(i);
-
-            (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
-                _executeRedeemRequestsArgs(redeemableShares);
-
-            superVaultStrategy.executeHooks(executeArgs);
-
-            uint256[] memory totalAssetsOut =
-                calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), controllers);
-
-            superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
-        }
 
         // try to withdraw max possible for all actors
         for (uint256 i; i < actors.length; i++) {
