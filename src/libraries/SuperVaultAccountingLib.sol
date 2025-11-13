@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
+import {console2} from "forge-std/console2.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title SuperVaultAccountingLib
@@ -41,7 +42,9 @@ library SuperVaultAccountingLib {
         returns (uint256 minAssetsOut)
     {
         uint256 expectedAssets = requestedShares.mulDiv(averageRequestPPS, precision, Math.Rounding.Floor);
+        console2.log("Expected Assets in computeMinNetOut", expectedAssets);
         minAssetsOut = expectedAssets.mulDiv(BPS_PRECISION - slippageBps, BPS_PRECISION, Math.Rounding.Floor);
+        console2.log("Min Assets Out in computeMinNetOut", minAssetsOut);
     }
 
     /// @notice Calculate updated average withdraw price
