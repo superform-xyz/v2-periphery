@@ -324,46 +324,4 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         doomsday_mintRedeemSymmetrical(40_000);
     }
-
-    /// To Triage
-
-    /// Gotchas
-
-    // forge test --match-test test_property_naivePPSDoesntChangeOnDepositOrMint_2 -vvv
-    // NOTE: naive PPS isn't used anywhere but useful to know that donations alter naive PPS
-    // function test_property_naivePPSDoesntChangeOnDepositOrMint_2() public {
-    //     yieldSource_mint(1, 0x0000000000000000000000000000000000000000);
-
-    //     // crytic_erc7540_7_deposit(2);
-
-    //     superVault_mint(1);
-
-    //     property_naivePPSDoesntChangeOnDepositOrMint();
-    // }
-
-    // NOTE: naive PPS isn't used anywhere but useful to know
-    // NOTE: shares are burned on fulfillment but assets only get transferred on withdraw/redeem so implied PPS changes
-    // after assets get transferred to user
-    // function test_property_naivePPSDoesntChangeOnRedeemOrWithdraw() public {
-    //     superVault_deposit(4);
-    //     superVault_requestRedeem_clamped(2);
-    //     superVaultStrategy_manageYieldSource_clamped(0);
-
-    //     uint256[] memory hookTypeInts = new uint256[](1);
-    //     hookTypeInts[
-    //         0
-    //     ] = 3366039565052519506129160632812429979925236647654304654821762322802056013872;
-    //     uint256[] memory amountsToInvest = new uint256[](1);
-    //     amountsToInvest[0] = 2;
-    //     bool[] memory usePrevHookAmounts = new bool[](1);
-    //     usePrevHookAmounts[0] = false;
-    //     superVaultStrategy_executeHooks_clamped(
-    //         hookTypeInts,
-    //         amountsToInvest,
-    //         usePrevHookAmounts
-    //     );
-    //     superVaultStrategy_fulfillRedeemRequests_clamped(2);
-    //     superVault_withdraw_clamped(1);
-    //     property_naivePPSDoesntChangeOnRedeemOrWithdraw();
-    // }
 }
