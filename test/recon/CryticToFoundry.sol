@@ -226,14 +226,12 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         switchActor(1);
         vm.prank(_getActor());
-        superVaultStrategy.setRedeemSlippage(9998);
+        superVaultStrategy.setRedeemSlippage(9999);
         console2.log("Slippage: ", superVaultStrategy.getSuperVaultState(_getActor()).redeemSlippageBps);
         superVault_requestRedeem_clamped(shares1);
 
-        console2.log("Actors both requesting Redeem with 100% slippage");
-
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
-        console2.log("PPS updated, 1e18");
+        console2.log("PPS: 1e18");
 
         address[] memory controllers = new address[](2);
         controllers[0] = _getActor();
@@ -250,7 +248,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
             maxWithdrawAcc += superVault.maxWithdraw(_getActors()[i]);
         }
 
-        // Show the revert
+        // Withdraw both actors with maxWithdraw
         console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
         superVault_withdraw(superVault.maxWithdraw(_getActor()));
         switchActor(1);
