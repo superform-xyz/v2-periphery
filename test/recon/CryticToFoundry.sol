@@ -239,7 +239,70 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         assert(controllers[0] != controllers[1]);
 
-        superVaultStrategy_fulfillRedeemRequests_WithLoss(lossOnWithdraw, totalShares, controllers);
+        // Execute redeem hooks with loss
+        uint256 sharesInUnderlying = MockERC4626Tester(_getYieldSource()).balanceOf(address(superVaultStrategy));
+        uint256 expectedAssets = MockERC4626Tester(_getYieldSource()).previewRedeem(sharesInUnderlying);
+        expectedAssets = (expectedAssets * (10000 - lossOnWithdraw)) / 10000;
+        
+        bytes memory hookData = abi.encodePacked(bytes32(0), _getYieldSource(), address(superVaultStrategy), sharesInUnderlying, false);
+        address[] memory hooks = new address[](1);
+        hooks[0] = 0x13aa49bAc059d709dd0a18D6bb63290076a702D7; // Redeem4626VaultHook
+        bytes[] memory hookCalldata = new bytes[](1);
+        hookCalldata[0] = hookData;
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 1;
+        
+        superVaultStrategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooks,
+                hookCalldata: hookCalldata,
+                expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+        
+        // Get theoretical assets and slippage constraints
+        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) = 
+            superVaultStrategy.previewExactRedeemBatch(controllers);
+        
+        uint256[] memory minAssetsOut = new uint256[](controllers.length);
+        uint256 totalMinRequired = 0;
+        
+        for (uint256 i = 0; i < controllers.length; i++) {
+            (, , uint256 minOut) = superVaultStrategy.previewExactRedeem(controllers[i]);
+            minAssetsOut[i] = minOut;
+            totalMinRequired += minOut;
+        }
+        
+        // Distribute expectedAssets respecting slippage constraints
+        uint256[] memory totalAssetsOut = new uint256[](controllers.length);
+        uint256 remainingAvailable = expectedAssets;
+        
+        // First pass: ensure everyone gets at least their minimum
+        for (uint256 i = 0; i < controllers.length; i++) {
+            totalAssetsOut[i] = minAssetsOut[i];
+            remainingAvailable -= minAssetsOut[i];
+        }
+        
+        // Second pass: distribute remaining assets pro-rata
+        if (remainingAvailable > 0) {
+            uint256 totalRoomForIncrease = 0;
+            for (uint256 i = 0; i < controllers.length; i++) {
+                totalRoomForIncrease += (theoreticalAssets[i] - minAssetsOut[i]);
+            }
+            
+            if (totalRoomForIncrease > 0) {
+                for (uint256 i = 0; i < controllers.length; i++) {
+                    uint256 roomForIncrease = theoreticalAssets[i] - minAssetsOut[i];
+                    uint256 additionalAmount = (roomForIncrease * remainingAvailable) / totalRoomForIncrease;
+                    totalAssetsOut[i] += additionalAmount;
+                }
+            }
+        }
+        
+        // Fulfill redemption requests
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // Compute the insolvency
         uint256 maxWithdrawAcc;

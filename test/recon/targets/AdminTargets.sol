@@ -461,10 +461,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         expectedAssetsArr[0] = expectedAssets;
 
         // Calculate adjusted totalAssetsOut accounting for execution losses
-        // uint256[] memory totalAssetsOut = calculateFulfillRedeemTotalAssetsOut(requestingUsers,
-        // theoreticalAssets, totalTheoretical, strategyBalance);
-        // uint256[] memory totalAssetsOut =
-        //     calculateLiquidityOnlyFulfillment(superVaultStrategy, superVault.asset(), requestingUsers);
         uint256[] memory totalAssetsOut = calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsArr);
 
         for (uint256 i; i < totalAssetsOut.length; i++) {
