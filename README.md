@@ -409,12 +409,12 @@ forge install
 
 ```bash
 cd lib/v2-core/lib/modulekit/
-yarn
+pnpm i
 ```
 
 ```bash
 cd lib/v2-core/lib/safe7579
-yarn
+pnpm i
 ```
 
 ```bash
