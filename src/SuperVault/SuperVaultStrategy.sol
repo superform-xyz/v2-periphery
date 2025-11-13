@@ -45,7 +45,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
-    
+
     uint256 private constant BPS_PRECISION = 10_000;
     uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
