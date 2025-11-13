@@ -435,30 +435,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         return burnedLessThanRequested;
     }
 
-    // function optimize_previewMintSharesGreater() public view returns (int256) {
-    //     return previewMintSharesGreater;
-    // }
-
-    // function optimize_previewDepositSharesGreater()
-    //     public
-    //     view
-    //     returns (int256)
-    // {
-    //     return previewDepositSharesGreater;
-    // }
-
-    // function optimize_previewMintAssetsGreater() public view returns (int256) {
-    //     return previewMintAssetsGreater;
-    // }
-
-    // function optimize_previewDepositAssetsGreater()
-    //     public
-    //     view
-    //     returns (int256)
-    // {
-    //     return previewDepositAssetsGreater;
-    // }
-
     function optimize_assetBackingDifference() public view returns (int256) {
         uint256 summedTotalAssets = _sumStrategyAssets();
         uint256 totalSupply = superVault.totalSupply();
@@ -471,11 +447,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     }
 
     // Canaries
-
-    // function canary_deployedNewVault() public {
-    //     t(!hasDeployedNewVault, "deployed new vault canary");
-    // }
-
+    
     // ERC7540 Properties from erc7540-reusable-properties
 
     /// @dev Property 7540-1: convertToAssets(totalSupply) == totalAssets unless price is 0.0
