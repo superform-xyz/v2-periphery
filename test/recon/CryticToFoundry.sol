@@ -186,6 +186,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     /// @dev Test: Multi-actor deposit, withdrawal request, loss simulation, and distribution validation
+    /// @dev Test: All users can withdraw after a loss on withdrawal property
     function test_multiActorDepositWithdrawLossDistribution() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
@@ -249,11 +250,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         }
 
         // Withdraw both actors with maxWithdraw
-        console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
-        superVault_withdraw(superVault.maxWithdraw(_getActor()));
-        switchActor(1);
-        console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
-        superVault_withdraw(superVault.maxWithdraw(_getActor()));
+        doomsday_allUsersCanWithdraw();
     }
 
     // forge test --match-test test_superVaultStrategy_fulfillRedeemRequests_clamped_0 -vvv
