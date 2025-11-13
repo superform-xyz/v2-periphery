@@ -355,6 +355,8 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
+
+        fulfillRedeemRequestsSuccess = true;
     }
 
     /// @dev Same as superVaultStrategy_fulfillRedeemRequests but with lowered exepectedAssetsOrSharesOut so that hook
@@ -373,6 +375,8 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         uint256 assetBalanceAfter = IERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
 
         gte(assetBalanceAfter, assetBalanceBefore, "strategy incurs loss on fulfillment");
+
+        fulfillRedeemRequestsSuccess = true;
     }
 
     function _requestedSharesForControllers(address[] memory controllers) internal view returns (uint256) {
