@@ -189,16 +189,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_multiActorDepositWithdrawLossDistribution() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
 
-        console2.log("Assets in Strategy B4", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
-
         // Add yield source
         superVaultStrategy_manageYieldSource_clamped(0);
 
         uint256 depositAmount = 1000e18;
 
         // Deposit
+        console2.log(_getActor());
         superVault_deposit(depositAmount);
         switchActor(1);
+        console2.log(_getActor());
         superVault_deposit(depositAmount);
         switchActor(0); // Back to 0
 
@@ -220,11 +220,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // Request all redemptions
         switchActor(0); // Back to 0
-        superVaultStrategy.setRedeemSlippage(10000);
+        superVaultStrategy.setRedeemSlippage(9999);
+        console2.log("Slippage: ", superVaultStrategy.getSuperVaultState(_getActor()).redeemSlippageBps);
         superVault_requestRedeem_clamped(shares0);
 
         switchActor(1);
-        superVaultStrategy.setRedeemSlippage(10000);
+        vm.prank(_getActor());
+        superVaultStrategy.setRedeemSlippage(9998);
+        console2.log("Slippage: ", superVaultStrategy.getSuperVaultState(_getActor()).redeemSlippageBps);
         superVault_requestRedeem_clamped(shares1);
 
         console2.log("Actors both requesting Redeem with 100% slippage");
@@ -247,17 +250,12 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
             maxWithdrawAcc += superVault.maxWithdraw(_getActors()[i]);
         }
 
-        // console2.log("Max Withdraw Acc", maxWithdrawAcc);
-        // console2.log("Strategy Balance Solvency", MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy)));
-
         // Show the revert
         console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
         superVault_withdraw(superVault.maxWithdraw(_getActor()));
         switchActor(1);
         console2.log("Max Withdraw", superVault.maxWithdraw(_getActor()));
         superVault_withdraw(superVault.maxWithdraw(_getActor()));
-
-        // Check if solvent / insolvent due to cached PPS
     }
 
     // forge test --match-test test_superVaultStrategy_fulfillRedeemRequests_clamped_0 -vvv
