@@ -3,20 +3,20 @@
 ## SuperVault 
 | # | Property | Description | Comments | Implemented | Passes |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `doomsday_maxRedeemResetsAfterFullRedemption` | `maxRedeem` is reset to 0 after full redemption |  | ✅ | ✅ |
+| 1 | `doomsday_maxRedeemResetsAfterFullRedemption` | `maxRedeem` is reset to 0 after full redemption |  | ✅ | ❌ |
 | 2 | `doomsday_maxWithdrawResetsAfterFullWithdrawal` | `maxWithdraw` is reset to 0 after full withdrawal |  | ✅ | ✅ |
 | 3 | `doomsday_fulfillDoesntOverRedeemMultipleActors` | fulfillRedeemRequests doesn't redeem more than requested for multiple actors |  | ✅ | ✅ |
-| 8 | `property_maxRedeemMaxWithdrawSymmetry` | `maxRedeem` and `maxWithdraw` should always be equivalent  |  | ✅ | ✅ |
+| 8 | `property_maxRedeemMaxWithdrawSymmetry` | `maxRedeem` and `maxWithdraw` should always be equivalent  |  | ✅ | ❌ |
 | 9 | `property_totalSharesDontDecreaseOnRedemptionRequest` | `requestRedeem` should never reduce `SuperVault` shares  |  | ✅ | ✅ |
 | 10 | `superVault_cancelRedeem` | `pendingRedeemRequest` should be 0 after a user calls `cancelRedeem`  |  | ✅ | ✅ |
 | 11 | `superVault_cancelRedeem` | `averageRequestPPS` should be 0 after a user calls `cancelRedeem`  |  | ✅ | ✅ |
 | 12 | `superVault_cancelRedeem` | user shouldn't receive more than convertToAssets(pendingRedeemRequest) after cancelRedeem |  | ✅ | ✅ |
-| 13 | `property_shareSolvency` | `SuperVault::totalSupply` == SUM(user balances) + balanceOf(escrow)  (solvency) |  | ✅ | ✅ |
-| 14 | `property_escrowBalance` | balanceOf(escrow) >= SUM(controllers.pendingRedeemRequest) |  | ✅ | ✅ |
-| 15 | `property_fulfillOnlyBurnsRequestedAmount` | redemptions only burn the requested amount of shares (within tolerance range) |  | ✅ | ✅ |
-| 16 | `property_maxMintZeroWhenPaused` | `maxMint` should be 0 when aggregator is paused |  | ✅ | ✅ |
-| 17 | `property_maxDepositZeroWhenPaused` | `maxDeposit` should be 0 when strategy is paused |  | ✅ | ✅ |
-| 18 | `property_cannotClaimMoreThanRequested` | user cannot claim more assets than requested in redemption |  | ✅ | ✅ |
+| 13 | `property_shareSolvency` | `SuperVault::totalSupply` == SUM(user balances) + balanceOf(escrow)  (solvency) |  | ✅ | ❌ |
+| 14 | `property_escrowBalance` | balanceOf(escrow) >= SUM(controllers.pendingRedeemRequest) |  | ✅ | ❌ |
+| 15 | `property_fulfillOnlyBurnsRequestedAmount` | redemptions only burn the requested amount of shares (within tolerance range) |  | ✅ | ❌ |
+| 16 | `property_maxMintZeroWhenPaused` | `maxMint` should be 0 when aggregator is paused |  | ✅ | ❌ |
+| 17 | `property_maxDepositZeroWhenPaused` | `maxDeposit` should be 0 when strategy is paused |  | ✅ | ❌ |
+| 18 | `property_cannotClaimMoreThanRequested` | user cannot claim more assets than requested in redemption |  | ✅ | ❌ |
 | 20 | `property_cancelDoesntChangeTotalSupply` | `cancelRedeem()` should never alter the supply of SuperVault tokens (calculated by summing user share balances) |  | ✅ | ✅ |
 | 21 | `property_assetBacking` | if `totalSupply()` > 0, then `totalAssets()` > 0  |  | ✅ | ✅ |
 | 22 | `property_x` | users shouldn't get a favorable exchange rate on loss on withdrawal in a yield vault |  |  |  |
