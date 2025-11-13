@@ -141,19 +141,6 @@ abstract contract BeforeAfter is Setup {
         return totalAssets;
     }
 
-    // function _sumSuperVaultValues()
-    //     internal
-    //     view
-    //     returns (uint256 sumAccumulatorShares, uint256 sumAccumulatorCostBasis)
-    // {
-    //     address[] memory actors = _getActors();
-
-    //     for (uint256 i; i < actors.length; i++) {
-    //         sumAccumulatorShares += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorShares;
-    //         sumAccumulatorCostBasis += superVaultStrategy.getSuperVaultState(actors[i]).accumulatorCostBasis;
-    //     }
-    // }
-
     function _sumRequestedRedemptions() internal view returns (uint256) {
         address[] memory actors = _getActors();
         uint256 totalRequested;
