@@ -208,11 +208,11 @@ contract MockSuperVaultStrategy {
     // Struct definition for ISuperVaultStrategy_SuperVaultState
     struct ISuperVaultStrategy_SuperVaultState {
         uint256 pendingRedeemRequest;
+        uint256 claimableCancelRedeemRequest;
         uint256 maxWithdraw;
         uint256 averageRequestPPS;
-        uint256 accumulatorShares;
-        uint256 accumulatorCostBasis;
         uint256 averageWithdrawPrice;
+        uint16 redeemSlippageBps;
     }
 
     // Struct definition for ISuperVaultStrategy_YieldSource

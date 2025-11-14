@@ -127,28 +127,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    /// @dev Property: SUM(accumulatorShares) doesn't change on SuperVault share transfers
-    function property_accumulatorSharesSolvency() public {
-        if (_currentOp == OpType.TRANSFER) {
-            eq(
-                _before.summedAccumulatorShares,
-                _after.summedAccumulatorShares, // TODO: think about way to handle transfer on recipient
-                "SUM(accumulatorShares) changed on SuperVault share transfers"
-            );
-        }
-    }
-
-    /// @dev Property: SUM(accumulatorCostBasis) doesn't change on SuperVault share transfers
-    function property_accumulatorCostBasisSolvency() public {
-        if (_currentOp == OpType.TRANSFER) {
-            eq(
-                _before.summedAccumulatorCostBasis,
-                _after.summedAccumulatorCostBasis,
-                "SUM(accumulatorCostBasis) changed on SuperVault share transfers"
-            );
-        }
-    }
-
     /// @dev Property: cancelRedeem should never alter the supply of SuperVault tokens
     function property_cancelDoesntChangeTotalSupply() public {
         if (_currentOp == OpType.CANCEL) {
@@ -314,19 +292,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
                     "burned more than requested beyond tolerance"
                 );
             }
-        }
-    }
-
-    /// @dev Property: accumulatorShares decreases by the exact amounts requested when fulfilling redemptions
-    function property_accumulatorSharesDecreaseOnFulfill_exact() public {
-        if (_currentOp == OpType.FULFILL) {
-            uint256 accumulatorSharesDelta = _before.summedAccumulatorShares - _after.summedAccumulatorShares;
-            uint256 totalSharesDelta = _before.summedTotalShares - _after.summedTotalShares;
-            eq(
-                accumulatorSharesDelta,
-                totalSharesDelta,
-                "accumulatorShares decreases by the exact amounts requested when fulfilling redemptions"
-            );
         }
     }
 

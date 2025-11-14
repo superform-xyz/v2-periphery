@@ -29,8 +29,6 @@ abstract contract BeforeAfter is Setup {
         uint256 oraclePPS;
         uint256 naivePPS;
         uint256 summedTotalShares;
-        uint256 summedAccumulatorShares;
-        uint256 summedAccumulatorCostBasis;
         uint256 summedTotalAssets;
         uint256 strategyAssetBalance;
         uint256 summedPendingRedeem;

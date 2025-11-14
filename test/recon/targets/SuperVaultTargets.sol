@@ -119,8 +119,6 @@ abstract contract SuperVaultTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Propery: _update should never revert
-    /// @dev Property: Transfers of shares should transfer the exact amount of accumulatorShares to the recipient
-    /// @dev Property: Transfers of shares should transfer the exact amount of accumulatorCostBasis to the recipient
     // NOTE: _update only gets called on transfer of Vault shares
     function superVault_transfer(uint256 entropy, uint256 value) public updateGhostsWithOpType(OpType.TRANSFER) {
         address to = _getRandomActor(entropy);

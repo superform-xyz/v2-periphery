@@ -27,18 +27,6 @@ contract MockSuperVault {
     // Mock implementation of invalidateNonce
     function invalidateNonce(bytes32 nonce) public { }
 
-    // Mock implementation of onRedeemClaimable
-    function onRedeemClaimable(
-        address user,
-        uint256 assets,
-        uint256 shares,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    )
-        public
-    { }
-
     //<>=============================================================<>
     //||                                                             ||
     //||                    SETTER FUNCTIONS                         ||
@@ -294,15 +282,6 @@ contract MockSuperVault {
     event Initialized(uint64 version);
     event NonceInvalidated(address sender, bytes32 nonce);
     event OperatorSet(address controller, address operator, bool approved);
-    event RedeemClaimable(
-        address user,
-        uint256 requestId,
-        uint256 assets,
-        uint256 shares,
-        uint256 averageWithdrawPrice,
-        uint256 accumulatorShares,
-        uint256 accumulatorCostBasis
-    );
     event RedeemRequest(address controller, address owner, uint256 requestId, address sender, uint256 assets);
     event RedeemRequestCancelled(address controller, address sender);
     event SuperGovernorSet(address superGovernor);
