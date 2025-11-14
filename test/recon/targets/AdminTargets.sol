@@ -465,10 +465,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
         _executeRedeemHooksWithLoss(totalRedeemShares, lossOnWithdraw);
         console2.log("Expected Assets Out redeem hooks with loss", expectedAssets);
 
-        (uint256 totalTheoretical, uint256[] memory theoreticalAssets) =
-            superVaultStrategy.previewExactRedeemBatch(requestingUsers);
-        uint256 strategyBalance = MockERC20(superVault.asset()).balanceOf(address(superVaultStrategy));
-
         uint256[] memory expectedAssetsArr = new uint256[](1);
         expectedAssetsArr[0] = expectedAssets;
 
