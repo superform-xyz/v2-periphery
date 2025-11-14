@@ -22,7 +22,7 @@ contract RedemptionSlippageIssueDemo is Test {
                         SCENARIO DEMONSTRATION
     //////////////////////////////////////////////////////////////*/
     
-    function test_DemonstrateSlippageIssue_WithLoss() public {
+    function test_DemonstrateSlippageIssue_WithLoss() public pure {
         console2.log("\n=== Demonstrating Slippage Issue ===\n");
         
         // SETUP: User requests redemption
@@ -124,7 +124,7 @@ contract RedemptionSlippageIssueDemo is Test {
         assertTrue(passesProposedCheck, "Proposed implementation should SUCCEED in loss scenario");
     }
     
-    function test_ShowAsymmetricRiskProfile() public {
+    function test_ShowAsymmetricRiskProfile() public pure {
         console2.log("\n=== Demonstrating Asymmetric Risk Profile ===\n");
         
         uint256 requestedShares = 1000e18;
@@ -170,7 +170,7 @@ contract RedemptionSlippageIssueDemo is Test {
         assertFalse(passesB, "Should fail when PPS decreases (demonstrating the issue)");
     }
     
-    function test_ShowWorkaroundLimitations() public {
+    function test_ShowWorkaroundLimitations() public pure {
         console2.log("\n=== Demonstrating Workaround Limitations ===\n");
         
         uint256 requestedShares = 1000e18;
