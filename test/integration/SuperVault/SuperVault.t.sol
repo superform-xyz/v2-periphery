@@ -212,6 +212,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.deposit(0, accountEth);
     }
 
+    /// @notice Dedicated test for zero amount deposit revert
+    function test_Deposit_RevertWhen_ZeroAmount() public {
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.deposit(0, accountEth);
+        vm.stopPrank();
+    }
+
+    /// @notice Dedicated test for zero address receiver revert
+    function test_Deposit_RevertWhen_ZeroAddressReceiver() public {
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.deposit(1000e6, address(0));
+        vm.stopPrank();
+    }
+
     function test_DepositDirectlyMintsShares() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
 
