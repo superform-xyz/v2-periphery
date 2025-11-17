@@ -348,11 +348,11 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         uint256 claimable = superVault.claimableRedeemRequest(0, _getActor());
         uint256 tryClaim = claimable + 10;
 
-        // Should revert with INVALID_REDEEM_CLAIM()
+        // Should revert with INVALID_AMOUNT()
         try superVault.redeem(tryClaim, _getActor(), _getActor()) { }
         catch (bytes memory err) {
-            bool expectedError = checkError(err, "INVALID_REDEEM_CLAIM()");
-            t(expectedError, "Claiming more than requested should revert with INVALID_REDEEM_CLAIM()");
+            bool expectedError = checkError(err, "INVALID_AMOUNT()");
+            t(expectedError, "Claiming more than requested should revert with INVALID_AMOUNT()");
         }
     }
 
