@@ -17,7 +17,7 @@ import { MockERC7540Tester } from "test/recon/mocks/MockERC7540Tester.sol";
 
 abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     /// @dev Property: previewDeposit and deposit equivalence
-    function doomsday_previewDepositEquivalence(uint256 assets) public stateless {
+    function doomsday_previewDepositEquivalence(uint256 assets) public {
         uint256 previewDepositShares = superVault.previewDeposit(assets);
 
         vm.prank(_getActor());
@@ -27,7 +27,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: previewMint and mint equivalence
-    function doomsday_previewMintEquivalence(uint256 shares) public stateless {
+    function doomsday_previewMintEquivalence(uint256 shares) public {
         uint256 previewMintAssets = superVault.previewMint(shares);
 
         vm.prank(_getActor());
