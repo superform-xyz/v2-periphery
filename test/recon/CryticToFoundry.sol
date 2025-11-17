@@ -321,4 +321,40 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         doomsday_mintRedeemSymmetrical(40_000);
     }
+
+    // forge test --match-test test_doomsday_cannotClaimMoreThanRequested -vvv
+    function test_doomsday_cannotClaimMoreThanRequested() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        // 1. Deposit to get shares
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+
+        uint256 shares = superVault.balanceOf(_getActor());
+
+        uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
+
+        yieldSource_mint(underlyingShares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+
+        // 2. Request redemption of all shares
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares, _getActor(), _getActor());
+
+        // 3. Fulfill the redemption request
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemArgs(shares);
+
+        // called as admin address(this)
+        superVaultStrategy.executeHooks(executeArgs);
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
+
+        doomsday_cannotClaimMoreThanRequested();
+    }
 }
