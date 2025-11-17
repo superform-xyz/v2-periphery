@@ -49,7 +49,7 @@ remappings = [
   "@rhinestone/erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/",
   "erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/src/",
   "forge-std/=lib/v2-core/lib/modulekit/node_modules/forge-std/src/",
-  "halmos-cheatcodes/=/lib/halmos-cheatcodes/src/"
+  "halmos-cheatcodes/=lib/openzeppelin-contracts-upgradeable/lib/halmos-cheatcodes/src/"
 ]
 dynamic_test_linking = true
 gas_limit = "18446744073709551615"
