@@ -294,6 +294,22 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_comparePreviewMintAndConvertToAssets(1e18);
     }
 
+    function test_doomsday_previewDepositEquivalence() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        doomsday_previewDepositEquivalence(assetsToDeposit);
+    }
+
+    function test_doomsday_previewMintEquivalence() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 sharesToMint = 1000;
+
+        doomsday_previewMintEquivalence(sharesToMint);
+    }
+
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
     function test_property_previewEquivalenceFromAssets_2() public {
         property_previewEquivalenceFromAssets(1e18);
