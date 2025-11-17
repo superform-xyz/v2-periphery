@@ -10,7 +10,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { LibSort } from "@solady/src/utils/LibSort.sol";
+import { LibSort } from "solady/utils/LibSort.sol";
 
 // Core Interfaces
 import {
@@ -273,18 +273,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 hooksLength = args.hooks.length;
         if (hooksLength == 0) revert ZERO_LENGTH();
-        if (args.hookCalldata.length != hooksLength) {
-            revert INVALID_ARRAY_LENGTH();
-        }
-        if (args.expectedAssetsOrSharesOut.length != hooksLength) {
-            revert INVALID_ARRAY_LENGTH();
-        }
-        if (args.globalProofs.length != hooksLength) {
-            revert INVALID_ARRAY_LENGTH();
-        }
-        if (args.strategyProofs.length != hooksLength) {
-            revert INVALID_ARRAY_LENGTH();
-        }
+        if (args.hookCalldata.length != hooksLength) revert INVALID_ARRAY_LENGTH();
+        if (args.expectedAssetsOrSharesOut.length != hooksLength) revert INVALID_ARRAY_LENGTH();
+        if (args.globalProofs.length != hooksLength) revert INVALID_ARRAY_LENGTH();
+        if (args.strategyProofs.length != hooksLength) revert INVALID_ARRAY_LENGTH();
 
         address prevHook;
         for (uint256 i; i < hooksLength; ++i) {
@@ -515,9 +507,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function executeVaultFeeConfigUpdate() external {
         _isPrimaryManager(msg.sender);
 
-        if (block.timestamp < feeConfigEffectiveTime) {
-            revert INVALID_TIMESTAMP();
-        }
+        if (block.timestamp < feeConfigEffectiveTime) revert INVALID_TIMESTAMP();
         if (proposedFeeConfig.recipient == address(0)) revert ZERO_ADDRESS();
 
         // Get current PPS before updating fee config
@@ -861,9 +851,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @param oracle Address of the oracle
     function _addYieldSource(address source, address oracle) internal {
         if (source == address(0) || oracle == address(0)) revert ZERO_ADDRESS();
-        if (yieldSources[source] != address(0)) {
-            revert YIELD_SOURCE_ALREADY_EXISTS();
-        }
+        if (yieldSources[source] != address(0)) revert YIELD_SOURCE_ALREADY_EXISTS();
         yieldSources[source] = oracle;
         if (!yieldSourcesList.add(source)) revert YIELD_SOURCE_ALREADY_EXISTS();
 

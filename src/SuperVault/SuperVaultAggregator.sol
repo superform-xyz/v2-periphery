@@ -470,16 +470,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function addSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
         // Only the primary manager can add secondary managers
-        if (msg.sender != _strategyData[strategy].mainManager) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
+        if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
         if (manager == address(0)) revert ZERO_ADDRESS();
 
         // Check if manager is already the primary manager
-        if (_strategyData[strategy].mainManager == manager) {
-            revert MANAGER_ALREADY_EXISTS();
-        }
+        if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
         if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
@@ -487,9 +483,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Add as secondary manager using EnumerableSet
-        if (!_strategyData[strategy].secondaryManagers.add(manager)) {
-            revert MANAGER_ALREADY_EXISTS();
-        }
+        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
 
         emit SecondaryManagerAdded(strategy, manager);
     }
@@ -497,14 +491,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @inheritdoc ISuperVaultAggregator
     function removeSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
         // Only the primary manager can remove secondary managers
-        if (msg.sender != _strategyData[strategy].mainManager) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
+        if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
         // Remove the manager using EnumerableSet
-        if (!_strategyData[strategy].secondaryManagers.remove(manager)) {
-            revert MANAGER_NOT_FOUND();
-        }
+        if (!_strategyData[strategy].secondaryManagers.remove(manager)) revert MANAGER_NOT_FOUND();
 
         emit SecondaryManagerRemoved(strategy, manager);
     }
@@ -1034,9 +1024,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     function superVaultStrategies(uint256 index) external view returns (address) {
-        if (index >= _superVaultStrategies.length()) {
-            revert INDEX_OUT_OF_BOUNDS();
-        }
+        if (index >= _superVaultStrategies.length()) revert INDEX_OUT_OF_BOUNDS();
         return _superVaultStrategies.at(index);
     }
 
@@ -1052,15 +1040,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function validateHook(
-        address strategy,
-        ValidateHookArgs calldata args
-    )
-        external
-        view
-        virtual
-        returns (bool isValid)
-    {
+    function validateHook(address strategy, ValidateHookArgs calldata args) external view returns (bool isValid) {
         // Cache all state variables in struct
         HookValidationCache memory cache = HookValidationCache({
             globalHooksRootVetoed: _globalHooksRootVetoed,
