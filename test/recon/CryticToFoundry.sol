@@ -310,6 +310,25 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         doomsday_previewMintEquivalence(sharesToMint);
     }
 
+    function test_property_escrowBalance() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        superVault_deposit(assetsToDeposit);
+        uint256 shares = superVault.balanceOf(_getActor());
+
+        uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
+
+        yieldSource_mint(underlyingShares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+
+        superVault_requestRedeem(shares);
+
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        
+        property_escrowBalance();
+    }
+
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
     function test_property_previewEquivalenceFromAssets_2() public {
         property_previewEquivalenceFromAssets(1e18);
