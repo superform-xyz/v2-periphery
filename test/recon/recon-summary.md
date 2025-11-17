@@ -24,10 +24,9 @@ After running Echidna for 100 million+ runs the following issues were discovered
 
 ## Admin Mistakes
 
-The following identify issues that an admin can make that lead to breaking system properties:
+The following identify an issue that an admin can make that leads to breaking system properties:
 
 1. After a redemption is fulfilled and the funds are transferred to the `SuperVaultStrategy` from the yield strategy in which they were invested in an admin can prevent users calling `withdraw`/`redeem` by reinvesting the funds via `executeHooks`. This leaves users with a claimable amount but no way to claim it unless the admin calls `executeHooks` again to transfer funds back to the `SuperVaultStrategy`. For this reason the `_claimableMoreThanInvested` function checks the amount `superVaultStrategy_executeHooks_clamped` can deposit into a yield strategy, otherwise a significant number of properties break.
-2. If an admin fulfills a redemption at a high price it can lock in insolvency. See the issue [here](https://github.com/Recon-Fuzz/superform-review/issues/67) 
 
 The following properties would be good candidates for live monitoring to ensure that the above admin mistakes can't cause issues in production: 
 - `doomsday_allUsersCanRedeem` 
