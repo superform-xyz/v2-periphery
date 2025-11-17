@@ -343,6 +343,18 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         }
     }
 
+    /// @dev Property: Claiming more than requested always reverts
+    function doomsday_cannotClaimMoreThanRequested() public asActor {
+        uint256 claimable = superVault.claimableRedeemRequest(0, _getActor());
+        uint256 tryClaim = claimable + 10;
+
+        try superVault.redeem(tryClaim, _getActor(), _getActor()) { }
+        catch (bytes memory err) {
+            bool expectedError = checkError(err, "INVALID_REDEEM_CLAIM()");
+            t(expectedError, "Claiming more than requested should revert with INVALID_REDEEM_CLAIM()");
+        }
+    }
+
     /// @dev Get shares for SuperVaultStrategy in the current yield source
     function _getSuperVaultStrategyShares() internal view returns (uint256) {
         address yieldSource = _getYieldSource();
