@@ -22,49 +22,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    /// @dev Property: naive PPS doesn't change on deposit/mint
-    // NOTE: removed because it's expected behavior that fulfillment burns shares but doesn't transfer assets to users
-    // so would change the naively calculated price
-    // function property_naivePPSDoesntChangeOnDepositOrMint() public {
-    //     if (
-    //         (_currentOp == OpType.ADD) && _before.naivePPS != 0 // price starts as zero when no shares minted
-    //     ) {
-    //         gte(
-    //             _after.naivePPS,
-    //             _before.naivePPS,
-    //             "deposit/mint cannot decrease naive PPS"
-    //         );
-    //     }
-    // }
-
-    /// @dev Property: naive PPS doesn't change on redeem/withdraw
-    // NOTE: removed because it's expected behavior that fulfillment burns shares but doesn't transfer assets to users
-    // so would change the naively calculated price
-    // function property_naivePPSDoesntChangeOnRedeemOrWithdraw() public {
-    //     if (
-    //         (_currentOp == OpType.REMOVE) && _before.naivePPS != 0 // price starts as zero when no shares minted
-    //     ) {
-    //         gte(
-    //             _after.naivePPS,
-    //             _before.naivePPS,
-    //             "redeem/withdraw cannot decrease naive PPS"
-    //         );
-    //     }
-    // }
-
-    /// @dev Property: fulfillRedeemRequest doesn't change naive PPS
-    // NOTE: removed because it's expected behavior that fulfillment burns shares but doesn't transfer assets to users
-    // so would change the naively calculated price
-    // function property_naivePPSDoesntChangeOnRedeem() public {
-    //     if (_currentOp == OpType.FULFILL) {
-    //         eq(
-    //             _before.naivePPS,
-    //             _after.naivePPS,
-    //             "fulfilling redemption changes naive PPS"
-    //         );
-    //     }
-    // }
-
     /// @dev Property: maxRedeem and maxWithdraw should always be equivalent
     function property_maxRedeemMaxWithdrawSymmetry() public {
         uint256 maxWithdraw = superVault.maxWithdraw(_getActor());
@@ -319,22 +276,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         }
     }
 
-    // function setFulfilledDifference() public view {
-    //     if (_currentOp == OpType.FULFILL) {
-    //         uint256 pendingRedeemDelta = _before.summedPendingRedeem - _after.summedPendingRedeem;
-    //         uint256 totalSupplyDelta = _before.summedTotalShares - _after.summedTotalShares;
-
-    //         // Check that burned amount is within tolerance of requested amount
-    //         if (totalSupplyDelta < pendingRedeemDelta) {
-    //             // Burned less than requested
-    //             int256 burnedLessThanRequested = int256(pendingRedeemDelta) - int256(totalSupplyDelta);
-    //         } else {
-    //             // Burned more than requested
-    //             int256 burnedMoreThanRequested = int256(totalSupplyDelta) - int256(pendingRedeemDelta);
-    //         }
-    //     }
-    // }
-
     /// Optimization Tests
 
     /// @dev Optimize the difference between the amount of assets in the system and claimable assets
@@ -440,35 +381,6 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
             "ERC7540-5: requestRedeem should revert if insufficient share balance"
         );
     }
-
-    /// @dev Property 7540-6: preview* always reverts
-    // NOTE: previewMint and previewDeposit don't revert because deposits are sync
-    // function crytic_erc7540_6() public {
-    //     actor = _getActor();
-    //     t(
-    //         erc7540_6(address(superVault)),
-    //         "ERC7540-6: preview* functions should always revert"
-    //     );
-    // }
-
-    /// @dev Property 7540-7: if max[method] > 0, then [method] (max) should not revert
-    // NOTE: maxDeposit always returns type(uint256).max
-    // function crytic_erc7540_7_deposit(uint256 amt) public {
-    //     actor = _getActor();
-    //     t(
-    //         erc7540_7_deposit(address(superVault), amt),
-    //         "ERC7540-7: deposit should not revert when amount <= max"
-    //     );
-    // }
-
-    // NOTE: maxMint always returns type(uint256).max
-    // function crytic_erc7540_7_mint(uint256 amt) public stateless {
-    //     actor = _getActor();
-    //     t(
-    //         erc7540_7_mint(address(superVault), amt),
-    //         "ERC7540-7: mint should not revert when amount <= max"
-    //     );
-    // }
 
     function crytic_erc7540_7_withdraw(uint256 amt) public {
         actor = _getActor();
