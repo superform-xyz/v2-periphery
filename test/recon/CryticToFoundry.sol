@@ -491,6 +491,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         // 1. Deposit
         vm.prank(_getActor());
         superVault.deposit(assetsToDeposit, _getActor());
+        uint256 userShares = superVault.balanceOf(_getActor());
 
         // 2. Deposit assets into yield strategy via executeHooks
         // This is needed because the user's assets are currently in the strategy contract
@@ -518,6 +519,13 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // called by admin address(this)
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+
+        address[] memory controllers = new address[](1);
+        controllers[0] = _getActor();
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         property_fulfillOnlyBurnsRequestedAmount();
     }
