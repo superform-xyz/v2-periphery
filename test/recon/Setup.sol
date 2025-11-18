@@ -70,6 +70,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
 
     address superVaultStrategyAddress;
 
+    uint256 constant TOLERANCE = 10 wei;
+
     // Implementation contracts for aggregator
     SuperVault vaultImpl;
     SuperVaultStrategy strategyImpl;

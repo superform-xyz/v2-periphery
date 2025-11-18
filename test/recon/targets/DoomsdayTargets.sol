@@ -85,8 +85,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
         uint256 balanceAfter = MockERC20(asset).balanceOf(_getActor());
 
-        uint256 TOLERANCE = 10; // 10 wei max tolerance of assets lost
-
         uint256 feeRecipientBalanceAfter = MockERC20(superVault.asset()).balanceOf(feeRecipient);
         uint256 feeDelta = feeRecipientBalanceAfter - feeRecipientBalanceBefore;
 
@@ -142,8 +140,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         uint256 balanceAfter = MockERC20(asset).balanceOf(_getActor());
         uint256 feeRecipientBalanceAfter = MockERC20(asset).balanceOf(feeRecipient);
         uint256 feeDelta = feeRecipientBalanceAfter - feeRecipientBalanceBefore;
-
-        uint256 TOLERANCE = 10; // 10 wei max tolerance of assets lost
 
         // 5. Check that user didn't lose assets
         gte(balanceAfter + TOLERANCE + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
