@@ -72,7 +72,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     function test_property_transferFromOnlyUpdatesShares() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
-        _switchActor(0);
+        switchActor(0);
         vm.prank(_getActor());
         uint256 shares = superVault.mint(1e18, _getActor());
         superVault_transferFrom(0, 1, shares);
@@ -96,7 +96,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(yieldSource).previewDeposit(depositAmount);
 
-        yieldSource_mint(sharesUnderlying, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
 
         doomsday_maxWithdrawResetsAfterFullWithdrawal(depositAmount);
     }
@@ -121,7 +121,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(40_000);
 
-        yieldSource_mint(sharesUnderlying, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
 
         superVault_requestRedeem(shares);
 
@@ -194,7 +194,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 shares = superVault.balanceOf(_getActor());
 
-        yieldSource_mint(shares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(shares, superVaultStrategyAddress);
 
         vm.warp(block.timestamp + 1 days);
         superVault_requestRedeem_clamped(shares);
@@ -272,7 +272,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(depositAmount * 2);
         console2.log("Strategy Shares in underlying vault", sharesUnderlying);
-        yieldSource_mint(sharesUnderlying, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
 
         // // Set loss on withdraw for ERC4626
         uint256 lossOnWithdraw = 1000;
@@ -318,7 +318,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
 
-        yieldSource_mint(1, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(1, superVaultStrategyAddress);
 
         superVault_deposit(2);
 
@@ -380,7 +380,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
 
         superVault_requestRedeem(shares);
 
@@ -403,13 +403,13 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
 
         switchActor(0);
         superVault_requestRedeem(shares);
 
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
-        
+
         property_shareSolvency();
     }
 
@@ -590,7 +590,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, 0xc3C1658B1e3b9e017030807d0C50895456FD2379);
+        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
 
         // 2. Request redemption of all shares
         vm.prank(_getActor());
