@@ -288,6 +288,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     configuration.owner,
                     configuration.owner,
                     configuration.bankManager,
+                    configuration.oracleManager,
                     configuration.gasManager,
                     configuration.treasury
                 )

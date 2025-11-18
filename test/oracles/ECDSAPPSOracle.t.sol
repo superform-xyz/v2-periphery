@@ -63,7 +63,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         governorAddress = _deployAccount(0x7, "GovernorRole");
 
         // Create a new governor specifically for these tests
-        governor = new SuperGovernor(governorAddress, governorAddress, governorAddress, governorAddress, TREASURY);
+        governor = new SuperGovernor(governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(governor)));

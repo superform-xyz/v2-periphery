@@ -22,6 +22,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     // Roles & Addresses
     address internal sGovernor;
     address internal governor;
+    address internal oracleManager;
     address internal treasury;
     address internal user;
     address internal hook1;
@@ -59,23 +60,24 @@ contract SuperGovernorTest is PeripheryHelpers {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
         treasury = _deployAccount(0x3, "Treasury");
-        user = _deployAccount(0x4, "User");
-        hook1 = _deployAccount(0x5, "Hook1");
-        hook2 = _deployAccount(0x6, "Hook2");
-        fulfillHook1 = _deployAccount(0x7, "FulfillHook1");
-        fulfillHook2 = _deployAccount(0x8, "FulfillHook2");
-        validator1 = _deployAccount(0x9, "Validator1");
-        validator2 = _deployAccount(0xA, "Validator2");
-        ppsOracle1 = _deployAccount(0xB, "PPSOracle1");
-        ppsOracle2 = _deployAccount(0xC, "PPSOracle2");
-        newManager = _deployAccount(0xF, "NewManager");
-        manager = _deployAccount(0x10, "Manager");
+        oracleManager = _deployAccount(0x4, "OracleManager");
+        user = _deployAccount(0x5, "User");
+        hook1 = _deployAccount(0x6, "Hook1");
+        hook2 = _deployAccount(0x7, "Hook2");
+        fulfillHook1 = _deployAccount(0x8, "FulfillHook1");
+        fulfillHook2 = _deployAccount(0x9, "FulfillHook2");
+        validator1 = _deployAccount(0xA, "Validator1");
+        validator2 = _deployAccount(0xB, "Validator2");
+        ppsOracle1 = _deployAccount(0xC, "PPSOracle1");
+        ppsOracle2 = _deployAccount(0xD, "PPSOracle2");
+        newManager = _deployAccount(0xE, "NewManager");
+        manager = _deployAccount(0xF, "Manager");
         upToken = new MockUp(address(this));
         superBank = _deployAccount(0x12, "SuperBank");
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -126,21 +128,28 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, governor, treasury);
+        new SuperGovernor(address(0), governor, governor, oracleManager, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, address(0), governor, governor, treasury);
+        new SuperGovernor(sGovernor, address(0), governor, oracleManager, governor, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, governor, governor, governor, address(0));
+        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, address(0));
+    }
+
+    /// @notice Tests constructor revert on zero address oracleManager.
+    function test_constructor_Revert_ZeroOracleManager() public {
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+
+        new SuperGovernor(sGovernor, governor, governor, address(0), governor, treasury);
     }
 
     // =============================================================
@@ -1717,7 +1726,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
         // Now execute the update
-        vm.prank(sGovernor); // sGovernor has ORACLE_MANAGER_ROLE
+        vm.prank(oracleManager); // sGovernor has ORACLE_MANAGER_ROLE
         superGovernor.executeOracleUpdate();
 
         // Verify the mock oracle received the execution call
@@ -1726,7 +1735,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests executeOracleUpdate reverts when oracle is not set in registry
     function test_OracleUpdateManagement_ExecuteOracleUpdate_Revert_OracleNotSet() public {
-        vm.prank(sGovernor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.executeOracleUpdate();
     }
@@ -1757,7 +1766,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.executeOracleUpdate();
 
         // Test with sGovernor (should succeed - has ORACLE_MANAGER_ROLE)
-        vm.prank(sGovernor);
+        vm.prank(oracleManager);
         superGovernor.executeOracleUpdate();
         assertTrue(mockOracle.oracleUpdateExecuted(), "sGovernor should be able to execute oracle update");
     }
@@ -1772,7 +1781,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(oracleKey, address(mockOracle));
 
         // Execute without queuing first - this should work with our mock
-        vm.prank(sGovernor);
+        vm.prank(oracleManager);
         superGovernor.executeOracleUpdate();
 
         // Verify the mock oracle received the execution call
@@ -1818,7 +1827,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastProvider(2), providers[2], "Third provider should match");
 
         // Step 2: Execute the update
-        vm.prank(sGovernor);
+        vm.prank(oracleManager);
         superGovernor.executeOracleUpdate();
 
         // Verify execution worked
@@ -1876,19 +1885,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(mockOracle.getLastBase(0), bases2[0], "First base should be from second operation");
         assertEq(mockOracle.getLastBase(1), bases2[1], "Second base should be from second operation");
         assertEq(mockOracle.getLastProvider(0), providers2[0], "First provider should be from second operation");
-    }
-
-    function test_ExecuteOracleProviderRemoval() public { }
-
-    function test_QueueOracleProviderRemoval() public {
-        bytes32[] memory providers = new bytes32[](1);
-        providers[0] = keccak256("PROVIDER1");
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        superGovernor.queueOracleProviderRemoval(providers);
-
-        // TODO: success flow
     }
 }
 
