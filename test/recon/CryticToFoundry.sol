@@ -59,6 +59,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_previewEquivalenceFromAssets(1);
     }
 
+    function test_property_comparePreviewDepositAndConvertToShares() public {
+        property_comparePreviewDepositAndConvertToShares(1e18);
+    }
+
     // forge test --match-test test_property_previewEquivalenceFromShares_1 -vvv
     // NOTE: optimization tests in optimize_previewMintSharesGreater and optimize_previewDepositSharesGreater
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/55
