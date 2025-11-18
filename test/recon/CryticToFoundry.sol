@@ -360,7 +360,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         switchActor(0);
         superVault_deposit(assetsToDeposit);
-        uint256 shares = superVault.balanceOf(_getActor());
 
         switchActor(1);
         superVault_deposit(assetsToDeposit);
@@ -394,6 +393,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     function test_doomsday_mintRedeemSymmetrical_6() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         doomsday_mintRedeemSymmetrical(40_000);
+    }
+
+    function test_doomsday_depositWithdrawSymmetrical() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        doomsday_depositWithdrawSymmetrical(40_000);
     }
 
     // forge test --match-test test_doomsday_cannotClaimMoreThanRequested -vvv
