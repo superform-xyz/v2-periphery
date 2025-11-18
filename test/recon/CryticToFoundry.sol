@@ -353,6 +353,21 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_shareSolvency();
     }
 
+    function test_property_totalAssets() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        switchActor(0);
+        superVault_deposit(assetsToDeposit);
+        uint256 shares = superVault.balanceOf(_getActor());
+
+        switchActor(1);
+        superVault_deposit(assetsToDeposit);
+
+        property_totalAssets();
+    }
+
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
     function test_property_previewEquivalenceFromAssets_2() public {
         property_previewEquivalenceFromAssets(1e18);
