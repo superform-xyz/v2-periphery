@@ -143,6 +143,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_assetBacking();
     }
 
+    ///@dev Test: averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher PPS
     function test_property_avgPPSMonotonicity() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
