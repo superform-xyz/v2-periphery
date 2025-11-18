@@ -96,7 +96,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
     /// @dev Property: deposit/withdraw doesn't cause loss to user
     function doomsday_depositWithdrawSymmetrical(uint256 assetsToDeposit) public {
-        // skip if there's been any gain because it complicates the assertion checking
         address asset = superVault.asset();
         uint256 balanceBefore = MockERC20(asset).balanceOf(_getActor());
         uint256 feeRecipientBalanceBefore = MockERC20(asset).balanceOf(feeRecipient);
