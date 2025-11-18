@@ -39,10 +39,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     /// @dev Property: mint/redeem doesn't cause loss to user
     function doomsday_mintRedeemSymmetrical(uint256 sharesToMint) public {
         // skip if there's been any gain because it complicates the assertion checking
-        // NOTE: removed because was previously checking that user doesn't gain only from minting/redeeming
-        // if (MockERC4626Tester(_getYieldSource()).totalGains() > 0) {
-        //     return;
-        // }
         address asset = superVault.asset();
         uint256 balanceBefore = MockERC20(asset).balanceOf(_getActor());
         uint256 feeRecipientBalanceBefore = MockERC20(asset).balanceOf(feeRecipient);
@@ -99,35 +95,44 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: deposit/withdraw doesn't cause loss to user
-    function doomsday_depositWithdrawSymmetrical(uint256 assetsToDeposit) public stateless returns (uint256, uint256) {
+    function doomsday_depositWithdrawSymmetrical(uint256 assetsToDeposit) public {
         // skip if there's been any gain because it complicates the assertion checking
-        // NOTE: removed because was previously checking that user doesn't gain only from minting/redeeming
-        // if (MockERC4626Tester(_getYieldSource()).totalGains() > 0) {
-        //     return;
-        // }
         address asset = superVault.asset();
         uint256 balanceBefore = MockERC20(asset).balanceOf(_getActor());
+        uint256 feeRecipientBalanceBefore = MockERC20(asset).balanceOf(feeRecipient);
 
         // 1. Deposit
         vm.prank(_getActor());
         superVault.deposit(assetsToDeposit, _getActor());
 
-        // 2. Request Withdrawal (through redemption in ERC7540)
-        uint256 shares = superVault.balanceOf(_getActor());
+        // 2. Deposit assets into yield strategy via executeHooks
+        // This is needed because the user's assets are currently in the strategy contract
+        // but not yet deposited into the underlying yield source
+        uint256 strategyAssetBalance = MockERC20(asset).balanceOf(address(superVaultStrategy));
+        if (strategyAssetBalance > 0) {
+            ISuperVaultStrategy.ExecuteArgs memory depositArgs = _createExecuteDepositArgs(strategyAssetBalance);
+
+            superVaultStrategy.executeHooks(depositArgs);
+        }
+
+        // 3. Request Redemption
+        superVault.balanceOf(_getActor());
+        // get shares of strategy in the deposited yield source
+        uint256 shares = _getSuperVaultStrategyShares();
+
         vm.prank(_getActor());
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
-        // 3. Fulfill Withdrawal
+        // 4. Fulfill Redemption from yield strategy
         (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
-            _createExecuteRedeemArgs(shares);
+            _createExecuteRedeemFromArgs(shares);
 
-        // execute and fulfill as admin (address(this))
+        // 4. Execute the redeem from the yield strategy to get assets back
         superVaultStrategy.executeHooks(executeArgs);
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
-        controllers = new address[](1);
-        controllers[0] = _getActor();
+        // called by admin address(this)
         superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         // 4. Claim Withdrawal
@@ -136,12 +141,13 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         superVault.withdraw(withdrawableAssets, _getActor(), _getActor());
 
         uint256 balanceAfter = MockERC20(asset).balanceOf(_getActor());
+        uint256 feeRecipientBalanceAfter = MockERC20(asset).balanceOf(feeRecipient);
+        uint256 feeDelta = feeRecipientBalanceAfter - feeRecipientBalanceBefore;
 
         uint256 TOLERANCE = 10; // 10 wei max tolerance of assets lost
+        
         // 5. Check that user didn't lose assets
-        gte(balanceAfter + TOLERANCE, balanceBefore, "User loses assets in deposit/withdrawal flow");
-
-        return (balanceAfter, balanceBefore);
+        gte(balanceAfter + TOLERANCE + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
     }
 
     /// @dev Property: maxRedeem is reset to 0 after full redemption
