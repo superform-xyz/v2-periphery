@@ -214,8 +214,9 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         if (
             _currentOp == OpType.FULFILL && _before.oraclePPS > _before.state[_getActor()].averageRequestPPS // fulfilled
                 // at a higher price
-                && _after.state[_getActor()].pendingRedeemRequest != 0 // redemptions have all been fulfilled/cancelled; avg
-                // gets reset to 0 in this case
+                && _after.state[_getActor()].pendingRedeemRequest != 0 // redemptions have all been fulfilled/cancelled;
+            // avg
+            // gets reset to 0 in this case
         ) {
             gte(
                 _after.state[_getActor()].averageRequestPPS,
