@@ -400,6 +400,11 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         doomsday_depositWithdrawSymmetrical(40_000);
     }
 
+    function test_doomsday_primaryManagerAlwaysChangeable() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        doomsday_primaryManagerAlwaysChangeable();
+    }
+
     // forge test --match-test test_doomsday_cannotClaimMoreThanRequested -vvv
     function test_doomsday_cannotClaimMoreThanRequested() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
