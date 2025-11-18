@@ -339,20 +339,9 @@ elif [ "$MODE" = "deploy" ]; then
     echo -e "${GREEN}🚀 Running in deployment mode for $ENVIRONMENT...${NC}"
     echo -e "${CYAN}   - Broadcasting to network${NC}"
     echo -e "${CYAN}   - Tenderly public verification enabled${NC}"
-
-    # Get the actual address from the account
-    ACCOUNT_ADDRESS=$(cast wallet address --account $ACCOUNT 2>/dev/null || echo "UNKNOWN")
     echo -e "${CYAN}   - Account: $ACCOUNT${NC}"
-    echo -e "${CYAN}   - Account address: $ACCOUNT_ADDRESS${NC}"
     echo -e "${CYAN}   - Expected deployer: 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8${NC}"
-
-    if [ "$ACCOUNT_ADDRESS" != "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8" ] && [ "$ACCOUNT_ADDRESS" != "UNKNOWN" ]; then
-        echo -e "${RED}❌ ERROR: Account address mismatch!${NC}"
-        echo -e "${RED}   The account '$ACCOUNT' has address $ACCOUNT_ADDRESS${NC}"
-        echo -e "${RED}   But the expected deployer is 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8${NC}"
-        echo -e "${YELLOW}   Please use the correct account or update the deployer address in ConfigBase.sol${NC}"
-        exit 1
-    fi
+    echo -e "${YELLOW}   - Note: Account validation will happen during forge script execution${NC}"
 
     BROADCAST_FLAG="--broadcast"
     VERIFY_FLAG="--verify"
