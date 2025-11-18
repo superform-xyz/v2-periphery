@@ -70,6 +70,14 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_transfer(1, shares);
     }
 
+    function test_property_transferFromOnlyUpdatesShares() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        _switchActor(0);
+        vm.prank(_getActor());
+        uint256 shares = superVault.mint(1e18, _getActor());
+        superVault_transferFrom(0, 1, shares);
+    }
+
     // forge test --match-test test_property_previewEquivalenceFromShares_1 -vvv
     // NOTE: optimization tests in optimize_previewMintSharesGreater and optimize_previewDepositSharesGreater
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/55
