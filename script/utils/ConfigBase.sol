@@ -15,6 +15,9 @@ abstract contract ConfigBase is Constants {
         address deployer;
         address owner;
         address treasury;
+        address oracleManager;
+        address bankManager;
+        address gasManager;
         mapping(uint64 chainId => address polymerProver) polymerProvers;
     }
 
@@ -26,22 +29,32 @@ abstract contract ConfigBase is Constants {
     mapping(uint64 chainId => string chainName) internal chainNames;
     bytes internal SALT_NAMESPACE;
     string internal constant MNEMONIC = "test test test test test test test test test test test junk";
-    string internal constant PRODUCTION_SALT_NAMESPACE = "DEPLOYPROD1.0.0";
+    string internal constant PRODUCTION_SALT_NAMESPACE = "PROD1.0.0";
+    string internal constant STAGING_SALT_NAMESPACE = "STAGING1.0.0";
 
     address internal constant TEST_DEPLOYER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address internal constant SUPERFORM_TREASURY = 0x1dbD9b26b295A33f126456Ab4e498cd308622f08;
+    address internal constant DEFAULT_MANAGER = 0x9E545AEd5C57E20221d6311c6CcCe09304941BF0;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets up base configuration including chain names and common addresses
-    /// @param env Environment (0/2 = production, 1 = test)
-    /// @param saltNamespace Salt namespace for deployment (if empty, uses production default)
+    /// @param env Environment (0 = production, 1 = test, 2 = staging)
+    /// @param saltNamespace Salt namespace for deployment (if empty, uses environment-specific default)
     function _setBaseConfiguration(uint256 env, string memory saltNamespace) internal {
-        // Set salt namespace - use production default if empty
+        // Set salt namespace based on environment with different salts for prod vs staging
         if (bytes(saltNamespace).length == 0) {
-            SALT_NAMESPACE = bytes(PRODUCTION_SALT_NAMESPACE);
+            if (env == 0) {
+                // Production environment - use production salt
+                SALT_NAMESPACE = bytes(PRODUCTION_SALT_NAMESPACE);
+            } else if (env == 2) {
+                // Staging environment - use staging salt
+                SALT_NAMESPACE = bytes(STAGING_SALT_NAMESPACE);
+            } else {
+                revert("INVALID_ENVIRONMENT");
+            }
         } else {
             SALT_NAMESPACE = bytes(saltNamespace);
         }
@@ -55,9 +68,12 @@ abstract contract ConfigBase is Constants {
 
         // ===== COMMON CONFIGURATION =====
         if (env == 0 || env == 2) {
-            // Production environment
+            // Production and Staging environments
             configuration.owner = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
             configuration.treasury = SUPERFORM_TREASURY;
+            configuration.oracleManager = DEFAULT_MANAGER;
+            configuration.bankManager = DEFAULT_MANAGER;
+            configuration.gasManager = DEFAULT_MANAGER;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
@@ -66,6 +82,9 @@ abstract contract ConfigBase is Constants {
             // Test environment
             configuration.owner = TEST_DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
+            configuration.oracleManager = DEFAULT_MANAGER;
+            configuration.bankManager = DEFAULT_MANAGER;
+            configuration.gasManager = DEFAULT_MANAGER;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

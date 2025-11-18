@@ -46,6 +46,11 @@ abstract contract Constants {
     string internal constant UP_KEY = "Up";
     string internal constant UP_DISTRIBUTOR_KEY = "UpDistributor";
 
+    // SuperVault implementation keys (for salt generation and address tracking)
+    string internal constant SUPER_VAULT_KEY = "SuperVault";
+    string internal constant SUPER_VAULT_STRATEGY_KEY = "SuperVaultStrategy";
+    string internal constant SUPER_VAULT_ESCROW_KEY = "SuperVaultEscrow";
+
     // core contract keys (for deterministic address computation)
     string internal constant SUPER_DEPLOYER_KEY = "SuperDeployer";
     string internal constant SUPER_EXECUTOR_KEY = "SuperExecutor";

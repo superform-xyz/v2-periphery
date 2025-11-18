@@ -142,9 +142,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), "");
 
         // Vault implementations
-        __checkContract("SuperVaultImplementation", __getSalt("SuperVaultImplementation"), "");
-        __checkContract("SuperVaultStrategyImplementation", __getSalt("SuperVaultStrategyImplementation"), "");
-        __checkContract("SuperVaultEscrowImplementation", __getSalt("SuperVaultEscrowImplementation"), "");
+        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), "");
+        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), "");
+        __checkContract(SUPER_VAULT_ESCROW_KEY, __getSalt(SUPER_VAULT_ESCROW_KEY), "");
 
         // SuperVaultAggregator (depends on implementations)
         __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), "");
@@ -248,12 +248,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_GOVERNOR_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperGovernor.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_GOVERNOR_KEY, ".json"))),
                 abi.encode(
                     configuration.owner,
                     configuration.owner,
-                    configuration.owner,
-                    configuration.owner,
+                    configuration.bankManager,
+                    configuration.gasManager,
                     configuration.treasury
                 )
             )
@@ -261,29 +261,30 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Deploy SuperVault implementations first
         peripheryContracts.vaultImpl = __deployContractIfNeeded(
-            "SuperVaultImplementation",
+            SUPER_VAULT_KEY,
             chainId,
-            __getSalt("SuperVaultImplementation"),
+            __getSalt(SUPER_VAULT_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVault.json"), abi.encode(peripheryContracts.superGovernor)
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_KEY, ".json"))),
+                abi.encode(peripheryContracts.superGovernor)
             )
         );
 
         peripheryContracts.strategyImpl = __deployContractIfNeeded(
-            "SuperVaultStrategyImplementation",
+            SUPER_VAULT_STRATEGY_KEY,
             chainId,
-            __getSalt("SuperVaultStrategyImplementation"),
+            __getSalt(SUPER_VAULT_STRATEGY_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVaultStrategy.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_STRATEGY_KEY, ".json"))),
                 abi.encode(peripheryContracts.superGovernor)
             )
         );
 
         peripheryContracts.escrowImpl = __deployContractIfNeeded(
-            "SuperVaultEscrowImplementation",
+            SUPER_VAULT_ESCROW_KEY,
             chainId,
-            __getSalt("SuperVaultEscrowImplementation"),
-            vm.getCode("script/locked-bytecode/SuperVaultEscrow.json")
+            __getSalt(SUPER_VAULT_ESCROW_KEY),
+            vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_ESCROW_KEY, ".json")))
         );
 
         // Deploy SuperVaultAggregator (takes all four addresses)
@@ -292,7 +293,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_VAULT_AGGREGATOR_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVaultAggregator.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_AGGREGATOR_KEY, ".json"))),
                 abi.encode(
                     peripheryContracts.superGovernor,
                     peripheryContracts.vaultImpl,
@@ -308,7 +309,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(ECDSAPPS_ORACLE_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/ECDSAPPSOracle.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", ECDSAPPS_ORACLE_KEY, ".json"))),
                 abi.encode(peripheryContracts.superGovernor, ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION)
             )
         );
@@ -325,7 +326,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         internal
     {
         console2.log("Configuring core periphery contracts...");
-
+        console2.log("msg.sender:", msg.sender);
         // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
 
