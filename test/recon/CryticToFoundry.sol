@@ -173,7 +173,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault.requestRedeem(shares, _getActor(), _getActor());
 
         // 4. Fulfill Redemption from yield strategy
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) =
             _createExecuteRedeemFromArgs(shares);
 
         // 4. Execute the redeem from the yield strategy to get assets back
@@ -517,8 +517,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // 4. Execute the redeem from the yield strategy to get assets back
         superVaultStrategy.executeHooks(executeArgs);
-
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
         // called by admin address(this)
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
