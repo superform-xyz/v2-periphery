@@ -46,11 +46,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
     function run(uint256 env, uint64 chainId) public broadcast(env) {
         _setConfiguration(env, "");
+        _validateDeployer(env);
         _deployPeriphery(chainId, env);
     }
 
     function run(uint256 env, uint64 chainId, string memory saltNamespace) public broadcast(env) {
         _setConfiguration(env, saltNamespace);
+        _validateDeployer(env);
         _deployPeriphery(chainId, env);
     }
 
@@ -88,6 +90,39 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("");
         console2.log("=====> On this chain we have", deployed, "contracts already deployed out of", total);
         console2.log("======================================");
+    }
+
+    /// @notice Validate that msg.sender matches the expected deployer
+    /// @dev Only validates in simulation mode (with --sender flag)
+    /// In deploy mode with --account, Foundry handles validation automatically
+    function _validateDeployer(uint256 env) internal view {
+        if (env == 0 || env == 2) {
+            // Only validate if msg.sender is not the default sender
+            // Default sender = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
+            // If we see this, we're either in deploy mode (where --account handles it)
+            // or simulation mode with wrong --sender
+            if (msg.sender != 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) {
+                // We have an explicit sender (from --sender flag in simulation mode)
+                // Validate it matches the expected deployer
+                require(
+                    msg.sender == configuration.deployer,
+                    string(
+                        abi.encodePacked(
+                            "DEPLOYER_MISMATCH: Expected ",
+                            vm.toString(configuration.deployer),
+                            " but got ",
+                            vm.toString(msg.sender),
+                            ". Ensure --sender flag matches the configured deployer address."
+                        )
+                    )
+                );
+                console2.log("Deployer validation passed:", msg.sender);
+            } else {
+                // Default sender - we're in deploy mode with --account
+                // Foundry will handle the validation when broadcasting
+                console2.log("Deploy mode: Using --account flag, validation handled by Foundry");
+            }
+        }
     }
 
     function _deployPeriphery(uint64 chainId, uint256) internal {

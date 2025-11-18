@@ -69,7 +69,9 @@ abstract contract ConfigBase is Constants {
         // ===== COMMON CONFIGURATION =====
         if (env == 0 || env == 2) {
             // Production and Staging environments
-            configuration.owner = 0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5;
+            // Owner and deployer are the same for prod/staging
+            configuration.owner = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
+            configuration.deployer = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.treasury = SUPERFORM_TREASURY;
             configuration.oracleManager = DEFAULT_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;
@@ -81,6 +83,7 @@ abstract contract ConfigBase is Constants {
         } else {
             // Test environment
             configuration.owner = TEST_DEPLOYER;
+            configuration.deployer = TEST_DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
             configuration.oracleManager = DEFAULT_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;

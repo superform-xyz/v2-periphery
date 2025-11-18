@@ -330,14 +330,34 @@ if [ "$MODE" = "simulate" ]; then
     echo -e "${YELLOW}🔍 Running in simulation mode for $ENVIRONMENT...${NC}"
     echo -e "${CYAN}   - No broadcasting to network${NC}"
     echo -e "${CYAN}   - No contract verification${NC}"
+    echo -e "${CYAN}   - Using sender: 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8${NC}"
     BROADCAST_FLAG=""
     VERIFY_FLAG=""
+    SENDER_FLAG="--sender 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
+    ACCOUNT_FLAG=""
 elif [ "$MODE" = "deploy" ]; then
     echo -e "${GREEN}🚀 Running in deployment mode for $ENVIRONMENT...${NC}"
     echo -e "${CYAN}   - Broadcasting to network${NC}"
     echo -e "${CYAN}   - Tenderly public verification enabled${NC}"
+
+    # Get the actual address from the account
+    ACCOUNT_ADDRESS=$(cast wallet address --account $ACCOUNT 2>/dev/null || echo "UNKNOWN")
+    echo -e "${CYAN}   - Account: $ACCOUNT${NC}"
+    echo -e "${CYAN}   - Account address: $ACCOUNT_ADDRESS${NC}"
+    echo -e "${CYAN}   - Expected deployer: 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8${NC}"
+
+    if [ "$ACCOUNT_ADDRESS" != "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8" ] && [ "$ACCOUNT_ADDRESS" != "UNKNOWN" ]; then
+        echo -e "${RED}❌ ERROR: Account address mismatch!${NC}"
+        echo -e "${RED}   The account '$ACCOUNT' has address $ACCOUNT_ADDRESS${NC}"
+        echo -e "${RED}   But the expected deployer is 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8${NC}"
+        echo -e "${YELLOW}   Please use the correct account or update the deployer address in ConfigBase.sol${NC}"
+        exit 1
+    fi
+
     BROADCAST_FLAG="--broadcast"
     VERIFY_FLAG="--verify"
+    SENDER_FLAG=""
+    ACCOUNT_FLAG="--account $ACCOUNT"
 else
     echo -e "${RED}❌ Invalid mode: $MODE${NC}"
     echo -e "${YELLOW}Mode must be either 'simulate' or 'deploy'${NC}"
@@ -394,15 +414,6 @@ cd "$PROJECT_ROOT"
 # Export PROJECT_ROOT as environment variable for Solidity scripts
 export SUPERFORM_PROJECT_ROOT="$PROJECT_ROOT"
 echo -e "${CYAN}   • Exported SUPERFORM_PROJECT_ROOT: $SUPERFORM_PROJECT_ROOT${NC}"
-print_separator
-
-# ===== UPDATE LOCKED BYTECODE =====
-echo -e "${BLUE}🔧 Updating locked bytecode artifacts...${NC}"
-if ! "$SCRIPT_DIR/update_locked_bytecode.sh"; then
-    echo -e "${RED}❌ Failed to update locked bytecode artifacts${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Locked bytecode updated successfully${NC}"
 print_separator
 
 # ===== BYTECODE AVAILABILITY ANALYSIS =====
@@ -542,7 +553,10 @@ for network_def in "${NETWORKS[@]}"; do
                 --sig 'run(uint256,uint64)' $FORGE_ENV $network_id \
                 --rpc-url ${!rpc_var} \
                 --chain $network_id \
-                --account $ACCOUNT \
+                --etherscan-api-key $ETHERSCANV2_API_KEY \
+                --verifier etherscan \
+                $ACCOUNT_FLAG \
+                $SENDER_FLAG \
                 $BROADCAST_FLAG \
                 $VERIFY_FLAG \
                 -vvv; then
