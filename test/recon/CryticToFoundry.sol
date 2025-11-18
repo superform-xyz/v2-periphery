@@ -184,6 +184,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_avgPPSMonotonicity();
     }
 
+    ///@dev Test: averageWithdrawPrice monotonicity when PPS decreases
     function test_property_avgPPSMonotonicity_PPSDecrease() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -221,6 +222,77 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // 5. Update PPS
         ECDSAPPSOracle_updatePPS_clamped(900_000_000_000_000_000);
+        property_avgPPSMonotonicity();
+    }
+
+    ///@dev Test: averageWithdrawPrice monotonicity when there are sequential redemptions at higher PPS values
+    function test_property_avgPPSMonotonicity_SequentialRedemptions() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        address asset = superVault.asset();
+
+        // 1. Deposits
+        switchActor(0);
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+        uint256 shares0 = superVault.balanceOf(_getActor());
+
+        switchActor(1);
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+        uint256 shares1 = superVault.balanceOf(_getActor());
+
+        switchActor(2);
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+        uint256 shares2 = superVault.balanceOf(_getActor());
+
+        // 2. Deposit assets into yield strategy via executeHooks
+        // This is needed because the user's assets are currently in the strategy contract
+        // but not yet deposited into the underlying yield source
+        uint256 strategyAssetBalance = MockERC20(asset).balanceOf(address(superVaultStrategy));
+        if (strategyAssetBalance > 0) {
+            ISuperVaultStrategy.ExecuteArgs memory depositArgs = _createExecuteDepositArgs(strategyAssetBalance);
+
+            superVaultStrategy.executeHooks(depositArgs);
+        }
+
+        // Get shares of strategy in the deposited yield source
+        uint256 shares = _getSuperVaultStrategyShares();
+
+        // 3. Request Redemption for first actor
+        switchActor(0);
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares0, _getActor(), _getActor());
+
+        // 4. Fulfill Redemption from yield strategy
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) = _createExecuteRedeemFromArgs(shares);
+
+        // 4. Execute the redeem from the yield strategy to get assets back
+        superVaultStrategy.executeHooks(executeArgs);
+
+        // 5. Update PPS after first actor's redemption
+        ECDSAPPSOracle_updatePPS_clamped(900_000_000_000_000_000);
+        property_avgPPSMonotonicity();
+
+        // 6. Request Redemption for second actor
+        switchActor(1);
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares1, _getActor(), _getActor());
+
+        // 7. Update PPS after second actor's redemption
+        ECDSAPPSOracle_updatePPS_clamped(1_100_000_000_000_000_000);
+        property_avgPPSMonotonicity();
+
+        // 8. Request Redemption for third actor
+        switchActor(2);
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares2, _getActor(), _getActor());
+
+        // 9. Update PPS after third actor's redemption
+        ECDSAPPSOracle_updatePPS_clamped(1_990_000_000_000_000_000);
         property_avgPPSMonotonicity();
     }
 
