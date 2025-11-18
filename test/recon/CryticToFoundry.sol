@@ -604,7 +604,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         // 1. Deposit
         vm.prank(_getActor());
         superVault.deposit(assetsToDeposit, _getActor());
-        uint256 userShares = superVault.balanceOf(_getActor());
 
         // 2. Deposit assets into yield strategy via executeHooks
         // This is needed because the user's assets are currently in the strategy contract
