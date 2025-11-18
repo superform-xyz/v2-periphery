@@ -144,7 +144,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     ///@dev Test: averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher PPS
-    function test_property_avgPPSMonotonicity() public {
+    function test_property_avgPPSMonotonicity_PPSIncrease() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
         superVaultStrategy_manageYieldSource_clamped(0);
         uint256 assetsToDeposit = 1000;
@@ -181,6 +181,46 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // 5. Update PPS
         ECDSAPPSOracle_updatePPS_clamped(1_700_000_000_000_000_000);
+        property_avgPPSMonotonicity();
+    }
+
+    function test_property_avgPPSMonotonicity_PPSDecrease() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        address asset = superVault.asset();
+
+        // 1. Deposit
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+
+        // 2. Deposit assets into yield strategy via executeHooks
+        // This is needed because the user's assets are currently in the strategy contract
+        // but not yet deposited into the underlying yield source
+        uint256 strategyAssetBalance = MockERC20(asset).balanceOf(address(superVaultStrategy));
+        if (strategyAssetBalance > 0) {
+            ISuperVaultStrategy.ExecuteArgs memory depositArgs = _createExecuteDepositArgs(strategyAssetBalance);
+
+            superVaultStrategy.executeHooks(depositArgs);
+        }
+
+        // 3. Request Redemption
+        superVault.balanceOf(_getActor());
+        // get shares of strategy in the deposited yield source
+        uint256 shares = _getSuperVaultStrategyShares();
+
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares, _getActor(), _getActor());
+
+        // 4. Fulfill Redemption from yield strategy
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) = _createExecuteRedeemFromArgs(shares);
+
+        // 4. Execute the redeem from the yield strategy to get assets back
+        superVaultStrategy.executeHooks(executeArgs);
+
+        // 5. Update PPS
+        ECDSAPPSOracle_updatePPS_clamped(900_000_000_000_000_000);
         property_avgPPSMonotonicity();
     }
 
