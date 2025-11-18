@@ -34,7 +34,9 @@ abstract contract DeployV2Base is Script, ConfigBase {
             _;
             vm.stopBroadcast();
         } else {
-            // Fallback for other env values
+            // For production and staging, use --account flag (msg.sender will be set by foundry)
+            // The --account flag automatically sets up the signer
+            console2.log("Broadcast msg.sender:", msg.sender);
             vm.startBroadcast();
             _;
             vm.stopBroadcast();
