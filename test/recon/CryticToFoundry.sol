@@ -124,6 +124,47 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_assetBacking();
     }
 
+    function test_property_avgPPSMonotonicity() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        address asset = superVault.asset();
+
+        // 1. Deposit
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+
+        // 2. Deposit assets into yield strategy via executeHooks
+        // This is needed because the user's assets are currently in the strategy contract
+        // but not yet deposited into the underlying yield source
+        uint256 strategyAssetBalance = MockERC20(asset).balanceOf(address(superVaultStrategy));
+        if (strategyAssetBalance > 0) {
+            ISuperVaultStrategy.ExecuteArgs memory depositArgs = _createExecuteDepositArgs(strategyAssetBalance);
+
+            superVaultStrategy.executeHooks(depositArgs);
+        }
+
+        // 3. Request Redemption
+        superVault.balanceOf(_getActor());
+        // get shares of strategy in the deposited yield source
+        uint256 shares = _getSuperVaultStrategyShares();
+
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares, _getActor(), _getActor());
+
+        // 4. Fulfill Redemption from yield strategy
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemFromArgs(shares);
+
+        // 4. Execute the redeem from the yield strategy to get assets back
+        superVaultStrategy.executeHooks(executeArgs);
+
+        // 5. Update PPS
+        ECDSAPPSOracle_updatePPS_clamped(1_700_000_000_000_000_000);
+        property_avgPPSMonotonicity();
+    }
+
     // forge test --match-test test_crytic_erc7540_4_redeem_1 -vvv
     function test_crytic_erc7540_4_redeem_1() public {
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -462,7 +503,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // called by admin address(this)
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
-        
+
         property_fulfillOnlyBurnsRequestedAmount();
     }
 
