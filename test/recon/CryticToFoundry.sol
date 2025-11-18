@@ -422,6 +422,50 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_maxRedeemMaxWithdrawSymmetry();
     }
 
+    function test_property_fulfillOnlyBurnsRequestedAmount() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVaultStrategy_manageYieldSource_clamped(0);
+        uint256 assetsToDeposit = 1000;
+
+        address asset = superVault.asset();
+
+        // 1. Deposit
+        vm.prank(_getActor());
+        superVault.deposit(assetsToDeposit, _getActor());
+
+        // 2. Deposit assets into yield strategy via executeHooks
+        // This is needed because the user's assets are currently in the strategy contract
+        // but not yet deposited into the underlying yield source
+        uint256 strategyAssetBalance = MockERC20(asset).balanceOf(address(superVaultStrategy));
+        if (strategyAssetBalance > 0) {
+            ISuperVaultStrategy.ExecuteArgs memory depositArgs = _createExecuteDepositArgs(strategyAssetBalance);
+
+            superVaultStrategy.executeHooks(depositArgs);
+        }
+
+        // 3. Request Redemption
+        superVault.balanceOf(_getActor());
+        // get shares of strategy in the deposited yield source
+        uint256 shares = _getSuperVaultStrategyShares();
+
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares, _getActor(), _getActor());
+
+        // 4. Fulfill Redemption from yield strategy
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemFromArgs(shares);
+
+        // 4. Execute the redeem from the yield strategy to get assets back
+        superVaultStrategy.executeHooks(executeArgs);
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        // called by admin address(this)
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        
+        property_fulfillOnlyBurnsRequestedAmount();
+    }
+
     // forge test --match-test test_superVault_cancelRedeem_3 -vvv
     function test_superVault_cancelRedeem_3() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
