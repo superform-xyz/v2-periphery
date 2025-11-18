@@ -519,6 +519,17 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_cancelRedeem();
     }
 
+    function test_property_cancelDoesntChangeTotalSupply() public {
+        ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
+        superVault_deposit(40_000);
+        uint256 shares = superVault.balanceOf(_getActor());
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(_getActor());
+        superVault_requestRedeem(shares);
+        property_cancelDoesntChangeTotalSupply();
+    }
+
     // forge test --match-test test_doomsday_mintRedeemSymmetrical_6 -vvv
     function test_doomsday_mintRedeemSymmetrical_6() public {
         ECDSAPPSOracle_updatePPS_clamped(1_000_000_000_000_000_000);
