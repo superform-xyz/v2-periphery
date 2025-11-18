@@ -121,18 +121,19 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param superGovernor Address of the default admin (will have SUPER_GOVERNOR_ROLE)
     /// @param governor Address that will have the GOVERNOR_ROLE for daily operations
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
+    /// @param oracleManager Address that will have the ORACLE_MANAGER_ROLE for daily operations
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
     /// @param treasury Address of the treasury
-    constructor(address superGovernor, address governor, address bankManager, address gasManager, address treasury) {
+    constructor(address superGovernor, address governor, address bankManager, address oracleManager, address gasManager, address treasury) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
-                || gasManager == address(0)
+                || gasManager == address(0) || oracleManager == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, superGovernor);
         _grantRole(_SUPER_GOVERNOR_ROLE, superGovernor);
-        _grantRole(_ORACLE_MANAGER_ROLE, superGovernor);
+        _grantRole(_ORACLE_MANAGER_ROLE, oracleManager);
         _grantRole(_GOVERNOR_ROLE, governor);
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
