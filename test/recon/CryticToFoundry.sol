@@ -152,7 +152,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_assetBacking();
     }
 
-    ///@dev Test: property - averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher PPS
+    ///@dev Test: property - averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher
+    /// PPS
     function test_property_avgPPSMonotonicity_PPSIncrease() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -234,7 +235,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_avgPPSMonotonicity();
     }
 
-    ///@dev Test: property - averageWithdrawPrice monotonicity when there are sequential redemptions at higher PPS values
+    ///@dev Test: property - averageWithdrawPrice monotonicity when there are sequential redemptions at higher PPS
+    /// values
     function test_property_avgPPSMonotonicity_SequentialRedemptions() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -710,7 +712,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         doomsday_mintRedeemSymmetrical(40_000);
     }
 
-    /// @dev Test: deposit/withdraw doesn't cause loss to user (doomsday)
+    /// @dev Test: property - deposit/withdraw doesn't cause loss to user (doomsday)
     function test_doomsday_depositWithdrawSymmetrical() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         doomsday_depositWithdrawSymmetrical(40_000);
