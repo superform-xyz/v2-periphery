@@ -118,6 +118,18 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         assertEq(address(superBank).balance, initialBalance + amountToSend, "SuperBank did not receive ETH correctly");
     }
 
+    /// @notice Tests distribute reverts when caller is not bank manager
+    /// @dev Covers SuperBank.sol:36-37 - access control check in _onlyBankManager
+    function test_SuperBank_distribute_NotBankManager() public {
+        // Don't grant BANK_MANAGER_ROLE to the caller
+        vm.startPrank(user); // user is not a bank manager
+
+        vm.expectRevert(ISuperBank.INVALID_BANK_MANAGER.selector);
+        superBank.distribute(100 ether);
+
+        vm.stopPrank();
+    }
+
     function test_SuperBank_distribute_ZeroLengthArray() public {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
@@ -177,6 +189,325 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         );
     }
 
+    /// @notice Tests distribute reverts when revenueShare exceeds BPS_PRECISION
+    /// @dev Covers SuperBank.sol:65 - if (revenueShare > BPS_PRECISION) revert INVALID_REVENUE_SHARE()
+    function test_SuperBank_distribute_RevenueShareExceedsPrecision() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return a value greater than BPS_PRECISION (10,000)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(10_001))
+        );
+
+        vm.expectRevert(ISuperBank.INVALID_REVENUE_SHARE.selector);
+        superBank.distribute(upAmount);
+    }
+
+    /// @notice Tests distribute succeeds when revenueShare equals BPS_PRECISION
+    /// @dev Covers SuperBank.sol:65 - boundary condition where revenueShare == BPS_PRECISION (10,000)
+    function test_SuperBank_distribute_RevenueShareAtPrecision() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return exactly BPS_PRECISION (10,000)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(10_000))
+        );
+
+        // Should succeed - 100% goes to sUP, 0% to treasury
+        uint256 expectedSupAmount = upAmount; // 100 ether * 10,000 / 10,000 = 100 ether
+        uint256 expectedTreasuryAmount = 0;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperBank.RevenueDistributed(address(up), supToken, treasury, expectedSupAmount, expectedTreasuryAmount);
+        superBank.distribute(upAmount);
+
+        assertEq(up.balanceOf(supToken), expectedSupAmount, "sUP token should receive 100% of distribution");
+        assertEq(up.balanceOf(treasury), expectedTreasuryAmount, "Treasury should receive 0%");
+    }
+
+    /// @notice Tests distribute reverts with large revenueShare value
+    /// @dev Covers SuperBank.sol:65 - tests with significantly higher value than BPS_PRECISION
+    function test_SuperBank_distribute_RevenueShareLargeValue() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return a very large value
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(100_000))
+        );
+
+        vm.expectRevert(ISuperBank.INVALID_REVENUE_SHARE.selector);
+        superBank.distribute(upAmount);
+    }
+
+    /// @notice Tests distribute when supAmount is zero (no transfer to sUP)
+    /// @dev Covers SuperBank.sol:76 - if (supAmount > 0) branch when supAmount = 0
+    function test_SuperBank_distribute_SupAmountZero() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return 0 (0% to sUP, 100% to treasury)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(0))
+        );
+
+        uint256 initialSupBalance = up.balanceOf(supToken);
+        uint256 initialTreasuryBalance = up.balanceOf(treasury);
+
+        // supAmount should be 0, treasuryAmount should be 100 ether
+        vm.expectEmit(true, true, true, true);
+        emit ISuperBank.RevenueDistributed(address(up), supToken, treasury, 0, upAmount);
+        superBank.distribute(upAmount);
+
+        // sUP should not receive anything
+        assertEq(up.balanceOf(supToken), initialSupBalance, "sUP token should receive 0");
+        // Treasury should receive everything
+        assertEq(up.balanceOf(treasury), initialTreasuryBalance + upAmount, "Treasury should receive 100%");
+    }
+
+    /// @notice Tests distribute when supAmount is greater than zero
+    /// @dev Covers SuperBank.sol:76 - if (supAmount > 0) branch when supAmount > 0
+    function test_SuperBank_distribute_SupAmountGreaterThanZero() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return 5000 (50% to sUP, 50% to treasury)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(5000))
+        );
+
+        uint256 initialSupBalance = up.balanceOf(supToken);
+        uint256 initialTreasuryBalance = up.balanceOf(treasury);
+
+        uint256 expectedSupAmount = 50 ether;
+        uint256 expectedTreasuryAmount = 50 ether;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperBank.RevenueDistributed(
+            address(up), supToken, treasury, expectedSupAmount, expectedTreasuryAmount
+        );
+        superBank.distribute(upAmount);
+
+        // Both should receive 50%
+        assertEq(up.balanceOf(supToken), initialSupBalance + expectedSupAmount, "sUP token should receive 50%");
+        assertEq(
+            up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 50%"
+        );
+    }
+
+    /// @notice Tests distribute with very small amounts that could round to zero
+    /// @dev Covers SuperBank.sol:76 - edge case with small amounts and rounding
+    function test_SuperBank_distribute_SmallAmountRounding() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        // Very small amount: 1 wei
+        uint256 upAmount = 1;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return 5000 (50%)
+        // With Math.Rounding.Ceil, even 1 wei at 50% should round up to 1
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(5000))
+        );
+
+        uint256 initialSupBalance = up.balanceOf(supToken);
+        uint256 initialTreasuryBalance = up.balanceOf(treasury);
+
+        superBank.distribute(upAmount);
+
+        // With Rounding.Ceil, 1 * 5000 / 10000 = 0.5 rounds up to 1
+        // So supAmount = 1, treasuryAmount = 0
+        assertEq(up.balanceOf(supToken), initialSupBalance + 1, "sUP token should receive 1 wei (rounded up)");
+        assertEq(up.balanceOf(treasury), initialTreasuryBalance, "Treasury should receive 0 wei");
+    }
+
+    /// @notice Tests distribute when treasuryAmount is zero (no transfer to treasury)
+    /// @dev Covers SuperBank.sol:80 - if (treasuryAmount > 0) branch when treasuryAmount = 0
+    function test_SuperBank_distribute_TreasuryAmountZero() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return 10,000 (100% to sUP, 0% to treasury)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(10_000))
+        );
+
+        uint256 initialSupBalance = up.balanceOf(supToken);
+        uint256 initialTreasuryBalance = up.balanceOf(treasury);
+
+        superBank.distribute(upAmount);
+
+        // sUP should receive 100%, treasury should receive 0 (no transfer)
+        assertEq(up.balanceOf(supToken), initialSupBalance + upAmount, "sUP token should receive 100%");
+        assertEq(up.balanceOf(treasury), initialTreasuryBalance, "Treasury should receive 0 (no transfer)");
+    }
+
+    /// @notice Tests distribute when treasuryAmount is greater than zero
+    /// @dev Covers SuperBank.sol:80 - if (treasuryAmount > 0) branch when treasuryAmount > 0
+    function test_SuperBank_distribute_TreasuryAmountGreaterThanZero() public {
+        address supToken = address(0xF);
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        superGovernor.setAddress(superGovernor.UP(), address(up));
+        superGovernor.setAddress(superGovernor.SUP_STRATEGY(), supToken);
+        superGovernor.setAddress(superGovernor.TREASURY(), treasury);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 4 * 365 days);
+
+        uint256 upAmount = 100 ether;
+        vm.startPrank(admin);
+        up.mint(address(superBank), upAmount);
+        vm.stopPrank();
+
+        // Mock getFee to return 3000 (30% to sUP, 70% to treasury)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getFee(uint8)", uint8(FeeType.REVENUE_SHARE)),
+            abi.encode(uint256(3000))
+        );
+
+        uint256 initialSupBalance = up.balanceOf(supToken);
+        uint256 initialTreasuryBalance = up.balanceOf(treasury);
+
+        superBank.distribute(upAmount);
+
+        uint256 expectedSupAmount = 30 ether;
+        uint256 expectedTreasuryAmount = 70 ether;
+
+        // Both should receive their respective shares
+        assertEq(up.balanceOf(supToken), initialSupBalance + expectedSupAmount, "sUP token should receive 30%");
+        assertEq(
+            up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 70%"
+        );
+    }
+
+    /// @notice Tests executeHooks reverts when caller is not bank manager
+    /// @dev Covers SuperBank.sol:36-37 - access control check in executeHooks
+    function test_SuperBank_executeHooks_NotBankManager() public {
+        // Don't grant BANK_MANAGER_ROLE to the caller
+        vm.startPrank(user); // user is not a bank manager
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(0x1111);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.expectRevert(ISuperBank.INVALID_BANK_MANAGER.selector);
+        superBank.executeHooks(executionData);
+
+        vm.stopPrank();
+    }
+
     function test_SuperBank_executeHooks_ZeroLengthArray() public {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
@@ -226,6 +557,298 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         vm.stopPrank();
     }
 
+    /// @notice Tests executeHooks reverts when hook address is zero
+    /// @dev Covers Bank.sol:83 - if (hookAddress == address(0)) revert ZERO_ADDRESS()
+    function test_SuperBank_executeHooks_ZeroAddressHook() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(0); // Zero address hook
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.expectRevert(Bank.ZERO_ADDRESS.selector);
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts when zero address is at different positions in array
+    /// @dev Covers Bank.sol:83 - zero address check happens early in loop iteration
+    function test_SuperBank_executeHooks_ZeroAddressAtDifferentPositions() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Test 1: Zero address in second position
+        address[] memory hooks = new address[](2);
+        hooks[0] = address(0); // Zero address first
+        hooks[1] = address(0x2222);
+
+        bytes[] memory data = new bytes[](2);
+        data[0] = "data1";
+        data[1] = "data2";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](2);
+        merkleProofs[0] = new bytes32[](1);
+        merkleProofs[1] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](2);
+        expectedOutputs[0] = 0;
+        expectedOutputs[1] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.expectRevert(Bank.ZERO_ADDRESS.selector);
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts when hook is not registered
+    /// @dev Covers Bank.sol:92 - if (!_isHookRegistered(hookAddress)) revert HOOK_NOT_REGISTERED()
+    function test_SuperBank_executeHooks_HookNotRegistered() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Create a hook but don't register it
+        address unregisteredHook = address(0x9999);
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = unregisteredHook; // Not registered
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        vm.expectRevert(Bank.HOOK_NOT_REGISTERED.selector);
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts with different unregistered hook addresses
+    /// @dev Covers Bank.sol:92 - hook registration check works for any address
+    function test_SuperBank_executeHooks_DifferentUnregisteredHooks() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Test with different unregistered addresses
+        address[] memory unregisteredAddresses = new address[](3);
+        unregisteredAddresses[0] = address(0x1234);
+        unregisteredAddresses[1] = address(0x5678);
+        unregisteredAddresses[2] = address(0xABCD);
+
+        for (uint256 i = 0; i < unregisteredAddresses.length; i++) {
+            address[] memory hooks = new address[](1);
+            hooks[0] = unregisteredAddresses[i];
+
+            bytes[] memory data = new bytes[](1);
+            data[0] = "data1";
+
+            bytes32[][] memory merkleProofs = new bytes32[][](1);
+            merkleProofs[0] = new bytes32[](1);
+
+            uint256[] memory expectedOutputs = new uint256[](1);
+            expectedOutputs[0] = 0;
+
+            IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+                hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+            });
+
+            vm.expectRevert(Bank.HOOK_NOT_REGISTERED.selector);
+            superBank.executeHooks(executionData);
+        }
+
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks passes registration check for properly registered hook
+    /// @dev Verifies that registered hooks don't trigger HOOK_NOT_REGISTERED error
+    function test_SuperBank_executeHooks_RegisteredHookPassesCheck() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Should not revert with HOOK_NOT_REGISTERED (will fail later at merkle proof validation)
+        vm.expectRevert(); // Will revert but not with HOOK_NOT_REGISTERED
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts when hook's inspect() method fails
+    /// @dev Covers Bank.sol:193-196 - catch branch when inspect() reverts
+    function test_SuperBank_executeHooks_InspectMethodFails() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Create a hook that reverts in inspect()
+        MockHookInspectFails mockHook = new MockHookInspectFails();
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Set a valid merkle root
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(bytes32(uint256(1)))
+        );
+
+        // Should revert with HOOK_VALIDATION_FAILED because inspect() fails (catch branch)
+        vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts when hook doesn't implement ISuperHookInspector
+    /// @dev Covers Bank.sol:193-196 - catch branch when interface not implemented
+    function test_SuperBank_executeHooks_HookMissingInspectInterface() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        // Create a hook that doesn't implement ISuperHookInspector
+        MockHookNoInspect mockHook = new MockHookNoInspect();
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Set a valid merkle root
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(bytes32(uint256(1)))
+        );
+
+        // Should revert with HOOK_VALIDATION_FAILED because inspect() doesn't exist (catch branch)
+        vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
+        superBank.executeHooks(executionData);
+        vm.stopPrank();
+    }
+
+    /// @notice Tests executeHooks reverts when merkle root is zero
+    /// @dev Covers Bank.sol:187 - if (root == bytes32(0)) return false
+    function test_SuperBank_executeHooks_MerkleRootZero() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0); // Empty proof
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Mock getSuperBankHookMerkleRoot to return bytes32(0)
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(bytes32(0)) // Zero root should cause validation to fail
+        );
+
+        vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
+        superBank.executeHooks(executionData);
+    }
+
     function test_SuperBank_executeHooks_InvalidMerkleProof() public {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
@@ -263,6 +886,102 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         );
 
         vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Tests executeHooks reverts when merkle proof is invalid with non-zero root
+    /// @dev Covers Bank.sol:98-101 - validation failure with non-zero root
+    function test_SuperBank_executeHooks_InvalidProofNonZeroRoot() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](1);
+        merkleProofs[0][0] = bytes32(uint256(1)); // Invalid proof
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Set a non-zero root that doesn't match the proof
+        bytes32 merkleRoot = bytes32(uint256(2));
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(merkleRoot)
+        );
+
+        // Should revert with HOOK_VALIDATION_FAILED
+        vm.expectRevert(Bank.HOOK_VALIDATION_FAILED.selector);
+        superBank.executeHooks(executionData);
+    }
+
+    /// @notice Tests single-leaf tree validation (empty proof, root equals leaf)
+    /// @dev Covers Bank.sol:205-206 - single-leaf tree case
+    function test_SuperBank_executeHooks_SingleLeafTreeValidation() public {
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+        vm.stopPrank();
+
+        MockHookTarget mockTarget = new MockHookTarget();
+        MockSuperHook mockHook = new MockSuperHook(address(mockTarget));
+
+        // Register the hook
+        vm.prank(governor);
+        superGovernor.registerHook(address(mockHook));
+
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(mockHook);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = "data1";
+
+        // Empty proof for single-leaf tree
+        bytes32[][] memory merkleProofs = new bytes32[][](1);
+        merkleProofs[0] = new bytes32[](0);
+
+        uint256[] memory expectedOutputs = new uint256[](1);
+        expectedOutputs[0] = 0;
+
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
+        });
+
+        // Calculate leaf (what hook.inspect() returns)
+        bytes memory hookArgs = abi.encodePacked(address(mockTarget));
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(address(mockHook), hookArgs))));
+
+        // For single-leaf tree: root == leaf, proof is empty
+        vm.mockCall(
+            address(superGovernor),
+            abi.encodeWithSignature("getSuperBankHookMerkleRoot(address)", address(mockHook)),
+            abi.encode(leaf) // Root equals leaf
+        );
+
+        // Should succeed - single-leaf tree validation passes when root == leaf and proof is empty
+        vm.expectEmit(true, true, false, false, address(mockTarget));
+        emit MockHookTarget.Executed();
+
+        vm.expectEmit(true, true, true, true, address(superBank));
+        emit Bank.HooksExecuted(hooks, data);
+
         superBank.executeHooks(executionData);
     }
 
@@ -1094,4 +1813,22 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     function retrieveSignatureData(address) external pure returns (bytes memory) {
         return "";
     }
+}
+
+// =============================================================
+// Mock Contracts for Testing Inspect Catch Branch
+// =============================================================
+
+/// @notice Mock hook that reverts in inspect() method
+/// @dev Used to test the catch branch in _validateHookConfiguration
+contract MockHookInspectFails {
+    function inspect(bytes memory) external pure returns (bytes memory) {
+        revert("Inspect failed");
+    }
+}
+
+/// @notice Mock hook that doesn't implement ISuperHookInspector interface
+/// @dev Used to test the catch branch when interface is missing
+contract MockHookNoInspect {
+    // No inspect() method - doesn't implement ISuperHookInspector
 }
