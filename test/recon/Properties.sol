@@ -228,25 +228,23 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
 
     /// @dev Property: redemptions only burn the requested amount of shares (within tolerance range)
     function property_fulfillOnlyBurnsRequestedAmount() public {
-        uint256 TOLERANCE_CONSTANT = 10 wei; // taken from SuperVaultStrategy
-
         if (_currentOp == OpType.FULFILL) {
             uint256 pendingRedeemDelta = _before.summedPendingRedeem - _after.summedPendingRedeem;
             uint256 totalSupplyDelta = _before.summedTotalShares - _after.summedTotalShares;
 
-            // Check that burned amount is within tolerance of requested amount
+            // Check that burned amount is correct
             if (totalSupplyDelta < pendingRedeemDelta) {
-                // Burned less than requested - check within tolerance
+                // Burned less than requested
                 gte(
                     totalSupplyDelta,
-                    pendingRedeemDelta - TOLERANCE_CONSTANT,
+                    pendingRedeemDelta,
                     "burned less than requested beyond tolerance"
                 );
             } else {
-                // Burned more than requested - check within tolerance
+                // Burned more than requested
                 lte(
                     totalSupplyDelta,
-                    pendingRedeemDelta + TOLERANCE_CONSTANT,
+                    pendingRedeemDelta,
                     "burned more than requested beyond tolerance"
                 );
             }

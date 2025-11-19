@@ -89,7 +89,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         uint256 feeDelta = feeRecipientBalanceAfter - feeRecipientBalanceBefore;
 
         // 6. Check that user didn't lose assets
-        gte(balanceAfter + TOLERANCE + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
+        gte(balanceAfter + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
     }
 
     /// @dev Property: deposit/withdraw doesn't cause loss to user
@@ -142,7 +142,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         uint256 feeDelta = feeRecipientBalanceAfter - feeRecipientBalanceBefore;
 
         // 5. Check that user didn't lose assets
-        gte(balanceAfter + TOLERANCE + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
+        gte(balanceAfter + feeDelta, balanceBefore, "User loses assets in deposit/withdrawal flow");
     }
 
     /// @dev Property: maxRedeem is reset to 0 after full redemption
@@ -327,8 +327,7 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
                 vm.prank(actors[i]);
                 try superVault.withdraw(withdrawable, actors[i], actors[i]) { }
                 catch {
-                    // if user can't maxWithdraw there's most likely an insolvency issue related to the
-                    // TOLERANCE_CONSTANT
+                    // if user can't maxWithdraw there's most likely an insolvency issue
                     t(false, "users should always be able to withdraw unless the system is paused");
                 }
             }
