@@ -176,21 +176,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         }
 
         // 3. Request Redemption
-        superVault.balanceOf(_getActor());
-        // get shares of strategy in the deposited yield source
-        uint256 shares = _getSuperVaultStrategyShares();
+        uint256 sharesActor = superVault.balanceOf(_getActor());
 
         vm.prank(_getActor());
-        superVault.requestRedeem(shares, _getActor(), _getActor());
-
-        // 4. Fulfill Redemption from yield strategy
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) = _createExecuteRedeemFromArgs(shares);
-
-        // 4. Execute the redeem from the yield strategy to get assets back
-        superVaultStrategy.executeHooks(executeArgs);
+        superVault.requestRedeem(sharesActor, _getActor(), _getActor());
 
         // 5. Update PPS
         ECDSAPPSOracle_updatePPS_clamped(1_700_000_000_000_000_000);
+
+        // 6. Fulfill Redemption request
+        superVaultStrategy_fulfillRedeemRequests_clamped(sharesActor);
         property_avgPPSMonotonicity();
     }
 
@@ -217,21 +212,16 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         }
 
         // 3. Request Redemption
-        superVault.balanceOf(_getActor());
-        // get shares of strategy in the deposited yield source
-        uint256 shares = _getSuperVaultStrategyShares();
+        uint256 sharesActor = superVault.balanceOf(_getActor());
 
         vm.prank(_getActor());
-        superVault.requestRedeem(shares, _getActor(), _getActor());
-
-        // 4. Fulfill Redemption from yield strategy
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) = _createExecuteRedeemFromArgs(shares);
-
-        // 4. Execute the redeem from the yield strategy to get assets back
-        superVaultStrategy.executeHooks(executeArgs);
+        superVault.requestRedeem(sharesActor, _getActor(), _getActor());
 
         // 5. Update PPS
         ECDSAPPSOracle_updatePPS_clamped(900_000_000_000_000_000);
+
+        // 6. Fulfill Redemption request
+        superVaultStrategy_fulfillRedeemRequests_clamped(sharesActor);
         property_avgPPSMonotonicity();
     }
 
@@ -270,23 +260,13 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
             superVaultStrategy.executeHooks(depositArgs);
         }
 
-        // Get shares of strategy in the deposited yield source
-        uint256 shares = _getSuperVaultStrategyShares();
-
         // 3. Request Redemption for first actor
         switchActor(0);
         vm.prank(_getActor());
         superVault.requestRedeem(shares0, _getActor(), _getActor());
 
-        // 4. Fulfill Redemption from yield strategy
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs,) = _createExecuteRedeemFromArgs(shares);
-
-        // 4. Execute the redeem from the yield strategy to get assets back
-        superVaultStrategy.executeHooks(executeArgs);
-
         // 5. Update PPS after first actor's redemption
         ECDSAPPSOracle_updatePPS_clamped(900_000_000_000_000_000);
-        property_avgPPSMonotonicity();
 
         // 6. Request Redemption for second actor
         switchActor(1);
@@ -295,7 +275,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // 7. Update PPS after second actor's redemption
         ECDSAPPSOracle_updatePPS_clamped(1_100_000_000_000_000_000);
-        property_avgPPSMonotonicity();
 
         // 8. Request Redemption for third actor
         switchActor(2);
@@ -304,6 +283,19 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         // 9. Update PPS after third actor's redemption
         ECDSAPPSOracle_updatePPS_clamped(1_990_000_000_000_000_000);
+
+        // 10. Fulfill Redemption requests
+        uint256 totalShares = shares0 + shares1 + shares2;
+        address[] memory controllers = new address[](3);
+        switchActor(1);
+        controllers[0] = _getActor();
+        switchActor(2);
+        controllers[1] = _getActor();
+        switchActor(0);
+        controllers[2] = _getActor();
+
+        superVaultStrategy_fulfillRedeemRequests(totalShares, controllers);
+
         property_avgPPSMonotonicity();
     }
 
