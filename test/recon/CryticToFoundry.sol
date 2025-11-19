@@ -34,6 +34,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     /// Triaged
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_13 -vvv
+    /// @dev Test: property - previewMint and convertToAssets equivalence
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_comparePreviewMintAndConvertToAssets_13() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
@@ -46,7 +47,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_1 -vvv
-    // NOTE: same as above, see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
+    /// @dev Test: property - previewMint and previewDeposit equivalence (from assets)
+    /// @dev NOTE: same as above, see issue here: https://github.com/Recon-Fuzz/superform-review/issues/49
     function test_property_previewEquivalenceFromAssets_1() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
@@ -59,10 +61,12 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_previewEquivalenceFromAssets(1);
     }
 
+    /// @dev Test: property - previewDeposit and convertToShares equivalence
     function test_property_comparePreviewDepositAndConvertToShares() public {
         property_comparePreviewDepositAndConvertToShares(1e18);
     }
 
+    /// @dev Test: property - transfer only updates shares
     function test_property_transferOnlyUpdatesShares() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         vm.prank(_getActor());
@@ -70,6 +74,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_transfer(1, shares);
     }
 
+    /// @dev Test: property - transferFrom only updates shares
     function test_property_transferFromOnlyUpdatesShares() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         switchActor(0);
@@ -79,7 +84,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_property_previewEquivalenceFromShares_1 -vvv
-    // NOTE: optimization tests in optimize_previewMintSharesGreater and optimize_previewDepositSharesGreater
+    /// @dev Test: property - previewMint and previewDeposit equivalence (from shares)
+    /// @dev NOTE: optimization tests in optimize_previewMintSharesGreater and optimize_previewDepositSharesGreater
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/55
     function test_property_previewEquivalenceFromShares_1() public {
         vm.warp(block.timestamp + 5);
@@ -87,6 +93,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17 -vvv
+    /// @dev Test: maxWithdraw resets after full withdrawal (doomsday)
     function test_doomsday_maxWithdrawResetsAfterFullWithdrawal_17() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         uint256 depositAmount = 3000e6;
@@ -103,6 +110,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_sumOfClaimable_5 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/67
+    /// @dev Test: property - sum of all claimable is <= balance available
     function test_property_sumOfClaimable_5() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVault_deposit(3);
@@ -114,6 +122,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     // forge test --match-test test_property_assetBacking_10 -vvv
     // NOTE: see issue here: https://github.com/Recon-Fuzz/superform-review/issues/68
+    /// @dev Test: property - if totalSupply() > 0, then totalAssets() > 0
     function test_property_assetBacking_10() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVault_deposit(40_000);
@@ -143,7 +152,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_assetBacking();
     }
 
-    ///@dev Test: averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher PPS
+    ///@dev Test: property - averageWithdrawPrice should never decrease when new redemptions are fulfilled at a higher PPS
     function test_property_avgPPSMonotonicity_PPSIncrease() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -184,7 +193,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_avgPPSMonotonicity();
     }
 
-    ///@dev Test: averageWithdrawPrice monotonicity when PPS decreases
+    ///@dev Test: property - averageWithdrawPrice monotonicity when PPS decreases
     function test_property_avgPPSMonotonicity_PPSDecrease() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -225,7 +234,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_avgPPSMonotonicity();
     }
 
-    ///@dev Test: averageWithdrawPrice monotonicity when there are sequential redemptions at higher PPS values
+    ///@dev Test: property - averageWithdrawPrice monotonicity when there are sequential redemptions at higher PPS values
     function test_property_avgPPSMonotonicity_SequentialRedemptions() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -332,6 +341,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv
+    /// @dev Test: property - previewMint and previewDeposit equivalence
     function test_property_previewEquivalenceFromAssets_() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
@@ -446,6 +456,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_1 -vvv
+    /// @dev Test: property - previewMint and convertToAssets equivalence
     function test_property_comparePreviewMintAndConvertToAssets_1() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 1000, 0x00000000000000000000000000000000DeaDBeef);
 
@@ -456,6 +467,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_comparePreviewMintAndConvertToAssets(1e18);
     }
 
+    /// @dev Test: property - previewMint and convertToAssets equivalence
     function test_comparePreviewMintAndConvertToAssets_4() public {
         superVaultStrategy_proposeVaultFeeConfigUpdate(0, 9999, 0x00000000000000000000000000000000DeaDBeef);
 
@@ -466,6 +478,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_comparePreviewMintAndConvertToAssets(1e18);
     }
 
+    /// @dev Test: property - previewDeposit and deposit equivalence
     function test_doomsday_previewDepositEquivalence() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -474,6 +487,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         doomsday_previewDepositEquivalence(assetsToDeposit);
     }
 
+    /// @dev Test: property - previewMint and mint equivalence
     function test_doomsday_previewMintEquivalence() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -482,6 +496,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         doomsday_previewMintEquivalence(sharesToMint);
     }
 
+    /// @dev Test: property - balanceOf(escrow) >= SUM(controllers.pendingRedeemRequest)
     function test_property_escrowBalance() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -501,6 +516,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_escrowBalance();
     }
 
+    /// @dev Test: property - SuperVault::totalSupply == SUM(user balances) + balanceOf(escrow)  (solvency)
     function test_property_shareSolvency() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -525,6 +541,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_shareSolvency();
     }
 
+    /// @dev Test: property - SUM(shares) * PPS == totalAssets
     function test_property_totalAssets() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -540,15 +557,18 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv
+    /// @dev Test: property - previewMint and previewDeposit equivalence
     function test_property_previewEquivalenceFromAssets_2() public {
         property_previewEquivalenceFromAssets(1e18);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_3 -vvv
+    /// @dev Test: property - previewMint and previewDeposit equivalence
     function test_property_previewEquivalenceFromAssets_3() public {
         property_previewEquivalenceFromAssets(1);
     }
 
+    /// @dev Test: property - maxRedeem and maxWithdraw should always be equivalent
     function test_property_maxRedeemMaxWithdrawSymmetry() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -594,6 +614,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_maxRedeemMaxWithdrawSymmetry();
     }
 
+    /// @dev Test: property - fulfillRedeemRequests should only burn the requested amount of shares
     function test_property_fulfillOnlyBurnsRequestedAmount() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
@@ -643,6 +664,10 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_superVault_cancelRedeem_3 -vvv
+    /// @dev Test: cancelRedeem should never alter the supply of SuperVault tokens
+    /// @dev Test: pendingRedeemRequest should be 0 after a user calls cancelRedeem
+    /// @dev Test: averageRequestPPS should be 0 after a user calls cancelRedeem
+    /// @dev Test: user shouldn't receive more than convertToAssets(pendingRedeemRequest) after cancelRedeem
     function test_superVault_cancelRedeem_3() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVault_deposit(40_000);
@@ -654,6 +679,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         superVault_cancelRedeem();
     }
 
+    /// @dev Test: cancelRedeem should never alter the supply of SuperVault tokens
     function test_property_cancelDoesntChangeTotalSupply() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVault_deposit(40_000);
@@ -697,6 +723,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_doomsday_cannotClaimMoreThanRequested -vvv
+    /// @dev Test: cannot claim more than requested (doomsday)
     function test_doomsday_cannotClaimMoreThanRequested() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
