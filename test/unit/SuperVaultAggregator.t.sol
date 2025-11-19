@@ -33,6 +33,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     address internal sGovernor;
     address internal governor;
     address internal treasury;
+    address internal oracleManager;
     address internal user;
     address internal manager;
     address internal secondaryManager;
@@ -58,20 +59,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
         treasury = _deployAccount(0x3, "Treasury");
-        user = _deployAccount(0x4, "User");
-        manager = _deployAccount(0x5, "Manager");
-        secondaryManager = _deployAccount(0x6, "SecondaryManager");
-        protectedKeeper1 = _deployAccount(0x7, "ProtectedKeeper1");
-        protectedKeeper2 = _deployAccount(0x8, "ProtectedKeeper2");
-        normalKeeper1 = _deployAccount(0x9, "NormalKeeper1");
-        normalKeeper2 = _deployAccount(0xA, "NormalKeeper2");
+        oracleManager = _deployAccount(0x4, "OracleManager");
+        user = _deployAccount(0x5, "User");
+        manager = _deployAccount(0x6, "Manager");
+        secondaryManager = _deployAccount(0x7, "SecondaryManager");
+        protectedKeeper1 = _deployAccount(0x8, "ProtectedKeeper1");
+        protectedKeeper2 = _deployAccount(0x9, "ProtectedKeeper2");
+        normalKeeper1 = _deployAccount(0xA, "NormalKeeper1");
+        normalKeeper2 = _deployAccount(0xB, "NormalKeeper2");
         superOracle = address(new MockSuperOracle(1e18));
         gasOracle = address(new MockAggregator(1e8, 8));
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -1916,11 +1918,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address freshSGovernor = makeAddr("FreshSuperGovernor");
         address freshGovernor = makeAddr("FreshGovernor");
         address freshTreasury = makeAddr("FreshTreasury");
-
+        
+        address freshOracleManager = makeAddr("FreshOracleManager");
         SuperGovernor freshSuperGovernor = new SuperGovernor(
             freshSGovernor,
             freshGovernor,
             freshGovernor,
+            freshOracleManager,
             freshGovernor,
             freshTreasury
         );

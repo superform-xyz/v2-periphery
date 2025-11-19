@@ -43,6 +43,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
     address internal sGovernor;
     address internal governor;
     address internal treasury;
+    address internal oracleManager;
     address internal user;
     address internal hook1;
     address internal hook2;
@@ -65,18 +66,18 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
         treasury = _deployAccount(0x3, "Treasury");
-        user = _deployAccount(0x4, "User");
-        hook1 = _deployAccount(0x5, "Hook1");
-        hook2 = _deployAccount(0x6, "Hook2");
-        fulfillHook1 = _deployAccount(0x7, "FulfillHook1");
-        fulfillHook2 = _deployAccount(0x8, "FulfillHook2");
-        validator1 = _deployAccount(0x9, "Validator1");
-        validator2 = _deployAccount(0xA, "Validator2");
-        ppsOracle1 = _deployAccount(0xB, "PPSOracle1");
-        ppsOracle2 = _deployAccount(0xC, "PPSOracle2");
-        admin = _deployAccount(0xD, "Admin");
-
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+        oracleManager = _deployAccount(0x4, "OracleManager");
+        user = _deployAccount(0x5, "User");
+        hook1 = _deployAccount(0x6, "Hook1");
+        hook2 = _deployAccount(0x7, "Hook2");
+        fulfillHook1 = _deployAccount(0x8, "FulfillHook1");
+        fulfillHook2 = _deployAccount(0x9, "FulfillHook2");
+        validator1 = _deployAccount(0xA, "Validator1");
+        validator2 = _deployAccount(0xB, "Validator2");
+        ppsOracle1 = _deployAccount(0xC, "PPSOracle1");
+        ppsOracle2 = _deployAccount(0xD, "PPSOracle2");
+        admin = _deployAccount(0xE, "Admin");
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
 
         superBank = new SuperBank(address(superGovernor));
         up = new Up(admin);
@@ -1308,7 +1309,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         //base is source
         vm.selectFork(baseForkId);
         {
-            superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+            superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
 
             superBank = new SuperBank(address(superGovernor));
             up = new Up(admin);

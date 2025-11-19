@@ -104,6 +104,7 @@ contract SuperAssetTest is BaseTestSuperAsset {
             admin, // superGovernor role
             admin, // governor role
             admin, // bankManager role
+            admin, // oracleManager role
             admin, // gasManager role
             makeAddr("treasury") // treasury
         );

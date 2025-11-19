@@ -111,7 +111,7 @@ contract BaseTest is PeripheryHelpers, CoreBaseTest {
             vm.selectFork(FORKS[chainIds[i]]);
 
             PA[i].superGovernor =
-                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), TREASURY);
+                new SuperGovernor{ salt: SALT }(address(this), address(this), address(this), address(this), address(this), TREASURY);
 
             vm.label(address(PA[i].superGovernor), SUPER_GOVERNOR_KEY);
             contractAddresses[chainIds[i]][SUPER_GOVERNOR_KEY] = address(PA[i].superGovernor);

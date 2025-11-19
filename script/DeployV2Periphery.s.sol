@@ -46,11 +46,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
     function run(uint256 env, uint64 chainId) public broadcast(env) {
         _setConfiguration(env, "");
+        _validateDeployer(env);
         _deployPeriphery(chainId, env);
     }
 
     function run(uint256 env, uint64 chainId, string memory saltNamespace) public broadcast(env) {
         _setConfiguration(env, saltNamespace);
+        _validateDeployer(env);
         _deployPeriphery(chainId, env);
     }
 
@@ -88,6 +90,39 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("");
         console2.log("=====> On this chain we have", deployed, "contracts already deployed out of", total);
         console2.log("======================================");
+    }
+
+    /// @notice Validate that msg.sender matches the expected deployer
+    /// @dev Only validates in simulation mode (with --sender flag)
+    /// In deploy mode with --account, Foundry handles validation automatically
+    function _validateDeployer(uint256 env) internal view {
+        if (env == 0 || env == 2) {
+            // Only validate if msg.sender is not the default sender
+            // Default sender = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
+            // If we see this, we're either in deploy mode (where --account handles it)
+            // or simulation mode with wrong --sender
+            if (msg.sender != 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) {
+                // We have an explicit sender (from --sender flag in simulation mode)
+                // Validate it matches the expected deployer
+                require(
+                    msg.sender == configuration.deployer,
+                    string(
+                        abi.encodePacked(
+                            "DEPLOYER_MISMATCH: Expected ",
+                            vm.toString(configuration.deployer),
+                            " but got ",
+                            vm.toString(msg.sender),
+                            ". Ensure --sender flag matches the configured deployer address."
+                        )
+                    )
+                );
+                console2.log("Deployer validation passed:", msg.sender);
+            } else {
+                // Default sender - we're in deploy mode with --account
+                // Foundry will handle the validation when broadcasting
+                console2.log("Deploy mode: Using --account flag, validation handled by Foundry");
+            }
+        }
     }
 
     function _deployPeriphery(uint64 chainId, uint256) internal {
@@ -142,9 +177,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), "");
 
         // Vault implementations
-        __checkContract("SuperVaultImplementation", __getSalt("SuperVaultImplementation"), "");
-        __checkContract("SuperVaultStrategyImplementation", __getSalt("SuperVaultStrategyImplementation"), "");
-        __checkContract("SuperVaultEscrowImplementation", __getSalt("SuperVaultEscrowImplementation"), "");
+        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), "");
+        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), "");
+        __checkContract(SUPER_VAULT_ESCROW_KEY, __getSalt(SUPER_VAULT_ESCROW_KEY), "");
 
         // SuperVaultAggregator (depends on implementations)
         __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), "");
@@ -248,12 +283,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_GOVERNOR_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperGovernor.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_GOVERNOR_KEY, ".json"))),
                 abi.encode(
                     configuration.owner,
                     configuration.owner,
-                    configuration.owner,
-                    configuration.owner,
+                    configuration.bankManager,
+                    configuration.oracleManager,
+                    configuration.gasManager,
                     configuration.treasury
                 )
             )
@@ -261,29 +297,30 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Deploy SuperVault implementations first
         peripheryContracts.vaultImpl = __deployContractIfNeeded(
-            "SuperVaultImplementation",
+            SUPER_VAULT_KEY,
             chainId,
-            __getSalt("SuperVaultImplementation"),
+            __getSalt(SUPER_VAULT_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVault.json"), abi.encode(peripheryContracts.superGovernor)
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_KEY, ".json"))),
+                abi.encode(peripheryContracts.superGovernor)
             )
         );
 
         peripheryContracts.strategyImpl = __deployContractIfNeeded(
-            "SuperVaultStrategyImplementation",
+            SUPER_VAULT_STRATEGY_KEY,
             chainId,
-            __getSalt("SuperVaultStrategyImplementation"),
+            __getSalt(SUPER_VAULT_STRATEGY_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVaultStrategy.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_STRATEGY_KEY, ".json"))),
                 abi.encode(peripheryContracts.superGovernor)
             )
         );
 
         peripheryContracts.escrowImpl = __deployContractIfNeeded(
-            "SuperVaultEscrowImplementation",
+            SUPER_VAULT_ESCROW_KEY,
             chainId,
-            __getSalt("SuperVaultEscrowImplementation"),
-            vm.getCode("script/locked-bytecode/SuperVaultEscrow.json")
+            __getSalt(SUPER_VAULT_ESCROW_KEY),
+            vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_ESCROW_KEY, ".json")))
         );
 
         // Deploy SuperVaultAggregator (takes all four addresses)
@@ -292,7 +329,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_VAULT_AGGREGATOR_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/SuperVaultAggregator.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_AGGREGATOR_KEY, ".json"))),
                 abi.encode(
                     peripheryContracts.superGovernor,
                     peripheryContracts.vaultImpl,
@@ -308,7 +345,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(ECDSAPPS_ORACLE_KEY),
             abi.encodePacked(
-                vm.getCode("script/locked-bytecode/ECDSAPPSOracle.json"),
+                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", ECDSAPPS_ORACLE_KEY, ".json"))),
                 abi.encode(peripheryContracts.superGovernor, ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION)
             )
         );
@@ -325,7 +362,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         internal
     {
         console2.log("Configuring core periphery contracts...");
-
+        console2.log("msg.sender:", msg.sender);
         // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
 
