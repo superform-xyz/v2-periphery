@@ -96,7 +96,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(yieldSource).previewDeposit(depositAmount);
 
-        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
+        yieldSource_mint(sharesUnderlying, address(superVaultStrategy));
 
         doomsday_maxWithdrawResetsAfterFullWithdrawal(depositAmount);
     }
@@ -121,7 +121,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(40_000);
 
-        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
+        yieldSource_mint(sharesUnderlying, address(superVaultStrategy));
 
         superVault_requestRedeem(shares);
 
@@ -306,7 +306,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 shares = superVault.balanceOf(_getActor());
 
-        yieldSource_mint(shares, superVaultStrategyAddress);
+        yieldSource_mint(shares, address(superVaultStrategy));
 
         vm.warp(block.timestamp + 1 days);
         superVault_requestRedeem_clamped(shares);
@@ -384,7 +384,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 sharesUnderlying = MockERC4626Tester(_getYieldSource()).previewDeposit(depositAmount * 2);
         console2.log("Strategy Shares in underlying vault", sharesUnderlying);
-        yieldSource_mint(sharesUnderlying, superVaultStrategyAddress);
+        yieldSource_mint(sharesUnderlying, address(superVaultStrategy));
 
         // // Set loss on withdraw for ERC4626
         uint256 lossOnWithdraw = 1000;
@@ -430,7 +430,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVaultStrategy_manageYieldSource_clamped(0);
 
-        yieldSource_mint(1, superVaultStrategyAddress);
+        yieldSource_mint(1, address(superVaultStrategy));
 
         superVault_deposit(2);
 
@@ -492,7 +492,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
+        yieldSource_mint(underlyingShares, address(superVaultStrategy));
 
         superVault_requestRedeem(shares);
 
@@ -515,7 +515,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
+        yieldSource_mint(underlyingShares, address(superVaultStrategy));
 
         switchActor(0);
         superVault_requestRedeem(shares);
@@ -665,6 +665,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         property_cancelDoesntChangeTotalSupply();
     }
 
+    /// @dev Test: property total shares don't decrease on redemption request
     function test_property_totalSharesDontDecreaseOnRedemptionRequest() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         superVault_deposit(40_000);
@@ -677,16 +678,19 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
     }
 
     // forge test --match-test test_doomsday_mintRedeemSymmetrical_6 -vvv
+    /// @dev Test: mint/redeem doesn't cause loss to user (doomsday)
     function test_doomsday_mintRedeemSymmetrical_6() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         doomsday_mintRedeemSymmetrical(40_000);
     }
 
+    /// @dev Test: deposit/withdraw doesn't cause loss to user (doomsday)
     function test_doomsday_depositWithdrawSymmetrical() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         doomsday_depositWithdrawSymmetrical(40_000);
     }
 
+    /// @dev Test: Primary manager always changeable (doomsday)
     function test_doomsday_primaryManagerAlwaysChangeable() public {
         ECDSAPPSOracle_updatePPS_clamped(1e18);
         doomsday_primaryManagerAlwaysChangeable();
@@ -706,7 +710,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         uint256 underlyingShares = MockERC4626Tester(_getYieldSource()).previewDeposit(assetsToDeposit);
 
-        yieldSource_mint(underlyingShares, superVaultStrategyAddress);
+        yieldSource_mint(underlyingShares, address(superVaultStrategy));
 
         // 2. Request redemption of all shares
         vm.prank(_getActor());

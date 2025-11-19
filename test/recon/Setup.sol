@@ -68,8 +68,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
     SuperVaultEscrow superVaultEscrow;
     SuperVaultStrategy superVaultStrategy;
 
-    address superVaultStrategyAddress;
-
     // Implementation contracts for aggregator
     SuperVault vaultImpl;
     SuperVaultStrategy strategyImpl;
@@ -237,7 +235,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
         // 10. Store the deployed contracts
         superVault = SuperVault(vaultAddr);
         superVaultStrategy = SuperVaultStrategy(payable(strategyAddr));
-        superVaultStrategyAddress = 0xc3C1658B1e3b9e017030807d0C50895456FD2379;
         superVaultEscrow = SuperVaultEscrow(escrowAddr);
 
         /// 11. Deploy all hook contracts and helper
