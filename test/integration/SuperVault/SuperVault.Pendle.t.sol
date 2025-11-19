@@ -13,8 +13,6 @@ import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol"
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
-import { MockPendleRouter } from "@superform-v2-core/test/mocks/MockPendleRouter.sol";
-import { MockPendleMarket } from "@superform-v2-core/test/mocks/MockPendleMarket.sol";
 import { PendleRouterSwapHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterSwapHook.sol";
 import { PendleRouterRedeemHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterRedeemHook.sol";
 import { IPendleMarket } from "@superform-v2-core/src/vendor/pendle/IPendleMarket.sol";
@@ -147,7 +145,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         superGovernor.registerHook(address(pendleRouterSwapHook));
     }
 
-    function test_PendleRouterSwapQQ() public {
+    function test_PendleRouterSwap() public {
         uint256 amount = 100e6;
 
         // Direct deposit
@@ -534,7 +532,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
         vm.stopPrank();
 
-        // Verify PT tokens received1`
+        // Verify PT tokens received
         vars.ptBalance = IERC20(vars.pt).balanceOf(address(strategy));
         assertGt(vars.ptBalance, 0, "No PT tokens received");
     }
