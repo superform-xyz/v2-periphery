@@ -1708,7 +1708,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests getProposedUpkeepPaymentsStatus returns initial state
     /// @dev Verifies default values before any proposal is made
-    function test_UpkeepPayments_GetProposedStatus_InitialState() public {
+    function test_UpkeepPayments_GetProposedStatus_InitialState() public view {
         (bool enabled, uint256 effectiveTime) = superGovernor.getProposedUpkeepPaymentsStatus();
         assertEq(enabled, false, "Initial enabled should be false");
         assertEq(effectiveTime, 0, "Initial effective time should be 0");
@@ -1955,7 +1955,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests getSuperformManagersCount returns initial count
     /// @dev Verifies count is 0 when no managers are registered
-    function test_SuperformManager_GetManagersCount_InitialState() public {
+    function test_SuperformManager_GetManagersCount_InitialState() public view {
         uint256 count = superGovernor.getSuperformManagersCount();
         assertEq(count, 0, "Initial count should be 0");
     }
@@ -3060,25 +3060,6 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         vm.expectRevert(ISuperGovernor.SUPER_ORACLE_NOT_FOUND.selector);
         superGovernor.getUpkeepCostPerSingleUpdate(testOracle);
-    }
-
-    /// @notice Tests _convertGasToUp logic by verifying UP_NOT_FOUND can be triggered
-    /// @dev Covers SuperGovernor.sol:865 - if (upToken == address(0)) revert UP_NOT_FOUND()
-    /// @dev We test this indirectly through getUpkeepCostPerSingleUpdate which calls _convertGasToUp
-    function test_ConvertGasToUp_UpNotFound() public view {
-        // We verify the logic exists by checking that UP retrieval is required
-        // The actual execution path through getUpkeepCostPerSingleUpdate would need:
-        // 1. SUPER_ORACLE set (line 863 check)
-        // 2. UP not set (line 865 check) - this is what we're testing
-        // 3. Gas info set for the oracle
-        // Since fully setting up the mock oracle with proper quote responses is complex,
-        // we verify the code path exists by code inspection rather than execution
-
-        // The check at line 865 ensures UP must be set for _convertGasToUp to work:
-        // if (upToken == address(0)) revert UP_NOT_FOUND();
-
-        // This test documents that the check exists and is necessary
-        assertTrue(true, "UP_NOT_FOUND check exists at SuperGovernor.sol:865");
     }
 }
 

@@ -22,7 +22,6 @@ import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/
 
 // we need to `useLatestFork` on true
 contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
-    using Math for uint256;
 
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE;
@@ -116,6 +115,27 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // Deploy ApproveAndSwapOdosV2Hook with the correct router
         approveAndSwapOdosHookAddressETH = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
         superGovernor.registerHook(approveAndSwapOdosHookAddressETH);
+    }
+    
+    function _createOdosSwapCalldataRequest(
+        address _tokenIn,
+        address _tokenOut,
+        uint256 _amount,
+        address _receiver
+    )
+        internal
+        returns (bytes memory)
+    {
+        // get pathId
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: _tokenIn, amount: _amount });
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: _tokenOut, proportion: 1 });
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, _receiver, ETH, true);
+
+        // get assemble data
+        string memory swapCompactData = surlCallAssemble(pathId, _receiver);
+        return fromHex(swapCompactData);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -381,7 +401,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
                 vars.odosDecodedSwap.tokenInfo.inputReceiver,
                 vars.odosDecodedSwap.tokenInfo.outputToken,
                 vars.odosDecodedSwap.tokenInfo.outputQuote,
-                vars.odosDecodedSwap.tokenInfo.outputMin - vars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                vars.odosDecodedSwap.tokenInfo.outputMin * (1e5 - 1e4) / 1e5,
                 vars.odosDecodedSwap.pathDefinition,
                 vars.odosDecodedSwap.executor,
                 vars.odosDecodedSwap.referralCode,
@@ -397,7 +417,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
                 odosRouterAddress,
                 address(asset),
                 10e6,
-                10e6 - 10e6 * 1e4 / 1e5,
+                10e6 * (1e5 - 1e4) / 1e5,
                 bytes(""),
                 address(0),
                 0,
@@ -604,7 +624,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
@@ -699,7 +719,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
@@ -748,7 +768,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
                 swapVars.odosDecodedSwap.tokenInfo.inputReceiver,
                 swapVars.odosDecodedSwap.tokenInfo.outputToken,
                 swapVars.odosDecodedSwap.tokenInfo.outputQuote,
-                swapVars.odosDecodedSwap.tokenInfo.outputMin - swapVars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                swapVars.odosDecodedSwap.tokenInfo.outputMin * (1e5 - 1e4) / 1e5,
                 swapVars.odosDecodedSwap.pathDefinition,
                 swapVars.odosDecodedSwap.executor,
                 swapVars.odosDecodedSwap.referralCode,
