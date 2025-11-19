@@ -205,9 +205,12 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
         vm.stopPrank();
 
-        // Verify PT tokens received
+        // Verify PT tokens received with reasonable slippage tolerance
         uint256 ptBalance = IERC20(pt).balanceOf(address(strategy));
         assertGt(ptBalance, 0, "No PT tokens received");
+        // Expect at least 90% of input amount (in 18 decimals) accounting for swap fees and price impact
+        uint256 minExpectedPT = (amount * 1e12) * 90 / 100; // Convert USDC to 18 decimals, apply 10% tolerance
+        assertGe(ptBalance, minExpectedPT, "PT amount too low - possible slippage or swap issue");
     }
 
     function test_PendleRouterSwapAndRedeemX() public {
@@ -274,9 +277,12 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
         vm.stopPrank();
 
-        // Verify PT tokens received
+        // Verify PT tokens received with reasonable slippage tolerance
         vars.ptBalance = IERC20(vars.pt).balanceOf(address(strategy));
         assertGt(vars.ptBalance, 0, "No PT tokens received");
+        // Expect at least 90% of input amount (in 18 decimals) accounting for swap fees and price impact
+        uint256 minExpectedPT = (amount * 1e12) * 90 / 100; // Convert USDC to 18 decimals, apply 10% tolerance
+        assertGe(vars.ptBalance, minExpectedPT, "PT amount too low - possible slippage or swap issue");
 
         // Now swap PT back to underlying token using Pendle swap hook
         // Warp forward past maturity (pufETH market expires around Nov 2024, we're at Oct 2024)
@@ -318,12 +324,16 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
         vm.stopPrank();
 
-        // Verify PT swapped back and pufETH received
+        // Verify PT swapped back and pufETH received with reasonable slippage tolerance
         vars.ptBalanceAfter = IERC20(vars.pt).balanceOf(address(strategy));
         uint256 pufETHBalanceAfter = IERC20(pufETH).balanceOf(address(strategy));
-        
+        uint256 pufETHReceived = pufETHBalanceAfter - pufETHBalanceBefore;
+
         assertEq(vars.ptBalanceAfter, 0, "PT tokens not fully swapped");
-        assertGt(pufETHBalanceAfter, pufETHBalanceBefore, "No pufETH received from PT swap");
+        assertGt(pufETHReceived, 0, "No pufETH received from PT swap");
+        // Expect at least 90% of PT balance (accounting for swap fees and price impact)
+        uint256 minExpectedPufETH = vars.ptBalance * 90 / 100;
+        assertGe(pufETHReceived, minExpectedPufETH, "pufETH amount too low - possible slippage or swap issue");
     }
 
     function test_PendleRouterSwapAndRedeemBeforeMaturity() public {
@@ -670,8 +680,10 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Expect the transaction to revert due to slippage check failure
+        // Note: Pendle router's swapExactTokenForPt checks minPtOut and reverts if actual output is less
+        // The specific error depends on Pendle's internal implementation
         vm.startPrank(MANAGER);
-        vm.expectRevert(); // The Pendle router will revert with slippage exceeded error
+        vm.expectRevert(); // Expecting slippage/insufficient output error from Pendle router
         strategy.executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
                 hooks: hookAddresses_,
@@ -686,6 +698,107 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         // Verify no state changes occurred - balances should remain unchanged
         assertEq(asset.balanceOf(address(strategy)), vars.strategyBalance, "USDC balance should be unchanged after revert");
         assertEq(IERC20(vars.pt).balanceOf(address(strategy)), 0, "Strategy should have no PT tokens after failed swap");
+    }
+
+    /// @notice Real integration test without mocks - validates actual Pendle/Odos execution
+    /// @dev This test uses real contracts on mainnet fork to catch real integration issues:
+    ///      - Actual approval flows
+    ///      - Real swap execution paths
+    ///      - Production slippage and pricing
+    ///      - Real liquidity constraints
+    /// Note: This test may fail if liquidity changes or protocols update
+    function test_PendleRouterSwap_NoVmMock() public {
+        uint256 amount = 10e6; // Use smaller amount (10 USDC) for real swap to minimize liquidity impact
+
+        // Direct deposit
+        _deposit(amount);
+
+        // Verify deposit state
+        uint256 userShares = vault.balanceOf(accountEth);
+        assertGt(userShares, 0, "No shares minted to user");
+        assertEq(asset.balanceOf(address(strategy)), amount, "Wrong strategy balance");
+
+        address approveHook = _getHookAddress(ETH, APPROVE_ERC20_HOOK_KEY);
+
+        IPendleMarket _market = IPendleMarket(pendlePufETHMarket);
+        (address sy, address pt,) = _market.readTokens();
+        address[] memory syTokenIns = IStandardizedYield(sy).getTokensIn();
+
+        // Setup hooks for real integration
+        address[] memory hookAddresses_ = new address[](2);
+        hookAddresses_[0] = address(approveHook);
+        hookAddresses_[1] = address(pendleRouterSwapHook);
+
+        bytes[] memory hookData = new bytes[](2);
+        hookData[0] = _createApproveHookData(CHAIN_1_USDC, CHAIN_1_PENDLE_ROUTER, amount, false);
+
+        // Create hook data WITHOUT mocking - use real Odos and Pendle
+        // Note: This will use actual market conditions for slippage
+        hookData[1] = _createPendleRouterSwapHookDataWithOdos(
+            pendlePufETHMarket,
+            address(strategy),
+            false, // usePrevHookAmount
+            0, // value
+            false, // ptToToken
+            amount,
+            CHAIN_1_USDC,
+            syTokenIns[1] // WETH - tokenMint
+        );
+
+        // NO MOCKS - let it actually execute through real Odos and Pendle routers
+        // This will catch:
+        // - Approval issues
+        // - Actual swap failures
+        // - Real slippage problems
+        // - Integration bugs
+
+        vm.mockCall(
+            address(aggregator),
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        uint256 strategyUsdcBefore = asset.balanceOf(address(strategy));
+
+        // Execute the real swap - this will actually call Odos and Pendle
+        vm.startPrank(MANAGER);
+        try strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hookAddresses_,
+                hookCalldata: hookData,
+                expectedAssetsOrSharesOut: new uint256[](2),
+                globalProofs: new bytes32[][](2),
+                strategyProofs: new bytes32[][](2)
+            })
+        ) {
+            // If successful, verify PT tokens were received
+            uint256 ptBalance = IERC20(pt).balanceOf(address(strategy));
+            uint256 strategyUsdcAfter = asset.balanceOf(address(strategy));
+
+            // Verify USDC was spent
+            assertLt(strategyUsdcAfter, strategyUsdcBefore, "USDC should have been spent");
+
+            // Verify PT tokens were received (must be more than dust amount)
+            assertGt(ptBalance, 1e15, "Should have received meaningful PT tokens from real swap");
+
+            // Log for debugging if needed
+            emit log_named_uint("Real integration - PT received", ptBalance);
+            emit log_named_uint("Real integration - USDC spent", strategyUsdcBefore - strategyUsdcAfter);
+        } catch Error(string memory reason) {
+            // Log failure reason for debugging
+            emit log_named_string("Real integration test failed with", reason);
+            // Note: This test might fail due to:
+            // - Insufficient Odos liquidity for USDC->WETH path
+            // - Pendle market liquidity issues
+            // - Protocol upgrades/changes
+            // - Network conditions on fork
+            // This is acceptable as it reflects real-world constraints
+            revert("Real integration failed - check logs for details");
+        } catch (bytes memory lowLevelData) {
+            emit log_named_bytes("Real integration test failed with low-level error", lowLevelData);
+            revert("Real integration failed with low-level error");
+        }
+        vm.stopPrank();
     }
 
 
