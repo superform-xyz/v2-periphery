@@ -179,7 +179,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
 
     /// @inheritdoc IERC7540Redeem
     /// @notice Once owner has authorized an operator, controller must be the owner
-    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256 reqId) {
+    function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
@@ -198,7 +198,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.RedeemRequest, controller, address(0), shares);
 
         emit RedeemRequest(controller, owner, REQUEST_ID, msg.sender, shares);
-        reqId = REQUEST_ID;
+        return REQUEST_ID;
     }
 
     /// @inheritdoc IERC7540CancelRedeem
@@ -259,7 +259,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         bytes memory signature
     )
         external
-        returns (bool result)
+        returns (bool)
     {
         if (controller == operator) revert UNAUTHORIZED();
         if (block.timestamp > deadline) revert DEADLINE_PASSED();
@@ -276,7 +276,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         isOperator[controller][operator] = approved;
         emit OperatorSet(controller, operator, approved);
 
-        result = true;
+        return true;
     }
 
     /*//////////////////////////////////////////////////////////////

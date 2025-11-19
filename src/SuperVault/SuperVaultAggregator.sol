@@ -57,7 +57,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for basis points precision (100% = 10,000 bps)
+    // Constant for basis points precision (100% = 10,000 bps) 
     uint256 private constant BPS_PRECISION = 10_000;
 
     // Maximum performance fee allowed (51%)
