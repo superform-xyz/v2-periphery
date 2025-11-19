@@ -154,23 +154,4 @@ abstract contract SuperVaultTargets is BaseTargetFunctions, Properties {
             t(expectedError, "_update should never revert in transferFrom");
         }
     }
-
-    /// @dev removed because signature components not fuzzable
-    // function superVault_authorizeOperator(
-    //     address controller,
-    //     address operator,
-    //     bool approved,
-    //     bytes32 nonce,
-    //     uint256 deadline,
-    //     bytes memory signature
-    // ) public asActor {
-    //     superVault.authorizeOperator(
-    //         controller,
-    //         operator,
-    //         approved,
-    //         nonce,
-    //         deadline,
-    //         signature
-    //     );
-    // }
 }
