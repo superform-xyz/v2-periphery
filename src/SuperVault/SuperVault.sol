@@ -450,13 +450,13 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         uint256 pps = _getStoredPPS();
         if (pps == 0) return 0;
 
-        uint256 assetsNet = Math.mulDiv(shares, pps, PRECISION, Math.Rounding.Ceil);
+        uint256 assetsGross = Math.mulDiv(shares, pps, PRECISION, Math.Rounding.Ceil);
 
         (uint256 feeBps,) = _getManagementFeeConfig();
-        if (feeBps == 0) return assetsNet;
+        if (feeBps == 0) return assetsGross;
         if (feeBps >= BPS_PRECISION) return 0; // impossible to mint (would require infinite gross)
 
-        return Math.mulDiv(assetsNet, BPS_PRECISION, (BPS_PRECISION - feeBps), Math.Rounding.Ceil);
+        return Math.mulDiv(assetsGross, BPS_PRECISION, (BPS_PRECISION - feeBps), Math.Rounding.Ceil);
     }
 
     /// @inheritdoc IERC4626
