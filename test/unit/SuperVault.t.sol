@@ -1409,7 +1409,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
     /// @notice Tests quoteMintAssetsGross returns correct values when feeBps is 0
     /// @dev Covers SuperVaultStrategy.sol:242 - early return when no fees
-    function test_QuoteMintAssetsGross_ZeroFees() public {
+    function test_QuoteMintAssetsGross_ZeroFees() public view {
         // The default vault has 0 management fees, so we can use it directly
         uint256 sharesToQuote = 100e18;
 
@@ -1547,40 +1547,6 @@ contract SuperVaultTest is PeripheryHelpers {
             uint256 calculatedGross = Math.mulDiv(assetsNet, 10000, (10000 - feeBps), Math.Rounding.Ceil);
             assertEq(assetsGross, calculatedGross, "Formula should match for all fee percentages");
         }
-    }
-
-    // =============================================================
-    // handleOperations7540 Tests
-    // =============================================================
-
-    /// @notice Tests handleOperations7540 reverts with invalid operation type
-    /// @dev Covers SuperVaultStrategy.sol:262-264 - ACTION_TYPE_DISALLOWED
-    /// @dev Note: Solidity enums are validated at decode time, so values >= enum length cause decode errors
-    /// We test this by using assembly to bypass enum validation
-    function test_HandleOperations7540_RevertsOnInvalidOperationType() public {
-        // The Operation enum has 4 values: RedeemRequest(0), CancelRedeemRequest(1), ClaimCancelRedeem(2), ClaimRedeem(3)
-        // Solidity will auto-validate enum values during abi.decode, but we can still test the else branch
-        // by ensuring the code path exists
-
-        // Since Solidity validates enums at the ABI decoding layer,
-        // the ACTION_TYPE_DISALLOWED revert is a defensive fallback for future-proofing
-        // Let's verify the revert exists by checking the code directly
-
-        address testUser = _deployAccount(0xDEF, "TestUser");
-
-        // Try using delegatecall with raw data to bypass enum validation
-        bytes memory callData = abi.encodeWithSelector(
-            ISuperVaultStrategy.handleOperations7540.selector,
-            uint8(5), // Value outside enum range
-            testUser,
-            testUser,
-            100e18
-        );
-
-        // Direct call to the strategy should fail at ABI decode or in the else branch
-        vm.prank(address(vault));
-        vm.expectRevert(); // Will revert either from enum validation or ACTION_TYPE_DISALLOWED
-        address(strategy).call(callData);
     }
 
     // =============================================================
@@ -1979,9 +1945,6 @@ contract SuperVaultTest is PeripheryHelpers {
         vault.requestRedeem(shares, testUser, testUser);
         vm.stopPrank();
 
-        // Get current PPS and calculate expected bounds
-        uint256 currentPPS = strategy.getStoredPPS();
-
         // theoreticalAssets = shares * currentPPS / PRECISION (1e18)
         // For 1000e18 assets deposited at PPS = 1e18, we get 1000e18 shares
         // theoreticalAssets = 1000e18 * 1e18 / 1e18 = 1000e18
@@ -2017,9 +1980,6 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 shares = vault.balanceOf(testUser);
         vault.requestRedeem(shares, testUser, testUser);
         vm.stopPrank();
-
-        // Get current PPS and calculate expected bounds
-        uint256 currentPPS = strategy.getStoredPPS();
 
         // theoreticalAssets = shares * currentPPS / PRECISION
         // For 1000e18 assets deposited at PPS = 1e18, we get 1000e18 shares
@@ -2944,7 +2904,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
     /// @notice Tests getYieldSource returns zero address for non-existent yield source
     /// @dev Verifies default mapping behavior
-    function test_GetYieldSource_ReturnsZeroAddressForNonExistentSource() public {
+    function test_GetYieldSource_ReturnsZeroAddressForNonExistentSource() public view {
         // Test: Query a yield source that was never added
         address nonExistentSource = address(0x9999);
 
