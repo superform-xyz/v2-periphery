@@ -455,6 +455,62 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         );
     }
 
+    /// @notice Tests that updatePPS reverts when there are no validators configured
+    /// @dev Covers ECDSAPPSOracle.sol:97 - if (cachedTotalValidators == 0) revert INVALID_TOTAL_VALIDATORS()
+    function test_UpdatePPS_InvalidTotalValidatorsReverts() public {
+        // Create a fresh governor with no validators configured
+        address freshGovernor = _deployAccount(0xFFF, "FreshGovernor");
+        SuperGovernor noValidatorGovernor = new SuperGovernor(
+            freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY
+        );
+
+        // Deploy implementation contracts
+        address vaultImpl = address(new SuperVault(address(noValidatorGovernor)));
+        address strategyImpl = address(new SuperVaultStrategy(address(noValidatorGovernor)));
+        address escrowImpl = address(new SuperVaultEscrow());
+
+        // Deploy SuperVaultAggregator
+        SuperVaultAggregator freshAggregator = new SuperVaultAggregator(
+            address(noValidatorGovernor), vaultImpl, strategyImpl, escrowImpl
+        );
+
+        // Create oracle pointing to governor with no validators
+        ECDSAPPSOracle freshOracle = new ECDSAPPSOracle(
+            address(noValidatorGovernor), ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION
+        );
+
+        // Set up required roles and addresses
+        vm.startPrank(freshGovernor);
+        noValidatorGovernor.grantRole(noValidatorGovernor.SUPER_GOVERNOR_ROLE(), freshGovernor);
+        noValidatorGovernor.setAddress(noValidatorGovernor.SUPER_VAULT_AGGREGATOR(), address(freshAggregator));
+        noValidatorGovernor.proposeActivePPSOracle(address(freshOracle));
+        vm.warp(block.timestamp + 7 days);
+        noValidatorGovernor.executeActivePPSOracleChange();
+        vm.stopPrank();
+
+        // At this point, validators count is 0, so updatePPS should revert
+        address[] memory strategies = new address[](1);
+        strategies[0] = address(svStrategy);
+
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = new bytes[](1);
+        proofsArray[0][0] = abi.encodePacked(bytes32(0));
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = PPS;
+
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = block.timestamp;
+
+        // Expect revert with INVALID_TOTAL_VALIDATORS
+        vm.expectRevert(IECDSAPPSOracle.INVALID_TOTAL_VALIDATORS.selector);
+        freshOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
+            })
+        );
+    }
+
     function test_UpdatePPS_ValidatorCountMismatchReverts() public {
         uint256[] memory signerKeys = new uint256[](2);
         signerKeys[0] = validator1PrivateKey;

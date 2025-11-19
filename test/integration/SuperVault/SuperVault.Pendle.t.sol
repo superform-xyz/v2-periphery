@@ -597,7 +597,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Expect the transaction to revert due to expired order
         vm.startPrank(MANAGER);
-        vm.expectRevert(); // PendleRouterSwapHook.ORDER_EXPIRED()
+        vm.expectRevert(PendleRouterSwapHook.ORDER_EXPIRED.selector);
         strategy.executeHooks(
             ISuperVaultStrategy.ExecuteArgs({
                 hooks: hookAddresses_,
