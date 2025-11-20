@@ -237,14 +237,16 @@ process_periphery_merge() {
     
     # Get all networks from periphery deployments
     local networks=$(echo "$periphery_content" | jq -r '.networks | keys[]' 2>/dev/null || echo "")
-    
+
     if [ -z "$networks" ]; then
         log "ERROR" "No networks found in periphery deployments"
         return 1
     fi
-    
+
     # Process each network
-    for network_name in $networks; do
+    for network_name_raw in $networks; do
+        # Strip carriage returns for Windows compatibility
+        local network_name=$(echo "$network_name_raw" | tr -d '\r')
         total_networks=$((total_networks + 1))
         
         echo -e "${PURPLE}╭─────────────────────────────────────────────────────────────────────────────────────╮${NC}"
