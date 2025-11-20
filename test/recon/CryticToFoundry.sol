@@ -733,23 +733,8 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         yieldSource_mint(underlyingShares, address(superVaultStrategy));
 
-        // 2. Request redemption of all shares
-        vm.prank(_getActor());
-        superVault.requestRedeem(shares, _getActor(), _getActor());
-
-        // 3. Fulfill the redemption request
-        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
-            _createExecuteRedeemArgs(shares);
-
-        // called as admin address(this)
-        superVaultStrategy.executeHooks(executeArgs);
-
-        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
-
         ECDSAPPSOracle_updatePPS_clamped(1e18);
 
-        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
-
-        doomsday_cannotClaimMoreThanRequested();
+        doomsday_cannotClaimMoreThanRequested(shares);
     }
 }
