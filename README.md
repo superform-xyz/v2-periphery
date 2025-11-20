@@ -475,7 +475,7 @@ chmod +x echidna
 # Move to PATH
 sudo mv echidna /usr/local/bin/
 
-# Use Pyton version 3.10
+# Use Python version 3.10
 brew install python@3.10
 
 # Install crytic-compile
