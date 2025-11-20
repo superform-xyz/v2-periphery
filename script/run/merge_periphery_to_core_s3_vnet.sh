@@ -372,7 +372,9 @@ process_periphery_merge() {
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     # Show updated networks with periphery contracts
-    for network_name in $networks; do
+    for network_name_raw in $networks; do
+        # Strip carriage returns for Windows compatibility
+        local network_name=$(echo "$network_name_raw" | tr -d '\r')
         local network_exists=$(echo "$updated_content" | jq -r ".networks[\"$network_name\"] // empty")
         if [ -n "$network_exists" ] && [ "$network_exists" != "null" ]; then
             echo -e "${CYAN}📍 $network_name:${NC}"
