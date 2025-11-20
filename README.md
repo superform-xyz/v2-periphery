@@ -465,10 +465,28 @@ Any functions related to modifying hook roots have been removed from the set of 
 ### Property Testing
 This test suite uses assertion property tests defined for the system contracts in the [`Properties`](https://github.com/superform-xyz/v2-periphery/blob/recon-invariants/test/recon/Properties.sol) contract and in the function handlers in the [targets/ directory](https://github.com/superform-xyz/v2-periphery/tree/recon-invariants/test/recon/targets).
 
+### Echidna setup 
+```shell
+curl -L -o echidna.tar.gz https://github.com/crytic/echidna/releases/download/v2.2.7/echidna-2.2.7-aarch64-macos.tar.gz
+
+# Make executable
+chmod +x echidna
+
+# Move to PATH
+sudo mv echidna /usr/local/bin/
+
+# Use Pyton version 3.10
+brew install python@3.10
+
+# Install crytic-compile
+pipx install crytic-compile
+pipx ensurepath
+```
+
 #### Echidna Property Testing
 To locally test properties using Echidna, run the following command in your terminal:
 ```shell
-echidna . --contract CryticTester --config echidna.yaml
+echidna ./test/recon/CryticTester.sol --contract CryticTester --config echidna.yaml
 ```
 
 ### Foundry Testing
