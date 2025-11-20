@@ -803,7 +803,7 @@ deploy_contracts() {
     # Determine the core salt to use
     local core_salt=""
     if [ "$BRANCH_NAME" = "demo" ]; then
-        core_salt="1756754718"
+        core_salt="1763631947"
         log "INFO" "Using fixed core salt for demo branch: $core_salt"
     fi
 
