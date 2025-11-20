@@ -358,8 +358,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
 
         uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
 
-        
-
         superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
 
         uint256 claimable = superVault.claimableRedeemRequest(0, _getActor());
