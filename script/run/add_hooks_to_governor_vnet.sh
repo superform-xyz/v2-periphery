@@ -55,7 +55,7 @@ declare -A CHAIN_IDS=(
 )
 
 # Demo branch fixed core salt (must match deployment)
-readonly DEMO_CORE_SALT="1756754718"
+readonly DEMO_CORE_SALT="1763631947"
 
 # S3 bucket for fetching core hook addresses
 readonly S3_BUCKET_NAME="vnet-state"
