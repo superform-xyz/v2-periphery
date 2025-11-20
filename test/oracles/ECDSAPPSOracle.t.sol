@@ -8,6 +8,7 @@ import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol"
 
 // Superform
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
+import { ISuperGovernor } from "../../src/interfaces/ISuperGovernor.sol";
 import { SuperVaultAggregator } from "../../src/SuperVault/SuperVaultAggregator.sol";
 import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../src/SuperVault/SuperVaultStrategy.sol";
@@ -18,6 +19,7 @@ import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVault
 import { IECDSAPPSOracle } from "../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 
 // Test
+import { Vm } from "forge-std/Vm.sol";
 import { BaseSuperVaultTest } from "../integration/SuperVault/BaseSuperVaultTest.t.sol";
 
 contract ECDSAPPSOracleTest is BaseSuperVaultTest {
@@ -63,7 +65,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         governorAddress = _deployAccount(0x7, "GovernorRole");
 
         // Create a new governor specifically for these tests
-        governor = new SuperGovernor(governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY);
+        governor = new SuperGovernor(
+            governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY
+        );
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(governor)));
@@ -460,9 +464,8 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     function test_UpdatePPS_InvalidTotalValidatorsReverts() public {
         // Create a fresh governor with no validators configured
         address freshGovernor = _deployAccount(0xFFF, "FreshGovernor");
-        SuperGovernor noValidatorGovernor = new SuperGovernor(
-            freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY
-        );
+        SuperGovernor noValidatorGovernor =
+            new SuperGovernor(freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(noValidatorGovernor)));
@@ -470,14 +473,12 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         address escrowImpl = address(new SuperVaultEscrow());
 
         // Deploy SuperVaultAggregator
-        SuperVaultAggregator freshAggregator = new SuperVaultAggregator(
-            address(noValidatorGovernor), vaultImpl, strategyImpl, escrowImpl
-        );
+        SuperVaultAggregator freshAggregator =
+            new SuperVaultAggregator(address(noValidatorGovernor), vaultImpl, strategyImpl, escrowImpl);
 
         // Create oracle pointing to governor with no validators
-        ECDSAPPSOracle freshOracle = new ECDSAPPSOracle(
-            address(noValidatorGovernor), ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION
-        );
+        ECDSAPPSOracle freshOracle =
+            new ECDSAPPSOracle(address(noValidatorGovernor), ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION);
 
         // Set up required roles and addresses
         vm.startPrank(freshGovernor);
@@ -897,6 +898,158 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Both outcomes are acceptable - the key is no revert and signatures not burned inappropriately
     }
 
+    function test_BatchUpdatePPS_ResizeArrays() public {
+        BatchTestData memory data;
+
+        // Create three strategies and -> ensures assembly resize is working correctly
+        data.strategy1 = address(svStrategy);
+
+        (, data.strategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Secondary TestVault",
+                symbol: "STV",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                })
+            })
+        );
+
+        vm.warp(block.timestamp + 1 days);
+
+        data.strategies = new address[](3);
+        data.strategies[0] = data.strategy1;
+        data.strategies[1] = data.strategy2;
+        data.strategies[2] = address(0x111);
+
+        data.ppss = new uint256[](3);
+        data.ppss[0] = 1e18;
+        data.ppss[1] = 2e18;
+        data.ppss[2] = 3e18;
+
+        (data.strategies, data.ppss) = _swapIfNeeded(data.strategies, data.ppss);
+
+        data.timestamps = new uint256[](3);
+        data.timestamps[0] = 100;
+        data.timestamps[1] = 200;
+        data.timestamps[2] = 300;
+
+        data.validatorSets = new uint256[](3);
+        data.validatorSets[0] = 1;
+        data.validatorSets[1] = 2;
+        data.validatorSets[2] = 2;
+
+        data.updateAuthorities = new address[](2);
+        data.updateAuthorities[0] = user;
+        data.updateAuthorities[1] = user;
+
+        // Proofs array must match strategiesLength
+        data.proofsArray = new bytes[][](3);
+        data.proofsArray[0] = _createValidProofs(
+            data.strategies[0], 
+            data.ppss[0], 
+            data.timestamps[0], 
+            new uint256[](0)
+        );
+        data.proofsArray[1] = _createValidProofs(
+            data.strategies[1], 
+            data.ppss[1], 
+            data.timestamps[1],
+            new uint256[](0)
+        );
+        data.proofsArray[2] = _createValidProofs(
+            data.strategies[2], 
+            data.ppss[2], 
+            data.timestamps[2], 
+            new uint256[](0)
+        );
+
+        vm.mockCall(
+            governorAddress,
+            abi.encodeWithSelector(ISuperGovernor.getValidatorsCount.selector),
+            abi.encode(10)
+        );
+
+        // Required quorum returned by governor
+        vm.mockCall(
+            governorAddress,
+            abi.encodeWithSelector(ISuperGovernor.getPPSOracleQuorum.selector),
+            abi.encode(2)
+        );
+
+        vm.mockCall(
+            governorAddress,
+            abi.encodeWithSelector(ISuperGovernor.isValidator.selector, 0x39852529E4D13aDA30bCE8cc0E442780b36E479F),
+            abi.encode(true)
+        );
+
+        // Call batchUpdatePPS
+        vm.recordLogs();
+        vm.prank(user);
+        oracleECDSA.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: data.strategies, proofsArray: data.proofsArray, ppss: data.ppss, timestamps: data.timestamps
+            })
+        );
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        // Count how many PPSUpdated events occurred
+        uint256 count;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("PPSUpdated(address,uint256,uint256,uint256,uint256)")) {
+                count++;
+            }
+        }
+        assertEq(count, 2); // Meaning validCount = 2
+    }
+
+    function _swapIfNeeded(address[] memory strategies, uint256[] memory ppss) internal returns (address[] memory, uint256[] memory) {
+        // --- Compare (0,1) ---
+        if (uint160(strategies[0]) > uint160(strategies[1])) {
+            // swap strategy
+            address tmp = strategies[0];
+            strategies[0] = strategies[1];
+            strategies[1] = tmp;
+
+            // swap pps
+            uint256 tmpPps = ppss[0];
+            ppss[0] = ppss[1];
+            ppss[1] = tmpPps;
+        }
+
+        // --- Compare (1,2) ---
+        if (uint160(strategies[1]) > uint160(strategies[2])) {
+            // swap strategy
+            address tmp = strategies[1];
+            strategies[1] = strategies[2];
+            strategies[2] = tmp;
+
+            // swap pps
+            uint256 tmpPps = ppss[1];
+            ppss[1] = ppss[2];
+            ppss[2] = tmpPps;
+        }
+
+        // --- Compare (0,1) again ---
+        if (uint160(strategies[0]) > uint160(strategies[1])) {
+            // swap strategy
+            address tmp = strategies[0];
+            strategies[0] = strategies[1];
+            strategies[1] = tmp;
+
+            // swap pps
+            uint256 tmpPps = ppss[0];
+            ppss[0] = ppss[1];
+            ppss[1] = tmpPps;
+        }
+
+        return (strategies, ppss);
+    }
+
     // The following test tries to discover the gas amount to broke the 63/64 rule
     // Code changes can affect it
     // TODO: Uncomment this test before code freeze
@@ -1194,10 +1347,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Call validateProofs directly - should not revert
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
 
@@ -1214,10 +1364,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.ZERO_LENGTH_ARRAY.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: emptyProofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: emptyProofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1235,10 +1382,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.QUORUM_NOT_MET.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1287,10 +1431,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.INVALID_VALIDATOR.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1323,10 +1464,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.INVALID_PROOF.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1372,10 +1510,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.INVALID_PROOF.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1389,10 +1524,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Call public validateProofs with custom quorum of 2
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             }),
             2 // custom quorum
         );
@@ -1409,10 +1541,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Should succeed with exactly 2 proofs (meets quorum)
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
 
@@ -1433,10 +1562,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Should succeed with 3 proofs (above quorum of 2)
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
 
@@ -1452,10 +1578,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Call with custom quorum of 1 (lower than provided proofs)
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             }),
             1 // custom quorum lower than number of proofs
         );
@@ -1473,10 +1596,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.QUORUM_NOT_MET.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             }),
             3 // custom quorum higher than number of proofs
         );
@@ -1503,10 +1623,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -1556,10 +1673,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.INVALID_PROOF.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -1609,10 +1723,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         vm.expectRevert(IECDSAPPSOracle.INVALID_PROOF.selector);
         oracleECDSA.validateProofs(
             IECDSAPPSOracle.ValidationParams({
-                strategy: address(svStrategy),
-                proofs: proofs,
-                pps: PPS,
-                timestamp: block.timestamp
+                strategy: address(svStrategy), proofs: proofs, pps: PPS, timestamp: block.timestamp
             })
         );
     }
@@ -2259,10 +2370,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -2313,10 +2421,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // This should succeed and not trigger any catch blocks
         oracleECDSA.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
