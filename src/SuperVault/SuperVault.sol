@@ -586,17 +586,10 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         if (controller != msg.sender && !_isOperator(controller, msg.sender)) revert INVALID_CONTROLLER();
     }
 
-    /// @notice Validates controller authorization and receiver restrictions in a single pass
-    /// @dev Combines controller validation with operator-specific receiver restrictions
-    /// @dev More gas efficient than calling _validateController + _isOperator separately
-    /// @dev Logic flow:
-    ///      1. If caller is controller: allow any receiver
-    ///      2. If caller is not controller but is operator: enforce receiver == controller
-    ///      3. If caller is neither: revert
+    /// @notice Validates controller authorization and enforces operator receiver restrictions
+    /// @dev Controllers can set any receiver; operators must set receiver == controller
     /// @param controller The controller address to validate authorization for
     /// @param receiver The receiver address to validate against operator restrictions
-    /// @dev Reverts with INVALID_CONTROLLER if caller is not authorized
-    /// @dev Reverts with CONTROLLER_MUST_EQUAL_OWNER if operator tries to set receiver != controller
     function _validateControllerAndReceiver(address controller, address receiver) internal view {
         // If caller is controller, all good
         if (controller == msg.sender) return;
