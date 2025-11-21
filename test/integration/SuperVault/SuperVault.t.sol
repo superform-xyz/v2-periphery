@@ -1452,12 +1452,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.claimCancelRedeemRequest(0, address(0), accountEth);
 
         vm.prank(accountEth);
-        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.claimCancelRedeemRequest(0, accountEth, address(0));
 
-        vm.prank(accountEth);
+        // Try to claim on behalf of accountEth from unauthorized address
+        vm.prank(address(this));
         vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
-        vault.claimCancelRedeemRequest(0, address(this), accountEth);
+        vault.claimCancelRedeemRequest(0, accountEth, accountEth);
     }
 
     /*//////////////////////////////////////////////////////////////

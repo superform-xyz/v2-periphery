@@ -226,9 +226,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         external
         returns (uint256 shares)
     {
-        _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (receiver != controller) revert INVALID_CONTROLLER();
+        _validateControllerAndReceiver(controller, receiver);
 
         shares = strategy.claimableCancelRedeemRequest(controller);
 
@@ -494,8 +493,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         nonReentrant
         returns (uint256 shares)
     {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-        _validateController(controller);
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
+        _validateControllerAndReceiver(controller, receiver);
 
         uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(controller);
         if (averageWithdrawPrice == 0) revert INVALID_WITHDRAW_PRICE();
@@ -526,8 +525,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         nonReentrant
         returns (uint256 assets)
     {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
-        _validateController(controller);
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
+        _validateControllerAndReceiver(controller, receiver);
 
         uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(controller);
         if (averageWithdrawPrice == 0) revert INVALID_WITHDRAW_PRICE();
@@ -584,7 +583,26 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     ///      - caller is not the controller AND
     ///      - caller is not an authorized operator for the controller
     function _validateController(address controller) internal view {
-        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert INVALID_CONTROLLER();
+        if (controller != msg.sender && !_isOperator(controller, msg.sender)) revert INVALID_CONTROLLER();
+    }
+
+    /// @notice Validates controller authorization and enforces operator receiver restrictions
+    /// @dev Controllers can set any receiver; operators must set receiver == controller
+    /// @param controller The controller address to validate authorization for
+    /// @param receiver The receiver address to validate against operator restrictions
+    function _validateControllerAndReceiver(address controller, address receiver) internal view {
+        // If caller is controller, all good
+        if (controller == msg.sender) return;
+
+        // Caller is not controller, must be operator
+        if (!_isOperator(controller, msg.sender)) revert INVALID_CONTROLLER();
+
+        // Caller is operator, enforce receiver == controller
+        if (receiver != controller) revert RECEIVER_MUST_EQUAL_CONTROLLER();
+    }
+
+    function _isOperator(address controller, address operator) internal view returns (bool) {
+        return isOperator[controller][operator];
     }
 
     /// @notice Verify an EIP712 signature using OpenZeppelin's ECDSA library
