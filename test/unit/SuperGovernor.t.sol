@@ -2149,6 +2149,16 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook1), proposedRoot, "Merkle root mismatch");
     }
 
+    function test_MerkleRoot_Revert_NotApproved() public {
+        address unapprovedHook = makeAddr("unapprovedHook");
+
+        vm.expectRevert(ISuperGovernor.HOOK_NOT_APPROVED.selector);
+        superGovernor.getSuperBankHookMerkleRoot(unapprovedHook);
+
+        vm.expectRevert(ISuperGovernor.HOOK_NOT_APPROVED.selector);
+        superGovernor.getProposedSuperBankHookMerkleRoot(unapprovedHook);
+    }
+
     /// @notice Tests reverting when executing a merkle root update for an unregistered hook
     function test_MerkleRoot_Revert_ExecuteHookNotApproved() public {
         vm.expectRevert(ISuperGovernor.HOOK_NOT_APPROVED.selector);
