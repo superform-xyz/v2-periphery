@@ -185,6 +185,25 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    function test_createVault_RevertInvalidAsset() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_ASSET.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(0xBEEF),
+                name: "Test Vault",
+                symbol: "TV",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+    }
+
     /// @notice Tests that createVault reverts when symbol is empty
     function test_CreateVault_RevertEmptySymbol() public {
         vm.prank(manager);
