@@ -724,6 +724,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     struct BatchTestData {
         address strategy1;
         address strategy2;
+        address strategy3;
         address[] strategies;
         uint256[] ppss;
         uint256[] validatorSets;
@@ -919,24 +920,39 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             })
         );
 
+        (, data.strategy3,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Third TestVault",
+                symbol: "TV3",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                })
+            })
+        );
+
         vm.warp(block.timestamp + 1 days);
 
         data.strategies = new address[](3);
         data.strategies[0] = data.strategy1;
         data.strategies[1] = data.strategy2;
-        data.strategies[2] = address(0x111);
+        data.strategies[2] = data.strategy3;
 
         data.ppss = new uint256[](3);
-        data.ppss[0] = 1e18;
-        data.ppss[1] = 2e18;
-        data.ppss[2] = 3e18;
+        data.ppss[0] = PPS;
+        data.ppss[1] = PPS;
+        data.ppss[2] = PPS;
 
         (data.strategies, data.ppss) = _swapIfNeeded(data.strategies, data.ppss);
 
         data.timestamps = new uint256[](3);
-        data.timestamps[0] = 100;
-        data.timestamps[1] = 200;
-        data.timestamps[2] = 300;
+        data.timestamps[0] = block.timestamp;
+        data.timestamps[1] = block.timestamp;
+        data.timestamps[2] = block.timestamp;
 
         data.validatorSets = new uint256[](3);
         data.validatorSets[0] = 1;
@@ -962,7 +978,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
             new uint256[](0)
         );
         data.proofsArray[2] = _createValidProofs(
-            data.strategies[2], 
+            data.strategies[1], 
             data.ppss[2], 
             data.timestamps[2], 
             new uint256[](0)
@@ -1007,7 +1023,10 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         assertEq(count, 2); // Meaning validCount = 2
     }
 
-    function _swapIfNeeded(address[] memory strategies, uint256[] memory ppss) internal returns (address[] memory, uint256[] memory) {
+    function _swapIfNeeded(
+        address[] memory strategies, 
+        uint256[] memory ppss
+    ) internal pure returns (address[] memory, uint256[] memory) {
         // --- Compare (0,1) ---
         if (uint160(strategies[0]) > uint160(strategies[1])) {
             // swap strategy
