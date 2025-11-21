@@ -20,7 +20,6 @@ import { IDistributor } from "@superform-v2-core/src/vendor/merkl/IDistributor.s
 import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
-// we need to `useLatestFork` on true
 contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
     address operator = address(0x123);
@@ -414,7 +413,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             // Calculate outputMin safely to prevent underflow
             uint256 outputQuote = 10e6;
             uint256 slippageFactor = outputQuote * 1e4 / 1e5; // 10% slippage
-            require(outputQuote >= slippageFactor, "outputQuote too small for slippage calculation");
+            assert(outputQuote >= slippageFactor);
             uint256 outputMin = outputQuote - slippageFactor;
 
             vars.odosCalldata = _createOdosSwapHookData(
@@ -580,7 +579,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
         // Ensure no underflow in swapAmount calculation
-        require(fullAmount >= ratioVars.vaultAllocation, "vaultAllocation exceeds fullAmount");
+        assert(fullAmount >= ratioVars.vaultAllocation);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -632,8 +631,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
         // Ensure convertToShares returned valid values
-        require(arrays.expectedAssetsOrSharesOut[0] > 0, "vault1 convertToShares returned 0");
-        require(arrays.expectedAssetsOrSharesOut[1] > 0, "vault2 convertToShares returned 0");
+        assert(arrays.expectedAssetsOrSharesOut[0] > 0);
+        assert(arrays.expectedAssetsOrSharesOut[1] > 0);
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             // Apply slippage tolerance (0.1%)
@@ -680,14 +679,14 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         ratioVars.vault1Amount = ratioVars.vaultAllocation / 2;
 
         // Ensure no underflow in vault2Amount calculation
-        require(ratioVars.vaultAllocation >= ratioVars.vault1Amount, "vault1Amount exceeds vaultAllocation");
+        assert(ratioVars.vaultAllocation >= ratioVars.vault1Amount);
         ratioVars.vault2Amount = ratioVars.vaultAllocation - ratioVars.vault1Amount;
 
         ratioVars.yieldSourceOracleId =
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
         // Ensure no underflow in swapAmount calculation
-        require(fullAmount >= ratioVars.vaultAllocation, "vaultAllocation exceeds fullAmount");
+        assert(fullAmount >= ratioVars.vaultAllocation);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -739,8 +738,8 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
         // Ensure convertToShares returned valid values
-        require(arrays.expectedAssetsOrSharesOut[0] > 0, "vault1 convertToShares returned 0");
-        require(arrays.expectedAssetsOrSharesOut[1] > 0, "vault2 convertToShares returned 0");
+        assert(arrays.expectedAssetsOrSharesOut[0] > 0);
+        assert(arrays.expectedAssetsOrSharesOut[1] > 0);
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             // Apply slippage tolerance (0.1%)
@@ -808,7 +807,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
             // Calculate outputMin safely to prevent underflow
             uint256 slippageFactor = params.swapAmount * 1e4 / 1e5; // 10% slippage
-            require(params.swapAmount >= slippageFactor, "swapAmount too small for slippage calculation");
+            assert(params.swapAmount >= slippageFactor);
             uint256 outputMin = params.swapAmount - slippageFactor;
 
             swapVars.odosCalldata = _createOdosSwapHookData(
