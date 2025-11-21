@@ -51,7 +51,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
 
-
     struct UserPersona {
         address account;
         uint256 depositAmount;
@@ -306,6 +305,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Verify that the strategy has no free assets left
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
+    }
+
+    function test_HandleDeposit_ReturnsCorrectShares() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        uint256 expectedShares = vault.previewDeposit(depositAmount);
+
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.handleOperations4626Deposit(accountEth, depositAmount);
+
+        vm.prank(address(vault));
+        uint256 shares = strategy.handleOperations4626Deposit(accountEth, depositAmount);
+        assertEq(shares, expectedShares);
     }
 
     function test_Mint_RevertCases() public {
