@@ -226,9 +226,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         external
         returns (uint256 shares)
     {
-        _validateController(controller);
         if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (receiver != controller) revert INVALID_CONTROLLER();
+        _validateControllerAndReceiver(controller, receiver);
 
         shares = strategy.claimableCancelRedeemRequest(controller);
 

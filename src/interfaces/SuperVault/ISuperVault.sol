@@ -8,6 +8,7 @@ import { IERC7741 } from "../../vendor/standards/ERC7741/IERC7741.sol";
 /// @title ISuperVault
 /// @notice Interface for SuperVault core contract that manages share minting
 /// @author Superform Labs
+/// @dev Implements ERC7540Operator pattern: operators can call withdraw/redeem/claimCancelRedeemRequest but receiver must equal controller
 interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedeem {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS

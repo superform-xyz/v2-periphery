@@ -691,6 +691,46 @@ contract SuperVaultTest is PeripheryHelpers {
         vault.withdraw(claimableAssets, otherReceiver, testUser);
     }
 
+    /// @notice Tests withdraw succeeds when controller calls with arbitrary receiver
+    function test_Withdraw_ControllerSucceedsWithArbitraryReceiver() public {
+        address testUser = makeAddr("testUser");
+        address arbitraryReceiver = makeAddr("arbitraryReceiver");
+
+        // Setup: User deposits and requests redemption to have claimable assets
+        deal(address(asset), testUser, 10000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 10000e18);
+        vault.deposit(1000e18, testUser);
+
+        // Request redemption
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vm.stopPrank();
+
+        // Manager fulfills the redemption request
+        vm.startPrank(manager);
+        deal(address(asset), address(strategy), 1000e18);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = sharesToRedeem;
+        strategy.fulfillRedeemRequests(controllers, amounts);
+        vm.stopPrank();
+
+        // Test: Controller calls withdraw with arbitrary receiver (should succeed)
+        uint256 claimableAssets = vault.maxWithdraw(testUser);
+        assertGt(claimableAssets, 0, "Should have claimable assets for test");
+
+        uint256 receiverBalanceBefore = asset.balanceOf(arbitraryReceiver);
+
+        vm.prank(testUser);
+        vault.withdraw(claimableAssets, arbitraryReceiver, testUser);
+
+        uint256 receiverBalanceAfter = asset.balanceOf(arbitraryReceiver);
+        assertEq(receiverBalanceAfter - receiverBalanceBefore, claimableAssets, "Arbitrary receiver should receive assets");
+    }
+
     /// @notice Tests withdraw reverts when non-operator calls on behalf of controller
     function test_Withdraw_NonOperatorReverts() public {
         address testUser = makeAddr("testUser");
@@ -808,6 +848,46 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.prank(operatorAddr);
         vm.expectRevert(ISuperVault.CONTROLLER_MUST_EQUAL_OWNER.selector);
         vault.redeem(maxRedeemShares, otherReceiver, testUser);
+    }
+
+    /// @notice Tests redeem succeeds when controller calls with arbitrary receiver
+    function test_Redeem_ControllerSucceedsWithArbitraryReceiver() public {
+        address testUser = makeAddr("testUser");
+        address arbitraryReceiver = makeAddr("arbitraryReceiver");
+
+        // Setup: User deposits and requests redemption to have claimable assets
+        deal(address(asset), testUser, 10000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 10000e18);
+        vault.deposit(1000e18, testUser);
+
+        // Request redemption
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vm.stopPrank();
+
+        // Manager fulfills the redemption request
+        vm.startPrank(manager);
+        deal(address(asset), address(strategy), 1000e18);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = sharesToRedeem;
+        strategy.fulfillRedeemRequests(controllers, amounts);
+        vm.stopPrank();
+
+        // Test: Controller calls redeem with arbitrary receiver (should succeed)
+        uint256 maxRedeemShares = vault.maxRedeem(testUser);
+        assertGt(maxRedeemShares, 0, "Should have redeemable shares for test");
+
+        uint256 receiverBalanceBefore = asset.balanceOf(arbitraryReceiver);
+
+        vm.prank(testUser);
+        vault.redeem(maxRedeemShares, arbitraryReceiver, testUser);
+
+        uint256 receiverBalanceAfter = asset.balanceOf(arbitraryReceiver);
+        assertGt(receiverBalanceAfter, receiverBalanceBefore, "Arbitrary receiver should receive assets");
     }
 
     /// @notice Tests redeem reverts when non-operator calls on behalf of controller
@@ -4181,9 +4261,9 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Test: Attempt to claim with address(0) as controller
-        // The vault checks for invalid controller before the strategy
+        // The vault checks for zero address before validation
         vm.prank(testUser);
-        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.claimCancelRedeemRequest(0, testUser, address(0));
     }
 
@@ -4311,6 +4391,157 @@ contract SuperVaultTest is PeripheryHelpers {
         // Verify claim was successful
         bool isPending = vault.pendingCancelRedeemRequest(0, testUser);
         assertFalse(isPending, "Cancel request should not be pending after claim");
+    }
+
+    /// @notice Tests claimCancelRedeemRequest succeeds when operator calls with receiver == controller
+    function test_ClaimCancelRedeem_OperatorSucceedsWithReceiverEqualController() public {
+        address testUser = makeAddr("testUser");
+        address operatorAddr = makeAddr("operator");
+
+        // Setup: User deposits, requests redemption, cancels, and sets operator
+        deal(address(asset), testUser, 1000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 1000e18);
+        vault.deposit(100e18, testUser);
+
+        // Request and cancel redeem
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vault.cancelRedeemRequest(0, testUser);
+
+        // Set operator
+        vault.setOperator(operatorAddr, true);
+        vm.stopPrank();
+
+        // Manager fulfills the cancel request
+        vm.startPrank(manager);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        // Test: Operator calls claimCancelRedeemRequest with receiver == controller (should succeed)
+        uint256 claimableShares = strategy.claimableCancelRedeemRequest(testUser);
+        assertGt(claimableShares, 0, "Should have claimable shares for test");
+
+        uint256 receiverBalanceBefore = vault.balanceOf(testUser);
+
+        vm.prank(operatorAddr);
+        uint256 claimedShares = vault.claimCancelRedeemRequest(0, testUser, testUser);
+
+        uint256 receiverBalanceAfter = vault.balanceOf(testUser);
+        assertEq(receiverBalanceAfter - receiverBalanceBefore, claimedShares, "Receiver should receive shares");
+    }
+
+    /// @notice Tests claimCancelRedeemRequest reverts when operator calls with receiver != controller
+    function test_ClaimCancelRedeem_OperatorRevertsWithReceiverNotEqualController() public {
+        address testUser = makeAddr("testUser");
+        address operatorAddr = makeAddr("operator");
+        address otherReceiver = makeAddr("otherReceiver");
+
+        // Setup: User deposits, requests redemption, cancels, and sets operator
+        deal(address(asset), testUser, 1000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 1000e18);
+        vault.deposit(100e18, testUser);
+
+        // Request and cancel redeem
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vault.cancelRedeemRequest(0, testUser);
+
+        // Set operator
+        vault.setOperator(operatorAddr, true);
+        vm.stopPrank();
+
+        // Manager fulfills the cancel request
+        vm.startPrank(manager);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        // Test: Operator calls claimCancelRedeemRequest with receiver != controller (should revert)
+        uint256 claimableShares = strategy.claimableCancelRedeemRequest(testUser);
+        assertGt(claimableShares, 0, "Should have claimable shares for test");
+
+        vm.prank(operatorAddr);
+        vm.expectRevert(ISuperVault.CONTROLLER_MUST_EQUAL_OWNER.selector);
+        vault.claimCancelRedeemRequest(0, otherReceiver, testUser);
+    }
+
+    /// @notice Tests claimCancelRedeemRequest succeeds when controller calls with arbitrary receiver
+    function test_ClaimCancelRedeem_ControllerSucceedsWithArbitraryReceiver() public {
+        address testUser = makeAddr("testUser");
+        address arbitraryReceiver = makeAddr("arbitraryReceiver");
+
+        // Setup: User deposits, requests redemption, and cancels
+        deal(address(asset), testUser, 1000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 1000e18);
+        vault.deposit(100e18, testUser);
+
+        // Request and cancel redeem
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vault.cancelRedeemRequest(0, testUser);
+        vm.stopPrank();
+
+        // Manager fulfills the cancel request
+        vm.startPrank(manager);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        // Test: Controller calls claimCancelRedeemRequest with arbitrary receiver (should succeed)
+        uint256 claimableShares = strategy.claimableCancelRedeemRequest(testUser);
+        assertGt(claimableShares, 0, "Should have claimable shares for test");
+
+        uint256 receiverBalanceBefore = vault.balanceOf(arbitraryReceiver);
+
+        vm.prank(testUser);
+        uint256 claimedShares = vault.claimCancelRedeemRequest(0, arbitraryReceiver, testUser);
+
+        uint256 receiverBalanceAfter = vault.balanceOf(arbitraryReceiver);
+        assertEq(receiverBalanceAfter - receiverBalanceBefore, claimedShares, "Arbitrary receiver should receive shares");
+    }
+
+    /// @notice Tests claimCancelRedeemRequest reverts when non-operator calls on behalf of controller
+    function test_ClaimCancelRedeem_NonOperatorReverts() public {
+        address testUser = makeAddr("testUser");
+        address nonOperator = makeAddr("nonOperator");
+
+        // Setup: User deposits, requests redemption, and cancels
+        deal(address(asset), testUser, 1000e18);
+
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 1000e18);
+        vault.deposit(100e18, testUser);
+
+        // Request and cancel redeem
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        vault.cancelRedeemRequest(0, testUser);
+        vm.stopPrank();
+
+        // Manager fulfills the cancel request
+        vm.startPrank(manager);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        strategy.fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        // Test: Non-operator calls claimCancelRedeemRequest on behalf of controller (should revert)
+        uint256 claimableShares = strategy.claimableCancelRedeemRequest(testUser);
+        assertGt(claimableShares, 0, "Should have claimable shares for test");
+
+        vm.prank(nonOperator);
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vault.claimCancelRedeemRequest(0, testUser, testUser);
     }
 
     /// @notice Tests fulfillRedeemRequests reverts when controller has zero pending shares
