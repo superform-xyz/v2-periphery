@@ -51,7 +51,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     SuperVaultEscrow escrowGearSuperVault;
     SuperVaultStrategy strategyGearSuperVault;
 
-
     struct UserPersona {
         address account;
         uint256 depositAmount;
@@ -308,6 +307,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
     }
 
+    function test_HandleDeposit_ReturnsCorrectShares() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        uint256 expectedShares = vault.previewDeposit(depositAmount);
+
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.handleOperations4626Deposit(accountEth, depositAmount);
+
+        vm.prank(address(vault));
+        uint256 shares = strategy.handleOperations4626Deposit(accountEth, depositAmount);
+        assertEq(shares, expectedShares);
+    }
+
     function test_Mint_RevertCases() public {
         vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.mint(1000, address(0));
@@ -326,6 +337,23 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.mintShares(accountEth, 1000);
 
         assertEq(vault.balanceOf(accountEth), initialShares + 1000);
+    }
+
+    function test_HandleMint_RevertCases() public {
+        uint256 shares = 1000e6;
+        uint256 assetsNet = vault.previewMint(shares);
+        uint256 assetsGross = vault.convertToAssets(shares);
+
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.handleOperations4626Mint(accountEth, shares, assetsGross, assetsNet);
+
+        vm.prank(address(vault));
+        vm.expectRevert(ISuperVaultStrategy.INVALID_AMOUNT.selector);
+        strategy.handleOperations4626Mint(accountEth, 0, assetsGross, assetsNet);
+
+        vm.prank(address(vault));
+        vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
+        strategy.handleOperations4626Mint(address(0), shares, assetsGross, assetsNet);
     }
 
     function test_FulfillRedeem_FullAmountWithThreshold() public {
