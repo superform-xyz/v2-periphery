@@ -1740,6 +1740,20 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(effectiveTime, expectedTime, "Effective time should match");
     }
 
+    function test_UpkeepPayments_ExecuteBeforeTimelock() public {
+        // Propose change
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        // Verify proposal is set
+        (bool enabledBefore, uint256 effectiveTimeBefore) = superGovernor.getProposedUpkeepPaymentsStatus();
+        assertEq(enabledBefore, true, "Should be true before execution");
+        assertTrue(effectiveTimeBefore > 0, "Effective time should be set");
+
+        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
+        superGovernor.executeUpkeepPaymentsChange();
+    }
+
     /// @notice Tests getProposedUpkeepPaymentsStatus after execution
     /// @dev Verifies getter returns reset values after execution
     function test_UpkeepPayments_GetProposedStatus_AfterExecution() public {
