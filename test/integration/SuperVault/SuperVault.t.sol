@@ -194,6 +194,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(symbol, "SV_USDC");
     }
 
+    function test_DefaultRedeemSlippageBps() public view {
+        uint16 defaultSlippage = strategy.DEFAULT_REDEEM_SLIPPAGE_BPS();
+        assertEq(defaultSlippage, 100, "DEFAULT_REDEEM_SLIPPAGE_BPS should be 100 (1%)");
+    }
+
     function test_DepositXQ() public {
         uint256 depositAmount = 1000e6; // 1000 USDC
         _deposit(depositAmount);
@@ -210,6 +215,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
         vault.deposit(0, accountEth);
+    }
+
+    /// @notice Dedicated test for zero amount deposit revert
+    function test_Deposit_RevertWhen_ZeroAmount() public {
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
+        vault.deposit(0, accountEth);
+        vm.stopPrank();
+    }
+
+    /// @notice Dedicated test for zero address receiver revert
+    function test_Deposit_RevertWhen_ZeroAddressReceiver() public {
+        vm.startPrank(accountEth);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
+        vault.deposit(1000e6, address(0));
+        vm.stopPrank();
     }
 
     function test_DepositDirectlyMintsShares() public {
@@ -286,6 +307,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(asset.balanceOf(address(newStrategy)), 0, "Strategy should have no free assets after allocation");
     }
 
+    function test_HandleDeposit_ReturnsCorrectShares() public {
+        uint256 depositAmount = 1000e6; // 1000 USDC
+        uint256 expectedShares = vault.previewDeposit(depositAmount);
+
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.handleOperations4626Deposit(accountEth, depositAmount);
+
+        vm.prank(address(vault));
+        uint256 shares = strategy.handleOperations4626Deposit(accountEth, depositAmount);
+        assertEq(shares, expectedShares);
+    }
+
     function test_Mint_RevertCases() public {
         vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.mint(1000, address(0));
@@ -304,6 +337,23 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.mintShares(accountEth, 1000);
 
         assertEq(vault.balanceOf(accountEth), initialShares + 1000);
+    }
+
+    function test_HandleMint_RevertCases() public {
+        uint256 shares = 1000e6;
+        uint256 assetsNet = vault.previewMint(shares);
+        uint256 assetsGross = vault.convertToAssets(shares);
+
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.handleOperations4626Mint(accountEth, shares, assetsGross, assetsNet);
+
+        vm.prank(address(vault));
+        vm.expectRevert(ISuperVaultStrategy.INVALID_AMOUNT.selector);
+        strategy.handleOperations4626Mint(accountEth, 0, assetsGross, assetsNet);
+
+        vm.prank(address(vault));
+        vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
+        strategy.handleOperations4626Mint(address(0), shares, assetsGross, assetsNet);
     }
 
     function test_FulfillRedeem_FullAmountWithThreshold() public {
@@ -1402,12 +1452,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.claimCancelRedeemRequest(0, address(0), accountEth);
 
         vm.prank(accountEth);
-        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
+        vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
         vault.claimCancelRedeemRequest(0, accountEth, address(0));
 
-        vm.prank(accountEth);
+        // Try to claim on behalf of accountEth from unauthorized address
+        vm.prank(address(this));
         vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
-        vault.claimCancelRedeemRequest(0, address(this), accountEth);
+        vault.claimCancelRedeemRequest(0, accountEth, accountEth);
     }
 
     /*//////////////////////////////////////////////////////////////

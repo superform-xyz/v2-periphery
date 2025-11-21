@@ -57,7 +57,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for basis points precision (100% = 10,000 bps)
+    // Constant for basis points precision (100% = 10,000 bps) 
     uint256 private constant BPS_PRECISION = 10_000;
 
     // Maximum performance fee allowed (51%)
@@ -554,8 +554,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
-
-        if (strategy == address(0)) revert ZERO_ADDRESS();
 
         if (newManager == address(0)) revert ZERO_ADDRESS();
 

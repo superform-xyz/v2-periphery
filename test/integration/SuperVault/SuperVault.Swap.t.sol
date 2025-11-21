@@ -20,9 +20,7 @@ import { IDistributor } from "@superform-v2-core/src/vendor/merkl/IDistributor.s
 import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
-// we need to `useLatestFork` on true
 contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
-    using Math for uint256;
 
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE;
@@ -94,7 +92,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
     }
 
     function setUp() public override {
-        useLatestFork = true;
+        useLatestFork = false; // Use pinned block for deterministic tests
 
         super.setUp();
         userAddress = vm.addr(userPrivateKey);
@@ -116,6 +114,27 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         // Deploy ApproveAndSwapOdosV2Hook with the correct router
         approveAndSwapOdosHookAddressETH = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
         superGovernor.registerHook(approveAndSwapOdosHookAddressETH);
+    }
+    
+    function _createOdosSwapCalldataRequest(
+        address _tokenIn,
+        address _tokenOut,
+        uint256 _amount,
+        address _receiver
+    )
+        internal
+        returns (bytes memory)
+    {
+        // get pathId
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: _tokenIn, amount: _amount });
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: _tokenOut, proportion: 1 });
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, _receiver, ETH, true);
+
+        // get assemble data
+        string memory swapCompactData = surlCallAssemble(pathId, _receiver);
+        return fromHex(swapCompactData);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -381,7 +400,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
                 vars.odosDecodedSwap.tokenInfo.inputReceiver,
                 vars.odosDecodedSwap.tokenInfo.outputToken,
                 vars.odosDecodedSwap.tokenInfo.outputQuote,
-                vars.odosDecodedSwap.tokenInfo.outputMin - vars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                vars.odosDecodedSwap.tokenInfo.outputMin * (1e5 - 1e4) / 1e5,
                 vars.odosDecodedSwap.pathDefinition,
                 vars.odosDecodedSwap.executor,
                 vars.odosDecodedSwap.referralCode,
@@ -391,13 +410,19 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             // Mock scenario: deal tokens to mock router and create simplified calldata
             deal(address(asset), address(odosRouter), 10e6);
 
+            // Calculate outputMin safely to prevent underflow
+            uint256 outputQuote = 10e6;
+            uint256 slippageFactor = outputQuote * 1e4 / 1e5; // 10% slippage
+            assert(outputQuote >= slippageFactor);
+            uint256 outputMin = outputQuote - slippageFactor;
+
             vars.odosCalldata = _createOdosSwapHookData(
                 address(CHAIN_1_USDT),
                 10e6,
                 odosRouterAddress,
                 address(asset),
-                10e6,
-                10e6 - 10e6 * 1e4 / 1e5,
+                outputQuote,
+                outputMin,
                 bytes(""),
                 address(0),
                 0,
@@ -553,6 +578,9 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         ratioVars.yieldSourceOracleId =
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
 
+        // Ensure no underflow in swapAmount calculation
+        assert(fullAmount >= ratioVars.vaultAllocation);
+
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
             assetToDeposit: assetToDeposit,
@@ -602,9 +630,14 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
+        // Ensure convertToShares returned valid values
+        assert(arrays.expectedAssetsOrSharesOut[0] > 0);
+        assert(arrays.expectedAssetsOrSharesOut[1] > 0);
+
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
+            // Apply slippage tolerance (0.1%)
             arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
@@ -644,9 +677,16 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         RatioCalculationVars memory ratioVars;
         ratioVars.vaultAllocation = fullAmount / 2;
         ratioVars.vault1Amount = ratioVars.vaultAllocation / 2;
+
+        // Ensure no underflow in vault2Amount calculation
+        assert(ratioVars.vaultAllocation >= ratioVars.vault1Amount);
         ratioVars.vault2Amount = ratioVars.vaultAllocation - ratioVars.vault1Amount;
+
         ratioVars.yieldSourceOracleId =
             _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER);
+
+        // Ensure no underflow in swapAmount calculation
+        assert(fullAmount >= ratioVars.vaultAllocation);
 
         DepositAndSwapParams memory params = DepositAndSwapParams({
             fullAmount: fullAmount,
@@ -697,9 +737,14 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         arrays.expectedAssetsOrSharesOut[0] = IERC4626(address(params.vault1)).convertToShares(ratioVars.vault1Amount);
         arrays.expectedAssetsOrSharesOut[1] = IERC4626(address(params.vault2)).convertToShares(ratioVars.vault2Amount);
 
+        // Ensure convertToShares returned valid values
+        assert(arrays.expectedAssetsOrSharesOut[0] > 0);
+        assert(arrays.expectedAssetsOrSharesOut[1] > 0);
+
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
+            // Apply slippage tolerance (0.1%)
             arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] - arrays.expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
@@ -748,7 +793,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
                 swapVars.odosDecodedSwap.tokenInfo.inputReceiver,
                 swapVars.odosDecodedSwap.tokenInfo.outputToken,
                 swapVars.odosDecodedSwap.tokenInfo.outputQuote,
-                swapVars.odosDecodedSwap.tokenInfo.outputMin - swapVars.odosDecodedSwap.tokenInfo.outputMin * 1e4 / 1e5,
+                swapVars.odosDecodedSwap.tokenInfo.outputMin * (1e5 - 1e4) / 1e5,
                 swapVars.odosDecodedSwap.pathDefinition,
                 swapVars.odosDecodedSwap.executor,
                 swapVars.odosDecodedSwap.referralCode,
@@ -760,13 +805,18 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
             // Mock scenario: deal tokens to mock router and create simplified calldata
             deal(CHAIN_1_USDT, address(odosRouter), params.swapAmount);
 
+            // Calculate outputMin safely to prevent underflow
+            uint256 slippageFactor = params.swapAmount * 1e4 / 1e5; // 10% slippage
+            assert(params.swapAmount >= slippageFactor);
+            uint256 outputMin = params.swapAmount - slippageFactor;
+
             swapVars.odosCalldata = _createOdosSwapHookData(
                 params.assetToDeposit,
                 params.swapAmount,
                 odosRouterAddress,
                 CHAIN_1_USDT,
                 params.swapAmount,
-                params.swapAmount - params.swapAmount * 1e4 / 1e5,
+                outputMin,
                 bytes(""),
                 address(0),
                 0,

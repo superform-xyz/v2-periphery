@@ -409,19 +409,18 @@ forge install
 
 ```bash
 cd lib/v2-core/lib/modulekit/
-pnpm install
+pnpm i
 ```
 
 ```bash
 cd lib/v2-core/lib/safe7579
-yarn
+pnpm i
 ```
 
 ```bash
 cd lib/v2-core/lib/nexus
 yarn
 ```
-
 
 Note: This requires pnpm and will not work with npm. Install it using:
 
@@ -447,4 +446,52 @@ Supply your node rpc directly in the makefile and then
 
 ```bash
 make ftest
+```
+
+## Recon Invariant Testing Suite
+
+### Usage
+This test suite uses the [Chimera Framework](https://book.getrecon.xyz/writing_invariant_tests/chimera_framework.html) to allow testing using multiple fuzzers and formal verification tools. 
+
+### Setup
+Currently the test setup initally deploys a single triad of `SuperVault`, `SuperVaultStrategy` and `SuperVaultEscrow`. A new triad can be deployed and set using the `superVaultAggregator_createVault`, this allows deploying a `SuperVault` whose underlying asset uses a different decimal precision which the fuzzer can deploy via the `add_new_asset` function.
+
+The setup also deploys three yield sources using the `YieldManager` which deploys an instance of the `MockERC4626Tester`, `MockERC5115Tester` and `MockERC7540Tester`. This can be switched as the yield source targeted by the fuzzer using the `_switchYieldSource` function. 
+
+All hooks are currenlty deployed in the `Setup` contract and can be fetched for the currently set yield source using `_getApproveAndDepositHookForType` and `_getRedeemHookForType`. Hook validation is currently bypassed by using the `UnsafeSuperVaultAggregator` which inherits from the `SuperVaultAggregator` to always return true when hooks need to be verified.
+
+Any functions related to modifying hook roots have been removed from the set of target functions because the hook bypassing of the hook validation step makes testing these waste fuzzing calls.
+
+### Property Testing
+This test suite uses assertion property tests defined for the system contracts in the [`Properties`](https://github.com/superform-xyz/v2-periphery/blob/recon-invariants/test/recon/Properties.sol) contract and in the function handlers in the [targets/ directory](https://github.com/superform-xyz/v2-periphery/tree/recon-invariants/test/recon/targets).
+
+### Echidna setup 
+```shell
+curl -L -o echidna.tar.gz https://github.com/crytic/echidna/releases/download/v2.2.7/echidna-2.2.7-aarch64-macos.tar.gz
+
+# Make executable
+chmod +x echidna
+
+# Move to PATH
+sudo mv echidna /usr/local/bin/
+
+# Use Python version 3.10
+brew install python@3.10
+
+# Install crytic-compile
+pipx install crytic-compile
+pipx ensurepath
+```
+
+#### Echidna Property Testing
+To locally test properties using Echidna, run the following command in your terminal:
+```shell
+echidna ./test/recon/CryticTester.sol --contract CryticTester --config echidna.yaml
+```
+
+### Foundry Testing
+Broken properties found when running Echidna can be turned into unit tests for easier debugging with [Recon's tools](https://getrecon.xyz/tools/echidna) and added to the `CryticToFoundry` contract.
+
+```shell
+forge test --match-test <reproducer-test-name> -vv
 ```

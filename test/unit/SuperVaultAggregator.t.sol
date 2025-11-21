@@ -4,12 +4,14 @@ pragma solidity 0.8.30;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
+import { ISuperGovernor } from "../../src/interfaces/ISuperGovernor.sol";
 import { SuperVaultAggregator } from "../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { ISuperVault } from "../../src/interfaces/SuperVault/ISuperVault.sol";
 import { IECDSAPPSOracle } from "../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { ECDSAPPSOracle } from "../../src/oracles/ECDSAPPSOracle.sol";
 import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
@@ -18,6 +20,7 @@ import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockUp } from "../mocks/MockUp.sol";
 import { MockSuperOracle } from "../mocks/MockSuperOracle.sol";
 import { MockAggregator } from "../mocks/MockAggregator.sol";
+import { MockAssetNoDecimals } from "../mocks/MockAssetNoDecimals.sol";
 
 import "forge-std/console2.sol";
 
@@ -30,6 +33,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     address internal sGovernor;
     address internal governor;
     address internal treasury;
+    address internal oracleManager;
     address internal user;
     address internal manager;
     address internal secondaryManager;
@@ -55,20 +59,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
         treasury = _deployAccount(0x3, "Treasury");
-        user = _deployAccount(0x4, "User");
-        manager = _deployAccount(0x5, "Manager");
-        secondaryManager = _deployAccount(0x6, "SecondaryManager");
-        protectedKeeper1 = _deployAccount(0x7, "ProtectedKeeper1");
-        protectedKeeper2 = _deployAccount(0x8, "ProtectedKeeper2");
-        normalKeeper1 = _deployAccount(0x9, "NormalKeeper1");
-        normalKeeper2 = _deployAccount(0xA, "NormalKeeper2");
+        oracleManager = _deployAccount(0x4, "OracleManager");
+        user = _deployAccount(0x5, "User");
+        manager = _deployAccount(0x6, "Manager");
+        secondaryManager = _deployAccount(0x7, "SecondaryManager");
+        protectedKeeper1 = _deployAccount(0x8, "ProtectedKeeper1");
+        protectedKeeper2 = _deployAccount(0x9, "ProtectedKeeper2");
+        normalKeeper1 = _deployAccount(0xA, "NormalKeeper1");
+        normalKeeper2 = _deployAccount(0xB, "NormalKeeper2");
         superOracle = address(new MockSuperOracle(1e18));
         gasOracle = address(new MockAggregator(1e8, 8));
 
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -114,8 +119,1109 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // Constructor Tests
+    // =============================================================
+
+    /// @notice Tests that constructor reverts when superGovernor is zero address
+    function test_Constructor_RevertZeroAddressSuperGovernor() public {
+        address vaultImpl = address(new SuperVault(address(superGovernor)));
+        address strategyImpl = address(new SuperVaultStrategy(address(superGovernor)));
+        address escrowImpl = address(new SuperVaultEscrow());
+
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        new SuperVaultAggregator(address(0), vaultImpl, strategyImpl, escrowImpl);
+    }
+
+    /// @notice Tests that constructor reverts when vaultImpl is zero address
+    function test_Constructor_RevertZeroAddressVaultImpl() public {
+        address strategyImpl = address(new SuperVaultStrategy(address(superGovernor)));
+        address escrowImpl = address(new SuperVaultEscrow());
+
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        new SuperVaultAggregator(address(superGovernor), address(0), strategyImpl, escrowImpl);
+    }
+
+    /// @notice Tests that constructor reverts when strategyImpl is zero address
+    function test_Constructor_RevertZeroAddressStrategyImpl() public {
+        address vaultImpl = address(new SuperVault(address(superGovernor)));
+        address escrowImpl = address(new SuperVaultEscrow());
+
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        new SuperVaultAggregator(address(superGovernor), vaultImpl, address(0), escrowImpl);
+    }
+
+    /// @notice Tests that constructor reverts when escrowImpl is zero address
+    function test_Constructor_RevertZeroAddressEscrowImpl() public {
+        address vaultImpl = address(new SuperVault(address(superGovernor)));
+        address strategyImpl = address(new SuperVaultStrategy(address(superGovernor)));
+
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, address(0));
+    }
+
+    // =============================================================
+    // Vault Creation Tests
+    // =============================================================
+
+    /// @notice Tests that createVault reverts when name is empty
+    function test_CreateVault_RevertEmptyName() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_VAULT_PARAMS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_createVault_RevertInvalidAsset() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_ASSET.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(0xBEEF),
+                name: "Test Vault",
+                symbol: "TV",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+    }
+
+    /// @notice Tests that createVault reverts when symbol is empty
+    function test_CreateVault_RevertEmptySymbol() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_VAULT_PARAMS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    /// @notice Tests that createVault reverts when both name and symbol are empty
+    function test_CreateVault_RevertEmptyNameAndSymbol() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_VAULT_PARAMS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "",
+                symbol: "",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    /// @notice Tests that createVault reverts when asset has no valid decimals function
+    function test_CreateVault_RevertInvalidAsset() public {
+        MockAssetNoDecimals invalidAsset = new MockAssetNoDecimals("Invalid", "INV");
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_ASSET.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(invalidAsset),
+                name: "Test Vault",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    /// @notice Tests that createVault reverts when maxStaleness is below minimum required staleness
+    function test_CreateVault_RevertMaxStalenessTooLow() public {
+        // SuperGovernor initializes minStaleness to 300 seconds
+        uint256 minStaleness = superGovernor.getMinStaleness();
+        assertEq(minStaleness, 300, "Min staleness should be 300 seconds");
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MAX_STALENESS_TOO_LOW.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 299, // Below minimum staleness of 300
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    /// @notice Tests that createVault reverts when too many secondary managers are provided
+    function test_CreateVault_RevertTooManySecondaryManagers() public {
+        // MAX_SECONDARY_MANAGERS is 5, so we try to create with 6
+        address[] memory tooManyManagers = new address[](6);
+        for (uint256 i = 0; i < 6; i++) {
+            tooManyManagers[i] = _deployAccount(0x100 + i, string(abi.encodePacked("SecondaryManager", i)));
+        }
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.TOO_MANY_SECONDARY_MANAGERS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: tooManyManagers, // 6 managers exceeds limit of 5
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    // =============================================================
+    // Update PPS After Skim Tests
+    // =============================================================
+
+    /// @notice Tests that updatePPSAfterSkim reverts when newPPS is zero
+    function test_UpdatePPSAfterSkim_RevertZeroPPS() public {
+        // Strategy must call updatePPSAfterSkim, so we prank as the strategy address
+        // Initial PPS is set during vault creation (1.0 scaled by asset decimals)
+        uint256 currentPPS = superVaultAggregator.getPPS(strategy);
+        assertTrue(currentPPS > 0, "Initial PPS should be positive");
+
+        vm.prank(strategy);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_ASSET.selector);
+        superVaultAggregator.updatePPSAfterSkim(0, 100e18); // newPPS = 0 should revert
+    }
+
+    /// @notice Tests that updatePPSAfterSkim reverts when feeAmount is zero
+    function test_UpdatePPSAfterSkim_RevertZeroFeeAmount() public {
+        // Get current PPS
+        uint256 currentPPS = superVaultAggregator.getPPS(strategy);
+        assertTrue(currentPPS > 0, "Initial PPS should be positive");
+
+        // Calculate a valid newPPS that is less than currentPPS but within allowed bounds
+        // Decrease by a small amount (1%) to pass all other validations
+        uint256 newPPS = (currentPPS * 99) / 100;
+        assertTrue(newPPS > 0, "New PPS should be positive");
+        assertTrue(newPPS < currentPPS, "New PPS should be less than current");
+
+        vm.prank(strategy);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_ASSET.selector);
+        superVaultAggregator.updatePPSAfterSkim(newPPS, 0); // feeAmount = 0 should revert
+    }
+
+    // =============================================================
+    // Claim Upkeep Tests
+    // =============================================================
+
+    /// @notice Tests that claimUpkeep reverts when caller is not SUPER_GOVERNOR
+    function test_ClaimUpkeep_RevertUnauthorizedCaller() public {
+        uint256 amount = 100e18;
+
+        // Try to claim as random user
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
+        superVaultAggregator.claimUpkeep(amount);
+
+        // Try to claim as manager
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
+        superVaultAggregator.claimUpkeep(amount);
+
+        // Try to claim as strategy
+        vm.prank(strategy);
+        vm.expectRevert(ISuperVaultAggregator.CALLER_NOT_AUTHORIZED.selector);
+        superVaultAggregator.claimUpkeep(amount);
+    }
+
+    /// @notice Tests that claimUpkeep reverts when insufficient claimable upkeep
+    function test_ClaimUpkeep_RevertInsufficientUpkeep() public {
+        // Get current claimable upkeep (should be 0 initially)
+        uint256 currentClaimable = superVaultAggregator.claimableUpkeep();
+
+        // Try to claim more than available
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.INSUFFICIENT_UPKEEP.selector);
+        superVaultAggregator.claimUpkeep(currentClaimable + 1);
+    }
+
+    /// @notice Tests successful upkeep claim with proper state changes and event emission
+    function test_ClaimUpkeep_Success() public {
+        // Setup: We need to populate claimableUpkeep by having a PPS update with upkeep enabled
+        // First, enable upkeep payments
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+        
+        vm.warp(block.timestamp + 2 weeks);
+        
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Set this contract as the PPS Oracle
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Fund the strategy with some upkeep
+        uint256 upkeepAmount = 1000e18;
+        deal(upToken, address(this), upkeepAmount);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+
+        // Forward PPS to generate claimable upkeep
+        vm.warp(block.timestamp + 10);
+        
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategy;
+        
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = 1e18;
+        
+        uint256[] memory validatorSets = new uint256[](1);
+        validatorSets[0] = 1;
+        
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = block.timestamp;
+
+        superVaultAggregator.forwardPPS(
+            ISuperVaultAggregator.ForwardPPSArgs({
+                strategies: strategies,
+                ppss: ppss,
+                validatorSets: validatorSets,
+                totalValidator: 1,
+                timestamps: timestamps,
+                updateAuthority: address(this)
+            })
+        );
+
+        // Get claimable upkeep (should be non-zero now after PPS update)
+        uint256 claimableAmount = superVaultAggregator.claimableUpkeep();
+        assertTrue(claimableAmount > 0, "Claimable upkeep should be non-zero");
+
+        // Get SuperBank balance before claim
+        uint256 superBankBalanceBefore = IERC20(upToken).balanceOf(superBank);
+
+        // Claim half of the available upkeep as SUPER_GOVERNOR
+        uint256 claimAmount = claimableAmount / 2;
+        
+        vm.prank(address(superGovernor));
+        superVaultAggregator.claimUpkeep(claimAmount);
+
+        // Verify state changes
+        assertEq(
+            superVaultAggregator.claimableUpkeep(),
+            claimableAmount - claimAmount,
+            "Claimable upkeep should be reduced"
+        );
+        assertEq(
+            IERC20(upToken).balanceOf(superBank),
+            superBankBalanceBefore + claimAmount,
+            "SuperBank should receive UP tokens"
+        );
+    }
+
+    // =============================================================
+    // Withdraw Upkeep Tests
+    // =============================================================
+
+    /// @notice Tests that executeWithdrawUpkeep reverts when withdrawal amount becomes zero
+    function test_ExecuteWithdrawUpkeep_RevertZeroAmount() public {
+        // Setup: Enable upkeep payments and deposit upkeep
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+        
+        vm.warp(block.timestamp + 2 weeks);
+        
+        vm.prank(sGovernor);
+        superGovernor.executeUpkeepPaymentsChange();
+
+        // Fund the strategy with a small upkeep amount
+        uint256 upkeepAmount = 10e18; // Small amount to make it easier to deplete
+        deal(upToken, manager, upkeepAmount);
+        vm.startPrank(manager);
+        IERC20(upToken).approve(address(superVaultAggregator), upkeepAmount);
+        superVaultAggregator.depositUpkeep(strategy, upkeepAmount);
+
+        // Manager proposes withdrawal
+        superVaultAggregator.proposeWithdrawUpkeep(strategy);
+        vm.stopPrank();
+
+        // Set this contract as PPS Oracle before timelock
+        vm.prank(sGovernor);
+        superGovernor.setActivePPSOracle(address(this));
+
+        // Spend all upkeep by forwarding PPS updates during the timelock period
+        for (uint256 i = 0; i < 20; i++) {
+            vm.warp(block.timestamp + 2 hours);
+            
+            address[] memory strategies = new address[](1);
+            strategies[0] = strategy;
+            
+            uint256[] memory ppss = new uint256[](1);
+            ppss[0] = 1e18;
+            
+            uint256[] memory validatorSets = new uint256[](1);
+            validatorSets[0] = 1;
+            
+            uint256[] memory timestamps = new uint256[](1);
+            timestamps[0] = block.timestamp;
+
+            superVaultAggregator.forwardPPS(
+                ISuperVaultAggregator.ForwardPPSArgs({
+                    strategies: strategies,
+                    ppss: ppss,
+                    validatorSets: validatorSets,
+                    totalValidator: 1,
+                    timestamps: timestamps,
+                    updateAuthority: address(this)
+                })
+            );
+
+            // Check if balance is depleted
+            if (superVaultAggregator.getUpkeepBalance(strategy) == 0) break;
+        }
+
+        // Fast forward past timelock to be able to execute withdrawal
+        vm.warp(block.timestamp + 25 hours);
+
+        // Verify upkeep balance is now zero (spent during timelock period)
+        assertEq(
+            superVaultAggregator.getUpkeepBalance(strategy),
+            0,
+            "Strategy upkeep balance should be zero"
+        );
+
+        // Try to execute withdrawal - should revert with ZERO_AMOUNT
+        vm.expectRevert(ISuperVaultAggregator.ZERO_AMOUNT.selector);
+        superVaultAggregator.executeWithdrawUpkeep(strategy);
+    }
+
+    // =============================================================
+    // Manager Management Tests
+    // =============================================================
+
+    /// @notice Tests that addSecondaryManager reverts when manager address is zero
+    function test_AddSecondaryManager_RevertZeroAddress() public {
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, address(0));
+    }
+
+    /// @notice Tests that addSecondaryManager reverts when trying to add the main manager as secondary
+    function test_AddSecondaryManager_RevertMainManagerAlreadyExists() public {
+        // Verify manager is the main manager
+        assertEq(superVaultAggregator.getMainManager(strategy), manager, "Manager should be main manager");
+
+        // Try to add the main manager as a secondary manager
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, manager);
+    }
+
+    /// @notice Tests that addSecondaryManager reverts when trying to add duplicate secondary manager
+    function test_AddSecondaryManager_RevertDuplicateSecondaryManager() public {
+        // Create a new manager address
+        address newSecondaryManager = _deployAccount(0x20, "NewSecondaryManager");
+
+        // First addition should succeed
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+
+        // Verify the manager was added
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        bool found = false;
+        for (uint256 i = 0; i < secondaryManagers.length; i++) {
+            if (secondaryManagers[i] == newSecondaryManager) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "New secondary manager should be added");
+
+        // Try to add the same secondary manager again - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+    }
+
+    /// @notice Tests that removeSecondaryManager reverts when caller is not main manager
+    function test_RemoveSecondaryManager_RevertUnauthorized() public {
+        // Verify secondaryManager exists in the strategy
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        assertTrue(secondaryManagers.length > 0, "Should have at least one secondary manager");
+
+        // Try to remove as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.removeSecondaryManager(strategy, secondaryManager);
+
+        // Try to remove as secondary manager themselves - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.removeSecondaryManager(strategy, secondaryManager);
+
+        // Try to remove as another secondary manager - should revert
+        address anotherSecondary = _deployAccount(0x21, "AnotherSecondary");
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(strategy, anotherSecondary);
+
+        vm.prank(anotherSecondary);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.removeSecondaryManager(strategy, secondaryManager);
+    }
+
+    /// @notice Tests that removeSecondaryManager reverts when manager is not found
+    function test_RemoveSecondaryManager_RevertManagerNotFound() public {
+        // Create an address that is not a secondary manager
+        address nonExistentManager = _deployAccount(0x22, "NonExistentManager");
+
+        // Verify this address is not in the secondary managers list
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        bool found = false;
+        for (uint256 i = 0; i < secondaryManagers.length; i++) {
+            if (secondaryManagers[i] == nonExistentManager) {
+                found = true;
+                break;
+            }
+        }
+        assertFalse(found, "NonExistentManager should not be in secondary managers list");
+
+        // Try to remove a manager that doesn't exist - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_NOT_FOUND.selector);
+        superVaultAggregator.removeSecondaryManager(strategy, nonExistentManager);
+    }
+
+    /// @notice Tests that updateDeviationThreshold reverts when caller is not main manager
+    function test_UpdateDeviationThreshold_RevertUnauthorized() public {
+        uint256 newThreshold = 500; // 5% in basis points
+
+        // Try to update as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateDeviationThreshold(strategy, newThreshold);
+
+        // Try to update as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateDeviationThreshold(strategy, newThreshold);
+
+        // Try to update as SuperGovernor - should revert (only main manager allowed)
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.updateDeviationThreshold(strategy, newThreshold);
+    }
+
+    // =============================================================
     // Emergency Manager Replacement Tests
     // =============================================================
+
+    /// @notice Tests that changePrimaryManager reverts when strategy is zero address (caught by validStrategy modifier)
+    function test_ChangePrimaryManager_RevertZeroAddressStrategy() public {
+        address newManager = _deployAccount(0x23, "NewManager");
+
+        // The validStrategy modifier is checked first, so it reverts with UNKNOWN_STRATEGY
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        superVaultAggregator.changePrimaryManager(address(0), newManager);
+    }
+
+    /// @notice Tests that changePrimaryManager reverts when newManager is zero address
+    function test_ChangePrimaryManager_RevertZeroAddressNewManager() public {
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.changePrimaryManager(strategy, address(0));
+    }
+
+    /// @notice Tests that proposeChangePrimaryManager reverts when newManager is zero address
+    function test_ProposeChangePrimaryManager_RevertZeroAddress() public {
+        // Only secondary managers can propose, so use secondaryManager
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, address(0));
+    }
+
+    /// @notice Tests that executeChangePrimaryManager reverts when there's no pending manager change
+    function test_ExecuteChangePrimaryManager_RevertNoPendingChange() public {
+        // Try to execute when no proposal exists
+        vm.expectRevert(ISuperVaultAggregator.NO_PENDING_MANAGER_CHANGE.selector);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+    }
+
+    /// @notice Tests that executeChangePrimaryManager reverts when timelock hasn't expired
+    function test_ExecuteChangePrimaryManager_RevertTimelockNotExpired() public {
+        // Create a new manager address
+        address newManager = _deployAccount(0x24, "NewManager");
+
+        // Secondary manager proposes a change
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+
+        // Try to execute immediately (timelock is 7 days)
+        vm.expectRevert(ISuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Try to execute just before timelock expires (7 days - 1 second)
+        vm.warp(block.timestamp + 7 days - 1);
+        vm.expectRevert(ISuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+    }
+
+    /// @notice Tests that setHooksRootUpdateTimelock reverts when caller is not SuperGovernor
+    function test_SetHooksRootUpdateTimelock_RevertUnauthorized() public {
+        uint256 newTimelock = 14 days;
+
+        // Try to set as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setHooksRootUpdateTimelock(newTimelock);
+
+        // Try to set as manager - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setHooksRootUpdateTimelock(newTimelock);
+
+        // Try to set as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setHooksRootUpdateTimelock(newTimelock);
+    }
+
+    /// @notice Tests that proposeGlobalHooksRoot reverts when caller is not SuperGovernor
+    function test_ProposeGlobalHooksRoot_RevertUnauthorized() public {
+        bytes32 newRoot = keccak256("newHooksRoot");
+
+        // Try to propose as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Try to propose as manager - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Try to propose as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+    }
+
+    /// @notice Tests that executeGlobalHooksRootUpdate reverts when there's no pending proposal
+    function test_ExecuteGlobalHooksRootUpdate_RevertNoPendingProposal() public {
+        // Try to execute when no proposal exists
+        vm.expectRevert(ISuperVaultAggregator.NO_PENDING_GLOBAL_ROOT_CHANGE.selector);
+        superVaultAggregator.executeGlobalHooksRootUpdate();
+    }
+
+    /// @notice Tests that executeGlobalHooksRootUpdate reverts when timelock hasn't expired
+    function test_ExecuteGlobalHooksRootUpdate_RevertTimelockNotReady() public {
+        bytes32 newRoot = keccak256("newHooksRoot");
+
+        // SuperGovernor proposes a new global hooks root
+        vm.prank(address(superGovernor));
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Try to execute immediately - should revert
+        vm.expectRevert(ISuperVaultAggregator.ROOT_UPDATE_NOT_READY.selector);
+        superVaultAggregator.executeGlobalHooksRootUpdate();
+
+        // Get the timelock duration and try to execute just before it expires
+        uint256 timelock = superVaultAggregator.getHooksRootUpdateTimelock();
+        vm.warp(block.timestamp + timelock - 1);
+        vm.expectRevert(ISuperVaultAggregator.ROOT_UPDATE_NOT_READY.selector);
+        superVaultAggregator.executeGlobalHooksRootUpdate();
+    }
+
+    /// @notice Tests that setGlobalHooksRootVetoStatus reverts when caller is not SuperGovernor
+    function test_SetGlobalHooksRootVetoStatus_RevertUnauthorized() public {
+        bool vetoStatus = true;
+
+        // Try to set as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setGlobalHooksRootVetoStatus(vetoStatus);
+
+        // Try to set as manager - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setGlobalHooksRootVetoStatus(vetoStatus);
+
+        // Try to set as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setGlobalHooksRootVetoStatus(vetoStatus);
+    }
+
+    /// @notice Tests that setGlobalHooksRootVetoStatus succeeds when status doesn't change
+    function test_SetGlobalHooksRootVetoStatus_NoChangeSucceeds() public {
+        // Get current veto status (default is false)
+        bool currentStatus = superVaultAggregator.isGlobalHooksRootVetoed();
+
+        // Set the same status - should succeed without reverting (early return)
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setGlobalHooksRootVetoStatus(currentStatus);
+        
+        // Verify status remains unchanged
+        assertEq(superVaultAggregator.isGlobalHooksRootVetoed(), currentStatus, "Status should remain unchanged");
+        
+        // Call again with same status to verify idempotency
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setGlobalHooksRootVetoStatus(currentStatus);
+        
+        // Verify status is still the same
+        assertEq(superVaultAggregator.isGlobalHooksRootVetoed(), currentStatus, "Status should still be unchanged");
+    }
+
+    /// @notice Tests that proposeStrategyHooksRoot reverts when caller is not main manager
+    function test_ProposeStrategyHooksRoot_RevertUnauthorized() public {
+        bytes32 newRoot = keccak256("newStrategyHooksRoot");
+
+        // Try to propose as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
+
+        // Try to propose as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
+
+        // Try to propose as SuperGovernor - should revert (only main manager allowed)
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
+    }
+
+    /// @notice Tests that executeStrategyHooksRootUpdate reverts when there's no pending proposal
+    function test_ExecuteStrategyHooksRootUpdate_RevertNoPendingProposal() public {
+        // Try to execute when no proposal exists
+        vm.expectRevert(ISuperVaultAggregator.NO_PENDING_MANAGER_CHANGE.selector);
+        superVaultAggregator.executeStrategyHooksRootUpdate(strategy);
+    }
+
+    /// @notice Tests that executeStrategyHooksRootUpdate reverts when timelock hasn't expired
+    function test_ExecuteStrategyHooksRootUpdate_RevertTimelockNotReady() public {
+        bytes32 newRoot = keccak256("newStrategyHooksRoot");
+
+        // Main manager proposes a new strategy hooks root
+        vm.prank(manager);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
+
+        // Try to execute immediately - should revert
+        vm.expectRevert(ISuperVaultAggregator.ROOT_UPDATE_NOT_READY.selector);
+        superVaultAggregator.executeStrategyHooksRootUpdate(strategy);
+
+        // Get the timelock duration and try to execute just before it expires
+        uint256 timelock = superVaultAggregator.getHooksRootUpdateTimelock();
+        vm.warp(block.timestamp + timelock - 1);
+        vm.expectRevert(ISuperVaultAggregator.ROOT_UPDATE_NOT_READY.selector);
+        superVaultAggregator.executeStrategyHooksRootUpdate(strategy);
+    }
+
+    /// @notice Tests that setStrategyHooksRootVetoStatus reverts when caller is not SuperGovernor
+    function test_SetStrategyHooksRootVetoStatus_RevertUnauthorized() public {
+        bool vetoStatus = true;
+
+        // Try to set as random user - should revert
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, vetoStatus);
+
+        // Try to set as manager - should revert
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, vetoStatus);
+
+        // Try to set as secondary manager - should revert
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, vetoStatus);
+    }
+
+    /// @notice Tests that setStrategyHooksRootVetoStatus succeeds when status doesn't change
+    function test_SetStrategyHooksRootVetoStatus_NoChangeSucceeds() public {
+        // Get current veto status for the strategy (default is false)
+        bool currentStatus = superVaultAggregator.isStrategyHooksRootVetoed(strategy);
+
+        // Set the same status - should succeed without reverting (early return)
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, currentStatus);
+        
+        // Verify status remains unchanged
+        assertEq(
+            superVaultAggregator.isStrategyHooksRootVetoed(strategy),
+            currentStatus,
+            "Status should remain unchanged"
+        );
+        
+        // Call again with same status to verify idempotency
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, currentStatus);
+        
+        // Verify status is still the same
+        assertEq(
+            superVaultAggregator.isStrategyHooksRootVetoed(strategy),
+            currentStatus,
+            "Status should still be unchanged"
+        );
+    }
+
+    /// @notice Tests that proposeMinUpdateIntervalChange reverts when newInterval >= maxStaleness
+    function test_ProposeMinUpdateIntervalChange_RevertWhenIntervalTooLarge() public {
+        // Get current maxStaleness for the strategy
+        uint256 maxStaleness = superVaultAggregator.getMaxStaleness(strategy);
+
+        // Try to propose a new minUpdateInterval that is >= maxStaleness (invalid)
+        uint256 invalidInterval = maxStaleness; // Equal to maxStaleness
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MIN_UPDATE_INTERVAL_TOO_HIGH.selector);
+        superVaultAggregator.proposeMinUpdateIntervalChange(strategy, invalidInterval);
+
+        // Try with interval > maxStaleness
+        invalidInterval = maxStaleness + 1;
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MIN_UPDATE_INTERVAL_TOO_HIGH.selector);
+        superVaultAggregator.proposeMinUpdateIntervalChange(strategy, invalidInterval);
+    }
+
+    /// @notice Tests that getCurrentNonce returns the correct vault creation nonce
+    function test_GetCurrentNonce() public {
+        // Get the initial nonce (should be 1 after setup since one vault was created)
+        uint256 initialNonce = superVaultAggregator.getCurrentNonce();
+        assertEq(initialNonce, 1, "Initial nonce should be 1 after one vault creation");
+
+        // Deploy a new vault to increment the nonce
+        vm.prank(manager);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+
+        // Verify nonce incremented
+        uint256 newNonce = superVaultAggregator.getCurrentNonce();
+        assertEq(newNonce, 2, "Nonce should increment to 2 after second vault creation");
+    }
+
+    /// @notice Tests that getDeviationThreshold returns the correct deviation threshold
+    function test_GetDeviationThreshold() public {
+        // Get the default deviation threshold (should be 50% = 5e17)
+        uint256 threshold = superVaultAggregator.getDeviationThreshold(strategy);
+        assertEq(threshold, 5e17, "Default deviation threshold should be 50% (5e17)");
+
+        // Update the deviation threshold
+        uint256 newThreshold = 1e17; // 10%
+        vm.prank(manager);
+        superVaultAggregator.updateDeviationThreshold(strategy, newThreshold);
+
+        // Verify the updated threshold is returned
+        uint256 updatedThreshold = superVaultAggregator.getDeviationThreshold(strategy);
+        assertEq(updatedThreshold, newThreshold, "Updated deviation threshold should be returned");
+    }
+
+    /// @notice Tests that isSecondaryManager correctly identifies secondary managers
+    function test_IsSecondaryManager() public {
+        // Verify existing secondary manager is identified correctly
+        bool isSecondary = superVaultAggregator.isSecondaryManager(secondaryManager, strategy);
+        assertTrue(isSecondary, "Existing secondary manager should return true");
+
+        // Verify non-secondary managers return false
+        assertFalse(
+            superVaultAggregator.isSecondaryManager(user, strategy),
+            "Random user should not be secondary manager"
+        );
+        assertFalse(
+            superVaultAggregator.isSecondaryManager(manager, strategy),
+            "Main manager should not be secondary manager"
+        );
+
+        // Add a new secondary manager and verify
+        address newSecondaryManager = _deployAccount(0x25, "NewSecondaryManager");
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+
+        assertTrue(
+            superVaultAggregator.isSecondaryManager(newSecondaryManager, strategy),
+            "Newly added secondary manager should return true"
+        );
+
+        // Remove secondary manager and verify
+        vm.prank(manager);
+        superVaultAggregator.removeSecondaryManager(strategy, newSecondaryManager);
+
+        assertFalse(
+            superVaultAggregator.isSecondaryManager(newSecondaryManager, strategy),
+            "Removed secondary manager should return false"
+        );
+    }
+
+    /// @notice Tests getAllSuperVaults and superVaults indexed access
+    function test_GetAllSuperVaults() public {
+        // Get all vaults - should have 1 from setUp
+        address[] memory vaults = superVaultAggregator.getAllSuperVaults();
+        assertEq(vaults.length, 1, "Should have 1 vault from setUp");
+
+        // Verify indexed access returns the same vault
+        address vaultAtIndex = superVaultAggregator.superVaults(0);
+        assertEq(vaultAtIndex, vaults[0], "Indexed access should return same vault");
+
+        // Verify out of bounds reverts
+        vm.expectRevert(ISuperVaultAggregator.INDEX_OUT_OF_BOUNDS.selector);
+        superVaultAggregator.superVaults(1);
+    }
+
+    /// @notice Tests getAllSuperVaultStrategies and superVaultStrategies indexed access
+    function test_GetAllSuperVaultStrategies() public {
+        // Get all strategies - should have 1 from setUp
+        address[] memory strategies = superVaultAggregator.getAllSuperVaultStrategies();
+        assertEq(strategies.length, 1, "Should have 1 strategy from setUp");
+        assertEq(strategies[0], strategy, "Strategy should match the one from setUp");
+
+        // Verify indexed access returns the same strategy
+        address strategyAtIndex = superVaultAggregator.superVaultStrategies(0);
+        assertEq(strategyAtIndex, strategy, "Indexed access should return same strategy");
+
+        // Verify out of bounds reverts
+        vm.expectRevert(ISuperVaultAggregator.INDEX_OUT_OF_BOUNDS.selector);
+        superVaultAggregator.superVaultStrategies(1);
+    }
+
+    /// @notice Tests getAllSuperVaultEscrows and superVaultEscrows indexed access
+    function test_GetAllSuperVaultEscrows() public {
+        // Get all escrows - should have 1 from setUp
+        address[] memory escrows = superVaultAggregator.getAllSuperVaultEscrows();
+        assertEq(escrows.length, 1, "Should have 1 escrow from setUp");
+
+        // Verify indexed access returns the same escrow
+        address escrowAtIndex = superVaultAggregator.superVaultEscrows(0);
+        assertEq(escrowAtIndex, escrows[0], "Indexed access should return same escrow");
+
+        // Verify out of bounds reverts
+        vm.expectRevert(ISuperVaultAggregator.INDEX_OUT_OF_BOUNDS.selector);
+        superVaultAggregator.superVaultEscrows(1);
+    }
+
+    /// @notice Tests validateHooks returns all false when global hooks root is vetoed
+    function test_ValidateHooks_GlobalRootVetoed() public {
+        // Set global hooks root veto status to true
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setGlobalHooksRootVetoStatus(true);
+
+        // Create sample hook validation arguments
+        ISuperVaultAggregator.ValidateHookArgs[] memory argsArray = 
+            new ISuperVaultAggregator.ValidateHookArgs[](3);
+        
+        argsArray[0] = ISuperVaultAggregator.ValidateHookArgs({
+            hookAddress: address(0x1),
+            hookArgs: bytes(""),
+            globalProof: new bytes32[](0),
+            strategyProof: new bytes32[](0)
+        });
+        argsArray[1] = ISuperVaultAggregator.ValidateHookArgs({
+            hookAddress: address(0x2),
+            hookArgs: bytes(""),
+            globalProof: new bytes32[](0),
+            strategyProof: new bytes32[](0)
+        });
+        argsArray[2] = ISuperVaultAggregator.ValidateHookArgs({
+            hookAddress: address(0x3),
+            hookArgs: bytes(""),
+            globalProof: new bytes32[](0),
+            strategyProof: new bytes32[](0)
+        });
+
+        // Call validateHooks - should return all false
+        bool[] memory results = superVaultAggregator.validateHooks(strategy, argsArray);
+        
+        assertEq(results.length, 3, "Should return 3 results");
+        assertFalse(results[0], "First hook should be false when global root vetoed");
+        assertFalse(results[1], "Second hook should be false when global root vetoed");
+        assertFalse(results[2], "Third hook should be false when global root vetoed");
+    }
+
+    /// @notice Tests validateHooks returns all false when strategy hooks root is vetoed
+    function test_ValidateHooks_StrategyRootVetoed() public {
+        // Set strategy hooks root veto status to true
+        vm.prank(address(superGovernor));
+        superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, true);
+
+        // Create sample hook validation arguments
+        ISuperVaultAggregator.ValidateHookArgs[] memory argsArray = 
+            new ISuperVaultAggregator.ValidateHookArgs[](2);
+        
+        argsArray[0] = ISuperVaultAggregator.ValidateHookArgs({
+            hookAddress: address(0x1),
+            hookArgs: bytes(""),
+            globalProof: new bytes32[](0),
+            strategyProof: new bytes32[](0)
+        });
+        argsArray[1] = ISuperVaultAggregator.ValidateHookArgs({
+            hookAddress: address(0x2),
+            hookArgs: bytes(""),
+            globalProof: new bytes32[](0),
+            strategyProof: new bytes32[](0)
+        });
+
+        // Call validateHooks - should return all false
+        bool[] memory results = superVaultAggregator.validateHooks(strategy, argsArray);
+        
+        assertEq(results.length, 2, "Should return 2 results");
+        assertFalse(results[0], "First hook should be false when strategy root vetoed");
+        assertFalse(results[1], "Second hook should be false when strategy root vetoed");
+    }
+
+    /// @notice Tests getGlobalHooksRoot returns the current global hooks root
+    function test_GetGlobalHooksRoot() public {
+        // Get initial global hooks root (should be bytes32(0) initially)
+        bytes32 currentRoot = superVaultAggregator.getGlobalHooksRoot();
+        assertEq(currentRoot, bytes32(0), "Initial global hooks root should be zero");
+
+        // Propose a new global hooks root
+        bytes32 newRoot = keccak256("newGlobalRoot");
+        vm.prank(address(superGovernor));
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Root should still be zero until timelock expires
+        currentRoot = superVaultAggregator.getGlobalHooksRoot();
+        assertEq(currentRoot, bytes32(0), "Root should still be zero before execution");
+
+        // Fast forward past timelock and execute
+        uint256 timelock = superVaultAggregator.getHooksRootUpdateTimelock();
+        vm.warp(block.timestamp + timelock);
+        superVaultAggregator.executeGlobalHooksRootUpdate();
+
+        // Verify root is now updated
+        currentRoot = superVaultAggregator.getGlobalHooksRoot();
+        assertEq(currentRoot, newRoot, "Global hooks root should be updated");
+    }
+
+    /// @notice Tests getProposedGlobalHooksRoot returns proposed root and effective time
+    function test_GetProposedGlobalHooksRoot() public {
+        // Initially should have no pending proposal
+        (bytes32 proposedRoot, uint256 effectiveTime) = superVaultAggregator.getProposedGlobalHooksRoot();
+        assertEq(proposedRoot, bytes32(0), "Initial proposed root should be zero");
+        assertEq(effectiveTime, 0, "Initial effective time should be zero");
+
+        // Propose a new global hooks root
+        bytes32 newRoot = keccak256("proposedRoot");
+        vm.prank(address(superGovernor));
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Verify proposal is stored
+        (proposedRoot, effectiveTime) = superVaultAggregator.getProposedGlobalHooksRoot();
+        assertEq(proposedRoot, newRoot, "Proposed root should match");
+        assertGt(effectiveTime, block.timestamp, "Effective time should be in future");
+    }
+
+    /// @notice Tests isGlobalHooksRootActive returns correct status
+    function test_IsGlobalHooksRootActive() public {
+        // Initially should be inactive (root is zero)
+        bool isActive = superVaultAggregator.isGlobalHooksRootActive();
+        assertFalse(isActive, "Should be inactive when root is zero");
+
+        // Propose and execute a global hooks root
+        bytes32 newRoot = keccak256("activeRoot");
+        vm.prank(address(superGovernor));
+        superVaultAggregator.proposeGlobalHooksRoot(newRoot);
+
+        // Still inactive before execution
+        isActive = superVaultAggregator.isGlobalHooksRootActive();
+        assertFalse(isActive, "Should be inactive before execution");
+
+        // Fast forward and execute
+        uint256 timelock = superVaultAggregator.getHooksRootUpdateTimelock();
+        vm.warp(block.timestamp + timelock);
+        superVaultAggregator.executeGlobalHooksRootUpdate();
+
+        // Now should be active
+        isActive = superVaultAggregator.isGlobalHooksRootActive();
+        assertTrue(isActive, "Should be active after execution with non-zero root");
+    }
+
+    /// @notice Tests getStrategyHooksRoot returns strategy-specific hooks root
+    function test_GetStrategyHooksRoot() public {
+        // Initially should be bytes32(0)
+        bytes32 strategyRoot = superVaultAggregator.getStrategyHooksRoot(strategy);
+        assertEq(strategyRoot, bytes32(0), "Initial strategy hooks root should be zero");
+
+        // Propose a strategy-specific hooks root
+        bytes32 newRoot = keccak256("strategyRoot");
+        vm.prank(manager);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newRoot);
+
+        // Root should still be zero until execution
+        strategyRoot = superVaultAggregator.getStrategyHooksRoot(strategy);
+        assertEq(strategyRoot, bytes32(0), "Root should still be zero before execution");
+
+        // Fast forward and execute
+        uint256 timelock = superVaultAggregator.getHooksRootUpdateTimelock();
+        vm.warp(block.timestamp + timelock);
+        superVaultAggregator.executeStrategyHooksRootUpdate(strategy);
+
+        // Verify root is updated
+        strategyRoot = superVaultAggregator.getStrategyHooksRoot(strategy);
+        assertEq(strategyRoot, newRoot, "Strategy hooks root should be updated");
+    }
 
     /// @notice Tests emergency manager replacement clears pending proposals
     function test_ChangePrimaryManager_ClearsPendingProposals() public {
@@ -823,6 +1929,37 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 updateAuthority: address(this)
             })
         );
+    }
+
+    /// @notice Tests that getUpkeepCostPerSingleUpdate reverts when UP token address is not set
+    function test_GetUpkeepCost_RevertsWhenUpTokenNotSet() public {
+        // Create a fresh SuperGovernor without setting the UP token address
+        address freshSGovernor = makeAddr("FreshSuperGovernor");
+        address freshGovernor = makeAddr("FreshGovernor");
+        address freshTreasury = makeAddr("FreshTreasury");
+        
+        address freshOracleManager = makeAddr("FreshOracleManager");
+        SuperGovernor freshSuperGovernor = new SuperGovernor(
+            freshSGovernor,
+            freshGovernor,
+            freshGovernor,
+            freshOracleManager,
+            freshGovernor,
+            freshTreasury
+        );
+
+        // Set the SUPER_ORACLE address (required for _convertGasToUp)
+        bytes32 superOracleKey = freshSuperGovernor.SUPER_ORACLE();
+        vm.prank(freshSGovernor);
+        freshSuperGovernor.setAddress(superOracleKey, superOracle);
+
+        // Set gas info for an oracle (required so _gasPerEntry is not 0)
+        vm.prank(freshGovernor);
+        freshSuperGovernor.setGasInfo(address(this), 100000);
+
+        // Try to get upkeep cost - should revert because UP token is not set
+        vm.expectRevert(ISuperGovernor.UP_NOT_FOUND.selector);
+        freshSuperGovernor.getUpkeepCostPerSingleUpdate(address(this));
     }
 
     /// @notice Tests that batch PPS updates with all monotonic timestamps succeed
@@ -3883,6 +5020,127 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // The update was treated as exempt
         uint256 finalBalance = superVaultAggregator.getUpkeepBalance(manager);
         assertEq(finalBalance, 0, "No upkeep should have been deducted");
+    }
+
+    /// @notice Tests that authorizeOperator returns true and correctly authorizes an operator
+    function test_AuthorizeOperator_ReturnsTrue() public {
+        // Get the vault address from strategy
+        (address vaultAddress,,) = ISuperVaultStrategy(strategy).getVaultInfo();
+        SuperVault vault = SuperVault(vaultAddress);
+
+        // Create controller with private key for signing
+        uint256 controllerPrivateKey = 0x12345;
+        address controller = vm.addr(controllerPrivateKey);
+
+        // Create operator address
+        address operator_ = _deployAccount(0xB, "Operator");
+
+        // Setup signature components
+        bool approved = true;
+        bytes32 nonce = keccak256("test_nonce_authorize_operator");
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Generate EIP-712 signature
+        bytes32 structHash = keccak256(
+            abi.encode(
+                vault.AUTHORIZE_OPERATOR_TYPEHASH(),
+                controller,
+                operator_,
+                approved,
+                nonce,
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                vault.DOMAIN_SEPARATOR(),
+                structHash
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(controllerPrivateKey, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Call authorizeOperator and verify return value
+        vm.prank(operator_);
+        bool result = vault.authorizeOperator(
+            controller,
+            operator_,
+            approved,
+            nonce,
+            deadline,
+            signature
+        );
+
+        // Verify return value is true
+        assertTrue(result, "authorizeOperator should return true");
+
+        // Verify operator is actually authorized
+        assertTrue(vault.isOperator(controller, operator_), "Operator should be authorized");
+
+        // Verify nonce was marked as used
+        assertTrue(vault.authorizations(controller, nonce), "Nonce should be marked as used");
+    }
+
+    /// @notice Tests that pendingCancelRedeemRequest returns correct boolean values
+    function test_PendingCancelRedeemRequest() public {
+        // Get the vault address from strategy
+        (address vaultAddress,,) = ISuperVaultStrategy(strategy).getVaultInfo();
+        SuperVault vault = SuperVault(vaultAddress);
+
+        // Create test user
+        address testUser = _deployAccount(0xABC, "TestUser");
+        
+        // Test 1: Initially no pending cancel request (should return false)
+        bool isPending = vault.pendingCancelRedeemRequest(0, testUser);
+        assertFalse(isPending, "Should return false when no cancel request is pending");
+
+        // Verify strategy returns same value
+        bool strategyPending = ISuperVaultStrategy(strategy).pendingCancelRedeemRequest(testUser);
+        assertEq(isPending, strategyPending, "Vault should return same value as strategy");
+
+        // Test 2: Set up a scenario with pending cancel request
+        // Mint shares to user
+        deal(address(asset), testUser, 10000e18);
+        
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 10000e18);
+        vault.deposit(1000e18, testUser);
+        
+        // Request redemption
+        uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
+        vault.requestRedeem(sharesToRedeem, testUser, testUser);
+        
+        // Cancel the redemption request
+        vault.cancelRedeemRequest(0, testUser);
+        vm.stopPrank();
+
+        // Test 3: Now should return true (pending cancel request)
+        isPending = vault.pendingCancelRedeemRequest(0, testUser);
+        assertTrue(isPending, "Should return true when cancel request is pending");
+
+        // Verify strategy returns same value
+        strategyPending = ISuperVaultStrategy(strategy).pendingCancelRedeemRequest(testUser);
+        assertEq(isPending, strategyPending, "Vault should return same value as strategy");
+
+        // Test 4: After manager fulfills cancel request, should still be true until claim
+        vm.startPrank(manager);
+        address[] memory controllers = new address[](1);
+        controllers[0] = testUser;
+        ISuperVaultStrategy(strategy).fulfillCancelRedeemRequests(controllers);
+        vm.stopPrank();
+
+        isPending = vault.pendingCancelRedeemRequest(0, testUser);
+        assertTrue(isPending, "Should still return true after fulfillment until claim");
+
+        // Test 5: After claiming, should return false
+        vm.prank(testUser);
+        vault.claimCancelRedeemRequest(0, testUser, testUser);
+
+        isPending = vault.pendingCancelRedeemRequest(0, testUser);
+        assertFalse(isPending, "Should return false after claim");
     }
 }
 
