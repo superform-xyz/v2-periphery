@@ -1740,6 +1740,20 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(effectiveTime, expectedTime, "Effective time should match");
     }
 
+    function test_UpkeepPayments_ExecuteBeforeTimelock() public {
+        // Propose change
+        vm.prank(sGovernor);
+        superGovernor.proposeUpkeepPaymentsChange(true);
+
+        // Verify proposal is set
+        (bool enabledBefore, uint256 effectiveTimeBefore) = superGovernor.getProposedUpkeepPaymentsStatus();
+        assertEq(enabledBefore, true, "Should be true before execution");
+        assertTrue(effectiveTimeBefore > 0, "Effective time should be set");
+
+        vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
+        superGovernor.executeUpkeepPaymentsChange();
+    }
+
     /// @notice Tests getProposedUpkeepPaymentsStatus after execution
     /// @dev Verifies getter returns reset values after execution
     function test_UpkeepPayments_GetProposedStatus_AfterExecution() public {
@@ -2133,6 +2147,16 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook1);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook1), proposedRoot, "Merkle root mismatch");
+    }
+
+    function test_MerkleRoot_Revert_NotApproved() public {
+        address unapprovedHook = makeAddr("unapprovedHook");
+
+        vm.expectRevert(ISuperGovernor.HOOK_NOT_APPROVED.selector);
+        superGovernor.getSuperBankHookMerkleRoot(unapprovedHook);
+
+        vm.expectRevert(ISuperGovernor.HOOK_NOT_APPROVED.selector);
+        superGovernor.getProposedSuperBankHookMerkleRoot(unapprovedHook);
     }
 
     /// @notice Tests reverting when executing a merkle root update for an unregistered hook
