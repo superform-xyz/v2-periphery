@@ -344,7 +344,25 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     }
 
     /// @dev Property: Claiming more than requested always reverts
-    function doomsday_cannotClaimMoreThanRequested() public asActor {
+    function doomsday_cannotClaimMoreThanRequested(uint256 shares) public asActor {
+        uint256 actorShares = superVault.balanceOf(_getActor());
+        if (shares == 0 || shares > actorShares) return; // Skip invalid scenarios
+
+        // Request redemption of all shares
+        vm.prank(_getActor());
+        superVault.requestRedeem(shares, _getActor(), _getActor());
+
+        // Fulfill the redemption request
+        (ISuperVaultStrategy.ExecuteArgs memory executeArgs, address[] memory controllers) =
+            _createExecuteRedeemArgs(shares);
+
+        // called as admin address(this)
+        superVaultStrategy.executeHooks(executeArgs);
+
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(superVaultStrategy, asset, controllers);
+
+        superVaultStrategy.fulfillRedeemRequests(controllers, totalAssetsOut);
+
         uint256 claimable = superVault.claimableRedeemRequest(0, _getActor());
         uint256 tryClaim = claimable + 10;
 
