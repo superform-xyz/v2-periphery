@@ -493,7 +493,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         nonReentrant
         returns (uint256 shares)
     {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         _validateControllerAndReceiver(controller, receiver);
 
         uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(controller);
@@ -525,7 +525,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         nonReentrant
         returns (uint256 assets)
     {
-        if (receiver == address(0)) revert ZERO_ADDRESS();
+        if (receiver == address(0) || controller == address(0)) revert ZERO_ADDRESS();
         _validateControllerAndReceiver(controller, receiver);
 
         uint256 averageWithdrawPrice = strategy.getAverageWithdrawPrice(controller);
@@ -598,7 +598,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         if (!_isOperator(controller, msg.sender)) revert INVALID_CONTROLLER();
 
         // Caller is operator, enforce receiver == controller
-        if (receiver != controller) revert CONTROLLER_MUST_EQUAL_OWNER();
+        if (receiver != controller) revert RECEIVER_MUST_EQUAL_CONTROLLER();
     }
 
     function _isOperator(address controller, address operator) internal view returns (bool) {

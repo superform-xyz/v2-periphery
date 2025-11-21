@@ -687,7 +687,7 @@ contract SuperVaultTest is PeripheryHelpers {
         assertGt(claimableAssets, 0, "Should have claimable assets for test");
 
         vm.prank(operatorAddr);
-        vm.expectRevert(ISuperVault.CONTROLLER_MUST_EQUAL_OWNER.selector);
+        vm.expectRevert(ISuperVault.RECEIVER_MUST_EQUAL_CONTROLLER.selector);
         vault.withdraw(claimableAssets, otherReceiver, testUser);
     }
 
@@ -846,7 +846,7 @@ contract SuperVaultTest is PeripheryHelpers {
         assertGt(maxRedeemShares, 0, "Should have redeemable shares for test");
 
         vm.prank(operatorAddr);
-        vm.expectRevert(ISuperVault.CONTROLLER_MUST_EQUAL_OWNER.selector);
+        vm.expectRevert(ISuperVault.RECEIVER_MUST_EQUAL_CONTROLLER.selector);
         vault.redeem(maxRedeemShares, otherReceiver, testUser);
     }
 
@@ -4468,7 +4468,7 @@ contract SuperVaultTest is PeripheryHelpers {
         assertGt(claimableShares, 0, "Should have claimable shares for test");
 
         vm.prank(operatorAddr);
-        vm.expectRevert(ISuperVault.CONTROLLER_MUST_EQUAL_OWNER.selector);
+        vm.expectRevert(ISuperVault.RECEIVER_MUST_EQUAL_CONTROLLER.selector);
         vault.claimCancelRedeemRequest(0, otherReceiver, testUser);
     }
 
