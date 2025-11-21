@@ -911,6 +911,29 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle.executeProviderRemoval();
     }
 
+    function test_executeOracleUpdate_RevertsOnUnauthorized() public {
+        address[] memory bases = new address[](1);
+        bases[0] = address(mockBTC);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(mockUSD);
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = PROVIDER_1;
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = address(mockFeed4);
+
+        // Queue and execute the oracle update to add BTC/USD oracle for the new provider
+        superOracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 1 weeks + 1 seconds);
+        mockFeed4.setUpdatedAt(block.timestamp);
+        // Try to execute oracle update as non-governor
+        vm.prank(makeAddr("nonGovernor"));
+        vm.expectRevert(ISuperOracle.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superOracle.executeOracleUpdate();
+    }
+
     function test_OnlyOwnerCanPerformAdminActions() public {
         // Create a non-owner address
         address nonOwner = address(0x1234);
