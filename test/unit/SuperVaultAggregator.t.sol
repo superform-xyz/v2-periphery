@@ -1375,7 +1375,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.addSecondaryManager(strategy, manager);
 
         vm.startPrank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
         vm.stopPrank();
 

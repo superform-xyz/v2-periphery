@@ -198,6 +198,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].mainManager = params.mainManager;
 
         uint256 secondaryLen = params.secondaryManagers.length;
+        if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
+        
         for (uint256 i; i < secondaryLen; ++i) {
             address _secondarymanager = params.secondaryManagers[i];
 
@@ -211,9 +213,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             if (!_strategyData[strategy].secondaryManagers.add(_secondarymanager)) {
                 revert MANAGER_ALREADY_EXISTS();
             }
-        }
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
-            revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
         _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
@@ -486,7 +485,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
 
         // Check if manager is already the primary manager
-        if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
+        if (_strategyData[strategy].mainManager == manager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
         if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
