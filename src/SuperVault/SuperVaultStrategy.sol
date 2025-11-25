@@ -133,7 +133,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vault = vaultAddress;
         _asset = IERC20(IERC4626(vaultAddress).asset());
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
-        PRECISION = 10 ** _vaultDecimals;
+        PRECISION = 1e18;
         feeConfig = feeConfigData;
 
         ppsExpiration = 1 days;
