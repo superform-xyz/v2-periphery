@@ -199,18 +199,18 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         uint256 secondaryLen = params.secondaryManagers.length;
         if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
-        
+
         for (uint256 i; i < secondaryLen; ++i) {
-            address _secondarymanager = params.secondaryManagers[i];
+            address _secondaryManager = params.secondaryManagers[i];
 
             // Check if manager is a zero address
-            if (_secondarymanager == address(0)) revert ZERO_ADDRESS();
+            if (_secondaryManager == address(0)) revert ZERO_ADDRESS();
             
             // Check if manager is already the primary manager
-            if (_strategyData[strategy].mainManager == _secondarymanager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+            if (_strategyData[strategy].mainManager == _secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
             
             // Add secondary manager and revert if it already exists
-            if (!_strategyData[strategy].secondaryManagers.add(_secondarymanager)) {
+            if (!_strategyData[strategy].secondaryManagers.add(_secondaryManager)) {
                 revert MANAGER_ALREADY_EXISTS();
             }
         }
