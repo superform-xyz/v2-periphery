@@ -298,6 +298,31 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    /// @notice Tests that createVault reverts when secondary manager is already the primary manager
+    function test_CreateVault_RevertSecondaryManagerAlreadyExists() public {
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = manager;
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
     /// @notice Tests that createVault reverts when too many secondary managers are provided
     function test_CreateVault_RevertTooManySecondaryManagers() public {
         // MAX_SECONDARY_MANAGERS is 5, so we try to create with 6
