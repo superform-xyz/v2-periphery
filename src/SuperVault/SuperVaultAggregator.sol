@@ -277,7 +277,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _forwardPPS(
                 PPSUpdateData({
                     strategy: strategy,
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    isExempt: upkeepCost == 0,
                     pps: args.ppss[i],
                     validatorSet: args.validatorSets[i],
                     totalValidators: args.totalValidator,
