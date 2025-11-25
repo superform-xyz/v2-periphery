@@ -59,7 +59,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Timelock period after unpause during which performance fee skimming is disabled (rug prevention)
     uint256 private constant POST_UNPAUSE_SKIM_TIMELOCK = 12 hours;
 
-    uint256 public PRECISION; // Slot 0: 32 bytes
+    uint256 public constant PRECISION = 1e18;
 
     /*//////////////////////////////////////////////////////////////
                                 STATE
@@ -133,7 +133,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         _vault = vaultAddress;
         _asset = IERC20(IERC4626(vaultAddress).asset());
         _vaultDecimals = IERC20Metadata(vaultAddress).decimals();
-        PRECISION = 1e18;
         feeConfig = feeConfigData;
 
         ppsExpiration = 1 days;
