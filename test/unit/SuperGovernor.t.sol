@@ -2834,6 +2834,28 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(activeProvidersAfter.length, 1, "Should still have 1 provider after cancellation");
     }
 
+    function test_CancelOracleProviderRemoval_AccessControl() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Try unauthorized call
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ORACLE_MANAGER_ROLE
+            )
+        );
+        superGovernor.cancelOracleProviderRemoval();
+    }
+
+    function test_CancelOracleProviderRemoval_Revert_ContractNotFound() public {
+        vm.prank(oracleManager);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.cancelOracleProviderRemoval();
+    }
+
     /// @notice Tests executeOracleProviderRemoval access control
     /// @dev Covers SuperGovernor.sol:468 - onlyRole(_ORACLE_MANAGER_ROLE)
     function test_OracleUpdateManagement_ExecuteOracleProviderRemoval_AccessControl() public {
