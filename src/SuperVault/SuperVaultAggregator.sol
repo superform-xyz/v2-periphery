@@ -57,7 +57,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for basis points precision (100% = 10,000 bps) 
+    // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
 
     // Maximum performance fee allowed (51%)
@@ -199,6 +199,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         uint256 secondaryLen = params.secondaryManagers.length;
         for (uint256 i; i < secondaryLen; ++i) {
+            // Check if manager is already the primary manager
+            if (_strategyData[strategy].mainManager == params.secondaryManagers[i]) revert MANAGER_ALREADY_EXISTS();
+            
             _strategyData[strategy].secondaryManagers.add(params.secondaryManagers[i]);
         }
         if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
