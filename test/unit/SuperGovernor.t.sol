@@ -2827,6 +2827,8 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(activeProvidersBefore.length, 1, "Should have 1 provider before cancellation");
 
         vm.prank(oracleManager);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperOracle.ProviderRemovalCancelled(providersToRemove);
         superGovernor.cancelOracleProviderRemoval();
 
         // Verify providers are still active after cancellation
