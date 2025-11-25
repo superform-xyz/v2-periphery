@@ -348,19 +348,18 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     }
 
     function test_CreateVault_Revert_SecondaryManagerAlreadyExists() public {
-        address secondaryManager = _deployAccount(0x10, "SecondaryManager");
         address[] memory secondaryManagers = new address[](2);
         secondaryManagers[0] = secondaryManager;
         secondaryManagers[1] = secondaryManager;
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "Test Vault Revert",
                 symbol: "TVR",
-                mainManager: manager,
+                mainManager: secondaryManager,
                 secondaryManagers: secondaryManagers,
                 minUpdateInterval: 5,
                 maxStaleness: 300,
@@ -637,7 +636,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Try to add the main manager as a secondary manager
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
     }
 
