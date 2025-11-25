@@ -12,15 +12,9 @@ contract MockECDSAPPSOracle {
     //<>=============================================================<>
     //Mock implementation of updatePPS
     function updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public {
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 1;
-
-        uint256 totalValidator = 1;
         ISuperVaultAggregator.ForwardPPSArgs memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
             strategies: args.strategies,
             ppss: args.ppss,
-            validatorSets: validatorSets,
-            totalValidator: totalValidator,
             timestamps: args.timestamps,
             updateAuthority: msg.sender
         });

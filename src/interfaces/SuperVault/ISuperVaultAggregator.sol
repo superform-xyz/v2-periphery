@@ -16,16 +16,12 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy being updated
     /// @param isExempt Whether the update is exempt from paying upkeep
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     /// @param upkeepCost Amount of upkeep tokens to charge if not exempt
     struct PPSUpdateData {
         address strategy;
         bool isExempt;
         uint256 pps;
-        uint256 validatorSet;
-        uint256 totalValidators;
         uint256 timestamp;
         uint256 upkeepCost;
     }
@@ -161,11 +157,9 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a PPS value is updated
     /// @param strategy Address of the strategy
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp of the update
     event PPSUpdated(
-        address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp
+        address indexed strategy, uint256 pps, uint256 timestamp
     );
 
     /// @notice Emitted when a strategy is paused due to missed updates
@@ -504,14 +498,11 @@ interface ISuperVaultAggregator {
     /// @notice Arguments for batch forwarding PPS updates
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
-    /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
-    /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
+    /// @param updateAuthority Address of the update authority
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
-        uint256[] validatorSets;
-        uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;
     }
