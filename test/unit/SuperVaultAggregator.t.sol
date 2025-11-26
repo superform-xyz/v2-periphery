@@ -1303,6 +1303,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assert(feeConfig.recipient != oldFeeRecipient);
     }
 
+    function test_ExecuteChangePriamryManager_UpdatesFeeRecipient() public {
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+
+        address newPrimaryManager = _deployAccount(0x12, "NewManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
+
+        vm.warp(block.timestamp + 1 weeks);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        assertEq(ISuperVaultStrategy(strategy).getConfigInfo().recipient, treasury);
+    }
+
     /// @notice Tests emergency replacement clears all secondary managers
     function test_AddTooManySecondaryManagers() public {
         uint256 len = 6;
