@@ -357,18 +357,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     }
 
     /*//////////////////////////////////////////////////////////////
-                            STRATEGY RELATED
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperVault
-    function extractAndSendAssets(address to, uint256 assets) external {
-        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
-        uint256 escrowBalance = _asset.balanceOf(escrow);
-        if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
-
-        ISuperVaultEscrow(escrow).returnAssets(to, assets);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                             ERC4626 IMPLEMENTATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IERC20Metadata
@@ -508,8 +496,11 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         uint256 escrowBalance = _asset.balanceOf(escrow);
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
-        // Take assets from strategy (7540 path)
+        // Update strategy state (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
+
+        // Transfer assets from escrow to receiver
+        ISuperVaultEscrow(escrow).returnAssets(receiver, assets);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
@@ -540,8 +531,11 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         uint256 escrowBalance = _asset.balanceOf(escrow);
         if (assets > escrowBalance) revert NOT_ENOUGH_ASSETS();
 
-        // Take assets from strategy (7540 path)
+        // Update strategy state (7540 path)
         strategy.handleOperations7540(ISuperVaultStrategy.Operation.ClaimRedeem, controller, receiver, assets);
+
+        // Transfer assets from escrow to receiver
+        ISuperVaultEscrow(escrow).returnAssets(receiver, assets);
 
         emit Withdraw(msg.sender, receiver, controller, assets, shares);
     }
