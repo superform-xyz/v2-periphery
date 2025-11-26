@@ -1,27 +1,21 @@
+[submodule "lib/openzeppelin-contracts-upgradeable"]
+	path = lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "lib/v2-core"]
+	path = lib/v2-core
+	url = https://github.com/superform-xyz/v2-core
+[submodule "lib/chimera"]
+	path = lib/chimera
+	url = https://github.com/Recon-Fuzz/chimera
+[submodule "lib/setup-helpers"]
+	path = lib/setup-helpers
+	url = https://github.com/Recon-Fuzz/setup-helpers
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "lib/openzeppelin-contracts"]
-	path = lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/ExcessivelySafeCall"]
-	path = lib/ExcessivelySafeCall
-	url = https://github.com/nomad-xyz/ExcessivelySafeCall
-[submodule "lib/solady"]
-	path = lib/solady
-	url = https://github.com/Vectorized/solady
-[submodule "lib/modulekit"]
-	path = lib/modulekit
-	url = https://github.com/rhinestonewtf/modulekit
-[submodule "lib/pigeon"]
-	path = lib/pigeon
-	url = https://github.com/exp-table/pigeon
-[submodule "lib/surl"]
-	path = lib/surl
-	url = https://github.com/memester-xyz/surl
-[submodule "lib/solidity-stringutils"]
-	path = lib/solidity-stringutils
-	url = https://github.com/Arachnid/solidity-stringutils
-[submodule "lib/pendle-core-v2-public"]
-	path = lib/pendle-core-v2-public
-	url = https://github.com/pendle-finance/pendle-core-v2-public
+[submodule "lib/erc7540-reusable-properties"]
+	path = lib/erc7540-reusable-properties
+	url = https://github.com/Recon-Fuzz/erc7540-reusable-properties
+[submodule "lib/halmos-cheatcodes"]
+	path = lib/halmos-cheatcodes
+	url = https://github.com/a16z/halmos-cheatcodes

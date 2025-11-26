@@ -18,10 +18,20 @@ build :; $(MAKE) ensure-merkle-cache && forge build && $(MAKE) generate
 
 forge-script :; forge script $(SCRIPT) $(ARGS)
 
-forge-test :; $(MAKE) ensure-merkle-cache && forge test --match-path $(TEST) $(ARGS)
+forge-test :; $(MAKE) ensure-merkle-cache && forge test --match-test $(TEST) $(ARGS)
+
+forge-test-contract :; $(MAKE) ensure-merkle-cache && forge test --match-contract $(CONTRACT) $(ARGS)
 
 # Internal forge-test without merkle cache check (used by cache generation)
 forge-test-internal :; forge test --match-path $(TEST) $(ARGS)
+
+# Internal forge-test with coverage profile (used by cache generation)
+forge-test-coverage-internal :; FOUNDRY_PROFILE=coverage forge test --match-path $(TEST) $(ARGS)
+
+# Internal forge-coverage without merkle cache check (used by cache generation)
+forge-coverage-internal :; FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum $(ARGS)
+
+forge-coverage-internal2 :; FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --match-contract SuperVaultTest -vv
 
 # Ensure merkle cache is up to date before running tests/builds
 ensure-merkle-cache:
@@ -33,10 +43,20 @@ ensure-merkle-cache-ci:
 	@echo "🌲 Checking merkle cache (CI mode)..."
 	@cd test/utils/merkle/merkle-js && ENVIRONMENT=ci node deterministic-merkle-pregeneration.js
 
+# Ensure merkle cache is up to date before running tests/builds
+ensure-merkle-cache-coverage:
+	@echo "🌲 Checking merkle cache for coverage..."
+	@cd test/utils/merkle/merkle-js && FOUNDRY_PROFILE=coverage node deterministic-merkle-pregeneration.js
+
 # Force regenerate merkle cache
 regenerate-merkle-cache:
 	@echo "🌲 Force regenerating merkle cache..."
 	@cd test/utils/merkle/merkle-js && node deterministic-merkle-pregeneration.js --force
+
+# Force regenerate merkle cache for coverage
+regenerate-merkle-cache-coverage:
+	@echo "🌲 Force regenerating merkle cache for coverage..."
+	@cd test/utils/merkle/merkle-js && FOUNDRY_PROFILE=coverage node deterministic-merkle-pregeneration.js --force
 
 # Force regenerate merkle cache for CI environments
 regenerate-merkle-cache-ci:
@@ -49,20 +69,21 @@ merkle-status:
 
 ftest :; $(MAKE) ensure-merkle-cache && forge test
 
-ftest-vvv :; $(MAKE) ensure-merkle-cache && forge test -v --jobs 2
+ftest-vvv :; $(MAKE) ensure-merkle-cache && forge test -vvv --jobs 2
 
 ftest-ci :; $(MAKE) regenerate-merkle-cache-ci && forge test -v --jobs 2
 
 ftest-quick :; forge test
 
-coverage :; $(MAKE) ensure-merkle-cache && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov
+coverage :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov
 
-test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_SpectraExchangeSwapHook_DepositAndRedeemPT  -vvvv --jobs 10
+coverage-genhtml :; $(MAKE) ensure-merkle-cache-coverage && FOUNDRY_PROFILE=coverage forge coverage --jobs 10 --ir-minimum --report lcov && genhtml lcov.info --branch-coverage --output-dir coverage --ignore-errors inconsistent,corrupt,unused --exclude 'src/libraries/SuperAssetPriceLib.sol' --exclude 'src/SuperAsset/*' --exclude 'src/UP/*' --exclude 'src/VaultBank/*' --exclude 'src/vendor/*' --exclude 'test/*'
 
+test-vvv :; $(MAKE) ensure-merkle-cache && forge test --match-test test_property_fulfillOnlyBurnsRequestedAmount -vvvv --jobs 10
 
-test-integration :; $(MAKE) ensure-merkle-cache && forge test --match-test test_ShouldExecuteAll_AndLockAssetsInVaultBank -vvv --jobs 10
+test-integration :; $(MAKE) ensure-merkle-cache && forge test --match-test test_DeBridgeCancelOrderHook -vvvv --jobs 10
 
-test-vvv-quick :; forge test --match-test test_11_Allocate_NewYieldSource -vv --jobs 10
+test-vvv-quick :; forge test --match-test test_SuperVault_E2E_Flow_With_Ledger_Fees -vvv --jobs 10
 
 test-gas-report-user :; $(MAKE) ensure-merkle-cache && forge test --match-test test_gasReport --gas-report --jobs 10
 test-gas-report-2vaults :; $(MAKE) ensure-merkle-cache && forge test --match-test test_gasReport_TwoVaults --gas-report --jobs 10
@@ -73,5 +94,5 @@ test-cache :; $(MAKE) ensure-merkle-cache && forge test --cache-tests
 .PHONY: generate
 generate:
 	rm -rf contract_bindings/*
-	./script/run/retrieve-abis.sh
+	./lib/v2-core/script/run/retrieve-abis.sh
 	./script/run/generate-contract-bindings.sh

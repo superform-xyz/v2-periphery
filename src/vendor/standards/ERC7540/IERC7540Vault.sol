@@ -60,13 +60,7 @@ interface IERC7540Deposit is IERC7540Operator {
      * - MUST NOT show any variations depending on the caller.
      * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
      */
-    function pendingDepositRequest(
-        uint256 requestId,
-        address controller
-    )
-        external
-        view
-        returns (uint256 pendingAssets);
+    function pendingDepositRequest(uint256 requestId, address controller) external view returns (uint256 pendingAssets);
 
     /**
      * @dev Returns the amount of requested assets in Claimable state for the controller to deposit or mint.
@@ -127,13 +121,7 @@ interface IERC7540Redeem is IERC7540Operator {
      * - MUST NOT show any variations depending on the caller.
      * - MUST NOT revert unless due to integer overflow caused by an unreasonably large input.
      */
-    function pendingRedeemRequest(
-        uint256 requestId,
-        address controller
-    )
-        external
-        view
-        returns (uint256 pendingShares);
+    function pendingRedeemRequest(uint256 requestId, address controller) external view returns (uint256 pendingShares);
 
     /**
      * @dev Returns the amount of requested shares in Claimable state for the controller to redeem or withdraw.
@@ -174,13 +162,7 @@ interface IERC7540CancelDeposit {
      *
      * - MUST NOT show any variations depending on the caller.
      */
-    function pendingCancelDepositRequest(
-        uint256 requestId,
-        address controller
-    )
-        external
-        view
-        returns (bool isPending);
+    function pendingCancelDepositRequest(uint256 requestId, address controller) external view returns (bool isPending);
 
     /**
      * @dev Returns the amount of assets that were canceled from a deposit Request, and can now be claimed.
@@ -212,6 +194,7 @@ interface IERC7540CancelDeposit {
         returns (uint256 assets);
 }
 
+//IERC7887Redeem
 interface IERC7540CancelRedeem {
     event CancelRedeemRequest(address indexed controller, uint256 indexed requestId, address sender);
     event CancelRedeemClaim(

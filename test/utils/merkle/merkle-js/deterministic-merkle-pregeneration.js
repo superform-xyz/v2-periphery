@@ -8,7 +8,9 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const { execSync } = require('child_process');
+const AddressListGenerator = require('./generate-address-lists');
 
 class DeterministicMerkleGen {
     constructor() {
@@ -51,13 +53,30 @@ EXAMPLES:
     node deterministic-merkle-pregeneration.js --force
         → Force regenerate cache even if it appears valid
     
+    FOUNDRY_PROFILE=coverage node deterministic-merkle-pregeneration.js
+        → Generate cache using coverage environment
+    
     node deterministic-merkle-pregeneration.js --verbose --status
         → Check cache status with detailed logging
+    
+    MERKLE_GEN_TIMEOUT=300000 node deterministic-merkle-pregeneration.js
+        → Use custom timeout (5 minutes in this example)
 
 DESCRIPTION:
     This script ensures the merkle tree cache is up to date with current hook addresses.
     It automatically detects when hook addresses change and regenerates the cache.
     The cache includes both the merkle tree data and optimized lookup indices.
+    
+    When FOUNDRY_PROFILE=coverage is set, the script uses the coverage profile to extract
+    addresses that match the coverage testing environment.
+    
+    TIMEOUT BEHAVIOR:
+    The script automatically adjusts timeouts based on the environment:
+    - Coverage in CI: 10 minutes (coverage tests are slower in CI)
+    - Coverage locally: 5 minutes  
+    - Regular tests in CI: 4 minutes
+    - Regular tests locally: 2 minutes
+    Override with MERKLE_GEN_TIMEOUT environment variable (in milliseconds).
 `);
     }
 
@@ -76,25 +95,45 @@ DESCRIPTION:
         const lines = output.split('\n');
         const addresses = {
             vaults: {},
+            superVaults: {},
             hooks: {}
         };
 
         // Look for console.log output lines
         for (const line of lines) {
-            if (line.includes('VAULT_globalSVStrategy:')) {
-                addresses.vaults.globalSVStrategy = this.extractAddress(line);
-            } else if (line.includes('VAULT_globalSVGearStrategy:')) {
-                addresses.vaults.globalSVGearStrategy = this.extractAddress(line);
-            } else if (line.includes('VAULT_globalRuggableVault:')) {
-                addresses.vaults.globalRuggableVault = this.extractAddress(line);
-            } else if (line.includes('HOOK_APPROVE_AND_DEPOSIT_4626_VAULT_HOOK:')) {
-                addresses.hooks.APPROVE_AND_DEPOSIT_4626_VAULT_HOOK = this.extractAddress(line);
-            } else if (line.includes('HOOK_REDEEM_4626_VAULT_HOOK:')) {
-                addresses.hooks.REDEEM_4626_VAULT_HOOK = this.extractAddress(line);
-            } else if (line.includes('HOOK_APPROVE_AND_GEARBOX_STAKE_HOOK:')) {
-                addresses.hooks.APPROVE_AND_GEARBOX_STAKE_HOOK = this.extractAddress(line);
-            } else if (line.includes('HOOK_GEARBOX_UNSTAKE_HOOK:')) {
-                addresses.hooks.GEARBOX_UNSTAKE_HOOK = this.extractAddress(line);
+            // Dynamic vault detection - any line starting with "VAULT_"
+            if (line.includes('VAULT_')) {
+                const vaultMatch = line.match(/VAULT_([A-Za-z0-9_]+):\s*(0x[a-fA-F0-9]{40})/);
+                if (vaultMatch) {
+                    const vaultName = vaultMatch[1];
+                    const address = vaultMatch[2];
+                    addresses.vaults[vaultName] = address;
+                    this.log(`Detected vault: ${vaultName} -> ${address}`);
+                }
+            }
+            // SuperVault detection - these should NOT have VAULT_ prefix
+            else if (line.includes('globalSVStrategy:') || line.includes('globalSV5115Strategy:') || line.includes('globalSVGearStrategy:') || line.includes('globalRuggableVault:')) {
+                const svMatch = line.match(/(global[A-Za-z0-9_]+):\s*(0x[a-fA-F0-9]{40})/);
+                if (svMatch) {
+                    const svName = svMatch[1];
+                    const address = svMatch[2];
+                    addresses.superVaults[svName] = address;
+                    this.log(`Detected SuperVault: ${svName} -> ${address}`);
+                }
+            }
+            // Dynamic hook detection - any line ending with "Hook:" (contract names)
+            else if (line.includes('Hook:')) {
+                const hookMatch = line.match(/([A-Za-z0-9]+Hook):\s*(0x[a-fA-F0-9]{40})/);
+                if (hookMatch) {
+                    const hookName = hookMatch[1]; // Use actual contract name (PascalCase)
+                    const address = hookMatch[2];
+                    addresses.hooks[hookName] = address;
+                    this.log(`Detected hook: ${hookName} -> ${address}`);
+                }
+            }
+            // Special case for MOCK_ETH_RECEIVER
+            else if (line.includes('MOCK_ETH_RECEIVER:')) {
+                addresses.mockETHReceiver = this.extractAddress(line);
             }
         }
 
@@ -102,6 +141,7 @@ DESCRIPTION:
         this.validateAddresses(addresses);
 
         this.log('Retrieved addresses from console output:', JSON.stringify(addresses, null, 2));
+        this.log(`Detected ${Object.keys(addresses.hooks).length} hooks and ${Object.keys(addresses.vaults).length} vaults`);
         return addresses;
     }
 
@@ -122,30 +162,61 @@ DESCRIPTION:
                 BASE_RPC_URL: process.env.BASE_RPC_URL || 'https://base.publicnode.com',
                 ONE_INCH_API_KEY: process.env.ONE_INCH_API_KEY || 'dummy-api-key'
             };
+            let result = '';
 
-            const result = execSync('make forge-test-internal TEST=test/utils/merkle/merkle-js/GetAddressesFromBaseTest.s.sol ARGS="--match-test test_getAddresses -vvvv"', {
-                encoding: 'utf8',
-                cwd: '../../../../', // Go back to project root
-                timeout: 120000, // 2 minute timeout for setUp()
-                env: testEnv
-            });
+            // Configure timeout based on environment
+            // CI environments need longer timeouts, especially for coverage
+            const isCoverage = testEnv.FOUNDRY_PROFILE === 'coverage';
+            const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+            // Default timeouts (in milliseconds)
+            let timeout = 120000; // 2 minutes default
+            if (isCoverage && isCI) {
+                timeout = 600000; // 10 minutes for coverage in CI
+            } else if (isCoverage) {
+                timeout = 300000; // 5 minutes for coverage locally
+            } else if (isCI) {
+                timeout = 240000; // 4 minutes for regular tests in CI
+            }
+
+            // Allow override via environment variable
+            if (process.env.MERKLE_GEN_TIMEOUT) {
+                timeout = parseInt(process.env.MERKLE_GEN_TIMEOUT, 10);
+                this.log(`Using custom timeout: ${timeout}ms`);
+            }
+
+            // Detect coverage mode
+            if (isCoverage) {
+                this.log(`Detected coverage environment for address extraction (timeout: ${timeout}ms)`);
+
+                const command = `make forge-coverage-internal ARGS="--match-test test_getAddresses -vv"`;
+                result = execSync(command, {
+                    encoding: 'utf8',
+                    cwd: path.join(__dirname, '../../../..'), // Go to project root
+                    timeout: timeout,
+                    maxBuffer: 10 * 1024 * 1024, // 10MB buffer instead of default 1MB
+                    env: testEnv
+                });
+            } else {
+                this.log(`Running regular test for address extraction (timeout: ${timeout}ms)`);
+                result = execSync('make forge-test-internal TEST=test/utils/merkle/config/GetAddressesFromBaseTest.s.sol ARGS="--match-test test_getAddresses -vv"', {
+                    encoding: 'utf8',
+                    cwd: path.join(__dirname, '../../../..'), // Go to project root
+                    timeout: timeout,
+                    maxBuffer: 10 * 1024 * 1024, // 10MB buffer instead of default 1MB
+                    env: testEnv
+                });
+            }
 
             // Parse the console output
             return this.parseConsoleOutput(result);
 
         } catch (error) {
-            this.log('Error getting addresses from BaseTest test:', error.message);
-            if (this.verbose && error.stdout) {
-                this.log('Forge stdout:', error.stdout);
+            this.log('❌ Error during merkle tree generation:', error.message);
+            if (this.verbose) {
+                this.log('Error details:', error.stack);
             }
-            if (this.verbose && error.stderr) {
-                this.log('Forge stderr:', error.stderr);
-            }
-
             throw error;
-
-            // Fallback: try to extract from existing test artifacts
-            //return this.extractAddressesFromTestArtifacts();
         }
     }
 
@@ -162,21 +233,64 @@ DESCRIPTION:
      * Validate calculated addresses
      */
     validateAddresses(addresses) {
-        const requiredVaults = ['globalSVStrategy', 'globalSVGearStrategy', 'globalRuggableVault'];
-        const requiredHooks = [
-            'APPROVE_AND_DEPOSIT_4626_VAULT_HOOK',
-            'REDEEM_4626_VAULT_HOOK',
-            'APPROVE_AND_GEARBOX_STAKE_HOOK',
-            'GEARBOX_UNSTAKE_HOOK'
+        const requiredSuperVaults = [
+            'globalSVStrategy',
+            'globalSV5115Strategy',
+            'globalSVGearStrategy',
+            'globalRuggableVault'
         ];
 
-        // Check vaults
+        const testVaults = [
+            'test1_DynamicAllocation_MockVault',
+            'test3_UnderlyingVaults_StressTest',
+            'test6_yieldAccumulation_vault1',
+            'test6_yieldAccumulation_vault2',
+            'test6_yieldAccumulation_vault3',
+            'test6_yieldAccumulation_WithRebalancing_vault1',
+            'test6_yieldAccumulation_WithRebalancing_vault2',
+            'test6_yieldAccumulation_WithRebalancing_vault3',
+            'test10_RuggableVault_Deposit',
+            'test10_RuggableVault_Withdraw',
+            'test10_RuggableVault_Withdraw_ConvertDistortion',
+            'test11_Allocate_NewYieldSource'
+        ];
+
+
+
+        const requiredHooks = [
+            'ApproveAndDeposit4626VaultHook',
+            'Redeem4626VaultHook',
+            'Redeem5115VaultHook',
+            'ApproveAndGearboxStakeHook',
+            'GearboxUnstakeHook',
+            'MockNativeETHHook'
+        ];
+
+        // Check SuperVaults (these are in addresses.superVaults, not addresses.vaults)
+        if (!addresses.superVaults) {
+            throw new Error('Missing superVaults object');
+        }
+
+        // Check required SuperVaults
+        for (const superVault of requiredSuperVaults) {
+            if (!addresses.superVaults[superVault] || addresses.superVaults[superVault] === '0x0000000000000000000000000000000000000000') {
+                throw new Error(`Invalid or missing vault address for ${superVault}: ${addresses.superVaults[superVault]}`);
+            }
+        }
+
+        // Check regular vaults
         if (!addresses.vaults) {
             throw new Error('Missing vaults object');
         }
-        for (const vault of requiredVaults) {
-            if (!addresses.vaults[vault] || addresses.vaults[vault] === '0x0000000000000000000000000000000000000000') {
-                throw new Error(`Invalid or missing vault address for ${vault}: ${addresses.vaults[vault]}`);
+
+        // Check test vaults (optional - not all test environments may have them)
+        this.log(`Checking ${testVaults.length} test vault addresses`);
+
+        for (const vault of testVaults) {
+            if (addresses.vaults[vault] && addresses.vaults[vault] !== '0x0000000000000000000000000000000000000000') {
+                this.log(`✓ Found test vault: ${vault} -> ${addresses.vaults[vault]}`);
+            } else {
+                this.log(`⚠️ Missing test vault: ${vault}`);
             }
         }
 
@@ -407,10 +521,10 @@ DESCRIPTION:
                 }
             }
 
+            // New code: allow extras
             if (unexpectedAddresses.length > 0) {
-                console.log(`${logPrefix} Unexpected hook addresses in lookup cache:`, unexpectedAddresses);
-                console.log(`${logPrefix} This indicates the cache contains stale data`);
-                return false;
+                console.log(`${logPrefix} Extra hooks detected in lookup cache:`, unexpectedAddresses);
+                console.log(`${logPrefix} This is fine – we only require a minimum set to exist`);
             }
 
             if (this.verbose) {
@@ -461,6 +575,108 @@ DESCRIPTION:
     }
 
     /**
+     * Update token_list.json and yield_sources_list.json with new test vault addresses
+     */
+    updateJsonFiles(addresses) {
+        const tokenListPath = '../target/token_list.json';
+        const yieldSourcesListPath = '../target/yield_sources_list.json';
+
+        try {
+            // Read existing JSON files
+            let tokenList = {};
+            let yieldSourcesList = {};
+
+            if (fs.existsSync(tokenListPath)) {
+                tokenList = JSON.parse(fs.readFileSync(tokenListPath, 'utf8'));
+            }
+            if (fs.existsSync(yieldSourcesListPath)) {
+                yieldSourcesList = JSON.parse(fs.readFileSync(yieldSourcesListPath, 'utf8'));
+            }
+
+            // Ensure chain 1 exists in both files
+            if (!tokenList['1']) tokenList['1'] = [];
+            if (!yieldSourcesList['1']) yieldSourcesList['1'] = [];
+
+            // Remove existing test vault entries from both lists
+            const testVaultSymbols = [
+                'test_1_DynamicAllocation_MockVault',
+                'test_3_UnderlyingVaults_StressTest',
+                'test_6_yieldAccumulation_vault1',
+                'test_6_yieldAccumulation_vault2',
+                'test_6_yieldAccumulation_vault3',
+                'test_6_yieldAccumulation_WithRebalancing_vault1',
+                'test_6_yieldAccumulation_WithRebalancing_vault2',
+                'test_6_yieldAccumulation_WithRebalancing_vault3',
+                'test_10_RuggableVault_Deposit',
+                'test_10_RuggableVault_Withdraw',
+                'test_10_RuggableVault_Withdraw_ConvertDistortion',
+                'test_11_Allocate_NewYieldSource'
+            ];
+
+            // Remove existing test entries (including _Coverage variants)
+            tokenList['1'] = tokenList['1'].filter(entry => {
+                return !testVaultSymbols.some(symbol =>
+                    entry.symbol === symbol || entry.symbol === symbol + '_Coverage'
+                );
+            });
+
+            yieldSourcesList['1'] = yieldSourcesList['1'].filter(entry => {
+                return !testVaultSymbols.some(symbol =>
+                    entry.symbol === symbol || entry.symbol === symbol + '_Coverage'
+                );
+            });
+
+            // Add new test vault entries from addresses object
+            const testVaultMappings = {
+                'test1_DynamicAllocation_MockVault': 'test_1_DynamicAllocation_MockVault',
+                'test3_UnderlyingVaults_StressTest': 'test_3_UnderlyingVaults_StressTest',
+                'test6_yieldAccumulation_vault1': 'test_6_yieldAccumulation_vault1',
+                'test6_yieldAccumulation_vault2': 'test_6_yieldAccumulation_vault2',
+                'test6_yieldAccumulation_vault3': 'test_6_yieldAccumulation_vault3',
+                'test6_yieldAccumulation_WithRebalancing_vault1': 'test_6_yieldAccumulation_WithRebalancing_vault1',
+                'test6_yieldAccumulation_WithRebalancing_vault2': 'test_6_yieldAccumulation_WithRebalancing_vault2',
+                'test6_yieldAccumulation_WithRebalancing_vault3': 'test_6_yieldAccumulation_WithRebalancing_vault3',
+                'test10_RuggableVault_Deposit': 'test_10_RuggableVault_Deposit',
+                'test10_RuggableVault_Withdraw': 'test_10_RuggableVault_Withdraw',
+                'test10_RuggableVault_Withdraw_ConvertDistortion': 'test_10_RuggableVault_Withdraw_ConvertDistortion',
+                'test11_Allocate_NewYieldSource': 'test_11_Allocate_NewYieldSource'
+            };
+
+            // Add new entries to both token list and yield sources list
+            for (const [vaultKey, jsonSymbol] of Object.entries(testVaultMappings)) {
+                if (addresses.vaults[vaultKey]) {
+                    const address = addresses.vaults[vaultKey];
+
+                    // Add regular entry
+                    const entry = {
+                        symbol: jsonSymbol,
+                        address: address
+                    };
+                    tokenList['1'].push(entry);
+                    yieldSourcesList['1'].push(entry);
+
+                    // Add coverage entry with same address (since same salt is used)
+                    const coverageEntry = {
+                        symbol: jsonSymbol + '_Coverage',
+                        address: address
+                    };
+                    tokenList['1'].push(coverageEntry);
+                    yieldSourcesList['1'].push(coverageEntry);
+                }
+            }
+
+            // Write updated JSON files
+            fs.writeFileSync(tokenListPath, JSON.stringify(tokenList, null, 2));
+            fs.writeFileSync(yieldSourcesListPath, JSON.stringify(yieldSourcesList, null, 2));
+
+            this.log('✅ Updated token_list.json and yield_sources_list.json with new test vault addresses');
+
+        } catch (error) {
+            this.log('⚠️  Warning: Could not update JSON files:', error.message);
+        }
+    }
+
+    /**
      * Clean up all existing cache and output files before regeneration
      */
     cleanupCacheFiles() {
@@ -493,53 +709,44 @@ DESCRIPTION:
     }
 
     /**
-     * Generate merkle tree using existing script
+     * Generate merkle tree using new dynamic system
      */
-    async generateMerkleTree(addresses) {
+    async generateMerkleTree(addresses, chainId = 1) {
         // Ensure clean state before generation
         this.cleanupCacheFiles();
 
-        const hookAddresses = Object.values(addresses.hooks);
+        const hookAddresses = addresses.hooks;
         const vaultAddresses = Object.values(addresses.vaults);
 
-        this.log(`Generating merkle tree with ${hookAddresses.length} hooks and ${vaultAddresses.length} vaults`);
+        this.log(`Generating merkle tree with ${Object.keys(hookAddresses).length} hooks and ${vaultAddresses.length} vaults`);
 
-        const scriptPath = 'test/utils/merkle/merkle-js/build-hook-merkle-trees.js';
-        const localScriptPath = './build-hook-merkle-trees.js';
-
-        if (!fs.existsSync(localScriptPath)) {
-            throw new Error(`Merkle generation script not found: ${localScriptPath}`);
+        // Update address lists with detected vaults and SuperVaults
+        const allDetectedAddresses = { ...addresses.vaults, ...addresses.superVaults };
+        if (Object.keys(allDetectedAddresses).length > 0) {
+            this.log('Updating address lists with detected vaults and SuperVaults...');
+            const AddressListGenerator = require('./generate-address-lists.js');
+            const generator = new AddressListGenerator();
+            generator.addDetectedVaults(allDetectedAddresses);
         }
 
-        // Order the hook addresses according to the expected order in build-hook-merkle-trees.js
-        const orderedHookAddresses = [
-            addresses.hooks.APPROVE_AND_DEPOSIT_4626_VAULT_HOOK,
-            addresses.hooks.REDEEM_4626_VAULT_HOOK,
-            addresses.hooks.APPROVE_AND_GEARBOX_STAKE_HOOK,
-            addresses.hooks.GEARBOX_UNSTAKE_HOOK
-        ];
+        // Generate merkle trees with detected hooks
+        console.log('\n=== Generating Merkle Trees ===');
+        const { generateMerkleTrees } = require('./build-hook-merkle-trees');
+        const detectedHookNames = Object.keys(addresses.hooks);
 
-        this.log(`Hook addresses being passed:`);
-        this.log(`  ApproveAndDeposit4626VaultHook: ${orderedHookAddresses[0]}`);
-        this.log(`  Redeem4626VaultHook: ${orderedHookAddresses[1]}`);
-        this.log(`  ApproveAndGearboxStakeHook: ${orderedHookAddresses[2]}`);
-        this.log(`  GearboxUnstakeHook: ${orderedHookAddresses[3]}`);
+        if (detectedHookNames.length === 0) {
+            throw new Error('No hooks detected from console output');
+        }
 
-        const hooksString = orderedHookAddresses.join(',');
-        const vaultsString = vaultAddresses.join(',');
+        console.log(`Generating merkle trees for hooks: ${detectedHookNames.join(', ')}`);
 
         try {
-            execSync(
-                `node ${scriptPath} "${hooksString}" "${vaultsString}"`,
-                {
-                    encoding: 'utf8',
-                    cwd: '../../../../', // Go back to project root for merkle generation
-                    stdio: this.verbose ? 'inherit' : 'pipe'
-                }
-            );
-            this.log('Merkle tree generation completed');
+            const result = await generateMerkleTrees(addresses.hooks, chainId);
+            console.log('Merkle tree generation completed successfully');
+            return result;
         } catch (error) {
-            throw new Error(`Merkle generation failed: ${error.message}`);
+            console.error('Error generating merkle trees:', error);
+            throw error;
         }
     }
 
@@ -595,6 +802,8 @@ DESCRIPTION:
 
             if (this.statusOnly) {
                 console.log('🔍 Checking merkle cache status...');
+            } else if (process.env.FOUNDRY_PROFILE === 'coverage') {
+                console.log('🌲 Pre-generating merkle tree using BaseTest for coverage...');
             } else {
                 console.log('🌲 Pre-generating merkle tree using BaseTest...');
             }
@@ -630,6 +839,9 @@ DESCRIPTION:
             } else if (needsRegen) {
                 console.log('🔄 Cache validation failed (address differences detected) - automatically regenerating...');
             }
+
+            // Update JSON files with new test vault addresses
+            this.updateJsonFiles(addresses);
 
             // Generate merkle tree
             await this.generateMerkleTree(addresses);

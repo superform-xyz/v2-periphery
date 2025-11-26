@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC4626 } from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
 import "forge-std/console2.sol";
 
@@ -23,7 +23,11 @@ contract Mock4626Vault is ERC4626 {
     // Track deposit timestamps for yield calculation
     mapping(address => uint256) public depositTimestamps;
 
-    constructor(address asset_, string memory name_, string memory symbol_)
+    constructor(
+        address asset_,
+        string memory name_,
+        string memory symbol_
+    )
         ERC4626(IERC20(asset_))
         ERC20(name_, symbol_)
     {
@@ -33,6 +37,10 @@ contract Mock4626Vault is ERC4626 {
 
     function setAsset(address _a) external {
         _asset = _a;
+    }
+
+    function asset() public view override returns (address) {
+        return _asset;
     }
 
     function setYield(uint256 yield_) external {
@@ -50,6 +58,10 @@ contract Mock4626Vault is ERC4626 {
     error AMOUNT_NOT_VALID();
 
     function previewDeposit(uint256 assets) public pure override returns (uint256 shares) {
+        return assets;
+    }
+
+    function previewDeposit(address, uint256 assets) public pure returns (uint256 shares) {
         return assets;
     }
 
@@ -76,7 +88,24 @@ contract Mock4626Vault is ERC4626 {
     }
 
     function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
-        console2.log("------------A", assets);
+        console2.log("--- receiver", receiver);
+        require(assets > 0, AMOUNT_NOT_VALID());
+        uint256 amount = lessAmount ? assets / 2 : assets;
+        shares = amount; // 1:1 ratio for simplicity in case lessAmount is false
+        _totalAssets += amount;
+        _totalShares += shares;
+        amountOf[receiver] += amount;
+
+        // Record deposit timestamp for yield calculation
+        depositTimestamps[receiver] = block.timestamp;
+
+        IERC20(_asset).transferFrom(msg.sender, address(this), assets);
+        _mint(receiver, shares);
+        emit Deposit(msg.sender, receiver, assets, shares);
+    }
+
+    function deposit(address receiver, address, uint256 assets, uint256) public returns (uint256 shares) {
+        console2.log("--- receiver", receiver);
         require(assets > 0, AMOUNT_NOT_VALID());
         uint256 amount = lessAmount ? assets / 2 : assets;
         shares = amount; // 1:1 ratio for simplicity in case lessAmount is false
@@ -104,6 +133,11 @@ contract Mock4626Vault is ERC4626 {
         } else {
             assets = shares; // 1:1 ratio for simplicity when no yield
         }
+
+        console2.log("--- _totalAssets before redeem", _totalAssets);
+        console2.log("--- _totalShares before redeem", _totalShares);
+        console2.log("--- _amountOf[owner]", amountOf[owner]);
+        console2.log("--- owner", owner);
 
         _totalAssets -= assets;
         _totalShares -= shares;

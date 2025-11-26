@@ -123,7 +123,7 @@ interface IGateway {
     ///         Called is assumed to have called IGateway.estimate before calling this.
     function topUp() external payable;
 
-    // --- Helpers ---
+    // --- PeripheryHelpers ---
     /// @notice A view method of the current quorum.abi
     /// @dev    Quorum shows the amount of votes needed in order for a message to be dispatched further.
     ///         The quorum is taken from the first adapter.

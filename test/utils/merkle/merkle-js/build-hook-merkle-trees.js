@@ -7,47 +7,23 @@ const tokenList = require('../target/token_list.json');
 const yieldSourcesList = require('../target/yield_sources_list.json');
 const ownerList = require('../target/owner_list.json');
 const stakingList = require('../target/staking_list.json');
+const hookConfigs = require('../config/hook_configs.json');
 
 
 let customAddresses = {};
 
-// Default hook addresses from deployment
-const hookAddresses = {
-  'ApproveAndDeposit4626VaultHook': '0x95C5A10d9C6d27985b7bad85635060C0AEcBf356',
-  'Redeem4626VaultHook': '0x7692d9e0d10799199c8285E4c99E1fBC5C64fBf3',
-  'ApproveAndGearboxStakeHook': '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2',
-  'GearboxUnstakeHook': '0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2'
-};
+// Hook addresses will be populated dynamically from console output
+let hookAddresses = {};
 
-// Check if hook addresses were provided as a command line argument
+// Hook addresses will be populated from detected hooks
+// Command line arguments will be processed differently in the new system
 if (process.argv.length > 2) {
-  const addressArg = process.argv[2];
-  const addresses = addressArg.split(',');
-
-  // If we have the correct number of addresses, use them
-  console.log("Using provided hook addresses from command line:");
-  customAddresses = {
-    'ApproveAndDeposit4626VaultHook': addresses[0],
-    'Redeem4626VaultHook': addresses[1],
-    'ApproveAndGearboxStakeHook': addresses[2],
-    'GearboxUnstakeHook': addresses[3]
-  };
-
-  // Log the addresses being used
-  console.log("ApproveAndDeposit4626VaultHook:", customAddresses['ApproveAndDeposit4626VaultHook']);
-  console.log("Redeem4626VaultHook:", customAddresses['Redeem4626VaultHook']);
-  console.log("ApproveAndGearboxStakeHook:", customAddresses['ApproveAndGearboxStakeHook']);
-  console.log("GearboxUnstakeHook:", customAddresses['GearboxUnstakeHook']);
-
-  // Override the default addresses
-  Object.assign(hookAddresses, customAddresses);
-} else {
-  console.log("No hook addresses provided. Expected format: address1,address2,address3,address4,address5");
-  console.log("Using default hook addresses.");
+  console.log("Command line arguments detected - will be processed by new dynamic system");
 }
 
 // Check if strategy addresses were provided as a command line argument (cmd[3])
-if (process.argv.length > 3) {
+// Skip if arguments are flags (start with --)
+if (process.argv.length > 3 && !process.argv[3].startsWith('--')) {
   const strategyAddressArg = process.argv[3];
   const strategyAddresses = strategyAddressArg.split(',');
 
@@ -82,71 +58,127 @@ if (process.argv.length > 3) {
 }
 
 
-// Create hookDefinitions after command line arguments have been processed
-const hookDefinitions = {
-  ApproveAndDeposit4626VaultHook: {
-    // Contract address of the deployed hook
-    address: hookAddresses['ApproveAndDeposit4626VaultHook'],
-    // Map argument names to their semantic types for proper list lookups
-    argsInfo: {
-      extractedAddresses: [
-        { name: 'yieldSource', type: 'yieldSource' },
-        { name: 'token', type: 'token' }
-      ]
+/**
+ * Build hook definitions dynamically from detected hooks and configurations
+ * @param {Object} detectedHooks - Object with hook names as keys and addresses as values
+ * @returns {Object} Hook definitions object
+ */
+function buildHookDefinitions(detectedHooks) {
+  const hookDefinitions = {};
+  
+  for (const [hookName, address] of Object.entries(detectedHooks)) {
+    // Get configuration for this hook
+    const config = hookConfigs[hookName];
+    if (!config) {
+      console.warn(`No configuration found for hook: ${hookName}`);
+      continue;
     }
-  },
-  Redeem4626VaultHook: {
-    // Contract address of the deployed hook
-    address: hookAddresses['Redeem4626VaultHook'],
-    // Map argument names to their semantic types for proper list lookups
-    argsInfo: {
-      extractedAddresses: [
-        { name: 'yieldSource', type: 'yieldSource' },
-        { name: 'owner', type: 'beneficiary' }
-      ]
-    }
-  },
-  ApproveAndGearboxStakeHook: {
-    // Contract address of the deployed hook
-    address: hookAddresses['ApproveAndGearboxStakeHook'],
-    // Map argument names to their semantic types for proper list lookups
-    argsInfo: {
-      extractedAddresses: [
-        { name: 'yieldSource', type: 'staking' }
-      ]
-    }
-  },
-  GearboxUnstakeHook: {
-    // Contract address of the deployed hook
-    address: hookAddresses['GearboxUnstakeHook'],
-    // Map argument names to their semantic types for proper list lookups
-    argsInfo: {
-      extractedAddresses: [
-        { name: 'yieldSource', type: 'staking' }
-      ]
-    }
+    
+    // Use the hook name directly (already in proper PascalCase from contract name)
+    hookDefinitions[hookName] = {
+      // Contract address of the deployed hook
+      address: address,
+      // Hook name (PascalCase contract name)
+      hookName: hookName,
+      // Map argument names to their semantic types for proper list lookups
+      argsInfo: {
+        extractedAddresses: config.args || []
+      },
+      // Store full configuration for advanced features
+      config: config
+    };
+    
+    console.log(`Built definition for ${hookName} -> ${address}`);
   }
-};
+  
+  return hookDefinitions;
+}
+
+// Hook definitions will be built dynamically
+let hookDefinitions = {};
 
 /**
- * Get addresses for a specific semantic type and chainId
- * @param {string} type - Semantic type ('token', 'yieldSource', or 'beneficiary')
+ * Get addresses for a specific semantic type and chainId with hook-specific filtering
+ * @param {string} type - Semantic type ('token', 'yieldSource', 'beneficiary', 'staking')
  * @param {number} chainId - Chain ID to get addresses for
+ * @param {string} hookName - Hook name for filtering (optional)
  * @returns {Array<string>} Array of addresses
  */
-function getAddressesForType(type, chainId) {
+function getAddressesForType(type, chainId, hookName = null) {
+  let addresses = [];
+  
   switch (type) {
     case 'token':
-      return (tokenList[chainId] || []).map(item => item.address);
+      addresses = (tokenList[chainId] || []).map(item => item.address);
+      break;
     case 'yieldSource':
-      return (yieldSourcesList[chainId] || []).map(item => item.address);
+      addresses = (yieldSourcesList[chainId] || []).map(item => item.address);
+      break;
     case 'staking':
-      return (stakingList[chainId] || []).map(item => item.address);
+      addresses = (stakingList[chainId] || []).map(item => item.address);
+      break;
     case 'beneficiary':
-      return ownerList;
+      // Handle both old flat array format and new chain-based format
+      if (Array.isArray(ownerList)) {
+        addresses = ownerList; // Legacy format
+      } else {
+        addresses = ownerList[chainId] || []; // New chain-based format
+      }
+      break;
     default:
       return [];
   }
+  
+  // Apply hook-specific filtering if hookName is provided
+  if (hookName && hookConfigs[hookName]) {
+    addresses = applyHookFiltering(addresses, type, hookName, chainId);
+  }
+  
+  return addresses;
+}
+
+/**
+ * Apply hook-specific filtering to addresses
+ * @param {Array<string>} addresses - Original addresses
+ * @param {string} type - Address type
+ * @param {string} hookName - Hook name
+ * @param {number} chainId - Chain ID
+ * @returns {Array<string>} Filtered addresses
+ */
+function applyHookFiltering(addresses, type, hookName, chainId) {
+  const config = hookConfigs[hookName];
+  if (!config) return addresses;
+  
+  let allowedList = [];
+  switch (type) {
+    case 'token':
+      allowedList = config.allowedTokens || ['all'];
+      break;
+    case 'yieldSource':
+      allowedList = config.allowedYieldSources || ['all'];
+      break;
+    case 'beneficiary':
+      allowedList = config.allowedBeneficiaries || ['all'];
+      break;
+    case 'staking':
+      allowedList = config.allowedStaking || ['all'];
+      break;
+  }
+  
+  // If 'all' is specified, return all addresses
+  if (allowedList.includes('all')) {
+    return addresses;
+  }
+  
+  // If 'none' is specified, return empty array
+  if (allowedList.includes('none')) {
+    return [];
+  }
+  
+  // Filter addresses based on allowed symbols
+  // For now, return all addresses (symbol-based filtering will be implemented in Step 4)
+  console.log(`Hook ${hookName} filtering for ${type}: ${allowedList.join(', ')}`);
+  return addresses;
 }
 
 /**
@@ -158,11 +190,16 @@ function getAddressesForType(type, chainId) {
 function generateArgCombinations(hookDef, chainId) {
   // Get the argument definitions from the hook
   const argDefs = hookDef.argsInfo.extractedAddresses;
+  const hookName = hookDef.hookName;
+
+  console.log(`Generating combinations for ${hookName} with ${argDefs.length} argument types`);
 
   // Create a map of argument names to their possible values
   const argValues = {};
   for (const argDef of argDefs) {
-    argValues[argDef.name] = getAddressesForType(argDef.type, chainId);
+    // Pass hook name for filtering
+    argValues[argDef.name] = getAddressesForType(argDef.type, chainId, hookName);
+    console.log(`  ${argDef.name} (${argDef.type}): ${argValues[argDef.name].length} addresses`);
   }
 
   // Helper function to generate combinations recursively
@@ -274,27 +311,27 @@ function buildMerkleTreeForHook(hookName, chainId) {
   const leaves = [];
   const leafData = [];
 
-
   for (const args of argCombinations) {
     // Encode args according to the hook's specific encoding
     const encodedArgs = encodeArgs(args, hookName);
+    const hookAddress = hookDef.address;
 
     // Store leaf data for later reference
     leafData.push({
       hookName,
+      hookAddress,
       args,
       encodedArgs
     });
 
-    // For StandardMerkleTree, we need to use a specific format
-    // Each leaf is an array with a single value (the packed encoding)
-    leaves.push([encodedArgs]);
+    // Each leaf is [hookAddress, encodedArgs] - StandardMerkleTree will handle hashing
+    leaves.push([hookAddress, encodedArgs]);
   }
 
-  // Create the merkle tree with StandardMerkleTree
+  // Create the merkle tree with StandardMerkleTree - it will do standardLeafHash internally
   const tree = StandardMerkleTree.of(
     leaves,
-    ["bytes"] // Using bytes type for the solidityPack output
+    ["address", "bytes"] // Hook address and encoded args
   );
 
   return { tree, leafData };
@@ -302,20 +339,24 @@ function buildMerkleTreeForHook(hookName, chainId) {
 
 /**
  * Generate Merkle trees for hooks
- * @param {Array<string>} hookNames - Array of hook names to generate trees for
+ * @param {Object} detectedHooks - Object with detected hook addresses
  * @param {number} chainId - Chain ID to use for addresses
  */
-function generateMerkleTrees(hookNames, chainId) {
+function generateMerkleTrees(detectedHooks, chainId) {
   console.log(`Generating global Merkle tree for chain ID ${chainId}...`);
+
+  // Build hook definitions from detected hooks
+  hookDefinitions = buildHookDefinitions(detectedHooks);
+  const hookNames = Object.keys(hookDefinitions);
+  
+  console.log(`Processing ${hookNames.length} detected hooks:`);
+  for (const [hookName, address] of Object.entries(detectedHooks)) {
+    console.log(`- ${hookName}: ${address}`);
+  }
 
   // Generate leaves for each hook but only for the global tree
   let allLeaves = [];
   let allLeafData = [];
-
-  console.log('Using hook addresses:');
-  for (const hookName of Object.keys(hookAddresses)) {
-    console.log(`- ${hookName}: ${hookAddresses[hookName]}`);
-  }
 
   for (const hookName of hookNames) {
     const { tree, leafData } = buildMerkleTreeForHook(hookName, chainId);
@@ -324,15 +365,15 @@ function generateMerkleTrees(hookNames, chainId) {
     // Debug: log first few leaf data items for each hook
     if (leafData.length > 0) {
       console.log(`Sample leaf for ${hookName}:`);
-      console.log(`  - Hook Address: ${hookAddresses[hookName]}`);
+      console.log(`  - Hook Address: ${hookDefinitions[hookName].address}`);
       console.log(`  - Encoded Args: ${leafData[0].encodedArgs}`);
       console.log(`  - Raw Args:`, leafData[0].args);
     }
 
     // Add to global leaves
     for (let i = 0; i < leafData.length; i++) {
-      // Each leaf must be in array format for StandardMerkleTree
-      allLeaves.push([leafData[i].encodedArgs]);
+      // Each leaf is [hookAddress, encodedArgs]
+      allLeaves.push([leafData[i].hookAddress, leafData[i].encodedArgs]);
       allLeafData.push(leafData[i]);
     }
   }
@@ -341,7 +382,7 @@ function generateMerkleTrees(hookNames, chainId) {
   if (allLeaves.length > 0) {
     const globalTree = StandardMerkleTree.of(
       allLeaves,
-      ["bytes"] // Using bytes type for the solidityPack output
+      ["address", "bytes"] // Hook address and encoded args
     );
 
     const globalTreeDump = globalTree.dump();
@@ -366,7 +407,7 @@ function generateMerkleTrees(hookNames, chainId) {
 
       // Only include essential information: value, treeIndex, hookName, address, and proof
       globalTreeDump.values[i] = {
-        value: globalTreeDump.values[i].value,
+        value: globalTreeDump.values[i].value, // This is [hookAddress, encodedArgs] 
         treeIndex: globalTreeDump.values[i].treeIndex,
         hookName: currentHookName,
         hookAddress: hookAddress, // Add hook contract address for validation
@@ -399,14 +440,37 @@ function generateMerkleTrees(hookNames, chainId) {
   }
 }
 
-// Main execution
-const hookNames = Object.keys(hookDefinitions);
-const chainId = 1; // Ethereum mainnet as specified in the requirements
+/**
+ * Main execution function that processes command line arguments or uses detected hooks
+ * @param {Object} detectedHooks - Detected hooks from console output (optional)
+ */
+function main(detectedHooks = null) {
+  const chainId = 1; // Ethereum mainnet as specified in the requirements
+  
+  if (detectedHooks) {
+    // Use provided detected hooks (called from deterministic-merkle-pregeneration.js)
+    console.log('Using detected hooks from console output');
+    generateMerkleTrees(detectedHooks, chainId);
+  } else {
+    // Legacy command line argument processing
+    console.log('No detected hooks provided - using legacy command line processing');
+    console.log('This mode will be deprecated in favor of automatic hook detection');
+    
+    // For now, create empty hook definitions to prevent errors
+    hookDefinitions = {};
+    generateMerkleTrees({}, chainId);
+  }
+}
 
-generateMerkleTrees(hookNames, chainId);
-
+// Export functions for use by other modules
 module.exports = {
   buildMerkleTreeForHook,
   generateMerkleTrees,
-  hookDefinitions
+  buildHookDefinitions,
+  main
 };
+
+// Only run main if this file is executed directly
+if (require.main === module) {
+  main();
+}

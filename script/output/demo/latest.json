@@ -1,0 +1,17 @@
+{
+  "8453": {
+    "hook_configuration_status": "completed",
+    "hook_configuration_timestamp": "2025-11-20T11:25:28Z",
+    "vnet_id": "77b25377-6443-4a9c-8e84-05ba9d7b712c"
+  },
+  "1": {
+    "hook_configuration_status": "completed",
+    "hook_configuration_timestamp": "2025-11-20T11:25:47Z",
+    "vnet_id": "4b08b38a-ac59-4d1b-9a61-2c93a057894a"
+  },
+  "10": {
+    "hook_configuration_status": "completed",
+    "hook_configuration_timestamp": "2025-11-20T11:26:09Z",
+    "vnet_id": "e729a80b-eb9f-4745-802b-f04b7324a298"
+  }
+}

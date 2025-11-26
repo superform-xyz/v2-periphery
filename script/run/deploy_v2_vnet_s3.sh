@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ###################################################################################
-# Superform V2 Deployment Script
+# Superform V2 Periphery Deployment Script
 ###################################################################################
 # Description:
-#   This script manages the deployment of Superform V2 contracts to multiple networks
+#   This script manages the deployment of Superform V2 PERIPHERY contracts to multiple networks
 #   using Tenderly Virtual Networks (VNETs). It includes functionality for:
 #   - Creating and managing VNETs for multiple chains
 #   - Maintaining deployment salt counters for deterministic addresses
@@ -140,13 +140,15 @@ if [ "$BRANCH_NAME" = "dev" ] || [ "$BRANCH_NAME" = "main" ]; then
     IS_MAIN_OR_DEV=true
 fi
 
-# Override BRANCH_NAME to "local" for all non-dev/main branches
-if [ "$IS_MAIN_OR_DEV" = "false" ]; then
-    log "INFO" "Non-dev/main branch detected: $BRANCH_NAME. Treating as local deployment."
-    BRANCH_NAME="local"
+# Handle branch name logic
+if [ "$BRANCH_NAME" = "local" ]; then
+    log "INFO" "Local branch detected: $BRANCH_NAME. Using local deployment settings."
     GITHUB_REF_NAME="local"
-
-    S3_BUCKET_NAME="vnet-state"
+    S3_BUCKET_NAME="periphery-deployments"
+else
+    log "INFO" "Branch detected: $BRANCH_NAME. Using periphery-deployments bucket."
+    GITHUB_REF_NAME="$BRANCH_NAME"
+    S3_BUCKET_NAME="periphery-deployments"
 fi
 
 # Log branch name for debugging
@@ -171,10 +173,10 @@ OUTPUT_BASE_DIR="script/output"
 ###################################################################################
 
 # Check if we're in a local run and if the op command is available
-if is_local_run && command -v op >/dev/null 2>&1; then
+if command -v op >/dev/null 2>&1; then
     log "INFO" "Running in local environment with 1Password CLI available"
     # For local runs with op available, get TENDERLY_ACCESS_KEY from 1Password
-    TENDERLY_ACCESS_KEY=$(op read "op://5ylebqljbh3x6zomdxi3qd7tsa/TENDERLY_ACCESS_KEY/credential")
+    TENDERLY_ACCESS_KEY=$(op read "op://5ylebqljbh3x6zomdxi3qd7tsa/TENDERLY_ACCESS_KEY_V2/credential")
 else
     
     # Source .env if any required variable is missing
@@ -207,27 +209,28 @@ if ! is_local_run && [ "$IS_MAIN_OR_DEV" = "true" ]; then
 fi
 
 # Directory configuration based on branch type
-if ! is_local_run && [ "$IS_MAIN_OR_DEV" = "true" ]; then
+if is_local_run; then
+    # For local runs only
+    BRANCH_DIR="$OUTPUT_BASE_DIR/local"
+    # Create local output directories
+    for network in 1 8453 10; do
+        mkdir -p "$BRANCH_DIR/$network"
+    done
+else
+    # For CI/remote runs (dev, main, and custom branches)
     # Handle feature branches differently
     if [[ "$GITHUB_REF_NAME" == feat/* ]]; then
         # Extract feature name without feat/ prefix
         FEATURE_NAME=${GITHUB_REF_NAME#feat/}
         BRANCH_DIR="$OUTPUT_BASE_DIR/feat/$FEATURE_NAME"
     else
-        # For dev, main branches
+        # For dev, main, and custom branches
         BRANCH_DIR="$OUTPUT_BASE_DIR/$GITHUB_REF_NAME"
     fi
     
     BRANCH_LATEST_FILE="$BRANCH_DIR/latest.json"
     
     # Create branch output directories
-    for network in 1 8453 10; do
-        mkdir -p "$BRANCH_DIR/$network"
-    done
-else
-    # For local runs and non-dev/main branches
-    BRANCH_DIR="$OUTPUT_BASE_DIR/local"
-    # Create local output directories
     for network in 1 8453 10; do
         mkdir -p "$BRANCH_DIR/$network"
     done
@@ -259,13 +262,12 @@ read_branch_latest() {
     echo "$content"
 }
 
-# Generate salt for a network
+# Generate salt for a network - always generates a variable salt for periphery deployments
 get_salt() {    
-    # Simply use the current Unix timestamp as salt
-    # This ensures a unique but predictable value
+    # Always use the current Unix timestamp as salt for periphery deployments
+    # This ensures a unique but predictable value for each deployment
     local timestamp=$(date +%s)
     echo "$timestamp"
-
 }
 
 ###################################################################################
@@ -310,34 +312,73 @@ check_existing_vnet_by_slug() {
     
     log "INFO" "Checking if a VNET with slug '$slug' already exists in Tenderly"
     
-    # Get list of all VNETs from Tenderly
-    local vnet_list=$(curl -s -X GET \
-        "${API_BASE_URL}/account/${account}/project/${project}/vnets" \
-        -H "X-Access-Key: ${access_key}")
-    
-    # Check if response is valid JSON
-    if ! echo "$vnet_list" | jq '.' >/dev/null 2>&1; then
-        log "ERROR" "Invalid JSON response when listing VNETs: $vnet_list"
+    # Validate inputs
+    if [ -z "$slug" ] || [ -z "$account" ] || [ -z "$project" ] || [ -z "$access_key" ]; then
+        log "ERROR" "Missing required parameters for VNET check"
+        log "DEBUG" "slug=$slug, account=$account, project=$project, access_key=[${access_key:+SET}]"
         return 1
     fi
     
+    # Get list of all VNETs from Tenderly
+    log "DEBUG" "Making API call to list VNETs..."
+    local vnet_list
+    if ! vnet_list=$(curl -s -X GET \
+        "${API_BASE_URL}/account/${account}/project/${project}/vnets" \
+        -H "X-Access-Key: ${access_key}" 2>&1); then
+        log "ERROR" "Failed to make API call to list VNETs"
+        log "ERROR" "curl error: $vnet_list"
+        return 1
+    fi
+    
+    log "DEBUG" "API response received, length: ${#vnet_list}"
+    
+    # Check if response is valid JSON
+    if ! echo "$vnet_list" | jq '.' >/dev/null 2>&1; then
+        log "ERROR" "Invalid JSON response when listing VNETs"
+        log "ERROR" "Response (first 500 chars): ${vnet_list:0:500}"
+        return 1
+    fi
+    
+    log "DEBUG" "API response is valid JSON, checking for existing VNET..."
+    
     # Check if the VNET with this slug exists
-    local existing_vnet_id=$(echo "$vnet_list" | jq -r --arg slug "$slug" '.[] | select(.slug==$slug) | .id // empty')
+    local existing_vnet_id
+    if ! existing_vnet_id=$(echo "$vnet_list" | jq -r --arg slug "$slug" '.[] | select(.slug==$slug) | .id // empty' 2>&1); then
+        log "ERROR" "Failed to parse VNET list with jq"
+        log "ERROR" "jq error: $existing_vnet_id"
+        return 1
+    fi
     
     if [ -n "$existing_vnet_id" ]; then
         log "INFO" "Found existing VNET with slug '$slug', ID: $existing_vnet_id"
         
         # Get details of the VNET to extract RPC URL
-        local vnet_details=$(curl -s -X GET \
+        log "DEBUG" "Getting VNET details for ID: $existing_vnet_id"
+        local vnet_details
+        if ! vnet_details=$(curl -s -X GET \
             "${API_BASE_URL}/account/${account}/project/${project}/vnets/${existing_vnet_id}" \
-            -H "X-Access-Key: ${access_key}")
+            -H "X-Access-Key: ${access_key}" 2>&1); then
+            log "ERROR" "Failed to get VNET details"
+            log "ERROR" "curl error: $vnet_details"
+            return 1
+        fi
         
-        local admin_rpc=$(echo "$vnet_details" | jq -r '.rpcs[] | select(.name=="Admin RPC") | .url')
+        local admin_rpc
+        if ! admin_rpc=$(echo "$vnet_details" | jq -r '.rpcs[] | select(.name=="Admin RPC") | .url' 2>&1); then
+            log "ERROR" "Failed to extract admin RPC from VNET details"
+            log "ERROR" "jq error: $admin_rpc"
+            return 1
+        fi
         
         if [ -n "$admin_rpc" ]; then
+            log "INFO" "Successfully extracted admin RPC: $admin_rpc"
             echo "${admin_rpc}|${existing_vnet_id}"
             return 0
+        else
+            log "WARN" "No admin RPC found in VNET details"
         fi
+    else
+        log "DEBUG" "No existing VNET found with slug '$slug'"
     fi
     
     # No existing VNET found or couldn't extract details
@@ -380,19 +421,40 @@ check_vnets() {
     # Step 2: Check if there's already a VNET with this slug in Tenderly (not in our state)
     slug=$(generate_slug "$network_slug")
     log "INFO" "Checking if VNET with slug '$slug' already exists in Tenderly"
+    log "DEBUG" "Generated slug: $slug for network: $network_slug"
+    log "DEBUG" "TENDERLY_ACCOUNT: $TENDERLY_ACCOUNT, TENDERLY_PROJECT: $TENDERLY_PROJECT"
     
+    log "DEBUG" "Calling check_existing_vnet_by_slug function..."
+    local existing_vnet
+    # Temporarily disable exit on error for this specific call
+    set +e
     existing_vnet=$(check_existing_vnet_by_slug "$slug" "$TENDERLY_ACCOUNT" "$TENDERLY_PROJECT" "$TENDERLY_ACCESS_KEY")
-    if [ $? -eq 0 ]; then
+    local check_result=$?
+    set -e
+    
+    if [ $check_result -eq 0 ]; then
         log "INFO" "Found and reusing existing VNET from Tenderly with slug: $slug"
+        log "DEBUG" "Existing VNET response: $existing_vnet"
         echo "$existing_vnet"
         return 0
+    else
+        log "DEBUG" "check_existing_vnet_by_slug returned non-zero status, proceeding to create new VNET"
     fi
 
     # Step 3: If no existing VNET found, create a new one
     log "INFO" "No existing VNET found. Creating new VNET for $network_slug with slug: $slug"
-    response=$(create_virtual_testnet "$slug" "$network_id" "$TENDERLY_ACCOUNT" "$TENDERLY_PROJECT" "$TENDERLY_ACCESS_KEY")
-    echo "$response"
-    return 0
+    log "DEBUG" "Calling create_virtual_testnet with parameters: slug=$slug, network_id=$network_id"
+    
+    local response
+    if response=$(create_virtual_testnet "$slug" "$network_id" "$TENDERLY_ACCOUNT" "$TENDERLY_PROJECT" "$TENDERLY_ACCESS_KEY"); then
+        log "INFO" "Successfully created new VNET"
+        log "DEBUG" "New VNET response: $response"
+        echo "$response"
+        return 0
+    else
+        log "ERROR" "Failed to create new VNET"
+        return 1
+    fi
 }
 
 create_virtual_testnet() {
@@ -674,7 +736,22 @@ if [ -n "$TENDERLY_ACCESS_KEY" ]; then
     export TENDERLY_ACCESS_KEY
 fi
 
+# Export environment variables needed for the deployment script
+if ! is_local_run; then
+    export CI=true
+    export GITHUB_REF_NAME="$GITHUB_REF_NAME"
+else
+    # For local runs, we still want to use branch-specific directories for non-local branches
+    if [ "$BRANCH_NAME" != "local" ]; then
+        export CI=true
+        export GITHUB_REF_NAME="$BRANCH_NAME"
+    else
+        export CI=false
+    fi
+fi
+
 log "INFO" "Environment variables exported"
+log "DEBUG" "CI=${CI:-false}, GITHUB_REF_NAME=${GITHUB_REF_NAME:-not_set}"
 
 # Cache VNET information to be saved after successful deployment
 if is_local_run; then
@@ -693,6 +770,17 @@ ETH_MAINNET_VERIFIER_URL="$ETH_MAINNET/verify/etherscan"
 BASE_MAINNET_VERIFIER_URL="$BASE_MAINNET/verify/etherscan"
 OPTIMISM_MAINNET_VERIFIER_URL="$OPTIMISM_MAINNET/verify/etherscan"
 
+###################################################################################
+# Update Locked Bytecode
+###################################################################################
+
+# Update locked bytecode before deployment for VNET environments
+log "INFO" "Updating locked bytecode artifacts for deployment..."
+if ! ./script/run/update_locked_bytecode.sh; then
+    log "ERROR" "Failed to update locked bytecode artifacts"
+    exit 1
+fi
+
 # Set initial balances
 log "INFO" "Setting initial balances..."
 set_initial_balance "$ETH_MAINNET"
@@ -702,7 +790,7 @@ set_initial_balance "$OPTIMISM_MAINNET"
 # Function to handle deployment failures without updating S3 files
 deploy_error_handler() {
     local network=$1
-    log "ERROR" "Failed to deploy V2 on $network"
+    log "ERROR" "Failed to deploy V2 Periphery on $network"
     log "INFO" "No S3 files were updated since deployment failed"
     exit 1
 }
@@ -710,70 +798,152 @@ deploy_error_handler() {
 # Set trap to ensure S3 files are preserved on any unexpected error
 trap 'log "ERROR" "Unexpected error occurred, preserving S3 file"; exit 1' ERR
 
-# Deploy all networks
+# Deploy all networks - Periphery contracts only
 deploy_contracts() {
-    # Deploy on Ethereum Mainnet
-    log "INFO" "Deploying on Ethereum Mainnet..."
-    if ! forge script script/DeployV2.s.sol:DeployV2 \
-        --sig 'run(uint256,uint64,string)' $FORGE_ENV $ETH_CHAIN_ID "$ETH_SALT" \
-        --verify \
-        --verifier-url $ETH_MAINNET_VERIFIER_URL \
-        --rpc-url $ETH_MAINNET \
-        --etherscan-api-key $TENDERLY_ACCESS_KEY \
-        --broadcast \
-        --jobs 10 \
-        -vvv \
-        --slow; then
-        deploy_error_handler "Ethereum"
+    # Determine the core salt to use
+    local core_salt=""
+    if [ "$BRANCH_NAME" = "demo" ]; then
+        core_salt="1763631947"
+        log "INFO" "Using fixed core salt for demo branch: $core_salt"
+    fi
+
+    # Deploy Periphery contracts on Ethereum Mainnet
+    log "INFO" "Deploying V2 Periphery on Ethereum Mainnet..."
+    if [ -n "$core_salt" ]; then
+        # Use 4-parameter version with core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string,string)' $FORGE_ENV $ETH_CHAIN_ID "$ETH_SALT" "$core_salt" \
+            --verify \
+            --verifier-url $ETH_MAINNET_VERIFIER_URL \
+            --rpc-url $ETH_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Ethereum"
+        fi
+    else
+        # Use 3-parameter version without core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string)' $FORGE_ENV $ETH_CHAIN_ID "$ETH_SALT" \
+            --verify \
+            --verifier-url $ETH_MAINNET_VERIFIER_URL \
+            --rpc-url $ETH_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Ethereum"
+        fi
     fi
     wait
     
-    # Deploy on Base Mainnet
-    log "INFO" "Deploying on Base Mainnet..."
-    if ! forge script script/DeployV2.s.sol:DeployV2 \
-        --sig 'run(uint256,uint64,string)' $FORGE_ENV $BASE_CHAIN_ID "$BASE_SALT" \
-        --verify \
-        --verifier-url $BASE_MAINNET_VERIFIER_URL \
-        --rpc-url $BASE_MAINNET \
-        --etherscan-api-key $TENDERLY_ACCESS_KEY \
-        --broadcast \
-        --jobs 10 \
-        -vvv \
-        --slow; then
-        deploy_error_handler "Base"
+    # Deploy Periphery contracts on Base Mainnet
+    log "INFO" "Deploying V2 Periphery on Base Mainnet..."
+    if [ -n "$core_salt" ]; then
+        # Use 4-parameter version with core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string,string)' $FORGE_ENV $BASE_CHAIN_ID "$BASE_SALT" "$core_salt" \
+            --verify \
+            --verifier-url $BASE_MAINNET_VERIFIER_URL \
+            --rpc-url $BASE_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Base"
+        fi
+    else
+        # Use 3-parameter version without core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string)' $FORGE_ENV $BASE_CHAIN_ID "$BASE_SALT" \
+            --verify \
+            --verifier-url $BASE_MAINNET_VERIFIER_URL \
+            --rpc-url $BASE_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Base"
+        fi
     fi
     wait
     
-    # Deploy on Optimism Mainnet
-    log "INFO" "Deploying on Optimism Mainnet..."
-    if ! forge script script/DeployV2.s.sol:DeployV2 \
-        --sig 'run(uint256,uint64,string)' $FORGE_ENV $OPTIMISM_CHAIN_ID "$OPTIMISM_SALT" \
-        --verify \
-        --verifier-url $OPTIMISM_MAINNET_VERIFIER_URL \
-        --rpc-url $OPTIMISM_MAINNET \
-        --etherscan-api-key $TENDERLY_ACCESS_KEY \
-        --broadcast \
-        --jobs 10 \
-        -vvv \
-        --slow; then
-        deploy_error_handler "Optimism"
+    # Deploy Periphery contracts on Optimism Mainnet
+    log "INFO" "Deploying V2 Periphery on Optimism Mainnet..."
+    if [ -n "$core_salt" ]; then
+        # Use 4-parameter version with core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string,string)' $FORGE_ENV $OPTIMISM_CHAIN_ID "$OPTIMISM_SALT" "$core_salt" \
+            --verify \
+            --verifier-url $OPTIMISM_MAINNET_VERIFIER_URL \
+            --rpc-url $OPTIMISM_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Optimism"
+        fi
+    else
+        # Use 3-parameter version without core salt
+        if ! forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+            --sig 'run(uint256,uint64,string)' $FORGE_ENV $OPTIMISM_CHAIN_ID "$OPTIMISM_SALT" \
+            --verify \
+            --verifier-url $OPTIMISM_MAINNET_VERIFIER_URL \
+            --rpc-url $OPTIMISM_MAINNET \
+            --etherscan-api-key $TENDERLY_ACCESS_KEY \
+            --broadcast \
+            --jobs 10 \
+            -vvv \
+            --slow; then
+            deploy_error_handler "Optimism"
+        fi
     fi
     wait
     
-    # If we reach here, all deployments were successful
+    # If we reach here, all periphery deployments were successful
+    log "INFO" "All V2 Periphery deployments completed successfully!"
     return 0
 }
 
 
 
-# Update the branch latest file section to use validation
+# Function to filter and extract only allowed periphery contracts from the JSON
+filter_allowed_periphery_contracts() {
+    local contracts_json=$1
+    local network_name=$2
+    local allowed_contracts=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "ECDSAPPSOracle")
+    
+    log "INFO" "Filtering contracts for $network_name to only include core periphery contracts"
+    
+    # Create filtered JSON with only allowed contracts
+    local filtered_json="{}"
+    
+    for allowed in "${allowed_contracts[@]}"; do
+        local contract_address=$(echo "$contracts_json" | jq -r ".$allowed // empty")
+        if [ -n "$contract_address" ] && [ "$contract_address" != "null" ] && [ "$contract_address" != "empty" ]; then
+            filtered_json=$(echo "$filtered_json" | jq --arg contract "$allowed" --arg addr "$contract_address" '.[$contract] = $addr')
+            log "INFO" "Found and extracted $allowed: $contract_address for $network_name"
+        else
+            log "WARN" "Contract $allowed not found in deployment file for $network_name"
+        fi
+    done
+    
+    echo "$filtered_json"
+}
+
+# Update the branch latest file section to use selective contract updates (similar to Nexus approach)
 update_latest_file() {
-    log "INFO" "All deployments successful. Updating latest file..."
+    log "INFO" "All deployments successful. Updating latest file with selective contract updates..."
     
     # Initialize content with default structure
     content="{\"networks\":{},\"updated_at\":null}"
     local latest_file
-    local initial_sha=""
     
     # Always use S3 for file operations
     latest_file_path="/tmp/latest.json"
@@ -798,7 +968,7 @@ update_latest_file() {
     log "DEBUG" "Initial content structure:"
     echo "$content" | jq '.' >&2
     
-    # Update content with new deployment info
+    # Update content with new deployment info using selective approach
     i=0
     for network in 1 8453 10; do
         network_slug=$(get_network_slug "$network")
@@ -811,15 +981,8 @@ update_latest_file() {
         contracts_file="$network_dir/$network_slug-latest.json"
         log "INFO" "Looking for contracts at: $contracts_file"
         
-        # List directory contents for debugging
-        log "DEBUG" "Directory contents of $network_dir:"
-        ls -la "$network_dir" || true
-        
         if [ ! -f "$contracts_file" ]; then
             log "ERROR" "Contract file not found for $network_slug: $contracts_file"
-            log "DEBUG" "Current working directory: $(pwd)"
-            log "DEBUG" "Listing parent directory:"
-            ls -la "$(dirname "$network_dir")" || true
             exit 1
         fi
         
@@ -827,78 +990,107 @@ update_latest_file() {
         contracts=$(tr -d '\r' < "$contracts_file")
         if ! contracts=$(echo "$contracts" | jq -c '.' 2>/dev/null); then
             log "ERROR" "Failed to parse JSON from contract file for $network_slug"
-            log "DEBUG" "Raw file contents:"
-            cat "$contracts_file" | xxd
             exit 1
         fi
         
         log "INFO" "Successfully parsed contracts for $network_slug"
         
-        # Validate JSON format
-        if [ -z "$contracts" ]; then
-            log "ERROR" "Empty or invalid JSON in contract file for $network_slug"
-            exit 1
+        # Filter to only allowed periphery contracts
+        local filtered_contracts=$(filter_allowed_periphery_contracts "$contracts" "$network_slug")
+        local contract_count=$(echo "$filtered_contracts" | jq 'length')
+        
+        if [ "$contract_count" -eq 0 ]; then
+            log "WARN" "No allowed periphery contracts found for $network_slug, skipping updates"
+            i=$((i + 1))
+            continue
         fi
         
-        # Check if contracts is empty object
-        if [ "$contracts" = "{}" ]; then
-            log "WARN" "No contracts found in file for $network_slug"
-        fi
+        # Check if network exists in S3, if not create it
+        local network_exists=$(echo "$content" | jq -r ".networks[\"$network_slug\"] // empty")
         
-        # Use the salts we generated earlier
-        case "$network" in
-            1)
-                new_counter="$ETH_SALT"
-                ;;
-            8453)
-                new_counter="$BASE_SALT"
-                ;;
-            10)
-                new_counter="$OPTIMISM_SALT"
-                ;;
-        esac
-        
-        # Debug output for all parameters
-        echo "$contracts" | jq '.' >&2
-        echo "$content" | jq '.' >&2
-        
-        # Validate all inputs before jq operation
-        if ! echo "$contracts" | jq '.' >/dev/null 2>&1; then
-            log "ERROR" "contracts is not valid JSON"
-            exit 1
-        fi
-        
-        if ! echo "$content" | jq '.' >/dev/null 2>&1; then
-            log "ERROR" "content is not valid JSON"
-            exit 1
-        fi
-        
-        if ! [[ "$new_counter" =~ ^[0-9]+$ ]]; then
-            log "ERROR" "new_counter is not a valid number: $new_counter"
-            exit 1
-        fi
-        
-        content=$(echo "$content" | jq \
-            --arg slug "$network_slug" \
-            --arg vnet "$vnet_id" \
-            --arg counter "$new_counter" \
-            --argjson contracts "$contracts" \
-            '.networks[$slug] = {
-                "counter": ($counter|tonumber),
-                "vnet_id": $vnet,
-                "contracts": $contracts
-            }')
+        if [ -z "$network_exists" ] || [ "$network_exists" = "null" ]; then
+            log "INFO" "Network $network_slug does not exist in S3, creating new network entry"
+            # Use the salt we generated earlier
+            case "$network" in
+                1)
+                    new_counter="$ETH_SALT"
+                    ;;
+                8453)
+                    new_counter="$BASE_SALT"
+                    ;;
+                10)
+                    new_counter="$OPTIMISM_SALT"
+                    ;;
+            esac
             
+            content=$(echo "$content" | jq \
+                --arg slug "$network_slug" \
+                --arg vnet "$vnet_id" \
+                --arg counter "$new_counter" \
+                --argjson contracts "$filtered_contracts" \
+                '.networks[$slug] = {
+                    "counter": ($counter|tonumber),
+                    "vnet_id": $vnet,
+                    "contracts": $contracts
+                }')
+        else
+            log "INFO" "Network $network_slug exists in S3, updating only periphery contracts"
+            
+            # Extract existing contracts and update only periphery contracts
+            local existing_contracts=$(echo "$content" | jq -r ".networks[\"$network_slug\"].contracts // {}")
+            
+            # Update each periphery contract individually
+            local super_governor=$(echo "$filtered_contracts" | jq -r '.SuperGovernor // empty')
+            local super_vault=$(echo "$filtered_contracts" | jq -r '.SuperVault // empty')
+            local super_vault_aggregator=$(echo "$filtered_contracts" | jq -r '.SuperVaultAggregator // empty')
+            local super_vault_strategy=$(echo "$filtered_contracts" | jq -r '.SuperVaultStrategy // empty')
+            local super_vault_escrow=$(echo "$filtered_contracts" | jq -r '.SuperVaultEscrow // empty')
+            local ecdsapps_oracle=$(echo "$filtered_contracts" | jq -r '.ECDSAPPSOracle // empty')
+            
+            if [ -n "$super_governor" ] && [ "$super_governor" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$super_governor" '.SuperGovernor = $addr')
+                log "INFO" "Updated SuperGovernor: $super_governor"
+            fi
+            
+            if [ -n "$super_vault" ] && [ "$super_vault" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$super_vault" '.SuperVault = $addr')
+                log "INFO" "Updated SuperVault: $super_vault"
+            fi
+            
+            if [ -n "$super_vault_aggregator" ] && [ "$super_vault_aggregator" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$super_vault_aggregator" '.SuperVaultAggregator = $addr')
+                log "INFO" "Updated SuperVaultAggregator: $super_vault_aggregator"
+            fi
+            
+            if [ -n "$super_vault_strategy" ] && [ "$super_vault_strategy" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$super_vault_strategy" '.SuperVaultStrategy = $addr')
+                log "INFO" "Updated SuperVaultStrategy: $super_vault_strategy"
+            fi
+            
+            if [ -n "$super_vault_escrow" ] && [ "$super_vault_escrow" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$super_vault_escrow" '.SuperVaultEscrow = $addr')
+                log "INFO" "Updated SuperVaultEscrow: $super_vault_escrow"
+            fi
+            
+            if [ -n "$ecdsapps_oracle" ] && [ "$ecdsapps_oracle" != "empty" ]; then
+                existing_contracts=$(echo "$existing_contracts" | jq --arg addr "$ecdsapps_oracle" '.ECDSAPPSOracle = $addr')
+                log "INFO" "Updated ECDSAPPSOracle: $ecdsapps_oracle"
+            fi
+            
+            # Update the S3 content with new contracts (preserve existing counter and other data)
+            content=$(echo "$content" | jq \
+                --arg network "$network_slug" \
+                --argjson contracts "$existing_contracts" \
+                '.networks[$network].contracts = $contracts')
+        fi
+        
         # Validate the result
         if [ $? -ne 0 ]; then
-            log "ERROR" "jq command failed"
+            log "ERROR" "jq command failed for $network_slug"
             exit 1
         fi
         
-        # Debug the output
-        log "DEBUG" "Updated content:"
-        echo "$content" | jq '.' >&2
-            
+        log "INFO" "Successfully updated periphery contracts for $network_slug"
         i=$((i + 1))
     done
     
@@ -909,25 +1101,11 @@ update_latest_file() {
     # Format JSON nicely
     content=$(echo "$content" | jq '.')
     
-        # Use -w 0 to avoid line wrapping in base64 output
-        encoded_content=$(echo -n "$content" | base64 -w 0)
-        
-        update_data="{\"message\":\"Update branch latest file\",\"content\":\"$encoded_content\""
-        
-        # Only include SHA if we have one (for existing files)
-        if [ -n "$initial_sha" ]; then
-            log "INFO" "Including SHA in update request: $initial_sha"
-            update_data="$update_data,\"sha\":\"$initial_sha\""
-        fi
-        
-        update_data="$update_data,\"branch\":\"$GITHUB_REF_NAME\"}"
-        
-        log "INFO" "Sending update request to GitHub API"
     echo "$content" | jq '.' > "$latest_file_path"
     
     # Upload to S3
     if aws s3 cp "$latest_file_path" "s3://$S3_BUCKET_NAME/$GITHUB_REF_NAME/latest.json" --quiet; then
-        log "SUCCESS" "Successfully uploaded latest.json to S3"
+        log "SUCCESS" "Successfully uploaded selective periphery contract updates to S3"
     else
         log "ERROR" "Failed to upload latest.json to S3"
         exit 1
@@ -950,4 +1128,4 @@ fi
 # Since we're using S3 for everything now, no need to pass parameters
 update_latest_file
 
-log "SUCCESS" "All deployments completed successfully!"
+log "SUCCESS" "All V2 Periphery deployments completed successfully!"

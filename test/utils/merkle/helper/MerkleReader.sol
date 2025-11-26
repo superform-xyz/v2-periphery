@@ -5,7 +5,7 @@ import "forge-std/StdJson.sol";
 import { StdCheats } from "forge-std/StdCheats.sol";
 import { Strings } from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-import { Helpers } from "../../Helpers.sol";
+import { PeripheryHelpers } from "../../PeripheryHelpers.sol";
 
 import { console2 } from "forge-std/console2.sol";
 
@@ -15,7 +15,7 @@ error NoProofFoundForHookAndArgs();
 error InvalidArrayLengths();
 error EmptyInput();
 
-abstract contract MerkleReader is StdCheats, Helpers {
+abstract contract MerkleReader is StdCheats, PeripheryHelpers {
     using stdJson for string;
 
     // Updated paths to the new output files
@@ -27,7 +27,7 @@ abstract contract MerkleReader is StdCheats, Helpers {
     // Updated appends for the new structure
     string private hookNameQueryAppend = "].hookName";
     string private hookAddressQueryAppend = "].hookAddress"; // Added to access hook address
-    string private valueQueryAppend = "].value[0]"; // First element in the value array
+    string private encodedArgsQueryAppend = "].encodedHookArgs"; // Encoded hook args field
     string private proofQueryAppend = "].proof";
 
     struct LocalVars {
@@ -71,12 +71,13 @@ abstract contract MerkleReader is StdCheats, Helpers {
 
         // Search for the matching encoded args
         for (uint256 i = 0; i < valuesLength; ++i) {
-            // Get encoded args directly as bytes
-            string memory valueQuery = string.concat(prepend, Strings.toString(i), ".value[0]");
-            bytes memory valueBytes = abi.decode(vm.parseJson(v.treeJson, valueQuery), (bytes));
+            // Get encoded args from the encodedHookArgs field
+            bytes memory encodedArgsBytes = abi.decode(
+                vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), encodedArgsQueryAppend)), (bytes)
+            );
 
             // Compare the encoded args
-            if (keccak256(valueBytes) == keccak256(encodedHookArgs)) {
+            if (keccak256(encodedArgsBytes) == keccak256(encodedHookArgs)) {
                 v.encodedProof = vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), proofQueryAppend));
                 proof = abi.decode(v.encodedProof, (bytes32[]));
                 break;
@@ -117,12 +118,14 @@ abstract contract MerkleReader is StdCheats, Helpers {
 
             // Only check values for the specified hook
             if (currentHookAddress == hookAddress) {
-                // Get encoded args directly as bytes
-                string memory valueQuery = string.concat(prepend, Strings.toString(i), valueQueryAppend);
-                bytes memory valueBytes = abi.decode(vm.parseJson(v.treeJson, valueQuery), (bytes));
+                // Get encoded args from the encodedHookArgs field
+                bytes memory encodedArgsBytes = abi.decode(
+                    vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), encodedArgsQueryAppend)),
+                    (bytes)
+                );
 
                 // Compare the encoded args
-                if (keccak256(valueBytes) == keccak256(encodedHookArgs)) {
+                if (keccak256(encodedArgsBytes) == keccak256(encodedHookArgs)) {
                     v.encodedProof =
                         vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), proofQueryAppend));
                     proof = abi.decode(v.encodedProof, (bytes32[]));
@@ -132,14 +135,6 @@ abstract contract MerkleReader is StdCheats, Helpers {
         }
 
         if (proof.length == 0) revert NoProofFoundForHookAndArgs();
-    }
-
-    /**
-     * @notice Get Merkle proofs for multiple hooks with specific arguments (LEGACY - REMOVED)
-     * @dev This implementation was too slow for large trees. Use _getMerkleProofsForHooks() instead.
-     */
-    function _getMerkleProofsForHooksOld(address[] memory, bytes[] memory) internal pure returns (bytes32[][] memory) {
-        revert("DEPRECATED: Use _getMerkleProofsForHooks() which uses efficient JS-based lookup");
     }
 
     /**
@@ -170,6 +165,7 @@ abstract contract MerkleReader is StdCheats, Helpers {
                 argsArg = string.concat(argsArg, ",");
             }
             addressesArg = string.concat(addressesArg, vm.toString(hookAddresses[i]));
+            // Pass the packed encoded args directly (not ABI-encoded)
             argsArg = string.concat(argsArg, vm.toString(encodedHookArgs[i]));
         }
 
@@ -242,9 +238,10 @@ abstract contract MerkleReader is StdCheats, Helpers {
                 vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), hookAddressQueryAppend));
             hookAddresses[i] = abi.decode(encodedHookAddress, (address));
 
-            // Get encoded args directly as bytes
-            string memory valueQuery = string.concat(prepend, Strings.toString(i), ".value[0]");
-            encodedArgsList[i] = abi.decode(vm.parseJson(v.treeJson, valueQuery), (bytes));
+            // Get encoded args from the encodedHookArgs field
+            encodedArgsList[i] = abi.decode(
+                vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), encodedArgsQueryAppend)), (bytes)
+            );
 
             // Get proof
             v.encodedProof = vm.parseJson(v.treeJson, string.concat(prepend, Strings.toString(i), proofQueryAppend));

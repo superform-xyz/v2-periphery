@@ -1,0 +1,4 @@
+ignore:
+  - "src/UP/**"
+  - "src/vendor/**"
+  - "test/**"

@@ -1,0 +1,194 @@
+{
+  "tokens": {
+    "1": [
+      {
+        "symbol": "DAI",
+        "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "USDC",
+        "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "WETH",
+        "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "category": "eth"
+      },
+      {
+        "symbol": "SUSDe",
+        "address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "USDe",
+        "address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "GEAR",
+        "address": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "category": "governance"
+      },
+      {
+        "symbol": "wstETH",
+        "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+        "category": "eth"
+      }
+    ],
+    "10": [
+      {
+        "symbol": "DAI",
+        "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "USDC",
+        "address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "WETH",
+        "address": "0x4200000000000000000000000000000000000006",
+        "category": "eth"
+      },
+      {
+        "symbol": "USDCe",
+        "address": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
+        "category": "stablecoin"
+      }
+    ],
+    "8453": [
+      {
+        "symbol": "DAI",
+        "address": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb"
+      },
+      {
+        "symbol": "USDC",
+        "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "category": "stablecoin"
+      },
+      {
+        "symbol": "WETH",
+        "address": "0x4200000000000000000000000000000000000006",
+        "category": "eth"
+      }
+    ]
+  },
+  "yieldSources": {
+    "1": [
+      {
+        "symbol": "AaveVault",
+        "address": "0x73edDFa87C71ADdC275c2b9890f5c3a8480bC9E6",
+        "category": "lending"
+      },
+      {
+        "symbol": "FluidVault",
+        "address": "0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33",
+        "category": "lending"
+      },
+      {
+        "symbol": "EulerVault",
+        "address": "0x797DD80692c3b2dAdabCe8e30C07fDE5307D48a9",
+        "category": "lending"
+      },
+      {
+        "symbol": "MorphoVault",
+        "address": "0xdd0f28e19C1780eb6396170735D45153D261490d",
+        "category": "lending"
+      },
+      {
+        "symbol": "CentrifugeUSDC",
+        "address": "0x1d01Ef1997d44206d839b78bA6813f60F1B3A970",
+        "category": "rwa"
+      },
+      {
+        "symbol": "YearnVault",
+        "address": "0x028eC7330ff87667b6dfb0D94b954c820195336c",
+        "category": "yield"
+      },
+      {
+        "symbol": "PendleEthena",
+        "address": "0x3Ee118EFC826d30A29645eAf3b2EaaC9E8320185",
+        "category": "yield"
+      },
+      {
+        "symbol": "GearboxVault",
+        "address": "0xda00000035fef4082F78dEF6A8903bee419FbF8E",
+        "category": "leverage"
+      },
+      {
+        "symbol": "Mock4626Vault1",
+        "address": "0xc7550B7Ce6B9c4514dF66bD927dE578Cb2a2d123",
+        "category": "lending"
+      },
+      {
+        "symbol": "Mock4626Vault2",
+        "address": "0x03E3ef5a57272b4C00a6aF11E85655d63dB6709B",
+        "category": "lending"
+      },
+      {
+        "symbol": "test11_Allocate_NewYieldSource",
+        "address": "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+        "category": "lending"
+      }
+    ],
+    "10": [
+      {
+        "symbol": "AloeUSDC",
+        "address": "0x462654Cc90C9124A406080EadaF0bA349eaA4AF9",
+        "category": "lending"
+      }
+    ],
+    "8453": [
+      {
+        "symbol": "MorphoGauntletUSDCPrime",
+        "address": "0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61",
+        "category": "lending"
+      },
+      {
+        "symbol": "MorphoGauntletWETHCore",
+        "address": "0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844",
+        "category": "lending"
+      },
+      {
+        "symbol": "AaveBaseWETH",
+        "address": "0x468973e3264F2aEba0417A8f2cD0Ec397E738898",
+        "category": "lending"
+      }
+    ]
+  },
+  "beneficiaries": {
+    "1": [
+      "0xf3A90C46FF9C1F85030cbf57EC9d326c8225eE4A",
+      "0x378ba1b97E01C4430A19Fe93b7F9b87B6c34F3df",
+      "0x85e668C597913af5DbEcf544CFF6DB82Ef53505F",
+      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+      "0xb572b235901669b98E23920B161530f6191037d3",
+      "0xfDceCFc913fB31c98835697ab52705E2B1DDE17D",
+      "0x13C43599b83d0080624711B4c112307e44E98727",
+      "0x2e61FD42B7d5B2a882cB32dbe605F23D2B570e32",
+      "0x1Fb1f544CFA43ebA145bDaB5aAE306ea310238C4",
+      "0x021210aD662B08fb81a53a560d9a03De8098C4f5",
+      "0xa44982Ae9000894BD2D66ff3365d914658295c0E",
+      "0x395055c952e907D7Dc0e48b8b0c27dd0460cC5c6",
+      "0x54ad48cA6A2B3d5C6f2875CEd3221637028b7cAA",
+      "0x92bd9b2Fb1E55283452760e369979EDa4C180286",
+      "0x0d73a464b722bF807Fb4163Ebb5E487658620Dce",
+      "0x258b7ae9141d9f85e9f56bebb94cd6750b7873fc",
+      "0xe8b93A69b6F1A54177C4c70D3d4822D2Ca524b76"
+    ],
+    "10": [],
+    "8453": []
+  },
+  "staking": {
+    "1": [
+      {
+        "symbol": "GearboxStaking",
+        "address": "0x9ef444a6d7F4A5adcd68FD5329aA5240C90E14d2",
+        "category": "defi"
+      }
+    ]
+  }
+}

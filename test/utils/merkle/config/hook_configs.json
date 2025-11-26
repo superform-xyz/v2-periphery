@@ -1,0 +1,146 @@
+{
+    "ApproveAndDeposit4626VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    },
+    "Redeem4626VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "owner",
+                "type": "beneficiary"
+            }
+        ]
+    },
+    "ApproveAndGearboxStakeHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "staking"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    },
+    "GearboxUnstakeHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "staking"
+            }
+        ]
+    },
+    "MockNativeETHHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            }
+        ]
+    },
+    "Deposit5115VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    },
+    "ApproveAndDeposit5115VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    },
+    "Redeem5115VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "tokenOut",
+                "type": "token"
+            }
+        ]
+    },
+    "ApproveAndRequestDeposit7540VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    },
+    "Deposit7540VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            }
+        ]
+    },
+    "RequestRedeem7540VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            }
+        ]
+    },
+    "Redeem7540VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            }
+        ]
+    },
+    "Withdraw7540VaultHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            }
+        ]
+    },
+    "MerklClaimRewardHook": {
+        "args": [
+            {
+                "name": "yieldSource",
+                "type": "yieldSource"
+            },
+            {
+                "name": "token",
+                "type": "token"
+            }
+        ]
+    }
+}

@@ -26,7 +26,10 @@ on:
       - main
       - dev
       - "feat/**"
-
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev
 jobs:
   build:
     runs-on: "SuperformCore3"
@@ -51,17 +54,19 @@ jobs:
         with:
           node-version: "latest"
 
+      - name: "Install Foundry"
+        uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.6"
+
+      - name: "Get forge version"
+        run: forge --version
+
       - name: Print ulimits
         run: ulimit -Sa && ulimit -Ha
 
       - name: Install Dependencies
         run: yarn install
-
-      - name: "Install Foundry"
-        uses: "foundry-rs/foundry-toolchain@v1"
-
-      - name: "Get forge version"
-        run: forge --version
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -73,19 +78,19 @@ jobs:
         run: pnpm --version
 
       - name: "Install ModuleKit"
-        working-directory: ./lib/modulekit
+        working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
+
+      - name: "Install Nexus"
+        working-directory: ./lib/v2-core/lib/nexus
+        run: yarn
+
+      - name: "Install Safe7579"
+        working-directory: ./lib/v2-core/lib/safe7579
+        run: yarn
 
       - name: "Build the contracts and print their size"
         run: "FOUNDRY_PROFILE=ci-sizes forge build --sizes"
-
-      - name: "Make export ABIs script executable"
-        run: chmod +x ./script/run/export_abis_s3.sh
-
-      - name: "Export ABIs to S3"
-        run: ./script/run/export_abis_s3.sh "${{ github.ref_name }}" --quiet
-        env:
-          S3_BUCKET_NAME_ABIS: ${{ secrets.S3_BUCKET_NAME_ABIS }}
 
       - name: "Add build summary"
         run: |
@@ -106,6 +111,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -114,9 +121,17 @@ jobs:
         run: npm install -g pnpm
 
       - name: "Install ModuleKit"
-        working-directory: ./lib/modulekit
+        working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
-        
+
+      - name: "Install Nexus"
+        working-directory: ./lib/v2-core/lib/nexus
+        run: yarn
+
+      - name: "Install Safe7579"
+        working-directory: ./lib/v2-core/lib/safe7579
+        run: yarn
+
       - name: "Install merkle-js dependencies"
         working-directory: ./test/utils/merkle/merkle-js
         run: npm install
@@ -141,7 +156,7 @@ jobs:
   vnet-deploy:
     needs: ["test"]
     if:
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/heads/feat/'))
+      github.event_name == 'workflow_dispatch'
     runs-on: "SuperformCore3"
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
@@ -169,6 +184,9 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.6"
+
       - name: "Install Foundry dependencies"
         run: forge install
 
@@ -176,8 +194,16 @@ jobs:
         run: npm install -g pnpm
 
       - name: "Install ModuleKit"
-        working-directory: ./lib/modulekit
+        working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
+
+      - name: "Install Nexus"
+        working-directory: ./lib/v2-core/lib/nexus
+        run: yarn
+
+      - name: "Install Safe7579"
+        working-directory: ./lib/v2-core/lib/safe7579
+        run: yarn
 
       - name: "Install Tenderly CLI"
         run: curl https://raw.githubusercontent.com/Tenderly/tenderly-cli/master/scripts/install-linux.sh | sudo sh
@@ -246,6 +272,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -254,9 +282,17 @@ jobs:
         run: npm install -g pnpm
 
       - name: "Install ModuleKit"
-        working-directory: ./lib/modulekit
+        working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
         
+      - name: "Install Nexus"
+        working-directory: ./lib/v2-core/lib/nexus
+        run: yarn
+
+      - name: "Install Safe7579"
+        working-directory: ./lib/v2-core/lib/safe7579
+        run: yarn
+
       - name: "Install merkle-js dependencies"
         working-directory: ./test/utils/merkle/merkle-js
         run: npm install

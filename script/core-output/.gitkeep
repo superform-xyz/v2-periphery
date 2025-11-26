@@ -1,0 +1,2 @@
+# This file ensures the core-output directory is maintained in git
+# Core contract addresses fetched from S3 will be stored in subdirectories here 

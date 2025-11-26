@@ -31,7 +31,7 @@ var (
 
 // SuperGovernorMetaData contains all meta data concerning the SuperGovernor contract.
 var SuperGovernorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"governor\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bankManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"treasury_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"prover_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"BANK_MANAGER\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"BANK_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ECDSAPPSORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"SUP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_ASSET_FACTORY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"SUPER_BANK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"SUPER_ORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_VAULT_AGGREGATOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"TREASURY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VAULT_BANK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addExecutor\",\"inputs\":[{\"name\":\"executor_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addICCToWhitelist\",\"inputs\":[{\"name\":\"icc\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addRelayer\",\"inputs\":[{\"name\":\"relayer_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addSuperformStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addVaultBank\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"vaultBank\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetEmergencyPrices\",\"inputs\":[{\"name\":\"tokens_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"prices_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetOracleUptimeFeed\",\"inputs\":[{\"name\":\"dataOracles_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"uptimeOracles_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"gracePeriods_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryStrategist\",\"inputs\":[{\"name\":\"strategy_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newStrategist_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeActivePPSOracleChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeAddIncentiveTokens\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeFeeUpdate\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeRemoveIncentiveTokens\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeSuperBankHookMerkleRootUpdate\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepCostPerUpdateChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepPaymentsChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeVaultBankHookMerkleRootUpdate\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeStrategistTakeover\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperformStrategists\",\"inputs\":[],\"outputs\":[{\"name\":\"strategists\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSOracleQuorum\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedUpkeepCostPerUpdate\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedCost\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedUpkeepPaymentsStatus\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedVaultBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRegisteredFulfillRequestsHooks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRegisteredHooks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStrategistsPaginated\",\"inputs\":[{\"name\":\"cursor\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"chunkOfStrategists\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"next\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperformStrategistsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepCostPerUpdate\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getVaultBank\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getVaultBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isExecutor\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isFulfillRequestsHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isRelayer\",\"inputs\":[{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategistTakeoverFrozen\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSuperformStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isSuperform\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUpkeepPaymentsEnabled\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isWhitelistedIncentiveToken\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeAddIncentiveTokens\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeRemoveIncentiveTokens\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeUpkeepCostPerUpdate\",\"inputs\":[{\"name\":\"newCost_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeUpkeepPaymentsChange\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeVaultBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleProviderRemoval\",\"inputs\":[{\"name\":\"providers_\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleUpdate\",\"inputs\":[{\"name\":\"bases_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"quotes_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"providers_\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"feeds_\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerHook\",\"inputs\":[{\"name\":\"hook_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isFulfillRequestsHook_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeExecutor\",\"inputs\":[{\"name\":\"executor_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeICCFromWhitelist\",\"inputs\":[{\"name\":\"icc\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeRelayer\",\"inputs\":[{\"name\":\"relayer_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSuperformStrategist\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEmergencyPrice\",\"inputs\":[{\"name\":\"token_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"price_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStaleness\",\"inputs\":[{\"name\":\"feed_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMaxStaleness_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStalenessBatch\",\"inputs\":[{\"name\":\"feeds_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"newMaxStalenessList_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleMaxStaleness\",\"inputs\":[{\"name\":\"newMaxStaleness_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPPSOracleQuorum\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setProver\",\"inputs\":[{\"name\":\"prover_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSuperAssetManager\",\"inputs\":[{\"name\":\"superAsset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_superAssetManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unregisterHook\",\"inputs\":[{\"name\":\"hook_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isFulfillRequestsHook_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ActivePPSOracleChanged\",\"inputs\":[{\"name\":\"oldOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleProposed\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AddressSet\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorAdded\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ExecutorRemoved\",\"inputs\":[{\"name\":\"executor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeProposed\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeUpdated\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FulfillRequestsHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FulfillRequestsHookUnregistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookApproved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookRemoved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSOracleQuorumUpdated\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProverSet\",\"inputs\":[{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RelayerAdded\",\"inputs\":[{\"name\":\"relayer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RelayerRemoved\",\"inputs\":[{\"name\":\"relayer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RevenueShareUpdated\",\"inputs\":[{\"name\":\"share\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategistAdded\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategistRemoved\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategistTakeoversFrozen\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootProposed\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootUpdated\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformStrategistAdded\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformStrategistRemoved\",\"inputs\":[{\"name\":\"strategist\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepCostPerUpdateChanged\",\"inputs\":[{\"name\":\"newCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepCostPerUpdateProposed\",\"inputs\":[{\"name\":\"newCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChangeProposed\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChanged\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorAdded\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorRemoved\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultBankAddressAdded\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":true,\"internalType\":\"uint64\"},{\"name\":\"vaultBank\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultBankHookMerkleRootProposed\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultBankHookMerkleRootUpdated\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistedIncentiveTokensAdded\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistedIncentiveTokensProposed\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WhitelistedIncentiveTokensRemoved\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CONTRACT_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CONTRACT_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EXECUTOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FULFILL_REQUESTS_HOOK_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FULFILL_REQUESTS_HOOK_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_ALREADY_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_NOT_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_CHAIN_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_FEE_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_QUORUM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_REVENUE_SHARE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MUST_USE_TIMELOCK_FOR_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NOT_PROPOSED_INCENTIVE_TOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NOT_WHITELISTED_INCENTIVE_TOKEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_ACTIVE_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_FEE\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_UPKEEP_COST\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ONLY_GOVERNOR\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RELAYER_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RELAYER_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGIST_TAKEOVERS_FROZEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TOKEN_ALREADY_WHITELISTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_NOT_REGISTERED\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"governor\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bankManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"treasury\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"BANK_MANAGER\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"BANK_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"ECDSAPPSORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GAS_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"ORACLE_MANAGER_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"PERFORMANCE_FEE_SHARE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"REVENUE_SHARE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_BANK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"SUPER_ORACLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_VAULT_AGGREGATOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUP_STRATEGY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"TREASURY\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UP\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetEmergencyPrices\",\"inputs\":[{\"name\":\"tokens_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"prices_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchSetOracleUptimeFeed\",\"inputs\":[{\"name\":\"dataOracles_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"uptimeOracles_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"gracePeriods_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeActivePPSOracleChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeFeeUpdate\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeMinStalenesChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleProviderRemoval\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeOracleUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeSuperBankHookMerkleRootUpdate\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepClaim\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeUpkeepPaymentsChange\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"freezeManagerTakeover\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperformManagers\",\"inputs\":[],\"outputs\":[{\"name\":\"managers\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGasInfo\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getManagersPaginated\",\"inputs\":[{\"name\":\"cursor\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"limit\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"chunkOfManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"next\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPSOracleQuorum\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedActivePPSOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedMinStaleness\",\"inputs\":[],\"outputs\":[{\"name\":\"proposedMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedUpkeepPaymentsStatus\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRegisteredHooks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperformManagersCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepCostPerSingleUpdate\",\"inputs\":[{\"name\":\"oracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorAt\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getValidatorsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isHookRegistered\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isManagerTakeoverFrozen\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isSuperform\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUpkeepPaymentsEnabled\",\"inputs\":[],\"outputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidator\",\"inputs\":[{\"name\":\"validator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeFee\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeMinStaleness\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeSuperBankHookMerkleRoot\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposedRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeUpkeepPaymentsChange\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleProviderRemoval\",\"inputs\":[{\"name\":\"providers\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"queueOracleUpdate\",\"inputs\":[{\"name\":\"bases_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"quotes_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"providers_\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"feeds_\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSuperformManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setActivePPSOracle\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAddress\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"value\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEmergencyPrice\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"price\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGasInfo\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStaleness\",\"inputs\":[{\"name\":\"feed\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleFeedMaxStalenessBatch\",\"inputs\":[{\"name\":\"feeds_\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"newMaxStalenessList_\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleMaxStaleness\",\"inputs\":[{\"name\":\"newMaxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setValidatorConfig\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"offchainConfig\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unregisterHook\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"ActivePPSOracleChanged\",\"inputs\":[{\"name\":\"oldOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleProposed\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ActivePPSOracleSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"AddressSet\",\"inputs\":[{\"name\":\"key\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"oldValue\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"value\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeProposed\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeUpdated\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"enumFeeType\"},{\"name\":\"value\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GasInfoSet\",\"inputs\":[{\"name\":\"oracle\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"gasIncreasePerEntryBatch\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookApproved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HookRemoved\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ManagerTakeoversFrozen\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenessChanged\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStalenessProposed\",\"inputs\":[{\"name\":\"newMinStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSOracleQuorumUpdated\",\"inputs\":[{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootProposed\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperBankHookMerkleRootUpdated\",\"inputs\":[{\"name\":\"hook\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerAdded\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SuperformManagerRemoved\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChangeProposed\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepPaymentsChanged\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorConfigSet\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validators\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"validatorPublicKeys\",\"type\":\"bytes[]\",\"indexed\":false,\"internalType\":\"bytes[]\"},{\"name\":\"quorum\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"offchainConfig\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CONTRACT_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EMPTY_VALIDATOR_ARRAY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_NOT_APPROVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_FEE_VALUE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_GAS_INFO\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_QUORUM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_TAKEOVERS_FROZEN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MUST_USE_TIMELOCK_FOR_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_ACTIVE_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_FEE\",\"inputs\":[{\"name\":\"feeType\",\"type\":\"uint8\",\"internalType\":\"enumFeeType\"}]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_MIN_STALENESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PROPOSED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SUPER_ORACLE_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UP_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_ALREADY_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VALIDATOR_NOT_REGISTERED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_PROPOSED_MERKLE_ROOT\",\"inputs\":[]}]",
 }
 
 // SuperGovernorABI is the input ABI used to generate the binding from.
@@ -304,6 +304,37 @@ func (_SuperGovernor *SuperGovernorCallerSession) ECDSAPPSORACLE() ([32]byte, er
 	return _SuperGovernor.Contract.ECDSAPPSORACLE(&_SuperGovernor.CallOpts)
 }
 
+// GASMANAGERROLE is a free data retrieval call binding the contract method 0x42436beb.
+//
+// Solidity: function GAS_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorCaller) GASMANAGERROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "GAS_MANAGER_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GASMANAGERROLE is a free data retrieval call binding the contract method 0x42436beb.
+//
+// Solidity: function GAS_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorSession) GASMANAGERROLE() ([32]byte, error) {
+	return _SuperGovernor.Contract.GASMANAGERROLE(&_SuperGovernor.CallOpts)
+}
+
+// GASMANAGERROLE is a free data retrieval call binding the contract method 0x42436beb.
+//
+// Solidity: function GAS_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorCallerSession) GASMANAGERROLE() ([32]byte, error) {
+	return _SuperGovernor.Contract.GASMANAGERROLE(&_SuperGovernor.CallOpts)
+}
+
 // GOVERNORROLE is a free data retrieval call binding the contract method 0xccc57490.
 //
 // Solidity: function GOVERNOR_ROLE() pure returns(bytes32)
@@ -366,12 +397,12 @@ func (_SuperGovernor *SuperGovernorCallerSession) GUARDIANROLE() ([32]byte, erro
 	return _SuperGovernor.Contract.GUARDIANROLE(&_SuperGovernor.CallOpts)
 }
 
-// SUP is a free data retrieval call binding the contract method 0x95c0bf69.
+// ORACLEMANAGERROLE is a free data retrieval call binding the contract method 0xbfc69e1c.
 //
-// Solidity: function SUP() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCaller) SUP(opts *bind.CallOpts) ([32]byte, error) {
+// Solidity: function ORACLE_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorCaller) ORACLEMANAGERROLE(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "SUP")
+	err := _SuperGovernor.contract.Call(opts, &out, "ORACLE_MANAGER_ROLE")
 
 	if err != nil {
 		return *new([32]byte), err
@@ -383,49 +414,80 @@ func (_SuperGovernor *SuperGovernorCaller) SUP(opts *bind.CallOpts) ([32]byte, e
 
 }
 
-// SUP is a free data retrieval call binding the contract method 0x95c0bf69.
+// ORACLEMANAGERROLE is a free data retrieval call binding the contract method 0xbfc69e1c.
 //
-// Solidity: function SUP() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorSession) SUP() ([32]byte, error) {
-	return _SuperGovernor.Contract.SUP(&_SuperGovernor.CallOpts)
+// Solidity: function ORACLE_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorSession) ORACLEMANAGERROLE() ([32]byte, error) {
+	return _SuperGovernor.Contract.ORACLEMANAGERROLE(&_SuperGovernor.CallOpts)
 }
 
-// SUP is a free data retrieval call binding the contract method 0x95c0bf69.
+// ORACLEMANAGERROLE is a free data retrieval call binding the contract method 0xbfc69e1c.
 //
-// Solidity: function SUP() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCallerSession) SUP() ([32]byte, error) {
-	return _SuperGovernor.Contract.SUP(&_SuperGovernor.CallOpts)
+// Solidity: function ORACLE_MANAGER_ROLE() pure returns(bytes32)
+func (_SuperGovernor *SuperGovernorCallerSession) ORACLEMANAGERROLE() ([32]byte, error) {
+	return _SuperGovernor.Contract.ORACLEMANAGERROLE(&_SuperGovernor.CallOpts)
 }
 
-// SUPERASSETFACTORY is a free data retrieval call binding the contract method 0xec63a694.
+// PERFORMANCEFEESHARE is a free data retrieval call binding the contract method 0x58f43929.
 //
-// Solidity: function SUPER_ASSET_FACTORY() pure returns(bytes32)
-func (_SuperGovernor *SuperGovernorCaller) SUPERASSETFACTORY(opts *bind.CallOpts) ([32]byte, error) {
+// Solidity: function PERFORMANCE_FEE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) PERFORMANCEFEESHARE(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "SUPER_ASSET_FACTORY")
+	err := _SuperGovernor.contract.Call(opts, &out, "PERFORMANCE_FEE_SHARE")
 
 	if err != nil {
-		return *new([32]byte), err
+		return *new(*big.Int), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
 
 }
 
-// SUPERASSETFACTORY is a free data retrieval call binding the contract method 0xec63a694.
+// PERFORMANCEFEESHARE is a free data retrieval call binding the contract method 0x58f43929.
 //
-// Solidity: function SUPER_ASSET_FACTORY() pure returns(bytes32)
-func (_SuperGovernor *SuperGovernorSession) SUPERASSETFACTORY() ([32]byte, error) {
-	return _SuperGovernor.Contract.SUPERASSETFACTORY(&_SuperGovernor.CallOpts)
+// Solidity: function PERFORMANCE_FEE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) PERFORMANCEFEESHARE() (*big.Int, error) {
+	return _SuperGovernor.Contract.PERFORMANCEFEESHARE(&_SuperGovernor.CallOpts)
 }
 
-// SUPERASSETFACTORY is a free data retrieval call binding the contract method 0xec63a694.
+// PERFORMANCEFEESHARE is a free data retrieval call binding the contract method 0x58f43929.
 //
-// Solidity: function SUPER_ASSET_FACTORY() pure returns(bytes32)
-func (_SuperGovernor *SuperGovernorCallerSession) SUPERASSETFACTORY() ([32]byte, error) {
-	return _SuperGovernor.Contract.SUPERASSETFACTORY(&_SuperGovernor.CallOpts)
+// Solidity: function PERFORMANCE_FEE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) PERFORMANCEFEESHARE() (*big.Int, error) {
+	return _SuperGovernor.Contract.PERFORMANCEFEESHARE(&_SuperGovernor.CallOpts)
+}
+
+// REVENUESHARE is a free data retrieval call binding the contract method 0xd9060c4c.
+//
+// Solidity: function REVENUE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) REVENUESHARE(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "REVENUE_SHARE")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// REVENUESHARE is a free data retrieval call binding the contract method 0xd9060c4c.
+//
+// Solidity: function REVENUE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) REVENUESHARE() (*big.Int, error) {
+	return _SuperGovernor.Contract.REVENUESHARE(&_SuperGovernor.CallOpts)
+}
+
+// REVENUESHARE is a free data retrieval call binding the contract method 0xd9060c4c.
+//
+// Solidity: function REVENUE_SHARE() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) REVENUESHARE() (*big.Int, error) {
+	return _SuperGovernor.Contract.REVENUESHARE(&_SuperGovernor.CallOpts)
 }
 
 // SUPERBANK is a free data retrieval call binding the contract method 0x6f2140c1.
@@ -552,6 +614,37 @@ func (_SuperGovernor *SuperGovernorCallerSession) SUPERVAULTAGGREGATOR() ([32]by
 	return _SuperGovernor.Contract.SUPERVAULTAGGREGATOR(&_SuperGovernor.CallOpts)
 }
 
+// SUPSTRATEGY is a free data retrieval call binding the contract method 0x778289d7.
+//
+// Solidity: function SUP_STRATEGY() view returns(bytes32)
+func (_SuperGovernor *SuperGovernorCaller) SUPSTRATEGY(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "SUP_STRATEGY")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// SUPSTRATEGY is a free data retrieval call binding the contract method 0x778289d7.
+//
+// Solidity: function SUP_STRATEGY() view returns(bytes32)
+func (_SuperGovernor *SuperGovernorSession) SUPSTRATEGY() ([32]byte, error) {
+	return _SuperGovernor.Contract.SUPSTRATEGY(&_SuperGovernor.CallOpts)
+}
+
+// SUPSTRATEGY is a free data retrieval call binding the contract method 0x778289d7.
+//
+// Solidity: function SUP_STRATEGY() view returns(bytes32)
+func (_SuperGovernor *SuperGovernorCallerSession) SUPSTRATEGY() ([32]byte, error) {
+	return _SuperGovernor.Contract.SUPSTRATEGY(&_SuperGovernor.CallOpts)
+}
+
 // TREASURY is a free data retrieval call binding the contract method 0x2d2c5565.
 //
 // Solidity: function TREASURY() view returns(bytes32)
@@ -612,37 +705,6 @@ func (_SuperGovernor *SuperGovernorSession) UP() ([32]byte, error) {
 // Solidity: function UP() view returns(bytes32)
 func (_SuperGovernor *SuperGovernorCallerSession) UP() ([32]byte, error) {
 	return _SuperGovernor.Contract.UP(&_SuperGovernor.CallOpts)
-}
-
-// VAULTBANK is a free data retrieval call binding the contract method 0x39e0739e.
-//
-// Solidity: function VAULT_BANK() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCaller) VAULTBANK(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "VAULT_BANK")
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// VAULTBANK is a free data retrieval call binding the contract method 0x39e0739e.
-//
-// Solidity: function VAULT_BANK() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorSession) VAULTBANK() ([32]byte, error) {
-	return _SuperGovernor.Contract.VAULTBANK(&_SuperGovernor.CallOpts)
-}
-
-// VAULTBANK is a free data retrieval call binding the contract method 0x39e0739e.
-//
-// Solidity: function VAULT_BANK() view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCallerSession) VAULTBANK() ([32]byte, error) {
-	return _SuperGovernor.Contract.VAULTBANK(&_SuperGovernor.CallOpts)
 }
 
 // GetActivePPSOracle is a free data retrieval call binding the contract method 0x275f0f2b.
@@ -707,12 +769,12 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetAddress(key [32]byte) (comm
 	return _SuperGovernor.Contract.GetAddress(&_SuperGovernor.CallOpts, key)
 }
 
-// GetAllSuperformStrategists is a free data retrieval call binding the contract method 0x94bc40c2.
+// GetAllSuperformManagers is a free data retrieval call binding the contract method 0xa1d1ab43.
 //
-// Solidity: function getAllSuperformStrategists() view returns(address[] strategists)
-func (_SuperGovernor *SuperGovernorCaller) GetAllSuperformStrategists(opts *bind.CallOpts) ([]common.Address, error) {
+// Solidity: function getAllSuperformManagers() view returns(address[] managers)
+func (_SuperGovernor *SuperGovernorCaller) GetAllSuperformManagers(opts *bind.CallOpts) ([]common.Address, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getAllSuperformStrategists")
+	err := _SuperGovernor.contract.Call(opts, &out, "getAllSuperformManagers")
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -724,18 +786,18 @@ func (_SuperGovernor *SuperGovernorCaller) GetAllSuperformStrategists(opts *bind
 
 }
 
-// GetAllSuperformStrategists is a free data retrieval call binding the contract method 0x94bc40c2.
+// GetAllSuperformManagers is a free data retrieval call binding the contract method 0xa1d1ab43.
 //
-// Solidity: function getAllSuperformStrategists() view returns(address[] strategists)
-func (_SuperGovernor *SuperGovernorSession) GetAllSuperformStrategists() ([]common.Address, error) {
-	return _SuperGovernor.Contract.GetAllSuperformStrategists(&_SuperGovernor.CallOpts)
+// Solidity: function getAllSuperformManagers() view returns(address[] managers)
+func (_SuperGovernor *SuperGovernorSession) GetAllSuperformManagers() ([]common.Address, error) {
+	return _SuperGovernor.Contract.GetAllSuperformManagers(&_SuperGovernor.CallOpts)
 }
 
-// GetAllSuperformStrategists is a free data retrieval call binding the contract method 0x94bc40c2.
+// GetAllSuperformManagers is a free data retrieval call binding the contract method 0xa1d1ab43.
 //
-// Solidity: function getAllSuperformStrategists() view returns(address[] strategists)
-func (_SuperGovernor *SuperGovernorCallerSession) GetAllSuperformStrategists() ([]common.Address, error) {
-	return _SuperGovernor.Contract.GetAllSuperformStrategists(&_SuperGovernor.CallOpts)
+// Solidity: function getAllSuperformManagers() view returns(address[] managers)
+func (_SuperGovernor *SuperGovernorCallerSession) GetAllSuperformManagers() ([]common.Address, error) {
+	return _SuperGovernor.Contract.GetAllSuperformManagers(&_SuperGovernor.CallOpts)
 }
 
 // GetFee is a free data retrieval call binding the contract method 0x083132c4.
@@ -767,6 +829,113 @@ func (_SuperGovernor *SuperGovernorSession) GetFee(feeType uint8) (*big.Int, err
 // Solidity: function getFee(uint8 feeType) view returns(uint256)
 func (_SuperGovernor *SuperGovernorCallerSession) GetFee(feeType uint8) (*big.Int, error) {
 	return _SuperGovernor.Contract.GetFee(&_SuperGovernor.CallOpts, feeType)
+}
+
+// GetGasInfo is a free data retrieval call binding the contract method 0xf5f81403.
+//
+// Solidity: function getGasInfo(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) GetGasInfo(opts *bind.CallOpts, oracle_ common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getGasInfo", oracle_)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetGasInfo is a free data retrieval call binding the contract method 0xf5f81403.
+//
+// Solidity: function getGasInfo(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) GetGasInfo(oracle_ common.Address) (*big.Int, error) {
+	return _SuperGovernor.Contract.GetGasInfo(&_SuperGovernor.CallOpts, oracle_)
+}
+
+// GetGasInfo is a free data retrieval call binding the contract method 0xf5f81403.
+//
+// Solidity: function getGasInfo(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) GetGasInfo(oracle_ common.Address) (*big.Int, error) {
+	return _SuperGovernor.Contract.GetGasInfo(&_SuperGovernor.CallOpts, oracle_)
+}
+
+// GetManagersPaginated is a free data retrieval call binding the contract method 0xbe5edae5.
+//
+// Solidity: function getManagersPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfManagers, uint256 next)
+func (_SuperGovernor *SuperGovernorCaller) GetManagersPaginated(opts *bind.CallOpts, cursor *big.Int, limit *big.Int) (struct {
+	ChunkOfManagers []common.Address
+	Next            *big.Int
+}, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getManagersPaginated", cursor, limit)
+
+	outstruct := new(struct {
+		ChunkOfManagers []common.Address
+		Next            *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.ChunkOfManagers = *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	outstruct.Next = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// GetManagersPaginated is a free data retrieval call binding the contract method 0xbe5edae5.
+//
+// Solidity: function getManagersPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfManagers, uint256 next)
+func (_SuperGovernor *SuperGovernorSession) GetManagersPaginated(cursor *big.Int, limit *big.Int) (struct {
+	ChunkOfManagers []common.Address
+	Next            *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetManagersPaginated(&_SuperGovernor.CallOpts, cursor, limit)
+}
+
+// GetManagersPaginated is a free data retrieval call binding the contract method 0xbe5edae5.
+//
+// Solidity: function getManagersPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfManagers, uint256 next)
+func (_SuperGovernor *SuperGovernorCallerSession) GetManagersPaginated(cursor *big.Int, limit *big.Int) (struct {
+	ChunkOfManagers []common.Address
+	Next            *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetManagersPaginated(&_SuperGovernor.CallOpts, cursor, limit)
+}
+
+// GetMinStaleness is a free data retrieval call binding the contract method 0x29f05976.
+//
+// Solidity: function getMinStaleness() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) GetMinStaleness(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getMinStaleness")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetMinStaleness is a free data retrieval call binding the contract method 0x29f05976.
+//
+// Solidity: function getMinStaleness() view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) GetMinStaleness() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetMinStaleness(&_SuperGovernor.CallOpts)
+}
+
+// GetMinStaleness is a free data retrieval call binding the contract method 0x29f05976.
+//
+// Solidity: function getMinStaleness() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) GetMinStaleness() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetMinStaleness(&_SuperGovernor.CallOpts)
 }
 
 // GetPPSOracleQuorum is a free data retrieval call binding the contract method 0xdf6aaf96.
@@ -845,6 +1014,51 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetProposedActivePPSOracle() (
 	return _SuperGovernor.Contract.GetProposedActivePPSOracle(&_SuperGovernor.CallOpts)
 }
 
+// GetProposedMinStaleness is a free data retrieval call binding the contract method 0xe8422432.
+//
+// Solidity: function getProposedMinStaleness() view returns(uint256 proposedMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorCaller) GetProposedMinStaleness(opts *bind.CallOpts) (struct {
+	ProposedMinStaleness *big.Int
+	EffectiveTime        *big.Int
+}, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getProposedMinStaleness")
+
+	outstruct := new(struct {
+		ProposedMinStaleness *big.Int
+		EffectiveTime        *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.ProposedMinStaleness = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.EffectiveTime = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// GetProposedMinStaleness is a free data retrieval call binding the contract method 0xe8422432.
+//
+// Solidity: function getProposedMinStaleness() view returns(uint256 proposedMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorSession) GetProposedMinStaleness() (struct {
+	ProposedMinStaleness *big.Int
+	EffectiveTime        *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetProposedMinStaleness(&_SuperGovernor.CallOpts)
+}
+
+// GetProposedMinStaleness is a free data retrieval call binding the contract method 0xe8422432.
+//
+// Solidity: function getProposedMinStaleness() view returns(uint256 proposedMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorCallerSession) GetProposedMinStaleness() (struct {
+	ProposedMinStaleness *big.Int
+	EffectiveTime        *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetProposedMinStaleness(&_SuperGovernor.CallOpts)
+}
+
 // GetProposedSuperBankHookMerkleRoot is a free data retrieval call binding the contract method 0x43844de6.
 //
 // Solidity: function getProposedSuperBankHookMerkleRoot(address hook) view returns(bytes32 proposedRoot, uint256 effectiveTime)
@@ -890,51 +1104,6 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetProposedSuperBankHookMerkle
 	return _SuperGovernor.Contract.GetProposedSuperBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
 }
 
-// GetProposedUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0x8be48ce6.
-//
-// Solidity: function getProposedUpkeepCostPerUpdate() view returns(uint256 proposedCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorCaller) GetProposedUpkeepCostPerUpdate(opts *bind.CallOpts) (struct {
-	ProposedCost  *big.Int
-	EffectiveTime *big.Int
-}, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getProposedUpkeepCostPerUpdate")
-
-	outstruct := new(struct {
-		ProposedCost  *big.Int
-		EffectiveTime *big.Int
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.ProposedCost = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.EffectiveTime = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-
-	return *outstruct, err
-
-}
-
-// GetProposedUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0x8be48ce6.
-//
-// Solidity: function getProposedUpkeepCostPerUpdate() view returns(uint256 proposedCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorSession) GetProposedUpkeepCostPerUpdate() (struct {
-	ProposedCost  *big.Int
-	EffectiveTime *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetProposedUpkeepCostPerUpdate(&_SuperGovernor.CallOpts)
-}
-
-// GetProposedUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0x8be48ce6.
-//
-// Solidity: function getProposedUpkeepCostPerUpdate() view returns(uint256 proposedCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorCallerSession) GetProposedUpkeepCostPerUpdate() (struct {
-	ProposedCost  *big.Int
-	EffectiveTime *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetProposedUpkeepCostPerUpdate(&_SuperGovernor.CallOpts)
-}
-
 // GetProposedUpkeepPaymentsStatus is a free data retrieval call binding the contract method 0x57b8b13d.
 //
 // Solidity: function getProposedUpkeepPaymentsStatus() view returns(bool enabled, uint256 effectiveTime)
@@ -978,113 +1147,6 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetProposedUpkeepPaymentsStatu
 	EffectiveTime *big.Int
 }, error) {
 	return _SuperGovernor.Contract.GetProposedUpkeepPaymentsStatus(&_SuperGovernor.CallOpts)
-}
-
-// GetProposedVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xf7536506.
-//
-// Solidity: function getProposedVaultBankHookMerkleRoot(address hook) view returns(bytes32 proposedRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorCaller) GetProposedVaultBankHookMerkleRoot(opts *bind.CallOpts, hook common.Address) (struct {
-	ProposedRoot  [32]byte
-	EffectiveTime *big.Int
-}, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getProposedVaultBankHookMerkleRoot", hook)
-
-	outstruct := new(struct {
-		ProposedRoot  [32]byte
-		EffectiveTime *big.Int
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.ProposedRoot = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-	outstruct.EffectiveTime = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-
-	return *outstruct, err
-
-}
-
-// GetProposedVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xf7536506.
-//
-// Solidity: function getProposedVaultBankHookMerkleRoot(address hook) view returns(bytes32 proposedRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorSession) GetProposedVaultBankHookMerkleRoot(hook common.Address) (struct {
-	ProposedRoot  [32]byte
-	EffectiveTime *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetProposedVaultBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
-}
-
-// GetProposedVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xf7536506.
-//
-// Solidity: function getProposedVaultBankHookMerkleRoot(address hook) view returns(bytes32 proposedRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorCallerSession) GetProposedVaultBankHookMerkleRoot(hook common.Address) (struct {
-	ProposedRoot  [32]byte
-	EffectiveTime *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetProposedVaultBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
-}
-
-// GetProver is a free data retrieval call binding the contract method 0xf9a83be7.
-//
-// Solidity: function getProver() view returns(address)
-func (_SuperGovernor *SuperGovernorCaller) GetProver(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getProver")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// GetProver is a free data retrieval call binding the contract method 0xf9a83be7.
-//
-// Solidity: function getProver() view returns(address)
-func (_SuperGovernor *SuperGovernorSession) GetProver() (common.Address, error) {
-	return _SuperGovernor.Contract.GetProver(&_SuperGovernor.CallOpts)
-}
-
-// GetProver is a free data retrieval call binding the contract method 0xf9a83be7.
-//
-// Solidity: function getProver() view returns(address)
-func (_SuperGovernor *SuperGovernorCallerSession) GetProver() (common.Address, error) {
-	return _SuperGovernor.Contract.GetProver(&_SuperGovernor.CallOpts)
-}
-
-// GetRegisteredFulfillRequestsHooks is a free data retrieval call binding the contract method 0x046c7418.
-//
-// Solidity: function getRegisteredFulfillRequestsHooks() view returns(address[])
-func (_SuperGovernor *SuperGovernorCaller) GetRegisteredFulfillRequestsHooks(opts *bind.CallOpts) ([]common.Address, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getRegisteredFulfillRequestsHooks")
-
-	if err != nil {
-		return *new([]common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
-
-	return out0, err
-
-}
-
-// GetRegisteredFulfillRequestsHooks is a free data retrieval call binding the contract method 0x046c7418.
-//
-// Solidity: function getRegisteredFulfillRequestsHooks() view returns(address[])
-func (_SuperGovernor *SuperGovernorSession) GetRegisteredFulfillRequestsHooks() ([]common.Address, error) {
-	return _SuperGovernor.Contract.GetRegisteredFulfillRequestsHooks(&_SuperGovernor.CallOpts)
-}
-
-// GetRegisteredFulfillRequestsHooks is a free data retrieval call binding the contract method 0x046c7418.
-//
-// Solidity: function getRegisteredFulfillRequestsHooks() view returns(address[])
-func (_SuperGovernor *SuperGovernorCallerSession) GetRegisteredFulfillRequestsHooks() ([]common.Address, error) {
-	return _SuperGovernor.Contract.GetRegisteredFulfillRequestsHooks(&_SuperGovernor.CallOpts)
 }
 
 // GetRegisteredHooks is a free data retrieval call binding the contract method 0x841b0175.
@@ -1149,51 +1211,6 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetRoleAdmin(role [32]byte) ([
 	return _SuperGovernor.Contract.GetRoleAdmin(&_SuperGovernor.CallOpts, role)
 }
 
-// GetStrategistsPaginated is a free data retrieval call binding the contract method 0x703714ca.
-//
-// Solidity: function getStrategistsPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfStrategists, uint256 next)
-func (_SuperGovernor *SuperGovernorCaller) GetStrategistsPaginated(opts *bind.CallOpts, cursor *big.Int, limit *big.Int) (struct {
-	ChunkOfStrategists []common.Address
-	Next               *big.Int
-}, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getStrategistsPaginated", cursor, limit)
-
-	outstruct := new(struct {
-		ChunkOfStrategists []common.Address
-		Next               *big.Int
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.ChunkOfStrategists = *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
-	outstruct.Next = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-
-	return *outstruct, err
-
-}
-
-// GetStrategistsPaginated is a free data retrieval call binding the contract method 0x703714ca.
-//
-// Solidity: function getStrategistsPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfStrategists, uint256 next)
-func (_SuperGovernor *SuperGovernorSession) GetStrategistsPaginated(cursor *big.Int, limit *big.Int) (struct {
-	ChunkOfStrategists []common.Address
-	Next               *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetStrategistsPaginated(&_SuperGovernor.CallOpts, cursor, limit)
-}
-
-// GetStrategistsPaginated is a free data retrieval call binding the contract method 0x703714ca.
-//
-// Solidity: function getStrategistsPaginated(uint256 cursor, uint256 limit) view returns(address[] chunkOfStrategists, uint256 next)
-func (_SuperGovernor *SuperGovernorCallerSession) GetStrategistsPaginated(cursor *big.Int, limit *big.Int) (struct {
-	ChunkOfStrategists []common.Address
-	Next               *big.Int
-}, error) {
-	return _SuperGovernor.Contract.GetStrategistsPaginated(&_SuperGovernor.CallOpts, cursor, limit)
-}
-
 // GetSuperBankHookMerkleRoot is a free data retrieval call binding the contract method 0xf43526f4.
 //
 // Solidity: function getSuperBankHookMerkleRoot(address hook) view returns(bytes32)
@@ -1225,12 +1242,12 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetSuperBankHookMerkleRoot(hoo
 	return _SuperGovernor.Contract.GetSuperBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
 }
 
-// GetSuperformStrategistsCount is a free data retrieval call binding the contract method 0x0129e699.
+// GetSuperformManagersCount is a free data retrieval call binding the contract method 0xcc8bb5e4.
 //
-// Solidity: function getSuperformStrategistsCount() view returns(uint256)
-func (_SuperGovernor *SuperGovernorCaller) GetSuperformStrategistsCount(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function getSuperformManagersCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) GetSuperformManagersCount(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getSuperformStrategistsCount")
+	err := _SuperGovernor.contract.Call(opts, &out, "getSuperformManagersCount")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -1242,26 +1259,26 @@ func (_SuperGovernor *SuperGovernorCaller) GetSuperformStrategistsCount(opts *bi
 
 }
 
-// GetSuperformStrategistsCount is a free data retrieval call binding the contract method 0x0129e699.
+// GetSuperformManagersCount is a free data retrieval call binding the contract method 0xcc8bb5e4.
 //
-// Solidity: function getSuperformStrategistsCount() view returns(uint256)
-func (_SuperGovernor *SuperGovernorSession) GetSuperformStrategistsCount() (*big.Int, error) {
-	return _SuperGovernor.Contract.GetSuperformStrategistsCount(&_SuperGovernor.CallOpts)
+// Solidity: function getSuperformManagersCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) GetSuperformManagersCount() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetSuperformManagersCount(&_SuperGovernor.CallOpts)
 }
 
-// GetSuperformStrategistsCount is a free data retrieval call binding the contract method 0x0129e699.
+// GetSuperformManagersCount is a free data retrieval call binding the contract method 0xcc8bb5e4.
 //
-// Solidity: function getSuperformStrategistsCount() view returns(uint256)
-func (_SuperGovernor *SuperGovernorCallerSession) GetSuperformStrategistsCount() (*big.Int, error) {
-	return _SuperGovernor.Contract.GetSuperformStrategistsCount(&_SuperGovernor.CallOpts)
+// Solidity: function getSuperformManagersCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) GetSuperformManagersCount() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetSuperformManagersCount(&_SuperGovernor.CallOpts)
 }
 
-// GetUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0xb4e111ca.
+// GetUpkeepCostPerSingleUpdate is a free data retrieval call binding the contract method 0x92f16278.
 //
-// Solidity: function getUpkeepCostPerUpdate() view returns(uint256)
-func (_SuperGovernor *SuperGovernorCaller) GetUpkeepCostPerUpdate(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function getUpkeepCostPerSingleUpdate(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) GetUpkeepCostPerSingleUpdate(opts *bind.CallOpts, oracle_ common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getUpkeepCostPerUpdate")
+	err := _SuperGovernor.contract.Call(opts, &out, "getUpkeepCostPerSingleUpdate", oracle_)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -1273,18 +1290,104 @@ func (_SuperGovernor *SuperGovernorCaller) GetUpkeepCostPerUpdate(opts *bind.Cal
 
 }
 
-// GetUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0xb4e111ca.
+// GetUpkeepCostPerSingleUpdate is a free data retrieval call binding the contract method 0x92f16278.
 //
-// Solidity: function getUpkeepCostPerUpdate() view returns(uint256)
-func (_SuperGovernor *SuperGovernorSession) GetUpkeepCostPerUpdate() (*big.Int, error) {
-	return _SuperGovernor.Contract.GetUpkeepCostPerUpdate(&_SuperGovernor.CallOpts)
+// Solidity: function getUpkeepCostPerSingleUpdate(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) GetUpkeepCostPerSingleUpdate(oracle_ common.Address) (*big.Int, error) {
+	return _SuperGovernor.Contract.GetUpkeepCostPerSingleUpdate(&_SuperGovernor.CallOpts, oracle_)
 }
 
-// GetUpkeepCostPerUpdate is a free data retrieval call binding the contract method 0xb4e111ca.
+// GetUpkeepCostPerSingleUpdate is a free data retrieval call binding the contract method 0x92f16278.
 //
-// Solidity: function getUpkeepCostPerUpdate() view returns(uint256)
-func (_SuperGovernor *SuperGovernorCallerSession) GetUpkeepCostPerUpdate() (*big.Int, error) {
-	return _SuperGovernor.Contract.GetUpkeepCostPerUpdate(&_SuperGovernor.CallOpts)
+// Solidity: function getUpkeepCostPerSingleUpdate(address oracle_) view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) GetUpkeepCostPerSingleUpdate(oracle_ common.Address) (*big.Int, error) {
+	return _SuperGovernor.Contract.GetUpkeepCostPerSingleUpdate(&_SuperGovernor.CallOpts, oracle_)
+}
+
+// GetValidatorAt is a free data retrieval call binding the contract method 0x9a000e5b.
+//
+// Solidity: function getValidatorAt(uint256 index) view returns(address)
+func (_SuperGovernor *SuperGovernorCaller) GetValidatorAt(opts *bind.CallOpts, index *big.Int) (common.Address, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getValidatorAt", index)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetValidatorAt is a free data retrieval call binding the contract method 0x9a000e5b.
+//
+// Solidity: function getValidatorAt(uint256 index) view returns(address)
+func (_SuperGovernor *SuperGovernorSession) GetValidatorAt(index *big.Int) (common.Address, error) {
+	return _SuperGovernor.Contract.GetValidatorAt(&_SuperGovernor.CallOpts, index)
+}
+
+// GetValidatorAt is a free data retrieval call binding the contract method 0x9a000e5b.
+//
+// Solidity: function getValidatorAt(uint256 index) view returns(address)
+func (_SuperGovernor *SuperGovernorCallerSession) GetValidatorAt(index *big.Int) (common.Address, error) {
+	return _SuperGovernor.Contract.GetValidatorAt(&_SuperGovernor.CallOpts, index)
+}
+
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
+//
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_SuperGovernor *SuperGovernorCaller) GetValidatorConfig(opts *bind.CallOpts) (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
+	var out []interface{}
+	err := _SuperGovernor.contract.Call(opts, &out, "getValidatorConfig")
+
+	outstruct := new(struct {
+		Version             *big.Int
+		Validators          []common.Address
+		ValidatorPublicKeys [][]byte
+		Quorum              *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Version = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Validators = *abi.ConvertType(out[1], new([]common.Address)).(*[]common.Address)
+	outstruct.ValidatorPublicKeys = *abi.ConvertType(out[2], new([][]byte)).(*[][]byte)
+	outstruct.Quorum = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
+//
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_SuperGovernor *SuperGovernorSession) GetValidatorConfig() (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetValidatorConfig(&_SuperGovernor.CallOpts)
+}
+
+// GetValidatorConfig is a free data retrieval call binding the contract method 0x9bd2c0b1.
+//
+// Solidity: function getValidatorConfig() view returns(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum)
+func (_SuperGovernor *SuperGovernorCallerSession) GetValidatorConfig() (struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+}, error) {
+	return _SuperGovernor.Contract.GetValidatorConfig(&_SuperGovernor.CallOpts)
 }
 
 // GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
@@ -1318,66 +1421,35 @@ func (_SuperGovernor *SuperGovernorCallerSession) GetValidators() ([]common.Addr
 	return _SuperGovernor.Contract.GetValidators(&_SuperGovernor.CallOpts)
 }
 
-// GetVaultBank is a free data retrieval call binding the contract method 0x3e099f30.
+// GetValidatorsCount is a free data retrieval call binding the contract method 0x27498240.
 //
-// Solidity: function getVaultBank(uint64 chainId) view returns(address)
-func (_SuperGovernor *SuperGovernorCaller) GetVaultBank(opts *bind.CallOpts, chainId uint64) (common.Address, error) {
+// Solidity: function getValidatorsCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCaller) GetValidatorsCount(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getVaultBank", chainId)
+	err := _SuperGovernor.contract.Call(opts, &out, "getValidatorsCount")
 
 	if err != nil {
-		return *new(common.Address), err
+		return *new(*big.Int), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
 
 }
 
-// GetVaultBank is a free data retrieval call binding the contract method 0x3e099f30.
+// GetValidatorsCount is a free data retrieval call binding the contract method 0x27498240.
 //
-// Solidity: function getVaultBank(uint64 chainId) view returns(address)
-func (_SuperGovernor *SuperGovernorSession) GetVaultBank(chainId uint64) (common.Address, error) {
-	return _SuperGovernor.Contract.GetVaultBank(&_SuperGovernor.CallOpts, chainId)
+// Solidity: function getValidatorsCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorSession) GetValidatorsCount() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetValidatorsCount(&_SuperGovernor.CallOpts)
 }
 
-// GetVaultBank is a free data retrieval call binding the contract method 0x3e099f30.
+// GetValidatorsCount is a free data retrieval call binding the contract method 0x27498240.
 //
-// Solidity: function getVaultBank(uint64 chainId) view returns(address)
-func (_SuperGovernor *SuperGovernorCallerSession) GetVaultBank(chainId uint64) (common.Address, error) {
-	return _SuperGovernor.Contract.GetVaultBank(&_SuperGovernor.CallOpts, chainId)
-}
-
-// GetVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xdfebb1c2.
-//
-// Solidity: function getVaultBankHookMerkleRoot(address hook) view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCaller) GetVaultBankHookMerkleRoot(opts *bind.CallOpts, hook common.Address) ([32]byte, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "getVaultBankHookMerkleRoot", hook)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// GetVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xdfebb1c2.
-//
-// Solidity: function getVaultBankHookMerkleRoot(address hook) view returns(bytes32)
-func (_SuperGovernor *SuperGovernorSession) GetVaultBankHookMerkleRoot(hook common.Address) ([32]byte, error) {
-	return _SuperGovernor.Contract.GetVaultBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
-}
-
-// GetVaultBankHookMerkleRoot is a free data retrieval call binding the contract method 0xdfebb1c2.
-//
-// Solidity: function getVaultBankHookMerkleRoot(address hook) view returns(bytes32)
-func (_SuperGovernor *SuperGovernorCallerSession) GetVaultBankHookMerkleRoot(hook common.Address) ([32]byte, error) {
-	return _SuperGovernor.Contract.GetVaultBankHookMerkleRoot(&_SuperGovernor.CallOpts, hook)
+// Solidity: function getValidatorsCount() view returns(uint256)
+func (_SuperGovernor *SuperGovernorCallerSession) GetValidatorsCount() (*big.Int, error) {
+	return _SuperGovernor.Contract.GetValidatorsCount(&_SuperGovernor.CallOpts)
 }
 
 // HasRole is a free data retrieval call binding the contract method 0x91d14854.
@@ -1442,68 +1514,6 @@ func (_SuperGovernor *SuperGovernorCallerSession) IsActivePPSOracle(oracle commo
 	return _SuperGovernor.Contract.IsActivePPSOracle(&_SuperGovernor.CallOpts, oracle)
 }
 
-// IsExecutor is a free data retrieval call binding the contract method 0xdebfda30.
-//
-// Solidity: function isExecutor(address executor) view returns(bool)
-func (_SuperGovernor *SuperGovernorCaller) IsExecutor(opts *bind.CallOpts, executor common.Address) (bool, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isExecutor", executor)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsExecutor is a free data retrieval call binding the contract method 0xdebfda30.
-//
-// Solidity: function isExecutor(address executor) view returns(bool)
-func (_SuperGovernor *SuperGovernorSession) IsExecutor(executor common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsExecutor(&_SuperGovernor.CallOpts, executor)
-}
-
-// IsExecutor is a free data retrieval call binding the contract method 0xdebfda30.
-//
-// Solidity: function isExecutor(address executor) view returns(bool)
-func (_SuperGovernor *SuperGovernorCallerSession) IsExecutor(executor common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsExecutor(&_SuperGovernor.CallOpts, executor)
-}
-
-// IsFulfillRequestsHookRegistered is a free data retrieval call binding the contract method 0x7d3e649e.
-//
-// Solidity: function isFulfillRequestsHookRegistered(address hook) view returns(bool)
-func (_SuperGovernor *SuperGovernorCaller) IsFulfillRequestsHookRegistered(opts *bind.CallOpts, hook common.Address) (bool, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isFulfillRequestsHookRegistered", hook)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsFulfillRequestsHookRegistered is a free data retrieval call binding the contract method 0x7d3e649e.
-//
-// Solidity: function isFulfillRequestsHookRegistered(address hook) view returns(bool)
-func (_SuperGovernor *SuperGovernorSession) IsFulfillRequestsHookRegistered(hook common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsFulfillRequestsHookRegistered(&_SuperGovernor.CallOpts, hook)
-}
-
-// IsFulfillRequestsHookRegistered is a free data retrieval call binding the contract method 0x7d3e649e.
-//
-// Solidity: function isFulfillRequestsHookRegistered(address hook) view returns(bool)
-func (_SuperGovernor *SuperGovernorCallerSession) IsFulfillRequestsHookRegistered(hook common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsFulfillRequestsHookRegistered(&_SuperGovernor.CallOpts, hook)
-}
-
 // IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
 //
 // Solidity: function isGuardian(address guardian) view returns(bool)
@@ -1566,12 +1576,12 @@ func (_SuperGovernor *SuperGovernorCallerSession) IsHookRegistered(hook common.A
 	return _SuperGovernor.Contract.IsHookRegistered(&_SuperGovernor.CallOpts, hook)
 }
 
-// IsRelayer is a free data retrieval call binding the contract method 0x541d5548.
+// IsManagerTakeoverFrozen is a free data retrieval call binding the contract method 0x5721145f.
 //
-// Solidity: function isRelayer(address relayer) view returns(bool)
-func (_SuperGovernor *SuperGovernorCaller) IsRelayer(opts *bind.CallOpts, relayer common.Address) (bool, error) {
+// Solidity: function isManagerTakeoverFrozen() view returns(bool)
+func (_SuperGovernor *SuperGovernorCaller) IsManagerTakeoverFrozen(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isRelayer", relayer)
+	err := _SuperGovernor.contract.Call(opts, &out, "isManagerTakeoverFrozen")
 
 	if err != nil {
 		return *new(bool), err
@@ -1583,26 +1593,26 @@ func (_SuperGovernor *SuperGovernorCaller) IsRelayer(opts *bind.CallOpts, relaye
 
 }
 
-// IsRelayer is a free data retrieval call binding the contract method 0x541d5548.
+// IsManagerTakeoverFrozen is a free data retrieval call binding the contract method 0x5721145f.
 //
-// Solidity: function isRelayer(address relayer) view returns(bool)
-func (_SuperGovernor *SuperGovernorSession) IsRelayer(relayer common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsRelayer(&_SuperGovernor.CallOpts, relayer)
+// Solidity: function isManagerTakeoverFrozen() view returns(bool)
+func (_SuperGovernor *SuperGovernorSession) IsManagerTakeoverFrozen() (bool, error) {
+	return _SuperGovernor.Contract.IsManagerTakeoverFrozen(&_SuperGovernor.CallOpts)
 }
 
-// IsRelayer is a free data retrieval call binding the contract method 0x541d5548.
+// IsManagerTakeoverFrozen is a free data retrieval call binding the contract method 0x5721145f.
 //
-// Solidity: function isRelayer(address relayer) view returns(bool)
-func (_SuperGovernor *SuperGovernorCallerSession) IsRelayer(relayer common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsRelayer(&_SuperGovernor.CallOpts, relayer)
+// Solidity: function isManagerTakeoverFrozen() view returns(bool)
+func (_SuperGovernor *SuperGovernorCallerSession) IsManagerTakeoverFrozen() (bool, error) {
+	return _SuperGovernor.Contract.IsManagerTakeoverFrozen(&_SuperGovernor.CallOpts)
 }
 
-// IsStrategistTakeoverFrozen is a free data retrieval call binding the contract method 0x0e922b0b.
+// IsSuperformManager is a free data retrieval call binding the contract method 0xae4d256e.
 //
-// Solidity: function isStrategistTakeoverFrozen() view returns(bool)
-func (_SuperGovernor *SuperGovernorCaller) IsStrategistTakeoverFrozen(opts *bind.CallOpts) (bool, error) {
+// Solidity: function isSuperformManager(address manager) view returns(bool isSuperform)
+func (_SuperGovernor *SuperGovernorCaller) IsSuperformManager(opts *bind.CallOpts, manager common.Address) (bool, error) {
 	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isStrategistTakeoverFrozen")
+	err := _SuperGovernor.contract.Call(opts, &out, "isSuperformManager", manager)
 
 	if err != nil {
 		return *new(bool), err
@@ -1614,49 +1624,18 @@ func (_SuperGovernor *SuperGovernorCaller) IsStrategistTakeoverFrozen(opts *bind
 
 }
 
-// IsStrategistTakeoverFrozen is a free data retrieval call binding the contract method 0x0e922b0b.
+// IsSuperformManager is a free data retrieval call binding the contract method 0xae4d256e.
 //
-// Solidity: function isStrategistTakeoverFrozen() view returns(bool)
-func (_SuperGovernor *SuperGovernorSession) IsStrategistTakeoverFrozen() (bool, error) {
-	return _SuperGovernor.Contract.IsStrategistTakeoverFrozen(&_SuperGovernor.CallOpts)
+// Solidity: function isSuperformManager(address manager) view returns(bool isSuperform)
+func (_SuperGovernor *SuperGovernorSession) IsSuperformManager(manager common.Address) (bool, error) {
+	return _SuperGovernor.Contract.IsSuperformManager(&_SuperGovernor.CallOpts, manager)
 }
 
-// IsStrategistTakeoverFrozen is a free data retrieval call binding the contract method 0x0e922b0b.
+// IsSuperformManager is a free data retrieval call binding the contract method 0xae4d256e.
 //
-// Solidity: function isStrategistTakeoverFrozen() view returns(bool)
-func (_SuperGovernor *SuperGovernorCallerSession) IsStrategistTakeoverFrozen() (bool, error) {
-	return _SuperGovernor.Contract.IsStrategistTakeoverFrozen(&_SuperGovernor.CallOpts)
-}
-
-// IsSuperformStrategist is a free data retrieval call binding the contract method 0x72216c59.
-//
-// Solidity: function isSuperformStrategist(address strategist) view returns(bool isSuperform)
-func (_SuperGovernor *SuperGovernorCaller) IsSuperformStrategist(opts *bind.CallOpts, strategist common.Address) (bool, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isSuperformStrategist", strategist)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsSuperformStrategist is a free data retrieval call binding the contract method 0x72216c59.
-//
-// Solidity: function isSuperformStrategist(address strategist) view returns(bool isSuperform)
-func (_SuperGovernor *SuperGovernorSession) IsSuperformStrategist(strategist common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsSuperformStrategist(&_SuperGovernor.CallOpts, strategist)
-}
-
-// IsSuperformStrategist is a free data retrieval call binding the contract method 0x72216c59.
-//
-// Solidity: function isSuperformStrategist(address strategist) view returns(bool isSuperform)
-func (_SuperGovernor *SuperGovernorCallerSession) IsSuperformStrategist(strategist common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsSuperformStrategist(&_SuperGovernor.CallOpts, strategist)
+// Solidity: function isSuperformManager(address manager) view returns(bool isSuperform)
+func (_SuperGovernor *SuperGovernorCallerSession) IsSuperformManager(manager common.Address) (bool, error) {
+	return _SuperGovernor.Contract.IsSuperformManager(&_SuperGovernor.CallOpts, manager)
 }
 
 // IsUpkeepPaymentsEnabled is a free data retrieval call binding the contract method 0x3ef15059.
@@ -1721,37 +1700,6 @@ func (_SuperGovernor *SuperGovernorCallerSession) IsValidator(validator common.A
 	return _SuperGovernor.Contract.IsValidator(&_SuperGovernor.CallOpts, validator)
 }
 
-// IsWhitelistedIncentiveToken is a free data retrieval call binding the contract method 0x7045af80.
-//
-// Solidity: function isWhitelistedIncentiveToken(address token) view returns(bool)
-func (_SuperGovernor *SuperGovernorCaller) IsWhitelistedIncentiveToken(opts *bind.CallOpts, token common.Address) (bool, error) {
-	var out []interface{}
-	err := _SuperGovernor.contract.Call(opts, &out, "isWhitelistedIncentiveToken", token)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsWhitelistedIncentiveToken is a free data retrieval call binding the contract method 0x7045af80.
-//
-// Solidity: function isWhitelistedIncentiveToken(address token) view returns(bool)
-func (_SuperGovernor *SuperGovernorSession) IsWhitelistedIncentiveToken(token common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsWhitelistedIncentiveToken(&_SuperGovernor.CallOpts, token)
-}
-
-// IsWhitelistedIncentiveToken is a free data retrieval call binding the contract method 0x7045af80.
-//
-// Solidity: function isWhitelistedIncentiveToken(address token) view returns(bool)
-func (_SuperGovernor *SuperGovernorCallerSession) IsWhitelistedIncentiveToken(token common.Address) (bool, error) {
-	return _SuperGovernor.Contract.IsWhitelistedIncentiveToken(&_SuperGovernor.CallOpts, token)
-}
-
 // SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
 //
 // Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
@@ -1783,130 +1731,25 @@ func (_SuperGovernor *SuperGovernorCallerSession) SupportsInterface(interfaceId 
 	return _SuperGovernor.Contract.SupportsInterface(&_SuperGovernor.CallOpts, interfaceId)
 }
 
-// AddExecutor is a paid mutator transaction binding the contract method 0x1f5a0bbe.
+// AddSuperformManager is a paid mutator transaction binding the contract method 0xb291fdf3.
 //
-// Solidity: function addExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddExecutor(opts *bind.TransactOpts, executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addExecutor", executor_)
+// Solidity: function addSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorTransactor) AddSuperformManager(opts *bind.TransactOpts, manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "addSuperformManager", manager)
 }
 
-// AddExecutor is a paid mutator transaction binding the contract method 0x1f5a0bbe.
+// AddSuperformManager is a paid mutator transaction binding the contract method 0xb291fdf3.
 //
-// Solidity: function addExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorSession) AddExecutor(executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddExecutor(&_SuperGovernor.TransactOpts, executor_)
+// Solidity: function addSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorSession) AddSuperformManager(manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.AddSuperformManager(&_SuperGovernor.TransactOpts, manager)
 }
 
-// AddExecutor is a paid mutator transaction binding the contract method 0x1f5a0bbe.
+// AddSuperformManager is a paid mutator transaction binding the contract method 0xb291fdf3.
 //
-// Solidity: function addExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddExecutor(executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddExecutor(&_SuperGovernor.TransactOpts, executor_)
-}
-
-// AddICCToWhitelist is a paid mutator transaction binding the contract method 0xd070909e.
-//
-// Solidity: function addICCToWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddICCToWhitelist(opts *bind.TransactOpts, icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addICCToWhitelist", icc)
-}
-
-// AddICCToWhitelist is a paid mutator transaction binding the contract method 0xd070909e.
-//
-// Solidity: function addICCToWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorSession) AddICCToWhitelist(icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddICCToWhitelist(&_SuperGovernor.TransactOpts, icc)
-}
-
-// AddICCToWhitelist is a paid mutator transaction binding the contract method 0xd070909e.
-//
-// Solidity: function addICCToWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddICCToWhitelist(icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddICCToWhitelist(&_SuperGovernor.TransactOpts, icc)
-}
-
-// AddRelayer is a paid mutator transaction binding the contract method 0xdd39f00d.
-//
-// Solidity: function addRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddRelayer(opts *bind.TransactOpts, relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addRelayer", relayer_)
-}
-
-// AddRelayer is a paid mutator transaction binding the contract method 0xdd39f00d.
-//
-// Solidity: function addRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorSession) AddRelayer(relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddRelayer(&_SuperGovernor.TransactOpts, relayer_)
-}
-
-// AddRelayer is a paid mutator transaction binding the contract method 0xdd39f00d.
-//
-// Solidity: function addRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddRelayer(relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddRelayer(&_SuperGovernor.TransactOpts, relayer_)
-}
-
-// AddSuperformStrategist is a paid mutator transaction binding the contract method 0x36819a97.
-//
-// Solidity: function addSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddSuperformStrategist(opts *bind.TransactOpts, strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addSuperformStrategist", strategist)
-}
-
-// AddSuperformStrategist is a paid mutator transaction binding the contract method 0x36819a97.
-//
-// Solidity: function addSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorSession) AddSuperformStrategist(strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddSuperformStrategist(&_SuperGovernor.TransactOpts, strategist)
-}
-
-// AddSuperformStrategist is a paid mutator transaction binding the contract method 0x36819a97.
-//
-// Solidity: function addSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddSuperformStrategist(strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddSuperformStrategist(&_SuperGovernor.TransactOpts, strategist)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddValidator(opts *bind.TransactOpts, validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addValidator", validator)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorSession) AddValidator(validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddValidator(&_SuperGovernor.TransactOpts, validator)
-}
-
-// AddValidator is a paid mutator transaction binding the contract method 0x4d238c8e.
-//
-// Solidity: function addValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddValidator(validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddValidator(&_SuperGovernor.TransactOpts, validator)
-}
-
-// AddVaultBank is a paid mutator transaction binding the contract method 0xbecbf729.
-//
-// Solidity: function addVaultBank(uint64 chainId, address vaultBank) returns()
-func (_SuperGovernor *SuperGovernorTransactor) AddVaultBank(opts *bind.TransactOpts, chainId uint64, vaultBank common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "addVaultBank", chainId, vaultBank)
-}
-
-// AddVaultBank is a paid mutator transaction binding the contract method 0xbecbf729.
-//
-// Solidity: function addVaultBank(uint64 chainId, address vaultBank) returns()
-func (_SuperGovernor *SuperGovernorSession) AddVaultBank(chainId uint64, vaultBank common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddVaultBank(&_SuperGovernor.TransactOpts, chainId, vaultBank)
-}
-
-// AddVaultBank is a paid mutator transaction binding the contract method 0xbecbf729.
-//
-// Solidity: function addVaultBank(uint64 chainId, address vaultBank) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) AddVaultBank(chainId uint64, vaultBank common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.AddVaultBank(&_SuperGovernor.TransactOpts, chainId, vaultBank)
+// Solidity: function addSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) AddSuperformManager(manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.AddSuperformManager(&_SuperGovernor.TransactOpts, manager)
 }
 
 // BatchSetEmergencyPrices is a paid mutator transaction binding the contract method 0x00f1131f.
@@ -1953,44 +1796,44 @@ func (_SuperGovernor *SuperGovernorTransactorSession) BatchSetOracleUptimeFeed(d
 
 // ChangeHooksRootUpdateTimelock is a paid mutator transaction binding the contract method 0x9649933b.
 //
-// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ChangeHooksRootUpdateTimelock(opts *bind.TransactOpts, newTimelock_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "changeHooksRootUpdateTimelock", newTimelock_)
+// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock) returns()
+func (_SuperGovernor *SuperGovernorTransactor) ChangeHooksRootUpdateTimelock(opts *bind.TransactOpts, newTimelock *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "changeHooksRootUpdateTimelock", newTimelock)
 }
 
 // ChangeHooksRootUpdateTimelock is a paid mutator transaction binding the contract method 0x9649933b.
 //
-// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock_) returns()
-func (_SuperGovernor *SuperGovernorSession) ChangeHooksRootUpdateTimelock(newTimelock_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ChangeHooksRootUpdateTimelock(&_SuperGovernor.TransactOpts, newTimelock_)
+// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock) returns()
+func (_SuperGovernor *SuperGovernorSession) ChangeHooksRootUpdateTimelock(newTimelock *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ChangeHooksRootUpdateTimelock(&_SuperGovernor.TransactOpts, newTimelock)
 }
 
 // ChangeHooksRootUpdateTimelock is a paid mutator transaction binding the contract method 0x9649933b.
 //
-// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ChangeHooksRootUpdateTimelock(newTimelock_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ChangeHooksRootUpdateTimelock(&_SuperGovernor.TransactOpts, newTimelock_)
+// Solidity: function changeHooksRootUpdateTimelock(uint256 newTimelock) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ChangeHooksRootUpdateTimelock(newTimelock *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ChangeHooksRootUpdateTimelock(&_SuperGovernor.TransactOpts, newTimelock)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy_, address newStrategist_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ChangePrimaryStrategist(opts *bind.TransactOpts, strategy_ common.Address, newStrategist_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "changePrimaryStrategist", strategy_, newStrategist_)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperGovernor *SuperGovernorTransactor) ChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "changePrimaryManager", strategy, newManager)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy_, address newStrategist_) returns()
-func (_SuperGovernor *SuperGovernorSession) ChangePrimaryStrategist(strategy_ common.Address, newStrategist_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ChangePrimaryStrategist(&_SuperGovernor.TransactOpts, strategy_, newStrategist_)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperGovernor *SuperGovernorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ChangePrimaryManager(&_SuperGovernor.TransactOpts, strategy, newManager)
 }
 
-// ChangePrimaryStrategist is a paid mutator transaction binding the contract method 0x3c308f54.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
 //
-// Solidity: function changePrimaryStrategist(address strategy_, address newStrategist_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ChangePrimaryStrategist(strategy_ common.Address, newStrategist_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ChangePrimaryStrategist(&_SuperGovernor.TransactOpts, strategy_, newStrategist_)
+// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ChangePrimaryManager(&_SuperGovernor.TransactOpts, strategy, newManager)
 }
 
 // ExecuteActivePPSOracleChange is a paid mutator transaction binding the contract method 0xf1031b4e.
@@ -2014,27 +1857,6 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteActivePPSOracleChan
 	return _SuperGovernor.Contract.ExecuteActivePPSOracleChange(&_SuperGovernor.TransactOpts)
 }
 
-// ExecuteAddIncentiveTokens is a paid mutator transaction binding the contract method 0xe5cc7970.
-//
-// Solidity: function executeAddIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorTransactor) ExecuteAddIncentiveTokens(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "executeAddIncentiveTokens")
-}
-
-// ExecuteAddIncentiveTokens is a paid mutator transaction binding the contract method 0xe5cc7970.
-//
-// Solidity: function executeAddIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorSession) ExecuteAddIncentiveTokens() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteAddIncentiveTokens(&_SuperGovernor.TransactOpts)
-}
-
-// ExecuteAddIncentiveTokens is a paid mutator transaction binding the contract method 0xe5cc7970.
-//
-// Solidity: function executeAddIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteAddIncentiveTokens() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteAddIncentiveTokens(&_SuperGovernor.TransactOpts)
-}
-
 // ExecuteFeeUpdate is a paid mutator transaction binding the contract method 0x365d6bf3.
 //
 // Solidity: function executeFeeUpdate(uint8 feeType) returns()
@@ -2056,25 +1878,67 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteFeeUpdate(feeType u
 	return _SuperGovernor.Contract.ExecuteFeeUpdate(&_SuperGovernor.TransactOpts, feeType)
 }
 
-// ExecuteRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xdc972801.
+// ExecuteMinStalenesChange is a paid mutator transaction binding the contract method 0xdf767d13.
 //
-// Solidity: function executeRemoveIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorTransactor) ExecuteRemoveIncentiveTokens(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "executeRemoveIncentiveTokens")
+// Solidity: function executeMinStalenesChange() returns()
+func (_SuperGovernor *SuperGovernorTransactor) ExecuteMinStalenesChange(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "executeMinStalenesChange")
 }
 
-// ExecuteRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xdc972801.
+// ExecuteMinStalenesChange is a paid mutator transaction binding the contract method 0xdf767d13.
 //
-// Solidity: function executeRemoveIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorSession) ExecuteRemoveIncentiveTokens() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteRemoveIncentiveTokens(&_SuperGovernor.TransactOpts)
+// Solidity: function executeMinStalenesChange() returns()
+func (_SuperGovernor *SuperGovernorSession) ExecuteMinStalenesChange() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteMinStalenesChange(&_SuperGovernor.TransactOpts)
 }
 
-// ExecuteRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xdc972801.
+// ExecuteMinStalenesChange is a paid mutator transaction binding the contract method 0xdf767d13.
 //
-// Solidity: function executeRemoveIncentiveTokens() returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteRemoveIncentiveTokens() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteRemoveIncentiveTokens(&_SuperGovernor.TransactOpts)
+// Solidity: function executeMinStalenesChange() returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteMinStalenesChange() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteMinStalenesChange(&_SuperGovernor.TransactOpts)
+}
+
+// ExecuteOracleProviderRemoval is a paid mutator transaction binding the contract method 0x5f0ce3d1.
+//
+// Solidity: function executeOracleProviderRemoval() returns()
+func (_SuperGovernor *SuperGovernorTransactor) ExecuteOracleProviderRemoval(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "executeOracleProviderRemoval")
+}
+
+// ExecuteOracleProviderRemoval is a paid mutator transaction binding the contract method 0x5f0ce3d1.
+//
+// Solidity: function executeOracleProviderRemoval() returns()
+func (_SuperGovernor *SuperGovernorSession) ExecuteOracleProviderRemoval() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteOracleProviderRemoval(&_SuperGovernor.TransactOpts)
+}
+
+// ExecuteOracleProviderRemoval is a paid mutator transaction binding the contract method 0x5f0ce3d1.
+//
+// Solidity: function executeOracleProviderRemoval() returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteOracleProviderRemoval() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteOracleProviderRemoval(&_SuperGovernor.TransactOpts)
+}
+
+// ExecuteOracleUpdate is a paid mutator transaction binding the contract method 0x45e62881.
+//
+// Solidity: function executeOracleUpdate() returns()
+func (_SuperGovernor *SuperGovernorTransactor) ExecuteOracleUpdate(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "executeOracleUpdate")
+}
+
+// ExecuteOracleUpdate is a paid mutator transaction binding the contract method 0x45e62881.
+//
+// Solidity: function executeOracleUpdate() returns()
+func (_SuperGovernor *SuperGovernorSession) ExecuteOracleUpdate() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteOracleUpdate(&_SuperGovernor.TransactOpts)
+}
+
+// ExecuteOracleUpdate is a paid mutator transaction binding the contract method 0x45e62881.
+//
+// Solidity: function executeOracleUpdate() returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteOracleUpdate() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteOracleUpdate(&_SuperGovernor.TransactOpts)
 }
 
 // ExecuteSuperBankHookMerkleRootUpdate is a paid mutator transaction binding the contract method 0x290c49a1.
@@ -2098,25 +1962,25 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteSuperBankHookMerkle
 	return _SuperGovernor.Contract.ExecuteSuperBankHookMerkleRootUpdate(&_SuperGovernor.TransactOpts, hook)
 }
 
-// ExecuteUpkeepCostPerUpdateChange is a paid mutator transaction binding the contract method 0x045b4bdf.
+// ExecuteUpkeepClaim is a paid mutator transaction binding the contract method 0x3202ac23.
 //
-// Solidity: function executeUpkeepCostPerUpdateChange() returns()
-func (_SuperGovernor *SuperGovernorTransactor) ExecuteUpkeepCostPerUpdateChange(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "executeUpkeepCostPerUpdateChange")
+// Solidity: function executeUpkeepClaim(uint256 amount) returns()
+func (_SuperGovernor *SuperGovernorTransactor) ExecuteUpkeepClaim(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "executeUpkeepClaim", amount)
 }
 
-// ExecuteUpkeepCostPerUpdateChange is a paid mutator transaction binding the contract method 0x045b4bdf.
+// ExecuteUpkeepClaim is a paid mutator transaction binding the contract method 0x3202ac23.
 //
-// Solidity: function executeUpkeepCostPerUpdateChange() returns()
-func (_SuperGovernor *SuperGovernorSession) ExecuteUpkeepCostPerUpdateChange() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteUpkeepCostPerUpdateChange(&_SuperGovernor.TransactOpts)
+// Solidity: function executeUpkeepClaim(uint256 amount) returns()
+func (_SuperGovernor *SuperGovernorSession) ExecuteUpkeepClaim(amount *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteUpkeepClaim(&_SuperGovernor.TransactOpts, amount)
 }
 
-// ExecuteUpkeepCostPerUpdateChange is a paid mutator transaction binding the contract method 0x045b4bdf.
+// ExecuteUpkeepClaim is a paid mutator transaction binding the contract method 0x3202ac23.
 //
-// Solidity: function executeUpkeepCostPerUpdateChange() returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteUpkeepCostPerUpdateChange() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteUpkeepCostPerUpdateChange(&_SuperGovernor.TransactOpts)
+// Solidity: function executeUpkeepClaim(uint256 amount) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteUpkeepClaim(amount *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ExecuteUpkeepClaim(&_SuperGovernor.TransactOpts, amount)
 }
 
 // ExecuteUpkeepPaymentsChange is a paid mutator transaction binding the contract method 0xecc3d967.
@@ -2140,46 +2004,25 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteUpkeepPaymentsChang
 	return _SuperGovernor.Contract.ExecuteUpkeepPaymentsChange(&_SuperGovernor.TransactOpts)
 }
 
-// ExecuteVaultBankHookMerkleRootUpdate is a paid mutator transaction binding the contract method 0x1de73a40.
+// FreezeManagerTakeover is a paid mutator transaction binding the contract method 0xca774c12.
 //
-// Solidity: function executeVaultBankHookMerkleRootUpdate(address hook) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ExecuteVaultBankHookMerkleRootUpdate(opts *bind.TransactOpts, hook common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "executeVaultBankHookMerkleRootUpdate", hook)
+// Solidity: function freezeManagerTakeover() returns()
+func (_SuperGovernor *SuperGovernorTransactor) FreezeManagerTakeover(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "freezeManagerTakeover")
 }
 
-// ExecuteVaultBankHookMerkleRootUpdate is a paid mutator transaction binding the contract method 0x1de73a40.
+// FreezeManagerTakeover is a paid mutator transaction binding the contract method 0xca774c12.
 //
-// Solidity: function executeVaultBankHookMerkleRootUpdate(address hook) returns()
-func (_SuperGovernor *SuperGovernorSession) ExecuteVaultBankHookMerkleRootUpdate(hook common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteVaultBankHookMerkleRootUpdate(&_SuperGovernor.TransactOpts, hook)
+// Solidity: function freezeManagerTakeover() returns()
+func (_SuperGovernor *SuperGovernorSession) FreezeManagerTakeover() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.FreezeManagerTakeover(&_SuperGovernor.TransactOpts)
 }
 
-// ExecuteVaultBankHookMerkleRootUpdate is a paid mutator transaction binding the contract method 0x1de73a40.
+// FreezeManagerTakeover is a paid mutator transaction binding the contract method 0xca774c12.
 //
-// Solidity: function executeVaultBankHookMerkleRootUpdate(address hook) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ExecuteVaultBankHookMerkleRootUpdate(hook common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ExecuteVaultBankHookMerkleRootUpdate(&_SuperGovernor.TransactOpts, hook)
-}
-
-// FreezeStrategistTakeover is a paid mutator transaction binding the contract method 0xf0a3f0ec.
-//
-// Solidity: function freezeStrategistTakeover() returns()
-func (_SuperGovernor *SuperGovernorTransactor) FreezeStrategistTakeover(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "freezeStrategistTakeover")
-}
-
-// FreezeStrategistTakeover is a paid mutator transaction binding the contract method 0xf0a3f0ec.
-//
-// Solidity: function freezeStrategistTakeover() returns()
-func (_SuperGovernor *SuperGovernorSession) FreezeStrategistTakeover() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.FreezeStrategistTakeover(&_SuperGovernor.TransactOpts)
-}
-
-// FreezeStrategistTakeover is a paid mutator transaction binding the contract method 0xf0a3f0ec.
-//
-// Solidity: function freezeStrategistTakeover() returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) FreezeStrategistTakeover() (*types.Transaction, error) {
-	return _SuperGovernor.Contract.FreezeStrategistTakeover(&_SuperGovernor.TransactOpts)
+// Solidity: function freezeManagerTakeover() returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) FreezeManagerTakeover() (*types.Transaction, error) {
+	return _SuperGovernor.Contract.FreezeManagerTakeover(&_SuperGovernor.TransactOpts)
 }
 
 // GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
@@ -2224,27 +2067,6 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ProposeActivePPSOracle(ora
 	return _SuperGovernor.Contract.ProposeActivePPSOracle(&_SuperGovernor.TransactOpts, oracle)
 }
 
-// ProposeAddIncentiveTokens is a paid mutator transaction binding the contract method 0x51597672.
-//
-// Solidity: function proposeAddIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ProposeAddIncentiveTokens(opts *bind.TransactOpts, tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "proposeAddIncentiveTokens", tokens)
-}
-
-// ProposeAddIncentiveTokens is a paid mutator transaction binding the contract method 0x51597672.
-//
-// Solidity: function proposeAddIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorSession) ProposeAddIncentiveTokens(tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeAddIncentiveTokens(&_SuperGovernor.TransactOpts, tokens)
-}
-
-// ProposeAddIncentiveTokens is a paid mutator transaction binding the contract method 0x51597672.
-//
-// Solidity: function proposeAddIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ProposeAddIncentiveTokens(tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeAddIncentiveTokens(&_SuperGovernor.TransactOpts, tokens)
-}
-
 // ProposeFee is a paid mutator transaction binding the contract method 0x022e38cf.
 //
 // Solidity: function proposeFee(uint8 feeType, uint256 value) returns()
@@ -2287,25 +2109,25 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ProposeGlobalHooksRoot(new
 	return _SuperGovernor.Contract.ProposeGlobalHooksRoot(&_SuperGovernor.TransactOpts, newRoot)
 }
 
-// ProposeRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xcb53603e.
+// ProposeMinStaleness is a paid mutator transaction binding the contract method 0xc0c10943.
 //
-// Solidity: function proposeRemoveIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ProposeRemoveIncentiveTokens(opts *bind.TransactOpts, tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "proposeRemoveIncentiveTokens", tokens)
+// Solidity: function proposeMinStaleness(uint256 newMinStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactor) ProposeMinStaleness(opts *bind.TransactOpts, newMinStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "proposeMinStaleness", newMinStaleness)
 }
 
-// ProposeRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xcb53603e.
+// ProposeMinStaleness is a paid mutator transaction binding the contract method 0xc0c10943.
 //
-// Solidity: function proposeRemoveIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorSession) ProposeRemoveIncentiveTokens(tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeRemoveIncentiveTokens(&_SuperGovernor.TransactOpts, tokens)
+// Solidity: function proposeMinStaleness(uint256 newMinStaleness) returns()
+func (_SuperGovernor *SuperGovernorSession) ProposeMinStaleness(newMinStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ProposeMinStaleness(&_SuperGovernor.TransactOpts, newMinStaleness)
 }
 
-// ProposeRemoveIncentiveTokens is a paid mutator transaction binding the contract method 0xcb53603e.
+// ProposeMinStaleness is a paid mutator transaction binding the contract method 0xc0c10943.
 //
-// Solidity: function proposeRemoveIncentiveTokens(address[] tokens) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ProposeRemoveIncentiveTokens(tokens []common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeRemoveIncentiveTokens(&_SuperGovernor.TransactOpts, tokens)
+// Solidity: function proposeMinStaleness(uint256 newMinStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) ProposeMinStaleness(newMinStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.ProposeMinStaleness(&_SuperGovernor.TransactOpts, newMinStaleness)
 }
 
 // ProposeSuperBankHookMerkleRoot is a paid mutator transaction binding the contract method 0x5e46e8b9.
@@ -2329,27 +2151,6 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ProposeSuperBankHookMerkle
 	return _SuperGovernor.Contract.ProposeSuperBankHookMerkleRoot(&_SuperGovernor.TransactOpts, hook, proposedRoot)
 }
 
-// ProposeUpkeepCostPerUpdate is a paid mutator transaction binding the contract method 0xd6a8bf3a.
-//
-// Solidity: function proposeUpkeepCostPerUpdate(uint256 newCost_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ProposeUpkeepCostPerUpdate(opts *bind.TransactOpts, newCost_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "proposeUpkeepCostPerUpdate", newCost_)
-}
-
-// ProposeUpkeepCostPerUpdate is a paid mutator transaction binding the contract method 0xd6a8bf3a.
-//
-// Solidity: function proposeUpkeepCostPerUpdate(uint256 newCost_) returns()
-func (_SuperGovernor *SuperGovernorSession) ProposeUpkeepCostPerUpdate(newCost_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeUpkeepCostPerUpdate(&_SuperGovernor.TransactOpts, newCost_)
-}
-
-// ProposeUpkeepCostPerUpdate is a paid mutator transaction binding the contract method 0xd6a8bf3a.
-//
-// Solidity: function proposeUpkeepCostPerUpdate(uint256 newCost_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ProposeUpkeepCostPerUpdate(newCost_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeUpkeepCostPerUpdate(&_SuperGovernor.TransactOpts, newCost_)
-}
-
 // ProposeUpkeepPaymentsChange is a paid mutator transaction binding the contract method 0x778f8a93.
 //
 // Solidity: function proposeUpkeepPaymentsChange(bool enabled) returns()
@@ -2371,46 +2172,25 @@ func (_SuperGovernor *SuperGovernorTransactorSession) ProposeUpkeepPaymentsChang
 	return _SuperGovernor.Contract.ProposeUpkeepPaymentsChange(&_SuperGovernor.TransactOpts, enabled)
 }
 
-// ProposeVaultBankHookMerkleRoot is a paid mutator transaction binding the contract method 0xba96fb67.
+// QueueOracleProviderRemoval is a paid mutator transaction binding the contract method 0x6490305f.
 //
-// Solidity: function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) returns()
-func (_SuperGovernor *SuperGovernorTransactor) ProposeVaultBankHookMerkleRoot(opts *bind.TransactOpts, hook common.Address, proposedRoot [32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "proposeVaultBankHookMerkleRoot", hook, proposedRoot)
-}
-
-// ProposeVaultBankHookMerkleRoot is a paid mutator transaction binding the contract method 0xba96fb67.
-//
-// Solidity: function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) returns()
-func (_SuperGovernor *SuperGovernorSession) ProposeVaultBankHookMerkleRoot(hook common.Address, proposedRoot [32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeVaultBankHookMerkleRoot(&_SuperGovernor.TransactOpts, hook, proposedRoot)
-}
-
-// ProposeVaultBankHookMerkleRoot is a paid mutator transaction binding the contract method 0xba96fb67.
-//
-// Solidity: function proposeVaultBankHookMerkleRoot(address hook, bytes32 proposedRoot) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) ProposeVaultBankHookMerkleRoot(hook common.Address, proposedRoot [32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.ProposeVaultBankHookMerkleRoot(&_SuperGovernor.TransactOpts, hook, proposedRoot)
+// Solidity: function queueOracleProviderRemoval(bytes32[] providers) returns()
+func (_SuperGovernor *SuperGovernorTransactor) QueueOracleProviderRemoval(opts *bind.TransactOpts, providers [][32]byte) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "queueOracleProviderRemoval", providers)
 }
 
 // QueueOracleProviderRemoval is a paid mutator transaction binding the contract method 0x6490305f.
 //
-// Solidity: function queueOracleProviderRemoval(bytes32[] providers_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) QueueOracleProviderRemoval(opts *bind.TransactOpts, providers_ [][32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "queueOracleProviderRemoval", providers_)
+// Solidity: function queueOracleProviderRemoval(bytes32[] providers) returns()
+func (_SuperGovernor *SuperGovernorSession) QueueOracleProviderRemoval(providers [][32]byte) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.QueueOracleProviderRemoval(&_SuperGovernor.TransactOpts, providers)
 }
 
 // QueueOracleProviderRemoval is a paid mutator transaction binding the contract method 0x6490305f.
 //
-// Solidity: function queueOracleProviderRemoval(bytes32[] providers_) returns()
-func (_SuperGovernor *SuperGovernorSession) QueueOracleProviderRemoval(providers_ [][32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.QueueOracleProviderRemoval(&_SuperGovernor.TransactOpts, providers_)
-}
-
-// QueueOracleProviderRemoval is a paid mutator transaction binding the contract method 0x6490305f.
-//
-// Solidity: function queueOracleProviderRemoval(bytes32[] providers_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) QueueOracleProviderRemoval(providers_ [][32]byte) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.QueueOracleProviderRemoval(&_SuperGovernor.TransactOpts, providers_)
+// Solidity: function queueOracleProviderRemoval(bytes32[] providers) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) QueueOracleProviderRemoval(providers [][32]byte) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.QueueOracleProviderRemoval(&_SuperGovernor.TransactOpts, providers)
 }
 
 // QueueOracleUpdate is a paid mutator transaction binding the contract method 0xba1f073c.
@@ -2434,130 +2214,46 @@ func (_SuperGovernor *SuperGovernorTransactorSession) QueueOracleUpdate(bases_ [
 	return _SuperGovernor.Contract.QueueOracleUpdate(&_SuperGovernor.TransactOpts, bases_, quotes_, providers_, feeds_)
 }
 
-// RegisterHook is a paid mutator transaction binding the contract method 0x8481643b.
+// RegisterHook is a paid mutator transaction binding the contract method 0x6354b661.
 //
-// Solidity: function registerHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RegisterHook(opts *bind.TransactOpts, hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "registerHook", hook_, isFulfillRequestsHook_)
+// Solidity: function registerHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorTransactor) RegisterHook(opts *bind.TransactOpts, hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "registerHook", hook)
 }
 
-// RegisterHook is a paid mutator transaction binding the contract method 0x8481643b.
+// RegisterHook is a paid mutator transaction binding the contract method 0x6354b661.
 //
-// Solidity: function registerHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorSession) RegisterHook(hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RegisterHook(&_SuperGovernor.TransactOpts, hook_, isFulfillRequestsHook_)
+// Solidity: function registerHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorSession) RegisterHook(hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.RegisterHook(&_SuperGovernor.TransactOpts, hook)
 }
 
-// RegisterHook is a paid mutator transaction binding the contract method 0x8481643b.
+// RegisterHook is a paid mutator transaction binding the contract method 0x6354b661.
 //
-// Solidity: function registerHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RegisterHook(hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RegisterHook(&_SuperGovernor.TransactOpts, hook_, isFulfillRequestsHook_)
+// Solidity: function registerHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) RegisterHook(hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.RegisterHook(&_SuperGovernor.TransactOpts, hook)
 }
 
-// RemoveExecutor is a paid mutator transaction binding the contract method 0x24788429.
+// RemoveSuperformManager is a paid mutator transaction binding the contract method 0x1c70d542.
 //
-// Solidity: function removeExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RemoveExecutor(opts *bind.TransactOpts, executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "removeExecutor", executor_)
+// Solidity: function removeSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorTransactor) RemoveSuperformManager(opts *bind.TransactOpts, manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "removeSuperformManager", manager)
 }
 
-// RemoveExecutor is a paid mutator transaction binding the contract method 0x24788429.
+// RemoveSuperformManager is a paid mutator transaction binding the contract method 0x1c70d542.
 //
-// Solidity: function removeExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorSession) RemoveExecutor(executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveExecutor(&_SuperGovernor.TransactOpts, executor_)
+// Solidity: function removeSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorSession) RemoveSuperformManager(manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.RemoveSuperformManager(&_SuperGovernor.TransactOpts, manager)
 }
 
-// RemoveExecutor is a paid mutator transaction binding the contract method 0x24788429.
+// RemoveSuperformManager is a paid mutator transaction binding the contract method 0x1c70d542.
 //
-// Solidity: function removeExecutor(address executor_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RemoveExecutor(executor_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveExecutor(&_SuperGovernor.TransactOpts, executor_)
-}
-
-// RemoveICCFromWhitelist is a paid mutator transaction binding the contract method 0x256b71a0.
-//
-// Solidity: function removeICCFromWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RemoveICCFromWhitelist(opts *bind.TransactOpts, icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "removeICCFromWhitelist", icc)
-}
-
-// RemoveICCFromWhitelist is a paid mutator transaction binding the contract method 0x256b71a0.
-//
-// Solidity: function removeICCFromWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorSession) RemoveICCFromWhitelist(icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveICCFromWhitelist(&_SuperGovernor.TransactOpts, icc)
-}
-
-// RemoveICCFromWhitelist is a paid mutator transaction binding the contract method 0x256b71a0.
-//
-// Solidity: function removeICCFromWhitelist(address icc) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RemoveICCFromWhitelist(icc common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveICCFromWhitelist(&_SuperGovernor.TransactOpts, icc)
-}
-
-// RemoveRelayer is a paid mutator transaction binding the contract method 0x60f0a5ac.
-//
-// Solidity: function removeRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RemoveRelayer(opts *bind.TransactOpts, relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "removeRelayer", relayer_)
-}
-
-// RemoveRelayer is a paid mutator transaction binding the contract method 0x60f0a5ac.
-//
-// Solidity: function removeRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorSession) RemoveRelayer(relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveRelayer(&_SuperGovernor.TransactOpts, relayer_)
-}
-
-// RemoveRelayer is a paid mutator transaction binding the contract method 0x60f0a5ac.
-//
-// Solidity: function removeRelayer(address relayer_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RemoveRelayer(relayer_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveRelayer(&_SuperGovernor.TransactOpts, relayer_)
-}
-
-// RemoveSuperformStrategist is a paid mutator transaction binding the contract method 0xd228a653.
-//
-// Solidity: function removeSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RemoveSuperformStrategist(opts *bind.TransactOpts, strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "removeSuperformStrategist", strategist)
-}
-
-// RemoveSuperformStrategist is a paid mutator transaction binding the contract method 0xd228a653.
-//
-// Solidity: function removeSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorSession) RemoveSuperformStrategist(strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveSuperformStrategist(&_SuperGovernor.TransactOpts, strategist)
-}
-
-// RemoveSuperformStrategist is a paid mutator transaction binding the contract method 0xd228a653.
-//
-// Solidity: function removeSuperformStrategist(address strategist) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RemoveSuperformStrategist(strategist common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveSuperformStrategist(&_SuperGovernor.TransactOpts, strategist)
-}
-
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorTransactor) RemoveValidator(opts *bind.TransactOpts, validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "removeValidator", validator)
-}
-
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorSession) RemoveValidator(validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveValidator(&_SuperGovernor.TransactOpts, validator)
-}
-
-// RemoveValidator is a paid mutator transaction binding the contract method 0x40a141ff.
-//
-// Solidity: function removeValidator(address validator) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) RemoveValidator(validator common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.RemoveValidator(&_SuperGovernor.TransactOpts, validator)
+// Solidity: function removeSuperformManager(address manager) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) RemoveSuperformManager(manager common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.RemoveSuperformManager(&_SuperGovernor.TransactOpts, manager)
 }
 
 // RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
@@ -2646,65 +2342,86 @@ func (_SuperGovernor *SuperGovernorTransactorSession) SetAddress(key [32]byte, v
 
 // SetEmergencyPrice is a paid mutator transaction binding the contract method 0x7ee185c1.
 //
-// Solidity: function setEmergencyPrice(address token_, uint256 price_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetEmergencyPrice(opts *bind.TransactOpts, token_ common.Address, price_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setEmergencyPrice", token_, price_)
+// Solidity: function setEmergencyPrice(address token, uint256 price) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetEmergencyPrice(opts *bind.TransactOpts, token common.Address, price *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setEmergencyPrice", token, price)
 }
 
 // SetEmergencyPrice is a paid mutator transaction binding the contract method 0x7ee185c1.
 //
-// Solidity: function setEmergencyPrice(address token_, uint256 price_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetEmergencyPrice(token_ common.Address, price_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetEmergencyPrice(&_SuperGovernor.TransactOpts, token_, price_)
+// Solidity: function setEmergencyPrice(address token, uint256 price) returns()
+func (_SuperGovernor *SuperGovernorSession) SetEmergencyPrice(token common.Address, price *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetEmergencyPrice(&_SuperGovernor.TransactOpts, token, price)
 }
 
 // SetEmergencyPrice is a paid mutator transaction binding the contract method 0x7ee185c1.
 //
-// Solidity: function setEmergencyPrice(address token_, uint256 price_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetEmergencyPrice(token_ common.Address, price_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetEmergencyPrice(&_SuperGovernor.TransactOpts, token_, price_)
+// Solidity: function setEmergencyPrice(address token, uint256 price) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetEmergencyPrice(token common.Address, price *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetEmergencyPrice(&_SuperGovernor.TransactOpts, token, price)
+}
+
+// SetGasInfo is a paid mutator transaction binding the contract method 0x0b4396aa.
+//
+// Solidity: function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetGasInfo(opts *bind.TransactOpts, oracle common.Address, gasIncreasePerEntryBatch *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setGasInfo", oracle, gasIncreasePerEntryBatch)
+}
+
+// SetGasInfo is a paid mutator transaction binding the contract method 0x0b4396aa.
+//
+// Solidity: function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) returns()
+func (_SuperGovernor *SuperGovernorSession) SetGasInfo(oracle common.Address, gasIncreasePerEntryBatch *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetGasInfo(&_SuperGovernor.TransactOpts, oracle, gasIncreasePerEntryBatch)
+}
+
+// SetGasInfo is a paid mutator transaction binding the contract method 0x0b4396aa.
+//
+// Solidity: function setGasInfo(address oracle, uint256 gasIncreasePerEntryBatch) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetGasInfo(oracle common.Address, gasIncreasePerEntryBatch *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetGasInfo(&_SuperGovernor.TransactOpts, oracle, gasIncreasePerEntryBatch)
 }
 
 // SetGlobalHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xd5f3cd86.
 //
-// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetGlobalHooksRootVetoStatus(opts *bind.TransactOpts, vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setGlobalHooksRootVetoStatus", vetoed_)
+// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetGlobalHooksRootVetoStatus(opts *bind.TransactOpts, vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setGlobalHooksRootVetoStatus", vetoed)
 }
 
 // SetGlobalHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xd5f3cd86.
 //
-// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetGlobalHooksRootVetoStatus(vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetGlobalHooksRootVetoStatus(&_SuperGovernor.TransactOpts, vetoed_)
+// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorSession) SetGlobalHooksRootVetoStatus(vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetGlobalHooksRootVetoStatus(&_SuperGovernor.TransactOpts, vetoed)
 }
 
 // SetGlobalHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xd5f3cd86.
 //
-// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetGlobalHooksRootVetoStatus(vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetGlobalHooksRootVetoStatus(&_SuperGovernor.TransactOpts, vetoed_)
+// Solidity: function setGlobalHooksRootVetoStatus(bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetGlobalHooksRootVetoStatus(vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetGlobalHooksRootVetoStatus(&_SuperGovernor.TransactOpts, vetoed)
 }
 
 // SetOracleFeedMaxStaleness is a paid mutator transaction binding the contract method 0x17a79fa6.
 //
-// Solidity: function setOracleFeedMaxStaleness(address feed_, uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetOracleFeedMaxStaleness(opts *bind.TransactOpts, feed_ common.Address, newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setOracleFeedMaxStaleness", feed_, newMaxStaleness_)
+// Solidity: function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetOracleFeedMaxStaleness(opts *bind.TransactOpts, feed common.Address, newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setOracleFeedMaxStaleness", feed, newMaxStaleness)
 }
 
 // SetOracleFeedMaxStaleness is a paid mutator transaction binding the contract method 0x17a79fa6.
 //
-// Solidity: function setOracleFeedMaxStaleness(address feed_, uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetOracleFeedMaxStaleness(feed_ common.Address, newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetOracleFeedMaxStaleness(&_SuperGovernor.TransactOpts, feed_, newMaxStaleness_)
+// Solidity: function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorSession) SetOracleFeedMaxStaleness(feed common.Address, newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetOracleFeedMaxStaleness(&_SuperGovernor.TransactOpts, feed, newMaxStaleness)
 }
 
 // SetOracleFeedMaxStaleness is a paid mutator transaction binding the contract method 0x17a79fa6.
 //
-// Solidity: function setOracleFeedMaxStaleness(address feed_, uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetOracleFeedMaxStaleness(feed_ common.Address, newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetOracleFeedMaxStaleness(&_SuperGovernor.TransactOpts, feed_, newMaxStaleness_)
+// Solidity: function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetOracleFeedMaxStaleness(feed common.Address, newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetOracleFeedMaxStaleness(&_SuperGovernor.TransactOpts, feed, newMaxStaleness)
 }
 
 // SetOracleFeedMaxStalenessBatch is a paid mutator transaction binding the contract method 0x3fa9fe64.
@@ -2730,128 +2447,86 @@ func (_SuperGovernor *SuperGovernorTransactorSession) SetOracleFeedMaxStalenessB
 
 // SetOracleMaxStaleness is a paid mutator transaction binding the contract method 0x324341ed.
 //
-// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetOracleMaxStaleness(opts *bind.TransactOpts, newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setOracleMaxStaleness", newMaxStaleness_)
+// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetOracleMaxStaleness(opts *bind.TransactOpts, newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setOracleMaxStaleness", newMaxStaleness)
 }
 
 // SetOracleMaxStaleness is a paid mutator transaction binding the contract method 0x324341ed.
 //
-// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetOracleMaxStaleness(newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetOracleMaxStaleness(&_SuperGovernor.TransactOpts, newMaxStaleness_)
+// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorSession) SetOracleMaxStaleness(newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetOracleMaxStaleness(&_SuperGovernor.TransactOpts, newMaxStaleness)
 }
 
 // SetOracleMaxStaleness is a paid mutator transaction binding the contract method 0x324341ed.
 //
-// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetOracleMaxStaleness(newMaxStaleness_ *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetOracleMaxStaleness(&_SuperGovernor.TransactOpts, newMaxStaleness_)
-}
-
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetPPSOracleQuorum(opts *bind.TransactOpts, quorum *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setPPSOracleQuorum", quorum)
-}
-
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_SuperGovernor *SuperGovernorSession) SetPPSOracleQuorum(quorum *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetPPSOracleQuorum(&_SuperGovernor.TransactOpts, quorum)
-}
-
-// SetPPSOracleQuorum is a paid mutator transaction binding the contract method 0x52da1de3.
-//
-// Solidity: function setPPSOracleQuorum(uint256 quorum) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetPPSOracleQuorum(quorum *big.Int) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetPPSOracleQuorum(&_SuperGovernor.TransactOpts, quorum)
-}
-
-// SetProver is a paid mutator transaction binding the contract method 0xcbda2992.
-//
-// Solidity: function setProver(address prover_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetProver(opts *bind.TransactOpts, prover_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setProver", prover_)
-}
-
-// SetProver is a paid mutator transaction binding the contract method 0xcbda2992.
-//
-// Solidity: function setProver(address prover_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetProver(prover_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetProver(&_SuperGovernor.TransactOpts, prover_)
-}
-
-// SetProver is a paid mutator transaction binding the contract method 0xcbda2992.
-//
-// Solidity: function setProver(address prover_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetProver(prover_ common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetProver(&_SuperGovernor.TransactOpts, prover_)
+// Solidity: function setOracleMaxStaleness(uint256 newMaxStaleness) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetOracleMaxStaleness(newMaxStaleness *big.Int) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetOracleMaxStaleness(&_SuperGovernor.TransactOpts, newMaxStaleness)
 }
 
 // SetStrategyHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xf5297a47.
 //
-// Solidity: function setStrategyHooksRootVetoStatus(address strategy_, bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetStrategyHooksRootVetoStatus(opts *bind.TransactOpts, strategy_ common.Address, vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setStrategyHooksRootVetoStatus", strategy_, vetoed_)
+// Solidity: function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetStrategyHooksRootVetoStatus(opts *bind.TransactOpts, strategy common.Address, vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setStrategyHooksRootVetoStatus", strategy, vetoed)
 }
 
 // SetStrategyHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xf5297a47.
 //
-// Solidity: function setStrategyHooksRootVetoStatus(address strategy_, bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorSession) SetStrategyHooksRootVetoStatus(strategy_ common.Address, vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetStrategyHooksRootVetoStatus(&_SuperGovernor.TransactOpts, strategy_, vetoed_)
+// Solidity: function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorSession) SetStrategyHooksRootVetoStatus(strategy common.Address, vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetStrategyHooksRootVetoStatus(&_SuperGovernor.TransactOpts, strategy, vetoed)
 }
 
 // SetStrategyHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xf5297a47.
 //
-// Solidity: function setStrategyHooksRootVetoStatus(address strategy_, bool vetoed_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetStrategyHooksRootVetoStatus(strategy_ common.Address, vetoed_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetStrategyHooksRootVetoStatus(&_SuperGovernor.TransactOpts, strategy_, vetoed_)
+// Solidity: function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetStrategyHooksRootVetoStatus(strategy common.Address, vetoed bool) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetStrategyHooksRootVetoStatus(&_SuperGovernor.TransactOpts, strategy, vetoed)
 }
 
-// SetSuperAssetManager is a paid mutator transaction binding the contract method 0xe778f632.
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
 //
-// Solidity: function setSuperAssetManager(address superAsset, address _superAssetManager) returns()
-func (_SuperGovernor *SuperGovernorTransactor) SetSuperAssetManager(opts *bind.TransactOpts, superAsset common.Address, _superAssetManager common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "setSuperAssetManager", superAsset, _superAssetManager)
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_SuperGovernor *SuperGovernorTransactor) SetValidatorConfig(opts *bind.TransactOpts, version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "setValidatorConfig", version, validators, validatorPublicKeys, quorum, offchainConfig)
 }
 
-// SetSuperAssetManager is a paid mutator transaction binding the contract method 0xe778f632.
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
 //
-// Solidity: function setSuperAssetManager(address superAsset, address _superAssetManager) returns()
-func (_SuperGovernor *SuperGovernorSession) SetSuperAssetManager(superAsset common.Address, _superAssetManager common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetSuperAssetManager(&_SuperGovernor.TransactOpts, superAsset, _superAssetManager)
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_SuperGovernor *SuperGovernorSession) SetValidatorConfig(version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetValidatorConfig(&_SuperGovernor.TransactOpts, version, validators, validatorPublicKeys, quorum, offchainConfig)
 }
 
-// SetSuperAssetManager is a paid mutator transaction binding the contract method 0xe778f632.
+// SetValidatorConfig is a paid mutator transaction binding the contract method 0xbd30c0a4.
 //
-// Solidity: function setSuperAssetManager(address superAsset, address _superAssetManager) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) SetSuperAssetManager(superAsset common.Address, _superAssetManager common.Address) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.SetSuperAssetManager(&_SuperGovernor.TransactOpts, superAsset, _superAssetManager)
+// Solidity: function setValidatorConfig(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) SetValidatorConfig(version *big.Int, validators []common.Address, validatorPublicKeys [][]byte, quorum *big.Int, offchainConfig []byte) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.SetValidatorConfig(&_SuperGovernor.TransactOpts, version, validators, validatorPublicKeys, quorum, offchainConfig)
 }
 
-// UnregisterHook is a paid mutator transaction binding the contract method 0xdf30fc07.
+// UnregisterHook is a paid mutator transaction binding the contract method 0xf76f48cb.
 //
-// Solidity: function unregisterHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorTransactor) UnregisterHook(opts *bind.TransactOpts, hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.contract.Transact(opts, "unregisterHook", hook_, isFulfillRequestsHook_)
+// Solidity: function unregisterHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorTransactor) UnregisterHook(opts *bind.TransactOpts, hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.contract.Transact(opts, "unregisterHook", hook)
 }
 
-// UnregisterHook is a paid mutator transaction binding the contract method 0xdf30fc07.
+// UnregisterHook is a paid mutator transaction binding the contract method 0xf76f48cb.
 //
-// Solidity: function unregisterHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorSession) UnregisterHook(hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.UnregisterHook(&_SuperGovernor.TransactOpts, hook_, isFulfillRequestsHook_)
+// Solidity: function unregisterHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorSession) UnregisterHook(hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.UnregisterHook(&_SuperGovernor.TransactOpts, hook)
 }
 
-// UnregisterHook is a paid mutator transaction binding the contract method 0xdf30fc07.
+// UnregisterHook is a paid mutator transaction binding the contract method 0xf76f48cb.
 //
-// Solidity: function unregisterHook(address hook_, bool isFulfillRequestsHook_) returns()
-func (_SuperGovernor *SuperGovernorTransactorSession) UnregisterHook(hook_ common.Address, isFulfillRequestsHook_ bool) (*types.Transaction, error) {
-	return _SuperGovernor.Contract.UnregisterHook(&_SuperGovernor.TransactOpts, hook_, isFulfillRequestsHook_)
+// Solidity: function unregisterHook(address hook) returns()
+func (_SuperGovernor *SuperGovernorTransactorSession) UnregisterHook(hook common.Address) (*types.Transaction, error) {
+	return _SuperGovernor.Contract.UnregisterHook(&_SuperGovernor.TransactOpts, hook)
 }
 
 // SuperGovernorActivePPSOracleChangedIterator is returned from FilterActivePPSOracleChanged and is used to iterate over the raw logs and unpacked data for ActivePPSOracleChanged events raised by the SuperGovernor contract.
@@ -3365,47 +3040,56 @@ func (it *SuperGovernorAddressSetIterator) Close() error {
 
 // SuperGovernorAddressSet represents a AddressSet event raised by the SuperGovernor contract.
 type SuperGovernorAddressSet struct {
-	Key   [32]byte
-	Value common.Address
-	Raw   types.Log // Blockchain specific contextual infos
+	Key      [32]byte
+	OldValue common.Address
+	Value    common.Address
+	Raw      types.Log // Blockchain specific contextual infos
 }
 
-// FilterAddressSet is a free log retrieval operation binding the contract event 0xb37614c7d254ea8d16eb81fa11dddaeb266aa8ba4917980859c7740aff30c691.
+// FilterAddressSet is a free log retrieval operation binding the contract event 0x9ef0e8c8e52743bb38b83b17d9429141d494b8041ca6d616a6c77cebae9cd8b7.
 //
-// Solidity: event AddressSet(bytes32 indexed key, address indexed value)
-func (_SuperGovernor *SuperGovernorFilterer) FilterAddressSet(opts *bind.FilterOpts, key [][32]byte, value []common.Address) (*SuperGovernorAddressSetIterator, error) {
+// Solidity: event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value)
+func (_SuperGovernor *SuperGovernorFilterer) FilterAddressSet(opts *bind.FilterOpts, key [][32]byte, oldValue []common.Address, value []common.Address) (*SuperGovernorAddressSetIterator, error) {
 
 	var keyRule []interface{}
 	for _, keyItem := range key {
 		keyRule = append(keyRule, keyItem)
+	}
+	var oldValueRule []interface{}
+	for _, oldValueItem := range oldValue {
+		oldValueRule = append(oldValueRule, oldValueItem)
 	}
 	var valueRule []interface{}
 	for _, valueItem := range value {
 		valueRule = append(valueRule, valueItem)
 	}
 
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "AddressSet", keyRule, valueRule)
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "AddressSet", keyRule, oldValueRule, valueRule)
 	if err != nil {
 		return nil, err
 	}
 	return &SuperGovernorAddressSetIterator{contract: _SuperGovernor.contract, event: "AddressSet", logs: logs, sub: sub}, nil
 }
 
-// WatchAddressSet is a free log subscription operation binding the contract event 0xb37614c7d254ea8d16eb81fa11dddaeb266aa8ba4917980859c7740aff30c691.
+// WatchAddressSet is a free log subscription operation binding the contract event 0x9ef0e8c8e52743bb38b83b17d9429141d494b8041ca6d616a6c77cebae9cd8b7.
 //
-// Solidity: event AddressSet(bytes32 indexed key, address indexed value)
-func (_SuperGovernor *SuperGovernorFilterer) WatchAddressSet(opts *bind.WatchOpts, sink chan<- *SuperGovernorAddressSet, key [][32]byte, value []common.Address) (event.Subscription, error) {
+// Solidity: event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value)
+func (_SuperGovernor *SuperGovernorFilterer) WatchAddressSet(opts *bind.WatchOpts, sink chan<- *SuperGovernorAddressSet, key [][32]byte, oldValue []common.Address, value []common.Address) (event.Subscription, error) {
 
 	var keyRule []interface{}
 	for _, keyItem := range key {
 		keyRule = append(keyRule, keyItem)
+	}
+	var oldValueRule []interface{}
+	for _, oldValueItem := range oldValue {
+		oldValueRule = append(oldValueRule, oldValueItem)
 	}
 	var valueRule []interface{}
 	for _, valueItem := range value {
 		valueRule = append(valueRule, valueItem)
 	}
 
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "AddressSet", keyRule, valueRule)
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "AddressSet", keyRule, oldValueRule, valueRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3437,300 +3121,12 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchAddressSet(opts *bind.WatchOpt
 	}), nil
 }
 
-// ParseAddressSet is a log parse operation binding the contract event 0xb37614c7d254ea8d16eb81fa11dddaeb266aa8ba4917980859c7740aff30c691.
+// ParseAddressSet is a log parse operation binding the contract event 0x9ef0e8c8e52743bb38b83b17d9429141d494b8041ca6d616a6c77cebae9cd8b7.
 //
-// Solidity: event AddressSet(bytes32 indexed key, address indexed value)
+// Solidity: event AddressSet(bytes32 indexed key, address indexed oldValue, address indexed value)
 func (_SuperGovernor *SuperGovernorFilterer) ParseAddressSet(log types.Log) (*SuperGovernorAddressSet, error) {
 	event := new(SuperGovernorAddressSet)
 	if err := _SuperGovernor.contract.UnpackLog(event, "AddressSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorExecutorAddedIterator is returned from FilterExecutorAdded and is used to iterate over the raw logs and unpacked data for ExecutorAdded events raised by the SuperGovernor contract.
-type SuperGovernorExecutorAddedIterator struct {
-	Event *SuperGovernorExecutorAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorExecutorAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorExecutorAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorExecutorAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorExecutorAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorExecutorAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorExecutorAdded represents a ExecutorAdded event raised by the SuperGovernor contract.
-type SuperGovernorExecutorAdded struct {
-	Executor common.Address
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterExecutorAdded is a free log retrieval operation binding the contract event 0xae5b7c3b000f575c241001dc9bcb3d8778376889353b07121115574eceff78c5.
-//
-// Solidity: event ExecutorAdded(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) FilterExecutorAdded(opts *bind.FilterOpts, executor []common.Address) (*SuperGovernorExecutorAddedIterator, error) {
-
-	var executorRule []interface{}
-	for _, executorItem := range executor {
-		executorRule = append(executorRule, executorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ExecutorAdded", executorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorExecutorAddedIterator{contract: _SuperGovernor.contract, event: "ExecutorAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchExecutorAdded is a free log subscription operation binding the contract event 0xae5b7c3b000f575c241001dc9bcb3d8778376889353b07121115574eceff78c5.
-//
-// Solidity: event ExecutorAdded(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) WatchExecutorAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorExecutorAdded, executor []common.Address) (event.Subscription, error) {
-
-	var executorRule []interface{}
-	for _, executorItem := range executor {
-		executorRule = append(executorRule, executorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ExecutorAdded", executorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorExecutorAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "ExecutorAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseExecutorAdded is a log parse operation binding the contract event 0xae5b7c3b000f575c241001dc9bcb3d8778376889353b07121115574eceff78c5.
-//
-// Solidity: event ExecutorAdded(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) ParseExecutorAdded(log types.Log) (*SuperGovernorExecutorAdded, error) {
-	event := new(SuperGovernorExecutorAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "ExecutorAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorExecutorRemovedIterator is returned from FilterExecutorRemoved and is used to iterate over the raw logs and unpacked data for ExecutorRemoved events raised by the SuperGovernor contract.
-type SuperGovernorExecutorRemovedIterator struct {
-	Event *SuperGovernorExecutorRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorExecutorRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorExecutorRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorExecutorRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorExecutorRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorExecutorRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorExecutorRemoved represents a ExecutorRemoved event raised by the SuperGovernor contract.
-type SuperGovernorExecutorRemoved struct {
-	Executor common.Address
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterExecutorRemoved is a free log retrieval operation binding the contract event 0x4a2cf608bfb427f53279ec7f0eadf48913b9346ccefc3af138dbdec14ea0907d.
-//
-// Solidity: event ExecutorRemoved(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) FilterExecutorRemoved(opts *bind.FilterOpts, executor []common.Address) (*SuperGovernorExecutorRemovedIterator, error) {
-
-	var executorRule []interface{}
-	for _, executorItem := range executor {
-		executorRule = append(executorRule, executorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ExecutorRemoved", executorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorExecutorRemovedIterator{contract: _SuperGovernor.contract, event: "ExecutorRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchExecutorRemoved is a free log subscription operation binding the contract event 0x4a2cf608bfb427f53279ec7f0eadf48913b9346ccefc3af138dbdec14ea0907d.
-//
-// Solidity: event ExecutorRemoved(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) WatchExecutorRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorExecutorRemoved, executor []common.Address) (event.Subscription, error) {
-
-	var executorRule []interface{}
-	for _, executorItem := range executor {
-		executorRule = append(executorRule, executorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ExecutorRemoved", executorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorExecutorRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "ExecutorRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseExecutorRemoved is a log parse operation binding the contract event 0x4a2cf608bfb427f53279ec7f0eadf48913b9346ccefc3af138dbdec14ea0907d.
-//
-// Solidity: event ExecutorRemoved(address indexed executor)
-func (_SuperGovernor *SuperGovernorFilterer) ParseExecutorRemoved(log types.Log) (*SuperGovernorExecutorRemoved, error) {
-	event := new(SuperGovernorExecutorRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "ExecutorRemoved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4028,9 +3424,9 @@ func (_SuperGovernor *SuperGovernorFilterer) ParseFeeUpdated(log types.Log) (*Su
 	return event, nil
 }
 
-// SuperGovernorFulfillRequestsHookRegisteredIterator is returned from FilterFulfillRequestsHookRegistered and is used to iterate over the raw logs and unpacked data for FulfillRequestsHookRegistered events raised by the SuperGovernor contract.
-type SuperGovernorFulfillRequestsHookRegisteredIterator struct {
-	Event *SuperGovernorFulfillRequestsHookRegistered // Event containing the contract specifics and raw log
+// SuperGovernorGasInfoSetIterator is returned from FilterGasInfoSet and is used to iterate over the raw logs and unpacked data for GasInfoSet events raised by the SuperGovernor contract.
+type SuperGovernorGasInfoSetIterator struct {
+	Event *SuperGovernorGasInfoSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -4044,7 +3440,7 @@ type SuperGovernorFulfillRequestsHookRegisteredIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Next() bool {
+func (it *SuperGovernorGasInfoSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -4053,7 +3449,7 @@ func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperGovernorFulfillRequestsHookRegistered)
+			it.Event = new(SuperGovernorGasInfoSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4068,7 +3464,7 @@ func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperGovernorFulfillRequestsHookRegistered)
+		it.Event = new(SuperGovernorGasInfoSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4084,51 +3480,52 @@ func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Error() error {
+func (it *SuperGovernorGasInfoSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperGovernorFulfillRequestsHookRegisteredIterator) Close() error {
+func (it *SuperGovernorGasInfoSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperGovernorFulfillRequestsHookRegistered represents a FulfillRequestsHookRegistered event raised by the SuperGovernor contract.
-type SuperGovernorFulfillRequestsHookRegistered struct {
-	Hook common.Address
-	Raw  types.Log // Blockchain specific contextual infos
+// SuperGovernorGasInfoSet represents a GasInfoSet event raised by the SuperGovernor contract.
+type SuperGovernorGasInfoSet struct {
+	Oracle                   common.Address
+	GasIncreasePerEntryBatch *big.Int
+	Raw                      types.Log // Blockchain specific contextual infos
 }
 
-// FilterFulfillRequestsHookRegistered is a free log retrieval operation binding the contract event 0x11764f0d0c3db8483b5aa057c1f5266bac770010886dc97e83bec7f34f315807.
+// FilterGasInfoSet is a free log retrieval operation binding the contract event 0x5a6a2723fb87c76bcd4e5e9194dbdb6286f8cfbaec12fb975707b9d805d3baf5.
 //
-// Solidity: event FulfillRequestsHookRegistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) FilterFulfillRequestsHookRegistered(opts *bind.FilterOpts, hook []common.Address) (*SuperGovernorFulfillRequestsHookRegisteredIterator, error) {
+// Solidity: event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch)
+func (_SuperGovernor *SuperGovernorFilterer) FilterGasInfoSet(opts *bind.FilterOpts, oracle []common.Address) (*SuperGovernorGasInfoSetIterator, error) {
 
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
+	var oracleRule []interface{}
+	for _, oracleItem := range oracle {
+		oracleRule = append(oracleRule, oracleItem)
 	}
 
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "FulfillRequestsHookRegistered", hookRule)
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "GasInfoSet", oracleRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperGovernorFulfillRequestsHookRegisteredIterator{contract: _SuperGovernor.contract, event: "FulfillRequestsHookRegistered", logs: logs, sub: sub}, nil
+	return &SuperGovernorGasInfoSetIterator{contract: _SuperGovernor.contract, event: "GasInfoSet", logs: logs, sub: sub}, nil
 }
 
-// WatchFulfillRequestsHookRegistered is a free log subscription operation binding the contract event 0x11764f0d0c3db8483b5aa057c1f5266bac770010886dc97e83bec7f34f315807.
+// WatchGasInfoSet is a free log subscription operation binding the contract event 0x5a6a2723fb87c76bcd4e5e9194dbdb6286f8cfbaec12fb975707b9d805d3baf5.
 //
-// Solidity: event FulfillRequestsHookRegistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) WatchFulfillRequestsHookRegistered(opts *bind.WatchOpts, sink chan<- *SuperGovernorFulfillRequestsHookRegistered, hook []common.Address) (event.Subscription, error) {
+// Solidity: event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch)
+func (_SuperGovernor *SuperGovernorFilterer) WatchGasInfoSet(opts *bind.WatchOpts, sink chan<- *SuperGovernorGasInfoSet, oracle []common.Address) (event.Subscription, error) {
 
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
+	var oracleRule []interface{}
+	for _, oracleItem := range oracle {
+		oracleRule = append(oracleRule, oracleItem)
 	}
 
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "FulfillRequestsHookRegistered", hookRule)
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "GasInfoSet", oracleRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4138,8 +3535,8 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchFulfillRequestsHookRegistered(
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorFulfillRequestsHookRegistered)
-				if err := _SuperGovernor.contract.UnpackLog(event, "FulfillRequestsHookRegistered", log); err != nil {
+				event := new(SuperGovernorGasInfoSet)
+				if err := _SuperGovernor.contract.UnpackLog(event, "GasInfoSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4160,156 +3557,12 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchFulfillRequestsHookRegistered(
 	}), nil
 }
 
-// ParseFulfillRequestsHookRegistered is a log parse operation binding the contract event 0x11764f0d0c3db8483b5aa057c1f5266bac770010886dc97e83bec7f34f315807.
+// ParseGasInfoSet is a log parse operation binding the contract event 0x5a6a2723fb87c76bcd4e5e9194dbdb6286f8cfbaec12fb975707b9d805d3baf5.
 //
-// Solidity: event FulfillRequestsHookRegistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) ParseFulfillRequestsHookRegistered(log types.Log) (*SuperGovernorFulfillRequestsHookRegistered, error) {
-	event := new(SuperGovernorFulfillRequestsHookRegistered)
-	if err := _SuperGovernor.contract.UnpackLog(event, "FulfillRequestsHookRegistered", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorFulfillRequestsHookUnregisteredIterator is returned from FilterFulfillRequestsHookUnregistered and is used to iterate over the raw logs and unpacked data for FulfillRequestsHookUnregistered events raised by the SuperGovernor contract.
-type SuperGovernorFulfillRequestsHookUnregisteredIterator struct {
-	Event *SuperGovernorFulfillRequestsHookUnregistered // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorFulfillRequestsHookUnregisteredIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorFulfillRequestsHookUnregistered)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorFulfillRequestsHookUnregistered)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorFulfillRequestsHookUnregisteredIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorFulfillRequestsHookUnregisteredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorFulfillRequestsHookUnregistered represents a FulfillRequestsHookUnregistered event raised by the SuperGovernor contract.
-type SuperGovernorFulfillRequestsHookUnregistered struct {
-	Hook common.Address
-	Raw  types.Log // Blockchain specific contextual infos
-}
-
-// FilterFulfillRequestsHookUnregistered is a free log retrieval operation binding the contract event 0x305fc42e276ebac0666dd3b0dbe7bd4014ce8a289b4078026176e821c4b5ef1d.
-//
-// Solidity: event FulfillRequestsHookUnregistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) FilterFulfillRequestsHookUnregistered(opts *bind.FilterOpts, hook []common.Address) (*SuperGovernorFulfillRequestsHookUnregisteredIterator, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "FulfillRequestsHookUnregistered", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorFulfillRequestsHookUnregisteredIterator{contract: _SuperGovernor.contract, event: "FulfillRequestsHookUnregistered", logs: logs, sub: sub}, nil
-}
-
-// WatchFulfillRequestsHookUnregistered is a free log subscription operation binding the contract event 0x305fc42e276ebac0666dd3b0dbe7bd4014ce8a289b4078026176e821c4b5ef1d.
-//
-// Solidity: event FulfillRequestsHookUnregistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) WatchFulfillRequestsHookUnregistered(opts *bind.WatchOpts, sink chan<- *SuperGovernorFulfillRequestsHookUnregistered, hook []common.Address) (event.Subscription, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "FulfillRequestsHookUnregistered", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorFulfillRequestsHookUnregistered)
-				if err := _SuperGovernor.contract.UnpackLog(event, "FulfillRequestsHookUnregistered", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseFulfillRequestsHookUnregistered is a log parse operation binding the contract event 0x305fc42e276ebac0666dd3b0dbe7bd4014ce8a289b4078026176e821c4b5ef1d.
-//
-// Solidity: event FulfillRequestsHookUnregistered(address indexed hook)
-func (_SuperGovernor *SuperGovernorFilterer) ParseFulfillRequestsHookUnregistered(log types.Log) (*SuperGovernorFulfillRequestsHookUnregistered, error) {
-	event := new(SuperGovernorFulfillRequestsHookUnregistered)
-	if err := _SuperGovernor.contract.UnpackLog(event, "FulfillRequestsHookUnregistered", log); err != nil {
+// Solidity: event GasInfoSet(address indexed oracle, uint256 gasIncreasePerEntryBatch)
+func (_SuperGovernor *SuperGovernorFilterer) ParseGasInfoSet(log types.Log) (*SuperGovernorGasInfoSet, error) {
+	event := new(SuperGovernorGasInfoSet)
+	if err := _SuperGovernor.contract.UnpackLog(event, "GasInfoSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4604,6 +3857,408 @@ func (_SuperGovernor *SuperGovernorFilterer) ParseHookRemoved(log types.Log) (*S
 	return event, nil
 }
 
+// SuperGovernorManagerTakeoversFrozenIterator is returned from FilterManagerTakeoversFrozen and is used to iterate over the raw logs and unpacked data for ManagerTakeoversFrozen events raised by the SuperGovernor contract.
+type SuperGovernorManagerTakeoversFrozenIterator struct {
+	Event *SuperGovernorManagerTakeoversFrozen // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperGovernorManagerTakeoversFrozenIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperGovernorManagerTakeoversFrozen)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperGovernorManagerTakeoversFrozen)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperGovernorManagerTakeoversFrozenIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperGovernorManagerTakeoversFrozenIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperGovernorManagerTakeoversFrozen represents a ManagerTakeoversFrozen event raised by the SuperGovernor contract.
+type SuperGovernorManagerTakeoversFrozen struct {
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterManagerTakeoversFrozen is a free log retrieval operation binding the contract event 0x0cfbf370e135d688f4de1107bfa980d42fe9e0884277d500e4a5262e207df76d.
+//
+// Solidity: event ManagerTakeoversFrozen()
+func (_SuperGovernor *SuperGovernorFilterer) FilterManagerTakeoversFrozen(opts *bind.FilterOpts) (*SuperGovernorManagerTakeoversFrozenIterator, error) {
+
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ManagerTakeoversFrozen")
+	if err != nil {
+		return nil, err
+	}
+	return &SuperGovernorManagerTakeoversFrozenIterator{contract: _SuperGovernor.contract, event: "ManagerTakeoversFrozen", logs: logs, sub: sub}, nil
+}
+
+// WatchManagerTakeoversFrozen is a free log subscription operation binding the contract event 0x0cfbf370e135d688f4de1107bfa980d42fe9e0884277d500e4a5262e207df76d.
+//
+// Solidity: event ManagerTakeoversFrozen()
+func (_SuperGovernor *SuperGovernorFilterer) WatchManagerTakeoversFrozen(opts *bind.WatchOpts, sink chan<- *SuperGovernorManagerTakeoversFrozen) (event.Subscription, error) {
+
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ManagerTakeoversFrozen")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperGovernorManagerTakeoversFrozen)
+				if err := _SuperGovernor.contract.UnpackLog(event, "ManagerTakeoversFrozen", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseManagerTakeoversFrozen is a log parse operation binding the contract event 0x0cfbf370e135d688f4de1107bfa980d42fe9e0884277d500e4a5262e207df76d.
+//
+// Solidity: event ManagerTakeoversFrozen()
+func (_SuperGovernor *SuperGovernorFilterer) ParseManagerTakeoversFrozen(log types.Log) (*SuperGovernorManagerTakeoversFrozen, error) {
+	event := new(SuperGovernorManagerTakeoversFrozen)
+	if err := _SuperGovernor.contract.UnpackLog(event, "ManagerTakeoversFrozen", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperGovernorMinStalenessChangedIterator is returned from FilterMinStalenessChanged and is used to iterate over the raw logs and unpacked data for MinStalenessChanged events raised by the SuperGovernor contract.
+type SuperGovernorMinStalenessChangedIterator struct {
+	Event *SuperGovernorMinStalenessChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperGovernorMinStalenessChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperGovernorMinStalenessChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperGovernorMinStalenessChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperGovernorMinStalenessChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperGovernorMinStalenessChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperGovernorMinStalenessChanged represents a MinStalenessChanged event raised by the SuperGovernor contract.
+type SuperGovernorMinStalenessChanged struct {
+	NewMinStaleness *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterMinStalenessChanged is a free log retrieval operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
+//
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_SuperGovernor *SuperGovernorFilterer) FilterMinStalenessChanged(opts *bind.FilterOpts) (*SuperGovernorMinStalenessChangedIterator, error) {
+
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "MinStalenessChanged")
+	if err != nil {
+		return nil, err
+	}
+	return &SuperGovernorMinStalenessChangedIterator{contract: _SuperGovernor.contract, event: "MinStalenessChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchMinStalenessChanged is a free log subscription operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
+//
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_SuperGovernor *SuperGovernorFilterer) WatchMinStalenessChanged(opts *bind.WatchOpts, sink chan<- *SuperGovernorMinStalenessChanged) (event.Subscription, error) {
+
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "MinStalenessChanged")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperGovernorMinStalenessChanged)
+				if err := _SuperGovernor.contract.UnpackLog(event, "MinStalenessChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMinStalenessChanged is a log parse operation binding the contract event 0xdd85800ed1954145ae82b4749fb1086d34f44bd3bbedc60f44a2330dd9af5a91.
+//
+// Solidity: event MinStalenessChanged(uint256 newMinStaleness)
+func (_SuperGovernor *SuperGovernorFilterer) ParseMinStalenessChanged(log types.Log) (*SuperGovernorMinStalenessChanged, error) {
+	event := new(SuperGovernorMinStalenessChanged)
+	if err := _SuperGovernor.contract.UnpackLog(event, "MinStalenessChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperGovernorMinStalenessProposedIterator is returned from FilterMinStalenessProposed and is used to iterate over the raw logs and unpacked data for MinStalenessProposed events raised by the SuperGovernor contract.
+type SuperGovernorMinStalenessProposedIterator struct {
+	Event *SuperGovernorMinStalenessProposed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperGovernorMinStalenessProposedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperGovernorMinStalenessProposed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperGovernorMinStalenessProposed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperGovernorMinStalenessProposedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperGovernorMinStalenessProposedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperGovernorMinStalenessProposed represents a MinStalenessProposed event raised by the SuperGovernor contract.
+type SuperGovernorMinStalenessProposed struct {
+	NewMinStaleness *big.Int
+	EffectiveTime   *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterMinStalenessProposed is a free log retrieval operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
+//
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorFilterer) FilterMinStalenessProposed(opts *bind.FilterOpts) (*SuperGovernorMinStalenessProposedIterator, error) {
+
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "MinStalenessProposed")
+	if err != nil {
+		return nil, err
+	}
+	return &SuperGovernorMinStalenessProposedIterator{contract: _SuperGovernor.contract, event: "MinStalenessProposed", logs: logs, sub: sub}, nil
+}
+
+// WatchMinStalenessProposed is a free log subscription operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
+//
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorFilterer) WatchMinStalenessProposed(opts *bind.WatchOpts, sink chan<- *SuperGovernorMinStalenessProposed) (event.Subscription, error) {
+
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "MinStalenessProposed")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperGovernorMinStalenessProposed)
+				if err := _SuperGovernor.contract.UnpackLog(event, "MinStalenessProposed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMinStalenessProposed is a log parse operation binding the contract event 0xfdb067d074b49533dc2c47d61ee812ca405a4954706d0736ac5e1715318458af.
+//
+// Solidity: event MinStalenessProposed(uint256 newMinStaleness, uint256 effectiveTime)
+func (_SuperGovernor *SuperGovernorFilterer) ParseMinStalenessProposed(log types.Log) (*SuperGovernorMinStalenessProposed, error) {
+	event := new(SuperGovernorMinStalenessProposed)
+	if err := _SuperGovernor.contract.UnpackLog(event, "MinStalenessProposed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // SuperGovernorPPSOracleQuorumUpdatedIterator is returned from FilterPPSOracleQuorumUpdated and is used to iterate over the raw logs and unpacked data for PPSOracleQuorumUpdated events raised by the SuperGovernor contract.
 type SuperGovernorPPSOracleQuorumUpdatedIterator struct {
 	Event *SuperGovernorPPSOracleQuorumUpdated // Event containing the contract specifics and raw log
@@ -4732,572 +4387,6 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchPPSOracleQuorumUpdated(opts *b
 func (_SuperGovernor *SuperGovernorFilterer) ParsePPSOracleQuorumUpdated(log types.Log) (*SuperGovernorPPSOracleQuorumUpdated, error) {
 	event := new(SuperGovernorPPSOracleQuorumUpdated)
 	if err := _SuperGovernor.contract.UnpackLog(event, "PPSOracleQuorumUpdated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorProverSetIterator is returned from FilterProverSet and is used to iterate over the raw logs and unpacked data for ProverSet events raised by the SuperGovernor contract.
-type SuperGovernorProverSetIterator struct {
-	Event *SuperGovernorProverSet // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorProverSetIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorProverSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorProverSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorProverSetIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorProverSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorProverSet represents a ProverSet event raised by the SuperGovernor contract.
-type SuperGovernorProverSet struct {
-	Prover common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterProverSet is a free log retrieval operation binding the contract event 0xc881e48d34a3dc6ca8b8ab38320d54f4972a7ade617113524dc2c2bf44984c8a.
-//
-// Solidity: event ProverSet(address indexed prover)
-func (_SuperGovernor *SuperGovernorFilterer) FilterProverSet(opts *bind.FilterOpts, prover []common.Address) (*SuperGovernorProverSetIterator, error) {
-
-	var proverRule []interface{}
-	for _, proverItem := range prover {
-		proverRule = append(proverRule, proverItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ProverSet", proverRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorProverSetIterator{contract: _SuperGovernor.contract, event: "ProverSet", logs: logs, sub: sub}, nil
-}
-
-// WatchProverSet is a free log subscription operation binding the contract event 0xc881e48d34a3dc6ca8b8ab38320d54f4972a7ade617113524dc2c2bf44984c8a.
-//
-// Solidity: event ProverSet(address indexed prover)
-func (_SuperGovernor *SuperGovernorFilterer) WatchProverSet(opts *bind.WatchOpts, sink chan<- *SuperGovernorProverSet, prover []common.Address) (event.Subscription, error) {
-
-	var proverRule []interface{}
-	for _, proverItem := range prover {
-		proverRule = append(proverRule, proverItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ProverSet", proverRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorProverSet)
-				if err := _SuperGovernor.contract.UnpackLog(event, "ProverSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseProverSet is a log parse operation binding the contract event 0xc881e48d34a3dc6ca8b8ab38320d54f4972a7ade617113524dc2c2bf44984c8a.
-//
-// Solidity: event ProverSet(address indexed prover)
-func (_SuperGovernor *SuperGovernorFilterer) ParseProverSet(log types.Log) (*SuperGovernorProverSet, error) {
-	event := new(SuperGovernorProverSet)
-	if err := _SuperGovernor.contract.UnpackLog(event, "ProverSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorRelayerAddedIterator is returned from FilterRelayerAdded and is used to iterate over the raw logs and unpacked data for RelayerAdded events raised by the SuperGovernor contract.
-type SuperGovernorRelayerAddedIterator struct {
-	Event *SuperGovernorRelayerAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorRelayerAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorRelayerAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorRelayerAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorRelayerAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorRelayerAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorRelayerAdded represents a RelayerAdded event raised by the SuperGovernor contract.
-type SuperGovernorRelayerAdded struct {
-	Relayer common.Address
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterRelayerAdded is a free log retrieval operation binding the contract event 0x03580ee9f53a62b7cb409a2cb56f9be87747dd15017afc5cef6eef321e4fb2c5.
-//
-// Solidity: event RelayerAdded(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) FilterRelayerAdded(opts *bind.FilterOpts, relayer []common.Address) (*SuperGovernorRelayerAddedIterator, error) {
-
-	var relayerRule []interface{}
-	for _, relayerItem := range relayer {
-		relayerRule = append(relayerRule, relayerItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "RelayerAdded", relayerRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorRelayerAddedIterator{contract: _SuperGovernor.contract, event: "RelayerAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchRelayerAdded is a free log subscription operation binding the contract event 0x03580ee9f53a62b7cb409a2cb56f9be87747dd15017afc5cef6eef321e4fb2c5.
-//
-// Solidity: event RelayerAdded(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) WatchRelayerAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorRelayerAdded, relayer []common.Address) (event.Subscription, error) {
-
-	var relayerRule []interface{}
-	for _, relayerItem := range relayer {
-		relayerRule = append(relayerRule, relayerItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "RelayerAdded", relayerRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorRelayerAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "RelayerAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseRelayerAdded is a log parse operation binding the contract event 0x03580ee9f53a62b7cb409a2cb56f9be87747dd15017afc5cef6eef321e4fb2c5.
-//
-// Solidity: event RelayerAdded(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) ParseRelayerAdded(log types.Log) (*SuperGovernorRelayerAdded, error) {
-	event := new(SuperGovernorRelayerAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "RelayerAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorRelayerRemovedIterator is returned from FilterRelayerRemoved and is used to iterate over the raw logs and unpacked data for RelayerRemoved events raised by the SuperGovernor contract.
-type SuperGovernorRelayerRemovedIterator struct {
-	Event *SuperGovernorRelayerRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorRelayerRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorRelayerRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorRelayerRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorRelayerRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorRelayerRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorRelayerRemoved represents a RelayerRemoved event raised by the SuperGovernor contract.
-type SuperGovernorRelayerRemoved struct {
-	Relayer common.Address
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterRelayerRemoved is a free log retrieval operation binding the contract event 0x10e1f7ce9fd7d1b90a66d13a2ab3cb8dd7f29f3f8d520b143b063ccfbab6906b.
-//
-// Solidity: event RelayerRemoved(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) FilterRelayerRemoved(opts *bind.FilterOpts, relayer []common.Address) (*SuperGovernorRelayerRemovedIterator, error) {
-
-	var relayerRule []interface{}
-	for _, relayerItem := range relayer {
-		relayerRule = append(relayerRule, relayerItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "RelayerRemoved", relayerRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorRelayerRemovedIterator{contract: _SuperGovernor.contract, event: "RelayerRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchRelayerRemoved is a free log subscription operation binding the contract event 0x10e1f7ce9fd7d1b90a66d13a2ab3cb8dd7f29f3f8d520b143b063ccfbab6906b.
-//
-// Solidity: event RelayerRemoved(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) WatchRelayerRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorRelayerRemoved, relayer []common.Address) (event.Subscription, error) {
-
-	var relayerRule []interface{}
-	for _, relayerItem := range relayer {
-		relayerRule = append(relayerRule, relayerItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "RelayerRemoved", relayerRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorRelayerRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "RelayerRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseRelayerRemoved is a log parse operation binding the contract event 0x10e1f7ce9fd7d1b90a66d13a2ab3cb8dd7f29f3f8d520b143b063ccfbab6906b.
-//
-// Solidity: event RelayerRemoved(address indexed relayer)
-func (_SuperGovernor *SuperGovernorFilterer) ParseRelayerRemoved(log types.Log) (*SuperGovernorRelayerRemoved, error) {
-	event := new(SuperGovernorRelayerRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "RelayerRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorRevenueShareUpdatedIterator is returned from FilterRevenueShareUpdated and is used to iterate over the raw logs and unpacked data for RevenueShareUpdated events raised by the SuperGovernor contract.
-type SuperGovernorRevenueShareUpdatedIterator struct {
-	Event *SuperGovernorRevenueShareUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorRevenueShareUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorRevenueShareUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorRevenueShareUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorRevenueShareUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorRevenueShareUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorRevenueShareUpdated represents a RevenueShareUpdated event raised by the SuperGovernor contract.
-type SuperGovernorRevenueShareUpdated struct {
-	Share *big.Int
-	Raw   types.Log // Blockchain specific contextual infos
-}
-
-// FilterRevenueShareUpdated is a free log retrieval operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_SuperGovernor *SuperGovernorFilterer) FilterRevenueShareUpdated(opts *bind.FilterOpts) (*SuperGovernorRevenueShareUpdatedIterator, error) {
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "RevenueShareUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorRevenueShareUpdatedIterator{contract: _SuperGovernor.contract, event: "RevenueShareUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchRevenueShareUpdated is a free log subscription operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_SuperGovernor *SuperGovernorFilterer) WatchRevenueShareUpdated(opts *bind.WatchOpts, sink chan<- *SuperGovernorRevenueShareUpdated) (event.Subscription, error) {
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "RevenueShareUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorRevenueShareUpdated)
-				if err := _SuperGovernor.contract.UnpackLog(event, "RevenueShareUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseRevenueShareUpdated is a log parse operation binding the contract event 0x343a3cad72a9e3a0fe71e8417402226b647587dfd1713f79f85413ed27df7f7b.
-//
-// Solidity: event RevenueShareUpdated(uint256 share)
-func (_SuperGovernor *SuperGovernorFilterer) ParseRevenueShareUpdated(log types.Log) (*SuperGovernorRevenueShareUpdated, error) {
-	event := new(SuperGovernorRevenueShareUpdated)
-	if err := _SuperGovernor.contract.UnpackLog(event, "RevenueShareUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -5790,427 +4879,6 @@ func (_SuperGovernor *SuperGovernorFilterer) ParseRoleRevoked(log types.Log) (*S
 	return event, nil
 }
 
-// SuperGovernorStrategistAddedIterator is returned from FilterStrategistAdded and is used to iterate over the raw logs and unpacked data for StrategistAdded events raised by the SuperGovernor contract.
-type SuperGovernorStrategistAddedIterator struct {
-	Event *SuperGovernorStrategistAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorStrategistAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorStrategistAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorStrategistAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorStrategistAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorStrategistAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorStrategistAdded represents a StrategistAdded event raised by the SuperGovernor contract.
-type SuperGovernorStrategistAdded struct {
-	Strategist common.Address
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterStrategistAdded is a free log retrieval operation binding the contract event 0xb7bc4a807819acf1980215983104cd2f50404cc9d86a0078869e431167d55a1b.
-//
-// Solidity: event StrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) FilterStrategistAdded(opts *bind.FilterOpts, strategist []common.Address) (*SuperGovernorStrategistAddedIterator, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "StrategistAdded", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorStrategistAddedIterator{contract: _SuperGovernor.contract, event: "StrategistAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchStrategistAdded is a free log subscription operation binding the contract event 0xb7bc4a807819acf1980215983104cd2f50404cc9d86a0078869e431167d55a1b.
-//
-// Solidity: event StrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) WatchStrategistAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorStrategistAdded, strategist []common.Address) (event.Subscription, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "StrategistAdded", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorStrategistAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "StrategistAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseStrategistAdded is a log parse operation binding the contract event 0xb7bc4a807819acf1980215983104cd2f50404cc9d86a0078869e431167d55a1b.
-//
-// Solidity: event StrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) ParseStrategistAdded(log types.Log) (*SuperGovernorStrategistAdded, error) {
-	event := new(SuperGovernorStrategistAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "StrategistAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorStrategistRemovedIterator is returned from FilterStrategistRemoved and is used to iterate over the raw logs and unpacked data for StrategistRemoved events raised by the SuperGovernor contract.
-type SuperGovernorStrategistRemovedIterator struct {
-	Event *SuperGovernorStrategistRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorStrategistRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorStrategistRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorStrategistRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorStrategistRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorStrategistRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorStrategistRemoved represents a StrategistRemoved event raised by the SuperGovernor contract.
-type SuperGovernorStrategistRemoved struct {
-	Strategist common.Address
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterStrategistRemoved is a free log retrieval operation binding the contract event 0x2f4370deaa4838aa66a5370105f58c9d313fc7d4f22271170e74081a0a0c26a1.
-//
-// Solidity: event StrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) FilterStrategistRemoved(opts *bind.FilterOpts, strategist []common.Address) (*SuperGovernorStrategistRemovedIterator, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "StrategistRemoved", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorStrategistRemovedIterator{contract: _SuperGovernor.contract, event: "StrategistRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchStrategistRemoved is a free log subscription operation binding the contract event 0x2f4370deaa4838aa66a5370105f58c9d313fc7d4f22271170e74081a0a0c26a1.
-//
-// Solidity: event StrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) WatchStrategistRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorStrategistRemoved, strategist []common.Address) (event.Subscription, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "StrategistRemoved", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorStrategistRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "StrategistRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseStrategistRemoved is a log parse operation binding the contract event 0x2f4370deaa4838aa66a5370105f58c9d313fc7d4f22271170e74081a0a0c26a1.
-//
-// Solidity: event StrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) ParseStrategistRemoved(log types.Log) (*SuperGovernorStrategistRemoved, error) {
-	event := new(SuperGovernorStrategistRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "StrategistRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorStrategistTakeoversFrozenIterator is returned from FilterStrategistTakeoversFrozen and is used to iterate over the raw logs and unpacked data for StrategistTakeoversFrozen events raised by the SuperGovernor contract.
-type SuperGovernorStrategistTakeoversFrozenIterator struct {
-	Event *SuperGovernorStrategistTakeoversFrozen // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorStrategistTakeoversFrozenIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorStrategistTakeoversFrozen)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorStrategistTakeoversFrozen)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorStrategistTakeoversFrozenIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorStrategistTakeoversFrozenIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorStrategistTakeoversFrozen represents a StrategistTakeoversFrozen event raised by the SuperGovernor contract.
-type SuperGovernorStrategistTakeoversFrozen struct {
-	Raw types.Log // Blockchain specific contextual infos
-}
-
-// FilterStrategistTakeoversFrozen is a free log retrieval operation binding the contract event 0x64db12abd2060a62e7b55cea37074f5477f801baed3a294c7b30bf85160e2d3a.
-//
-// Solidity: event StrategistTakeoversFrozen()
-func (_SuperGovernor *SuperGovernorFilterer) FilterStrategistTakeoversFrozen(opts *bind.FilterOpts) (*SuperGovernorStrategistTakeoversFrozenIterator, error) {
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "StrategistTakeoversFrozen")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorStrategistTakeoversFrozenIterator{contract: _SuperGovernor.contract, event: "StrategistTakeoversFrozen", logs: logs, sub: sub}, nil
-}
-
-// WatchStrategistTakeoversFrozen is a free log subscription operation binding the contract event 0x64db12abd2060a62e7b55cea37074f5477f801baed3a294c7b30bf85160e2d3a.
-//
-// Solidity: event StrategistTakeoversFrozen()
-func (_SuperGovernor *SuperGovernorFilterer) WatchStrategistTakeoversFrozen(opts *bind.WatchOpts, sink chan<- *SuperGovernorStrategistTakeoversFrozen) (event.Subscription, error) {
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "StrategistTakeoversFrozen")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorStrategistTakeoversFrozen)
-				if err := _SuperGovernor.contract.UnpackLog(event, "StrategistTakeoversFrozen", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseStrategistTakeoversFrozen is a log parse operation binding the contract event 0x64db12abd2060a62e7b55cea37074f5477f801baed3a294c7b30bf85160e2d3a.
-//
-// Solidity: event StrategistTakeoversFrozen()
-func (_SuperGovernor *SuperGovernorFilterer) ParseStrategistTakeoversFrozen(log types.Log) (*SuperGovernorStrategistTakeoversFrozen, error) {
-	event := new(SuperGovernorStrategistTakeoversFrozen)
-	if err := _SuperGovernor.contract.UnpackLog(event, "StrategistTakeoversFrozen", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // SuperGovernorSuperBankHookMerkleRootProposedIterator is returned from FilterSuperBankHookMerkleRootProposed and is used to iterate over the raw logs and unpacked data for SuperBankHookMerkleRootProposed events raised by the SuperGovernor contract.
 type SuperGovernorSuperBankHookMerkleRootProposedIterator struct {
 	Event *SuperGovernorSuperBankHookMerkleRootProposed // Event containing the contract specifics and raw log
@@ -6502,9 +5170,9 @@ func (_SuperGovernor *SuperGovernorFilterer) ParseSuperBankHookMerkleRootUpdated
 	return event, nil
 }
 
-// SuperGovernorSuperformStrategistAddedIterator is returned from FilterSuperformStrategistAdded and is used to iterate over the raw logs and unpacked data for SuperformStrategistAdded events raised by the SuperGovernor contract.
-type SuperGovernorSuperformStrategistAddedIterator struct {
-	Event *SuperGovernorSuperformStrategistAdded // Event containing the contract specifics and raw log
+// SuperGovernorSuperformManagerAddedIterator is returned from FilterSuperformManagerAdded and is used to iterate over the raw logs and unpacked data for SuperformManagerAdded events raised by the SuperGovernor contract.
+type SuperGovernorSuperformManagerAddedIterator struct {
+	Event *SuperGovernorSuperformManagerAdded // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -6518,7 +5186,7 @@ type SuperGovernorSuperformStrategistAddedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorSuperformStrategistAddedIterator) Next() bool {
+func (it *SuperGovernorSuperformManagerAddedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -6527,7 +5195,7 @@ func (it *SuperGovernorSuperformStrategistAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperGovernorSuperformStrategistAdded)
+			it.Event = new(SuperGovernorSuperformManagerAdded)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -6542,7 +5210,7 @@ func (it *SuperGovernorSuperformStrategistAddedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperGovernorSuperformStrategistAdded)
+		it.Event = new(SuperGovernorSuperformManagerAdded)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -6558,329 +5226,51 @@ func (it *SuperGovernorSuperformStrategistAddedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorSuperformStrategistAddedIterator) Error() error {
+func (it *SuperGovernorSuperformManagerAddedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperGovernorSuperformStrategistAddedIterator) Close() error {
+func (it *SuperGovernorSuperformManagerAddedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperGovernorSuperformStrategistAdded represents a SuperformStrategistAdded event raised by the SuperGovernor contract.
-type SuperGovernorSuperformStrategistAdded struct {
-	Strategist common.Address
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterSuperformStrategistAdded is a free log retrieval operation binding the contract event 0x0d9e04b66e574eed4c03dc494cb9b7a5c865f9a5910d5c727445b2eed7aab497.
-//
-// Solidity: event SuperformStrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) FilterSuperformStrategistAdded(opts *bind.FilterOpts, strategist []common.Address) (*SuperGovernorSuperformStrategistAddedIterator, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "SuperformStrategistAdded", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorSuperformStrategistAddedIterator{contract: _SuperGovernor.contract, event: "SuperformStrategistAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchSuperformStrategistAdded is a free log subscription operation binding the contract event 0x0d9e04b66e574eed4c03dc494cb9b7a5c865f9a5910d5c727445b2eed7aab497.
-//
-// Solidity: event SuperformStrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) WatchSuperformStrategistAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorSuperformStrategistAdded, strategist []common.Address) (event.Subscription, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "SuperformStrategistAdded", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorSuperformStrategistAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "SuperformStrategistAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseSuperformStrategistAdded is a log parse operation binding the contract event 0x0d9e04b66e574eed4c03dc494cb9b7a5c865f9a5910d5c727445b2eed7aab497.
-//
-// Solidity: event SuperformStrategistAdded(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) ParseSuperformStrategistAdded(log types.Log) (*SuperGovernorSuperformStrategistAdded, error) {
-	event := new(SuperGovernorSuperformStrategistAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "SuperformStrategistAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorSuperformStrategistRemovedIterator is returned from FilterSuperformStrategistRemoved and is used to iterate over the raw logs and unpacked data for SuperformStrategistRemoved events raised by the SuperGovernor contract.
-type SuperGovernorSuperformStrategistRemovedIterator struct {
-	Event *SuperGovernorSuperformStrategistRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorSuperformStrategistRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorSuperformStrategistRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorSuperformStrategistRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorSuperformStrategistRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorSuperformStrategistRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorSuperformStrategistRemoved represents a SuperformStrategistRemoved event raised by the SuperGovernor contract.
-type SuperGovernorSuperformStrategistRemoved struct {
-	Strategist common.Address
-	Raw        types.Log // Blockchain specific contextual infos
-}
-
-// FilterSuperformStrategistRemoved is a free log retrieval operation binding the contract event 0x6eebcc6b9ad28a4486fa00acec4245cc669e509eb5f37051b02f293a133894ce.
-//
-// Solidity: event SuperformStrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) FilterSuperformStrategistRemoved(opts *bind.FilterOpts, strategist []common.Address) (*SuperGovernorSuperformStrategistRemovedIterator, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "SuperformStrategistRemoved", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorSuperformStrategistRemovedIterator{contract: _SuperGovernor.contract, event: "SuperformStrategistRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchSuperformStrategistRemoved is a free log subscription operation binding the contract event 0x6eebcc6b9ad28a4486fa00acec4245cc669e509eb5f37051b02f293a133894ce.
-//
-// Solidity: event SuperformStrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) WatchSuperformStrategistRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorSuperformStrategistRemoved, strategist []common.Address) (event.Subscription, error) {
-
-	var strategistRule []interface{}
-	for _, strategistItem := range strategist {
-		strategistRule = append(strategistRule, strategistItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "SuperformStrategistRemoved", strategistRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorSuperformStrategistRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "SuperformStrategistRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseSuperformStrategistRemoved is a log parse operation binding the contract event 0x6eebcc6b9ad28a4486fa00acec4245cc669e509eb5f37051b02f293a133894ce.
-//
-// Solidity: event SuperformStrategistRemoved(address indexed strategist)
-func (_SuperGovernor *SuperGovernorFilterer) ParseSuperformStrategistRemoved(log types.Log) (*SuperGovernorSuperformStrategistRemoved, error) {
-	event := new(SuperGovernorSuperformStrategistRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "SuperformStrategistRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorUpkeepCostPerUpdateChangedIterator is returned from FilterUpkeepCostPerUpdateChanged and is used to iterate over the raw logs and unpacked data for UpkeepCostPerUpdateChanged events raised by the SuperGovernor contract.
-type SuperGovernorUpkeepCostPerUpdateChangedIterator struct {
-	Event *SuperGovernorUpkeepCostPerUpdateChanged // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorUpkeepCostPerUpdateChangedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorUpkeepCostPerUpdateChanged)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorUpkeepCostPerUpdateChanged)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorUpkeepCostPerUpdateChangedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorUpkeepCostPerUpdateChangedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorUpkeepCostPerUpdateChanged represents a UpkeepCostPerUpdateChanged event raised by the SuperGovernor contract.
-type SuperGovernorUpkeepCostPerUpdateChanged struct {
-	NewCost *big.Int
+// SuperGovernorSuperformManagerAdded represents a SuperformManagerAdded event raised by the SuperGovernor contract.
+type SuperGovernorSuperformManagerAdded struct {
+	Manager common.Address
 	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterUpkeepCostPerUpdateChanged is a free log retrieval operation binding the contract event 0x1ab7e1c2577ef2ff1ab808b28915a8fb8371717c6e45797badd8053ec79a8319.
+// FilterSuperformManagerAdded is a free log retrieval operation binding the contract event 0x12c16151d1e0db8865cc79e38b297dcc5b372789b7efc7cc4460df4e3a4afbd6.
 //
-// Solidity: event UpkeepCostPerUpdateChanged(uint256 newCost)
-func (_SuperGovernor *SuperGovernorFilterer) FilterUpkeepCostPerUpdateChanged(opts *bind.FilterOpts) (*SuperGovernorUpkeepCostPerUpdateChangedIterator, error) {
+// Solidity: event SuperformManagerAdded(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) FilterSuperformManagerAdded(opts *bind.FilterOpts, manager []common.Address) (*SuperGovernorSuperformManagerAddedIterator, error) {
 
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "UpkeepCostPerUpdateChanged")
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "SuperformManagerAdded", managerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperGovernorUpkeepCostPerUpdateChangedIterator{contract: _SuperGovernor.contract, event: "UpkeepCostPerUpdateChanged", logs: logs, sub: sub}, nil
+	return &SuperGovernorSuperformManagerAddedIterator{contract: _SuperGovernor.contract, event: "SuperformManagerAdded", logs: logs, sub: sub}, nil
 }
 
-// WatchUpkeepCostPerUpdateChanged is a free log subscription operation binding the contract event 0x1ab7e1c2577ef2ff1ab808b28915a8fb8371717c6e45797badd8053ec79a8319.
+// WatchSuperformManagerAdded is a free log subscription operation binding the contract event 0x12c16151d1e0db8865cc79e38b297dcc5b372789b7efc7cc4460df4e3a4afbd6.
 //
-// Solidity: event UpkeepCostPerUpdateChanged(uint256 newCost)
-func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateChanged(opts *bind.WatchOpts, sink chan<- *SuperGovernorUpkeepCostPerUpdateChanged) (event.Subscription, error) {
+// Solidity: event SuperformManagerAdded(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) WatchSuperformManagerAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorSuperformManagerAdded, manager []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "UpkeepCostPerUpdateChanged")
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "SuperformManagerAdded", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -6890,8 +5280,8 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateChanged(opt
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorUpkeepCostPerUpdateChanged)
-				if err := _SuperGovernor.contract.UnpackLog(event, "UpkeepCostPerUpdateChanged", log); err != nil {
+				event := new(SuperGovernorSuperformManagerAdded)
+				if err := _SuperGovernor.contract.UnpackLog(event, "SuperformManagerAdded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -6912,21 +5302,21 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateChanged(opt
 	}), nil
 }
 
-// ParseUpkeepCostPerUpdateChanged is a log parse operation binding the contract event 0x1ab7e1c2577ef2ff1ab808b28915a8fb8371717c6e45797badd8053ec79a8319.
+// ParseSuperformManagerAdded is a log parse operation binding the contract event 0x12c16151d1e0db8865cc79e38b297dcc5b372789b7efc7cc4460df4e3a4afbd6.
 //
-// Solidity: event UpkeepCostPerUpdateChanged(uint256 newCost)
-func (_SuperGovernor *SuperGovernorFilterer) ParseUpkeepCostPerUpdateChanged(log types.Log) (*SuperGovernorUpkeepCostPerUpdateChanged, error) {
-	event := new(SuperGovernorUpkeepCostPerUpdateChanged)
-	if err := _SuperGovernor.contract.UnpackLog(event, "UpkeepCostPerUpdateChanged", log); err != nil {
+// Solidity: event SuperformManagerAdded(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) ParseSuperformManagerAdded(log types.Log) (*SuperGovernorSuperformManagerAdded, error) {
+	event := new(SuperGovernorSuperformManagerAdded)
+	if err := _SuperGovernor.contract.UnpackLog(event, "SuperformManagerAdded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// SuperGovernorUpkeepCostPerUpdateProposedIterator is returned from FilterUpkeepCostPerUpdateProposed and is used to iterate over the raw logs and unpacked data for UpkeepCostPerUpdateProposed events raised by the SuperGovernor contract.
-type SuperGovernorUpkeepCostPerUpdateProposedIterator struct {
-	Event *SuperGovernorUpkeepCostPerUpdateProposed // Event containing the contract specifics and raw log
+// SuperGovernorSuperformManagerRemovedIterator is returned from FilterSuperformManagerRemoved and is used to iterate over the raw logs and unpacked data for SuperformManagerRemoved events raised by the SuperGovernor contract.
+type SuperGovernorSuperformManagerRemovedIterator struct {
+	Event *SuperGovernorSuperformManagerRemoved // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -6940,7 +5330,7 @@ type SuperGovernorUpkeepCostPerUpdateProposedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Next() bool {
+func (it *SuperGovernorSuperformManagerRemovedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -6949,7 +5339,7 @@ func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperGovernorUpkeepCostPerUpdateProposed)
+			it.Event = new(SuperGovernorSuperformManagerRemoved)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -6964,7 +5354,7 @@ func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperGovernorUpkeepCostPerUpdateProposed)
+		it.Event = new(SuperGovernorSuperformManagerRemoved)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -6980,42 +5370,51 @@ func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Error() error {
+func (it *SuperGovernorSuperformManagerRemovedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperGovernorUpkeepCostPerUpdateProposedIterator) Close() error {
+func (it *SuperGovernorSuperformManagerRemovedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperGovernorUpkeepCostPerUpdateProposed represents a UpkeepCostPerUpdateProposed event raised by the SuperGovernor contract.
-type SuperGovernorUpkeepCostPerUpdateProposed struct {
-	NewCost       *big.Int
-	EffectiveTime *big.Int
-	Raw           types.Log // Blockchain specific contextual infos
+// SuperGovernorSuperformManagerRemoved represents a SuperformManagerRemoved event raised by the SuperGovernor contract.
+type SuperGovernorSuperformManagerRemoved struct {
+	Manager common.Address
+	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterUpkeepCostPerUpdateProposed is a free log retrieval operation binding the contract event 0x9ef1e125d24f54271ecd16a06b5e5dfe9b7f92809186ab8a23afa3c9f4820673.
+// FilterSuperformManagerRemoved is a free log retrieval operation binding the contract event 0x9ea6376bcd095bc346ab7f5c534391c1a6ba1bb5153caf5e068742acd4f55162.
 //
-// Solidity: event UpkeepCostPerUpdateProposed(uint256 newCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) FilterUpkeepCostPerUpdateProposed(opts *bind.FilterOpts) (*SuperGovernorUpkeepCostPerUpdateProposedIterator, error) {
+// Solidity: event SuperformManagerRemoved(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) FilterSuperformManagerRemoved(opts *bind.FilterOpts, manager []common.Address) (*SuperGovernorSuperformManagerRemovedIterator, error) {
 
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "UpkeepCostPerUpdateProposed")
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "SuperformManagerRemoved", managerRule)
 	if err != nil {
 		return nil, err
 	}
-	return &SuperGovernorUpkeepCostPerUpdateProposedIterator{contract: _SuperGovernor.contract, event: "UpkeepCostPerUpdateProposed", logs: logs, sub: sub}, nil
+	return &SuperGovernorSuperformManagerRemovedIterator{contract: _SuperGovernor.contract, event: "SuperformManagerRemoved", logs: logs, sub: sub}, nil
 }
 
-// WatchUpkeepCostPerUpdateProposed is a free log subscription operation binding the contract event 0x9ef1e125d24f54271ecd16a06b5e5dfe9b7f92809186ab8a23afa3c9f4820673.
+// WatchSuperformManagerRemoved is a free log subscription operation binding the contract event 0x9ea6376bcd095bc346ab7f5c534391c1a6ba1bb5153caf5e068742acd4f55162.
 //
-// Solidity: event UpkeepCostPerUpdateProposed(uint256 newCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateProposed(opts *bind.WatchOpts, sink chan<- *SuperGovernorUpkeepCostPerUpdateProposed) (event.Subscription, error) {
+// Solidity: event SuperformManagerRemoved(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) WatchSuperformManagerRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorSuperformManagerRemoved, manager []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "UpkeepCostPerUpdateProposed")
+	var managerRule []interface{}
+	for _, managerItem := range manager {
+		managerRule = append(managerRule, managerItem)
+	}
+
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "SuperformManagerRemoved", managerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -7025,8 +5424,8 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateProposed(op
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorUpkeepCostPerUpdateProposed)
-				if err := _SuperGovernor.contract.UnpackLog(event, "UpkeepCostPerUpdateProposed", log); err != nil {
+				event := new(SuperGovernorSuperformManagerRemoved)
+				if err := _SuperGovernor.contract.UnpackLog(event, "SuperformManagerRemoved", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -7047,12 +5446,12 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchUpkeepCostPerUpdateProposed(op
 	}), nil
 }
 
-// ParseUpkeepCostPerUpdateProposed is a log parse operation binding the contract event 0x9ef1e125d24f54271ecd16a06b5e5dfe9b7f92809186ab8a23afa3c9f4820673.
+// ParseSuperformManagerRemoved is a log parse operation binding the contract event 0x9ea6376bcd095bc346ab7f5c534391c1a6ba1bb5153caf5e068742acd4f55162.
 //
-// Solidity: event UpkeepCostPerUpdateProposed(uint256 newCost, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) ParseUpkeepCostPerUpdateProposed(log types.Log) (*SuperGovernorUpkeepCostPerUpdateProposed, error) {
-	event := new(SuperGovernorUpkeepCostPerUpdateProposed)
-	if err := _SuperGovernor.contract.UnpackLog(event, "UpkeepCostPerUpdateProposed", log); err != nil {
+// Solidity: event SuperformManagerRemoved(address indexed manager)
+func (_SuperGovernor *SuperGovernorFilterer) ParseSuperformManagerRemoved(log types.Log) (*SuperGovernorSuperformManagerRemoved, error) {
+	event := new(SuperGovernorSuperformManagerRemoved)
+	if err := _SuperGovernor.contract.UnpackLog(event, "SuperformManagerRemoved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -7328,9 +5727,9 @@ func (_SuperGovernor *SuperGovernorFilterer) ParseUpkeepPaymentsChanged(log type
 	return event, nil
 }
 
-// SuperGovernorValidatorAddedIterator is returned from FilterValidatorAdded and is used to iterate over the raw logs and unpacked data for ValidatorAdded events raised by the SuperGovernor contract.
-type SuperGovernorValidatorAddedIterator struct {
-	Event *SuperGovernorValidatorAdded // Event containing the contract specifics and raw log
+// SuperGovernorValidatorConfigSetIterator is returned from FilterValidatorConfigSet and is used to iterate over the raw logs and unpacked data for ValidatorConfigSet events raised by the SuperGovernor contract.
+type SuperGovernorValidatorConfigSetIterator struct {
+	Event *SuperGovernorValidatorConfigSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -7344,7 +5743,7 @@ type SuperGovernorValidatorAddedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorValidatorAddedIterator) Next() bool {
+func (it *SuperGovernorValidatorConfigSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -7353,7 +5752,7 @@ func (it *SuperGovernorValidatorAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(SuperGovernorValidatorAdded)
+			it.Event = new(SuperGovernorValidatorConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -7368,7 +5767,7 @@ func (it *SuperGovernorValidatorAddedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(SuperGovernorValidatorAdded)
+		it.Event = new(SuperGovernorValidatorConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -7384,51 +5783,45 @@ func (it *SuperGovernorValidatorAddedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorValidatorAddedIterator) Error() error {
+func (it *SuperGovernorValidatorConfigSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *SuperGovernorValidatorAddedIterator) Close() error {
+func (it *SuperGovernorValidatorConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// SuperGovernorValidatorAdded represents a ValidatorAdded event raised by the SuperGovernor contract.
-type SuperGovernorValidatorAdded struct {
-	Validator common.Address
-	Raw       types.Log // Blockchain specific contextual infos
+// SuperGovernorValidatorConfigSet represents a ValidatorConfigSet event raised by the SuperGovernor contract.
+type SuperGovernorValidatorConfigSet struct {
+	Version             *big.Int
+	Validators          []common.Address
+	ValidatorPublicKeys [][]byte
+	Quorum              *big.Int
+	OffchainConfig      []byte
+	Raw                 types.Log // Blockchain specific contextual infos
 }
 
-// FilterValidatorAdded is a free log retrieval operation binding the contract event 0xe366c1c0452ed8eec96861e9e54141ebff23c9ec89fe27b996b45f5ec3884987.
+// FilterValidatorConfigSet is a free log retrieval operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) FilterValidatorAdded(opts *bind.FilterOpts, validator []common.Address) (*SuperGovernorValidatorAddedIterator, error) {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_SuperGovernor *SuperGovernorFilterer) FilterValidatorConfigSet(opts *bind.FilterOpts) (*SuperGovernorValidatorConfigSetIterator, error) {
 
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ValidatorAdded", validatorRule)
+	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ValidatorConfigSet")
 	if err != nil {
 		return nil, err
 	}
-	return &SuperGovernorValidatorAddedIterator{contract: _SuperGovernor.contract, event: "ValidatorAdded", logs: logs, sub: sub}, nil
+	return &SuperGovernorValidatorConfigSetIterator{contract: _SuperGovernor.contract, event: "ValidatorConfigSet", logs: logs, sub: sub}, nil
 }
 
-// WatchValidatorAdded is a free log subscription operation binding the contract event 0xe366c1c0452ed8eec96861e9e54141ebff23c9ec89fe27b996b45f5ec3884987.
+// WatchValidatorConfigSet is a free log subscription operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) WatchValidatorAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorValidatorAdded, validator []common.Address) (event.Subscription, error) {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_SuperGovernor *SuperGovernorFilterer) WatchValidatorConfigSet(opts *bind.WatchOpts, sink chan<- *SuperGovernorValidatorConfigSet) (event.Subscription, error) {
 
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ValidatorAdded", validatorRule)
+	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ValidatorConfigSet")
 	if err != nil {
 		return nil, err
 	}
@@ -7438,8 +5831,8 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchValidatorAdded(opts *bind.Watc
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorValidatorAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorAdded", log); err != nil {
+				event := new(SuperGovernorValidatorConfigSet)
+				if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -7460,1003 +5853,12 @@ func (_SuperGovernor *SuperGovernorFilterer) WatchValidatorAdded(opts *bind.Watc
 	}), nil
 }
 
-// ParseValidatorAdded is a log parse operation binding the contract event 0xe366c1c0452ed8eec96861e9e54141ebff23c9ec89fe27b996b45f5ec3884987.
+// ParseValidatorConfigSet is a log parse operation binding the contract event 0x5d7a87c67174e2485c6c957c19e11534f6e560d50eb4eca8e855c46bc12919f8.
 //
-// Solidity: event ValidatorAdded(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) ParseValidatorAdded(log types.Log) (*SuperGovernorValidatorAdded, error) {
-	event := new(SuperGovernorValidatorAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorValidatorRemovedIterator is returned from FilterValidatorRemoved and is used to iterate over the raw logs and unpacked data for ValidatorRemoved events raised by the SuperGovernor contract.
-type SuperGovernorValidatorRemovedIterator struct {
-	Event *SuperGovernorValidatorRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorValidatorRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorValidatorRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorValidatorRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorValidatorRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorValidatorRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorValidatorRemoved represents a ValidatorRemoved event raised by the SuperGovernor contract.
-type SuperGovernorValidatorRemoved struct {
-	Validator common.Address
-	Raw       types.Log // Blockchain specific contextual infos
-}
-
-// FilterValidatorRemoved is a free log retrieval operation binding the contract event 0xe1434e25d6611e0db941968fdc97811c982ac1602e951637d206f5fdda9dd8f1.
-//
-// Solidity: event ValidatorRemoved(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) FilterValidatorRemoved(opts *bind.FilterOpts, validator []common.Address) (*SuperGovernorValidatorRemovedIterator, error) {
-
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "ValidatorRemoved", validatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorValidatorRemovedIterator{contract: _SuperGovernor.contract, event: "ValidatorRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchValidatorRemoved is a free log subscription operation binding the contract event 0xe1434e25d6611e0db941968fdc97811c982ac1602e951637d206f5fdda9dd8f1.
-//
-// Solidity: event ValidatorRemoved(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) WatchValidatorRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorValidatorRemoved, validator []common.Address) (event.Subscription, error) {
-
-	var validatorRule []interface{}
-	for _, validatorItem := range validator {
-		validatorRule = append(validatorRule, validatorItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "ValidatorRemoved", validatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorValidatorRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseValidatorRemoved is a log parse operation binding the contract event 0xe1434e25d6611e0db941968fdc97811c982ac1602e951637d206f5fdda9dd8f1.
-//
-// Solidity: event ValidatorRemoved(address indexed validator)
-func (_SuperGovernor *SuperGovernorFilterer) ParseValidatorRemoved(log types.Log) (*SuperGovernorValidatorRemoved, error) {
-	event := new(SuperGovernorValidatorRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorVaultBankAddressAddedIterator is returned from FilterVaultBankAddressAdded and is used to iterate over the raw logs and unpacked data for VaultBankAddressAdded events raised by the SuperGovernor contract.
-type SuperGovernorVaultBankAddressAddedIterator struct {
-	Event *SuperGovernorVaultBankAddressAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorVaultBankAddressAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorVaultBankAddressAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorVaultBankAddressAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorVaultBankAddressAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorVaultBankAddressAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorVaultBankAddressAdded represents a VaultBankAddressAdded event raised by the SuperGovernor contract.
-type SuperGovernorVaultBankAddressAdded struct {
-	ChainId   uint64
-	VaultBank common.Address
-	Raw       types.Log // Blockchain specific contextual infos
-}
-
-// FilterVaultBankAddressAdded is a free log retrieval operation binding the contract event 0x5cb45d0d54e4695b28909810784917d1e30ad097489dc83bfc62abac3097f169.
-//
-// Solidity: event VaultBankAddressAdded(uint64 indexed chainId, address indexed vaultBank)
-func (_SuperGovernor *SuperGovernorFilterer) FilterVaultBankAddressAdded(opts *bind.FilterOpts, chainId []uint64, vaultBank []common.Address) (*SuperGovernorVaultBankAddressAddedIterator, error) {
-
-	var chainIdRule []interface{}
-	for _, chainIdItem := range chainId {
-		chainIdRule = append(chainIdRule, chainIdItem)
-	}
-	var vaultBankRule []interface{}
-	for _, vaultBankItem := range vaultBank {
-		vaultBankRule = append(vaultBankRule, vaultBankItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "VaultBankAddressAdded", chainIdRule, vaultBankRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorVaultBankAddressAddedIterator{contract: _SuperGovernor.contract, event: "VaultBankAddressAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchVaultBankAddressAdded is a free log subscription operation binding the contract event 0x5cb45d0d54e4695b28909810784917d1e30ad097489dc83bfc62abac3097f169.
-//
-// Solidity: event VaultBankAddressAdded(uint64 indexed chainId, address indexed vaultBank)
-func (_SuperGovernor *SuperGovernorFilterer) WatchVaultBankAddressAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorVaultBankAddressAdded, chainId []uint64, vaultBank []common.Address) (event.Subscription, error) {
-
-	var chainIdRule []interface{}
-	for _, chainIdItem := range chainId {
-		chainIdRule = append(chainIdRule, chainIdItem)
-	}
-	var vaultBankRule []interface{}
-	for _, vaultBankItem := range vaultBank {
-		vaultBankRule = append(vaultBankRule, vaultBankItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "VaultBankAddressAdded", chainIdRule, vaultBankRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorVaultBankAddressAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankAddressAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseVaultBankAddressAdded is a log parse operation binding the contract event 0x5cb45d0d54e4695b28909810784917d1e30ad097489dc83bfc62abac3097f169.
-//
-// Solidity: event VaultBankAddressAdded(uint64 indexed chainId, address indexed vaultBank)
-func (_SuperGovernor *SuperGovernorFilterer) ParseVaultBankAddressAdded(log types.Log) (*SuperGovernorVaultBankAddressAdded, error) {
-	event := new(SuperGovernorVaultBankAddressAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankAddressAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorVaultBankHookMerkleRootProposedIterator is returned from FilterVaultBankHookMerkleRootProposed and is used to iterate over the raw logs and unpacked data for VaultBankHookMerkleRootProposed events raised by the SuperGovernor contract.
-type SuperGovernorVaultBankHookMerkleRootProposedIterator struct {
-	Event *SuperGovernorVaultBankHookMerkleRootProposed // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorVaultBankHookMerkleRootProposedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorVaultBankHookMerkleRootProposed)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorVaultBankHookMerkleRootProposed)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorVaultBankHookMerkleRootProposedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorVaultBankHookMerkleRootProposedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorVaultBankHookMerkleRootProposed represents a VaultBankHookMerkleRootProposed event raised by the SuperGovernor contract.
-type SuperGovernorVaultBankHookMerkleRootProposed struct {
-	Hook          common.Address
-	NewRoot       [32]byte
-	EffectiveTime *big.Int
-	Raw           types.Log // Blockchain specific contextual infos
-}
-
-// FilterVaultBankHookMerkleRootProposed is a free log retrieval operation binding the contract event 0xfed894aa6018dfdc5cdaaa43cc8ab59cadae93a82571bdcf49f5219065a366dd.
-//
-// Solidity: event VaultBankHookMerkleRootProposed(address indexed hook, bytes32 newRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) FilterVaultBankHookMerkleRootProposed(opts *bind.FilterOpts, hook []common.Address) (*SuperGovernorVaultBankHookMerkleRootProposedIterator, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "VaultBankHookMerkleRootProposed", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorVaultBankHookMerkleRootProposedIterator{contract: _SuperGovernor.contract, event: "VaultBankHookMerkleRootProposed", logs: logs, sub: sub}, nil
-}
-
-// WatchVaultBankHookMerkleRootProposed is a free log subscription operation binding the contract event 0xfed894aa6018dfdc5cdaaa43cc8ab59cadae93a82571bdcf49f5219065a366dd.
-//
-// Solidity: event VaultBankHookMerkleRootProposed(address indexed hook, bytes32 newRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) WatchVaultBankHookMerkleRootProposed(opts *bind.WatchOpts, sink chan<- *SuperGovernorVaultBankHookMerkleRootProposed, hook []common.Address) (event.Subscription, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "VaultBankHookMerkleRootProposed", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorVaultBankHookMerkleRootProposed)
-				if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankHookMerkleRootProposed", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseVaultBankHookMerkleRootProposed is a log parse operation binding the contract event 0xfed894aa6018dfdc5cdaaa43cc8ab59cadae93a82571bdcf49f5219065a366dd.
-//
-// Solidity: event VaultBankHookMerkleRootProposed(address indexed hook, bytes32 newRoot, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) ParseVaultBankHookMerkleRootProposed(log types.Log) (*SuperGovernorVaultBankHookMerkleRootProposed, error) {
-	event := new(SuperGovernorVaultBankHookMerkleRootProposed)
-	if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankHookMerkleRootProposed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorVaultBankHookMerkleRootUpdatedIterator is returned from FilterVaultBankHookMerkleRootUpdated and is used to iterate over the raw logs and unpacked data for VaultBankHookMerkleRootUpdated events raised by the SuperGovernor contract.
-type SuperGovernorVaultBankHookMerkleRootUpdatedIterator struct {
-	Event *SuperGovernorVaultBankHookMerkleRootUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorVaultBankHookMerkleRootUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorVaultBankHookMerkleRootUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorVaultBankHookMerkleRootUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorVaultBankHookMerkleRootUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorVaultBankHookMerkleRootUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorVaultBankHookMerkleRootUpdated represents a VaultBankHookMerkleRootUpdated event raised by the SuperGovernor contract.
-type SuperGovernorVaultBankHookMerkleRootUpdated struct {
-	Hook    common.Address
-	NewRoot [32]byte
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterVaultBankHookMerkleRootUpdated is a free log retrieval operation binding the contract event 0x86b54825d63e1f082661065387182da51e6eb5a1ae1e63e1b0fd8a99aaf7e11f.
-//
-// Solidity: event VaultBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot)
-func (_SuperGovernor *SuperGovernorFilterer) FilterVaultBankHookMerkleRootUpdated(opts *bind.FilterOpts, hook []common.Address) (*SuperGovernorVaultBankHookMerkleRootUpdatedIterator, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "VaultBankHookMerkleRootUpdated", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorVaultBankHookMerkleRootUpdatedIterator{contract: _SuperGovernor.contract, event: "VaultBankHookMerkleRootUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchVaultBankHookMerkleRootUpdated is a free log subscription operation binding the contract event 0x86b54825d63e1f082661065387182da51e6eb5a1ae1e63e1b0fd8a99aaf7e11f.
-//
-// Solidity: event VaultBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot)
-func (_SuperGovernor *SuperGovernorFilterer) WatchVaultBankHookMerkleRootUpdated(opts *bind.WatchOpts, sink chan<- *SuperGovernorVaultBankHookMerkleRootUpdated, hook []common.Address) (event.Subscription, error) {
-
-	var hookRule []interface{}
-	for _, hookItem := range hook {
-		hookRule = append(hookRule, hookItem)
-	}
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "VaultBankHookMerkleRootUpdated", hookRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorVaultBankHookMerkleRootUpdated)
-				if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankHookMerkleRootUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseVaultBankHookMerkleRootUpdated is a log parse operation binding the contract event 0x86b54825d63e1f082661065387182da51e6eb5a1ae1e63e1b0fd8a99aaf7e11f.
-//
-// Solidity: event VaultBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot)
-func (_SuperGovernor *SuperGovernorFilterer) ParseVaultBankHookMerkleRootUpdated(log types.Log) (*SuperGovernorVaultBankHookMerkleRootUpdated, error) {
-	event := new(SuperGovernorVaultBankHookMerkleRootUpdated)
-	if err := _SuperGovernor.contract.UnpackLog(event, "VaultBankHookMerkleRootUpdated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensAddedIterator is returned from FilterWhitelistedIncentiveTokensAdded and is used to iterate over the raw logs and unpacked data for WhitelistedIncentiveTokensAdded events raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensAddedIterator struct {
-	Event *SuperGovernorWhitelistedIncentiveTokensAdded // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorWhitelistedIncentiveTokensAddedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorWhitelistedIncentiveTokensAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorWhitelistedIncentiveTokensAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorWhitelistedIncentiveTokensAddedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorWhitelistedIncentiveTokensAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensAdded represents a WhitelistedIncentiveTokensAdded event raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensAdded struct {
-	Tokens []common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterWhitelistedIncentiveTokensAdded is a free log retrieval operation binding the contract event 0xfcea9a0a0943a560b6065073054ea3e19aa43e137d7e753876775ad1179847c6.
-//
-// Solidity: event WhitelistedIncentiveTokensAdded(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) FilterWhitelistedIncentiveTokensAdded(opts *bind.FilterOpts) (*SuperGovernorWhitelistedIncentiveTokensAddedIterator, error) {
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "WhitelistedIncentiveTokensAdded")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorWhitelistedIncentiveTokensAddedIterator{contract: _SuperGovernor.contract, event: "WhitelistedIncentiveTokensAdded", logs: logs, sub: sub}, nil
-}
-
-// WatchWhitelistedIncentiveTokensAdded is a free log subscription operation binding the contract event 0xfcea9a0a0943a560b6065073054ea3e19aa43e137d7e753876775ad1179847c6.
-//
-// Solidity: event WhitelistedIncentiveTokensAdded(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) WatchWhitelistedIncentiveTokensAdded(opts *bind.WatchOpts, sink chan<- *SuperGovernorWhitelistedIncentiveTokensAdded) (event.Subscription, error) {
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "WhitelistedIncentiveTokensAdded")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorWhitelistedIncentiveTokensAdded)
-				if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseWhitelistedIncentiveTokensAdded is a log parse operation binding the contract event 0xfcea9a0a0943a560b6065073054ea3e19aa43e137d7e753876775ad1179847c6.
-//
-// Solidity: event WhitelistedIncentiveTokensAdded(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) ParseWhitelistedIncentiveTokensAdded(log types.Log) (*SuperGovernorWhitelistedIncentiveTokensAdded, error) {
-	event := new(SuperGovernorWhitelistedIncentiveTokensAdded)
-	if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensProposedIterator is returned from FilterWhitelistedIncentiveTokensProposed and is used to iterate over the raw logs and unpacked data for WhitelistedIncentiveTokensProposed events raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensProposedIterator struct {
-	Event *SuperGovernorWhitelistedIncentiveTokensProposed // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorWhitelistedIncentiveTokensProposedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorWhitelistedIncentiveTokensProposed)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorWhitelistedIncentiveTokensProposed)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorWhitelistedIncentiveTokensProposedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorWhitelistedIncentiveTokensProposedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensProposed represents a WhitelistedIncentiveTokensProposed event raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensProposed struct {
-	Tokens        []common.Address
-	EffectiveTime *big.Int
-	Raw           types.Log // Blockchain specific contextual infos
-}
-
-// FilterWhitelistedIncentiveTokensProposed is a free log retrieval operation binding the contract event 0xdc25fd6bdd21f8da9b5b76d30960d45120a708e1f91ae912871da0fc21454979.
-//
-// Solidity: event WhitelistedIncentiveTokensProposed(address[] tokens, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) FilterWhitelistedIncentiveTokensProposed(opts *bind.FilterOpts) (*SuperGovernorWhitelistedIncentiveTokensProposedIterator, error) {
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "WhitelistedIncentiveTokensProposed")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorWhitelistedIncentiveTokensProposedIterator{contract: _SuperGovernor.contract, event: "WhitelistedIncentiveTokensProposed", logs: logs, sub: sub}, nil
-}
-
-// WatchWhitelistedIncentiveTokensProposed is a free log subscription operation binding the contract event 0xdc25fd6bdd21f8da9b5b76d30960d45120a708e1f91ae912871da0fc21454979.
-//
-// Solidity: event WhitelistedIncentiveTokensProposed(address[] tokens, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) WatchWhitelistedIncentiveTokensProposed(opts *bind.WatchOpts, sink chan<- *SuperGovernorWhitelistedIncentiveTokensProposed) (event.Subscription, error) {
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "WhitelistedIncentiveTokensProposed")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorWhitelistedIncentiveTokensProposed)
-				if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensProposed", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseWhitelistedIncentiveTokensProposed is a log parse operation binding the contract event 0xdc25fd6bdd21f8da9b5b76d30960d45120a708e1f91ae912871da0fc21454979.
-//
-// Solidity: event WhitelistedIncentiveTokensProposed(address[] tokens, uint256 effectiveTime)
-func (_SuperGovernor *SuperGovernorFilterer) ParseWhitelistedIncentiveTokensProposed(log types.Log) (*SuperGovernorWhitelistedIncentiveTokensProposed, error) {
-	event := new(SuperGovernorWhitelistedIncentiveTokensProposed)
-	if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensProposed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensRemovedIterator is returned from FilterWhitelistedIncentiveTokensRemoved and is used to iterate over the raw logs and unpacked data for WhitelistedIncentiveTokensRemoved events raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensRemovedIterator struct {
-	Event *SuperGovernorWhitelistedIncentiveTokensRemoved // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperGovernorWhitelistedIncentiveTokensRemovedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperGovernorWhitelistedIncentiveTokensRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperGovernorWhitelistedIncentiveTokensRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperGovernorWhitelistedIncentiveTokensRemovedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperGovernorWhitelistedIncentiveTokensRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperGovernorWhitelistedIncentiveTokensRemoved represents a WhitelistedIncentiveTokensRemoved event raised by the SuperGovernor contract.
-type SuperGovernorWhitelistedIncentiveTokensRemoved struct {
-	Tokens []common.Address
-	Raw    types.Log // Blockchain specific contextual infos
-}
-
-// FilterWhitelistedIncentiveTokensRemoved is a free log retrieval operation binding the contract event 0x592ccb66164159ca890f72fc24cdab8c5fcfcfe35f7455b88e594060568ce011.
-//
-// Solidity: event WhitelistedIncentiveTokensRemoved(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) FilterWhitelistedIncentiveTokensRemoved(opts *bind.FilterOpts) (*SuperGovernorWhitelistedIncentiveTokensRemovedIterator, error) {
-
-	logs, sub, err := _SuperGovernor.contract.FilterLogs(opts, "WhitelistedIncentiveTokensRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperGovernorWhitelistedIncentiveTokensRemovedIterator{contract: _SuperGovernor.contract, event: "WhitelistedIncentiveTokensRemoved", logs: logs, sub: sub}, nil
-}
-
-// WatchWhitelistedIncentiveTokensRemoved is a free log subscription operation binding the contract event 0x592ccb66164159ca890f72fc24cdab8c5fcfcfe35f7455b88e594060568ce011.
-//
-// Solidity: event WhitelistedIncentiveTokensRemoved(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) WatchWhitelistedIncentiveTokensRemoved(opts *bind.WatchOpts, sink chan<- *SuperGovernorWhitelistedIncentiveTokensRemoved) (event.Subscription, error) {
-
-	logs, sub, err := _SuperGovernor.contract.WatchLogs(opts, "WhitelistedIncentiveTokensRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperGovernorWhitelistedIncentiveTokensRemoved)
-				if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseWhitelistedIncentiveTokensRemoved is a log parse operation binding the contract event 0x592ccb66164159ca890f72fc24cdab8c5fcfcfe35f7455b88e594060568ce011.
-//
-// Solidity: event WhitelistedIncentiveTokensRemoved(address[] tokens)
-func (_SuperGovernor *SuperGovernorFilterer) ParseWhitelistedIncentiveTokensRemoved(log types.Log) (*SuperGovernorWhitelistedIncentiveTokensRemoved, error) {
-	event := new(SuperGovernorWhitelistedIncentiveTokensRemoved)
-	if err := _SuperGovernor.contract.UnpackLog(event, "WhitelistedIncentiveTokensRemoved", log); err != nil {
+// Solidity: event ValidatorConfigSet(uint256 version, address[] validators, bytes[] validatorPublicKeys, uint256 quorum, bytes offchainConfig)
+func (_SuperGovernor *SuperGovernorFilterer) ParseValidatorConfigSet(log types.Log) (*SuperGovernorValidatorConfigSet, error) {
+	event := new(SuperGovernorValidatorConfigSet)
+	if err := _SuperGovernor.contract.UnpackLog(event, "ValidatorConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

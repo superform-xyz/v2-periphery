@@ -18,19 +18,43 @@ libs = ['lib']
 ffi = true
 fs_permissions = [{ access = "read-write", path = "./" }]
 remappings = [
-  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-  "excessivelySafeCall/=lib/ExcessivelySafeCall/src/",
-  "modulekit/=lib/modulekit/src/",
-  "@prb/math/=lib/modulekit/node_modules/@prb/math/src/",
-  "@solady/=lib/solady/",
-  "@account-abstraction/=lib/modulekit/node_modules/account-abstraction/contracts/",
-  "@pigeon/=lib/pigeon/src/",
-  "@surl/=lib/surl/src/",
-  "@stringutils/=lib/solidity-stringutils/src/",
-  "@pendle/=lib/pendle-core-v2-public/contracts/",
+  "@superform-v2-core/=lib/v2-core/",
+  "@openzeppelin/contracts/=lib/v2-core/lib/openzeppelin-contracts/contracts/",
+  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+  "@chimera/=lib/setup-helpers/lib/chimera/src/",
+  "@recon/=lib/setup-helpers/src/",
+  "excessivelySafeCall/=lib/v2-core/lib/ExcessivelySafeCall/src/",
+  "modulekit/=lib/v2-core/lib/modulekit/src/",
+  "@prb/math/=lib/v2-core/lib/modulekit/node_modules/@prb/math/src/",
+  "@solady/=lib/v2-core/lib/solady/",
+  "@account-abstraction/=lib/v2-core/lib/modulekit/node_modules/account-abstraction/contracts/",
+  "@ERC4337/=lib/v2-core/lib/modulekit/node_modules/@ERC4337/",
+  "@pigeon/=lib/v2-core/lib/pigeon/src/",
+  "@surl/=lib/v2-core/lib/surl/src/",
+  "@stringutils/=lib/v2-core/lib/solidity-stringutils/src/",
+  "@pendle/=lib/v2-core/lib/pendle-core-v2-public/contracts/",
+  "@safe/=lib/v2-core/lib/safe-smart-account/contracts/",
+  "@safe7579/=lib/v2-core/lib/safe7579/src/",
+  "@nexus/=lib/v2-core/lib/nexus/contracts/",
+  "@properties-7540/=lib/erc7540-reusable-properties/src/",
+  "sentinellist/=lib/v2-core/lib/nexus/node_modules/sentinellist/src/",
+  "solady/=lib/v2-core/lib/solady/src/",
+  "solarray/=lib/v2-core/lib/nexus/node_modules/solarray/src/",
+  "account-abstraction/=lib/v2-core/lib/modulekit/node_modules/@ERC4337/account-abstraction/contracts/",
+  "account-abstraction-v0.6/=lib/v2-core/lib/modulekit/node_modules/@ERC4337/account-abstraction-v0.6/contracts/",
+  "excessively-safe-call/=lib/v2-core/lib/ExcessivelySafeCall/src/",
+  "composability/=lib/v2-core/lib/nexus/node_modules/@biconomy/composability/contracts/",
+  "erc7739Validator/=lib/v2-core/lib/nexus/node_modules/erc7739-validator-base/src/",
+  "test/mock_fiattoken/=lib/v2-core/lib/evm-gateway-contracts/test/mock_fiattoken/",
+  "@rhinestone/erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/",
+  "erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/src/",
+  "forge-std/=lib/v2-core/lib/modulekit/node_modules/forge-std/src/",
+  "halmos-cheatcodes/=lib/openzeppelin-contracts-upgradeable/lib/halmos-cheatcodes/src/"
 ]
 dynamic_test_linking = true
 gas_limit = "18446744073709551615"
+gas_snapshot_emit= false # Added due to tests in test_extraGas in PaymasterPoC.t.sol
+evm_version = "prague"
 
 [profile.ci-sizes]
 script = "src"
@@ -62,3 +86,21 @@ wrap_comments = true
 11155111 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 11155420 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
 84532 = { key = "${ETHERSCANV2_API_KEY_TEST}" }
+
+[lint]
+lint_on_build = true
+exclude_lints = ["mixed-case-function", "mixed-case-variable", "pascal-case-struct", "asm-keccak256"]
+ignore = [
+    "script/**",
+    "script/**/*.sol",
+    "src/vendor/**",
+    "src/vendor/**/*.sol",
+    "./src/vendor/**",
+    "**/vendor/**",
+    "lib/evm-gateway-contracts/**",
+    "./lib/evm-gateway-contracts/**",
+    "test/**",
+    "test/**/*.sol",
+    "./test/**",
+    "**/test/**"
+]

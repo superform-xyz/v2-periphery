@@ -22,3 +22,10 @@ broadcast/*/31337/
 
 # node_modules
 lib/modulekit/node_modules
+lib/chimera
+lib/setup-helpers
+
+# Coverage files
+crytic-export
+echidna
+medusa

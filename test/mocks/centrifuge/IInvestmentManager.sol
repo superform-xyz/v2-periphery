@@ -368,14 +368,7 @@ interface IInvestmentManager is IMessageHandler, IRecoverable {
     ///         The shares required to fulfill the deposit have already been minted and transferred to the escrow on
     ///         fulfillDepositRequest.
     ///         Receiver has to pass all the share token restrictions in order to receive the shares.
-    function deposit(
-        address vault,
-        uint256 assets,
-        address receiver,
-        address owner
-    )
-        external
-        returns (uint256 shares);
+    function deposit(address vault, uint256 assets, address receiver, address owner) external returns (uint256 shares);
 
     /// @notice Processes owner's share mint after the epoch has been executed on Centrifuge and the deposit order has
     ///         been successfully processed (partial fulfillment possible).
@@ -405,27 +398,14 @@ interface IInvestmentManager is IMessageHandler, IRecoverable {
     ///         on fulfillRedeemRequest.
     ///         The assets required to fulfill the withdrawal have already been reserved in escrow on
     ///         fulfillRedeemtRequest.
-    function withdraw(
-        address vault,
-        uint256 assets,
-        address receiver,
-        address owner
-    )
-        external
-        returns (uint256 shares);
+    function withdraw(address vault, uint256 assets, address receiver, address owner) external returns (uint256 shares);
 
     /// @notice Processes owner's deposit request cancellation after the epoch has been executed on Centrifuge and the
     ///         deposit order cancellation has been successfully processed (partial fulfillment possible).
     ///         Assets are transferred from the escrow to the receiver.
     /// @dev    The assets required to fulfill the claim have already been reserved for the owner in escrow on
     ///         fulfillCancelDepositRequest.
-    function claimCancelDepositRequest(
-        address vault,
-        address receiver,
-        address owner
-    )
-        external
-        returns (uint256 assets);
+    function claimCancelDepositRequest(address vault, address receiver, address owner) external returns (uint256 assets);
 
     /// @notice Processes owner's redeem request cancellation after the epoch has been executed on Centrifuge and the
     ///         redeem order cancellation has been successfully processed (partial fulfillment possible).
@@ -433,11 +413,5 @@ interface IInvestmentManager is IMessageHandler, IRecoverable {
     /// @dev    The shares required to fulfill the claim have already been reserved for the owner in escrow on
     ///         fulfillCancelRedeemRequest.
     ///         Receiver has to pass all the share token restrictions in order to receive the shares.
-    function claimCancelRedeemRequest(
-        address vault,
-        address receiver,
-        address owner
-    )
-        external
-        returns (uint256 shares);
+    function claimCancelRedeemRequest(address vault, address receiver, address owner) external returns (uint256 shares);
 }
