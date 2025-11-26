@@ -546,12 +546,6 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         _burn(escrow, amount);
     }
 
-    /// @inheritdoc ISuperVault
-    function mintShares(address to, uint256 amount) external {
-        if (msg.sender != address(strategy)) revert UNAUTHORIZED();
-        _mint(to, amount);
-    }
-
     /*//////////////////////////////////////////////////////////////
                             ERC165 INTERFACE
     //////////////////////////////////////////////////////////////*/

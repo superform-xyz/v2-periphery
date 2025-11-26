@@ -327,18 +327,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.mint(0, accountEth);
     }
 
-    function test_MintShares() public {
-        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
-        vault.mintShares(accountEth, 1000);
-
-        uint256 initialShares = vault.balanceOf(accountEth);
-
-        vm.prank(address(strategy));
-        vault.mintShares(accountEth, 1000);
-
-        assertEq(vault.balanceOf(accountEth), initialShares + 1000);
-    }
-
     function test_HandleMint_RevertCases() public {
         uint256 shares = 1000e6;
         uint256 assetsNet = vault.previewMint(shares);
