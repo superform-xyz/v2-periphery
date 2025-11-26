@@ -396,10 +396,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (quorum == 0 || quorum > validatorsLength) revert INVALID_QUORUM();
 
         // Clear existing validators
-        uint256 oldLength = _validatorConfig.validators.length();
-        for (uint256 i; i < oldLength; i++) {
-            _validatorConfig.validators.remove(_validatorConfig.validators.at(0));
-        }
+        _validatorConfig.validators.clear();
 
         // Add new validators and validate no duplicates
         for (uint256 i; i < validatorsLength; i++) {
