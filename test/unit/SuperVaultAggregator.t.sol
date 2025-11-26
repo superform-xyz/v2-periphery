@@ -298,6 +298,80 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    /// @notice Tests that createVault reverts when secondary manager is already the primary manager
+    function test_CreateVault_Revert_SecondaryManagerIsPrimaryManager() public {
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = manager;
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_CreateVault_Revert_SecondaryManagerIsZeroAddress() public {
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = address(0);
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_CreateVault_Revert_SecondaryManagerAlreadyExists() public {
+        address[] memory secondaryManagers = new address[](2);
+        secondaryManagers[0] = secondaryManager;
+        secondaryManagers[1] = secondaryManager;
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
     /// @notice Tests that createVault reverts when too many secondary managers are provided
     function test_CreateVault_RevertTooManySecondaryManagers() public {
         // MAX_SECONDARY_MANAGERS is 5, so we try to create with 6
@@ -562,7 +636,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Try to add the main manager as a secondary manager
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
     }
 
@@ -1300,7 +1374,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.addSecondaryManager(strategy, manager);
 
         vm.startPrank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
         vm.stopPrank();
 
