@@ -569,6 +569,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedManager = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
+        // SECURITY: Clear any pending fee recipient proposals to prevent malicious change
+        _strategyData[strategy].proposedFeeRecipient = address(0);
+
         // SECURITY: Clear any pending hooks root proposals to prevent malicious hook updates
         _strategyData[strategy].proposedHooksRoot = bytes32(0);
         _strategyData[strategy].hooksRootEffectiveTime = 0;
@@ -593,11 +596,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepWithdrawalCancelled(strategy);
         }
 
-        // Set the new fee recipient
-        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
-
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
+
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
 
         emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
