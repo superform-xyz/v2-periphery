@@ -42,27 +42,27 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $*" >&2
 }
 
-# Function to extract contract names from update_locked_bytecode.sh
+# Function to extract contract names from regenerate_bytecode.sh
 extract_contracts_from_regenerate_script() {
     local array_name=$1
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
 
     if [[ ! -f "$script_path" ]]; then
         return 1
     fi
 
-    # Extract contract names from the specified array in update_locked_bytecode.sh
+    # Extract contract names from the specified array in regenerate_bytecode.sh
     # Find the array definition and stop at the closing parenthesis
     sed -n "/${array_name}=(/,/^)/p" "$script_path" | grep -o '"[^"]*"' | tr -d '"'
 }
 
-# Function to report bytecode availability (sourced from update_locked_bytecode.sh)
+# Function to report bytecode availability (sourced from regenerate_bytecode.sh)
 report_bytecode_availability() {
     log "INFO" "Analyzing bytecode availability from $LOCKED_BYTECODE_PATH..."
 
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
     if [[ ! -f "$script_path" ]]; then
-        echo -e "${RED}❌ Cannot find update_locked_bytecode.sh at: $script_path${NC}"
+        echo -e "${RED}❌ Cannot find regenerate_bytecode.sh at: $script_path${NC}"
         return 1
     fi
 
@@ -70,7 +70,7 @@ report_bytecode_availability() {
     local available_contracts=()
 
     # Extract and check core periphery contracts
-    log "INFO" "Checking core periphery contracts from update_locked_bytecode.sh..."
+    log "INFO" "Checking core periphery contracts from regenerate_bytecode.sh..."
     local core_contracts
     core_contracts=$(extract_contracts_from_regenerate_script "CORE_PERIPHERY_CONTRACTS")
     for contract in $core_contracts; do
@@ -111,9 +111,9 @@ report_bytecode_availability() {
     return 0
 }
 
-# Function to get expected contract count from update_locked_bytecode.sh
+# Function to get expected contract count from regenerate_bytecode.sh
 get_expected_contract_count() {
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
 
     if [[ ! -f "$script_path" ]]; then
         echo "6"
@@ -136,12 +136,12 @@ analyze_deployment_status() {
     local needs_deployment=false
     local networks_with_missing=()
 
-    # Get expected contract count from update_locked_bytecode.sh
+    # Get expected contract count from regenerate_bytecode.sh
     local total_expected
     total_expected=$(get_expected_contract_count)
 
     if [[ $total_expected -eq 0 ]]; then
-        echo -e "${RED}❌ Unable to determine expected contract count from update_locked_bytecode.sh${NC}"
+        echo -e "${RED}❌ Unable to determine expected contract count from regenerate_bytecode.sh${NC}"
         return 2
     fi
 
@@ -269,8 +269,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Find project root (go up from script/run/ to project root)
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Initialize locked bytecode path (same for both staging and prod)
-LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode"
+# Locked bytecode path will be set based on environment
+# - prod: locked-bytecode (audited, production-ready)
+# - staging: locked-bytecode-dev (development/staging versions)
+LOCKED_BYTECODE_PATH=""
 
 # Network configuration will be sourced after environment is determined
 
@@ -295,10 +297,12 @@ ACCOUNT=$3
 # Validate environment and source network configuration
 if [ "$ENVIRONMENT" = "staging" ]; then
     echo -e "${CYAN}🌐 Loading staging network configuration...${NC}"
-    echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode${NC}"
+    LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode-dev"
+    echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode-dev${NC}"
     source "$SCRIPT_DIR/networks-staging.sh"
 elif [ "$ENVIRONMENT" = "prod" ]; then
     echo -e "${CYAN}🌐 Loading production network configuration...${NC}"
+    LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode"
     echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode${NC}"
     source "$SCRIPT_DIR/networks-production.sh"
 else

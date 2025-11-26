@@ -31,8 +31,8 @@ If you've made changes to the contracts, rebuild and update the locked bytecode:
 # Build contracts
 forge build
 
-# Update locked bytecode
-./script/utils/update_locked_bytecode.sh
+# Regenerate bytecode (for VNET/dev environments)
+./script/run/regenerate_bytecode.sh
 ```
 
 ### 1.2 Simulate Deployment
@@ -246,19 +246,25 @@ Failed: 0
 
 ## Network Configuration
 
-Networks are configured in `script/run/networks-staging.sh`:
+Networks are configured in environment-specific files:
+- **Staging**: `script/run/networks-staging.sh` (5 networks: Ethereum, Base, BNB, Arbitrum, Avalanche)
+- **Production**: `script/run/networks-production.sh` (11 networks: all staging + Optimism, Polygon, Unichain, Sonic, Gnosis, Worldchain)
 
 ```bash
-# Define staging networks
+# Define networks (example from staging)
 NETWORKS=(
+    "1:Ethereum:ETH_MAINNET"
     "8453:Base:BASE_MAINNET"
+    "56:BNB:BSC_MAINNET"
+    "42161:Arbitrum:ARBITRUM_MAINNET"
+    "43114:Avalanche:AVALANCHE_MAINNET"
 )
 ```
 
 To add more networks:
-1. Add network definition to `NETWORKS` array
+1. Add network definition to `NETWORKS` array in the appropriate file
 2. Update `get_network_name()` function
-3. Update `get_rpc_var()` function
+3. Update `get_rpc_var()` and `get_rpc_url()` functions
 4. Update `load_rpc_urls()` to load the RPC from 1Password
 
 ---
@@ -345,13 +351,19 @@ script/
 │   ├── deploy_v2_periphery_staging_prod.sh          # Step 1: Deploy contracts
 │   ├── merge_periphery_to_core_s3_staging.sh        # Step 2: Merge to S3
 │   ├── add_hooks_to_governor_staging_prod.sh        # Step 3: Configure hooks
-│   └── networks-staging.sh                          # Network configuration
+│   ├── regenerate_bytecode.sh                       # Regenerate bytecode for VNET
+│   ├── networks-staging.sh                          # Staging network configuration
+│   └── networks-production.sh                       # Production network configuration
 ├── output/
 │   ├── staging/8453/Base-latest.json               # Local deployment output
 │   └── prod/8453/Base-latest.json
-└── locked-bytecode/                                # Contract bytecode
-    ├── SuperGovernor.json
-    ├── SuperVault.json
+├── locked-bytecode/                                # Production bytecode (audited)
+│   ├── SuperGovernor.json
+│   ├── SuperVault.json
+│   └── ...
+├── locked-bytecode-dev/                            # Dev/staging bytecode
+│   └── ...
+└── generated-bytecode/                             # Fresh bytecode from forge build
     └── ...
 ```
 

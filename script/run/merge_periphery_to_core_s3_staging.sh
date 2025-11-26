@@ -1,31 +1,36 @@
 #!/usr/bin/env bash
 
 ###################################################################################
-# Merge Periphery to Core S3 Script - Staging Environment
+# Merge Periphery to Core S3 Script - Staging & Production
 ###################################################################################
 # Description:
-#   This script merges V2 Periphery contract addresses into the core staging
-#   deployment state in the superform-deployment-state S3 bucket.
+#   This script merges V2 Periphery contract addresses into the core deployment
+#   state in the superform-deployment-state S3 bucket.
 #
 # Usage:
-#   ./merge_periphery_to_core_s3_staging.sh
+#   ./merge_periphery_to_core_s3_staging.sh <environment>
 #
-#   No parameters required - fixed to staging environment.
+#   Parameters:
+#     environment: "staging" or "prod"
+#
+#   Examples:
+#     ./merge_periphery_to_core_s3_staging.sh staging
+#     ./merge_periphery_to_core_s3_staging.sh prod
 #
 # Functionality:
-#   - Sources network configuration from networks-staging.sh
+#   - Sources appropriate network configuration based on environment
 #   - Reads periphery addresses from LOCAL script/output directory
-#   - Downloads existing core state from s3://superform-deployment-state/staging/latest.json
+#   - Downloads existing core state from s3://superform-deployment-state/{env}/latest.json
 #   - Merges or replaces periphery contract addresses
-#   - Uploads merged state back to s3://superform-deployment-state/staging/latest.json
+#   - Uploads merged state back to s3://superform-deployment-state/{env}/latest.json
 #
 # Requirements:
 #   - jq: For JSON processing
 #   - aws: For S3 operations
-#   - networks-staging.sh: Network configuration file
+#   - networks-staging.sh or networks-production.sh: Network configuration file
 #
 # Author: Superform Team
-# Version: 1.0.0
+# Version: 2.0.0
 ###################################################################################
 
 set -euo pipefail  # Exit on error, undefined var, pipe failure
@@ -34,20 +39,16 @@ set -euo pipefail  # Exit on error, undefined var, pipe failure
 # Configuration
 ###################################################################################
 
-# Get script directory to source networks-staging.sh
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source network configuration
-if [ ! -f "$SCRIPT_DIR/networks-staging.sh" ]; then
-    echo "ERROR: networks-staging.sh not found in $SCRIPT_DIR"
-    exit 1
-fi
-
-source "$SCRIPT_DIR/networks-staging.sh"
-
-# S3 Bucket Configuration - Single bucket for staging
+# S3 Bucket Configuration
 BUCKET="superform-deployment-state"
-ENVIRONMENT="staging"
+
+# Environment will be set from command line argument
+ENVIRONMENT=""
+
+# Network configuration will be sourced after environment is determined
 
 # Allowed periphery contracts to merge
 ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVaultAggregator" "ECDSAPPSOracle")
@@ -68,12 +69,43 @@ NC='\033[0m' # No Color
 
 # Function to print colored header
 print_header() {
+    local env_display="${ENVIRONMENT^^}"
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║                                                                                      ║${NC}"
-    echo -e "${CYAN}║${WHITE}              🔄 Merge Periphery to Core S3 Script - Staging 🔄                   ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}           (Periphery → superform-deployment-state/staging)                      ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}              🔄 Merge Periphery to Core S3 Script - ${env_display} 🔄                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}           (Periphery → superform-deployment-state/${ENVIRONMENT})                      ${CYAN}║${NC}"
     echo -e "${CYAN}║                                                                                      ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════════════╝${NC}"
+}
+
+# Validate environment parameter
+validate_environment() {
+    local environment=$1
+    if [ "$environment" != "staging" ] && [ "$environment" != "prod" ]; then
+        log "ERROR" "Invalid environment: $environment"
+        log "ERROR" "Must be either 'staging' or 'prod'"
+        exit 1
+    fi
+}
+
+# Source network configuration based on environment
+source_network_config() {
+    local environment=$1
+    local network_config_file
+
+    if [ "$environment" = "staging" ]; then
+        network_config_file="$SCRIPT_DIR/networks-staging.sh"
+    else
+        network_config_file="$SCRIPT_DIR/networks-production.sh"
+    fi
+
+    if [ ! -f "$network_config_file" ]; then
+        log "ERROR" "Network config not found: $network_config_file"
+        exit 1
+    fi
+
+    log "INFO" "Loading network configuration from: $network_config_file"
+    source "$network_config_file"
 }
 
 # Function to print section separator
@@ -204,11 +236,11 @@ process_periphery_merge() {
     local successful_networks=0
     local failed_networks=0
 
-    # Get all supported networks from networks-staging.sh
+    # Get all supported networks from network configuration
     local supported_network_ids=$(get_supported_networks)
 
     if [ -z "$supported_network_ids" ]; then
-        log "ERROR" "No networks found in networks-staging.sh"
+        log "ERROR" "No networks found in network configuration"
         return 1
     fi
 
@@ -420,11 +452,33 @@ process_periphery_merge() {
 # Main Execution
 ###################################################################################
 
+# Check for required argument
+if [ $# -lt 1 ]; then
+    echo -e "${RED}❌ Error: Missing required argument${NC}"
+    echo ""
+    echo -e "${YELLOW}Usage: $0 <environment>${NC}"
+    echo -e "${YELLOW}  environment: 'staging' or 'prod'${NC}"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo -e "${YELLOW}  $0 staging${NC}"
+    echo -e "${YELLOW}  $0 prod${NC}"
+    exit 1
+fi
+
+# Set environment from argument
+ENVIRONMENT=$1
+
+# Validate environment
+validate_environment "$ENVIRONMENT"
+
+# Source network configuration based on environment
+source_network_config "$ENVIRONMENT"
+
 print_header
 print_separator
 echo -e "${BLUE}🔧 Loading Configuration...${NC}"
 
-# Print network information from networks-staging.sh
+# Print network information
 print_network_info
 
 echo -e "${GREEN}✅ Configuration loaded successfully${NC}"

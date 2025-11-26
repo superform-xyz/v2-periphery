@@ -70,18 +70,20 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     }
 
     /// @notice Check V2 Periphery contract addresses before deployment
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId The target chain ID
     function runCheck(uint256 env, uint64 chainId) public broadcast(env) {
         _setConfiguration(env, "");
         console2.log("====== V2 Periphery Address Verification ======");
         console2.log("Chain ID:", chainId);
+        console2.log("Environment:", env);
         console2.log("");
 
         // Reset counters
         deployed = 0;
         total = 0;
 
-        _checkPeripheryContracts(chainId);
+        _checkPeripheryContracts(chainId, env);
 
         // Log comprehensive deployment summary
         _logDeploymentSummary(chainId);
@@ -125,8 +127,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         }
     }
 
-    function _deployPeriphery(uint64 chainId, uint256) internal {
+    function _deployPeriphery(uint64 chainId, uint256 env) internal {
         console2.log("Deploying V2 Periphery on chainId: ", chainId);
+        console2.log("Environment:", env);
 
         // Compute core contract addresses deterministically
         CoreContractAddresses memory coreAddresses = _computeCoreContractAddresses();
@@ -135,7 +138,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         _validateCoreContracts(coreAddresses);
 
         // Deploy periphery contracts
-        PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId);
+        PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
         _configurePeripheryContracts(peripheryContracts, coreAddresses);
@@ -146,8 +149,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("All periphery contracts deployed and configured successfully.");
     }
 
-    function _deployPeripheryWithCoreSalt(uint64 chainId, uint256, string memory coreSalt) internal {
+    function _deployPeripheryWithCoreSalt(uint64 chainId, uint256 env, string memory coreSalt) internal {
         console2.log("Deploying V2 Periphery on chainId: ", chainId);
+        console2.log("Environment:", env);
         console2.log("Using core salt: ", coreSalt);
 
         // Compute core contract addresses deterministically using the specific core salt
@@ -157,7 +161,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         _validateCoreContracts(coreAddresses);
 
         // Deploy periphery contracts
-        PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId);
+        PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
         _configurePeripheryContracts(peripheryContracts, coreAddresses);
@@ -169,20 +173,21 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     }
 
     /// @notice Check periphery contract addresses (core 6 contracts only)
-    function _checkPeripheryContracts(uint64) internal {
+    /// @param env Environment (0 = prod uses locked-bytecode, 1/2 = dev/staging uses locked-bytecode-dev)
+    function _checkPeripheryContracts(uint64, uint256 env) internal {
         console2.log("=== Core Periphery Contracts ===");
 
         // Core periphery contracts
-        __checkContract(SUPER_GOVERNOR_KEY, __getSalt(SUPER_GOVERNOR_KEY), "");
-        __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), "");
+        __checkContract(SUPER_GOVERNOR_KEY, __getSalt(SUPER_GOVERNOR_KEY), "", env);
+        __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), "", env);
 
         // Vault implementations
-        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), "");
-        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), "");
-        __checkContract(SUPER_VAULT_ESCROW_KEY, __getSalt(SUPER_VAULT_ESCROW_KEY), "");
+        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), "", env);
+        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), "", env);
+        __checkContract(SUPER_VAULT_ESCROW_KEY, __getSalt(SUPER_VAULT_ESCROW_KEY), "", env);
 
         // SuperVaultAggregator (depends on implementations)
-        __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), "");
+        __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), "", env);
     }
 
     /// @notice Compute core contract addresses deterministically
@@ -267,8 +272,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("  SuperLedger:", coreAddresses.superLedger);
     }
 
-    function _deployPeripheryContracts(uint64 chainId) internal returns (PeripheryContracts memory peripheryContracts) {
+    function _deployPeripheryContracts(
+        uint64 chainId,
+        uint256 env
+    )
+        internal
+        returns (PeripheryContracts memory peripheryContracts)
+    {
         console2.log("Starting comprehensive periphery contract deployment with full validation...");
+        console2.log("Environment:", env);
 
         // ===== VALIDATION PHASE =====
         require(configuration.treasury != address(0), "TREASURY_ADDRESS_ZERO");
@@ -283,7 +295,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_GOVERNOR_KEY),
             abi.encodePacked(
-                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_GOVERNOR_KEY, ".json"))),
+                __getBytecode(SUPER_GOVERNOR_KEY, env),
                 abi.encode(
                     configuration.owner,
                     configuration.owner,
@@ -301,7 +313,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_VAULT_KEY),
             abi.encodePacked(
-                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_KEY, ".json"))),
+                __getBytecode(SUPER_VAULT_KEY, env),
                 abi.encode(peripheryContracts.superGovernor)
             )
         );
@@ -311,7 +323,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_VAULT_STRATEGY_KEY),
             abi.encodePacked(
-                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_STRATEGY_KEY, ".json"))),
+                __getBytecode(SUPER_VAULT_STRATEGY_KEY, env),
                 abi.encode(peripheryContracts.superGovernor)
             )
         );
@@ -320,7 +332,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             SUPER_VAULT_ESCROW_KEY,
             chainId,
             __getSalt(SUPER_VAULT_ESCROW_KEY),
-            vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_ESCROW_KEY, ".json")))
+            __getBytecode(SUPER_VAULT_ESCROW_KEY, env)
         );
 
         // Deploy SuperVaultAggregator (takes all four addresses)
@@ -329,7 +341,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(SUPER_VAULT_AGGREGATOR_KEY),
             abi.encodePacked(
-                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", SUPER_VAULT_AGGREGATOR_KEY, ".json"))),
+                __getBytecode(SUPER_VAULT_AGGREGATOR_KEY, env),
                 abi.encode(
                     peripheryContracts.superGovernor,
                     peripheryContracts.vaultImpl,
@@ -345,7 +357,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             chainId,
             __getSalt(ECDSAPPS_ORACLE_KEY),
             abi.encodePacked(
-                vm.getCode(string(abi.encodePacked("script/locked-bytecode/", ECDSAPPS_ORACLE_KEY, ".json"))),
+                __getBytecode(ECDSAPPS_ORACLE_KEY, env),
                 abi.encode(peripheryContracts.superGovernor, ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION)
             )
         );
