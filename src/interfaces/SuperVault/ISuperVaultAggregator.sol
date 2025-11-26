@@ -433,6 +433,8 @@ interface ISuperVaultAggregator {
     error CANNOT_REMOVE_LAST_MANAGER();
     /// @notice Thrown when attempting to add a manager that already exists
     error MANAGER_ALREADY_EXISTS();
+    /// @notice Thrown when attempting to add a manager that is the primary manager
+    error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
     /// @notice Thrown when there is no pending global hooks root change
     error NO_PENDING_GLOBAL_ROOT_CHANGE();
     /// @notice Thrown when attempting to execute an in-progress manager change before timelock elapsed
