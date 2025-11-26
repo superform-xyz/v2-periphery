@@ -189,6 +189,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert MAX_STALENESS_TOO_LOW();
         }
 
+        // Validate minUpdateInterval against minimum required staleness
+        if (params.minUpdateInterval >= params.maxStaleness) {
+            revert INVALID_VAULT_PARAMS();
+        }
+
         // Initialize StrategyData individually to avoid mapping assignment issues
         _strategyData[strategy].pps = vars.initialPPS;
         _strategyData[strategy].lastUpdateTimestamp = block.timestamp;
@@ -857,14 +862,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedMinUpdateInterval = 0;
         _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
 
-        // Re-validate against current maxStaleness in case it changed
-        // If invalid, just clear the proposal (already done above) and return
-        // This allows the manager to try again with a valid value
-        if (newInterval >= _strategyData[strategy].maxStaleness) {
-            emit MinUpdateIntervalChangeRejected(strategy, newInterval, _strategyData[strategy].maxStaleness);
-            return;
-        }
-
         // Update the minUpdateInterval
         _strategyData[strategy].minUpdateInterval = newInterval;
 
@@ -1160,8 +1157,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
         // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
-        uint256 minInterval =
-            Math.min(_strategyData[args.strategy].minUpdateInterval, _strategyData[args.strategy].maxStaleness);
+        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
 
         // [Property 7: Timestamp Monotonicity]

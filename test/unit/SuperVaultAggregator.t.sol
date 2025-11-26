@@ -372,6 +372,31 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    function test_CreateVault_RevertInvalidMinUpdateInterval() public {
+        // SuperGovernor initializes minStaleness to 300 seconds
+        uint256 minStaleness = superGovernor.getMinStaleness();
+        assertEq(minStaleness, 300, "Min staleness should be 300 seconds");
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_VAULT_PARAMS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 500, // Above max staleness
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
     /// @notice Tests that createVault reverts when too many secondary managers are provided
     function test_CreateVault_RevertTooManySecondaryManagers() public {
         // MAX_SECONDARY_MANAGERS is 5, so we try to create with 6
@@ -5088,5 +5113,7 @@ struct BatchForwardPPSTestVars {
     uint256 expectedTotalCharged;
     address[] strategies;
     uint256[] ppss;
+        uint256[] validatorSets;
+        uint256[] totalValidators;
     uint256[] timestamps;
 }
