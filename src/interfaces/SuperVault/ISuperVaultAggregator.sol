@@ -33,16 +33,10 @@ interface ISuperVaultAggregator {
     /// @notice Local variables for vault creation to avoid stack too deep
     /// @param currentNonce Current vault creation nonce
     /// @param salt Salt for deterministic proxy creation
-    /// @param success Whether asset decimals retrieval was successful
-    /// @param assetDecimals Decimals of the underlying asset
-    /// @param underlyingDecimals Final decimals to use (18 if retrieval failed)
     /// @param initialPPS Initial price-per-share value
     struct VaultCreationLocalVars {
         uint256 currentNonce;
         bytes32 salt;
-        bool success;
-        uint8 assetDecimals;
-        uint8 underlyingDecimals;
         uint256 initialPPS;
     }
 
