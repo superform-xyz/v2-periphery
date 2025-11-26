@@ -57,7 +57,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for basis points precision (100% = 10,000 bps) 
+    // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
 
     // Maximum performance fee allowed (51%)
@@ -198,17 +198,27 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].mainManager = params.mainManager;
 
         uint256 secondaryLen = params.secondaryManagers.length;
+        if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
+
         for (uint256 i; i < secondaryLen; ++i) {
-            _strategyData[strategy].secondaryManagers.add(params.secondaryManagers[i]);
-        }
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
-            revert TOO_MANY_SECONDARY_MANAGERS();
+            address _secondaryManager = params.secondaryManagers[i];
+
+            // Check if manager is a zero address
+            if (_secondaryManager == address(0)) revert ZERO_ADDRESS();
+            
+            // Check if manager is already the primary manager
+            if (_strategyData[strategy].mainManager == _secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+            
+            // Add secondary manager and revert if it already exists
+            if (!_strategyData[strategy].secondaryManagers.add(_secondaryManager)) {
+                revert MANAGER_ALREADY_EXISTS();
+            }
         }
 
         _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
-        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+        emit PPSUpdated(strategy, vars.initialPPS, _strategyData[strategy].lastUpdateTimestamp);
 
         return (superVault, strategy, escrow);
     }
@@ -277,10 +287,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _forwardPPS(
                 PPSUpdateData({
                     strategy: strategy,
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    // isExempt when upkeepCost is 0 (covers both paymentsDisabled and oracle failures)
+                    isExempt: upkeepCost == 0,
                     pps: args.ppss[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -475,7 +484,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
 
         // Check if manager is already the primary manager
-        if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
+        if (_strategyData[strategy].mainManager == manager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
         if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
@@ -1247,7 +1256,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 _strategyData[args.strategy].ppsStale = false;
                 emit StrategyPPSStaleReset(args.strategy);
             }
-            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+            emit PPSUpdated(args.strategy, args.pps, args.timestamp);
         }
         // If checks failed, PPS remains at old value (safer for external integrators)
     }
