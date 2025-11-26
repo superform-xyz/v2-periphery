@@ -40,12 +40,6 @@ interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedee
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Mint shares, only callable by strategy
-    /// @param to The address to mint shares to
-    /// @param amount The amount of shares to mint
-    function mintShares(address to, uint256 amount) external;
-
     /// @notice Burn shares, only callable by strategy
     /// @param amount The amount of shares to burn
     function burnShares(uint256 amount) external;
