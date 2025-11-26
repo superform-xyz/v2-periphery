@@ -287,7 +287,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _forwardPPS(
                 PPSUpdateData({
                     strategy: strategy,
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    // isExempt when upkeepCost is 0 (covers both paymentsDisabled and oracle failures)
+                    isExempt: upkeepCost == 0,
                     pps: args.ppss[i],
                     timestamp: ts,
                     upkeepCost: upkeepCost
