@@ -263,6 +263,86 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, ""); // Should succeed
     }
 
+    /// @notice Tests transferring SUPER_GOVERNOR_ROLE to a new address after deployment
+    /// @dev Demonstrates the complete role transfer process including DEFAULT_ADMIN_ROLE
+    function test_Role_TransferSuperGovernorRole() public {
+        address newSuperGovernor = _deployAccount(0x20, "NewSuperGovernor");
+        bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
+
+        // Verify initial state: sGovernor has both DEFAULT_ADMIN_ROLE and SUPER_GOVERNOR_ROLE
+        assertTrue(superGovernor.hasRole(defaultAdminRole, sGovernor), "sGovernor should have DEFAULT_ADMIN_ROLE");
+        assertTrue(superGovernor.hasRole(SUPER_GOVERNOR_ROLE, sGovernor), "sGovernor should have SUPER_GOVERNOR_ROLE");
+        assertFalse(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, newSuperGovernor),
+            "newSuperGovernor should not have SUPER_GOVERNOR_ROLE initially"
+        );
+
+        // Step 1: Grant SUPER_GOVERNOR_ROLE to new address (as DEFAULT_ADMIN_ROLE holder)
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(SUPER_GOVERNOR_ROLE, newSuperGovernor);
+        assertTrue(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, newSuperGovernor),
+            "newSuperGovernor should now have SUPER_GOVERNOR_ROLE"
+        );
+
+        // Step 2: Grant DEFAULT_ADMIN_ROLE to new address so they can manage roles
+        superGovernor.grantRole(defaultAdminRole, newSuperGovernor);
+        assertTrue(
+            superGovernor.hasRole(defaultAdminRole, newSuperGovernor),
+            "newSuperGovernor should now have DEFAULT_ADMIN_ROLE"
+        );
+
+        // Step 3: Revoke SUPER_GOVERNOR_ROLE from old sGovernor
+        superGovernor.revokeRole(SUPER_GOVERNOR_ROLE, sGovernor);
+        assertFalse(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, sGovernor), "sGovernor should no longer have SUPER_GOVERNOR_ROLE"
+        );
+
+        // Step 4: Revoke DEFAULT_ADMIN_ROLE from old sGovernor
+        superGovernor.revokeRole(defaultAdminRole, sGovernor);
+        vm.stopPrank();
+
+        assertFalse(
+            superGovernor.hasRole(defaultAdminRole, sGovernor), "sGovernor should no longer have DEFAULT_ADMIN_ROLE"
+        );
+
+        // Verify: Old sGovernor cannot call SUPER_GOVERNOR_ROLE functions anymore
+        vm.prank(sGovernor);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, SUPER_GOVERNOR_ROLE
+            )
+        );
+        superGovernor.setAddress(TEST_KEY, user);
+
+        // Verify: New superGovernor can call SUPER_GOVERNOR_ROLE functions
+        vm.prank(newSuperGovernor);
+        superGovernor.setAddress(TEST_KEY, user);
+        assertEq(superGovernor.getAddress(TEST_KEY), user, "newSuperGovernor should be able to set address");
+
+        // Verify: New superGovernor can also manage roles (has DEFAULT_ADMIN_ROLE)
+        address anotherAddress = _deployAccount(0x21, "AnotherAddress");
+        vm.prank(newSuperGovernor);
+        superGovernor.grantRole(GOVERNOR_ROLE, anotherAddress);
+        assertTrue(
+            superGovernor.hasRole(GOVERNOR_ROLE, anotherAddress),
+            "newSuperGovernor should be able to grant GOVERNOR_ROLE"
+        );
+    }
+
+    /// @notice Tests that non-admin cannot transfer SUPER_GOVERNOR_ROLE
+    function test_Role_TransferSuperGovernorRole_Revert_Unauthorized() public {
+        address newSuperGovernor = _deployAccount(0x22, "NewSuperGovernor2");
+        bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
+
+        // A non-admin (governor) should not be able to grant SUPER_GOVERNOR_ROLE
+        vm.prank(governor);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, governor, defaultAdminRole)
+        );
+        superGovernor.grantRole(SUPER_GOVERNOR_ROLE, newSuperGovernor);
+    }
+
     // =============================================================
     // Address Registry Tests
     // =============================================================
