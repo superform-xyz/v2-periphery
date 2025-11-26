@@ -414,7 +414,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
             _strategyUpkeepBalance[strategy] -= withdrawalAmount;
         }
 
-        // Transfer UP tokens to the original initiator (not msg.sender)
+        // Transfer UP tokens to the original main manager (not msg.sender)
         address mainManager = _strategyData[strategy].mainManager;
         IERC20(upToken).safeTransfer(mainManager, withdrawalAmount);
 
