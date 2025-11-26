@@ -2,6 +2,8 @@
 pragma solidity 0.8.30;
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
+import { SuperOracle } from "../../src/oracles/SuperOracle.sol";
+import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
 import { ISuperGovernor, FeeType } from "../../src/interfaces/ISuperGovernor.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -2792,6 +2794,68 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Verify oracle received the call
         assertTrue(mockOracle.providerRemovalExecuted(), "Oracle should have executed provider removal");
+    }
+
+    function test_OracleUpdateManagement_CancelOracleProviderRemoval() public {
+        // Configure base oracle with initial providers
+        address[] memory bases = new address[](1);
+        bases[0] = address(asset);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(asset);
+
+        bytes32 provider1 = bytes32(keccak256("Provider 1"));
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = provider1;
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = makeAddr("feed1");
+        SuperOracle superOracle = new SuperOracle(address(superGovernor), bases, quotes, providers, feeds);
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(superOracle));
+
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = provider1;
+
+        vm.prank(address(superGovernor));
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Verify providers are still active before cancellation
+        bytes32[] memory activeProvidersBefore = superOracle.getActiveProviders();
+        assertEq(activeProvidersBefore.length, 1, "Should have 1 provider before cancellation");
+
+        vm.prank(oracleManager);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperOracle.ProviderRemovalCancelled(providersToRemove);
+        superGovernor.cancelOracleProviderRemoval();
+
+        // Verify providers are still active after cancellation
+        bytes32[] memory activeProvidersAfter = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfter.length, 1, "Should still have 1 provider after cancellation");
+    }
+
+    function test_CancelOracleProviderRemoval_AccessControl() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Try unauthorized call
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ORACLE_MANAGER_ROLE
+            )
+        );
+        superGovernor.cancelOracleProviderRemoval();
+    }
+
+    function test_CancelOracleProviderRemoval_Revert_ContractNotFound() public {
+        vm.prank(oracleManager);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.cancelOracleProviderRemoval();
     }
 
     /// @notice Tests executeOracleProviderRemoval access control
