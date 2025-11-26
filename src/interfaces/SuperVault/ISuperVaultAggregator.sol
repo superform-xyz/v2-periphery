@@ -68,6 +68,7 @@ interface ISuperVaultAggregator {
         EnumerableSet.AddressSet secondaryManagers;
         // Manager change proposal data
         address proposedManager;
+        address proposedFeeRecipient;
         uint256 managerChangeEffectiveTime;
         // Hook validation data
         bytes32 managerHooksRoot;
@@ -228,19 +229,13 @@ interface ISuperVaultAggregator {
     /// @param feeRecipient Address of the new fee recipient
     event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient);
 
-    /// @notice Emitted when a primary manager change is executed
-    /// @param strategy Address of the strategy
-    /// @param oldManager Address of the old primary manager
-    /// @param newManager Address of the new primary manager
-    event PrimaryManagerChangeExecuted(address indexed strategy, address indexed oldManager, address indexed newManager);
-
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy
     /// @param proposer Address of the secondary manager who made the proposal
     /// @param newManager Address of the proposed new primary manager
     /// @param effectiveTime Timestamp when the proposal can be executed
     event PrimaryManagerChangeProposed(
-        address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime
+        address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime
     );
 
     /// @notice Emitted when a primary manager change proposal is cancelled
@@ -594,7 +589,8 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
-    function proposeChangePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Cancels a pending primary manager change proposal
     /// @dev Only the current primary manager can cancel the proposal
