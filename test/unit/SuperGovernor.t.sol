@@ -328,10 +328,6 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests changing a manager for a strategy
     function test_ManagerTakeover_ChangeManager() public {
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
-
         address feeRecipient = _deployAccount(0x2C, "FeeRecipient");
 
         // Test with governor role
@@ -428,10 +424,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(initialManager, address(this), "Initial manager should be this contract");
 
         address feeRecipient = _deployAccount(0x2E, "FeeRecipient");
-
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
 
         // Verify manager takeovers are not frozen
         assertFalse(superGovernor.isManagerTakeoverFrozen(), "Manager takeovers should not be frozen initially");
