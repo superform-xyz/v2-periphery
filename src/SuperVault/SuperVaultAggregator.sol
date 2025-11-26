@@ -1245,7 +1245,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 _strategyData[args.strategy].ppsStale = false;
                 emit StrategyPPSStaleReset(args.strategy);
             }
-            emit PPSUpdated(args.strategy, args.pps, 0, 0, args.timestamp);
+            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
         }
         // If checks failed, PPS remains at old value (safer for external integrators)
     }
