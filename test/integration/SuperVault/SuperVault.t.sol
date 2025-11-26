@@ -8510,6 +8510,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            FEE CHANGE TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_ChangeFeeRecipient_RevertCases() public {
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.changeFeeRecipient(TREASURY);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         NATIVE ETH HANDLING TESTS
     //////////////////////////////////////////////////////////////*/
 
