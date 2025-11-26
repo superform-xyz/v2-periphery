@@ -128,11 +128,9 @@ interface ISuperVaultAggregator {
     }
 
     /// @notice Two-step upkeep withdrawal request
-    /// @param initiator Manager who requested withdrawal
     /// @param amount Amount to withdraw (full balance at time of request)
     /// @param effectiveTime When withdrawal can be executed (timestamp + 24h)
     struct UpkeepWithdrawalRequest {
-        address initiator;
         uint256 amount;
         uint256 effectiveTime;
     }

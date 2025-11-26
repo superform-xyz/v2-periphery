@@ -3397,9 +3397,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Verify request created
-        (address initiator, uint256 amount, uint256 effectiveTime) =
+        (uint256 amount, uint256 effectiveTime) =
             superVaultAggregator.pendingUpkeepWithdrawals(strategy);
-        assertEq(initiator, manager, "Initiator should be manager");
         assertEq(amount, upkeepAmount, "Amount should match balance");
         assertEq(effectiveTime, block.timestamp + 24 hours, "Effective time should be 24h later");
     }
@@ -3460,8 +3459,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
 
         // Verify pending request cleared
-        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
-        assertEq(initiator, address(0), "Pending request should be cleared");
+        (uint256 amount, uint256 effectiveTime) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(amount, 0, "Amount should be zero");
+        assertEq(effectiveTime, 0, "Effective time should be zero");
     }
 
     /// @notice Tests that execution before timelock reverts
@@ -3533,8 +3533,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Verify pending withdrawal exists
-        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
-        assertEq(initiator, manager, "Pending withdrawal should exist");
+        (uint256 amount, uint256 effectiveTime) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(amount, upkeepAmount, "Amount should match balance");
+        assertEq(effectiveTime, block.timestamp + 24 hours, "Effective time should be 24h later");
 
         // Governance takes over
         vm.prank(address(superGovernor));
@@ -3543,8 +3544,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.changePrimaryManager(strategy, newManager);
 
         // Verify pending withdrawal cancelled
-        (initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
-        assertEq(initiator, address(0), "Pending withdrawal should be cancelled");
+        (, effectiveTime) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(effectiveTime, 0, "Effective time should be zero");
 
         // Old manager cannot execute
         vm.warp(block.timestamp + 24 hours + 1);
@@ -3583,8 +3584,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.executeChangePrimaryManager(strategy);
 
         // Verify withdrawal cancelled
-        (address initiator,,) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
-        assertEq(initiator, address(0), "Pending withdrawal should be cancelled");
+        (uint256 amount, uint256 effectiveTime) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
+        assertEq(amount, 0, "Amount should be zero");
+        assertEq(effectiveTime, 0, "Effective time should be zero");
     }
 
     /// @notice Tests that governance can withdraw forfeited upkeep after takeover
