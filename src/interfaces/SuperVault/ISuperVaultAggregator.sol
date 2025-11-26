@@ -225,7 +225,8 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
-    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager);
+    /// @param feeRecipient Address of the new fee recipient
+    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient);
 
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy

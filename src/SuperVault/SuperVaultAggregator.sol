@@ -549,7 +549,15 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     ///      - Pending minUpdateInterval proposals
     ///      - ALL secondary managers (they may be controlled by malicious manager)
     /// @dev This ensures clean slate for new manager without inherited vulnerabilities
-    function changePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
+    /// @dev This function is only callable by SUPER_GOVERNOR
+    /// @param strategy Address of the strategy
+    /// @param newManager Address of the new primary manager
+    /// @param feeRecipient Address of the new fee recipient
+    function changePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    ) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -590,7 +598,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
     /// @inheritdoc ISuperVaultAggregator
