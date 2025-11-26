@@ -353,13 +353,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         secondaryManagers[1] = secondaryManager;
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
         superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
                 asset: address(asset),
                 name: "Test Vault Revert",
                 symbol: "TVR",
-                mainManager: secondaryManager,
+                mainManager: manager,
                 secondaryManagers: secondaryManagers,
                 minUpdateInterval: 5,
                 maxStaleness: 300,
