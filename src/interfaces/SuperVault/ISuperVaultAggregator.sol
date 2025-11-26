@@ -581,7 +581,8 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the new primary manager
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Proposes a change to the primary manager (callable by secondary managers)
     /// @notice A manager can either be secondary or primary

@@ -550,9 +550,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     ///      - ALL secondary managers (they may be controlled by malicious manager)
     /// @dev This ensures clean slate for new manager without inherited vulnerabilities
     /// @dev This function is only callable by SUPER_GOVERNOR
-    /// @param strategy Address of the strategy
-    /// @param newManager Address of the new primary manager
-    /// @param feeRecipient Address of the new fee recipient
     function changePrimaryManager(
         address strategy,
         address newManager,
