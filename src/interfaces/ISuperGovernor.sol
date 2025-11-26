@@ -203,7 +203,8 @@ interface ISuperGovernor is IAccessControl {
     /// @dev Only SuperGovernor can call this function directly
     /// @param strategy The strategy address
     /// @param newManager The new primary manager address
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient The new fee recipient address
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Permanently freezes all manager takeovers globally
     function freezeManagerTakeover() external;

@@ -332,9 +332,11 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
 
+        address feeRecipient = _deployAccount(0x2C, "FeeRecipient");
+
         // Test with governor role
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         assertEq(ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1), newManager);
     }
@@ -374,7 +376,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to change manager after freeze
         vm.prank(sGovernor);
         vm.expectRevert(ISuperGovernor.MANAGER_TAKEOVERS_FROZEN.selector);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, manager);
     }
 
     /// @notice Tests changePrimaryManager reverts when aggregator is not set
@@ -387,7 +389,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        freshGovernor.changePrimaryManager(strategy1, newManager);
+        freshGovernor.changePrimaryManager(strategy1, newManager, treasury);
     }
 
     /// @notice Tests changePrimaryManager reverts when called by unauthorized user
@@ -397,6 +399,8 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
 
+        address feeRecipient = _deployAccount(0x2D, "FeeRecipient");
+
         // Try to change manager as governor (has GOVERNOR_ROLE but not SUPER_GOVERNOR_ROLE)
         vm.prank(governor);
         vm.expectRevert(
@@ -404,7 +408,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, governor, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Try to change manager as regular user (no roles)
         vm.prank(user);
@@ -413,7 +417,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
     }
 
     /// @notice Tests changePrimaryManager success path with all checks passing
@@ -422,6 +426,8 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Verify initial manager
         address initialManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(initialManager, address(this), "Initial manager should be this contract");
+
+        address feeRecipient = _deployAccount(0x2E, "FeeRecipient");
 
         // Set up SuperVaultAggregator address in registry
         vm.prank(sGovernor);
@@ -432,11 +438,15 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Change manager as sGovernor (has SUPER_GOVERNOR_ROLE)
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Verify the manager was changed
         address updatedManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(updatedManager, newManager, "Manager should be updated to newManager");
+
+        // Verify the fee recipient was set
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy1).getConfigInfo();
+        assertEq(feeConfig.recipient, feeRecipient, "Fee recipient should be updated");
     }
 
     /// @notice Tests changePrimaryManager with zero address as new manager
@@ -450,7 +460,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         // This should revert in the aggregator's changePrimaryManager, not in SuperGovernor
         vm.prank(sGovernor);
         vm.expectRevert(); // Aggregator will revert with its own error
-        superGovernor.changePrimaryManager(strategy1, address(0));
+        superGovernor.changePrimaryManager(strategy1, address(0), manager);
+    }
+
+    /// @notice Tests changePrimaryManager with zero address as fee recipient
+    function test_ChangePrimaryManager_WithZeroAddressFeeRecipient() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(); // Aggregator will revert with its own error
+        superGovernor.changePrimaryManager(strategy1, newManager, address(0));
     }
 
     // =============================================================

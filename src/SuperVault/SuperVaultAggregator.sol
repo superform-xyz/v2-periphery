@@ -12,6 +12,7 @@ import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerklePr
 // Superform
 import { SuperVault } from "./SuperVault.sol";
 import { SuperVaultStrategy } from "./SuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "./SuperVaultEscrow.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -560,7 +561,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (newManager == address(0)) revert ZERO_ADDRESS();
+        if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
         address oldManager = _strategyData[strategy].mainManager;
 
@@ -591,6 +592,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             delete pendingUpkeepWithdrawals[strategy];
             emit UpkeepWithdrawalCancelled(strategy);
         }
+
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
 
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
@@ -672,7 +676,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedManager = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChangeExecuted(strategy, oldManager, newManager);
     }
 
     /*//////////////////////////////////////////////////////////////

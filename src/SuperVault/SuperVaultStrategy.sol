@@ -484,6 +484,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
+    function changeFeeRecipient(address newRecipient) external {
+        // Only SuperGovernor contract can call this
+        if (msg.sender != address(SUPER_GOVERNOR)) {
+            revert ACCESS_DENIED();
+        }
+        feeConfig.recipient = newRecipient;
+        emit FeeRecipientChanged(newRecipient);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,

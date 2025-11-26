@@ -84,7 +84,7 @@ interface ISuperVaultStrategy {
     );
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
-
+    event FeeRecipientChanged(address indexed newRecipient);
     event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
@@ -270,6 +270,10 @@ interface ISuperVaultStrategy {
         uint8[] calldata actionTypes
     )
         external;
+
+    /// @notice Change the fee recipient when the primary manager is changed
+    /// @param newRecipient New fee recipient
+    function changeFeeRecipient(address newRecipient) external;
 
     /// @notice Propose or execute a hook root update
     /// @notice Propose changes to vault-specific fee configuration
