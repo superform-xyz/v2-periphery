@@ -1016,7 +1016,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Count how many PPSUpdated events occurred
         uint256 count;
         for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("PPSUpdated(address,uint256,uint256,uint256,uint256)")) {
+            if (logs[i].topics[0] == keccak256("PPSUpdated(address,uint256,uint256)")) {
                 count++;
             }
         }
