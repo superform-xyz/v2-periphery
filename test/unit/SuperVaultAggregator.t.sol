@@ -1396,7 +1396,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
-        address feeRecipient = _deployAccount(0x2B, "FeeRecipient");
 
         vm.startPrank(secondaryManagers[0]);
         superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
