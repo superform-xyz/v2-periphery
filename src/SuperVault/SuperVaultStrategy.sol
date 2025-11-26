@@ -318,7 +318,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256[] calldata totalAssetsOut
     )
         external
-        payable
         nonReentrant
     {
         _isManager(msg.sender);
