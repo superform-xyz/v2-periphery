@@ -43,8 +43,6 @@ interface ISuperGovernor is IAccessControl {
     error NO_PROPOSED_FEE(FeeType feeType);
     /// @notice Thrown when timelock period has not expired
     error TIMELOCK_NOT_EXPIRED();
-    /// @notice Thrown when a validator is not registered
-    error VALIDATOR_NOT_REGISTERED();
     /// @notice Thrown when a validator is already registered
     error VALIDATOR_ALREADY_REGISTERED();
     /// @notice Thrown when trying to change active PPS oracle directly
@@ -134,10 +132,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param hook The address of the hook for which the Merkle root was updated.
     /// @param newRoot The new Merkle root.
     event SuperBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot);
-
-    /// @notice Emitted when the active PPS Oracle's quorum requirement is updated
-    /// @param quorum The new quorum value
-    event PPSOracleQuorumUpdated(uint256 quorum);
 
     /// @notice Emitted when an active PPS oracle is initially set
     /// @param oracle The address of the set oracle

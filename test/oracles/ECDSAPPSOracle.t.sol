@@ -512,64 +512,6 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         );
     }
 
-    function test_UpdatePPS_ValidatorCountMismatchReverts() public {
-        uint256[] memory signerKeys = new uint256[](2);
-        signerKeys[0] = validator1PrivateKey;
-        signerKeys[1] = validator2PrivateKey;
-
-        // Create digest with all parameters
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                oracleECDSA.UPDATE_PPS_TYPEHASH(),
-                address(svStrategy),
-                PPS,
-                PPS_STDEV,
-                uint256(1),
-                uint256(3),
-                block.timestamp,
-                oracleECDSA.noncePerStrategy(address(svStrategy))
-            )
-        );
-        bytes32 domainSeparator = oracleECDSA.domainSeparator();
-        bytes32 digest = MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
-
-        // Create proofs array
-        bytes[] memory proofs = new bytes[](signerKeys.length);
-        for (uint256 i = 0; i < signerKeys.length; i++) {
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKeys[i], digest);
-            proofs[i] = abi.encodePacked(r, s, v);
-        }
-
-        vm.expectEmit(true, false, false, false);
-        emit IECDSAPPSOracle.ProofValidationFailedLowLevel(
-            address(svStrategy), abi.encodeWithSelector(IECDSAPPSOracle.INVALID_VALIDATOR_SET.selector)
-        );
-
-        address[] memory strategies = new address[](1);
-        strategies[0] = address(svStrategy);
-
-        bytes[][] memory proofsArray = new bytes[][](1);
-        proofsArray[0] = proofs;
-
-        uint256[] memory ppss = new uint256[](1);
-        ppss[0] = PPS;
-
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 1;
-
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = 3;
-
-        uint256[] memory timestamps = new uint256[](1);
-        timestamps[0] = block.timestamp;
-
-        oracleECDSA.updatePPS(
-            IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
-            })
-        );
-    }
-
     function test_UpdatePPS_InsufficientQuorumReverts() public {
         // Create only 1 proof when we need at least 2 for quorum
         bytes[] memory proofs = new bytes[](1);

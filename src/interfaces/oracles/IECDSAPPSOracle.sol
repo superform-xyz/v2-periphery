@@ -21,18 +21,8 @@ interface IECDSAPPSOracle {
     error ZERO_LENGTH_ARRAY();
     /// @notice Thrown when the timestamp in the proof is invalid
     error INVALID_TIMESTAMP();
-    /// @notice Thrown when the strategy address in the proof does not match
-    error STRATEGY_MISMATCH();
-    /// @notice Thrown when the pps value in the proof does not match
-    error PPS_MISMATCH();
     /// @notice Thrown when the deviation from previous PPS is too high
     error HIGH_PPS_DEVIATION();
-    /// @notice Thrown when too few validators participated in the round
-    error INSUFFICIENT_VALIDATOR_PARTICIPATION();
-    /// @notice Thrown when the reported validator count doesn't match the actual number of valid signatures
-    error VALIDATOR_COUNT_MISMATCH();
-    /// @notice Thrown when the validatorSet doesn't match the actual number of valid signatures
-    error INVALID_VALIDATOR_SET();
     /// @notice Thrown when the totalValidators doesn't match the actual total number of validators
     error INVALID_TOTAL_VALIDATORS();
     /// @notice Thrown when the gas provided is insufficient for external calls
@@ -69,11 +59,6 @@ interface IECDSAPPSOracle {
     /// @notice Emitted when batch forward PPS failed
     /// @param lowLevelData Revert encoded data
     event BatchForwardPPSFailedLowLevel(bytes lowLevelData);
-
-    /// @notice Emitted when batch forward PPS failed due to insufficient gas
-    /// @param gasLeft Gas left
-    /// @param requiredGas Required gas
-    event InsufficientGasForForward(uint256 gasLeft, uint256 requiredGas);
 
     /*//////////////////////////////////////////////////////////////
                             STRUCTS

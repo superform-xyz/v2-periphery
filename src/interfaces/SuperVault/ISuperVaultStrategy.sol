@@ -19,11 +19,8 @@ interface ISuperVaultStrategy {
     error OPERATION_FAILED();
     error INVALID_TIMESTAMP();
     error REQUEST_NOT_FOUND();
-    error INSUFFICIENT_FUNDS();
-    error INSUFFICIENT_SHARES();
     error INVALID_ARRAY_LENGTH();
     error ACTION_TYPE_DISALLOWED();
-    error ALREADY_PROPOSED();
     error YIELD_SOURCE_NOT_FOUND();
     error YIELD_SOURCE_ALREADY_EXISTS();
     error INVALID_PERFORMANCE_FEE_BPS();
@@ -31,8 +28,6 @@ interface ISuperVaultStrategy {
     error INVALID_REDEEM_CLAIM();
     error MANAGER_NOT_AUTHORIZED();
     error INVALID_PPS();
-    error INVALID_REDEEM_FILL();
-    error SLIPPAGE_EXCEEDED();
     error INVALID_VAULT();
     error INVALID_ASSET();
     error OPERATIONS_BLOCKED_BY_VETO();
@@ -41,7 +36,6 @@ interface ISuperVaultStrategy {
     error NO_PROPOSAL();
     error INVALID_REDEEM_SLIPPAGE_BPS();
     error CANCELLATION_REDEEM_REQUEST_PENDING();
-    error ZERO_REQUEST_PPS();
     error STALE_PPS();
     error PPS_EXPIRED();
     error INVALID_PPS_EXPIRY_THRESHOLD();
@@ -62,8 +56,6 @@ interface ISuperVaultStrategy {
     event YieldSourceOracleUpdated(address indexed source, address indexed oldOracle, address indexed newOracle);
     event YieldSourceRemoved(address indexed source);
 
-    event HookRootUpdated(bytes32 newRoot);
-    event HookRootProposed(bytes32 proposedRoot, uint256 effectiveTime);
     event VaultFeeConfigUpdated(uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient);
     event VaultFeeConfigProposed(
         uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient, uint256 effectiveTime
@@ -85,7 +77,6 @@ interface ISuperVaultStrategy {
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
     event FeeRecipientChanged(address indexed newRecipient);
-    event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
     event RedeemClaimable(
@@ -96,10 +87,6 @@ interface ISuperVaultStrategy {
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
     event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
     event PPSExpiryThresholdProposalCanceled();
-
-    /// @notice DEPRECATED: Event no longer emitted after PPS-based HWM refactor
-    /// @dev Kept for interface compatibility, will be removed in future version
-    event VaultCostBasisUpdated(uint256 newTotalCostBasis);
 
     /// @notice Emitted when the high-water mark PPS is updated after fee collection
     /// @param newHwmPps The new high-water mark PPS (post-fee)
