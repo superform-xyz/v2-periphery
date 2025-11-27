@@ -240,11 +240,6 @@ interface ISuperVaultAggregator {
     /// @param timestamp Timestamp of the stale update
     event StaleUpdate(address indexed strategy, address indexed updateAuthority, uint256 timestamp);
 
-    /// @notice Emitted when the upkeep cost per update is changed
-    /// @param oldCost Previous upkeep cost per update
-    /// @param newCost New upkeep cost per update
-    event UpkeepCostUpdated(uint256 oldCost, uint256 newCost);
-
     /// @notice Emitted when the global hooks Merkle root is being updated
     /// @param root New root value
     /// @param effectiveTime Timestamp when the root becomes effective
@@ -296,17 +291,6 @@ interface ISuperVaultAggregator {
     /// @param statuses Array of new banned statuses (true = banned, false = allowed)
     event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses);
 
-    /// @notice Emitted when a proposed global hooks root update is vetoed by a guardian
-    /// @param guardian Address of the guardian who vetoed the update
-    /// @param root The vetoed root value
-    event GlobalHooksRootVetoed(address indexed guardian, bytes32 indexed root);
-
-    /// @notice Emitted when a proposed strategy hooks root update is vetoed by a guardian
-    /// @param guardian Address of the guardian who vetoed the update
-    /// @param strategy Address of the strategy whose root update was vetoed
-    /// @param root The vetoed root value
-    event StrategyHooksRootVetoed(address indexed guardian, address indexed strategy, bytes32 indexed root);
-
     /// @notice Emitted when upkeep is claimed
     /// @param superBank Address of the superBank
     /// @param amount Amount of upkeep claimed
@@ -337,9 +321,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when the old primary manager is removed from the strategy
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
-
-    /// @notice Emitted when the strategy's PPS unpause timelock is updated
-    event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
 
     /// @notice Emitted when a strategy's PPS is stale
     event StrategyPPSStale(address indexed strategy);
@@ -408,44 +389,30 @@ interface ISuperVaultAggregator {
     error INVALID_ASSET();
     /// @notice Thrown when insufficient upkeep balance for operation
     error INSUFFICIENT_UPKEEP();
-    /// @notice Thrown when vault is paused but operation requires active state
-    error VAULT_PAUSED();
     /// @notice Thrown when caller is not authorized
     error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when caller is not an approved PPS oracle
     error UNAUTHORIZED_PPS_ORACLE();
-    /// @notice Thrown when PPS update is too stale (after maxStaleness)
-    error UPDATE_TOO_STALE();
     /// @notice Thrown when caller is not authorized for update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
     /// @notice Thrown when strategy address is not a known SuperVault strategy
     error UNKNOWN_STRATEGY();
-    /// @notice Thrown when withdrawing more upkeep than available
-    error INSUFFICIENT_UPKEEP_BALANCE();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
     error STRATEGY_ALREADY_PAUSED();
     /// @notice Thrown when array index is out of bounds
     error INDEX_OUT_OF_BOUNDS();
-    /// @notice Thrown when attempting to remove the last manager
-    error CANNOT_REMOVE_LAST_MANAGER();
     /// @notice Thrown when attempting to add a manager that already exists
     error MANAGER_ALREADY_EXISTS();
     /// @notice Thrown when attempting to add a manager that is the primary manager
     error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
     /// @notice Thrown when there is no pending global hooks root change
     error NO_PENDING_GLOBAL_ROOT_CHANGE();
-    /// @notice Thrown when attempting to execute an in-progress manager change before timelock elapsed
-    error MANAGER_CHANGE_NOT_READY();
     /// @notice Thrown when attempting to execute a hooks root change before timelock has elapsed
     error ROOT_UPDATE_NOT_READY();
     /// @notice Thrown when a provided hook fails Merkle proof validation
     error HOOK_VALIDATION_FAILED();
-    /// @notice Thrown when a non-guardian tries to veto a root update
-    error NOT_A_GUARDIAN();
-    /// @notice Thrown when trying to veto a root update that doesn't exist
-    error NO_PENDING_ROOT_UPDATE();
     /// @notice Thrown when manager is not found
     error MANAGER_NOT_FOUND();
     /// @notice Thrown when there is no pending manager change proposal
@@ -456,8 +423,6 @@ interface ISuperVaultAggregator {
     error TIMELOCK_NOT_EXPIRED();
     /// @notice Thrown when an array length is invalid
     error INVALID_ARRAY_LENGTH();
-    /// @notice Thrown when trying to add a protected keeper as an authorized caller
-    error CANNOT_ADD_PROTECTED_KEEPER();
     /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
     error MAX_STALENESS_TOO_LOW();
     /// @notice Thrown when arrays have mismatched lengths
@@ -470,8 +435,6 @@ interface ISuperVaultAggregator {
     error UPKEEP_WITHDRAWAL_NOT_READY();
     /// @notice Thrown when no pending upkeep withdrawal request exists
     error UPKEEP_WITHDRAWAL_NOT_FOUND();
-    /// @notice Thrown when PPS is too stale to unpause a strategy
-    error UNPAUSE_TIMELOCK_NOT_MET();
     /// @notice PPS must decrease after skimming fees
     error PPS_MUST_DECREASE_AFTER_SKIM();
     /// @notice PPS deduction is larger than the maximum allowed fee rate
