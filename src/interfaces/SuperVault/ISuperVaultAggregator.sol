@@ -16,16 +16,12 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy being updated
     /// @param isExempt Whether the update is exempt from paying upkeep
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     /// @param upkeepCost Amount of upkeep tokens to charge if not exempt
     struct PPSUpdateData {
         address strategy;
         bool isExempt;
         uint256 pps;
-        uint256 validatorSet;
-        uint256 totalValidators;
         uint256 timestamp;
         uint256 upkeepCost;
     }
@@ -33,16 +29,10 @@ interface ISuperVaultAggregator {
     /// @notice Local variables for vault creation to avoid stack too deep
     /// @param currentNonce Current vault creation nonce
     /// @param salt Salt for deterministic proxy creation
-    /// @param success Whether asset decimals retrieval was successful
-    /// @param assetDecimals Decimals of the underlying asset
-    /// @param underlyingDecimals Final decimals to use (18 if retrieval failed)
     /// @param initialPPS Initial price-per-share value
     struct VaultCreationLocalVars {
         uint256 currentNonce;
         bytes32 salt;
-        bool success;
-        uint8 assetDecimals;
-        uint8 underlyingDecimals;
         uint256 initialPPS;
     }
 
@@ -159,11 +149,9 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a PPS value is updated
     /// @param strategy Address of the strategy
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp of the update
     event PPSUpdated(
-        address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp
+        address indexed strategy, uint256 pps, uint256 timestamp
     );
 
     /// @notice Emitted when a strategy is paused due to missed updates
@@ -437,6 +425,8 @@ interface ISuperVaultAggregator {
     error CANNOT_REMOVE_LAST_MANAGER();
     /// @notice Thrown when attempting to add a manager that already exists
     error MANAGER_ALREADY_EXISTS();
+    /// @notice Thrown when attempting to add a manager that is the primary manager
+    error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
     /// @notice Thrown when there is no pending global hooks root change
     error NO_PENDING_GLOBAL_ROOT_CHANGE();
     /// @notice Thrown when attempting to execute an in-progress manager change before timelock elapsed
@@ -502,14 +492,11 @@ interface ISuperVaultAggregator {
     /// @notice Arguments for batch forwarding PPS updates
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
-    /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
-    /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
+    /// @param updateAuthority Address of the update authority
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
-        uint256[] validatorSets;
-        uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;
     }

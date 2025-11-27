@@ -243,7 +243,7 @@ interface ISuperVaultStrategy {
     /// @dev NOTE: totalAssetsOut includes fees - actual net amount received is calculated internally after fee
     /// deduction. @param controllers Ordered/unique controllers with pending requests.
     /// @param totalAssetsOut Total PRE-FEE assets available for each controller[i] (from executeHooks).
-    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external payable;
+    function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external;
 
     /// @notice Skim performance fees based on per-share High Water Mark (PPS-based)
     /// @dev Can be called by any manager when vault PPS has grown above HWM PPS

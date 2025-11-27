@@ -207,7 +207,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
-        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+        emit PPSUpdated(strategy, vars.initialPPS, _strategyData[strategy].lastUpdateTimestamp);
 
         return (superVault, strategy, escrow);
     }
@@ -278,8 +278,6 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
                     strategy: strategy,
                     isExempt: (!paymentsEnabled) || (upkeepCost == 0),
                     pps: args.ppss[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -1212,7 +1210,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
                 _strategyData[args.strategy].ppsStale = false;
                 emit StrategyPPSStaleReset(args.strategy);
             }
-            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+            emit PPSUpdated(args.strategy, args.pps, args.timestamp);
         }
         // If checks failed, PPS remains at old value (safer for external integrators)
     }
