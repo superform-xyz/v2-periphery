@@ -200,6 +200,16 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
+    function resetHighWaterMark(address strategy) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+        if (strategy == address(0)) revert INVALID_ADDRESS();
+        
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).resetHighWaterMark(strategy);
+    }
+
+    /// @inheritdoc ISuperGovernor
     function freezeManagerTakeover() external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (_managerTakeoversFrozen) revert MANAGER_TAKEOVERS_FROZEN();
 
