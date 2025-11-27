@@ -203,7 +203,17 @@ interface ISuperGovernor is IAccessControl {
     /// @dev Only SuperGovernor can call this function directly
     /// @param strategy The strategy address
     /// @param newManager The new primary manager address
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient The new fee recipient address
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
+
+    /// @notice Resets the high-water mark PPS to the current PPS
+    /// @dev Only SuperGovernor can call this function
+    /// @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until the fee config are updated after the week timelock.
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value for the given strategy
+    /// @param strategy Address of the strategy to reset the high-water mark for
+    function resetHighWaterMark(address strategy) external;
 
     /// @notice Permanently freezes all manager takeovers globally
     function freezeManagerTakeover() external;

@@ -483,6 +483,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
+    function changeFeeRecipient(address newRecipient) external {
+        if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
+
+        feeConfig.recipient = newRecipient;
+        emit FeeRecipientChanged(newRecipient);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
@@ -523,6 +531,17 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
         emit HWMPPSUpdated(currentPPS, oldHwmPps, 0, 0);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function resetHighWaterMark(uint256 newHwmPps) external {
+        if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
+
+        if (newHwmPps == 0) revert INVALID_PPS();
+
+        vaultHwmPps = newHwmPps;
+
+        emit HighWaterMarkReset(newHwmPps);
     }
 
     /// @inheritdoc ISuperVaultStrategy

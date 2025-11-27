@@ -58,6 +58,7 @@ interface ISuperVaultAggregator {
         EnumerableSet.AddressSet secondaryManagers;
         // Manager change proposal data
         address proposedManager;
+        address proposedFeeRecipient;
         uint256 managerChangeEffectiveTime;
         // Hook validation data
         bytes32 managerHooksRoot;
@@ -211,7 +212,8 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
-    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager);
+    /// @param feeRecipient Address of the new fee recipient
+    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient);
 
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy
@@ -219,13 +221,18 @@ interface ISuperVaultAggregator {
     /// @param newManager Address of the proposed new primary manager
     /// @param effectiveTime Timestamp when the proposal can be executed
     event PrimaryManagerChangeProposed(
-        address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime
+        address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime
     );
 
     /// @notice Emitted when a primary manager change proposal is cancelled
     /// @param strategy Address of the strategy
     /// @param cancelledManager Address of the manager that was proposed
     event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
+
+    /// @notice Emitted when the High Water Mark for a strategy is reset to PPS
+    /// @param strategy Address of the strategy
+    /// @param newHWM The new High Water Mark (PPS)
+    event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM);
 
     /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
     /// @param strategy Address of the strategy
@@ -565,13 +572,15 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the new primary manager
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Proposes a change to the primary manager (callable by secondary managers)
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
-    function proposeChangePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Cancels a pending primary manager change proposal
     /// @dev Only the current primary manager can cancel the proposal
@@ -581,6 +590,11 @@ interface ISuperVaultAggregator {
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
     function executeChangePrimaryManager(address strategy) external;
+
+    /// @notice Resets the strategy's performance-fee high-water mark to PPS
+    /// @dev Only callable by SuperGovernor
+    /// @param strategy Address of the strategy
+    function resetHighWaterMark(address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                         HOOK VALIDATION FUNCTIONS

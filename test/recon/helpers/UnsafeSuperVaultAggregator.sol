@@ -12,6 +12,7 @@ import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerklePr
 // Superform
 import { SuperVault } from "src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "src/SuperVault/SuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperGovernor } from "src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -547,15 +548,17 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
     ///      - Pending minUpdateInterval proposals
     ///      - ALL secondary managers (they may be controlled by malicious manager)
     /// @dev This ensures clean slate for new manager without inherited vulnerabilities
-    function changePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
+    function changePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    ) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (strategy == address(0)) revert ZERO_ADDRESS();
-
-        if (newManager == address(0)) revert ZERO_ADDRESS();
+        if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
         address oldManager = _strategyData[strategy].mainManager;
 
@@ -587,14 +590,24 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepWithdrawalCancelled(strategy);
         }
 
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
+
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function proposeChangePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
+    function proposeChangePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    )
+        external
+        validStrategy(strategy)
+    {
         // Only secondary managers can propose changes to the primary manager
         if (!_strategyData[strategy].secondaryManagers.contains(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -607,9 +620,10 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Store proposal in the strategy data
         _strategyData[strategy].proposedManager = newManager;
+        _strategyData[strategy].proposedFeeRecipient = feeRecipient;
         _strategyData[strategy].managerChangeEffectiveTime = effectiveTime;
 
-        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, effectiveTime);
+        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, feeRecipient, effectiveTime);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -628,6 +642,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Clear the proposal
         _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
         emit PrimaryManagerChangeCancelled(strategy, cancelledManager);
@@ -663,11 +678,38 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
+        // Set the new fee recipient
+        address feeRecipient = _strategyData[strategy].proposedFeeRecipient;
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
+
         // Clear the proposal
         _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing
+    /// them for the previous manager's performance.
+    /// @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
+    /// @dev This function is only callable by SUPER_GOVERNOR
+    function resetHighWaterMark(address strategy) external validStrategy(strategy) {
+        // Only SuperGovernor can call this
+        if (msg.sender != address(SUPER_GOVERNOR)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        uint256 newHwmPps = ISuperVaultStrategy(strategy).getStoredPPS();
+
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
+
+        emit HighWaterMarkReset(strategy, newHwmPps);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -84,7 +84,7 @@ interface ISuperVaultStrategy {
     );
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
-
+    event FeeRecipientChanged(address indexed newRecipient);
     event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
@@ -108,6 +108,13 @@ interface ISuperVaultStrategy {
     /// @param feeCollected The total fee collected (in assets)
     event HWMPPSUpdated(uint256 newHwmPps, uint256 previousPps, uint256 profit, uint256 feeCollected);
 
+    /// @notice Emitted when the high-water mark PPS is reset
+    /// @param newHwmPps The new high-water mark PPS (post-fee)
+    event HighWaterMarkReset(uint256 newHwmPps);
+
+    /// @notice Emitted when performance fees are skimmed
+    /// @param totalFee The total fee collected (in assets)
+    /// @param superformFee The fee collected for Superform (in assets)
     event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
 
     /*//////////////////////////////////////////////////////////////
@@ -271,6 +278,10 @@ interface ISuperVaultStrategy {
     )
         external;
 
+    /// @notice Change the fee recipient when the primary manager is changed
+    /// @param newRecipient New fee recipient
+    function changeFeeRecipient(address newRecipient) external;
+
     /// @notice Propose or execute a hook root update
     /// @notice Propose changes to vault-specific fee configuration
     /// @param performanceFeeBps New performance fee in basis points
@@ -293,6 +304,12 @@ interface ISuperVaultStrategy {
     /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
     ///      to avoid incorrect fee calculations with the new fee structure.
     function executeVaultFeeConfigUpdate() external;
+
+    /// @notice Reset the high-water mark PPS to the current PPS
+    /// @dev This function is only callable by Aggregator
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
+    /// @param newHwmPps The new high-water mark PPS value
+    function resetHighWaterMark(uint256 newHwmPps) external;
 
     /// @notice Manage PPS expiry threshold
     /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal

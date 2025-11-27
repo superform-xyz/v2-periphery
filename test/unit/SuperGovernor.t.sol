@@ -410,13 +410,11 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests changing a manager for a strategy
     function test_ManagerTakeover_ChangeManager() public {
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
+        address feeRecipient = _deployAccount(0x2C, "FeeRecipient");
 
         // Test with governor role
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         assertEq(ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1), newManager);
     }
@@ -456,7 +454,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to change manager after freeze
         vm.prank(sGovernor);
         vm.expectRevert(ISuperGovernor.MANAGER_TAKEOVERS_FROZEN.selector);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, manager);
     }
 
     /// @notice Tests changePrimaryManager reverts when aggregator is not set
@@ -469,7 +467,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        freshGovernor.changePrimaryManager(strategy1, newManager);
+        freshGovernor.changePrimaryManager(strategy1, newManager, treasury);
     }
 
     /// @notice Tests changePrimaryManager reverts when called by unauthorized user
@@ -479,6 +477,8 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
 
+        address feeRecipient = _deployAccount(0x2D, "FeeRecipient");
+
         // Try to change manager as governor (has GOVERNOR_ROLE but not SUPER_GOVERNOR_ROLE)
         vm.prank(governor);
         vm.expectRevert(
@@ -486,7 +486,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, governor, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Try to change manager as regular user (no roles)
         vm.prank(user);
@@ -495,7 +495,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
     }
 
     /// @notice Tests changePrimaryManager success path with all checks passing
@@ -505,20 +505,22 @@ contract SuperGovernorTest is PeripheryHelpers {
         address initialManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(initialManager, address(this), "Initial manager should be this contract");
 
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
+        address feeRecipient = _deployAccount(0x2E, "FeeRecipient");
 
         // Verify manager takeovers are not frozen
         assertFalse(superGovernor.isManagerTakeoverFrozen(), "Manager takeovers should not be frozen initially");
 
         // Change manager as sGovernor (has SUPER_GOVERNOR_ROLE)
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Verify the manager was changed
         address updatedManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(updatedManager, newManager, "Manager should be updated to newManager");
+
+        // Verify the fee recipient was set
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy1).getConfigInfo();
+        assertEq(feeConfig.recipient, feeRecipient, "Fee recipient should be updated");
     }
 
     /// @notice Tests changePrimaryManager with zero address as new manager
@@ -532,7 +534,55 @@ contract SuperGovernorTest is PeripheryHelpers {
         // This should revert in the aggregator's changePrimaryManager, not in SuperGovernor
         vm.prank(sGovernor);
         vm.expectRevert(); // Aggregator will revert with its own error
-        superGovernor.changePrimaryManager(strategy1, address(0));
+        superGovernor.changePrimaryManager(strategy1, address(0), manager);
+    }
+
+    /// @notice Tests changePrimaryManager with zero address as fee recipient
+    function test_ChangePrimaryManager_WithZeroAddressFeeRecipient() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(); // Aggregator will revert with its own error
+        superGovernor.changePrimaryManager(strategy1, newManager, address(0));
+    }
+
+    // =============================================================
+    // High Water Mark Reset Tests
+    // =============================================================
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the caller is not the SuperGovernor
+    function test_HighWaterMarkReset_Revert_NotGovernor() public {
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE)
+        );
+        superGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the strategy is not set
+    function test_HighWaterMarkReset_Revert_InvalidStrategy() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.resetHighWaterMark(address(0));
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the aggregator is not set
+    function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
+        // Deploy a fresh SuperGovernor instance without setting the aggregator
+        address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+
+        // Don't set the aggregator in registry - it should be address(0)
+        vm.prank(freshSGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        freshGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS
+    function test_HighWaterMarkReset_Success() public {
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(strategy1);
+
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy1)).vaultHwmPps();
+        uint256 currentPPS = SuperVaultStrategy(payable(strategy1)).getStoredPPS();
+        assertEq(newHwmPps, currentPPS, "High Water Mark should be reset to current PPS");
     }
 
     // =============================================================

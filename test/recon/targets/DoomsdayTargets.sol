@@ -297,10 +297,12 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     function doomsday_primaryManagerAlwaysChangeable() public {
         address strategy = address(superVaultStrategy);
         address newManager = _getActor();
+        _switchActor(1);
+        address feeRecipient = _getActor();
 
         // Since address(this) has SUPER_GOVERNOR_ROLE, this should always succeed
         vm.prank(address(this));
-        try superGovernor.changePrimaryManager(strategy, newManager) {
+        try superGovernor.changePrimaryManager(strategy, newManager, feeRecipient) {
         // Call succeeded - this is expected behavior
         }
         catch (bytes memory err) {

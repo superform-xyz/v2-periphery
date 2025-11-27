@@ -183,7 +183,11 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                     PERIPHERY CONFIGURATIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
-    function changePrimaryManager(address strategy, address newManager) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+    function changePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    ) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         // Check if takeovers are globally frozen
         if (_managerTakeoversFrozen) revert MANAGER_TAKEOVERS_FROZEN();
 
@@ -192,7 +196,17 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Call the interface method to change the manager
         // This function can only be called by the SuperGovernor and bypasses the timelock
-        ISuperVaultAggregator(aggregator).changePrimaryManager(strategy, newManager);
+        ISuperVaultAggregator(aggregator).changePrimaryManager(strategy, newManager, feeRecipient);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function resetHighWaterMark(address strategy) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+        if (strategy == address(0)) revert INVALID_ADDRESS();
+        
+        address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
+        if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperVaultAggregator(aggregator).resetHighWaterMark(strategy);
     }
 
     /// @inheritdoc ISuperGovernor

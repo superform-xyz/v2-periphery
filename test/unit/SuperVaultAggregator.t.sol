@@ -756,18 +756,28 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     /// @notice Tests that changePrimaryManager reverts when strategy is zero address (caught by validStrategy modifier)
     function test_ChangePrimaryManager_RevertZeroAddressStrategy() public {
         address newManager = _deployAccount(0x23, "NewManager");
+        address feeRecipient = _deployAccount(0x24, "FeeRecipient");
 
         // The validStrategy modifier is checked first, so it reverts with UNKNOWN_STRATEGY
         vm.prank(address(superGovernor));
         vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
-        superVaultAggregator.changePrimaryManager(address(0), newManager);
+        superVaultAggregator.changePrimaryManager(address(0), newManager, feeRecipient);
     }
 
     /// @notice Tests that changePrimaryManager reverts when newManager is zero address
     function test_ChangePrimaryManager_RevertZeroAddressNewManager() public {
+        address feeRecipient = _deployAccount(0x25, "FeeRecipient");
         vm.prank(address(superGovernor));
         vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.changePrimaryManager(strategy, address(0));
+        superVaultAggregator.changePrimaryManager(strategy, address(0), feeRecipient);
+    }
+
+    /// @notice Tests that changePrimaryManager reverts when feeRecipient is zero address
+    function test_ChangePrimaryManager_RevertZeroAddressFeeRecipient() public {
+        address newManager = _deployAccount(0x26, "NewManager");
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, address(0));
     }
 
     /// @notice Tests that proposeChangePrimaryManager reverts when newManager is zero address
@@ -775,7 +785,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Only secondary managers can propose, so use secondaryManager
         vm.prank(secondaryManager);
         vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, address(0));
+        superVaultAggregator.proposeChangePrimaryManager(strategy, address(0), treasury);
     }
 
     /// @notice Tests that executeChangePrimaryManager reverts when there's no pending manager change
@@ -792,7 +802,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Try to execute immediately (timelock is 7 days)
         vm.expectRevert(ISuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
@@ -802,6 +812,65 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.warp(block.timestamp + 7 days - 1);
         vm.expectRevert(ISuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
         superVaultAggregator.executeChangePrimaryManager(strategy);
+    }
+
+    /// @notice Tests that executeChangePrimaryManager succeeds with valid non-zero addresses
+    /// @dev This test validates the defense-in-depth zero address check in executeChangePrimaryManager
+    /// @dev The check protects against any future code changes that might bypass proposeChangePrimaryManager validation
+    function test_ExecuteChangePrimaryManager_Success() public {
+        // Create new manager and fee recipient addresses
+        address newManager = _deployAccount(0x25, "NewManager");
+        address newFeeRecipient = _deployAccount(0x26, "NewFeeRecipient");
+
+        // Secondary manager proposes change with valid addresses
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, newFeeRecipient);
+
+        // Warp past timelock (7 days)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute should succeed
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify new manager is set
+        assertEq(superVaultAggregator.getMainManager(strategy), newManager, "New manager should be set");
+
+        // Verify fee recipient is updated
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy).getConfigInfo();
+        assertEq(feeConfig.recipient, newFeeRecipient, "Fee recipient should be updated");
+    }
+
+    // =============================================================
+    // High Water Mark Reset Tests
+    // =============================================================
+
+    /// @notice Tests that resetHighWaterMark reverts when caller is not SuperGovernor
+    function test_ResetHighWaterMark_RevertUnauthorized() public {
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.resetHighWaterMark(strategy);
+    }
+
+    /// @notice Tests that resetHighWaterMark reverts when strategy is invalid address
+    function test_ResetHighWaterMark_RevertInvalidStrategy() public {
+        address invalidStrategy = _deployAccount(0x27, "InvalidStrategy");
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        superVaultAggregator.resetHighWaterMark(invalidStrategy);
+    }
+
+    /// @notice Tests that resetHighWaterMark succeeds when strategy is valid address
+    function test_ResetHighWaterMark_Success() public {
+        vm.startPrank(address(superGovernor));
+        
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.HighWaterMarkReset(strategy, SuperVaultStrategy(payable(strategy)).getStoredPPS());
+        superVaultAggregator.resetHighWaterMark(strategy);
+        vm.stopPrank();
+
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+        uint256 currentPPS = SuperVaultStrategy(payable(strategy)).getStoredPPS();
+        assertEq(newHwmPps, currentPPS, "High Water Mark should be reset to current PPS");
     }
 
     /// @notice Tests that setHooksRootUpdateTimelock reverts when caller is not SuperGovernor
@@ -1316,15 +1385,16 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_ChangePrimaryManager_ClearsPendingProposals() public {
         // Setup: Create pending manager proposal
         address newManager = _deployAccount(0xC, "NewManager");
+        address feeRecipient = _deployAccount(0x27, "FeeRecipient");
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, feeRecipient);
 
         // SuperGovernor performs emergency replacement
         address emergencyManager = _deployAccount(0xD, "EmergencyManager");
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // Verify new manager is set
         address currentManager = superVaultAggregator.getMainManager(strategy);
@@ -1348,6 +1418,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // SuperGovernor performs emergency replacement
         address emergencyManager = _deployAccount(0x10, "EmergencyManager");
+        address feeRecipient = _deployAccount(0x28, "FeeRecipient");
 
         // Expect SecondaryManagerRemoved events for all secondary managers
         vm.expectEmit(true, true, false, false);
@@ -1358,11 +1429,41 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         emit ISuperVaultAggregator.SecondaryManagerRemoved(strategy, secondaryManager3);
 
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // Verify all secondary managers were cleared
         secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
         assertEq(secondaryManagers.length, 0, "All secondary managers should be cleared");
+    }
+
+    function test_ChangePrimaryManager_UpdatesFeeRecipient() public {
+        address newManager = _deployAccount(0x11, "NewManager");
+        address feeRecipient = _deployAccount(0x29, "FeeRecipient");
+
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy).getConfigInfo();
+        address oldFeeRecipient = feeConfig.recipient;
+
+        vm.prank(address(superGovernor));
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
+
+        feeConfig = ISuperVaultStrategy(strategy).getConfigInfo();
+        assertEq(feeConfig.recipient, feeRecipient, "Fee recipient should be updated");
+        assert(feeConfig.recipient != oldFeeRecipient);
+    }
+
+    function test_ExecuteChangePriamryManager_UpdatesFeeRecipient() public {
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+
+        address newPrimaryManager = _deployAccount(0x12, "NewManager");
+
+        vm.startPrank(secondaryManagers[0]);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
+
+        vm.warp(block.timestamp + 1 weeks);
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+        vm.stopPrank();
+
+        assertEq(ISuperVaultStrategy(strategy).getConfigInfo().recipient, treasury);
     }
 
     /// @notice Tests emergency replacement clears all secondary managers
@@ -1422,8 +1523,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // SuperGovernor performs emergency replacement
         address emergencyManager = _deployAccount(0x11, "EmergencyManager");
+        address feeRecipient = _deployAccount(0x2A, "FeeRecipient");
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // Verify hook proposal was cleared
         (proposedRoot, effectiveTime) = superVaultAggregator.getProposedStrategyHooksRoot(strategy);
@@ -1441,7 +1543,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address newPrimaryManager = _deployAccount(0x12, "NewManager");
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
         vm.warp(block.timestamp + 1 weeks);
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
@@ -1459,11 +1561,11 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, treasury);
         vm.warp(block.timestamp + 1 weeks);
 
         vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, newPrimaryManager, nextPrimaryManager);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, newPrimaryManager, nextPrimaryManager, treasury);
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
 
@@ -1473,17 +1575,20 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, treasury);
         vm.warp(block.timestamp + 1 weeks);
 
         vm.expectEmit(true, true, false, false);
         emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, nextPrimaryManager);
 
         vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, newPrimaryManager);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, newPrimaryManager, treasury);
 
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
+
+        address newFeeRecipient = ISuperVaultStrategy(strategy).getConfigInfo().recipient;
+        assertEq(newFeeRecipient, treasury, "Fee recipient should be set to treasury");
     }
 
     // =============================================================
@@ -1496,7 +1601,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Verify proposal exists
         (address proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
@@ -1520,7 +1625,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Secondary manager tries to cancel - should revert
         vm.prank(secondaryManager);
@@ -1548,7 +1653,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Create and execute a proposal
         address newManager = _deployAccount(0xBE, "NewManager");
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         vm.warp(block.timestamp + 7 days + 1);
         vm.prank(secondaryManager);
@@ -1571,7 +1676,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Attacker immediately proposes themselves as primary manager
         vm.prank(attacker);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, attacker);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, attacker, treasury);
 
         // Manager realizes the mistake and cancels within 7-day timelock
         vm.warp(block.timestamp + 3 days); // 3 days later, manager notices
@@ -1607,7 +1712,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes a change
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Main manager cancels
         vm.prank(manager);
@@ -1615,7 +1720,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Same proposal can be made again
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Verify new proposal exists
         (address proposedManager,) = superVaultAggregator.getPendingManagerChange(strategy);
@@ -1637,12 +1742,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // 2. Malicious manager creates a proposal to regain control after emergency replacement
         address controlledAccount = _deployAccount(0x14, "ControlledAccount");
         vm.prank(maliciousSecondary1);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, treasury);
 
         // 3. SuperGovernor detects malicious behavior and performs emergency replacement
         address emergencyManager = _deployAccount(0x15, "EmergencyManager");
+        address feeRecipient = _deployAccount(0x2C, "FeeRecipient");
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // 4. Verify the attack is thwarted:
 
@@ -1657,33 +1763,40 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // 5. Malicious accounts can no longer propose changes
         vm.prank(maliciousSecondary1);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, treasury);
 
         vm.prank(maliciousSecondary2);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, controlledAccount, treasury);
+    }
+
+    function test_ProposeChangePrimaryManager_RevertZeroAddressFeeRecipient() public {
+        vm.prank(secondaryManager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, manager, address(0));
     }
 
     /// @notice Tests that only SuperGovernor can call changePrimaryManager
     function test_ChangePrimaryManager_OnlySuperGovernor() public {
         address newManager = _deployAccount(0x16, "NewManager");
+        address feeRecipient = _deployAccount(0x2D, "FeeRecipient");
 
         // Test unauthorized callers
         vm.prank(manager);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
 
         vm.prank(secondaryManager);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
 
         vm.prank(user);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
 
         // Test that SuperGovernor can call it
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
 
         // Verify change was successful
         address currentManager = superVaultAggregator.getMainManager(strategy);
@@ -1694,25 +1807,28 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
     function test_ChangePrimaryManager_RevertZeroAddress() public {
         vm.prank(address(superGovernor));
         vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
-        superVaultAggregator.changePrimaryManager(strategy, address(0));
+        superVaultAggregator.changePrimaryManager(strategy, address(0), manager);
     }
 
     /// @notice Tests emergency replacement with unknown strategy reverts
     function test_ChangePrimaryManager_RevertUnknownStrategy() public {
         address unknownStrategy = _deployAccount(0x17, "UnknownStrategy");
         address newManager = _deployAccount(0x18, "NewManager");
+        address feeRecipient = _deployAccount(0x2E, "FeeRecipient");
 
         vm.prank(address(superGovernor));
         vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
-        superVaultAggregator.changePrimaryManager(unknownStrategy, newManager);
+        superVaultAggregator.changePrimaryManager(unknownStrategy, newManager, feeRecipient);
     }
 
     /// @notice Tests emergency replacement works when no pending proposals exist
     function test_ChangePrimaryManager_NoPendingProposals() public {
         // Emergency replacement should still work
         address emergencyManager = _deployAccount(0x19, "EmergencyManager");
+        address feeRecipient = _deployAccount(0x2F, "FeeRecipient");
+
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // Verify change was successful
         address currentManager = superVaultAggregator.getMainManager(strategy);
@@ -1731,8 +1847,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Emergency replacement should still work
         address emergencyManager = _deployAccount(0x1A, "EmergencyManager");
+        address feeRecipient = _deployAccount(0x30, "FeeRecipient");
+
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, feeRecipient);
 
         // Verify change was successful
         address currentManager = superVaultAggregator.getMainManager(strategy);
@@ -1756,10 +1874,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Then expect PrimaryManagerChanged event (emitted at the end)
         vm.expectEmit(true, true, true, false);
-        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, manager, emergencyManager);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, manager, emergencyManager, treasury);
 
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, emergencyManager);
+        superVaultAggregator.changePrimaryManager(strategy, emergencyManager, treasury);
     }
 
     // =============================================================
@@ -2604,7 +2722,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary manager proposes takeover
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Fast forward past timelock
         vm.warp(block.timestamp + 7 days + 1);
@@ -2651,7 +2769,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary proposes takeover
         vm.prank(secondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, treasury);
 
         // Manager (victim) withdraws upkeep during timelock using two-step process
         vm.prank(manager);
@@ -3572,7 +3690,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.prank(address(superGovernor));
         vm.expectEmit(true, false, false, false);
         emit ISuperVaultAggregator.UpkeepWithdrawalCancelled(strategy);
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+        superVaultAggregator.changePrimaryManager(strategy, newManager, treasury);
 
         // Verify pending withdrawal cancelled
         (, effectiveTime) = superVaultAggregator.pendingUpkeepWithdrawals(strategy);
@@ -3604,7 +3722,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Secondary proposes to become primary
         vm.prank(newSecondaryManager);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newSecondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newSecondaryManager, treasury);
 
         // Warp past manager change timelock (7 days)
         vm.warp(block.timestamp + 7 days + 1);
@@ -3634,7 +3752,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Governance takes over (emergency)
         vm.prank(address(superGovernor));
-        superVaultAggregator.changePrimaryManager(strategy, governanceManager);
+        superVaultAggregator.changePrimaryManager(strategy, governanceManager, treasury);
 
         // Verify governance is now manager
         assertEq(
@@ -4274,7 +4392,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // SuperGovernor performs emergency manager replacement
         address newManager = address(0x999);
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy, newManager);
+        superGovernor.changePrimaryManager(strategy, newManager, treasury);
 
         // Verify proposal was cleared
         (proposedInterval, effectiveTime) = superVaultAggregator.getProposedMinUpdateInterval(strategy);
@@ -5115,7 +5233,5 @@ struct BatchForwardPPSTestVars {
     uint256 expectedTotalCharged;
     address[] strategies;
     uint256[] ppss;
-        uint256[] validatorSets;
-        uint256[] totalValidators;
     uint256[] timestamps;
 }
