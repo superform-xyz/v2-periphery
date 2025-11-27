@@ -211,10 +211,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
             // Check if manager is a zero address
             if (_secondaryManager == address(0)) revert ZERO_ADDRESS();
-            
+
             // Check if manager is already the primary manager
             if (_strategyData[strategy].mainManager == _secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
-            
+
             // Add secondary manager and revert if it already exists
             if (!_strategyData[strategy].secondaryManagers.add(_secondaryManager)) {
                 revert MANAGER_ALREADY_EXISTS();
@@ -569,7 +569,10 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address strategy,
         address newManager,
         address feeRecipient
-    ) external validStrategy(strategy) {
+    )
+        external
+        validStrategy(strategy)
+    {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -711,9 +714,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing them for the previous manager’s performance
-    /// @dev If a manager is replaced while the strategy is below its previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees until PPS rises above the old mark.
-    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline
+    /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing
+    /// them for the previous manager’s performance @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until PPS rises above the old mark.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline 
     /// @dev This function is only callable by SUPER_GOVERNOR
     function resetHighWaterMark(address strategy) external validStrategy(strategy) {
         // Only SuperGovernor can call this
