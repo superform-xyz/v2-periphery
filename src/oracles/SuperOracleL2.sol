@@ -94,25 +94,41 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         override
         returns (uint256 quoteAmount)
     {
+        int256 answer;
+        uint256 updatedAt;
+
         {
             address uptimeOracle = uptimeFeeds[oracle];
-            if (uptimeOracle == address(0)) revert NO_UPTIME_FEED();
+            if (uptimeOracle == address(0)) {
+                if (revertOnError) revert NO_UPTIME_FEED();
+                return 0;
+            }
 
-            (
-                /*uint80 roundID*/
-                ,
-                int256 uptimeAnswer,
-                uint256 startedAt,
-                /*uint256 updatedAt*/
-                ,
-                /*uint80 answeredInRound*/
-            ) = AggregatorV3Interface(uptimeOracle).latestRoundData();
+            // --- Get uptime round data ---
+            uint256 gasBeforeUptime = gasleft();
+            int256 uptimeAnswer;
+            uint256 startedAt;
+
+            try AggregatorV3Interface(uptimeOracle).latestRoundData() returns (
+                uint80, int256 _uptimeAnswer, uint256 _startedAt, uint256, uint80
+            ) {
+                uptimeAnswer = _uptimeAnswer;
+                startedAt = _startedAt;
+            } catch {
+                // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
+                // oracle failures
+                if (gasleft() <= gasBeforeUptime / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
+                if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(uptimeOracle);
+                return 0;
+            }
 
             // Answer == 0: Sequencer is up
             // Answer == 1: Sequencer is down
             bool isSequencerUp = uptimeAnswer == 0;
             if (!isSequencerUp) {
-                revert SEQUENCER_DOWN();
+                if (revertOnError) revert SEQUENCER_DOWN();
+                return 0;
             }
 
             // Make sure the grace period has passed after the
@@ -123,11 +139,29 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
                 gracePeriod = DEFAULT_GRACE_PERIOD_TIME;
             }
             if (timeSinceUp <= gracePeriod) {
-                revert GRACE_PERIOD_NOT_OVER();
+                if (revertOnError) revert GRACE_PERIOD_NOT_OVER();
+                return 0;
             }
         }
 
-        (, int256 answer,, uint256 updatedAt,) = AggregatorV3Interface(oracle).latestRoundData();
+        // --- Get data oracle round data ---
+        {
+            uint256 gasBeforeData = gasleft();
+
+            try AggregatorV3Interface(oracle).latestRoundData() returns (
+                uint80, int256 _answer, uint256, uint256 _updatedAt, uint80
+            ) {
+                answer = _answer;
+                updatedAt = _updatedAt;
+            } catch {
+                // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
+                // oracle failures
+                if (gasleft() <= gasBeforeData / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+
+                if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
+                return 0;
+            }
+        }
 
         // Validate data
         uint256 limit =
