@@ -748,6 +748,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperHook(address(vars.hookContract)).setExecutionContext(address(this));
         vars.executions = vars.hookContract.build(prevHook, address(this), hookCalldata);
         for (uint256 j; j < vars.executions.length; ++j) {
+            // Block hooks from calling the SuperVaultAggregator directly
+            address aggregatorAddr = address(_getSuperVaultAggregator());
+            if (vars.executions[j].target == aggregatorAddr) revert OPERATION_FAILED();
             (vars.success,) =
                 vars.executions[j].target.call{ value: vars.executions[j].value }(vars.executions[j].callData);
             if (!vars.success) revert OPERATION_FAILED();

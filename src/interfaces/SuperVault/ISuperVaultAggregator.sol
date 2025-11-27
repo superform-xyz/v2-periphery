@@ -443,6 +443,10 @@ interface ISuperVaultAggregator {
     error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
     /// @notice Thrown when minUpdateInterval >= maxStaleness
     error MIN_UPDATE_INTERVAL_TOO_HIGH();
+    /// @notice Thrown when trying to update PPS while strategy is paused
+    error STRATEGY_PAUSED();
+    /// @notice Thrown when trying to update PPS while PPS is stale
+    error PPS_STALE();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
