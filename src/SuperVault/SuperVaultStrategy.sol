@@ -537,6 +537,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function resetHighWaterMark(uint256 newHwmPps) external {
         if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
 
+        if (newHwmPps == 0) revert INVALID_PPS();
+
+        vaultHwmPps = newHwmPps;
+
         emit HighWaterMarkReset(newHwmPps);
     }
 

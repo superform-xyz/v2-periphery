@@ -729,7 +729,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        uint256 newHwmPps = getPPS(strategy);
+        uint256 newHwmPps = _strategyData[strategy].pps;
 
         // Reset the High Water Mark to the current PPS
         ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
