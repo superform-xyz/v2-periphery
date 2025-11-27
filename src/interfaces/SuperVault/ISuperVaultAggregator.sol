@@ -119,11 +119,9 @@ interface ISuperVaultAggregator {
     }
 
     /// @notice Two-step upkeep withdrawal request
-    /// @param initiator Manager who requested withdrawal
     /// @param amount Amount to withdraw (full balance at time of request)
     /// @param effectiveTime When withdrawal can be executed (timestamp + 24h)
     struct UpkeepWithdrawalRequest {
-        address initiator;
         uint256 amount;
         uint256 effectiveTime;
     }
@@ -178,16 +176,16 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when upkeep tokens are withdrawn
     /// @param strategy Address of the strategy
-    /// @param withdrawer Address of the withdrawer (initiator of the withdrawal request)
+    /// @param withdrawer Address of the withdrawer (main manager of the strategy)
     /// @param amount Amount of UP tokens withdrawn
     event UpkeepWithdrawn(address indexed strategy, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when an upkeep withdrawal is proposed (start of 24h timelock)
     /// @param strategy Address of the strategy
-    /// @param initiator Address of the manager who proposed the withdrawal
+    /// @param mainManager Address of the main manager who proposed the withdrawal
     /// @param amount Amount of UP tokens to withdraw
     /// @param effectiveTime Timestamp when withdrawal can be executed
-    event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime);
+    event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime);
 
     /// @notice Emitted when a pending upkeep withdrawal is cancelled (e.g., during governance takeover)
     /// @param strategy Address of the strategy
@@ -535,7 +533,7 @@ interface ISuperVaultAggregator {
     function proposeWithdrawUpkeep(address strategy) external;
 
     /// @notice Executes a pending upkeep withdrawal after 24h timelock
-    /// @dev Anyone can execute, but funds go to the original initiator
+    /// @dev Anyone can execute, but funds go to the main manager of the strategy
     /// @param strategy Address of the strategy to withdraw from
     function executeWithdrawUpkeep(address strategy) external;
 
