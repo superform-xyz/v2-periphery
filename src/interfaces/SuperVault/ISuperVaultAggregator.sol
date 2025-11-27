@@ -231,6 +231,11 @@ interface ISuperVaultAggregator {
     /// @param cancelledManager Address of the manager that was proposed
     event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
 
+    /// @notice Emitted when the High Water Mark for a strategy is reset to PPS
+    /// @param strategy Address of the strategy
+    /// @param newHWM The new High Water Mark (PPS)
+    event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM);
+
     /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
     /// @param strategy Address of the strategy
     /// @param updateAuthority Address of the update authority
@@ -587,6 +592,11 @@ interface ISuperVaultAggregator {
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
     function executeChangePrimaryManager(address strategy) external;
+
+    /// @notice Resets the strategy's performance-fee high-water mark to PPS
+    /// @dev Only callable by SuperGovernor
+    /// @param strategy Address of the strategy
+    function resetHighWaterMark(address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                         HOOK VALIDATION FUNCTIONS

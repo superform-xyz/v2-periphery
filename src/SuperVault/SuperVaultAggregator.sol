@@ -710,6 +710,22 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
+    /// @inheritdoc ISuperVaultAggregator
+    /// @dev SECURITY: This function is intended to be used only by the protocol governor onboarding a new manager
+    /// @dev If a manager is replaced while the strategy is below its previous HWM, the new manager would otherwise inherit a "loss" state and be unable
+    ///  to earn performance fees until PPS rises above the old mark.
+    /// @dev This ensures clean slate for new manager without inherited vulnerabilities
+    /// @dev This function is only callable by SUPER_GOVERNOR
+    function resetHighWaterMark(address strategy) external validStrategy(strategy) {
+        // Only SuperGovernor can call this
+        if (msg.sender != address(SUPER_GOVERNOR)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Reset the High Water Mark to the current PPS
+        _strategyData[strategy].hwm = _strategyData[strategy].pps;
+    }
+
     /*//////////////////////////////////////////////////////////////
                         HOOK VALIDATION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
