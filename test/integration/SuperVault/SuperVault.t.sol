@@ -8447,6 +8447,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_ChangeFeeRecipient_RevertCases() public {
         vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
         strategy.changeFeeRecipient(TREASURY);
+
+        vm.prank(address(aggregator));
+        vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
+        strategy.changeFeeRecipient(address(0));
     }
 
     function test_ChangeFeeRecipient_Success() public {
@@ -8460,7 +8464,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     function test_ResetHighWaterMark_Success() public {
         uint256 pps = strategy.getStoredPPS();
-        
+
         vm.prank(address(aggregator));
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultStrategy.HighWaterMarkReset(pps);
