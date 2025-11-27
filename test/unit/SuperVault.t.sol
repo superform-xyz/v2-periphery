@@ -20,6 +20,7 @@ import { MockUp } from "../mocks/MockUp.sol";
 import { MockSuperOracle } from "../mocks/MockSuperOracle.sol";
 import { MockAssetNoDecimals } from "../mocks/MockAssetNoDecimals.sol";
 import { Mock4626Vault } from "../mocks/Mock4626Vault.sol";
+import { MockMultisig } from "../mocks/MockMultisig.sol";
 
 import "forge-std/console2.sol";
 
@@ -4567,5 +4568,313 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.expectRevert(ISuperVaultStrategy.ZERO_SHARE_FULFILLMENT_DISALLOWED.selector);
         strategy.fulfillRedeemRequests(controllers, assets);
         vm.stopPrank();
+    }
+
+    // =============================================================
+    // resetHighWaterMark Integration Tests
+    // =============================================================
+
+    /// @notice Tests that resetHighWaterMark updates HWM to current PPS
+    /// @dev Verifies the integration between SuperGovernor -> SuperVaultAggregator -> SuperVaultStrategy
+    function test_ResetHighWaterMark_UpdatesHWMToCurrentPPS() public {
+        // Get initial HWM
+        uint256 initialHwm = strategy.vaultHwmPps();
+        uint256 currentPPS = strategy.getStoredPPS();
+
+        // Initially HWM equals PPS (set at vault creation)
+        assertEq(initialHwm, currentPPS, "Initial HWM should equal current PPS");
+
+        // Deposit to ensure vault has funds
+        address testUser = _deployAccount(0xABC, "TestUser");
+        deal(address(asset), testUser, 10000e18);
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 10000e18);
+        vault.deposit(1000e18, testUser);
+        vm.stopPrank();
+
+        // Reset HWM via governance
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(address(strategy));
+
+        // Verify HWM is updated to current PPS
+        uint256 newHwm = strategy.vaultHwmPps();
+        uint256 newPPS = strategy.getStoredPPS();
+        assertEq(newHwm, newPPS, "HWM should be reset to current PPS");
+    }
+
+    /// @notice Tests that only SUPER_GOVERNOR_ROLE can call resetHighWaterMark
+    function test_ResetHighWaterMark_RevertsForNonGovernor() public {
+        // Try to reset HWM as manager (should fail)
+        vm.prank(manager);
+        vm.expectRevert();
+        superGovernor.resetHighWaterMark(address(strategy));
+
+        // Try to reset HWM as random user (should fail)
+        address randomUser = _deployAccount(0x999, "RandomUser");
+        vm.prank(randomUser);
+        vm.expectRevert();
+        superGovernor.resetHighWaterMark(address(strategy));
+    }
+
+    /// @notice Tests that changePrimaryManager works correctly via governance
+    function test_ChangePrimaryManager_ViaGovernance() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+
+        // Verify initial manager
+        assertEq(superVaultAggregator.getMainManager(address(strategy)), manager, "Initial manager should be set");
+
+        // Change manager via governance
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify manager changed
+        assertEq(superVaultAggregator.getMainManager(address(strategy)), newManager, "Manager should be updated");
+
+        // Verify fee recipient changed
+        ISuperVaultStrategy.FeeConfig memory feeConfig = strategy.getConfigInfo();
+        assertEq(feeConfig.recipient, newFeeRecipient, "Fee recipient should be updated");
+    }
+
+    /// @notice Tests the complete flow of changePrimaryManager + resetHighWaterMark
+    /// @dev This is the recommended pattern when replacing a manager with PPS < HWM
+    function test_ChangePrimaryManager_ThenResetHighWaterMark() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+
+        // Setup: Verify initial manager
+        address initialManager = superVaultAggregator.getMainManager(address(strategy));
+        assertEq(initialManager, manager, "Initial manager should be set");
+
+        // Step 1: Change manager via governance
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify manager changed
+        assertEq(superVaultAggregator.getMainManager(address(strategy)), newManager, "Manager should be updated");
+
+        // Step 2: Reset HWM to give new manager a fresh start
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(address(strategy));
+
+        // Verify HWM is reset to current PPS
+        uint256 currentPPS = strategy.getStoredPPS();
+        uint256 newHwm = strategy.vaultHwmPps();
+        assertEq(newHwm, currentPPS, "HWM should be reset to current PPS after manager change");
+    }
+
+    /// @notice Tests batched changePrimaryManager + resetHighWaterMark via multisig
+    /// @dev Simulates a real-world scenario where governance uses a multisig to batch calls
+    function test_ChangePrimaryManager_BatchedViaMultisig() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+
+        // Deploy a mock multisig that will act as the SUPER_GOVERNOR_ROLE holder
+        MockMultisig multisig = new MockMultisig();
+
+        // Grant SUPER_GOVERNOR_ROLE to the multisig
+        // sGovernor has DEFAULT_ADMIN_ROLE and can grant roles
+        // Note: Get the role bytes first to avoid consuming the prank
+        bytes32 superGovernorRole = superGovernor.SUPER_GOVERNOR_ROLE();
+        vm.prank(sGovernor);
+        superGovernor.grantRole(superGovernorRole, address(multisig));
+
+        // Setup: Deposit to ensure vault has funds
+        address testUser = _deployAccount(0xABC, "TestUser");
+        deal(address(asset), testUser, 10000e18);
+        vm.startPrank(testUser);
+        asset.approve(address(vault), 10000e18);
+        vault.deposit(1000e18, testUser);
+        vm.stopPrank();
+
+        // Verify initial state
+        address initialManager = superVaultAggregator.getMainManager(address(strategy));
+        assertEq(initialManager, manager, "Initial manager should be set");
+
+        // Prepare batched calls
+        address[] memory targets = new address[](2);
+        bytes[] memory calldatas = new bytes[](2);
+
+        // Call 1: changePrimaryManager
+        targets[0] = address(superGovernor);
+        calldatas[0] = abi.encodeWithSelector(
+            ISuperGovernor.changePrimaryManager.selector,
+            address(strategy),
+            newManager,
+            newFeeRecipient
+        );
+
+        // Call 2: resetHighWaterMark
+        targets[1] = address(superGovernor);
+        calldatas[1] = abi.encodeWithSelector(ISuperGovernor.resetHighWaterMark.selector, address(strategy));
+
+        // Execute batched calls through multisig (single transaction)
+        multisig.executeBatch(targets, calldatas);
+
+        // Verify both operations succeeded atomically
+
+        // 1. Manager was changed
+        assertEq(
+            superVaultAggregator.getMainManager(address(strategy)),
+            newManager,
+            "Manager should be updated via multisig batch"
+        );
+
+        // 2. Fee recipient was changed
+        ISuperVaultStrategy.FeeConfig memory feeConfig = strategy.getConfigInfo();
+        assertEq(feeConfig.recipient, newFeeRecipient, "Fee recipient should be updated via multisig batch");
+
+        // 3. HWM was reset to current PPS
+        uint256 finalHwm = strategy.vaultHwmPps();
+        uint256 finalPPS = strategy.getStoredPPS();
+        assertEq(finalHwm, finalPPS, "HWM should be reset to current PPS via multisig batch");
+
+        // 4. New manager can immediately operate
+        vm.prank(newManager);
+        superVaultAggregator.pauseStrategy(address(strategy));
+        assertTrue(
+            superVaultAggregator.isStrategyPaused(address(strategy)),
+            "New manager should operate immediately after multisig batch"
+        );
+
+        // 5. Old manager has lost control
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.unpauseStrategy(address(strategy));
+    }
+
+    /// @notice Tests that changePrimaryManager clears all pending proposals
+    function test_ChangePrimaryManager_ClearsPendingProposals() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+        address secondaryManager = _deployAccount(0x333, "SecondaryManager");
+
+        // Add secondary manager
+        vm.prank(manager);
+        superVaultAggregator.addSecondaryManager(address(strategy), secondaryManager);
+
+        // Propose a manager change via secondary manager
+        address proposedManager = _deployAccount(0x444, "ProposedManager");
+        address proposedFeeRecipient = _deployAccount(0x555, "ProposedFeeRecipient");
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(address(strategy), proposedManager, proposedFeeRecipient);
+
+        // Verify proposal exists
+        (address pending,) = superVaultAggregator.getPendingManagerChange(address(strategy));
+        assertEq(pending, proposedManager, "Proposal should exist");
+
+        // Change manager via governance (should clear proposals)
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify proposal is cleared
+        (address clearedPending,) = superVaultAggregator.getPendingManagerChange(address(strategy));
+        assertEq(clearedPending, address(0), "Proposal should be cleared after governance override");
+
+        // Verify new manager is set
+        assertEq(superVaultAggregator.getMainManager(address(strategy)), newManager, "New manager should be set");
+    }
+
+    /// @notice Tests that changePrimaryManager clears all secondary managers
+    function test_ChangePrimaryManager_ClearsSecondaryManagers() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+        address secondaryManager1 = _deployAccount(0x333, "SecondaryManager1");
+        address secondaryManager2 = _deployAccount(0x444, "SecondaryManager2");
+
+        // Add secondary managers
+        vm.startPrank(manager);
+        superVaultAggregator.addSecondaryManager(address(strategy), secondaryManager1);
+        superVaultAggregator.addSecondaryManager(address(strategy), secondaryManager2);
+        vm.stopPrank();
+
+        // Verify secondary managers exist
+        address[] memory secondaryManagersBefore = superVaultAggregator.getSecondaryManagers(address(strategy));
+        assertEq(secondaryManagersBefore.length, 2, "Should have 2 secondary managers");
+
+        // Change manager via governance (should clear secondary managers)
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify secondary managers are cleared
+        address[] memory secondaryManagersAfter = superVaultAggregator.getSecondaryManagers(address(strategy));
+        assertEq(secondaryManagersAfter.length, 0, "Secondary managers should be cleared after governance override");
+    }
+
+    /// @notice Tests resetHighWaterMark event emission
+    function test_ResetHighWaterMark_EmitsEvent() public {
+        uint256 currentPPS = strategy.getStoredPPS();
+
+        // Expect the HighWaterMarkReset event from strategy
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.HighWaterMarkReset(currentPPS);
+
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(address(strategy));
+    }
+
+    /// @notice Tests that resetHighWaterMark cannot be called directly on aggregator by non-governor
+    function test_ResetHighWaterMark_AggregatorRevertsForNonGovernor() public {
+        // Try to call resetHighWaterMark directly on aggregator as manager (should fail)
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.resetHighWaterMark(address(strategy));
+
+        // Try as random user (should fail)
+        address randomUser = _deployAccount(0x999, "RandomUser");
+        vm.prank(randomUser);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.resetHighWaterMark(address(strategy));
+    }
+
+    /// @notice Tests that resetHighWaterMark reverts for invalid (zero address) strategy
+    function test_ResetHighWaterMark_RevertsForZeroAddress() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.resetHighWaterMark(address(0));
+    }
+
+    /// @notice Tests that resetHighWaterMark reverts for non-existent strategy
+    function test_ResetHighWaterMark_RevertsForUnknownStrategy() public {
+        address fakeStrategy = _deployAccount(0xFAFE, "FakeStrategy");
+
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        superGovernor.resetHighWaterMark(fakeStrategy);
+    }
+
+    /// @notice Tests that new manager can operate after governance takeover
+    function test_NewManager_CanOperateAfterGovernanceTakeover() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+
+        // Change manager via governance
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify new manager can pause strategy
+        vm.prank(newManager);
+        superVaultAggregator.pauseStrategy(address(strategy));
+        assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)), "New manager should be able to pause");
+
+        // Verify new manager can unpause strategy
+        vm.prank(newManager);
+        superVaultAggregator.unpauseStrategy(address(strategy));
+        assertFalse(superVaultAggregator.isStrategyPaused(address(strategy)), "New manager should be able to unpause");
+    }
+
+    /// @notice Tests that old manager loses control after governance takeover
+    function test_OldManager_LosesControlAfterGovernanceTakeover() public {
+        address newManager = _deployAccount(0x111, "NewManager");
+        address newFeeRecipient = _deployAccount(0x222, "NewFeeRecipient");
+
+        // Change manager via governance
+        vm.prank(sGovernor);
+        superGovernor.changePrimaryManager(address(strategy), newManager, newFeeRecipient);
+
+        // Verify old manager cannot pause strategy
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.pauseStrategy(address(strategy));
     }
 }
