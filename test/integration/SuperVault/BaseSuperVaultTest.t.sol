@@ -222,17 +222,17 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         strategy.manageYieldSource(
             address(fluidVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // addYieldSource
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         strategy.manageYieldSource(
             address(aaveVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // addYieldSource
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         strategy.manageYieldSource(
             address(pendleEthenaAddress),
             _getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY),
-            0 // addYieldSource
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -436,13 +436,13 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         strategy.manageYieldSource(
             address(fluidVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            2 // removeYieldSource
+            ISuperVaultStrategy.YieldSourceAction.Remove
         );
 
         strategy.manageYieldSource(
             address(centrifugeVault),
             _getContract(ETH, ERC7540_YIELD_SOURCE_ORACLE_KEY),
-            0 // addYieldSource
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -494,10 +494,10 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         oracles[1] = _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY);
         oracles[2] = _getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY);
 
-        uint8[] memory actionTypes = new uint8[](3);
-        actionTypes[0] = 0; // Add yield source
-        actionTypes[1] = 0; // Add yield source
-        actionTypes[2] = 0; // Add yield source
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3);
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         SuperVaultManageYieldSourceHook.ManageYieldSourcesArgs memory args =
             SuperVaultManageYieldSourceHook.ManageYieldSourcesArgs({
