@@ -57,7 +57,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     EnumerableSet.AddressSet private _superVaultStrategies;
     EnumerableSet.AddressSet private _superVaultEscrows;
 
-    // Constant for basis points precision (100% = 10,000 bps) 
+    // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
 
     // Maximum performance fee allowed (51%)
@@ -189,6 +189,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             revert MAX_STALENESS_TOO_LOW();
         }
 
+        // Validate minUpdateInterval against minimum required staleness
+        if (params.minUpdateInterval >= params.maxStaleness) {
+            revert INVALID_VAULT_PARAMS();
+        }
+
         // Initialize StrategyData individually to avoid mapping assignment issues
         _strategyData[strategy].pps = vars.initialPPS;
         _strategyData[strategy].lastUpdateTimestamp = block.timestamp;
@@ -198,17 +203,27 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].mainManager = params.mainManager;
 
         uint256 secondaryLen = params.secondaryManagers.length;
+        if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
+
         for (uint256 i; i < secondaryLen; ++i) {
-            _strategyData[strategy].secondaryManagers.add(params.secondaryManagers[i]);
-        }
-        if (_strategyData[strategy].secondaryManagers.length() > MAX_SECONDARY_MANAGERS) {
-            revert TOO_MANY_SECONDARY_MANAGERS();
+            address _secondaryManager = params.secondaryManagers[i];
+
+            // Check if manager is a zero address
+            if (_secondaryManager == address(0)) revert ZERO_ADDRESS();
+            
+            // Check if manager is already the primary manager
+            if (_strategyData[strategy].mainManager == _secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+            
+            // Add secondary manager and revert if it already exists
+            if (!_strategyData[strategy].secondaryManagers.add(_secondaryManager)) {
+                revert MANAGER_ALREADY_EXISTS();
+            }
         }
 
         _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
-        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+        emit PPSUpdated(strategy, vars.initialPPS, _strategyData[strategy].lastUpdateTimestamp);
 
         return (superVault, strategy, escrow);
     }
@@ -277,10 +292,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             _forwardPPS(
                 PPSUpdateData({
                     strategy: strategy,
-                    isExempt: (!paymentsEnabled) || (upkeepCost == 0),
+                    // isExempt when upkeepCost is 0 (covers both paymentsDisabled and oracle failures)
+                    isExempt: upkeepCost == 0,
                     pps: args.ppss[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -475,7 +489,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (manager == address(0)) revert ZERO_ADDRESS();
 
         // Check if manager is already the primary manager
-        if (_strategyData[strategy].mainManager == manager) revert MANAGER_ALREADY_EXISTS();
+        if (_strategyData[strategy].mainManager == manager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
 
         // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
         if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
@@ -848,14 +862,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].proposedMinUpdateInterval = 0;
         _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
 
-        // Re-validate against current maxStaleness in case it changed
-        // If invalid, just clear the proposal (already done above) and return
-        // This allows the manager to try again with a valid value
-        if (newInterval >= _strategyData[strategy].maxStaleness) {
-            emit MinUpdateIntervalChangeRejected(strategy, newInterval, _strategyData[strategy].maxStaleness);
-            return;
-        }
-
         // Update the minUpdateInterval
         _strategyData[strategy].minUpdateInterval = newInterval;
 
@@ -1151,8 +1157,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function _forwardPPS(PPSUpdateData memory args) internal {
         // Check rate limiting
         // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
-        uint256 minInterval =
-            Math.min(_strategyData[args.strategy].minUpdateInterval, _strategyData[args.strategy].maxStaleness);
+        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
         uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
 
         // [Property 7: Timestamp Monotonicity]
@@ -1245,7 +1250,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                 _strategyData[args.strategy].ppsStale = false;
                 emit StrategyPPSStaleReset(args.strategy);
             }
-            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+            emit PPSUpdated(args.strategy, args.pps, args.timestamp);
         }
         // If checks failed, PPS remains at old value (safer for external integrators)
     }

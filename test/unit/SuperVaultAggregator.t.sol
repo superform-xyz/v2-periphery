@@ -298,6 +298,105 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         );
     }
 
+    /// @notice Tests that createVault reverts when secondary manager is already the primary manager
+    function test_CreateVault_Revert_SecondaryManagerIsPrimaryManager() public {
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = manager;
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_CreateVault_Revert_SecondaryManagerIsZeroAddress() public {
+        address[] memory secondaryManagers = new address[](1);
+        secondaryManagers[0] = address(0);
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.ZERO_ADDRESS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_CreateVault_Revert_SecondaryManagerAlreadyExists() public {
+        address[] memory secondaryManagers = new address[](2);
+        secondaryManagers[0] = secondaryManager;
+        secondaryManagers[1] = secondaryManager;
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault Revert",
+                symbol: "TVR",
+                mainManager: manager,
+                secondaryManagers: secondaryManagers,
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
+    function test_CreateVault_RevertInvalidMinUpdateInterval() public {
+        // SuperGovernor initializes minStaleness to 300 seconds
+        uint256 minStaleness = superGovernor.getMinStaleness();
+        assertEq(minStaleness, 300, "Min staleness should be 300 seconds");
+
+        vm.prank(manager);
+        vm.expectRevert(ISuperVaultAggregator.INVALID_VAULT_PARAMS.selector);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault",
+                symbol: "TEST",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 500, // Above max staleness
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000,
+                    managementFeeBps: 0,
+                    recipient: manager
+                })
+            })
+        );
+    }
+
     /// @notice Tests that createVault reverts when too many secondary managers are provided
     function test_CreateVault_RevertTooManySecondaryManagers() public {
         // MAX_SECONDARY_MANAGERS is 5, so we try to create with 6
@@ -425,9 +524,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = 1e18;
         
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 1;
-        
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
 
@@ -435,8 +531,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -508,9 +602,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             uint256[] memory ppss = new uint256[](1);
             ppss[0] = 1e18;
             
-            uint256[] memory validatorSets = new uint256[](1);
-            validatorSets[0] = 1;
-            
             uint256[] memory timestamps = new uint256[](1);
             timestamps[0] = block.timestamp;
 
@@ -518,8 +609,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
                     ppss: ppss,
-                    validatorSets: validatorSets,
-                    totalValidator: 1,
                     timestamps: timestamps,
                     updateAuthority: address(this)
                 })
@@ -562,7 +651,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Try to add the main manager as a secondary manager
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
     }
 
@@ -1300,7 +1389,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.addSecondaryManager(strategy, manager);
 
         vm.startPrank(manager);
-        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        vm.expectRevert(ISuperVaultAggregator.SECONDARY_MANAGER_CANNOT_BE_PRIMARY.selector);
         superVaultAggregator.addSecondaryManager(strategy, manager);
         vm.stopPrank();
 
@@ -1712,14 +1801,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory validatorSets = new uint256[](2);
-        validatorSets[0] = 1;
-        validatorSets[1] = 1;
-
-        uint256[] memory totalValidators = new uint256[](2);
-        totalValidators[0] = 1;
-        totalValidators[1] = 1;
-
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 10; // Valid newer timestamp
         timestamps[1] = timestamp2 - 1; // Invalid older timestamp
@@ -1737,8 +1818,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1785,14 +1864,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory validatorSets = new uint256[](2);
-        validatorSets[0] = 1;
-        validatorSets[1] = 1;
-
-        uint256[] memory totalValidators = new uint256[](2);
-        totalValidators[0] = 1;
-        totalValidators[1] = 1;
-
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 10 weeks; // ts > block.timestamp
         timestamps[1] = timestamp2 + 10; // Valid timestamp
@@ -1820,8 +1891,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1842,8 +1911,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1861,8 +1928,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1892,12 +1957,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = 1e18;
 
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 1;
-
-        uint256[] memory totalValidators = new uint256[](1);
-        totalValidators[0] = 1;
-
         uint256[] memory timestamps = new uint256[](1);
 
         address[] memory updateAuthorities = new address[](1);
@@ -1923,8 +1982,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -1998,14 +2055,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory validatorSets = new uint256[](2);
-        validatorSets[0] = 1;
-        validatorSets[1] = 1;
-
-        uint256[] memory totalValidators = new uint256[](2);
-        totalValidators[0] = 1;
-        totalValidators[1] = 1;
-
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 10; // Valid newer timestamp
         timestamps[1] = timestamp2 + 10; // Valid newer timestamp
@@ -2022,8 +2071,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -2083,8 +2130,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             // Prepare arrays for current test size
             address[] memory strategies = new address[](arraySize);
             uint256[] memory ppss = new uint256[](arraySize);
-            uint256[] memory validatorSets = new uint256[](arraySize);
-            uint256[] memory totalValidators = new uint256[](arraySize);
             uint256[] memory timestamps = new uint256[](arraySize);
             address[] memory updateAuthorities = new address[](arraySize);
 
@@ -2092,8 +2137,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             for (uint256 i = 0; i < arraySize; i++) {
                 strategies[i] = allStrategies[i];
                 ppss[i] = 1e18 + (i * 1e15); // Slightly different PPS values
-                validatorSets[i] = 1;
-                totalValidators[i] = 1;
                 updateAuthorities[i] = user;
 
                 // Get current timestamp and add valid offset
@@ -2111,8 +2154,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 ISuperVaultAggregator.ForwardPPSArgs({
                     strategies: strategies,
                     ppss: ppss,
-                    validatorSets: validatorSets,
-                    totalValidator: totalValidators[0],
                     timestamps: timestamps,
                     updateAuthority: address(this)
                 })
@@ -2230,14 +2271,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         ppss[0] = 1e18;
         ppss[1] = 1e18;
 
-        uint256[] memory validatorSets = new uint256[](2);
-        validatorSets[0] = 1;
-        validatorSets[1] = 1;
-
-        uint256[] memory totalValidators = new uint256[](2);
-        totalValidators[0] = 1;
-        totalValidators[1] = 1;
-
         uint256[] memory timestamps = new uint256[](2);
         timestamps[0] = timestamp1 + 150; // Valid newer timestamp for strategy1
         timestamps[1] = timestamp2 + 40; // This will be stale for strategy2 (block.timestamp=151, submitted=41,
@@ -2256,8 +2289,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidators[0],
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -3725,18 +3756,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vars.ppss[2] = 1.3e18;
         vars.ppss[3] = 1.4e18;
 
-        vars.validatorSets = new uint256[](4);
-        vars.validatorSets[0] = 1;
-        vars.validatorSets[1] = 1;
-        vars.validatorSets[2] = 1;
-        vars.validatorSets[3] = 1;
-
-        vars.totalValidators = new uint256[](4);
-        vars.totalValidators[0] = 1;
-        vars.totalValidators[1] = 1;
-        vars.totalValidators[2] = 1;
-        vars.totalValidators[3] = 1;
-
         vars.timestamps = new uint256[](4);
         vars.timestamps[0] = vars.baseTimestamp + 350; // Fresh (10 seconds old when warped to +360)
         vars.timestamps[1] = vars.baseTimestamp + 10; // Stale (350 seconds old when warped to +360)
@@ -3775,8 +3794,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: vars.strategies,
                 ppss: vars.ppss,
-                validatorSets: vars.validatorSets,
-                totalValidator: vars.totalValidators[0],
                 timestamps: vars.timestamps,
                 updateAuthority: address(this)
             })
@@ -3891,14 +3908,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare arrays with size 1
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
-        uint256[] memory totalValidatorsArray = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 1e18 + 1e15;
-        validatorSets[0] = 1;
-        totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
 
         address[] memory updateAuthorities = new address[](1);
@@ -3914,8 +3927,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -3955,8 +3966,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -3987,14 +3996,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare arrays with size 1
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
-        uint256[] memory totalValidatorsArray = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 1e18 + 1e15;
-        validatorSets[0] = 1;
-        totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
 
         // Advance time to ensure update is valid
@@ -4012,8 +4017,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4030,8 +4033,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // (disabled)
 
         ppss[0] = 1e18 + 1e15;
-        validatorSets[0] = 1;
-        totalValidatorsArray[0] = 1;
         timestamps[0] = superVaultAggregator.getLastUpdateTimestamp(strategy) + 20;
 
         // Advance time to ensure update is valid
@@ -4041,8 +4042,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4069,8 +4068,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: totalValidatorsArray[0],
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4367,8 +4364,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         strategies[0] = strategy;
         uint256[] memory ppss = new uint256[](1);
         ppss[0] = 1e18 + 1e15;
-        uint256[] memory validatorSets = new uint256[](1);
-        validatorSets[0] = 1;
         uint256[] memory timestamps = new uint256[](1);
         timestamps[0] = block.timestamp;
 
@@ -4379,8 +4374,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -4395,8 +4388,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: address(this)
             })
@@ -4517,12 +4508,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare arrays
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 10e18; // Aberrant PPS (10x increase)
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         // Set low deviation threshold to trigger pause
@@ -4535,8 +4524,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4582,20 +4569,16 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.warp(block.timestamp + 10);
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 1e18 + 1e15; // Slight increase
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4657,12 +4640,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Send PPS with large deviation (e.g., 50% drop for liquidation)
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = 5e17; // 50% of original (simulating liquidation)
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         // This update should succeed because C1 check is skipped when stale
@@ -4670,8 +4651,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4712,12 +4691,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Attempt to push PPS update while paused
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = initialPPS + 1e15; // Valid PPS value
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         // Expect PPSUpdateRejectedStrategyPaused event (early rejection in forwardPPS)
@@ -4729,8 +4706,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4766,12 +4741,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Attempt to push PPS update with insufficient validator participation (50%)
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = initialPPS + 1e15; // Valid PPS value
-        validatorSets[0] = 1; // Only 1 out of 2 validators (50%)
         timestamps[0] = block.timestamp;
 
         // This update should fail M/N check and pause strategy
@@ -4779,8 +4752,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 2, // 2 total validators but only 1 participated
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4822,12 +4793,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // First aberrant PPS attempt (2x - way above threshold)
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = initialPPS * 2; // Double the PPS (fails deviation)
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         // This should fail and pause
@@ -4835,8 +4804,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4862,8 +4829,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4920,12 +4885,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Attempt to push PPS update (any value)
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = initialPPS * 10; // Extreme value that would fail any validation
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp;
 
         // Expect early rejection event (PPSUpdateRejectedStrategyPaused)
@@ -4937,8 +4900,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -4990,12 +4951,10 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Prepare valid PPS update
         address[] memory strategies = new address[](1);
         uint256[] memory ppss = new uint256[](1);
-        uint256[] memory validatorSets = new uint256[](1);
         uint256[] memory timestamps = new uint256[](1);
 
         strategies[0] = strategy;
         ppss[0] = initialPPS * 2; // Valid PPS increase
-        validatorSets[0] = 1;
         timestamps[0] = block.timestamp + 100;
 
         vm.warp(timestamps[0]);
@@ -5006,8 +4965,6 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             ISuperVaultAggregator.ForwardPPSArgs({
                 strategies: strategies,
                 ppss: ppss,
-                validatorSets: validatorSets,
-                totalValidator: 1,
                 timestamps: timestamps,
                 updateAuthority: user
             })
@@ -5156,7 +5113,7 @@ struct BatchForwardPPSTestVars {
     uint256 expectedTotalCharged;
     address[] strategies;
     uint256[] ppss;
-    uint256[] validatorSets;
-    uint256[] totalValidators;
+        uint256[] validatorSets;
+        uint256[] totalValidators;
     uint256[] timestamps;
 }
