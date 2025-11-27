@@ -82,7 +82,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
         strategy5115SuperVault.manageYieldSource(
-            address(pendleEthenaAddress), _getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY), 0
+            address(pendleEthenaAddress), _getContract(ETH, ERC5115_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -93,13 +93,13 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
-        strategy5115SuperVault.managePPSExpiration(1, 86_400); // 1 day
-        strategy.managePPSExpiration(1, 86_400); // 1 day
+        strategy5115SuperVault.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 86_400); // 1 day
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 86_400); // 1 day
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy5115SuperVault.managePPSExpiration(2, 0);
-        strategy.managePPSExpiration(2, 0);
+        strategy5115SuperVault.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy5115SuperVault), address(sv5115));
@@ -859,7 +859,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
         strategy5115SuperVault.manageYieldSource(
-            address(test11_Allocate_NewYieldSource), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0
+            address(test11_Allocate_NewYieldSource), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -1027,7 +1027,7 @@ contract SuperVault5115Tests is BaseSuperVaultTest {
         // add the 4626 vault as a new yield source
         vm.startPrank(MANAGER);
         strategy5115SuperVault.manageYieldSource(
-            address(test11_Allocate_NewYieldSource), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0
+            address(test11_Allocate_NewYieldSource), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 

@@ -114,11 +114,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         gearboxFarmingPool = IGearboxFarmingPool(gearboxStakingAddr);
 
         vm.startPrank(MANAGER);
-        strategy.managePPSExpiration(1, 1 weeks);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
@@ -1511,7 +1511,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _deposit(depositAmount);
         address randomAddress = address(0xABC);
         vm.prank(randomAddress);
-        vm.expectRevert(ISuperVault.INVALID_OWNER_OR_OPERATOR.selector);
+        vm.expectRevert(ISuperVault.INVALID_CONTROLLER.selector);
         vault.requestRedeem(100e6, accountEth, accountEth);
     }
 
@@ -2305,7 +2305,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(vars.newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -3290,20 +3290,20 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategyGearSuperVault = SuperVaultStrategy(payable(strategyAddr));
 
         vm.startPrank(MANAGER);
-        strategyGearSuperVault.managePPSExpiration(1, 1 weeks);
+        strategyGearSuperVault.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 1 weeks);
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategyGearSuperVault.managePPSExpiration(2, 0);
+        strategyGearSuperVault.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         vm.stopPrank();
 
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
         strategyGearSuperVault.manageYieldSource(
-            address(gearboxVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0
+            address(gearboxVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
         strategyGearSuperVault.manageYieldSource(
-            address(gearboxFarmingPool), _getContract(ETH, STAKING_YIELD_SOURCE_ORACLE_KEY), 0
+            address(gearboxFarmingPool), _getContract(ETH, STAKING_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -3752,7 +3752,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -5264,7 +5264,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         vars.initialFluidVaultPPS = fluidVault.convertToAssets(1e18);
@@ -5815,7 +5815,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Add Euler vault as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(eulerVaultAddr, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(eulerVaultAddr, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         // Get initial balances
@@ -6029,9 +6029,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // add vaults to SV
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
-        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
-        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         // use 3 users to perform deposits
@@ -6220,9 +6220,9 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // add vaults to SV
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
-        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
-        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         // use 3 users to perform deposits
@@ -6666,7 +6666,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // remove fluid vault entirely
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 2);
+        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Remove);
         vm.stopPrank();
 
         // check new balances
@@ -6716,7 +6716,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // re-add fluid vault
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         // try allocate again
@@ -7015,7 +7015,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -7809,18 +7809,18 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Replace aaveVault with ruggableVault in the strategy
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
+        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add); // Add
 
-        strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0); // Add
+        strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add); // Add
         // ruggableVault
         vm.stopPrank();
 
         vm.startPrank(MANAGER);
-        strategy.managePPSExpiration(1, 86_400); // 1 day
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 86_400); // 1 day
 
         vm.warp(block.timestamp + 2 weeks);
 
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         vm.stopPrank();
 
         _updateSuperVaultPPS(address(strategy), address(vault));
@@ -7924,12 +7924,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         testStrategy.manageYieldSource(
             address(fluidVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // ADD
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         testStrategy.manageYieldSource(
             address(aaveVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // ADD
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -8113,12 +8113,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         testStrategy.manageYieldSource(
             address(fluidVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // ADD
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         testStrategy.manageYieldSource(
             address(aaveVault),
             _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
-            0 // ADD
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -8577,11 +8577,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Add MockETHReceiver as active yield source
         address ethReceiver = contractAddresses[ETH]["MOCK_ETH_RECEIVER"];
+        ISuperVaultStrategy.YieldSourceAction[] memory addActions = new ISuperVaultStrategy.YieldSourceAction[](1);
+        addActions[0] = ISuperVaultStrategy.YieldSourceAction.Add;
         vm.startPrank(MANAGER);
         strategy.manageYieldSources(
             _toArray(ethReceiver),
             _toArray(_getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY)),
-            new uint8[](1) // actionType 0 = add
+            addActions
         );
         vm.stopPrank();
 
@@ -9081,8 +9083,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Setup yield sources for this vault
         vm.startPrank(MANAGER);
-        testStrategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
-        testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), 0);
+        testStrategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
         vm.stopPrank();
 
         _updateSuperVaultPPS(vars.strategyAddr, vars.vaultAddr);

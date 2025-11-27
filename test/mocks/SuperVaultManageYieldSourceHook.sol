@@ -25,7 +25,7 @@ contract SuperVaultManageYieldSourceHook is BaseHook {
     struct ManageYieldSourcesArgs {
         address[] sources;
         address[] oracles;
-        uint8[] actionTypes;
+        ISuperVaultStrategy.YieldSourceAction[] actionTypes;
     }
 
     constructor(address _strategy) BaseHook(HookType.NONACCOUNTING, HookSubTypes.CLAIM) {
