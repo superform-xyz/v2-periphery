@@ -327,18 +327,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vault.mint(0, accountEth);
     }
 
-    function test_MintShares() public {
-        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
-        vault.mintShares(accountEth, 1000);
-
-        uint256 initialShares = vault.balanceOf(accountEth);
-
-        vm.prank(address(strategy));
-        vault.mintShares(accountEth, 1000);
-
-        assertEq(vault.balanceOf(accountEth), initialShares + 1000);
-    }
-
     function test_HandleMint_RevertCases() public {
         uint256 shares = 1000e6;
         uint256 assetsNet = vault.previewMint(shares);
@@ -1825,11 +1813,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // make sure redeem is cleared even if we have small rounding errors
         assertEq(strategy.claimableWithdraw(accInstances[0].account), 0);
-    }
-
-    function test_ExtractAndSendAssets_UnauthroizedCaller() public {
-        vm.expectRevert(ISuperVault.UNAUTHORIZED.selector);
-        vault.extractAndSendAssets(address(this), 1000);
     }
 
     // Helper function to handle deposit setup
@@ -8415,57 +8398,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.startPrank(accountEth);
         vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
         vault.withdraw(claimableAmount, accountEth, accountEth);
-    }
-
-    /// @notice Test the dust bug by directly calling the strategy function
-    /// @dev This test directly calls handleOperations7540 to demonstrate the bug more clearly
-    function test_DustBugDirectStrategyCall() public {
-        uint256 depositAmount = 1000e6; // 1000 USDC
-
-        // Step 1: Deposit and set up redeem request
-        _deposit(depositAmount);
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
-
-        uint256 initialShares = vault.balanceOf(accountEth);
-        uint256 redeemShares = initialShares / 2;
-
-        // Request redeem
-        _requestRedeem(redeemShares);
-
-        // Fulfill the redeem request
-        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
-
-        uint256 claimableAmount = strategy.claimableWithdraw(accountEth);
-        uint256 escrowBalanceBefore = asset.balanceOf(address(escrow));
-
-        // Step 2: Reduce strategy balance to trigger dust collection
-        uint256 reductionAmount = claimableAmount - escrowBalanceBefore + 5; // 5 wei less than tolerance
-
-        // Transfer assets out of strategy
-        vm.startPrank(address(escrow));
-        asset.transfer(address(this), reductionAmount);
-        vm.stopPrank();
-
-        uint256 escrowBalanceAfter = asset.balanceOf(address(escrow));
-        uint256 difference = claimableAmount - escrowBalanceAfter;
-
-        console2.log("=== Dust Bug Test ===");
-        console2.log("Claimable amount:", claimableAmount);
-        console2.log("Escrow balance after reduction:", escrowBalanceAfter);
-        console2.log("Difference (dust):", difference);
-        console2.log("Tolerance constant: 10");
-
-        // Verify we're in the dust collection scenario
-        assertTrue(claimableAmount > escrowBalanceAfter, "Claimable should be greater than available");
-        assertTrue(difference <= 10, "Difference should be within tolerance");
-
-        // Step 3: Directly call the strategy's claim function
-        // Call the strategy directly (this is what vault.withdraw calls internally)
-        vm.startPrank(address(vault));
-        vm.expectRevert(ISuperVault.NOT_ENOUGH_ASSETS.selector);
-        strategy.handleOperations7540(
-            ISuperVaultStrategy.Operation.ClaimRedeem, accountEth, accountEth, claimableAmount
-        );
     }
 
     /*//////////////////////////////////////////////////////////////

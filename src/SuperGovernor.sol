@@ -400,10 +400,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         if (quorum == 0 || quorum > validatorsLength) revert INVALID_QUORUM();
 
         // Clear existing validators
-        uint256 oldLength = _validatorConfig.validators.length();
-        for (uint256 i; i < oldLength; i++) {
-            _validatorConfig.validators.remove(_validatorConfig.validators.at(0));
-        }
+        _validatorConfig.validators.clear();
 
         // Add new validators and validate no duplicates
         for (uint256 i; i < validatorsLength; i++) {
@@ -467,6 +464,14 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _activePPSOracleEffectiveTime = 0;
 
         emit ActivePPSOracleChanged(oldOracle, _activePPSOracle);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function cancelOracleProviderRemoval() external onlyRole(_ORACLE_MANAGER_ROLE) {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperOracle(oracle).cancelProviderRemoval();
     }
 
     /// @inheritdoc ISuperGovernor
