@@ -484,12 +484,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @inheritdoc ISuperVaultStrategy
     function changeFeeRecipient(address newRecipient) external {
-        address aggregator = address(_getSuperVaultAggregator());
+        _requireAggregator();
 
-        // Only SuperVaultAggregator can call this
-        if (msg.sender != aggregator) {
-            revert ACCESS_DENIED();
-        }
         feeConfig.recipient = newRecipient;
         emit FeeRecipientChanged(newRecipient);
     }
@@ -535,6 +531,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         emit VaultFeeConfigUpdated(feeConfig.performanceFeeBps, feeConfig.managementFeeBps, feeConfig.recipient);
         emit HWMPPSUpdated(currentPPS, oldHwmPps, 0, 0);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function resetHighWaterMark() external {
+        _requireAggregator();
+
+        // Reset the High Water Mark to the current PPS
+        vaultHwmPps = getStoredPPS();
+        emit HighWaterMarkReset(vaultHwmPps);
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -1062,6 +1067,12 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev This is used to prevent unauthorized access to certain functions
     function _requireVault() internal view {
         if (msg.sender != _vault) revert ACCESS_DENIED();
+    }
+
+    /// @notice Internal function to check if the caller is the aggregator
+    /// @dev This is used to prevent unauthorized access to certain functions
+    function _requireAggregator() internal view {
+        if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
     }
 
     /// @notice Checks if the strategy is currently paused
