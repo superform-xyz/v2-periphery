@@ -8466,11 +8466,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultPPS(address(strategy), address(vault));
 
         vm.warp(block.timestamp + 1 weeks);
-        _forceUpdatePPSToTarget(address(strategy), 1.1e18);
+        _forceUpdatePPSToTarget(address(strategy), 1.1e6);
 
         uint256 currentPPS = strategy.getStoredPPS();
 
-        assertEq(currentPPS, 1.1e18, "PPS should be updated to 2e18");
+        assertEq(currentPPS, 1.1e6, "PPS should be updated to 2e18");
 
         vm.prank(address(aggregator));
         vm.expectEmit(true, true, true, true);
@@ -8478,6 +8478,21 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.resetHighWaterMark(currentPPS);
 
         assertEq(strategy.vaultHwmPps(), currentPPS, "High Water Mark should be reset to current PPS");
+    }
+
+    function test_ResetHighWaterMark_Success_FromGovernor() public {
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        vm.warp(block.timestamp + 1 weeks);
+        _forceUpdatePPSToTarget(address(strategy), 1.1e6);
+
+        uint256 currentPPS = strategy.getStoredPPS();
+
+        assertEq(currentPPS, 1.1e6, "PPS should be updated to 2e18");
+
+        superGovernor.resetHighWaterMark(address(strategy));
+
+        assertEq(SuperVaultStrategy(payable(address(strategy))).vaultHwmPps(), currentPPS, "High Water Mark should be reset to current PPS");
     }
 
     function test_ResetHighWaterMark_RevertUnauthorized() public {
