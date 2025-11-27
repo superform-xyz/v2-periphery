@@ -724,19 +724,19 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// them for the previous manager's performance.
     /// @dev If a manager is replaced while the strategy is below its
     /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
-    /// until PPS rises above the old mark.
-    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline.
-    /// @dev This function is only callable by SUPER_GOVERNOR.
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
+    /// @dev This function is only callable by SUPER_GOVERNOR
     function resetHighWaterMark(address strategy) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Reset the High Water Mark to the current PPS
-        ISuperVaultStrategy(strategy).resetHighWaterMark();
+        uint256 newHwmPps = _strategyData[strategy].pps;
 
-        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
 
         emit HighWaterMarkReset(strategy, newHwmPps);
     }
@@ -1237,8 +1237,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // [Property 9: Rate Limit Enforcement]
         // Enforce minimum time interval between PPS updates to prevent spam and ensure
         // adequate time for market conditions to change meaningfully.
-        // Skip this check if strategy is paused (allows immediate update after unpause).
-        if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
+        if (args.timestamp - lastUpdate < minInterval) {
             emit UpdateTooFrequent();
             return;
         }
@@ -1267,14 +1266,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // Pause strategy if any check failed and mark PPS as stale
-        if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
-            _strategyData[args.strategy].isPaused = true;
-            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
-            emit StrategyPaused(args.strategy);
-            emit StrategyPPSStale(args.strategy);
-        }
-
         // [Property 11: Upkeep Balance Check]
         // Ensure the strategy has sufficient upkeep balance to pay for this update.
         // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
@@ -1300,8 +1291,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(args.strategy, args.upkeepCost, strategyUpkeepBalance, claimableUpkeep);
         }
 
-        // Only store PPS, timestamp and clear stale flag when validation passes
-        if (!checksFailed && args.pps > 0) {
+        // Pause strategy if any check failed and mark PPS as stale
+        if ((checksFailed || args.pps == 0)) {
+            _strategyData[args.strategy].isPaused = true;
+            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
+            emit StrategyPaused(args.strategy);
+            emit StrategyPPSStale(args.strategy);
+        } else {
+            // Only store PPS, timestamp and clear stale flag when validation passes
             _strategyData[args.strategy].pps = args.pps;
             _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
             // Only reset stale flag if it was previously stale (gas optimization)

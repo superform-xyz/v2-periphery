@@ -47,8 +47,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint256 private constant BPS_PRECISION = 10_000;
     uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
-    /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
-    uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
+    /// @dev Default redeem slippage tolerance when user hasn't set their own (0.5%)
+    uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 50;
 
     /// @dev Minimum allowed staleness threshold for PPS updates (prevents too-frequent validation)
     uint256 private constant MIN_PPS_EXPIRATION_THRESHOLD = 1 minutes;
@@ -534,12 +534,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function resetHighWaterMark() external {
+    function resetHighWaterMark(uint256 newHwmPps) external {
         if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
 
-        // Reset the High Water Mark to the current PPS
-        vaultHwmPps = getStoredPPS();
-        emit HighWaterMarkReset(vaultHwmPps);
+        if (newHwmPps == 0) revert INVALID_PPS();
+
+        vaultHwmPps = newHwmPps;
+
+        emit HighWaterMarkReset(newHwmPps);
     }
 
     /// @inheritdoc ISuperVaultStrategy

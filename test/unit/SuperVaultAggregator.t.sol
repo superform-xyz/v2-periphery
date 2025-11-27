@@ -1586,6 +1586,9 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
+
+        address newFeeRecipient = ISuperVaultStrategy(strategy).getConfigInfo().recipient;
+        assertEq(newFeeRecipient, treasury, "Fee recipient should be set to treasury");
     }
 
     // =============================================================

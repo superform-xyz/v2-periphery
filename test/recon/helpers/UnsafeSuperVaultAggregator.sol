@@ -692,10 +692,11 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
     /// @inheritdoc ISuperVaultAggregator
     /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing
-    /// them for the previous manager’s performance @dev If a manager is replaced while the strategy is below its
+    /// them for the previous manager's performance.
+    /// @dev If a manager is replaced while the strategy is below its
     /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
-    /// until PPS rises above the old mark.
-    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline 
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
     /// @dev This function is only callable by SUPER_GOVERNOR
     function resetHighWaterMark(address strategy) external validStrategy(strategy) {
         // Only SuperGovernor can call this
@@ -703,10 +704,10 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Reset the High Water Mark to the current PPS
-        ISuperVaultStrategy(strategy).resetHighWaterMark();
+        uint256 newHwmPps = ISuperVaultStrategy(strategy).getStoredPPS();
 
-        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
 
         emit HighWaterMarkReset(strategy, newHwmPps);
     }
@@ -1179,7 +1180,6 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         // [Property 9: Rate Limit Enforcement]
         // Enforce minimum time interval between PPS updates to prevent spam and ensure
         // adequate time for market conditions to change meaningfully.
-        // Skip this check if strategy is paused (allows immediate update after unpause).
         if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
             emit UpdateTooFrequent();
             return;
