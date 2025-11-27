@@ -8462,15 +8462,37 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertEq(newFeeRecipient, TREASURY, "Fee recipient should be set to TREASURY");
     }
 
-    function test_ResetHighWaterMark_Success() public {
-        uint256 pps = strategy.getStoredPPS();
+    function test_ResetHighWaterMark_Success_Strategy() public {
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        vm.warp(block.timestamp + 1 weeks);
+        _forceUpdatePPSToTarget(address(strategy), 1.1e6);
+
+        uint256 currentPPS = strategy.getStoredPPS();
+
+        assertEq(currentPPS, 1.1e6, "PPS should be updated to 2e18");
 
         vm.prank(address(aggregator));
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultStrategy.HighWaterMarkReset(pps);
-        strategy.resetHighWaterMark(pps);
+        emit ISuperVaultStrategy.HighWaterMarkReset(currentPPS);
+        strategy.resetHighWaterMark(currentPPS);
 
-        assertEq(strategy.vaultHwmPps(), pps, "High Water Mark should be reset to current PPS");
+        assertEq(strategy.vaultHwmPps(), currentPPS, "High Water Mark should be reset to current PPS");
+    }
+
+    function test_ResetHighWaterMark_Success_FromGovernor() public {
+        _updateSuperVaultPPS(address(strategy), address(vault));
+
+        vm.warp(block.timestamp + 1 weeks);
+        _forceUpdatePPSToTarget(address(strategy), 1.1e6);
+
+        uint256 currentPPS = strategy.getStoredPPS();
+
+        assertEq(currentPPS, 1.1e6, "PPS should be updated to 2e18");
+
+        superGovernor.resetHighWaterMark(address(strategy));
+
+        assertEq(SuperVaultStrategy(payable(address(strategy))).vaultHwmPps(), currentPPS, "High Water Mark should be reset to current PPS");
     }
 
     function test_ResetHighWaterMark_RevertUnauthorized() public {
