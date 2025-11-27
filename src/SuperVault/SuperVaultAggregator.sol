@@ -682,6 +682,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (block.timestamp < _strategyData[strategy].managerChangeEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
         address newManager = _strategyData[strategy].proposedManager;
+        address feeRecipient = _strategyData[strategy].proposedFeeRecipient;
+
+        // Validate proposed values are not zero addresses (defense in depth)
+        if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
+
         address oldManager = _strategyData[strategy].mainManager;
 
         // If new manager is already a secondary manager, remove them
@@ -704,7 +709,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].mainManager = newManager;
 
         // Set the new fee recipient
-        address feeRecipient = _strategyData[strategy].proposedFeeRecipient;
         ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
 
         // Clear the proposal
