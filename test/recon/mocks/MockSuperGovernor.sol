@@ -52,8 +52,8 @@ contract MockSuperGovernor {
     // Mock implementation of executeFeeUpdate
     function executeFeeUpdate(uint8 feeType) public { }
 
-    // Mock implementation of executeMinStalenesChange
-    function executeMinStalenesChange() public { }
+    // Mock implementation of executeMinStalenessChange
+    function executeMinStalenessChange() public { }
 
     // Mock implementation of executeRemoveIncentiveTokens
     function executeRemoveIncentiveTokens() public { }

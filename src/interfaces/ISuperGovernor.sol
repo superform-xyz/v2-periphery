@@ -379,7 +379,7 @@ interface ISuperGovernor is IAccessControl {
     function proposeMinStaleness(uint256 newMinStaleness) external;
 
     /// @notice Executes a previously proposed minimum staleness change after timelock has expired
-    function executeMinStalenesChange() external;
+    function executeMinStalenessChange() external;
 
     /*//////////////////////////////////////////////////////////////
                         SUPERFORM MANAGER MANAGEMENT

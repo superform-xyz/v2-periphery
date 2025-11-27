@@ -130,12 +130,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         vm.stopPrank();
     }
 
-    function test_SuperBank_distribute_ZeroLengthArray() public {
+    function test_SuperBank_distribute_ZeroAmount() public {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
         vm.stopPrank();
 
-        vm.expectRevert(Bank.ZERO_LENGTH_ARRAY.selector);
+        vm.expectRevert(Bank.ZERO_AMOUNT.selector);
         superBank.distribute(0);
     }
 

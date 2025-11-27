@@ -2385,7 +2385,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Execute the change
         vm.expectEmit(true, false, false, false);
         emit ISuperGovernor.MinStalenessChanged(newMinStaleness);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
 
@@ -2395,13 +2395,13 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     /// @notice Tests reverting when executing without a proposal
-    function test_MinStalenesManagement_Revert_ExecuteNoProposal() public {
+    function test_MinStalenessManagement_Revert_ExecuteNoProposal() public {
         vm.expectRevert(ISuperGovernor.NO_PROPOSED_MIN_STALENESS.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests reverting when executing before timelock expiry
-    function test_MinStalenesManagement_Revert_ExecuteBeforeTimelock() public {
+    function test_MinStalenessManagement_Revert_ExecuteBeforeTimelock() public {
         uint256 newMinStaleness = 600;
 
         // Propose new minimum staleness
@@ -2410,17 +2410,17 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Try to execute before timelock expires
         vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests the initial minimum staleness value
-    function test_MinStalenesManagement_InitialValue() public view {
+    function test_MinStalenessManagement_InitialValue() public view {
         // Should be initialized to 300 seconds (5 minutes) in constructor
         assertEq(superGovernor.getMinStaleness(), 300, "Initial minimum staleness should be 300 seconds");
     }
 
     /// @notice Tests that execution is public (can be called by anyone)
-    function test_MinStalenesManagement_PublicExecution() public {
+    function test_MinStalenessManagement_PublicExecution() public {
         uint256 newMinStaleness = 600;
 
         // Propose as sGovernor
@@ -2430,7 +2430,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Execute as regular user (should work)
         vm.warp(block.timestamp + TIMELOCK + 1);
         vm.prank(user);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
     }
@@ -2601,7 +2601,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.proposeMinStaleness(newMinStaleness);
         vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         // Now values that were previously valid should be rejected
         uint256 previouslyValidStaleness = 600; // Was > 300, but now < 800

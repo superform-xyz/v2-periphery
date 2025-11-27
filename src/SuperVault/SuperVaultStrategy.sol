@@ -16,7 +16,6 @@ import { LibSort } from "solady/utils/LibSort.sol";
 import {
     ISuperHook,
     ISuperHookResult,
-    ISuperHookResultOutflow,
     ISuperHookContextAware,
     ISuperHookInspector
 } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
@@ -393,16 +392,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentPPS == 0) revert INVALID_PPS();
 
         // Get the high-water mark PPS (baseline for fee calculation)
-        uint256 hwmPPS = vaultHwmPps;
+        uint256 hwmPps = vaultHwmPps;
 
         // Check if there's any per-share growth above HWM
-        if (currentPPS <= hwmPPS) {
+        if (currentPPS <= hwmPps) {
             // No growth above HWM, no fee to collect
             return;
         }
 
         // Calculate PPS growth above HWM
-        uint256 ppsGrowth = currentPPS - hwmPPS;
+        uint256 ppsGrowth = currentPPS - hwmPps;
 
         // Calculate total profit: (PPS growth) * (total shares) / PRECISION
         // This represents the total assets gained above the high-water mark
@@ -964,13 +963,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         } catch {
             return false;
         }
-    }
-
-    /// @notice Internal function to get the previous hook's output amount
-    /// @param prevHook Address of the previous hook
-    /// @return Output amount of the previous hook
-    function _getPreviousHookOutAmount(address prevHook) private view returns (uint256) {
-        return ISuperHookResultOutflow(prevHook).getOutAmount(address(this));
     }
 
     /// @notice Internal function to handle a redeem

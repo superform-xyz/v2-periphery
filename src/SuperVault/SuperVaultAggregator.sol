@@ -67,6 +67,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
+    // Default deviation threshold for new strategies (50% in 1e18 scale)
+    uint256 private constant DEFAULT_DEVIATION_THRESHOLD = 5e17;
+
     // Timelock for upkeep withdrawal (24 hours)
     uint256 public constant UPKEEP_WITHDRAWAL_TIMELOCK = 24 hours;
 
@@ -221,7 +224,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
+        _strategyData[strategy].deviationThreshold = DEFAULT_DEVIATION_THRESHOLD;
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
         emit PPSUpdated(strategy, vars.initialPPS, _strategyData[strategy].lastUpdateTimestamp);
@@ -958,7 +961,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
-
     function isGlobalHooksRootVetoed() external view returns (bool vetoed) {
         return _globalHooksRootVetoed;
     }
