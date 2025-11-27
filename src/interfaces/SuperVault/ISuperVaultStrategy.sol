@@ -108,6 +108,13 @@ interface ISuperVaultStrategy {
     /// @param feeCollected The total fee collected (in assets)
     event HWMPPSUpdated(uint256 newHwmPps, uint256 previousPps, uint256 profit, uint256 feeCollected);
 
+    /// @notice Emitted when the high-water mark PPS is reset
+    /// @param newHwmPps The new high-water mark PPS (post-fee)
+    event HighWaterMarkReset(uint256 newHwmPps);
+
+    /// @notice Emitted when performance fees are skimmed
+    /// @param totalFee The total fee collected (in assets)
+    /// @param superformFee The fee collected for Superform (in assets)
     event PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee);
 
     /*//////////////////////////////////////////////////////////////
@@ -297,6 +304,11 @@ interface ISuperVaultStrategy {
     /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
     ///      to avoid incorrect fee calculations with the new fee structure.
     function executeVaultFeeConfigUpdate() external;
+
+    /// @notice Reset the high-water mark PPS to the current PPS
+    /// @dev This function is only callable by Aggregator
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value
+    function resetHighWaterMark() external;
 
     /// @notice Manage PPS expiry threshold
     /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
