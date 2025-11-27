@@ -1781,7 +1781,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         vars.underlyingSharesVault2 = _truncateToActualBalance(vars.underlyingSharesVault2, vault2, 100);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+            // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 4e2 / 1e5;
         }
 
         vars.withdrawHookAddress = _getHookAddress(ETH, REDEEM_4626_VAULT_HOOK_KEY);
@@ -2527,7 +2528,8 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         expectedAssetsOrSharesOut[1] = IERC4626(targetVault).previewDeposit(assetsToMove);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+            // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 4e2 / 1e5;
         }
 
         bytes[] memory argsForProofs = new bytes[](2);
