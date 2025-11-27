@@ -2194,10 +2194,10 @@ contract SuperVaultTest is PeripheryHelpers {
         controllers[2] = testUser2; // Duplicate - same as controllers[1]
 
         // Create totalAssetsOut with realistic values that will pass bounds checks for first two iterations
-        // The pending shares are approximately 990e18 due to fees, so use that value
+        // With 0.5% slippage (50 bps), min is 995e18 (99.5% of 1000e18 theoretical)
         uint256[] memory totalAssetsOut = new uint256[](3);
-        totalAssetsOut[0] = 990e18;  // Matches expected min for user1
-        totalAssetsOut[1] = 990e18;  // Matches expected min for user2
+        totalAssetsOut[0] = 995e18;  // Matches expected min for user1 (99.5% of theoretical)
+        totalAssetsOut[1] = 995e18;  // Matches expected min for user2 (99.5% of theoretical)
         totalAssetsOut[2] = 100e18;  // This won't matter since we'll revert at sorting check
 
         // Test: The `<=` check at line 338 will catch controllers[2] == controllers[1]
@@ -2239,7 +2239,7 @@ contract SuperVaultTest is PeripheryHelpers {
         controllers[0] = testUser;
 
         uint256[] memory totalAssetsOut = new uint256[](1);
-        totalAssetsOut[0] = 990e18; // Request to fulfill with this amount
+        totalAssetsOut[0] = 995e18; // Request to fulfill with this amount (99.5% of 1000e18 with 50 bps slippage)
 
         // Test: Attempt to fulfill should revert with INSUFFICIENT_LIQUIDITY
         // because strategy doesn't have enough assets to transfer
@@ -2267,19 +2267,19 @@ contract SuperVaultTest is PeripheryHelpers {
         // For 1000e18 assets deposited at PPS = 1e18, we get 1000e18 shares
         // theoreticalAssets = 1000e18 * 1e18 / 1e18 = 1000e18
 
-        // minAssetsOut with 1% slippage (100 bps) = 990e18 (99% of theoretical)
-        // We need to pass totalAssetsOut < 990e18 to trigger the revert
+        // minAssetsOut with 0.5% slippage (50 bps) = 995e18 (99.5% of theoretical)
+        // We need to pass totalAssetsOut < 995e18 to trigger the revert
 
         address[] memory controllers = new address[](1);
         controllers[0] = testUser;
 
         uint256[] memory totalAssetsOut = new uint256[](1);
-        totalAssetsOut[0] = 980e18; // Below minAssetsOut (990e18), should revert
+        totalAssetsOut[0] = 980e18; // Below minAssetsOut (995e18), should revert
 
         // Test: Attempt to fulfill with totalAssetsOut below minimum should revert with BOUNDS_EXCEEDED
         vm.prank(manager);
         vm.expectRevert(
-            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 990e18, 1000e18, 980e18)
+            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 980e18)
         );
         strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
     }
@@ -2314,7 +2314,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test: Attempt to fulfill with totalAssetsOut above theoretical should revert with BOUNDS_EXCEEDED
         vm.prank(manager);
         vm.expectRevert(
-            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 990e18, 1000e18, 1010e18)
+            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 1010e18)
         );
         strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
     }

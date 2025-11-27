@@ -35,6 +35,7 @@ import { MockETHReceiver } from "../../mocks/MockETHReceiver.sol";
 import { MockEmergencyVault } from "../../mocks/MockEmergencyVault.sol";
 import { MockAssetNoDecimals } from "../../mocks/MockAssetNoDecimals.sol";
 import { Create2 } from "openzeppelin-contracts/contracts/utils/Create2.sol";
+import { SetOperator7540Hook } from "@superform-v2-core/src/hooks/vaults/7540/SetOperator7540Hook.sol";
 
 contract SuperVaultTest is BaseSuperVaultTest {
     using Math for uint256;
@@ -196,7 +197,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     function test_DefaultRedeemSlippageBps() public view {
         uint16 defaultSlippage = strategy.DEFAULT_REDEEM_SLIPPAGE_BPS();
-        assertEq(defaultSlippage, 100, "DEFAULT_REDEEM_SLIPPAGE_BPS should be 100 (1%)");
+        assertEq(defaultSlippage, 50, "DEFAULT_REDEEM_SLIPPAGE_BPS should be 50 (0.5%)");
     }
 
     function test_DepositXQ() public {
@@ -3438,7 +3439,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
         expectedAssetsOrSharesOut[0] = gearboxVault.convertToAssets(underlyingShares);
-        expectedAssetsOrSharesOut[0] = expectedAssetsOrSharesOut[0] - expectedAssetsOrSharesOut[0] * 1e3 / 1e5;
+        // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
+        expectedAssetsOrSharesOut[0] = expectedAssetsOrSharesOut[0] - expectedAssetsOrSharesOut[0] * 4e2 / 1e5;
 
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
@@ -5709,7 +5711,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         expectedAssetsOrSharesOut[1] = IERC4626(vars.ruggableVault).previewDeposit(allocationAmountVault2);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 1e3 / 1e5;
+            // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
+            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 4e2 / 1e5;
         }
 
         _depositFreeAssets(
@@ -6870,7 +6873,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 sharesVault2 = IERC4626(address(vars.ruggableVault)).convertToShares(vars.depositAmount * 5 / 2);
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](2);
-        expectedAssetsOrSharesOut[0] = sharesVault1 - (sharesVault1 * 1e2 / 1e5); // 1% slippage
+        // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
+        expectedAssetsOrSharesOut[0] = sharesVault1 - (sharesVault1 * 4e2 / 1e5);
         expectedAssetsOrSharesOut[1] = (sharesVault2 - sharesVault2 * vars.rugPercentage / 10_000) * 2; // Should revert
 
         // expect revert on this call and try again after
@@ -10514,6 +10518,204 @@ contract SuperVaultTest is BaseSuperVaultTest {
     event PPSUpdatedAfterSkim(
         address indexed strategy, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
     );
+
+    /*//////////////////////////////////////////////////////////////
+                    SET_OPERATOR_7540_HOOK INTEGRATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test SetOperator7540Hook execution via strategy.executeHooks
+    /// @dev This test demonstrates setting an operator on the SuperVault via the SetOperator7540Hook
+    function test_SetOperator7540Hook_ExecuteViaStrategy() public {
+        // Setup: Create an operator address that will be granted permissions
+        address newOperator = makeAddr("newOperator");
+
+        // Deploy the SetOperator7540Hook
+        SetOperator7540Hook setOperatorHook = new SetOperator7540Hook();
+        vm.label(address(setOperatorHook), "SetOperator7540Hook");
+
+        // Register the hook with SuperGovernor (address(this) is the governor)
+        superGovernor.registerHook(address(setOperatorHook));
+
+        // Verify the operator is not already set
+        assertFalse(vault.isOperator(address(strategy), newOperator), "Operator should not be set initially");
+
+        // Encode the hook data:
+        // bytes32 placeholder (32 bytes) + vault address (20 bytes) + operator address (20 bytes) + approved bool (1 byte)
+        bytes memory hookData = _encodeSetOperator7540HookData(address(vault), newOperator, true);
+
+        // Create the execute args
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = address(setOperatorHook);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = hookData;
+
+        // Mock the validateHook call to bypass Merkle proof verification for testing
+        vm.mockCall(
+            address(aggregator),
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Execute the hook via the strategy as MANAGER
+        vm.startPrank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+        vm.stopPrank();
+
+        // Verify the operator was set on the vault (strategy is the owner/controller)
+        assertTrue(vault.isOperator(address(strategy), newOperator), "Operator should be set after hook execution");
+
+        console2.log("SetOperator7540Hook successfully set operator on SuperVault");
+    }
+
+    /// @notice Test SetOperator7540Hook to revoke an operator
+    /// @dev This test demonstrates revoking an operator that was previously set
+    function test_SetOperator7540Hook_RevokeOperator() public {
+        address newOperator = makeAddr("operatorToRevoke");
+
+        // Deploy and register the SetOperator7540Hook
+        SetOperator7540Hook setOperatorHook = new SetOperator7540Hook();
+        superGovernor.registerHook(address(setOperatorHook));
+
+        // First, set the operator using the hook
+        bytes memory approveHookData = _encodeSetOperator7540HookData(address(vault), newOperator, true);
+
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = address(setOperatorHook);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = approveHookData;
+
+        // Mock validateHook
+        vm.mockCall(
+            address(aggregator),
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Execute to approve operator
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        // Verify operator is set
+        assertTrue(vault.isOperator(address(strategy), newOperator), "Operator should be approved");
+
+        // Now revoke the operator
+        bytes memory revokeHookData = _encodeSetOperator7540HookData(address(vault), newOperator, false);
+        hooksData[0] = revokeHookData;
+
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        // Verify operator is revoked
+        assertFalse(vault.isOperator(address(strategy), newOperator), "Operator should be revoked");
+
+        console2.log("SetOperator7540Hook successfully revoked operator on SuperVault");
+    }
+
+    /// @notice Test SetOperator7540Hook with multiple operators in sequence
+    function test_SetOperator7540Hook_MultipleOperators() public {
+        address operator1 = makeAddr("operator1");
+        address operator2 = makeAddr("operator2");
+
+        // Deploy and register the SetOperator7540Hook
+        SetOperator7540Hook setOperatorHook = new SetOperator7540Hook();
+        superGovernor.registerHook(address(setOperatorHook));
+
+        // Mock validateHook for all calls
+        vm.mockCall(
+            address(aggregator),
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Set first operator
+        address[] memory hooksAddresses = new address[](1);
+        hooksAddresses[0] = address(setOperatorHook);
+
+        bytes[] memory hooksData = new bytes[](1);
+        hooksData[0] = _encodeSetOperator7540HookData(address(vault), operator1, true);
+
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        // Set second operator
+        hooksData[0] = _encodeSetOperator7540HookData(address(vault), operator2, true);
+
+        vm.prank(MANAGER);
+        strategy.executeHooks(
+            ISuperVaultStrategy.ExecuteArgs({
+                hooks: hooksAddresses,
+                hookCalldata: hooksData,
+                expectedAssetsOrSharesOut: new uint256[](1),
+                globalProofs: new bytes32[][](1),
+                strategyProofs: new bytes32[][](1)
+            })
+        );
+
+        // Both operators should be set
+        assertTrue(vault.isOperator(address(strategy), operator1), "Operator1 should be set");
+        assertTrue(vault.isOperator(address(strategy), operator2), "Operator2 should be set");
+
+        console2.log("SetOperator7540Hook successfully set multiple operators on SuperVault");
+    }
+
+    /// @notice Helper function to encode data for SetOperator7540Hook
+    /// @param vault_ The vault address (ERC-7540 vault)
+    /// @param operator_ The operator address to set
+    /// @param approved_ Whether to approve or revoke the operator
+    /// @return hookData The encoded hook data
+    function _encodeSetOperator7540HookData(
+        address vault_,
+        address operator_,
+        bool approved_
+    )
+        internal
+        pure
+        returns (bytes memory hookData)
+    {
+        // SetOperator7540Hook expects:
+        // bytes32 placeholder (32 bytes) + vault (20 bytes) + operator (20 bytes) + approved (1 byte as uint8)
+        bytes memory placeholder = new bytes(32);
+        hookData = bytes.concat(
+            placeholder,
+            abi.encodePacked(vault_),
+            abi.encodePacked(operator_),
+            abi.encodePacked(approved_ ? uint8(1) : uint8(0))
+        );
+    }
 }
 
 /// @notice Simple contract without payable functions for testing
