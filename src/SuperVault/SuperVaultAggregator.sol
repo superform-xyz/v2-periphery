@@ -720,19 +720,19 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// them for the previous manager's performance.
     /// @dev If a manager is replaced while the strategy is below its
     /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
-    /// until PPS rises above the old mark.
-    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline.
-    /// @dev This function is only callable by SUPER_GOVERNOR.
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
+    /// @dev This function is only callable by SUPER_GOVERNOR
     function resetHighWaterMark(address strategy) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Reset the High Water Mark to the current PPS
-        ISuperVaultStrategy(strategy).resetHighWaterMark();
+        uint256 newHwmPps = ISuperVaultStrategy(strategy).getStoredPPS();
 
-        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
 
         emit HighWaterMarkReset(strategy, newHwmPps);
     }

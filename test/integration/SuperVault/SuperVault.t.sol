@@ -8464,7 +8464,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(address(aggregator));
         vm.expectEmit(true, true, true, true);
         emit ISuperVaultStrategy.HighWaterMarkReset(pps);
-        strategy.resetHighWaterMark();
+        strategy.resetHighWaterMark(pps);
 
         assertEq(strategy.vaultHwmPps(), pps, "High Water Mark should be reset to current PPS");
     }
@@ -8472,7 +8472,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_ResetHighWaterMark_RevertUnauthorized() public {
         vm.prank(user1);
         vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
-        strategy.resetHighWaterMark();
+        strategy.resetHighWaterMark(1e18);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -534,12 +534,10 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function resetHighWaterMark() external {
+    function resetHighWaterMark(uint256 newHwmPps) external {
         if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
 
-        // Reset the High Water Mark to the current PPS
-        vaultHwmPps = getStoredPPS();
-        emit HighWaterMarkReset(vaultHwmPps);
+        emit HighWaterMarkReset(newHwmPps);
     }
 
     /// @inheritdoc ISuperVaultStrategy
