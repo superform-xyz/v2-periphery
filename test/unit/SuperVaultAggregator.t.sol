@@ -5169,7 +5169,5 @@ struct BatchForwardPPSTestVars {
     uint256 expectedTotalCharged;
     address[] strategies;
     uint256[] ppss;
-        uint256[] validatorSets;
-        uint256[] totalValidators;
     uint256[] timestamps;
 }
