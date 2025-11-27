@@ -24,6 +24,7 @@ abstract contract Bank is ReentrancyGuard {
     error HOOK_EXECUTION_FAILED();
     error HOOK_NOT_REGISTERED();
     error ZERO_LENGTH_ARRAY();
+    error ZERO_AMOUNT();
     error INVALID_ARRAY_LENGTH();
     error ZERO_ADDRESS();
     error MINIMUM_OUTPUT_AMOUNT_NOT_MET();
