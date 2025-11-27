@@ -416,10 +416,16 @@ contract SuperOracleL2Test is Test {
         // Set sequencer to down
         uptimeFeed.setLatestAnswer(1); // 1 means sequencer is down
 
-        // Attempt to get a quote - should revert
-        bytes memory encodedError = abi.encodeWithSelector(ISuperOracleL2.SEQUENCER_DOWN.selector);
+        // When using getQuote() (AVERAGE_PROVIDER), the oracle returns 0 for failed providers
+        // and then reverts with NO_VALID_REPORTED_PRICES when all providers fail
+        bytes memory encodedError = abi.encodeWithSelector(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         vm.expectRevert(encodedError);
         oracle.getQuote(1 * 10 ** 15, address(baseToken), address(quoteToken));
+
+        // When using getQuoteFromProvider with a specific provider, it reverts with SEQUENCER_DOWN
+        bytes memory sequencerDownError = abi.encodeWithSelector(ISuperOracleL2.SEQUENCER_DOWN.selector);
+        vm.expectRevert(sequencerDownError);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
     }
 
     function test_GetQuote_GracePeriodNotOver_Reverts() public {
@@ -427,10 +433,16 @@ contract SuperOracleL2Test is Test {
         uptimeFeed.setLatestAnswer(0); // 0 means sequencer is up
         uptimeFeed.setStartedAt(block.timestamp - 100); // Grace period not over (3600 is required)
 
-        // Attempt to get a quote - should revert
-        bytes memory encodedError = abi.encodeWithSelector(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
+        // When using getQuote() (AVERAGE_PROVIDER), the oracle returns 0 for failed providers
+        // and then reverts with NO_VALID_REPORTED_PRICES when all providers fail
+        bytes memory encodedError = abi.encodeWithSelector(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         vm.expectRevert(encodedError);
         oracle.getQuote(1 * 10 ** 15, address(baseToken), address(quoteToken));
+
+        // When using getQuoteFromProvider with a specific provider, it reverts with GRACE_PERIOD_NOT_OVER
+        bytes memory gracePeriodError = abi.encodeWithSelector(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
+        vm.expectRevert(gracePeriodError);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
     }
 
     function test_GetQuote_NoUptimeFeed_Reverts() public {
@@ -526,10 +538,16 @@ contract SuperOracleL2Test is Test {
         uptimeOracles[0] = address(newUptimeFeed);
         oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
 
-        // Verify the default grace period is used
-        bytes memory encodedError = abi.encodeWithSelector(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
+        // When using getQuote() (AVERAGE_PROVIDER), the oracle returns 0 for failed providers
+        // and then reverts with NO_VALID_REPORTED_PRICES when all providers fail
+        bytes memory encodedError = abi.encodeWithSelector(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         vm.expectRevert(encodedError);
         oracle.getQuote(1 * 10 ** 15, address(baseToken), address(quoteToken));
+
+        // When using getQuoteFromProvider with a specific provider, it reverts with GRACE_PERIOD_NOT_OVER
+        bytes memory gracePeriodError = abi.encodeWithSelector(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
+        vm.expectRevert(gracePeriodError);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
 
         // Now set a time that's past the default grace period
         newUptimeFeed.setStartedAt(block.timestamp - 3700); // Past default grace period
