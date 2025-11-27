@@ -486,8 +486,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function changeFeeRecipient(address newRecipient) external {
         if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
 
-        if (newRecipient == address(0)) revert ZERO_ADDRESS();
-
         feeConfig.recipient = newRecipient;
         emit FeeRecipientChanged(newRecipient);
     }

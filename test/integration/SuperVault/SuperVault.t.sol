@@ -8447,10 +8447,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_ChangeFeeRecipient_RevertCases() public {
         vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
         strategy.changeFeeRecipient(TREASURY);
-
-        vm.prank(address(aggregator));
-        vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
-        strategy.changeFeeRecipient(address(0));
     }
 
     function test_ChangeFeeRecipient_Success() public {
