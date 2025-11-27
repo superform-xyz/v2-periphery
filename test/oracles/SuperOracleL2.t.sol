@@ -957,6 +957,445 @@ contract SuperOracleL2Test is Test {
         vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
     }
+    /*//////////////////////////////////////////////////////////////
+            TRY/CATCH COVERAGE TESTS FOR NEW FIX
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Tests that uptime feed latestRoundData() revert is caught and returns 0 when revertOnError=false
+    /// @dev Covers the new try/catch block around uptime feed's latestRoundData() call
+    function test_UptimeFeedLatestRoundDataReverts_ReturnsZeroWithoutRevert() public {
+        // Setup: Create a working provider and a provider with a reverting uptime feed
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator feedWithBadUptime = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        feedWithBadUptime.setUpdatedAt(block.timestamp);
+
+        // Create working uptime feed
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Create reverting uptime feed
+        MockL2SequencerReverting revertingUptimeFeed = new MockL2SequencerReverting();
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("BAD_UPTIME_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(feedWithBadUptime);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        feedWithBadUptime.setUpdatedAt(block.timestamp);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(feedWithBadUptime);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        uptimeOracles[1] = address(revertingUptimeFeed);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER - should skip the bad uptime provider and use the working one
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) =
+            oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite one having reverting uptime feed");
+    }
+
+    /// @notice Tests that uptime feed latestRoundData() revert causes revert when revertOnError=true
+    /// @dev Covers ORACLE_ROUND_DATA_CALL_FAIL error for uptime feed
+    function test_UptimeFeedLatestRoundDataReverts_RevertsWithRevertOnError() public {
+        // Create a reverting uptime feed
+        MockL2SequencerReverting revertingUptimeFeed = new MockL2SequencerReverting();
+
+        // Set the reverting uptime feed for the existing data feed
+        address[] memory dataOracles = new address[](1);
+        address[] memory uptimeOracles = new address[](1);
+        uint256[] memory gracePeriods = new uint256[](1);
+        dataOracles[0] = address(dataFeed);
+        uptimeOracles[0] = address(revertingUptimeFeed);
+        gracePeriods[0] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Call with specific provider (revertOnError = true) should revert with ORACLE_ROUND_DATA_CALL_FAIL
+        vm.expectRevert(
+            abi.encodeWithSelector(ISuperOracle.ORACLE_ROUND_DATA_CALL_FAIL.selector, address(revertingUptimeFeed))
+        );
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
+    }
+
+    /// @notice Tests that data oracle latestRoundData() revert is caught and returns 0 when revertOnError=false
+    /// @dev Covers the new try/catch block around data oracle's latestRoundData() call
+    function test_DataOracleLatestRoundDataReverts_ReturnsZeroWithoutRevert() public {
+        // Setup: Create a working provider and a provider with a reverting data feed
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregatorRevertingLatestRoundData revertingDataFeed = new MockAggregatorRevertingLatestRoundData();
+
+        // Create uptime feeds for both
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        MockL2Sequencer uptimeFeedForReverting = new MockL2Sequencer();
+        uptimeFeedForReverting.setLatestAnswer(0);
+        uptimeFeedForReverting.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("REVERTING_DATA_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(revertingDataFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(revertingDataFeed);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        uptimeOracles[1] = address(uptimeFeedForReverting);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER - should skip the reverting data feed and use the working one
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) =
+            oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite one having reverting data feed");
+    }
+
+    /// @notice Tests that data oracle latestRoundData() revert causes revert when revertOnError=true
+    /// @dev Covers ORACLE_ROUND_DATA_CALL_FAIL error for data oracle
+    function test_DataOracleLatestRoundDataReverts_RevertsWithRevertOnError() public {
+        // Create a reverting data feed
+        MockAggregatorRevertingLatestRoundData revertingDataFeed = new MockAggregatorRevertingLatestRoundData();
+
+        // Create uptime feed
+        MockL2Sequencer uptimeFeedForReverting = new MockL2Sequencer();
+        uptimeFeedForReverting.setLatestAnswer(0);
+        uptimeFeedForReverting.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add the reverting feed as a new provider
+        address[] memory bases = new address[](1);
+        address[] memory quotes = new address[](1);
+        bytes32[] memory providers = new bytes32[](1);
+        address[] memory feeds = new address[](1);
+
+        bases[0] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        providers[0] = keccak256("REVERTING_PROVIDER");
+        feeds[0] = address(revertingDataFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feed for the reverting provider
+        address[] memory dataOracles = new address[](1);
+        address[] memory uptimeOracles = new address[](1);
+        uint256[] memory gracePeriods = new uint256[](1);
+        dataOracles[0] = address(revertingDataFeed);
+        uptimeOracles[0] = address(uptimeFeedForReverting);
+        gracePeriods[0] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Call with specific provider (revertOnError = true) should revert with ORACLE_ROUND_DATA_CALL_FAIL
+        vm.expectRevert(
+            abi.encodeWithSelector(ISuperOracle.ORACLE_ROUND_DATA_CALL_FAIL.selector, address(revertingDataFeed))
+        );
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("REVERTING_PROVIDER"));
+    }
+
+    /// @notice Tests that NO_UPTIME_FEED returns 0 when revertOnError=false (AVERAGE_PROVIDER)
+    /// @dev Covers the new behavior where missing uptime feed returns 0 instead of reverting
+    function test_NoUptimeFeed_ReturnsZeroWithoutRevert() public {
+        // Setup: Create a working provider and a provider without an uptime feed
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator feedWithoutUptime = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        feedWithoutUptime.setUpdatedAt(block.timestamp);
+
+        // Create uptime feed only for working provider
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("NO_UPTIME_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(feedWithoutUptime);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        feedWithoutUptime.setUpdatedAt(block.timestamp);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feed ONLY for working provider (leave feedWithoutUptime without uptime feed)
+        address[] memory dataOracles = new address[](1);
+        address[] memory uptimeOracles = new address[](1);
+        uint256[] memory gracePeriods = new uint256[](1);
+        dataOracles[0] = address(workingFeed);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        gracePeriods[0] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER - should skip the provider without uptime feed and use the working one
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) =
+            oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite one missing uptime feed");
+    }
+
+    /// @notice Tests multi-provider average with mixed failure modes
+    /// @dev Comprehensive test with sequencer down, grace period issues, stale data, and working provider
+    function test_AverageQuote_MixedFailureModes() public {
+        // Create 4 providers with different failure modes
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator sequencerDownFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        sequencerDownFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator gracePeriodFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        gracePeriodFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator staleFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        staleFeed.setUpdatedAt(block.timestamp - 86401); // Stale
+
+        // Create uptime feeds
+        MockL2Sequencer workingUptime = new MockL2Sequencer();
+        workingUptime.setLatestAnswer(0); // Up
+        workingUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        MockL2Sequencer sequencerDownUptime = new MockL2Sequencer();
+        sequencerDownUptime.setLatestAnswer(1); // DOWN
+
+        MockL2Sequencer gracePeriodUptime = new MockL2Sequencer();
+        gracePeriodUptime.setLatestAnswer(0); // Up
+        gracePeriodUptime.setStartedAt(block.timestamp - 100); // Grace period not over
+
+        MockL2Sequencer staleUptime = new MockL2Sequencer();
+        staleUptime.setLatestAnswer(0); // Up
+        staleUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add all providers
+        address[] memory bases = new address[](4);
+        address[] memory quotes = new address[](4);
+        bytes32[] memory providers = new bytes32[](4);
+        address[] memory feeds = new address[](4);
+
+        for (uint256 i = 0; i < 4; i++) {
+            bases[i] = address(baseToken);
+            quotes[i] = address(quoteToken);
+        }
+        providers[0] = keccak256("WORKING");
+        providers[1] = keccak256("SEQUENCER_DOWN");
+        providers[2] = keccak256("GRACE_PERIOD");
+        providers[3] = keccak256("STALE");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(sequencerDownFeed);
+        feeds[2] = address(gracePeriodFeed);
+        feeds[3] = address(staleFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+
+        // Re-set timestamps after warp
+        workingFeed.setUpdatedAt(block.timestamp);
+        sequencerDownFeed.setUpdatedAt(block.timestamp);
+        gracePeriodFeed.setUpdatedAt(block.timestamp);
+        staleFeed.setUpdatedAt(block.timestamp - 86401); // Keep stale
+
+        workingUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        gracePeriodUptime.setStartedAt(block.timestamp - 100);
+        staleUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](4);
+        address[] memory uptimeOracles = new address[](4);
+        uint256[] memory gracePeriods = new uint256[](4);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(sequencerDownFeed);
+        dataOracles[2] = address(gracePeriodFeed);
+        dataOracles[3] = address(staleFeed);
+        uptimeOracles[0] = address(workingUptime);
+        uptimeOracles[1] = address(sequencerDownUptime);
+        uptimeOracles[2] = address(gracePeriodUptime);
+        uptimeOracles[3] = address(staleUptime);
+        for (uint256 i = 0; i < 4; i++) {
+            gracePeriods[i] = GRACE_PERIOD;
+        }
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER - should only use the working provider
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,, uint256 totalProviders, uint256 availableProviders) =
+            oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        assertGt(quoteAmount, 0, "Should get quote from the working provider");
+        // Note: availableProviders should be 1 (only the working one succeeded)
+        assertEq(availableProviders, 1, "Only one provider should be available");
+    }
+
+    /// @notice Tests that all providers failing results in NO_VALID_REPORTED_PRICES
+    /// @dev When every provider fails, the average computation should revert
+    function test_AverageQuote_AllProvidersFail_Reverts() public {
+        // Create providers that all fail for different reasons
+        MockAggregator sequencerDownFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        sequencerDownFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator negativePriceFeed = new MockAggregator(-1000, uint8(PRICE_DECIMALS));
+        negativePriceFeed.setUpdatedAt(block.timestamp);
+
+        // Create uptime feeds
+        MockL2Sequencer sequencerDownUptime = new MockL2Sequencer();
+        sequencerDownUptime.setLatestAnswer(1); // DOWN
+
+        MockL2Sequencer workingUptime = new MockL2Sequencer();
+        workingUptime.setLatestAnswer(0);
+        workingUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("SEQUENCER_DOWN");
+        providers[1] = keccak256("NEGATIVE_PRICE");
+        feeds[0] = address(sequencerDownFeed);
+        feeds[1] = address(negativePriceFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        sequencerDownFeed.setUpdatedAt(block.timestamp);
+        negativePriceFeed.setUpdatedAt(block.timestamp);
+        workingUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(sequencerDownFeed);
+        dataOracles[1] = address(negativePriceFeed);
+        uptimeOracles[0] = address(sequencerDownUptime);
+        uptimeOracles[1] = address(workingUptime);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER - all providers fail, should revert
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+    }
+
+    /// @notice Tests that SEQUENCER_DOWN returns 0 with revertOnError=false but reverts with revertOnError=true
+    /// @dev Verifies both paths for sequencer down condition
+    function test_SequencerDown_BothRevertOnErrorPaths() public {
+        // Set sequencer to down
+        uptimeFeed.setLatestAnswer(1);
+
+        // Path 1: AVERAGE_PROVIDER (revertOnError=false) - should get NO_VALID_REPORTED_PRICES
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        // Path 2: Specific provider (revertOnError=true) - should get SEQUENCER_DOWN
+        vm.expectRevert(ISuperOracleL2.SEQUENCER_DOWN.selector);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
+    }
+
+    /// @notice Tests that GRACE_PERIOD_NOT_OVER returns 0 with revertOnError=false but reverts with revertOnError=true
+    /// @dev Verifies both paths for grace period condition
+    function test_GracePeriodNotOver_BothRevertOnErrorPaths() public {
+        // Set sequencer to up but grace period not over
+        uptimeFeed.setLatestAnswer(0);
+        uptimeFeed.setStartedAt(block.timestamp - 100);
+
+        // Path 1: AVERAGE_PROVIDER (revertOnError=false) - should get NO_VALID_REPORTED_PRICES
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
+
+        // Path 2: Specific provider (revertOnError=true) - should get GRACE_PERIOD_NOT_OVER
+        vm.expectRevert(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
+        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
+    }
+}
+
+/// @notice Mock L2 sequencer that reverts on latestRoundData() call
+contract MockL2SequencerReverting {
+    function latestRoundData() external pure returns (uint80, int256, uint256, uint256, uint80) {
+        revert("Uptime feed call failed");
+    }
+}
+
+/// @notice Mock aggregator that reverts on latestRoundData() call
+contract MockAggregatorRevertingLatestRoundData {
+    function latestRoundData() external pure returns (uint80, int256, uint256, uint256, uint80) {
+        revert("Data feed call failed");
+    }
+
+    function decimals() external pure returns (uint8) {
+        return 8;
+    }
 }
 
 interface ISuperOracleL2 {
