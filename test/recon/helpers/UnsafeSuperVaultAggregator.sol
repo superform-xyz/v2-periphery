@@ -377,7 +377,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Create withdrawal request
         pendingUpkeepWithdrawals[strategy] = UpkeepWithdrawalRequest({
-            initiator: msg.sender, amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
+            amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
         });
 
         emit UpkeepWithdrawalProposed(
@@ -390,7 +390,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         UpkeepWithdrawalRequest memory request = pendingUpkeepWithdrawals[strategy];
 
         // Check that a request exists
-        if (request.initiator == address(0)) revert UPKEEP_WITHDRAWAL_NOT_FOUND();
+        if (request.effectiveTime == 0) revert UPKEEP_WITHDRAWAL_NOT_FOUND();
 
         // Check that timelock has passed
         if (block.timestamp < request.effectiveTime) revert UPKEEP_WITHDRAWAL_NOT_READY();
@@ -412,10 +412,11 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
             _strategyUpkeepBalance[strategy] -= withdrawalAmount;
         }
 
-        // Transfer UP tokens to the original initiator (not msg.sender)
-        IERC20(upToken).safeTransfer(request.initiator, withdrawalAmount);
+        // Transfer UP tokens to the original main manager (not msg.sender)
+        address mainManager = _strategyData[strategy].mainManager;
+        IERC20(upToken).safeTransfer(mainManager, withdrawalAmount);
 
-        emit UpkeepWithdrawn(strategy, request.initiator, withdrawalAmount);
+        emit UpkeepWithdrawn(strategy, mainManager, withdrawalAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -581,7 +582,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // SECURITY: Cancel any pending upkeep withdrawal to prevent old manager from withdrawing
-        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+        if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
             delete pendingUpkeepWithdrawals[strategy];
             emit UpkeepWithdrawalCancelled(strategy);
         }
@@ -654,7 +655,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Cancel any pending upkeep withdrawal to ensure clean transition
-        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+        if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
             delete pendingUpkeepWithdrawals[strategy];
             emit UpkeepWithdrawalCancelled(strategy);
         }
