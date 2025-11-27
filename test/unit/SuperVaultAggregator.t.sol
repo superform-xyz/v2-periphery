@@ -814,6 +814,32 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.executeChangePrimaryManager(strategy);
     }
 
+    /// @notice Tests that executeChangePrimaryManager succeeds with valid non-zero addresses
+    /// @dev This test validates the defense-in-depth zero address check in executeChangePrimaryManager
+    /// @dev The check protects against any future code changes that might bypass proposeChangePrimaryManager validation
+    function test_ExecuteChangePrimaryManager_Success() public {
+        // Create new manager and fee recipient addresses
+        address newManager = _deployAccount(0x25, "NewManager");
+        address newFeeRecipient = _deployAccount(0x26, "NewFeeRecipient");
+
+        // Secondary manager proposes change with valid addresses
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, newFeeRecipient);
+
+        // Warp past timelock (7 days)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute should succeed
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify new manager is set
+        assertEq(superVaultAggregator.getMainManager(strategy), newManager, "New manager should be set");
+
+        // Verify fee recipient is updated
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy).getConfigInfo();
+        assertEq(feeConfig.recipient, newFeeRecipient, "Fee recipient should be updated");
+    }
+
     // =============================================================
     // High Water Mark Reset Tests
     // =============================================================
