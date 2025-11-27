@@ -708,6 +708,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepWithdrawalCancelled(strategy);
         }
 
+        _strategyData[strategy].proposedHooksRoot = bytes32(0);
+        _strategyData[strategy].hooksRootEffectiveTime = 0;
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
