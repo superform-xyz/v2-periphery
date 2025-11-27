@@ -1637,6 +1637,113 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(newFeeRecipient, treasury, "Fee recipient should be set to treasury");
     }
 
+    /// @notice Tests that executeChangePrimaryManager clears pending hooks root proposal
+    /// @dev This prevents stale proposals from being executed after manager handover
+    function test_ExecuteChangePrimaryManager_ClearsPendingHooksRootProposal() public {
+        // Setup: Create pending hook root proposal
+        bytes32 newHookRoot = keccak256("new_hook_root");
+
+        vm.prank(manager);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newHookRoot);
+
+        // Verify hook proposal exists
+        (bytes32 proposedRoot, uint256 effectiveTime) = superVaultAggregator.getProposedStrategyHooksRoot(strategy);
+        assertEq(proposedRoot, newHookRoot, "Hook proposal should exist");
+        assertTrue(effectiveTime > 0, "Hook effective time should be set");
+
+        // Secondary manager proposes manager change
+        address newPrimaryManager = _deployAccount(0x20, "NewPrimaryManager");
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
+
+        // Wait for timelock to expire
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute manager change
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify hook proposal was cleared
+        (proposedRoot, effectiveTime) = superVaultAggregator.getProposedStrategyHooksRoot(strategy);
+        assertEq(proposedRoot, bytes32(0), "Hook proposal should be cleared after manager change");
+        assertEq(effectiveTime, 0, "Hook effective time should be cleared after manager change");
+    }
+
+    /// @notice Tests that executeChangePrimaryManager clears pending minUpdateInterval proposal
+    /// @dev This prevents stale proposals from being executed after manager handover
+    function test_ExecuteChangePrimaryManager_ClearsPendingMinUpdateIntervalProposal() public {
+        // Setup: Create pending minUpdateInterval proposal
+        uint256 newMinUpdateInterval = 100;
+
+        vm.prank(manager);
+        superVaultAggregator.proposeMinUpdateIntervalChange(strategy, newMinUpdateInterval);
+
+        // Verify minUpdateInterval proposal exists
+        (uint256 proposedInterval, uint256 effectiveTime) =
+            superVaultAggregator.getProposedMinUpdateInterval(strategy);
+        assertEq(proposedInterval, newMinUpdateInterval, "MinUpdateInterval proposal should exist");
+        assertTrue(effectiveTime > 0, "MinUpdateInterval effective time should be set");
+
+        // Secondary manager proposes manager change
+        address newPrimaryManager = _deployAccount(0x21, "NewPrimaryManager");
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
+
+        // Wait for timelock to expire
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute manager change
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify minUpdateInterval proposal was cleared
+        (proposedInterval, effectiveTime) = superVaultAggregator.getProposedMinUpdateInterval(strategy);
+        assertEq(proposedInterval, 0, "MinUpdateInterval proposal should be cleared after manager change");
+        assertEq(effectiveTime, 0, "MinUpdateInterval effective time should be cleared after manager change");
+    }
+
+    /// @notice Tests that executeChangePrimaryManager clears both pending proposals atomically
+    /// @dev This prevents stale proposals from being front-run in the same transaction as manager handover
+    function test_ExecuteChangePrimaryManager_ClearsBothPendingProposals() public {
+        // Setup: Create both pending proposals
+        bytes32 newHookRoot = keccak256("new_hook_root");
+        uint256 newMinUpdateInterval = 100;
+
+        vm.startPrank(manager);
+        superVaultAggregator.proposeStrategyHooksRoot(strategy, newHookRoot);
+        superVaultAggregator.proposeMinUpdateIntervalChange(strategy, newMinUpdateInterval);
+        vm.stopPrank();
+
+        // Verify both proposals exist
+        (bytes32 proposedRoot, uint256 hookEffectiveTime) =
+            superVaultAggregator.getProposedStrategyHooksRoot(strategy);
+        (uint256 proposedInterval, uint256 intervalEffectiveTime) =
+            superVaultAggregator.getProposedMinUpdateInterval(strategy);
+
+        assertEq(proposedRoot, newHookRoot, "Hook proposal should exist");
+        assertTrue(hookEffectiveTime > 0, "Hook effective time should be set");
+        assertEq(proposedInterval, newMinUpdateInterval, "MinUpdateInterval proposal should exist");
+        assertTrue(intervalEffectiveTime > 0, "MinUpdateInterval effective time should be set");
+
+        // Secondary manager proposes manager change
+        address newPrimaryManager = _deployAccount(0x22, "NewPrimaryManager");
+        vm.prank(secondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newPrimaryManager, treasury);
+
+        // Wait for timelock to expire
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute manager change
+        superVaultAggregator.executeChangePrimaryManager(strategy);
+
+        // Verify both proposals were cleared
+        (proposedRoot, hookEffectiveTime) = superVaultAggregator.getProposedStrategyHooksRoot(strategy);
+        (proposedInterval, intervalEffectiveTime) = superVaultAggregator.getProposedMinUpdateInterval(strategy);
+
+        assertEq(proposedRoot, bytes32(0), "Hook proposal should be cleared");
+        assertEq(hookEffectiveTime, 0, "Hook effective time should be cleared");
+        assertEq(proposedInterval, 0, "MinUpdateInterval proposal should be cleared");
+        assertEq(intervalEffectiveTime, 0, "MinUpdateInterval effective time should be cleared");
+    }
+
     // =============================================================
     // Cancel Primary Manager Change Tests
     // =============================================================
