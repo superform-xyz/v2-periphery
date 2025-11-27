@@ -1138,7 +1138,6 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         // [Property 9: Rate Limit Enforcement]
         // Enforce minimum time interval between PPS updates to prevent spam and ensure
         // adequate time for market conditions to change meaningfully.
-        // Skip this check if strategy is paused (allows immediate update after unpause).
         if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
             emit UpdateTooFrequent();
             return;

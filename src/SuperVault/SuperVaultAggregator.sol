@@ -1182,8 +1182,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // [Property 9: Rate Limit Enforcement]
         // Enforce minimum time interval between PPS updates to prevent spam and ensure
         // adequate time for market conditions to change meaningfully.
-        // Skip this check if strategy is paused (allows immediate update after unpause).
-        if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
+        if (args.timestamp - lastUpdate < minInterval) {
             emit UpdateTooFrequent();
             return;
         }
@@ -1212,14 +1211,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             }
         }
 
-        // Pause strategy if any check failed and mark PPS as stale
-        if ((checksFailed || args.pps == 0) && !_strategyData[args.strategy].isPaused) {
-            _strategyData[args.strategy].isPaused = true;
-            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
-            emit StrategyPaused(args.strategy);
-            emit StrategyPPSStale(args.strategy);
-        }
-
         // [Property 11: Upkeep Balance Check]
         // Ensure the strategy has sufficient upkeep balance to pay for this update.
         // If insufficient, auto-pause the strategy and mark PPS as stale to protect against
@@ -1245,8 +1236,14 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
             emit UpkeepSpent(args.strategy, args.upkeepCost, strategyUpkeepBalance, claimableUpkeep);
         }
 
-        // Only store PPS, timestamp and clear stale flag when validation passes
-        if (!checksFailed && args.pps > 0) {
+        // Pause strategy if any check failed and mark PPS as stale
+        if ((checksFailed || args.pps == 0)) {
+            _strategyData[args.strategy].isPaused = true;
+            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
+            emit StrategyPaused(args.strategy);
+            emit StrategyPPSStale(args.strategy);
+        } else {
+            // Only store PPS, timestamp and clear stale flag when validation passes
             _strategyData[args.strategy].pps = args.pps;
             _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
             // Only reset stale flag if it was previously stale (gas optimization)
