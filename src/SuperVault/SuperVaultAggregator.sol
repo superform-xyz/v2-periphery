@@ -312,6 +312,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         address strategy = msg.sender;
 
         StrategyData storage data = _strategyData[strategy];
+        // Disallow PPS updates after skim when strategy is paused or PPS is stale
+        if (data.isPaused) revert STRATEGY_PAUSED();
+        if (data.ppsStale) revert PPS_STALE();
         uint256 oldPPS = data.pps;
 
         // VALIDATION 1: PPS must decrease after fee skim
