@@ -15,7 +15,6 @@ interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedee
     error INVALID_ASSET();
     error ZERO_ADDRESS();
     error ZERO_AMOUNT();
-    error INVALID_OWNER_OR_OPERATOR();
     error INVALID_AMOUNT();
     error UNAUTHORIZED();
     error DEADLINE_PASSED();
@@ -36,6 +35,8 @@ interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedee
     event NonceInvalidated(address indexed sender, bytes32 indexed nonce);
 
     event SuperGovernorSet(address indexed superGovernor);
+
+    event Initialized(address indexed asset, address indexed strategy, address indexed escrow);
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL METHODS

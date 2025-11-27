@@ -19,19 +19,14 @@ interface ISuperVaultStrategy {
     error OPERATION_FAILED();
     error INVALID_TIMESTAMP();
     error REQUEST_NOT_FOUND();
-    error INSUFFICIENT_FUNDS();
-    error INSUFFICIENT_SHARES();
     error INVALID_ARRAY_LENGTH();
     error ACTION_TYPE_DISALLOWED();
-    error ALREADY_PROPOSED();
     error YIELD_SOURCE_NOT_FOUND();
     error YIELD_SOURCE_ALREADY_EXISTS();
     error INVALID_PERFORMANCE_FEE_BPS();
     error MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
     error MANAGER_NOT_AUTHORIZED();
     error INVALID_PPS();
-    error INVALID_REDEEM_FILL();
-    error SLIPPAGE_EXCEEDED();
     error INVALID_VAULT();
     error INVALID_ASSET();
     error OPERATIONS_BLOCKED_BY_VETO();
@@ -40,7 +35,6 @@ interface ISuperVaultStrategy {
     error NO_PROPOSAL();
     error INVALID_REDEEM_SLIPPAGE_BPS();
     error CANCELLATION_REDEEM_REQUEST_PENDING();
-    error ZERO_REQUEST_PPS();
     error STALE_PPS();
     error PPS_EXPIRED();
     error INVALID_PPS_EXPIRY_THRESHOLD();
@@ -61,8 +55,6 @@ interface ISuperVaultStrategy {
     event YieldSourceOracleUpdated(address indexed source, address indexed oldOracle, address indexed newOracle);
     event YieldSourceRemoved(address indexed source);
 
-    event HookRootUpdated(bytes32 newRoot);
-    event HookRootProposed(bytes32 proposedRoot, uint256 effectiveTime);
     event VaultFeeConfigUpdated(uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient);
     event VaultFeeConfigProposed(
         uint256 performanceFeeBps, uint256 managementFeeBps, address indexed recipient, uint256 effectiveTime
@@ -84,7 +76,6 @@ interface ISuperVaultStrategy {
 
     event PPSUpdated(uint256 newPPS, uint256 calculationBlock);
     event FeeRecipientChanged(address indexed newRecipient);
-    event FeePaid(address indexed recipient, uint256 amount, uint256 performanceFeeBps);
     event ManagementFeePaid(address indexed controller, address indexed recipient, uint256 feeAssets, uint256 feeBps);
     event DepositHandled(address indexed controller, uint256 assets, uint256 shares);
     event RedeemClaimable(
@@ -95,10 +86,6 @@ interface ISuperVaultStrategy {
     event PPSExpirationProposed(uint256 currentProposedThreshold, uint256 ppsExpiration, uint256 effectiveTime);
     event PPSExpiryThresholdUpdated(uint256 ppsExpiration);
     event PPSExpiryThresholdProposalCanceled();
-
-    /// @notice DEPRECATED: Event no longer emitted after PPS-based HWM refactor
-    /// @dev Kept for interface compatibility, will be removed in future version
-    event VaultCostBasisUpdated(uint256 newTotalCostBasis);
 
     /// @notice Emitted when the high-water mark PPS is updated after fee collection
     /// @param newHwmPps The new high-water mark PPS (post-fee)
@@ -188,6 +175,20 @@ interface ISuperVaultStrategy {
         ClaimRedeem
     }
 
+    /// @notice Action types for yield source management
+    enum YieldSourceAction {
+        Add, // 0: Add a new yield source
+        UpdateOracle, // 1: Update an existing yield source's oracle
+        Remove // 2: Remove a yield source
+    }
+
+    /// @notice Action types for PPS expiration threshold management
+    enum PPSExpirationAction {
+        Propose, // 1: Propose a new PPS expiration threshold
+        Execute, // 2: Execute the proposed threshold update
+        Cancel // 3: Cancel the pending threshold proposal
+    }
+
     /*//////////////////////////////////////////////////////////////
                         CORE STRATEGY OPERATIONS
     //////////////////////////////////////////////////////////////*/
@@ -263,17 +264,17 @@ interface ISuperVaultStrategy {
     /// @notice Manage a single yield source: add, update oracle, or remove
     /// @param source Address of the yield source
     /// @param oracle Address of the oracle (used for adding/updating, ignored for removal)
-    /// @param actionType Type of action: 0=Add, 1=UpdateOracle, 2=Remove
-    function manageYieldSource(address source, address oracle, uint8 actionType) external;
+    /// @param actionType Type of action (see YieldSourceAction enum)
+    function manageYieldSource(address source, address oracle, YieldSourceAction actionType) external;
 
     /// @notice Batch manage multiple yield sources in a single transaction
     /// @param sources Array of yield source addresses
     /// @param oracles Array of oracle addresses (used for adding/updating, ignored for removal)
-    /// @param actionTypes Array of action types: 0=Add, 1=UpdateOracle, 2=Remove
+    /// @param actionTypes Array of action types (see YieldSourceAction enum)
     function manageYieldSources(
         address[] calldata sources,
         address[] calldata oracles,
-        uint8[] calldata actionTypes
+        YieldSourceAction[] calldata actionTypes
     )
         external;
 
@@ -311,9 +312,9 @@ interface ISuperVaultStrategy {
     function resetHighWaterMark(uint256 newHwmPps) external;
 
     /// @notice Manage PPS expiry threshold
-    /// @param action Type of action: 1=Propose, 2=Withdraw, 3=CancelProposal
+    /// @param action Type of action (see PPSExpirationAction enum)
     /// @param ppsExpiration The new PPS expiry threshold
-    function managePPSExpiration(uint8 action, uint256 ppsExpiration) external;
+    function managePPSExpiration(PPSExpirationAction action, uint256 ppsExpiration) external;
 
     /*//////////////////////////////////////////////////////////////
                         ACCOUNTING MANAGEMENT

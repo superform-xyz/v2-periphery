@@ -58,6 +58,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @dev Timelock period after unpause during which performance fee skimming is disabled (rug prevention)
     uint256 private constant POST_UNPAUSE_SKIM_TIMELOCK = 12 hours;
 
+    /// @dev Timelock duration for fee config and PPS expiration threshold updates
+    uint256 private constant PROPOSAL_TIMELOCK = 1 weeks;
+
     uint256 public PRECISION; // Slot 0: 32 bytes
 
     /*//////////////////////////////////////////////////////////////
@@ -95,7 +98,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice High-water mark price-per-share for performance fee calculation
     /// @dev Represents the PPS at which performance fees were last collected
     ///      Scaled by PRECISION (e.g., 1e6 for USDC vaults, 1e18 for 18-decimal vaults)
-    ///      Only updated during skimPerformanceFee() when fees are taken
+    ///      Updated during skimPerformanceFee() when fees are taken, and in executeVaultFeeConfigUpdate()
     uint256 public vaultHwmPps;
 
     // --- Redeem Request State ---
@@ -456,7 +459,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultStrategy
-    function manageYieldSource(address source, address oracle, uint8 actionType) external {
+    function manageYieldSource(address source, address oracle, YieldSourceAction actionType) external {
         _isPrimaryManager(msg.sender);
         _manageYieldSource(source, oracle, actionType);
     }
@@ -465,7 +468,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function manageYieldSources(
         address[] calldata sources,
         address[] calldata oracles,
-        uint8[] calldata actionTypes
+        YieldSourceAction[] calldata actionTypes
     )
         external
     {
@@ -505,7 +508,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         proposedFeeConfig = FeeConfig({
             performanceFeeBps: performanceFeeBps, managementFeeBps: managementFeeBps, recipient: recipient
         });
-        feeConfigEffectiveTime = block.timestamp + 1 weeks;
+        feeConfigEffectiveTime = block.timestamp + PROPOSAL_TIMELOCK;
         emit VaultFeeConfigProposed(performanceFeeBps, managementFeeBps, recipient, feeConfigEffectiveTime);
     }
 
@@ -544,15 +547,13 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function managePPSExpiration(uint8 action, uint256 staleness_) external {
-        if (action == 1) {
+    function managePPSExpiration(PPSExpirationAction action, uint256 staleness_) external {
+        if (action == PPSExpirationAction.Propose) {
             _proposePPSExpiration(staleness_);
-        } else if (action == 2) {
+        } else if (action == PPSExpirationAction.Execute) {
             _updatePPSExpiration();
-        } else if (action == 3) {
+        } else if (action == PPSExpirationAction.Cancel) {
             _cancelPPSExpirationProposalUpdate();
-        } else {
-            revert ACTION_TYPE_DISALLOWED();
         }
     }
 
@@ -747,6 +748,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperHook(address(vars.hookContract)).setExecutionContext(address(this));
         vars.executions = vars.hookContract.build(prevHook, address(this), hookCalldata);
         for (uint256 j; j < vars.executions.length; ++j) {
+            // Block hooks from calling the SuperVaultAggregator directly
+            address aggregatorAddr = address(_getSuperVaultAggregator());
+            if (vars.executions[j].target == aggregatorAddr) revert OPERATION_FAILED();
             (vars.success,) =
                 vars.executions[j].target.call{ value: vars.executions[j].value }(vars.executions[j].callData);
             if (!vars.success) revert OPERATION_FAILED();
@@ -850,16 +854,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Internal function to manage a yield source
     /// @param source Address of the yield source
     /// @param oracle Address of the oracle
-    /// @param actionType Type of action: 0=Add, 1=UpdateOracle, 2=Remove
-    function _manageYieldSource(address source, address oracle, uint8 actionType) internal {
-        if (actionType == 0) {
+    /// @param actionType Type of action (see YieldSourceAction enum)
+    function _manageYieldSource(address source, address oracle, YieldSourceAction actionType) internal {
+        if (actionType == YieldSourceAction.Add) {
             _addYieldSource(source, oracle);
-        } else if (actionType == 1) {
+        } else if (actionType == YieldSourceAction.UpdateOracle) {
             _updateYieldSourceOracle(source, oracle);
-        } else if (actionType == 2) {
+        } else if (actionType == YieldSourceAction.Remove) {
             _removeYieldSource(source);
-        } else {
-            revert ACTION_TYPE_DISALLOWED();
         }
     }
 
@@ -912,7 +914,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 currentProposedThreshold = proposedPPSExpiryThreshold;
         proposedPPSExpiryThreshold = _threshold;
-        ppsExpiryThresholdEffectiveTime = block.timestamp + 1 weeks;
+        ppsExpiryThresholdEffectiveTime = block.timestamp + PROPOSAL_TIMELOCK;
 
         emit PPSExpirationProposed(currentProposedThreshold, _threshold, ppsExpiryThresholdEffectiveTime);
     }

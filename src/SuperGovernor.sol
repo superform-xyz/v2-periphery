@@ -67,9 +67,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     bool private _proposedUpkeepPaymentsEnabled;
     uint256 private _upkeepPaymentsChangeEffectiveTime;
 
-    // Superform managers (exempt from upkeep costs)
-    EnumerableSet.AddressSet private _superformManagers;
-
     // Min staleness configuration to prevent maxStaleness from being set too low
     uint256 private _minStaleness;
     uint256 private _proposedMinStaleness;
@@ -597,24 +594,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /*//////////////////////////////////////////////////////////////
-                      SUPERFORM MANAGER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc ISuperGovernor
-    function addSuperformManager(address manager) external onlyRole(_GOVERNOR_ROLE) {
-        if (manager == address(0)) revert INVALID_ADDRESS();
-        if (!_superformManagers.add(manager)) revert MANAGER_ALREADY_REGISTERED();
-
-        emit SuperformManagerAdded(manager);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function removeSuperformManager(address manager) external onlyRole(_GOVERNOR_ROLE) {
-        if (!_superformManagers.remove(manager)) revert MANAGER_NOT_REGISTERED();
-
-        emit SuperformManagerRemoved(manager);
-    }
-
-    /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperGovernor
@@ -820,50 +799,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         return (_proposedUpkeepPaymentsEnabled, _upkeepPaymentsChangeEffectiveTime);
     }
 
-    /// @inheritdoc ISuperGovernor
-    function isSuperformManager(address manager) external view returns (bool isSuperform) {
-        return _superformManagers.contains(manager);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getAllSuperformManagers() external view returns (address[] memory managers) {
-        return _superformManagers.values();
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getManagersPaginated(
-        uint256 cursor,
-        uint256 limit
-    )
-        external
-        view
-        returns (address[] memory chunkOfManagers, uint256 next)
-    {
-        uint256 len = _superformManagers.length();
-
-        // clamp limit so we don’t read past end
-        uint256 realLimit = limit;
-        // If cursor is beyond the end, return empty array
-        if (cursor >= len) {
-            return (new address[](0), 0);
-        }
-
-        uint256 remaining = len - cursor;
-        if (realLimit > remaining) realLimit = remaining;
-
-        chunkOfManagers = new address[](realLimit);
-        for (uint256 i; i < realLimit; i++) {
-            chunkOfManagers[i] = _superformManagers.at(cursor + i);
-        }
-
-        next = (cursor + realLimit < len) ? cursor + realLimit : 0;
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function getSuperformManagersCount() external view returns (uint256) {
-        return _superformManagers.length();
-    }
-
     /// @dev Advertise ISuperGovernor support for ERC-165 detection
     function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
         return interfaceId == type(ISuperGovernor).interfaceId || super.supportsInterface(interfaceId);
@@ -873,7 +808,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @notice Converts gas units to UP token cost using multi-step oracle pricing
-    /// @dev Performs 3 oracle conversions: Gas->ETH, ETH->USD, USD->UP
+    /// @dev Performs 3 oracle conversions: Gas->Native, Native->USD, USD->UP
     /// @dev Uses AVERAGE_PROVIDER for all price feeds to ensure consistency
     /// @dev Uses Math.Rounding.Ceil to ensure sufficient upkeep coverage
     /// @param gasAmount The gas units to convert
@@ -884,12 +819,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address upToken = _addressRegistry[UP];
         if (upToken == address(0)) revert UP_NOT_FOUND();
 
-        // Step 1: convert gas to ETH
+        // Step 1: convert gas to native token (wei)
         (uint256 weiAmount,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(gasAmount, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
 
-        // Step 2: convert ETH to USD
-        (uint256 ethToUsd,,,) =
+        // Step 2: convert native token to USD
+        (uint256 nativeToUsd,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UP (how much USD per UP token)
@@ -903,7 +838,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Calculate required UP tokens
         // usdAmount / upPerUsd = required UP tokens
-        uint256 requiredUpTokens = Math.mulDiv(ethToUsd, 1e18, upPerUsd, Math.Rounding.Ceil);
+        uint256 requiredUpTokens = Math.mulDiv(nativeToUsd, 1e18, upPerUsd, Math.Rounding.Ceil);
         return requiredUpTokens;
     }
 }

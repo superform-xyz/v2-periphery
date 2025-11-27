@@ -130,6 +130,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         share = address(this);
         strategy = ISuperVaultStrategy(strategy_);
         escrow = escrow_;
+
+        emit Initialized(asset_, strategy_, escrow_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -148,8 +150,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);
 
         // Single executor call: strategy skims entry fee, accounts on NET, returns net shares
+        // Note: handleOperations4626Deposit already validates and reverts if shares == 0
         shares = strategy.handleOperations4626Deposit(receiver, assets);
-        if (shares == 0) revert ZERO_AMOUNT();
 
         // Mint the net shares
         _mint(receiver, shares);
@@ -182,7 +184,7 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
     function requestRedeem(uint256 shares, address controller, address owner) external returns (uint256) {
         if (shares == 0) revert ZERO_AMOUNT();
         if (owner == address(0) || controller == address(0)) revert ZERO_ADDRESS();
-        if (owner != msg.sender && !isOperator[owner][msg.sender]) revert INVALID_OWNER_OR_OPERATOR();
+        _validateController(owner);
 
         if (balanceOf(owner) < shares) revert INVALID_AMOUNT();
         if (strategy.pendingCancelRedeemRequest(owner)) revert CANCELLATION_REDEEM_REQUEST_PENDING();
