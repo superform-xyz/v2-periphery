@@ -458,6 +458,52 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.updatePPSAfterSkim(newPPS, 0); // feeAmount = 0 should revert
     }
 
+    /// @notice Tests that updatePPSAfterSkim reverts when strategy is paused
+    function test_UpdatePPSAfterSkim_RevertWhenPaused() public {
+        // Get current PPS
+        uint256 currentPPS = superVaultAggregator.getPPS(strategy);
+        assertTrue(currentPPS > 0, "Initial PPS should be positive");
+
+        // Calculate a valid newPPS that is less than currentPPS but within allowed bounds
+        uint256 newPPS = (currentPPS * 99) / 100;
+
+        // Pause the strategy as manager
+        vm.prank(manager);
+        superVaultAggregator.pauseStrategy(strategy);
+        assertTrue(superVaultAggregator.isStrategyPaused(strategy), "Strategy should be paused");
+
+        // Try to update PPS after skim while paused - should revert
+        vm.prank(strategy);
+        vm.expectRevert(ISuperVaultAggregator.STRATEGY_PAUSED.selector);
+        superVaultAggregator.updatePPSAfterSkim(newPPS, 100e18);
+    }
+
+    /// @notice Tests that updatePPSAfterSkim reverts when PPS is stale
+    function test_UpdatePPSAfterSkim_RevertWhenPPSStale() public {
+        // Get current PPS
+        uint256 currentPPS = superVaultAggregator.getPPS(strategy);
+        assertTrue(currentPPS > 0, "Initial PPS should be positive");
+
+        // Calculate a valid newPPS that is less than currentPPS but within allowed bounds
+        uint256 newPPS = (currentPPS * 99) / 100;
+
+        // Pause the strategy to set ppsStale to true
+        vm.prank(manager);
+        superVaultAggregator.pauseStrategy(strategy);
+        assertTrue(superVaultAggregator.isPPSStale(strategy), "PPS should be stale after pause");
+
+        // Unpause the strategy - isPaused becomes false but ppsStale remains true
+        vm.prank(manager);
+        superVaultAggregator.unpauseStrategy(strategy);
+        assertFalse(superVaultAggregator.isStrategyPaused(strategy), "Strategy should be unpaused");
+        assertTrue(superVaultAggregator.isPPSStale(strategy), "PPS should still be stale after unpause");
+
+        // Try to update PPS after skim while PPS is stale - should revert
+        vm.prank(strategy);
+        vm.expectRevert(ISuperVaultAggregator.PPS_STALE.selector);
+        superVaultAggregator.updatePPSAfterSkim(newPPS, 100e18);
+    }
+
     // =============================================================
     // Claim Upkeep Tests
     // =============================================================
