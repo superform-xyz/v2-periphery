@@ -729,7 +729,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Reset the High Water Mark to the current PPS
         ISuperVaultStrategy(strategy).resetHighWaterMark();
 
-        emit HighWaterMarkReset(strategy, ISuperVaultStrategy(strategy).vaultHwmPps());
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+
+        emit HighWaterMarkReset(strategy, newHwmPps);
     }
 
     /*//////////////////////////////////////////////////////////////
