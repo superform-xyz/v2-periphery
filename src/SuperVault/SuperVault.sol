@@ -148,8 +148,8 @@ contract SuperVault is Initializable, ERC20Upgradeable, ISuperVault, ReentrancyG
         _asset.safeTransferFrom(msg.sender, address(strategy), assets);
 
         // Single executor call: strategy skims entry fee, accounts on NET, returns net shares
+        // Note: handleOperations4626Deposit already validates and reverts if shares == 0
         shares = strategy.handleOperations4626Deposit(receiver, assets);
-        if (shares == 0) revert ZERO_AMOUNT();
 
         // Mint the net shares
         _mint(receiver, shares);
