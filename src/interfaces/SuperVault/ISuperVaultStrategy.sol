@@ -28,7 +28,6 @@ interface ISuperVaultStrategy {
     error YIELD_SOURCE_ALREADY_EXISTS();
     error INVALID_PERFORMANCE_FEE_BPS();
     error MINIMUM_OUTPUT_AMOUNT_ASSETS_NOT_MET();
-    error INVALID_REDEEM_CLAIM();
     error MANAGER_NOT_AUTHORIZED();
     error INVALID_PPS();
     error INVALID_REDEEM_FILL();

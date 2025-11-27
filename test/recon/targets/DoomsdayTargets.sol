@@ -336,15 +336,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
         }
     }
 
-    /// @dev Property: Claiming redemptions should never revert with INVALID_REDEEM_CLAIM
-    function doomsday_redemptionsNeverReverts(uint256 shares) public asActor {
-        try superVault.redeem(shares, _getActor(), _getActor()) { }
-        catch (bytes memory err) {
-            bool unexpectedError = checkError(err, "INVALID_REDEEM_CLAIM()");
-            t(!unexpectedError, "Claiming redemptions should never revert with INVALID_REDEEM_CLAIM");
-        }
-    }
-
     /// @dev Property: Claiming more than requested always reverts
     function doomsday_cannotClaimMoreThanRequested(uint256 shares) public asActor {
         uint256 actorShares = superVault.balanceOf(_getActor());

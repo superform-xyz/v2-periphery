@@ -1029,6 +1029,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @notice Internal function to handle a redeem claim
     /// @dev Only updates state. Vault is responsible for calling Escrow.returnAssets() after this returns.
+    ///      Callers (SuperVault.withdraw/redeem) already validate assetsToClaim <= state.maxWithdraw.
     /// @param controller Address of the controller
     /// @param receiver Address of the receiver (used for event only)
     /// @param assetsToClaim Amount of assets to claim
@@ -1036,7 +1037,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (assetsToClaim == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
-        if (state.maxWithdraw < assetsToClaim) revert INVALID_REDEEM_CLAIM();
         state.maxWithdraw -= assetsToClaim;
         emit RedeemRequestClaimed(receiver, controller, assetsToClaim, 0);
     }
