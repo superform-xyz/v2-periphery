@@ -814,6 +814,39 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.executeChangePrimaryManager(strategy);
     }
 
+    // =============================================================
+    // High Water Mark Reset Tests
+    // =============================================================
+
+    /// @notice Tests that resetHighWaterMark reverts when caller is not SuperGovernor
+    function test_ResetHighWaterMark_RevertUnauthorized() public {
+        vm.prank(user);
+        vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        superVaultAggregator.resetHighWaterMark(strategy);
+    }
+
+    /// @notice Tests that resetHighWaterMark reverts when strategy is invalid address
+    function test_ResetHighWaterMark_RevertInvalidStrategy() public {
+        address invalidStrategy = _deployAccount(0x27, "InvalidStrategy");
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.UNKNOWN_STRATEGY.selector);
+        superVaultAggregator.resetHighWaterMark(invalidStrategy);
+    }
+
+    /// @notice Tests that resetHighWaterMark succeeds when strategy is valid address
+    function test_ResetHighWaterMark_Success() public {
+        vm.startPrank(address(superGovernor));
+        
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultAggregator.HighWaterMarkReset(strategy, SuperVaultStrategy(payable(strategy)).getStoredPPS());
+        superVaultAggregator.resetHighWaterMark(strategy);
+        vm.stopPrank();
+
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy)).vaultHwmPps();
+        uint256 currentPPS = SuperVaultStrategy(payable(strategy)).getStoredPPS();
+        assertEq(newHwmPps, currentPPS, "High Water Mark should be reset to current PPS");
+    }
+
     /// @notice Tests that setHooksRootUpdateTimelock reverts when caller is not SuperGovernor
     function test_SetHooksRootUpdateTimelock_RevertUnauthorized() public {
         uint256 newTimelock = 14 days;

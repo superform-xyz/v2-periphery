@@ -8449,6 +8449,32 @@ contract SuperVaultTest is BaseSuperVaultTest {
         strategy.changeFeeRecipient(TREASURY);
     }
 
+    function test_ChangeFeeRecipient_Success() public {
+        vm.prank(address(aggregator));
+        strategy.changeFeeRecipient(TREASURY);
+
+        address newFeeRecipient = strategy.getConfigInfo().recipient;
+
+        assertEq(newFeeRecipient, TREASURY, "Fee recipient should be set to TREASURY");
+    }
+
+    function test_ResetHighWaterMark_Success() public {
+        uint256 pps = strategy.getStoredPPS();
+        
+        vm.prank(address(aggregator));
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultStrategy.HighWaterMarkReset(pps);
+        strategy.resetHighWaterMark();
+
+        assertEq(strategy.vaultHwmPps(), pps, "High Water Mark should be reset to current PPS");
+    }
+
+    function test_ResetHighWaterMark_RevertUnauthorized() public {
+        vm.prank(user1);
+        vm.expectRevert(ISuperVaultStrategy.ACCESS_DENIED.selector);
+        strategy.resetHighWaterMark();
+    }
+
     /*//////////////////////////////////////////////////////////////
                         NATIVE ETH HANDLING TESTS
     //////////////////////////////////////////////////////////////*/

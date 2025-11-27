@@ -465,6 +465,47 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     // =============================================================
+    // High Water Mark Reset Tests
+    // =============================================================
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the caller is not the SuperGovernor
+    function test_HighWaterMarkReset_Revert_NotGovernor() public {
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE)
+        );
+        superGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the strategy is not set
+    function test_HighWaterMarkReset_Revert_InvalidStrategy() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.resetHighWaterMark(address(0));
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the aggregator is not set
+    function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
+        // Deploy a fresh SuperGovernor instance without setting the aggregator
+        address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+
+        // Don't set the aggregator in registry - it should be address(0)
+        vm.prank(freshSGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        freshGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS
+    function test_HighWaterMarkReset_Success() public {
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(strategy1);
+
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy1)).vaultHwmPps();
+        uint256 currentPPS = SuperVaultStrategy(payable(strategy1)).getStoredPPS();
+        assertEq(newHwmPps, currentPPS, "High Water Mark should be reset to current PPS");
+    }
+
+    // =============================================================
     // Hook Management Tests
     // =============================================================
 
