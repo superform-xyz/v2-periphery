@@ -195,6 +195,9 @@ analyze_deployment_status() {
     fi
 }
 
+# Associative array to store estimated costs for each network
+declare -A NETWORK_ESTIMATED_COSTS
+
 # Function to check V2 Periphery addresses on a network and capture deployment status
 check_v2_periphery_addresses() {
     local network_id=$1
@@ -260,6 +263,126 @@ check_v2_periphery_addresses() {
         echo "$check_output" | sed 's/^/     /'
         return 1
     fi
+}
+
+# Function to estimate deployment costs for a network
+estimate_deployment_costs() {
+    local network_id=$1
+    local network_name=$2
+    local rpc_url_var=$3
+
+    echo -e "${CYAN}Estimating deployment costs for $network_name (Chain ID: $network_id)...${NC}"
+
+    # Check if RPC URL is set
+    if [[ -z "${!rpc_url_var}" ]]; then
+        echo -e "${RED}  ❌ ERROR: RPC URL variable $rpc_url_var is not set or empty${NC}"
+        return 1
+    fi
+
+    # Run the estimation script
+    local estimate_output
+    local forge_exit_code
+
+    estimate_output=$(forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+        --sig 'runEstimate(uint256,uint64)' $FORGE_ENV $network_id \
+        --rpc-url ${!rpc_url_var} \
+        --chain $network_id \
+        -vv 2>&1)
+    forge_exit_code=$?
+
+    if [[ $forge_exit_code -ne 0 ]]; then
+        echo -e "${YELLOW}  ⚠️  Could not estimate costs for $network_name${NC}"
+        return 1
+    fi
+
+    # Extract cost information
+    local cost_wei=$(echo "$estimate_output" | grep "ESTIMATED_NATIVE_COST_WEI:" | grep -o "[0-9]\+$")
+    local contracts_to_deploy=$(echo "$estimate_output" | grep "CONTRACTS_TO_DEPLOY:" | grep -o "[0-9]\+$")
+    local gas_price_line=$(echo "$estimate_output" | grep "Current Gas Price:")
+
+    if [[ -n "$cost_wei" ]]; then
+        # Store the cost for this network
+        NETWORK_ESTIMATED_COSTS["${network_id}"]="${cost_wei}:${contracts_to_deploy}:${network_name}"
+
+        # Convert wei to more readable format
+        # Using bc for floating point arithmetic if available, otherwise show wei
+        if command -v bc &> /dev/null; then
+            local cost_eth=$(echo "scale=6; $cost_wei / 1000000000000000000" | bc)
+            echo -e "${GREEN}  💰 Estimated cost: ${cost_eth} ETH/Native (${cost_wei} wei)${NC}"
+        else
+            echo -e "${GREEN}  💰 Estimated cost: ${cost_wei} wei${NC}"
+        fi
+        echo -e "${CYAN}     Contracts to deploy: ${contracts_to_deploy}${NC}"
+        if [[ -n "$gas_price_line" ]]; then
+            echo -e "${CYAN}     ${gas_price_line}${NC}"
+        fi
+        return 0
+    else
+        echo -e "${YELLOW}  ⚠️  Could not parse cost estimation${NC}"
+        return 1
+    fi
+}
+
+# Function to print cost estimation summary
+print_cost_estimation_summary() {
+    if [[ ${#NETWORK_ESTIMATED_COSTS[@]} -eq 0 ]]; then
+        return
+    fi
+
+    echo -e "${BLUE}💰 Deployment Cost Estimation Summary${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    local total_cost_wei=0
+    local total_contracts=0
+
+    printf "${WHITE}%-15s %-20s %-25s %-15s${NC}\n" "Chain ID" "Network" "Estimated Cost" "Contracts"
+    printf "${CYAN}%-15s %-20s %-25s %-15s${NC}\n" "--------" "-------" "--------------" "---------"
+
+    for network_id in "${!NETWORK_ESTIMATED_COSTS[@]}"; do
+        IFS=':' read -r cost_wei contracts network_name <<< "${NETWORK_ESTIMATED_COSTS[$network_id]}"
+
+        # Convert to ETH for display
+        local cost_display
+        if command -v bc &> /dev/null && [[ -n "$cost_wei" ]]; then
+            cost_display=$(echo "scale=6; $cost_wei / 1000000000000000000" | bc)
+            cost_display="${cost_display} ETH"
+        else
+            cost_display="${cost_wei} wei"
+        fi
+
+        if [[ "$contracts" == "0" ]]; then
+            printf "${GREEN}%-15s %-20s %-25s %-15s${NC}\n" "$network_id" "$network_name" "0 (all deployed)" "$contracts"
+        else
+            printf "${YELLOW}%-15s %-20s %-25s %-15s${NC}\n" "$network_id" "$network_name" "$cost_display" "$contracts"
+        fi
+
+        # Accumulate totals
+        if [[ -n "$cost_wei" ]]; then
+            total_cost_wei=$((total_cost_wei + cost_wei))
+        fi
+        if [[ -n "$contracts" ]]; then
+            total_contracts=$((total_contracts + contracts))
+        fi
+    done
+
+    echo ""
+    printf "${CYAN}%-15s %-20s %-25s %-15s${NC}\n" "--------" "-------" "--------------" "---------"
+
+    # Print total
+    local total_cost_display
+    if command -v bc &> /dev/null; then
+        total_cost_display=$(echo "scale=6; $total_cost_wei / 1000000000000000000" | bc)
+        total_cost_display="${total_cost_display} ETH"
+    else
+        total_cost_display="${total_cost_wei} wei"
+    fi
+
+    printf "${WHITE}%-15s %-20s %-25s %-15s${NC}\n" "TOTAL" "All Networks" "$total_cost_display" "$total_contracts"
+    echo ""
+    echo -e "${YELLOW}⚠️  Note: These are estimates based on current gas prices. Actual costs may vary.${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
 }
 
 print_header
@@ -492,6 +615,22 @@ elif [[ $ANALYSIS_RESULT -eq 2 ]]; then
 fi
 
 # If we reach here, deployment is needed (ANALYSIS_RESULT == 1)
+
+print_separator
+
+# ===== COST ESTIMATION PHASE =====
+echo -e "${BLUE}💰 Estimating deployment costs...${NC}"
+echo -e "${CYAN}This will estimate the ETH/native token required for deployment on each chain.${NC}"
+echo ""
+
+for network_def in "${NETWORKS[@]}"; do
+    IFS=':' read -r network_id network_name rpc_var <<< "$network_def"
+    estimate_deployment_costs "$network_id" "$network_name" "$rpc_var"
+    echo ""
+done
+
+# Print cost estimation summary
+print_cost_estimation_summary
 
 print_separator
 

@@ -94,6 +94,115 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("======================================");
     }
 
+    /// @notice Estimate deployment costs for V2 Periphery contracts
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId The target chain ID
+    /// @dev This function estimates gas costs based on bytecode sizes and current gas prices
+    function runEstimate(uint256 env, uint64 chainId) public broadcast(env) {
+        _setConfiguration(env, "");
+        console2.log("====== V2 Periphery Deployment Cost Estimation ======");
+        console2.log("Chain ID:", chainId);
+        console2.log("Environment:", env);
+        console2.log("");
+
+        // Reset counters
+        deployed = 0;
+        total = 0;
+
+        // First check which contracts need deployment
+        _checkPeripheryContracts(chainId, env);
+
+        // Get current gas price
+        uint256 gasPrice = tx.gasprice;
+        if (gasPrice == 0) {
+            // Fallback to a reasonable default if gasprice is not available (simulation mode)
+            gasPrice = 30 gwei;
+        }
+
+        console2.log("Current Gas Price:", gasPrice / 1 gwei, "gwei");
+        console2.log("");
+
+        // Estimate deployment costs for contracts that need deployment
+        uint256 totalGasEstimate = 0;
+        uint256 contractsNeedingDeployment = 0;
+
+        console2.log("=== Contract Deployment Gas Estimates ===");
+
+        // Check each contract and estimate gas if not deployed
+        totalGasEstimate += _estimateContractGas(SUPER_GOVERNOR_KEY, chainId, env);
+        totalGasEstimate += _estimateContractGas(ECDSAPPS_ORACLE_KEY, chainId, env);
+        totalGasEstimate += _estimateContractGas(SUPER_VAULT_KEY, chainId, env);
+        totalGasEstimate += _estimateContractGas(SUPER_VAULT_STRATEGY_KEY, chainId, env);
+        totalGasEstimate += _estimateContractGas(SUPER_VAULT_ESCROW_KEY, chainId, env);
+        totalGasEstimate += _estimateContractGas(SUPER_VAULT_AGGREGATOR_KEY, chainId, env);
+
+        // Count contracts needing deployment
+        contractsNeedingDeployment = total - deployed;
+
+        console2.log("");
+        console2.log("=== COST SUMMARY ===");
+        console2.log("Contracts already deployed:", deployed);
+        console2.log("Contracts needing deployment:", contractsNeedingDeployment);
+        console2.log("Total estimated gas:", totalGasEstimate);
+
+        uint256 totalCostWei = totalGasEstimate * gasPrice;
+        uint256 totalCostGwei = totalCostWei / 1 gwei;
+        uint256 totalCostEthWhole = totalCostWei / 1 ether;
+        uint256 totalCostEthFraction = (totalCostWei % 1 ether) / 1e14; // 4 decimal places
+
+        console2.log("Estimated cost (gwei):", totalCostGwei);
+        console2.log("");
+        console2.log("=====> ESTIMATED_NATIVE_COST_WEI:", totalCostWei);
+        console2.log(string(abi.encodePacked("=====> ESTIMATED_NATIVE_COST_ETH: ", vm.toString(totalCostEthWhole), ".", vm.toString(totalCostEthFraction))));
+        console2.log("=====> CONTRACTS_TO_DEPLOY:", contractsNeedingDeployment);
+        console2.log("======================================");
+    }
+
+    /// @notice Estimate gas for deploying a single contract
+    /// @param contractName Name of the contract
+    /// @param chainId Chain ID
+    /// @param env Environment
+    /// @return gasEstimate Estimated gas for deployment (0 if already deployed)
+    function _estimateContractGas(
+        string memory contractName,
+        uint64 chainId,
+        uint256 env
+    ) internal view returns (uint256 gasEstimate) {
+        // Check if contract is already deployed
+        ContractStatus memory status = contractDeploymentStatus[chainId][contractName];
+        if (status.isDeployed) {
+            console2.log(contractName, "- Already deployed, gas: 0");
+            return 0;
+        }
+
+        // Check if bytecode exists
+        if (!__checkBytecodeExists(contractName, env)) {
+            console2.log(contractName, "- Bytecode not found, gas: 0");
+            return 0;
+        }
+
+        // Get bytecode to estimate size-based gas
+        bytes memory bytecode = __getBytecode(contractName, env);
+        if (bytecode.length == 0) {
+            console2.log(contractName, "- Empty bytecode, gas: 0");
+            return 0;
+        }
+
+        // Gas estimation formula:
+        // - Base CREATE2 cost: 32,000
+        // - Per byte of init code: 200 gas (EIP-3860 initcode cost)
+        // - Contract creation: ~21,000 base
+        // - Storage operations during constructor: varies, estimate ~50,000 per contract
+        // - Add 20% buffer for safety
+        uint256 initCodeCost = bytecode.length * 200;
+        uint256 baseCost = 32_000 + 21_000 + 50_000;
+        gasEstimate = (baseCost + initCodeCost) * 120 / 100; // 20% buffer
+
+        console2.log(string(abi.encodePacked(contractName, " - Bytecode size: ", vm.toString(bytecode.length), " bytes, estimated gas: ", vm.toString(gasEstimate))));
+
+        return gasEstimate;
+    }
+
     /// @notice Validate that msg.sender matches the expected deployer
     /// @dev Only validates in simulation mode (with --sender flag)
     /// In deploy mode with --account, Foundry handles validation automatically
