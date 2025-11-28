@@ -816,4 +816,16 @@ interface ISuperVaultAggregator {
     /// @return root The proposed strategy hooks Merkle root
     /// @return effectiveTime The timestamp when the proposed root becomes effective
     function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32 root, uint256 effectiveTime);
+
+    /// @notice Gets the total number of SuperVaults
+    /// @return count The total number of SuperVaults
+    function getSuperVaultsCount() external view returns (uint256);
+ 
+    /// @notice Gets the total number of SuperVaultStrategies
+    /// @return count The total number of SuperVaultStrategies
+    function getSuperVaultStrategiesCount() external view returns (uint256);
+
+    /// @notice Gets the total number of SuperVaultEscrows
+    /// @return count The total number of SuperVaultEscrows
+    function getSuperVaultEscrowsCount() external view returns (uint256);
 }

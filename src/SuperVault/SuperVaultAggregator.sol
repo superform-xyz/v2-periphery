@@ -982,6 +982,21 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultsCount() external view returns (uint256) {
+        return _superVaults.length();
+    }
+ 
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultStrategiesCount() external view returns (uint256) {
+        return _superVaultStrategies.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultEscrowsCount() external view returns (uint256) {
+        return _superVaultEscrows.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
     function getCurrentNonce() external view returns (uint256) {
         return _vaultCreationNonce;
     }
