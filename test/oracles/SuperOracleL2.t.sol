@@ -1378,6 +1378,199 @@ contract SuperOracleL2Test is Test {
         vm.expectRevert(ISuperOracleL2.GRACE_PERIOD_NOT_OVER.selector);
         oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), CHAINLINK_PROVIDER);
     }
+
+    /*//////////////////////////////////////////////////////////////
+        GAS CONSUMPTION TESTS FOR revertOnError=false
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Tests line 120: When uptime feed consumes most gas before reverting and revertOnError=false
+    /// @dev Covers the `&& revertOnError` condition on line 120 when revertOnError=false
+    /// The gas check condition is true but && revertOnError makes the whole condition false,
+    /// so it falls through to line 121 (also false), and returns 0 on line 122
+    function test_UptimeFeedGasConsumer_ReturnsZeroWithRevertOnErrorFalse() public {
+        // Setup: Create a working provider and a provider with a gas-consuming uptime feed
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregator feedWithGasConsumingUptime = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        feedWithGasConsumingUptime.setUpdatedAt(block.timestamp);
+
+        // Create working uptime feed
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Create gas-consuming uptime feed
+        MockL2SequencerGasConsumer gasConsumingUptimeFeed = new MockL2SequencerGasConsumer();
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("GAS_CONSUMING_UPTIME_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(feedWithGasConsumingUptime);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        feedWithGasConsumingUptime.setUpdatedAt(block.timestamp);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(feedWithGasConsumingUptime);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        uptimeOracles[1] = address(gasConsumingUptimeFeed);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER (revertOnError=false) with plenty of gas
+        // The gas-consuming uptime feed should return 0 (line 120's && revertOnError is false)
+        // and the working provider should return a valid quote
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
+        );
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite gas-consuming uptime feed");
+    }
+
+    /// @notice Tests line 158: When data oracle consumes most gas before reverting and revertOnError=false
+    /// @dev Covers the `&& revertOnError` condition on line 158 when revertOnError=false
+    function test_DataOracleGasConsumer_ReturnsZeroWithRevertOnErrorFalse() public {
+        // Setup: Create a working provider and a provider with a gas-consuming data feed
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregatorGasConsumerOnLatestRoundData gasConsumingDataFeed = new MockAggregatorGasConsumerOnLatestRoundData();
+
+        // Create uptime feeds
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        MockL2Sequencer uptimeFeedForGasConsumer = new MockL2Sequencer();
+        uptimeFeedForGasConsumer.setLatestAnswer(0);
+        uptimeFeedForGasConsumer.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("GAS_CONSUMING_DATA_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(gasConsumingDataFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        uptimeFeedForGasConsumer.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(gasConsumingDataFeed);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        uptimeOracles[1] = address(uptimeFeedForGasConsumer);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER (revertOnError=false) with plenty of gas
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
+        );
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite gas-consuming data feed");
+    }
+
+    /// @notice Tests line 185: When decimals() consumes most gas before reverting and revertOnError=false
+    /// @dev Covers the `&& revertOnError` condition on line 185 when revertOnError=false
+    function test_DecimalsGasConsumer_ReturnsZeroWithRevertOnErrorFalse() public {
+        // Setup: Create a working provider and a provider with a gas-consuming decimals() call
+        MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
+        workingFeed.setUpdatedAt(block.timestamp);
+
+        MockAggregatorGasConsumerOnDecimals gasConsumingDecimalsFeed =
+            new MockAggregatorGasConsumerOnDecimals(int256(INITIAL_PRICE));
+        gasConsumingDecimalsFeed.setUpdatedAt(block.timestamp);
+
+        // Create uptime feeds
+        MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
+        workingUptimeFeed.setLatestAnswer(0);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        MockL2Sequencer uptimeFeedForGasConsumer = new MockL2Sequencer();
+        uptimeFeedForGasConsumer.setLatestAnswer(0);
+        uptimeFeedForGasConsumer.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+
+        // Add both providers
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        bases[0] = address(baseToken);
+        bases[1] = address(baseToken);
+        quotes[0] = address(quoteToken);
+        quotes[1] = address(quoteToken);
+        providers[0] = keccak256("WORKING_PROVIDER");
+        providers[1] = keccak256("GAS_CONSUMING_DECIMALS_PROVIDER");
+        feeds[0] = address(workingFeed);
+        feeds[1] = address(gasConsumingDecimalsFeed);
+
+        oracle.queueOracleUpdate(bases, quotes, providers, feeds);
+        vm.warp(block.timestamp + 7 days);
+        workingFeed.setUpdatedAt(block.timestamp);
+        gasConsumingDecimalsFeed.setUpdatedAt(block.timestamp);
+        workingUptimeFeed.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        uptimeFeedForGasConsumer.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
+        oracle.executeOracleUpdate();
+
+        // Set uptime feeds
+        address[] memory dataOracles = new address[](2);
+        address[] memory uptimeOracles = new address[](2);
+        uint256[] memory gracePeriods = new uint256[](2);
+        dataOracles[0] = address(workingFeed);
+        dataOracles[1] = address(gasConsumingDecimalsFeed);
+        uptimeOracles[0] = address(workingUptimeFeed);
+        uptimeOracles[1] = address(uptimeFeedForGasConsumer);
+        gracePeriods[0] = GRACE_PERIOD;
+        gracePeriods[1] = GRACE_PERIOD;
+        oracle.batchSetUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
+
+        // Use AVERAGE_PROVIDER (revertOnError=false) with plenty of gas
+        bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
+        );
+
+        assertGt(quoteAmount, 0, "Should get quote from working provider despite gas-consuming decimals feed");
+    }
 }
 
 /// @notice Mock L2 sequencer that reverts on latestRoundData() call
@@ -1428,6 +1621,91 @@ contract MockAggregatorFailDecimals {
 
     function decimals() external pure returns (uint8) {
         revert("Decimals call failed");
+    }
+
+    function setUpdatedAt(uint256 timestamp) external {
+        updatedAt = timestamp;
+    }
+
+    function setAnswer(int256 answer_) external {
+        answer = answer_;
+    }
+}
+
+/// @notice Mock L2 sequencer that consumes most gas before reverting
+/// @dev Used to test the INSUFFICIENT_GAS_FOR_EXTERNAL_CALL path with revertOnError=false
+contract MockL2SequencerGasConsumer {
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+        // Consume most of the available gas before reverting
+        uint256 initialGas = gasleft();
+        uint256 targetGas = initialGas / 64; // Leave only 1/64 of gas
+
+        // Keep consuming gas until we reach the target
+        while (gasleft() > targetGas) {
+            // Perform expensive operation that consumes gas
+            assembly {
+                let x := keccak256(0, 32)
+                x := keccak256(0, 32)
+                x := keccak256(0, 32)
+            }
+        }
+        revert("Gas consumed before failure");
+    }
+}
+
+/// @notice Mock aggregator that consumes most gas on latestRoundData before reverting
+contract MockAggregatorGasConsumerOnLatestRoundData {
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+        // Consume most of the available gas before reverting
+        uint256 initialGas = gasleft();
+        uint256 targetGas = initialGas / 64;
+
+        while (gasleft() > targetGas) {
+            assembly {
+                let x := keccak256(0, 32)
+                x := keccak256(0, 32)
+                x := keccak256(0, 32)
+            }
+        }
+        revert("Gas consumed before failure");
+    }
+
+    function decimals() external pure returns (uint8) {
+        return 8;
+    }
+}
+
+/// @notice Mock aggregator that consumes most gas on decimals() before reverting
+contract MockAggregatorGasConsumerOnDecimals {
+    int256 private answer;
+    uint256 private updatedAt;
+
+    constructor(int256 answer_) {
+        answer = answer_;
+        updatedAt = block.timestamp;
+    }
+
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer_, uint256 startedAt, uint256 updatedAt_, uint80 answeredInRound)
+    {
+        return (0, answer, block.timestamp, updatedAt, 0);
+    }
+
+    function decimals() external view returns (uint8) {
+        // Consume most of the available gas before reverting
+        uint256 initialGas = gasleft();
+        uint256 targetGas = initialGas / 64;
+
+        while (gasleft() > targetGas) {
+            assembly {
+                let x := keccak256(0, 32)
+                x := keccak256(0, 32)
+                x := keccak256(0, 32)
+            }
+        }
+        revert("Gas consumed on decimals");
     }
 
     function setUpdatedAt(uint256 timestamp) external {
