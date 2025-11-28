@@ -6,32 +6,32 @@
 # Define staging networks
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
-    "1:Ethereum:ETH_MAINNET"
+    # "1:Ethereum:ETH_MAINNET"
     "8453:Base:BASE_MAINNET"
-    "56:BNB:BSC_MAINNET"
-    "42161:Arbitrum:ARBITRUM_MAINNET"
-    "43114:Avalanche:AVALANCHE_MAINNET"
+    # "56:BNB:BSC_MAINNET"
+    # "42161:Arbitrum:ARBITRUM_MAINNET"
+    # "43114:Avalanche:AVALANCHE_MAINNET"
 )
 
 # Network name mapping function
 get_network_name() {
     local network_id=$1
     case "$network_id" in
-        1)
-            echo "Ethereum"
-            ;;
+        # 1)
+        #     echo "Ethereum"
+        #     ;;
         8453)
             echo "Base"
             ;;
-        56)
-            echo "BNB"
-            ;;
-        42161)
-            echo "Arbitrum"
-            ;;
-        43114)
-            echo "Avalanche"
-            ;;
+        # 56)
+        #     echo "BNB"
+        #     ;;
+        # 42161)
+        #     echo "Arbitrum"
+        #     ;;
+        # 43114)
+        #     echo "Avalanche"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID: $network_id" >&2
             return 1
@@ -43,21 +43,21 @@ get_network_name() {
 get_rpc_var() {
     local network_id=$1
     case "$network_id" in
-        1)
-            echo "ETH_MAINNET"
-            ;;
+        # 1)
+        #     echo "ETH_MAINNET"
+        #     ;;
         8453)
             echo "BASE_MAINNET"
             ;;
-        56)
-            echo "BSC_MAINNET"
-            ;;
-        42161)
-            echo "ARBITRUM_MAINNET"
-            ;;
-        43114)
-            echo "AVALANCHE_MAINNET"
-            ;;
+        # 56)
+        #     echo "BSC_MAINNET"
+        #     ;;
+        # 42161)
+        #     echo "ARBITRUM_MAINNET"
+        #     ;;
+        # 43114)
+        #     echo "AVALANCHE_MAINNET"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -69,21 +69,21 @@ get_rpc_var() {
 get_rpc_url() {
     local network_id=$1
     case "$network_id" in
-        1)
-            echo "$ETH_MAINNET"
-            ;;
+        # 1)
+        #     echo "$ETH_MAINNET"
+        #     ;;
         8453)
             echo "$BASE_MAINNET"
             ;;
-        56)
-            echo "$BSC_MAINNET"
-            ;;
-        42161)
-            echo "$ARBITRUM_MAINNET"
-            ;;
-        43114)
-            echo "$AVALANCHE_MAINNET"
-            ;;
+        # 56)
+        #     echo "$BSC_MAINNET"
+        #     ;;
+        # 42161)
+        #     echo "$ARBITRUM_MAINNET"
+        #     ;;
+        # 43114)
+        #     echo "$AVALANCHE_MAINNET"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -117,30 +117,30 @@ load_rpc_urls() {
 
     local failed_rpcs=()
 
-    echo "  • Loading Ethereum RPC..."
-    if ! export ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("ETHEREUM_RPC_URL")
-    fi
+    # echo "  • Loading Ethereum RPC..."
+    # if ! export ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null); then
+    #     failed_rpcs+=("ETHEREUM_RPC_URL")
+    # fi
 
     echo "  • Loading Base RPC..."
     if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
         failed_rpcs+=("BASE_RPC_URL")
     fi
 
-    echo "  • Loading BSC RPC..."
-    if ! export BSC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BSC_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("BSC_RPC_URL")
-    fi
+    # echo "  • Loading BSC RPC..."
+    # if ! export BSC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BSC_RPC_URL/credential 2>/dev/null); then
+    #     failed_rpcs+=("BSC_RPC_URL")
+    # fi
 
-    echo "  • Loading Arbitrum RPC..."
-    if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("ARBITRUM_RPC_URL")
-    fi
+    # echo "  • Loading Arbitrum RPC..."
+    # if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
+    #     failed_rpcs+=("ARBITRUM_RPC_URL")
+    # fi
 
-    echo "  • Loading Avalanche RPC..."
-    if ! export AVALANCHE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/AVALANCHE_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("AVALANCHE_RPC_URL")
-    fi
+    # echo "  • Loading Avalanche RPC..."
+    # if ! export AVALANCHE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/AVALANCHE_RPC_URL/credential 2>/dev/null); then
+    #     failed_rpcs+=("AVALANCHE_RPC_URL")
+    # fi
 
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
@@ -151,7 +151,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Staging RPC URLs loaded successfully (all 5 networks)"
+    echo "✅ Staging RPC URLs loaded successfully (Base only)"
 }
 
 # Load Etherscan V2 API key for verification

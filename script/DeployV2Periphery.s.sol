@@ -285,6 +285,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // ===== VALIDATION PHASE =====
         require(configuration.treasury != address(0), "TREASURY_ADDRESS_ZERO");
         require(configuration.owner != address(0), "OWNER_ADDRESS_ZERO");
+        require(configuration.governor != address(0), "GOVERNOR_ADDRESS_ZERO");
+        require(configuration.bankManager != address(0), "BANK_MANAGER_ADDRESS_ZERO");
+        require(configuration.oracleManager != address(0), "ORACLE_MANAGER_ADDRESS_ZERO");
+        require(configuration.gasManager != address(0), "GAS_MANAGER_ADDRESS_ZERO");
+        require(configuration.guardian != address(0), "GUARDIAN_ADDRESS_ZERO");
         require(validators.length > 0, "NO_VALIDATORS_CONFIGURED");
 
         console2.log("All periphery dependencies validated successfully");

@@ -97,6 +97,7 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = DEFAULT_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;
             configuration.gasManager = DEFAULT_MANAGER;
+            configuration.governor = DEFAULT_MANAGER;
             configuration.guardian = DEFAULT_MANAGER;
 
             // Set validator addresses
