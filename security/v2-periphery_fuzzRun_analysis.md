@@ -1,16 +1,16 @@
 
-# Recon Recap for Superform-invariants-on-final-contracts
+# Recon Recap for superform-xyz/v2-periphery
 
 ## Fuzzer overview
 - Fuzzer: ECHIDNA
-- Duration: 8m16s
-- Coverage: 115572
+- Duration: 10m56s
+- Coverage: 115885
 - Failed: 0
 - Passed: 170
-- Number of tests: 211420
+- Number of tests: 275749
 
-## Public link to job
-https://getrecon.xyz/shares/f32fbad8-a123-4c17-bc38-c2588cc01b5d
+## Link to job
+https://getrecon.xyz/shares/58399797-f1a1-4fd9-9563-edf2bc326308
 
 <details>
   <summary> <h2> Results </h2> </summary>
