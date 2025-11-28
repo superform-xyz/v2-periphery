@@ -66,7 +66,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Create a new governor specifically for these tests
         governor = new SuperGovernor(
-            governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY
+            governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY
         );
 
         // Deploy implementation contracts first
@@ -465,7 +465,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create a fresh governor with no validators configured
         address freshGovernor = _deployAccount(0xFFF, "FreshGovernor");
         SuperGovernor noValidatorGovernor =
-            new SuperGovernor(freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY);
+            new SuperGovernor(freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(noValidatorGovernor)));

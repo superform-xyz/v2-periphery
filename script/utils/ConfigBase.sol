@@ -18,6 +18,8 @@ abstract contract ConfigBase is Constants {
         address oracleManager;
         address bankManager;
         address gasManager;
+        address governor;
+        address guardian;
         mapping(uint64 chainId => address polymerProver) polymerProvers;
     }
 
@@ -35,6 +37,11 @@ abstract contract ConfigBase is Constants {
     address internal constant TEST_DEPLOYER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address internal constant SUPERFORM_TREASURY = 0x1dbD9b26b295A33f126456Ab4e498cd308622f08;
     address internal constant DEFAULT_MANAGER = 0x9E545AEd5C57E20221d6311c6CcCe09304941BF0;
+
+    address internal constant GOVERNOR = 0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC;
+    address internal constant GUARDIAN = 0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F;
+    address internal constant GAS_MANAGER = 0x4d7AACD4b72e6BC6eA0eee6AA61A773A8b556B99;
+    address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
@@ -73,9 +80,11 @@ abstract contract ConfigBase is Constants {
             configuration.owner = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.deployer = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.treasury = SUPERFORM_TREASURY;
-            configuration.oracleManager = DEFAULT_MANAGER;
+            configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;
-            configuration.gasManager = DEFAULT_MANAGER;
+            configuration.gasManager = GAS_MANAGER;
+            configuration.governor = GOVERNOR;
+            configuration.guardian = GUARDIAN;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
@@ -88,6 +97,8 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = DEFAULT_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;
             configuration.gasManager = DEFAULT_MANAGER;
+            configuration.governor = DEFAULT_MANAGER;
+            configuration.guardian = DEFAULT_MANAGER;
 
             // Set validator addresses
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

@@ -123,11 +123,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param oracleManager Address that will have the ORACLE_MANAGER_ROLE for daily operations
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
+    /// @param guardian Address that will have the GUARDIAN_ROLE for veto operations
     /// @param treasury Address of the treasury
-    constructor(address superGovernor, address governor, address bankManager, address oracleManager, address gasManager, address treasury) {
+    constructor(address superGovernor, address governor, address bankManager, address oracleManager, address gasManager, address guardian, address treasury) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
-                || gasManager == address(0) || oracleManager == address(0)
+                || gasManager == address(0) || oracleManager == address(0) || guardian == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -137,10 +138,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_ORACLE_MANAGER_ROLE, oracleManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        // Setup GUARDIAN_ROLE without assigning any address
-        _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
+        _grantRole(_GUARDIAN_ROLE, guardian);
 
         // Set role admins
+        _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);

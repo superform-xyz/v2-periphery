@@ -73,7 +73,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -1944,6 +1944,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             freshGovernor,
             freshGovernor,
             freshOracleManager,
+            freshGovernor,
             freshGovernor,
             freshTreasury
         );
