@@ -100,7 +100,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
         ValidatedBatchData memory validatedData = _processBatchStrategies(args, strategiesLength);
 
         // Forward valid entries if any exist
-        _forwardValidEntries(validatedData, cachedTotalValidators);
+        _forwardValidEntries(validatedData);
     }
 
     /// @inheritdoc IECDSAPPSOracle
@@ -270,8 +270,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
 
     /// @notice Forwards valid entries to SuperVaultAggregator
     /// @param validatedData Struct containing validated batch data
-    /// @param totalValidators Total number of validators in the network
-    function _forwardValidEntries(ValidatedBatchData memory validatedData, uint256 totalValidators) internal {
+    function _forwardValidEntries(ValidatedBatchData memory validatedData) internal {
         uint256 count = validatedData.strategies.length;
 
         // Only forward if there are valid entries
@@ -281,8 +280,6 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                     ISuperVaultAggregator.ForwardPPSArgs({
                         strategies: validatedData.strategies,
                         ppss: validatedData.ppss,
-                        validatorSets: validatedData.validatorSets,
-                        totalValidator: totalValidators,
                         timestamps: validatedData.timestamps,
                         updateAuthority: msg.sender
                     })

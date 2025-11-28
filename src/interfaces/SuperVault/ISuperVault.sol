@@ -15,7 +15,6 @@ interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedee
     error INVALID_ASSET();
     error ZERO_ADDRESS();
     error ZERO_AMOUNT();
-    error INVALID_OWNER_OR_OPERATOR();
     error INVALID_AMOUNT();
     error UNAUTHORIZED();
     error DEADLINE_PASSED();
@@ -37,24 +36,14 @@ interface ISuperVault is IERC4626, IERC7540Redeem, IERC7741, IERC7540CancelRedee
 
     event SuperGovernorSet(address indexed superGovernor);
 
+    event Initialized(address indexed asset, address indexed strategy, address indexed escrow);
+
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Mint shares, only callable by strategy
-    /// @param to The address to mint shares to
-    /// @param amount The amount of shares to mint
-    function mintShares(address to, uint256 amount) external;
-
     /// @notice Burn shares, only callable by strategy
     /// @param amount The amount of shares to burn
     function burnShares(uint256 amount) external;
-
-    /// @notice Extract assets from escrow and moves them to strategy
-    /// @dev Called by `SuperVaultStrategy`
-    /// @param to The address to send assets to
-    /// @param assets The amount of assets to be extracted
-    function extractAndSendAssets(address to, uint256 assets) external;
 
     /// @notice Get the amount of assets escrowed
     function getEscrowedAssets() external view returns (uint256);

@@ -16,16 +16,12 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy being updated
     /// @param isExempt Whether the update is exempt from paying upkeep
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp when the value was generated
     /// @param upkeepCost Amount of upkeep tokens to charge if not exempt
     struct PPSUpdateData {
         address strategy;
         bool isExempt;
         uint256 pps;
-        uint256 validatorSet;
-        uint256 totalValidators;
         uint256 timestamp;
         uint256 upkeepCost;
     }
@@ -33,16 +29,10 @@ interface ISuperVaultAggregator {
     /// @notice Local variables for vault creation to avoid stack too deep
     /// @param currentNonce Current vault creation nonce
     /// @param salt Salt for deterministic proxy creation
-    /// @param success Whether asset decimals retrieval was successful
-    /// @param assetDecimals Decimals of the underlying asset
-    /// @param underlyingDecimals Final decimals to use (18 if retrieval failed)
     /// @param initialPPS Initial price-per-share value
     struct VaultCreationLocalVars {
         uint256 currentNonce;
         bytes32 salt;
-        bool success;
-        uint8 assetDecimals;
-        uint8 underlyingDecimals;
         uint256 initialPPS;
     }
 
@@ -68,6 +58,7 @@ interface ISuperVaultAggregator {
         EnumerableSet.AddressSet secondaryManagers;
         // Manager change proposal data
         address proposedManager;
+        address proposedFeeRecipient;
         uint256 managerChangeEffectiveTime;
         // Hook validation data
         bytes32 managerHooksRoot;
@@ -128,11 +119,9 @@ interface ISuperVaultAggregator {
     }
 
     /// @notice Two-step upkeep withdrawal request
-    /// @param initiator Manager who requested withdrawal
     /// @param amount Amount to withdraw (full balance at time of request)
     /// @param effectiveTime When withdrawal can be executed (timestamp + 24h)
     struct UpkeepWithdrawalRequest {
-        address initiator;
         uint256 amount;
         uint256 effectiveTime;
     }
@@ -161,11 +150,9 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when a PPS value is updated
     /// @param strategy Address of the strategy
     /// @param pps New price-per-share value
-    /// @param validatorSet Number of validators who calculated this PPS
-    /// @param totalValidators Total number of validators in the network
     /// @param timestamp Timestamp of the update
     event PPSUpdated(
-        address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp
+        address indexed strategy, uint256 pps, uint256 timestamp
     );
 
     /// @notice Emitted when a strategy is paused due to missed updates
@@ -189,16 +176,16 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when upkeep tokens are withdrawn
     /// @param strategy Address of the strategy
-    /// @param withdrawer Address of the withdrawer (initiator of the withdrawal request)
+    /// @param withdrawer Address of the withdrawer (main manager of the strategy)
     /// @param amount Amount of UP tokens withdrawn
     event UpkeepWithdrawn(address indexed strategy, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when an upkeep withdrawal is proposed (start of 24h timelock)
     /// @param strategy Address of the strategy
-    /// @param initiator Address of the manager who proposed the withdrawal
+    /// @param mainManager Address of the main manager who proposed the withdrawal
     /// @param amount Amount of UP tokens to withdraw
     /// @param effectiveTime Timestamp when withdrawal can be executed
-    event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime);
+    event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime);
 
     /// @notice Emitted when a pending upkeep withdrawal is cancelled (e.g., during governance takeover)
     /// @param strategy Address of the strategy
@@ -225,7 +212,8 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
-    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager);
+    /// @param feeRecipient Address of the new fee recipient
+    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient);
 
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy
@@ -233,7 +221,7 @@ interface ISuperVaultAggregator {
     /// @param newManager Address of the proposed new primary manager
     /// @param effectiveTime Timestamp when the proposal can be executed
     event PrimaryManagerChangeProposed(
-        address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime
+        address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime
     );
 
     /// @notice Emitted when a primary manager change proposal is cancelled
@@ -241,16 +229,16 @@ interface ISuperVaultAggregator {
     /// @param cancelledManager Address of the manager that was proposed
     event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
 
+    /// @notice Emitted when the High Water Mark for a strategy is reset to PPS
+    /// @param strategy Address of the strategy
+    /// @param newHWM The new High Water Mark (PPS)
+    event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM);
+
     /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
     /// @param strategy Address of the strategy
     /// @param updateAuthority Address of the update authority
     /// @param timestamp Timestamp of the stale update
     event StaleUpdate(address indexed strategy, address indexed updateAuthority, uint256 timestamp);
-
-    /// @notice Emitted when the upkeep cost per update is changed
-    /// @param oldCost Previous upkeep cost per update
-    /// @param newCost New upkeep cost per update
-    event UpkeepCostUpdated(uint256 oldCost, uint256 newCost);
 
     /// @notice Emitted when the global hooks Merkle root is being updated
     /// @param root New root value
@@ -303,17 +291,6 @@ interface ISuperVaultAggregator {
     /// @param statuses Array of new banned statuses (true = banned, false = allowed)
     event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses);
 
-    /// @notice Emitted when a proposed global hooks root update is vetoed by a guardian
-    /// @param guardian Address of the guardian who vetoed the update
-    /// @param root The vetoed root value
-    event GlobalHooksRootVetoed(address indexed guardian, bytes32 indexed root);
-
-    /// @notice Emitted when a proposed strategy hooks root update is vetoed by a guardian
-    /// @param guardian Address of the guardian who vetoed the update
-    /// @param strategy Address of the strategy whose root update was vetoed
-    /// @param root The vetoed root value
-    event StrategyHooksRootVetoed(address indexed guardian, address indexed strategy, bytes32 indexed root);
-
     /// @notice Emitted when upkeep is claimed
     /// @param superBank Address of the superBank
     /// @param amount Amount of upkeep claimed
@@ -344,9 +321,6 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when the old primary manager is removed from the strategy
     /// @dev This can happen because of reaching the max number of secondary managers
     event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
-
-    /// @notice Emitted when the strategy's PPS unpause timelock is updated
-    event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock);
 
     /// @notice Emitted when a strategy's PPS is stale
     event StrategyPPSStale(address indexed strategy);
@@ -415,42 +389,30 @@ interface ISuperVaultAggregator {
     error INVALID_ASSET();
     /// @notice Thrown when insufficient upkeep balance for operation
     error INSUFFICIENT_UPKEEP();
-    /// @notice Thrown when vault is paused but operation requires active state
-    error VAULT_PAUSED();
     /// @notice Thrown when caller is not authorized
     error CALLER_NOT_AUTHORIZED();
     /// @notice Thrown when caller is not an approved PPS oracle
     error UNAUTHORIZED_PPS_ORACLE();
-    /// @notice Thrown when PPS update is too stale (after maxStaleness)
-    error UPDATE_TOO_STALE();
     /// @notice Thrown when caller is not authorized for update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
     /// @notice Thrown when strategy address is not a known SuperVault strategy
     error UNKNOWN_STRATEGY();
-    /// @notice Thrown when withdrawing more upkeep than available
-    error INSUFFICIENT_UPKEEP_BALANCE();
     /// @notice Thrown when trying to unpause a strategy that is not paused
     error STRATEGY_NOT_PAUSED();
     /// @notice Thrown when trying to pause a strategy that is already paused
     error STRATEGY_ALREADY_PAUSED();
     /// @notice Thrown when array index is out of bounds
     error INDEX_OUT_OF_BOUNDS();
-    /// @notice Thrown when attempting to remove the last manager
-    error CANNOT_REMOVE_LAST_MANAGER();
     /// @notice Thrown when attempting to add a manager that already exists
     error MANAGER_ALREADY_EXISTS();
+    /// @notice Thrown when attempting to add a manager that is the primary manager
+    error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
     /// @notice Thrown when there is no pending global hooks root change
     error NO_PENDING_GLOBAL_ROOT_CHANGE();
-    /// @notice Thrown when attempting to execute an in-progress manager change before timelock elapsed
-    error MANAGER_CHANGE_NOT_READY();
     /// @notice Thrown when attempting to execute a hooks root change before timelock has elapsed
     error ROOT_UPDATE_NOT_READY();
     /// @notice Thrown when a provided hook fails Merkle proof validation
     error HOOK_VALIDATION_FAILED();
-    /// @notice Thrown when a non-guardian tries to veto a root update
-    error NOT_A_GUARDIAN();
-    /// @notice Thrown when trying to veto a root update that doesn't exist
-    error NO_PENDING_ROOT_UPDATE();
     /// @notice Thrown when manager is not found
     error MANAGER_NOT_FOUND();
     /// @notice Thrown when there is no pending manager change proposal
@@ -461,8 +423,6 @@ interface ISuperVaultAggregator {
     error TIMELOCK_NOT_EXPIRED();
     /// @notice Thrown when an array length is invalid
     error INVALID_ARRAY_LENGTH();
-    /// @notice Thrown when trying to add a protected keeper as an authorized caller
-    error CANNOT_ADD_PROTECTED_KEEPER();
     /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
     error MAX_STALENESS_TOO_LOW();
     /// @notice Thrown when arrays have mismatched lengths
@@ -475,8 +435,6 @@ interface ISuperVaultAggregator {
     error UPKEEP_WITHDRAWAL_NOT_READY();
     /// @notice Thrown when no pending upkeep withdrawal request exists
     error UPKEEP_WITHDRAWAL_NOT_FOUND();
-    /// @notice Thrown when PPS is too stale to unpause a strategy
-    error UNPAUSE_TIMELOCK_NOT_MET();
     /// @notice PPS must decrease after skimming fees
     error PPS_MUST_DECREASE_AFTER_SKIM();
     /// @notice PPS deduction is larger than the maximum allowed fee rate
@@ -485,6 +443,10 @@ interface ISuperVaultAggregator {
     error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
     /// @notice Thrown when minUpdateInterval >= maxStaleness
     error MIN_UPDATE_INTERVAL_TOO_HIGH();
+    /// @notice Thrown when trying to update PPS while strategy is paused
+    error STRATEGY_PAUSED();
+    /// @notice Thrown when trying to update PPS while PPS is stale
+    error PPS_STALE();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -504,14 +466,11 @@ interface ISuperVaultAggregator {
     /// @notice Arguments for batch forwarding PPS updates
     /// @param strategies Array of strategy addresses
     /// @param ppss Array of price-per-share values
-    /// @param validatorSets Array of validator counts who calculated the PPS for each strategy
-    /// @param totalValidator Total number of validators in the network (same for all strategies)
     /// @param timestamps Array of timestamps when values were generated
+    /// @param updateAuthority Address of the update authority
     struct ForwardPPSArgs {
         address[] strategies;
         uint256[] ppss;
-        uint256[] validatorSets;
-        uint256 totalValidator;
         uint256[] timestamps;
         address updateAuthority;
     }
@@ -541,7 +500,7 @@ interface ISuperVaultAggregator {
     function proposeWithdrawUpkeep(address strategy) external;
 
     /// @notice Executes a pending upkeep withdrawal after 24h timelock
-    /// @dev Anyone can execute, but funds go to the original initiator
+    /// @dev Anyone can execute, but funds go to the main manager of the strategy
     /// @param strategy Address of the strategy to withdraw from
     function executeWithdrawUpkeep(address strategy) external;
 
@@ -580,13 +539,15 @@ interface ISuperVaultAggregator {
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the new primary manager
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Proposes a change to the primary manager (callable by secondary managers)
     /// @notice A manager can either be secondary or primary
     /// @param strategy Address of the strategy
     /// @param newManager Address of the proposed new primary manager
-    function proposeChangePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient Address of the new fee recipient
+    function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) external;
 
     /// @notice Cancels a pending primary manager change proposal
     /// @dev Only the current primary manager can cancel the proposal
@@ -596,6 +557,11 @@ interface ISuperVaultAggregator {
     /// @notice Executes a previously proposed change to the primary manager after timelock
     /// @param strategy Address of the strategy
     function executeChangePrimaryManager(address strategy) external;
+
+    /// @notice Resets the strategy's performance-fee high-water mark to PPS
+    /// @dev Only callable by SuperGovernor
+    /// @param strategy Address of the strategy
+    function resetHighWaterMark(address strategy) external;
 
     /*//////////////////////////////////////////////////////////////
                         HOOK VALIDATION FUNCTIONS
@@ -850,4 +816,16 @@ interface ISuperVaultAggregator {
     /// @return root The proposed strategy hooks Merkle root
     /// @return effectiveTime The timestamp when the proposed root becomes effective
     function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32 root, uint256 effectiveTime);
+
+    /// @notice Gets the total number of SuperVaults
+    /// @return count The total number of SuperVaults
+    function getSuperVaultsCount() external view returns (uint256);
+ 
+    /// @notice Gets the total number of SuperVaultStrategies
+    /// @return count The total number of SuperVaultStrategies
+    function getSuperVaultStrategiesCount() external view returns (uint256);
+
+    /// @notice Gets the total number of SuperVaultEscrows
+    /// @return count The total number of SuperVaultEscrows
+    function getSuperVaultEscrowsCount() external view returns (uint256);
 }

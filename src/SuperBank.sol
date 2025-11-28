@@ -47,7 +47,7 @@ contract SuperBank is ISuperBank, Bank {
 
     /// @inheritdoc ISuperBank
     function distribute(uint256 upAmount) external onlyBankManager {
-        if (upAmount == 0) revert ZERO_LENGTH_ARRAY();
+        if (upAmount == 0) revert ZERO_AMOUNT();
 
         // Cache SUPER_GOVERNOR reference to reduce external calls
         ISuperGovernor gov = SUPER_GOVERNOR;

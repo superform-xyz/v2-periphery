@@ -24,6 +24,7 @@ abstract contract Bank is ReentrancyGuard {
     error HOOK_EXECUTION_FAILED();
     error HOOK_NOT_REGISTERED();
     error ZERO_LENGTH_ARRAY();
+    error ZERO_AMOUNT();
     error INVALID_ARRAY_LENGTH();
     error ZERO_ADDRESS();
     error MINIMUM_OUTPUT_AMOUNT_NOT_MET();
@@ -35,12 +36,6 @@ abstract contract Bank is ReentrancyGuard {
     /// @param hooks The addresses of the hooks that were executed.
     /// @param data The data passed to each hook.
     event HooksExecuted(address[] hooks, bytes[] data);
-
-    /// @notice Emitted when hook validation fails.
-    /// @param hook The hook address that failed validation.
-    /// @param leaf The calculated leaf hash for the hook configuration.
-    /// @param root The Merkle root used for validation.
-    event HookValidationFailed(address indexed hook, bytes32 leaf, bytes32 root);
 
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL FUNCTIONS
@@ -96,12 +91,11 @@ abstract contract Bank is ReentrancyGuard {
 
             // 3. VALIDATE HOOK CONFIGURATION
             if (!_validateHookConfiguration(hookAddress, hookData, merkleProof, merkleRoot)) {
-                emit HookValidationFailed(hookAddress, _createHookLeaf(hookAddress, hookData), merkleRoot);
                 revert HOOK_VALIDATION_FAILED();
             }
 
             // 4. Set execution context
-            ISuperHook(hookAddress).setExecutionContext(address(this));
+            hook.setExecutionContext(address(this));
 
             // 5. Build Execution Steps
             executions = hook.build(prevHook, address(this), hookData);
@@ -142,7 +136,7 @@ abstract contract Bank is ReentrancyGuard {
 
             // 6.5. VALIDATE OUTPUT AMOUNT (Slippage Protection)
             // Query the hook for actual output amount
-            actualOutput = ISuperHookResult(hookAddress).getOutAmount(address(this));
+            actualOutput = ISuperHookResult(address(hook)).getOutAmount(address(this));
 
             // Validate actual output meets or exceeds expected output
             // This protects against:
@@ -154,7 +148,7 @@ abstract contract Bank is ReentrancyGuard {
             }
 
             // 7. Reset execution state after each hook
-            ISuperHook(hookAddress).resetExecutionState(address(this));
+            hook.resetExecutionState(address(this));
 
             prevHook = hookAddress;
         }

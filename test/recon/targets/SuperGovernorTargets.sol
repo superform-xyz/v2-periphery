@@ -44,8 +44,8 @@ abstract contract SuperGovernorTargets is BaseTargetFunctions, Properties {
         superGovernor.proposeMinStaleness(newMinStaleness);
     }
 
-    function superGovernor_executeMinStalenesChange() public asAdmin {
-        superGovernor.executeMinStalenesChange();
+    function superGovernor_executeMinStalenessChange() public asAdmin {
+        superGovernor.executeMinStalenessChange();
     }
 
     function superGovernor_executeUpkeepClaim(uint256 amount) public asAdmin {

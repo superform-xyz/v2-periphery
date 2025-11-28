@@ -21,7 +21,7 @@ abstract contract SuperVaultStrategyTargets is BaseTargetFunctions, Properties {
         YieldSourceType clampedType = YieldSourceType(sourceType % 3); // 0=ERC4626, 1=ERC5115, 2=ERC7540
         address yieldSourceOracle = _getYieldSourceOracleForType(clampedType);
 
-        superVaultStrategy_manageYieldSource(_getYieldSource(), yieldSourceOracle, 0);
+        superVaultStrategy_manageYieldSource(_getYieldSource(), yieldSourceOracle, ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     function superVaultStrategy_handleOperations7540_clamped(uint256 operation, uint256 amount) public {
@@ -65,14 +65,14 @@ abstract contract SuperVaultStrategyTargets is BaseTargetFunctions, Properties {
         superVaultStrategy.handleOperations7540(operation, controller, receiver, amount);
     }
 
-    function superVaultStrategy_manageYieldSource(address source, address oracle, uint8 actionType) public asActor {
+    function superVaultStrategy_manageYieldSource(address source, address oracle, ISuperVaultStrategy.YieldSourceAction actionType) public asActor {
         superVaultStrategy.manageYieldSource(source, oracle, actionType);
     }
 
     function superVaultStrategy_manageYieldSources(
         address[] memory sources,
         address[] memory oracles,
-        uint8[] memory actionTypes
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes
     )
         public
         asActor

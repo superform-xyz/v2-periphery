@@ -2,6 +2,8 @@
 pragma solidity 0.8.30;
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
+import { SuperOracle } from "../../src/oracles/SuperOracle.sol";
+import { ISuperOracle } from "../../src/interfaces/oracles/ISuperOracle.sol";
 import { ISuperGovernor, FeeType } from "../../src/interfaces/ISuperGovernor.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -263,6 +265,86 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setValidatorConfig(1, validators, validatorPublicKeys, 1, ""); // Should succeed
     }
 
+    /// @notice Tests transferring SUPER_GOVERNOR_ROLE to a new address after deployment
+    /// @dev Demonstrates the complete role transfer process including DEFAULT_ADMIN_ROLE
+    function test_Role_TransferSuperGovernorRole() public {
+        address newSuperGovernor = _deployAccount(0x20, "NewSuperGovernor");
+        bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
+
+        // Verify initial state: sGovernor has both DEFAULT_ADMIN_ROLE and SUPER_GOVERNOR_ROLE
+        assertTrue(superGovernor.hasRole(defaultAdminRole, sGovernor), "sGovernor should have DEFAULT_ADMIN_ROLE");
+        assertTrue(superGovernor.hasRole(SUPER_GOVERNOR_ROLE, sGovernor), "sGovernor should have SUPER_GOVERNOR_ROLE");
+        assertFalse(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, newSuperGovernor),
+            "newSuperGovernor should not have SUPER_GOVERNOR_ROLE initially"
+        );
+
+        // Step 1: Grant SUPER_GOVERNOR_ROLE to new address (as DEFAULT_ADMIN_ROLE holder)
+        vm.startPrank(sGovernor);
+        superGovernor.grantRole(SUPER_GOVERNOR_ROLE, newSuperGovernor);
+        assertTrue(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, newSuperGovernor),
+            "newSuperGovernor should now have SUPER_GOVERNOR_ROLE"
+        );
+
+        // Step 2: Grant DEFAULT_ADMIN_ROLE to new address so they can manage roles
+        superGovernor.grantRole(defaultAdminRole, newSuperGovernor);
+        assertTrue(
+            superGovernor.hasRole(defaultAdminRole, newSuperGovernor),
+            "newSuperGovernor should now have DEFAULT_ADMIN_ROLE"
+        );
+
+        // Step 3: Revoke SUPER_GOVERNOR_ROLE from old sGovernor
+        superGovernor.revokeRole(SUPER_GOVERNOR_ROLE, sGovernor);
+        assertFalse(
+            superGovernor.hasRole(SUPER_GOVERNOR_ROLE, sGovernor), "sGovernor should no longer have SUPER_GOVERNOR_ROLE"
+        );
+
+        // Step 4: Revoke DEFAULT_ADMIN_ROLE from old sGovernor
+        superGovernor.revokeRole(defaultAdminRole, sGovernor);
+        vm.stopPrank();
+
+        assertFalse(
+            superGovernor.hasRole(defaultAdminRole, sGovernor), "sGovernor should no longer have DEFAULT_ADMIN_ROLE"
+        );
+
+        // Verify: Old sGovernor cannot call SUPER_GOVERNOR_ROLE functions anymore
+        vm.prank(sGovernor);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, SUPER_GOVERNOR_ROLE
+            )
+        );
+        superGovernor.setAddress(TEST_KEY, user);
+
+        // Verify: New superGovernor can call SUPER_GOVERNOR_ROLE functions
+        vm.prank(newSuperGovernor);
+        superGovernor.setAddress(TEST_KEY, user);
+        assertEq(superGovernor.getAddress(TEST_KEY), user, "newSuperGovernor should be able to set address");
+
+        // Verify: New superGovernor can also manage roles (has DEFAULT_ADMIN_ROLE)
+        address anotherAddress = _deployAccount(0x21, "AnotherAddress");
+        vm.prank(newSuperGovernor);
+        superGovernor.grantRole(GOVERNOR_ROLE, anotherAddress);
+        assertTrue(
+            superGovernor.hasRole(GOVERNOR_ROLE, anotherAddress),
+            "newSuperGovernor should be able to grant GOVERNOR_ROLE"
+        );
+    }
+
+    /// @notice Tests that non-admin cannot transfer SUPER_GOVERNOR_ROLE
+    function test_Role_TransferSuperGovernorRole_Revert_Unauthorized() public {
+        address newSuperGovernor = _deployAccount(0x22, "NewSuperGovernor2");
+        bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
+
+        // A non-admin (governor) should not be able to grant SUPER_GOVERNOR_ROLE
+        vm.prank(governor);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, governor, defaultAdminRole)
+        );
+        superGovernor.grantRole(SUPER_GOVERNOR_ROLE, newSuperGovernor);
+    }
+
     // =============================================================
     // Address Registry Tests
     // =============================================================
@@ -328,13 +410,11 @@ contract SuperGovernorTest is PeripheryHelpers {
 
     /// @notice Tests changing a manager for a strategy
     function test_ManagerTakeover_ChangeManager() public {
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
+        address feeRecipient = _deployAccount(0x2C, "FeeRecipient");
 
         // Test with governor role
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         assertEq(ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1), newManager);
     }
@@ -374,7 +454,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to change manager after freeze
         vm.prank(sGovernor);
         vm.expectRevert(ISuperGovernor.MANAGER_TAKEOVERS_FROZEN.selector);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, manager);
     }
 
     /// @notice Tests changePrimaryManager reverts when aggregator is not set
@@ -387,7 +467,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        freshGovernor.changePrimaryManager(strategy1, newManager);
+        freshGovernor.changePrimaryManager(strategy1, newManager, treasury);
     }
 
     /// @notice Tests changePrimaryManager reverts when called by unauthorized user
@@ -397,6 +477,8 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
 
+        address feeRecipient = _deployAccount(0x2D, "FeeRecipient");
+
         // Try to change manager as governor (has GOVERNOR_ROLE but not SUPER_GOVERNOR_ROLE)
         vm.prank(governor);
         vm.expectRevert(
@@ -404,7 +486,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, governor, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Try to change manager as regular user (no roles)
         vm.prank(user);
@@ -413,7 +495,7 @@ contract SuperGovernorTest is PeripheryHelpers {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE
             )
         );
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
     }
 
     /// @notice Tests changePrimaryManager success path with all checks passing
@@ -423,20 +505,22 @@ contract SuperGovernorTest is PeripheryHelpers {
         address initialManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(initialManager, address(this), "Initial manager should be this contract");
 
-        // Set up SuperVaultAggregator address in registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, superVaultAggregator);
+        address feeRecipient = _deployAccount(0x2E, "FeeRecipient");
 
         // Verify manager takeovers are not frozen
         assertFalse(superGovernor.isManagerTakeoverFrozen(), "Manager takeovers should not be frozen initially");
 
         // Change manager as sGovernor (has SUPER_GOVERNOR_ROLE)
         vm.prank(sGovernor);
-        superGovernor.changePrimaryManager(strategy1, newManager);
+        superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
 
         // Verify the manager was changed
         address updatedManager = ISuperVaultAggregator(superVaultAggregator).getMainManager(strategy1);
         assertEq(updatedManager, newManager, "Manager should be updated to newManager");
+
+        // Verify the fee recipient was set
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategy1).getConfigInfo();
+        assertEq(feeConfig.recipient, feeRecipient, "Fee recipient should be updated");
     }
 
     /// @notice Tests changePrimaryManager with zero address as new manager
@@ -450,7 +534,55 @@ contract SuperGovernorTest is PeripheryHelpers {
         // This should revert in the aggregator's changePrimaryManager, not in SuperGovernor
         vm.prank(sGovernor);
         vm.expectRevert(); // Aggregator will revert with its own error
-        superGovernor.changePrimaryManager(strategy1, address(0));
+        superGovernor.changePrimaryManager(strategy1, address(0), manager);
+    }
+
+    /// @notice Tests changePrimaryManager with zero address as fee recipient
+    function test_ChangePrimaryManager_WithZeroAddressFeeRecipient() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(); // Aggregator will revert with its own error
+        superGovernor.changePrimaryManager(strategy1, newManager, address(0));
+    }
+
+    // =============================================================
+    // High Water Mark Reset Tests
+    // =============================================================
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the caller is not the SuperGovernor
+    function test_HighWaterMarkReset_Revert_NotGovernor() public {
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE)
+        );
+        superGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the strategy is not set
+    function test_HighWaterMarkReset_Revert_InvalidStrategy() public {
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+        superGovernor.resetHighWaterMark(address(0));
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS when the aggregator is not set
+    function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
+        // Deploy a fresh SuperGovernor instance without setting the aggregator
+        address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+
+        // Don't set the aggregator in registry - it should be address(0)
+        vm.prank(freshSGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        freshGovernor.resetHighWaterMark(strategy1);
+    }
+
+    /// @notice Tests resetting the high-water mark PPS to the current PPS
+    function test_HighWaterMarkReset_Success() public {
+        vm.prank(sGovernor);
+        superGovernor.resetHighWaterMark(strategy1);
+
+        uint256 newHwmPps = SuperVaultStrategy(payable(strategy1)).vaultHwmPps();
+        uint256 currentPPS = SuperVaultStrategy(payable(strategy1)).getStoredPPS();
+        assertEq(newHwmPps, currentPPS, "High Water Mark should be reset to current PPS");
     }
 
     // =============================================================
@@ -1834,267 +1966,6 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     // =============================================================
-    // Superform Manager Management Tests
-    // =============================================================
-
-    /// @notice Tests adding a superform manager
-    function test_SuperformManager_AddManager() public {
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.SuperformManagerAdded(newManager);
-        superGovernor.addSuperformManager(newManager);
-
-        assertTrue(superGovernor.isSuperformManager(newManager), "Manager should be added");
-
-        address[] memory managers = superGovernor.getAllSuperformManagers();
-        assertEq(managers.length, 1, "Should have 1 manager");
-        assertEq(managers[0], newManager, "Manager in list should match");
-    }
-
-    /// @notice Tests reverting when adding a manager with zero address
-    function test_SuperformManager_Revert_ZeroAddress() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        superGovernor.addSuperformManager(address(0));
-    }
-
-    /// @notice Tests reverting when adding an already registered manager
-    function test_SuperformManager_Revert_AlreadyRegistered() public {
-        // Add manager first
-        vm.prank(governor);
-        superGovernor.addSuperformManager(newManager);
-
-        // Try to add again
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.MANAGER_ALREADY_REGISTERED.selector);
-        superGovernor.addSuperformManager(newManager);
-    }
-
-    /// @notice Tests removing a superform manager
-    function test_SuperformManager_RemoveManager() public {
-        // Add manager first
-        vm.prank(governor);
-        superGovernor.addSuperformManager(newManager);
-
-        // Remove manager
-        vm.prank(governor);
-        vm.expectEmit(true, false, false, false);
-        emit ISuperGovernor.SuperformManagerRemoved(newManager);
-        superGovernor.removeSuperformManager(newManager);
-
-        assertFalse(superGovernor.isSuperformManager(newManager), "Manager should be removed");
-
-        address[] memory managers = superGovernor.getAllSuperformManagers();
-        assertEq(managers.length, 0, "Should have 0 managers");
-    }
-
-    /// @notice Tests reverting when removing a non-existent manager
-    function test_SuperformManager_Revert_NotRegistered() public {
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.MANAGER_NOT_REGISTERED.selector);
-        superGovernor.removeSuperformManager(newManager);
-    }
-
-    /// @notice Tests paginated retrieval of managers with various scenarios
-    function test_SuperformManager_GetManagersPaginated() public {
-        // Create additional manager addresses for testing
-        address manager1 = _deployAccount(0x10, "Manager1");
-        address manager2 = _deployAccount(0x11, "Manager2");
-        address manager3 = _deployAccount(0x12, "Manager3");
-        address manager4 = _deployAccount(0x13, "Manager4");
-        address manager5 = _deployAccount(0x14, "Manager5");
-
-        // Test with no managers
-        (address[] memory chunk, uint256 next) = superGovernor.getManagersPaginated(0, 10);
-        assertEq(chunk.length, 0, "Should return empty array when no managers");
-        assertEq(next, 0, "Next cursor should be 0 when no managers");
-
-        // Add 5 managers
-        vm.startPrank(governor);
-        superGovernor.addSuperformManager(manager1);
-        superGovernor.addSuperformManager(manager2);
-        superGovernor.addSuperformManager(manager3);
-        superGovernor.addSuperformManager(manager4);
-        superGovernor.addSuperformManager(manager5);
-        vm.stopPrank();
-
-        // Test getting first 3 managers
-        (chunk, next) = superGovernor.getManagersPaginated(0, 3);
-        assertEq(chunk.length, 3, "Should return 3 managers");
-        assertEq(next, 3, "Next cursor should be 3");
-
-        // Verify the managers are in the expected order (note: EnumerableSet doesn't guarantee order)
-        assertTrue(_addressInArray(chunk, manager1), "manager1 should be in chunk");
-        assertTrue(_addressInArray(chunk, manager2), "manager2 should be in chunk");
-        assertTrue(_addressInArray(chunk, manager3), "manager3 should be in chunk");
-
-        // Test getting next 2 managers
-        (chunk, next) = superGovernor.getManagersPaginated(3, 3);
-        assertEq(chunk.length, 2, "Should return 2 remaining managers");
-        assertEq(next, 0, "Next cursor should be 0 when reached end");
-
-        assertTrue(_addressInArray(chunk, manager4), "manager4 should be in chunk");
-        assertTrue(_addressInArray(chunk, manager5), "manager5 should be in chunk");
-
-        // Test limit larger than remaining items
-        (chunk, next) = superGovernor.getManagersPaginated(0, 10);
-        assertEq(chunk.length, 5, "Should return all 5 managers when limit > total");
-        assertEq(next, 0, "Next cursor should be 0 when all items returned");
-
-        // Test cursor at the end
-        (chunk, next) = superGovernor.getManagersPaginated(5, 3);
-        assertEq(chunk.length, 0, "Should return empty array when cursor at end");
-        assertEq(next, 0, "Next cursor should be 0 when cursor at end");
-
-        // Test getting single manager
-        (chunk, next) = superGovernor.getManagersPaginated(1, 1);
-        assertEq(chunk.length, 1, "Should return 1 manager");
-        assertEq(next, 2, "Next cursor should be 2");
-
-        // Test edge case: cursor beyond end
-        (chunk, next) = superGovernor.getManagersPaginated(10, 3);
-        assertEq(chunk.length, 0, "Should return empty array when cursor beyond end");
-        assertEq(next, 0, "Next cursor should be 0 when cursor beyond end");
-    }
-
-    /// @notice Helper function to check if an address is in an array
-    function _addressInArray(address[] memory array, address target) internal pure returns (bool) {
-        for (uint256 i = 0; i < array.length; i++) {
-            if (array[i] == target) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// @notice Tests getSuperformManagersCount returns initial count
-    /// @dev Verifies count is 0 when no managers are registered
-    function test_SuperformManager_GetManagersCount_InitialState() public view {
-        uint256 count = superGovernor.getSuperformManagersCount();
-        assertEq(count, 0, "Initial count should be 0");
-    }
-
-    /// @notice Tests getSuperformManagersCount after adding one manager
-    /// @dev Verifies count increments to 1 after adding a manager
-    function test_SuperformManager_GetManagersCount_AfterAddOne() public {
-        vm.prank(governor);
-        superGovernor.addSuperformManager(newManager);
-
-        uint256 count = superGovernor.getSuperformManagersCount();
-        assertEq(count, 1, "Count should be 1 after adding one manager");
-    }
-
-    /// @notice Tests getSuperformManagersCount after adding multiple managers
-    /// @dev Verifies count matches the number of managers added
-    function test_SuperformManager_GetManagersCount_AfterAddMultiple() public {
-        address manager1 = _deployAccount(0x20, "Manager1");
-        address manager2 = _deployAccount(0x21, "Manager2");
-        address manager3 = _deployAccount(0x22, "Manager3");
-        address manager4 = _deployAccount(0x23, "Manager4");
-        address manager5 = _deployAccount(0x24, "Manager5");
-
-        vm.startPrank(governor);
-        superGovernor.addSuperformManager(manager1);
-        assertEq(superGovernor.getSuperformManagersCount(), 1, "Count should be 1");
-
-        superGovernor.addSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), 2, "Count should be 2");
-
-        superGovernor.addSuperformManager(manager3);
-        assertEq(superGovernor.getSuperformManagersCount(), 3, "Count should be 3");
-
-        superGovernor.addSuperformManager(manager4);
-        assertEq(superGovernor.getSuperformManagersCount(), 4, "Count should be 4");
-
-        superGovernor.addSuperformManager(manager5);
-        assertEq(superGovernor.getSuperformManagersCount(), 5, "Count should be 5");
-        vm.stopPrank();
-    }
-
-    /// @notice Tests getSuperformManagersCount after removing a manager
-    /// @dev Verifies count decrements after removing a manager
-    function test_SuperformManager_GetManagersCount_AfterRemove() public {
-        address manager1 = _deployAccount(0x30, "Manager1");
-        address manager2 = _deployAccount(0x31, "Manager2");
-
-        // Add two managers
-        vm.startPrank(governor);
-        superGovernor.addSuperformManager(manager1);
-        superGovernor.addSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), 2, "Count should be 2 after adding");
-
-        // Remove one manager
-        superGovernor.removeSuperformManager(manager1);
-        assertEq(superGovernor.getSuperformManagersCount(), 1, "Count should be 1 after removing one");
-
-        // Remove second manager
-        superGovernor.removeSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), 0, "Count should be 0 after removing all");
-        vm.stopPrank();
-    }
-
-    /// @notice Tests getSuperformManagersCount with add/remove operations
-    /// @dev Verifies count is accurate through multiple add and remove operations
-    function test_SuperformManager_GetManagersCount_MixedOperations() public {
-        address manager1 = _deployAccount(0x40, "Manager1");
-        address manager2 = _deployAccount(0x41, "Manager2");
-        address manager3 = _deployAccount(0x42, "Manager3");
-
-        vm.startPrank(governor);
-
-        // Start with 0
-        assertEq(superGovernor.getSuperformManagersCount(), 0, "Initial count should be 0");
-
-        // Add 3 managers
-        superGovernor.addSuperformManager(manager1);
-        superGovernor.addSuperformManager(manager2);
-        superGovernor.addSuperformManager(manager3);
-        assertEq(superGovernor.getSuperformManagersCount(), 3, "Count should be 3 after adding");
-
-        // Remove one from the middle
-        superGovernor.removeSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), 2, "Count should be 2 after removing one");
-
-        // Add it back
-        superGovernor.addSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), 3, "Count should be 3 after re-adding");
-
-        // Remove two
-        superGovernor.removeSuperformManager(manager1);
-        superGovernor.removeSuperformManager(manager3);
-        assertEq(superGovernor.getSuperformManagersCount(), 1, "Count should be 1 after removing two");
-
-        vm.stopPrank();
-    }
-
-    /// @notice Tests getSuperformManagersCount matches getAllSuperformManagers length
-    /// @dev Verifies consistency between count getter and array getter
-    function test_SuperformManager_GetManagersCount_MatchesArrayLength() public {
-        address manager1 = _deployAccount(0x50, "Manager1");
-        address manager2 = _deployAccount(0x51, "Manager2");
-        address manager3 = _deployAccount(0x52, "Manager3");
-
-        vm.startPrank(governor);
-
-        // Initial state
-        assertEq(superGovernor.getSuperformManagersCount(), superGovernor.getAllSuperformManagers().length, "Count should match array length initially");
-
-        // After adding managers
-        superGovernor.addSuperformManager(manager1);
-        assertEq(superGovernor.getSuperformManagersCount(), superGovernor.getAllSuperformManagers().length, "Count should match array length after adding one");
-
-        superGovernor.addSuperformManager(manager2);
-        superGovernor.addSuperformManager(manager3);
-        assertEq(superGovernor.getSuperformManagersCount(), superGovernor.getAllSuperformManagers().length, "Count should match array length after adding multiple");
-
-        // After removing managers
-        superGovernor.removeSuperformManager(manager2);
-        assertEq(superGovernor.getSuperformManagersCount(), superGovernor.getAllSuperformManagers().length, "Count should match array length after removing");
-
-        vm.stopPrank();
-    }
-
-    // =============================================================
     // SuperBank Hook Merkle Root Tests
     // =============================================================
 
@@ -2253,7 +2124,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Execute the change
         vm.expectEmit(true, false, false, false);
         emit ISuperGovernor.MinStalenessChanged(newMinStaleness);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
 
@@ -2263,13 +2134,13 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     /// @notice Tests reverting when executing without a proposal
-    function test_MinStalenesManagement_Revert_ExecuteNoProposal() public {
+    function test_MinStalenessManagement_Revert_ExecuteNoProposal() public {
         vm.expectRevert(ISuperGovernor.NO_PROPOSED_MIN_STALENESS.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests reverting when executing before timelock expiry
-    function test_MinStalenesManagement_Revert_ExecuteBeforeTimelock() public {
+    function test_MinStalenessManagement_Revert_ExecuteBeforeTimelock() public {
         uint256 newMinStaleness = 600;
 
         // Propose new minimum staleness
@@ -2278,17 +2149,17 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Try to execute before timelock expires
         vm.expectRevert(ISuperGovernor.TIMELOCK_NOT_EXPIRED.selector);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
     }
 
     /// @notice Tests the initial minimum staleness value
-    function test_MinStalenesManagement_InitialValue() public view {
+    function test_MinStalenessManagement_InitialValue() public view {
         // Should be initialized to 300 seconds (5 minutes) in constructor
         assertEq(superGovernor.getMinStaleness(), 300, "Initial minimum staleness should be 300 seconds");
     }
 
     /// @notice Tests that execution is public (can be called by anyone)
-    function test_MinStalenesManagement_PublicExecution() public {
+    function test_MinStalenessManagement_PublicExecution() public {
         uint256 newMinStaleness = 600;
 
         // Propose as sGovernor
@@ -2298,7 +2169,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Execute as regular user (should work)
         vm.warp(block.timestamp + TIMELOCK + 1);
         vm.prank(user);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         assertEq(superGovernor.getMinStaleness(), newMinStaleness, "Minimum staleness should be updated");
     }
@@ -2469,7 +2340,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         vm.prank(sGovernor);
         superGovernor.proposeMinStaleness(newMinStaleness);
         vm.warp(block.timestamp + TIMELOCK + 1);
-        superGovernor.executeMinStalenesChange();
+        superGovernor.executeMinStalenessChange();
 
         // Now values that were previously valid should be rejected
         uint256 previouslyValidStaleness = 600; // Was > 300, but now < 800
@@ -2792,6 +2663,68 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         // Verify oracle received the call
         assertTrue(mockOracle.providerRemovalExecuted(), "Oracle should have executed provider removal");
+    }
+
+    function test_OracleUpdateManagement_CancelOracleProviderRemoval() public {
+        // Configure base oracle with initial providers
+        address[] memory bases = new address[](1);
+        bases[0] = address(asset);
+
+        address[] memory quotes = new address[](1);
+        quotes[0] = address(asset);
+
+        bytes32 provider1 = bytes32(keccak256("Provider 1"));
+
+        bytes32[] memory providers = new bytes32[](1);
+        providers[0] = provider1;
+
+        address[] memory feeds = new address[](1);
+        feeds[0] = makeAddr("feed1");
+        SuperOracle superOracle = new SuperOracle(address(superGovernor), bases, quotes, providers, feeds);
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(superOracle));
+
+        bytes32[] memory providersToRemove = new bytes32[](1);
+        providersToRemove[0] = provider1;
+
+        vm.prank(address(superGovernor));
+        superOracle.queueProviderRemoval(providersToRemove);
+
+        // Verify providers are still active before cancellation
+        bytes32[] memory activeProvidersBefore = superOracle.getActiveProviders();
+        assertEq(activeProvidersBefore.length, 1, "Should have 1 provider before cancellation");
+
+        vm.prank(oracleManager);
+        vm.expectEmit(true, false, false, false);
+        emit ISuperOracle.ProviderRemovalCancelled(providersToRemove);
+        superGovernor.cancelOracleProviderRemoval();
+
+        // Verify providers are still active after cancellation
+        bytes32[] memory activeProvidersAfter = superOracle.getActiveProviders();
+        assertEq(activeProvidersAfter.length, 1, "Should still have 1 provider after cancellation");
+    }
+
+    function test_CancelOracleProviderRemoval_AccessControl() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Try unauthorized call
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), ORACLE_MANAGER_ROLE
+            )
+        );
+        superGovernor.cancelOracleProviderRemoval();
+    }
+
+    function test_CancelOracleProviderRemoval_Revert_ContractNotFound() public {
+        vm.prank(oracleManager);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.cancelOracleProviderRemoval();
     }
 
     /// @notice Tests executeOracleProviderRemoval access control
