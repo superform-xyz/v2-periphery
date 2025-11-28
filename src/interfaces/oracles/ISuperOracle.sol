@@ -67,12 +67,14 @@ interface ISuperOracle {
     //////////////////////////////////////////////////////////////*/
     /// @notice Emitted when oracles are configured
     /// @param bases Array of base assets
+    /// @param quotes Array of quote assets
     /// @param providers Array of provider indexes
     /// @param feeds Array of oracle addresses
     event OraclesConfigured(address[] bases, address[] quotes, bytes32[] providers, address[] feeds);
 
     /// @notice Emitted when oracle update is queued
     /// @param bases Array of base assets
+    /// @param quotes Array of quote assets
     /// @param providers Array of provider indexes
     /// @param feeds Array of oracle addresses
     /// @param timestamp Timestamp when update was queued
@@ -82,6 +84,7 @@ interface ISuperOracle {
 
     /// @notice Emitted when oracle update is executed
     /// @param bases Array of base assets
+    /// @param quotes Array of quote assets
     /// @param providers Array of provider indexes
     /// @param feeds Array of oracle addresses
     event OracleUpdateExecuted(address[] bases, address[] quotes, bytes32[] providers, address[] feeds);
