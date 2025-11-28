@@ -1265,6 +1265,102 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         superVaultAggregator.superVaultEscrows(1);
     }
 
+    /// @notice Tests getSuperVaultsCount returns the correct count
+    function test_GetSuperVaultsCount() public {
+        // Should have 1 vault from setUp
+        uint256 count = superVaultAggregator.getSuperVaultsCount();
+        assertEq(count, 1, "Should have 1 vault from setUp");
+
+        // Verify count matches getAllSuperVaults length
+        address[] memory vaults = superVaultAggregator.getAllSuperVaults();
+        assertEq(count, vaults.length, "Count should match getAllSuperVaults length");
+
+        // Create another vault
+        vm.prank(manager);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+
+        // Verify count increased
+        uint256 newCount = superVaultAggregator.getSuperVaultsCount();
+        assertEq(newCount, 2, "Should have 2 vaults after creating another");
+    }
+
+    /// @notice Tests getSuperVaultStrategiesCount returns the correct count
+    function test_GetSuperVaultStrategiesCount() public {
+        // Should have 1 strategy from setUp
+        uint256 count = superVaultAggregator.getSuperVaultStrategiesCount();
+        assertEq(count, 1, "Should have 1 strategy from setUp");
+
+        // Verify count matches getAllSuperVaultStrategies length
+        address[] memory strategies = superVaultAggregator.getAllSuperVaultStrategies();
+        assertEq(count, strategies.length, "Count should match getAllSuperVaultStrategies length");
+
+        // Create another vault (which creates another strategy)
+        vm.prank(manager);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+
+        // Verify count increased
+        uint256 newCount = superVaultAggregator.getSuperVaultStrategiesCount();
+        assertEq(newCount, 2, "Should have 2 strategies after creating another vault");
+    }
+
+    /// @notice Tests getSuperVaultEscrowsCount returns the correct count
+    function test_GetSuperVaultEscrowsCount() public {
+        // Should have 1 escrow from setUp
+        uint256 count = superVaultAggregator.getSuperVaultEscrowsCount();
+        assertEq(count, 1, "Should have 1 escrow from setUp");
+
+        // Verify count matches getAllSuperVaultEscrows length
+        address[] memory escrows = superVaultAggregator.getAllSuperVaultEscrows();
+        assertEq(count, escrows.length, "Count should match getAllSuperVaultEscrows length");
+
+        // Create another vault (which creates another escrow)
+        vm.prank(manager);
+        superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Test Vault 2",
+                symbol: "TV2",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+
+        // Verify count increased
+        uint256 newCount = superVaultAggregator.getSuperVaultEscrowsCount();
+        assertEq(newCount, 2, "Should have 2 escrows after creating another vault");
+    }
+
     /// @notice Tests validateHooks returns all false when global hooks root is vetoed
     function test_ValidateHooks_GlobalRootVetoed() public {
         // Set global hooks root veto status to true
