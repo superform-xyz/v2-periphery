@@ -46,6 +46,9 @@ contract ConfigureV2Periphery is DeployV2Base {
         address circleGatewayMinterHook;
         address circleGatewayAddDelegateHook;
         address circleGatewayRemoveDelegateHook;
+        address setOperator7540Hook;
+        address pendleRouterRedeemHook;
+        address pendleRouterSwapHook;
     }
 
     /// @notice Configuration parameters for hook setup
@@ -216,6 +219,9 @@ contract ConfigureV2Periphery is DeployV2Base {
         hooks.circleGatewayMinterHook = _safeParseJsonAddress(coreJson, ".CircleGatewayMinterHook");
         hooks.circleGatewayAddDelegateHook = _safeParseJsonAddress(coreJson, ".CircleGatewayAddDelegateHook");
         hooks.circleGatewayRemoveDelegateHook = _safeParseJsonAddress(coreJson, ".CircleGatewayRemoveDelegateHook");
+        hooks.setOperator7540Hook = _safeParseJsonAddress(coreJson, ".SetOperator7540Hook");
+        hooks.pendleRouterRedeemHook = _safeParseJsonAddress(coreJson, ".PendleRouterRedeemHook");
+        hooks.pendleRouterSwapHook = _safeParseJsonAddress(coreJson, ".PendleRouterSwapHook");
     }
 
     /// @notice Safely parse an address from JSON, returning zero address on failure
@@ -333,7 +339,7 @@ contract ConfigureV2Periphery is DeployV2Base {
     /// @notice Register all hooks with SuperGovernor
     function _registerAllHooks(address superGovernor, HookAddresses memory hooks) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
-        uint256 totalHooks = 34; // Total number of hooks in HookAddresses struct
+        uint256 totalHooks = 37; // Total number of hooks in HookAddresses struct
         uint256 successCount = 0;
 
         console2.log("Registering hooks with SuperGovernor...");
@@ -400,6 +406,13 @@ contract ConfigureV2Periphery is DeployV2Base {
         successCount += _registerHook(
             governor, hooks.circleGatewayRemoveDelegateHook, "circleGatewayRemoveDelegateHook"
         );
+
+        // 7540 operator hook
+        successCount += _registerHook(governor, hooks.setOperator7540Hook, "setOperator7540Hook");
+
+        // Pendle hooks
+        successCount += _registerHook(governor, hooks.pendleRouterRedeemHook, "pendleRouterRedeemHook");
+        successCount += _registerHook(governor, hooks.pendleRouterSwapHook, "pendleRouterSwapHook");
 
         console2.log("Hook registration complete:");
         console2.log("- Successfully registered:", successCount);
