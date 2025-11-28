@@ -9,6 +9,9 @@
 - Passed: 170
 - Number of tests: 211420
 
+## Public link to job
+https://getrecon.xyz/shares/f32fbad8-a123-4c17-bc38-c2588cc01b5d
+
 <details>
   <summary> <h2> Results </h2> </summary>
 
