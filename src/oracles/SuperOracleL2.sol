@@ -117,8 +117,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
             } catch {
                 // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
                 // oracle failures
-                if (gasleft() <= gasBeforeUptime / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
+                if (gasleft() <= gasBeforeUptime / 64 && revertOnError) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
                 if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(uptimeOracle);
                 return 0;
             }
@@ -156,8 +155,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
             } catch {
                 // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
                 // oracle failures
-                if (gasleft() <= gasBeforeData / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
+                if (gasleft() <= gasBeforeData / 64 && revertOnError) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
                 if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
                 return 0;
             }
@@ -184,7 +182,7 @@ contract SuperOracleL2 is SuperOracleBase, ISuperOracleL2 {
         } catch {
             // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
             // oracle failures
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (gasleft() <= gasBefore / 64 && revertOnError) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
         }
