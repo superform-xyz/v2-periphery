@@ -23,9 +23,6 @@ interface ISuperOracle {
     /// @notice Error when no valid reported prices are found
     error NO_VALID_REPORTED_PRICES();
 
-    /// @notice Error when caller is not admin
-    error NOT_ADMIN();
-
     /// @notice Error when arrays have mismatched lengths
     error ARRAY_LENGTH_MISMATCH();
 
@@ -41,14 +38,8 @@ interface ISuperOracle {
     /// @notice Error when provider max staleness period is not set
     error NO_PENDING_UPDATE();
 
-    /// @notice Error when quote is not supported (only USD is supported)
-    error UNSUPPORTED_QUOTE();
-
     /// @notice Error when provider max staleness period is exceeded
     error MAX_STALENESS_EXCEEDED();
-
-    /// @notice Error when no prices are reported
-    error NO_PRICES();
 
     /// @notice Error when average provider is not allowed
     error AVERAGE_PROVIDER_NOT_ALLOWED();

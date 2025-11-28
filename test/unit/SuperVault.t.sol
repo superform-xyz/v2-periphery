@@ -2433,8 +2433,8 @@ contract SuperVaultTest is PeripheryHelpers {
         sources[0] = address(0x1234);
         address[] memory oracles = new address[](1);
         oracles[0] = address(0x5678);
-        uint8[] memory actionTypes = new uint8[](1);
-        actionTypes[0] = 0; // Add
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
@@ -2448,7 +2448,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.manageYieldSource(address(0x1234), address(0x5678), 0);
+        strategy.manageYieldSource(address(0x1234), address(0x5678), ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     /// @notice Tests manageYieldSources reverts when sources array is empty
@@ -2457,7 +2457,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Setup: Create empty arrays
         address[] memory sources = new address[](0);
         address[] memory oracles = new address[](0);
-        uint8[] memory actionTypes = new uint8[](0);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](0);
 
         // Test: Attempt to manage with empty arrays should revert with ZERO_LENGTH
         vm.prank(manager);
@@ -2476,9 +2476,9 @@ contract SuperVaultTest is PeripheryHelpers {
         address[] memory oracles = new address[](1); // Mismatch: 1 instead of 2
         oracles[0] = address(0x3);
 
-        uint8[] memory actionTypes = new uint8[](2);
-        actionTypes[0] = 1;
-        actionTypes[1] = 1;
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](2);
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
 
         // Test: Attempt to manage with mismatched oracles length should revert
         vm.prank(manager);
@@ -2498,37 +2498,15 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[0] = address(0x3);
         oracles[1] = address(0x4);
 
-        uint8[] memory actionTypes = new uint8[](3); // Mismatch: 3 instead of 2
-        actionTypes[0] = 1;
-        actionTypes[1] = 1;
-        actionTypes[2] = 1;
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3); // Mismatch: 3 instead of 2
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
+        actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
 
         // Test: Attempt to manage with mismatched actionTypes length should revert
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_ARRAY_LENGTH.selector);
         strategy.manageYieldSources(sources, oracles, actionTypes);
-    }
-
-    /// @notice Tests manageYieldSource reverts on invalid actionType
-    /// @dev Covers SuperVaultStrategy.sol:845 - ACTION_TYPE_DISALLOWED in _manageYieldSource
-    function test_ManageYieldSource_RevertsOnInvalidActionType() public {
-        address yieldSourceAddr = address(0x1234);
-        address oracleAddr = address(0x5678);
-
-        // Test: Attempt to manage with invalid actionType (3 or higher)
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 3);
-
-        // Test with actionType 5
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 5);
-
-        // Test with actionType 255 (max uint8)
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 255);
     }
 
     /// @notice Tests manageYieldSource reverts when adding with source = address(0)
@@ -2539,7 +2517,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test: Attempt to add yield source with address(0) as source
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
-        strategy.manageYieldSource(address(0), oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(address(0), oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     /// @notice Tests manageYieldSource reverts when adding with oracle = address(0)
@@ -2550,7 +2528,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test: Attempt to add yield source with address(0) as oracle
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
-        strategy.manageYieldSource(yieldSourceAddr, address(0), 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, address(0), ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     /// @notice Tests manageYieldSource reverts when adding duplicate yield source
@@ -2561,12 +2539,12 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Setup: Add a yield source first
         vm.prank(manager);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
 
         // Test: Attempt to add the same yield source again
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_ALREADY_EXISTS.selector);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     /// @notice Tests manageYieldSource reverts when updating with oracle = address(0)
@@ -2577,12 +2555,12 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Setup: Add a yield source first
         vm.prank(manager);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
 
         // Test: Attempt to update oracle to address(0)
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
-        strategy.manageYieldSource(yieldSourceAddr, address(0), 1); // actionType 1 = Update
+        strategy.manageYieldSource(yieldSourceAddr, address(0), ISuperVaultStrategy.YieldSourceAction.UpdateOracle);
     }
 
     /// @notice Tests manageYieldSource reverts when updating non-existent yield source
@@ -2594,7 +2572,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test: Attempt to update a yield source that doesn't exist
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_NOT_FOUND.selector);
-        strategy.manageYieldSource(nonExistentSource, newOracle, 1); // actionType 1 = Update
+        strategy.manageYieldSource(nonExistentSource, newOracle, ISuperVaultStrategy.YieldSourceAction.UpdateOracle);
     }
 
     /// @notice Tests manageYieldSource reverts when removing non-existent yield source
@@ -2605,7 +2583,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test: Attempt to remove a yield source that doesn't exist
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_NOT_FOUND.selector);
-        strategy.manageYieldSource(nonExistentSource, address(0), 2); // actionType 2 = Remove
+        strategy.manageYieldSource(nonExistentSource, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
     }
 
     /// @notice Tests _addYieldSource reverts when EnumerableSet.add() fails (defensive check)
@@ -2617,7 +2595,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Step 1: Add a yield source normally (both mapping and set have it)
         vm.prank(manager);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
 
         // Verify it was added
         ISuperVaultStrategy.YieldSource memory ys = strategy.getYieldSource(yieldSourceAddr);
@@ -2647,7 +2625,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // This should pass the mapping check (line 854) but fail at EnumerableSet.add (line 856)
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_ALREADY_EXISTS.selector);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
     }
 
     /// @notice Tests _removeYieldSource reverts when EnumerableSet.remove() fails (defensive check)
@@ -2659,14 +2637,14 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Step 1: Add a yield source normally
         vm.prank(manager);
-        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, 0); // actionType 0 = Add
+        strategy.manageYieldSource(yieldSourceAddr, oracleAddr, ISuperVaultStrategy.YieldSourceAction.Add);
 
         // Verify it was added
         assertTrue(strategy.containsYieldSource(yieldSourceAddr), "Set should contain source");
 
         // Step 2: Remove it normally
         vm.prank(manager);
-        strategy.manageYieldSource(yieldSourceAddr, address(0), 2); // actionType 2 = Remove
+        strategy.manageYieldSource(yieldSourceAddr, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
 
         // Verify it was removed
         assertFalse(strategy.containsYieldSource(yieldSourceAddr), "Set should not contain source");
@@ -2688,7 +2666,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // This should pass the mapping check (line 876) but fail at EnumerableSet.remove (line 882)
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.YIELD_SOURCE_NOT_FOUND.selector);
-        strategy.manageYieldSource(yieldSourceAddr, address(0), 2); // actionType 2 = Remove
+        strategy.manageYieldSource(yieldSourceAddr, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
     }
 
     // =============================================================
@@ -2792,20 +2770,8 @@ contract SuperVaultTest is PeripheryHelpers {
     // managePPSExpiration Tests
     // =============================================================
 
-    /// @notice Tests managePPSExpiration with invalid action type
-    /// @dev Covers SuperVaultStrategy.sol:538
-    function test_ManagePPSExpiration_RevertsOnInvalidAction() public {
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.managePPSExpiration(0, 1 hours); // Action 0 is invalid
-
-        vm.prank(manager);
-        vm.expectRevert(ISuperVaultStrategy.ACTION_TYPE_DISALLOWED.selector);
-        strategy.managePPSExpiration(4, 1 hours); // Action 4 is invalid
-    }
-
     // =============================================================
-    // Action 1: _proposePPSExpiration Tests
+    // PPSExpirationAction.Propose Tests
     // =============================================================
 
     /// @notice Tests proposePPSExpiration reverts when caller is not manager
@@ -2814,7 +2780,7 @@ contract SuperVaultTest is PeripheryHelpers {
         address notManager = _deployAccount(0xBAD, "NotManager");
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSExpiration(1, 1 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 1 hours);
     }
 
     /// @notice Tests proposePPSExpiration reverts when threshold is below minimum
@@ -2823,7 +2789,7 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 tooLowThreshold = 30 seconds; // Below 1 minute minimum
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(1, tooLowThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, tooLowThreshold);
     }
 
     /// @notice Tests proposePPSExpiration reverts when threshold is above maximum
@@ -2832,7 +2798,7 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 tooHighThreshold = 8 days; // Above 1 week maximum
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(1, tooHighThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, tooHighThreshold);
     }
 
     /// @notice Tests proposePPSExpiration succeeds with valid threshold
@@ -2840,7 +2806,7 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_ProposePPSExpiration_SucceedsWithValidThreshold() public {
         uint256 validThreshold = 2 hours; // Within 1 minute to 1 week range
         vm.prank(manager);
-        strategy.managePPSExpiration(1, validThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, validThreshold);
         // No revert means success
     }
 
@@ -2849,7 +2815,7 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_ProposePPSExpiration_SucceedsWithMinimumThreshold() public {
         uint256 minThreshold = 1 minutes; // Exactly at minimum
         vm.prank(manager);
-        strategy.managePPSExpiration(1, minThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, minThreshold);
         // No revert means success
     }
 
@@ -2858,7 +2824,7 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_ProposePPSExpiration_SucceedsWithMaximumThreshold() public {
         uint256 maxThreshold = 1 weeks; // Exactly at maximum
         vm.prank(manager);
-        strategy.managePPSExpiration(1, maxThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, maxThreshold);
         // No revert means success
     }
 
@@ -2867,7 +2833,7 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_ProposePPSExpiration_RevertsOnZeroThreshold() public {
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(1, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 0);
     }
 
     /// @notice Tests proposePPSExpiration reverts when threshold is exactly MIN - 1
@@ -2876,7 +2842,7 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 almostMin = 1 minutes - 1; // 59 seconds
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(1, almostMin);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, almostMin);
     }
 
     /// @notice Tests proposePPSExpiration reverts when threshold is exactly MAX + 1
@@ -2885,7 +2851,7 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 justOverMax = 1 weeks + 1; // 1 week + 1 second
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(1, justOverMax);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, justOverMax);
     }
 
     // =============================================================
@@ -2898,7 +2864,7 @@ contract SuperVaultTest is PeripheryHelpers {
         address notManager = _deployAccount(0xBAD, "NotManager");
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSExpiration(2, 0); // staleness_ param ignored for action 2
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0); // staleness_ param ignored for Execute
     }
 
     /// @notice Tests updatePPSExpiration reverts when called before effective time
@@ -2906,12 +2872,12 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_UpdatePPSExpiration_RevertsOnInvalidTimestamp() public {
         // First propose a threshold
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours); // This sets effective time to block.timestamp + 1 week
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours); // This sets effective time to block.timestamp + 1 week
 
         // Try to update immediately (before effective time)
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
     }
 
     /// @notice Tests updatePPSExpiration reverts when no proposal exists
@@ -2927,7 +2893,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // proposedPPSExpiryThreshold should be 0 by default
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_PPS_EXPIRY_THRESHOLD.selector);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
     }
 
     /// @notice Tests updatePPSExpiration succeeds after timelock passes
@@ -2935,14 +2901,14 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_UpdatePPSExpiration_SucceedsAfterTimelock() public {
         // Propose a threshold
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
 
         // Warp past the 1 week timelock
         vm.warp(block.timestamp + 1 weeks + 1);
 
         // Now update should succeed
         vm.prank(manager);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         // No revert means success
     }
 
@@ -2952,7 +2918,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Propose a threshold at timestamp T
         uint256 proposalTime = block.timestamp;
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
         // effectiveTime is now proposalTime + 1 weeks
 
         // Warp to exactly effectiveTime - 1 (still too early)
@@ -2961,7 +2927,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Should revert because block.timestamp < effectiveTime
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.INVALID_TIMESTAMP.selector);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
     }
 
     /// @notice Tests updatePPSExpiration succeeds when timestamp is exactly at effectiveTime
@@ -2970,7 +2936,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Propose a threshold at timestamp T
         uint256 proposalTime = block.timestamp;
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
         // effectiveTime is now proposalTime + 1 weeks
 
         // Warp to exactly effectiveTime
@@ -2978,7 +2944,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Should succeed because block.timestamp >= effectiveTime
         vm.prank(manager);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         // No revert means success
     }
 
@@ -2988,7 +2954,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Propose a threshold at timestamp T
         uint256 proposalTime = block.timestamp;
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
         // effectiveTime is now proposalTime + 1 weeks
 
         // Warp to exactly effectiveTime + 1
@@ -2996,7 +2962,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Should succeed because block.timestamp > effectiveTime
         vm.prank(manager);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         // No revert means success
     }
 
@@ -3010,7 +2976,7 @@ contract SuperVaultTest is PeripheryHelpers {
         address notManager = _deployAccount(0xBAD, "NotManager");
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
     }
 
     /// @notice Tests cancelPPSExpirationProposalUpdate reverts when no proposal exists
@@ -3019,7 +2985,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Don't propose anything, try to cancel
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
     }
 
     /// @notice Tests cancelPPSExpirationProposal succeeds when proposal exists
@@ -3027,11 +2993,11 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_CancelPPSExpirationProposal_SucceedsWithExistingProposal() public {
         // First propose a threshold
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
 
         // Now cancel should succeed
         vm.prank(manager);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
         // No revert means success
     }
 
@@ -3041,7 +3007,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Propose a threshold
         uint256 proposalThreshold = 3 hours;
         vm.prank(manager);
-        strategy.managePPSExpiration(1, proposalThreshold);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, proposalThreshold);
 
         // Verify state is set (proposedPPSExpiryThreshold and ppsExpiryThresholdEffectiveTime)
         // We can't directly read these private variables, but we can verify behavior
@@ -3049,12 +3015,12 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Cancel the proposal
         vm.prank(manager);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
 
         // Verify state is cleared by trying to cancel again - should revert with NO_PROPOSAL
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.managePPSExpiration(3, 0); // Should fail because ppsExpiryThresholdEffectiveTime == 0
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0); // Should fail because ppsExpiryThresholdEffectiveTime == 0
     }
 
     /// @notice Tests cancelPPSExpirationProposal emits correct event
@@ -3062,7 +3028,7 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_CancelPPSExpirationProposal_EmitsEvent() public {
         // Propose a threshold
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
 
         // Expect the PPSExpiryThresholdProposalCanceled event
         vm.expectEmit(true, true, true, true);
@@ -3070,7 +3036,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Cancel the proposal
         vm.prank(manager);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
     }
 
     /// @notice Tests cancelPPSExpirationProposal with boundary case effectiveTime == 1
@@ -3089,7 +3055,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Now cancel should succeed because effectiveTime != 0
         vm.prank(manager);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
         // No revert means success
     }
 
@@ -3098,20 +3064,20 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_ManagePPSExpiration_FullProposalLifecycle() public {
         // Propose
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 2 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours);
 
         // Cancel
         vm.prank(manager);
-        strategy.managePPSExpiration(3, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0);
 
         // Propose again
         vm.prank(manager);
-        strategy.managePPSExpiration(1, 3 hours);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 3 hours);
 
         // Warp and update
         vm.warp(block.timestamp + 1 weeks + 1);
         vm.prank(manager);
-        strategy.managePPSExpiration(2, 0);
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0);
         // No revert means success
     }
 
@@ -3206,11 +3172,11 @@ contract SuperVaultTest is PeripheryHelpers {
 
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sources[0] = yieldSourceAddr;
         oracles[0] = oracleAddr;
-        actionTypes[0] = 0; // 0 = Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3238,7 +3204,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Setup: Add multiple yield sources
         address[] memory sources = new address[](3);
         address[] memory oracles = new address[](3);
-        uint8[] memory actionTypes = new uint8[](3);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3);
 
         sources[0] = address(0x1111);
         sources[1] = address(0x2222);
@@ -3248,9 +3214,9 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[1] = address(0xBBBB);
         oracles[2] = address(0xCCCC);
 
-        actionTypes[0] = 0; // Add
-        actionTypes[1] = 0; // Add
-        actionTypes[2] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3275,12 +3241,12 @@ contract SuperVaultTest is PeripheryHelpers {
 
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         // Add the yield source
         sources[0] = yieldSourceAddr;
         oracles[0] = originalOracle;
-        actionTypes[0] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3291,7 +3257,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Update the oracle
         oracles[0] = newOracle;
-        actionTypes[0] = 1; // 1 = UpdateOracle
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3310,12 +3276,12 @@ contract SuperVaultTest is PeripheryHelpers {
 
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         // Add the yield source
         sources[0] = yieldSourceAddr;
         oracles[0] = oracleAddr;
-        actionTypes[0] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3325,7 +3291,7 @@ contract SuperVaultTest is PeripheryHelpers {
         assertEq(ys1.oracle, oracleAddr, "Oracle should exist before removal");
 
         // Remove the yield source
-        actionTypes[0] = 2; // 2 = Remove
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Remove;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3352,11 +3318,11 @@ contract SuperVaultTest is PeripheryHelpers {
         // Setup: Add one yield source
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sources[0] = address(0x1234);
         oracles[0] = address(0x5678);
-        actionTypes[0] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3372,7 +3338,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Setup: Add 3 yield sources
         address[] memory sources = new address[](3);
         address[] memory oracles = new address[](3);
-        uint8[] memory actionTypes = new uint8[](3);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3);
 
         sources[0] = address(0x1111);
         sources[1] = address(0x2222);
@@ -3382,9 +3348,9 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[1] = address(0xBBBB);
         oracles[2] = address(0xCCCC);
 
-        actionTypes[0] = 0; // Add
-        actionTypes[1] = 0; // Add
-        actionTypes[2] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3400,7 +3366,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Setup: Add 2 yield sources
         address[] memory sources = new address[](2);
         address[] memory oracles = new address[](2);
-        uint8[] memory actionTypes = new uint8[](2);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](2);
 
         sources[0] = address(0x1111);
         sources[1] = address(0x2222);
@@ -3408,8 +3374,8 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[0] = address(0xAAAA);
         oracles[1] = address(0xBBBB);
 
-        actionTypes[0] = 0; // Add
-        actionTypes[1] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3421,11 +3387,11 @@ contract SuperVaultTest is PeripheryHelpers {
         // Remove one source
         address[] memory sourcesToRemove = new address[](1);
         address[] memory oraclesToRemove = new address[](1);
-        uint8[] memory removeActionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sourcesToRemove[0] = address(0x1111);
         oraclesToRemove[0] = address(0); // Ignored for removal
-        removeActionTypes[0] = 2; // Remove
+        removeActionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Remove;
 
         vm.prank(manager);
         strategy.manageYieldSources(sourcesToRemove, oraclesToRemove, removeActionTypes);
@@ -3444,7 +3410,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Add 3 sources
         address[] memory sources = new address[](3);
         address[] memory oracles = new address[](3);
-        uint8[] memory actionTypes = new uint8[](3);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3);
 
         sources[0] = address(0x1111);
         sources[1] = address(0x2222);
@@ -3454,9 +3420,9 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[1] = address(0xBBBB);
         oracles[2] = address(0xCCCC);
 
-        actionTypes[0] = 0;
-        actionTypes[1] = 0;
-        actionTypes[2] = 0;
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Add;
+        actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3466,14 +3432,14 @@ contract SuperVaultTest is PeripheryHelpers {
         // Remove 2 sources
         address[] memory sourcesToRemove = new address[](2);
         address[] memory oraclesToRemove = new address[](2);
-        uint8[] memory removeActionTypes = new uint8[](2);
+        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes = new ISuperVaultStrategy.YieldSourceAction[](2);
 
         sourcesToRemove[0] = address(0x1111);
         sourcesToRemove[1] = address(0x3333);
         oraclesToRemove[0] = address(0);
         oraclesToRemove[1] = address(0);
-        removeActionTypes[0] = 2;
-        removeActionTypes[1] = 2;
+        removeActionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Remove;
+        removeActionTypes[1] = ISuperVaultStrategy.YieldSourceAction.Remove;
 
         vm.prank(manager);
         strategy.manageYieldSources(sourcesToRemove, oraclesToRemove, removeActionTypes);
@@ -3483,11 +3449,11 @@ contract SuperVaultTest is PeripheryHelpers {
         // Add 1 more source
         address[] memory moreSources = new address[](1);
         address[] memory moreOracles = new address[](1);
-        uint8[] memory addActionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory addActionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         moreSources[0] = address(0x4444);
         moreOracles[0] = address(0xDDDD);
-        addActionTypes[0] = 0;
+        addActionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(moreSources, moreOracles, addActionTypes);
@@ -3497,14 +3463,14 @@ contract SuperVaultTest is PeripheryHelpers {
         // Remove all
         address[] memory removeAll = new address[](2);
         address[] memory removeAllOracles = new address[](2);
-        uint8[] memory removeAllTypes = new uint8[](2);
+        ISuperVaultStrategy.YieldSourceAction[] memory removeAllTypes = new ISuperVaultStrategy.YieldSourceAction[](2);
 
         removeAll[0] = address(0x2222);
         removeAll[1] = address(0x4444);
         removeAllOracles[0] = address(0);
         removeAllOracles[1] = address(0);
-        removeAllTypes[0] = 2;
-        removeAllTypes[1] = 2;
+        removeAllTypes[0] = ISuperVaultStrategy.YieldSourceAction.Remove;
+        removeAllTypes[1] = ISuperVaultStrategy.YieldSourceAction.Remove;
 
         vm.prank(manager);
         strategy.manageYieldSources(removeAll, removeAllOracles, removeAllTypes);
@@ -3518,11 +3484,11 @@ contract SuperVaultTest is PeripheryHelpers {
         // Add a yield source
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sources[0] = address(0x1234);
         oracles[0] = address(0x5678);
-        actionTypes[0] = 0; // Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3532,7 +3498,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Update the oracle
         oracles[0] = address(0xABCD);
-        actionTypes[0] = 1; // UpdateOracle
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3977,11 +3943,11 @@ contract SuperVaultTest is PeripheryHelpers {
         // Test 2: Add yield source and verify it returns true
         address[] memory sources = new address[](1);
         address[] memory oracles = new address[](1);
-        uint8[] memory actionTypes = new uint8[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sources[0] = yieldSourceAddr;
         oracles[0] = oracleAddr;
-        actionTypes[0] = 0; // 0 = Add
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Add;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);
@@ -3990,7 +3956,7 @@ contract SuperVaultTest is PeripheryHelpers {
         assertTrue(containsAfterAdd, "Should return true after adding yield source");
 
         // Test 3: Remove yield source and verify it returns false
-        actionTypes[0] = 2; // 2 = Remove
+        actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.Remove;
 
         vm.prank(manager);
         strategy.manageYieldSources(sources, oracles, actionTypes);

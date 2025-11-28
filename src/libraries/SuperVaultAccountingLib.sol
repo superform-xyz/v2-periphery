@@ -48,14 +48,14 @@ library SuperVaultAccountingLib {
     /// @param currentMaxWithdraw Current max withdrawable assets
     /// @param currentAverageWithdrawPrice Current average withdraw price
     /// @param requestedShares New shares being fulfilled
-    /// @param currentAssetsWithFees New assets being added
+    /// @param fulfilledAssets Assets received from fulfilling the redeem request
     /// @param precision Precision constant
     /// @return newAverageWithdrawPrice Updated average withdraw price
     function calculateAverageWithdrawPrice(
         uint256 currentMaxWithdraw,
         uint256 currentAverageWithdrawPrice,
         uint256 requestedShares,
-        uint256 currentAssetsWithFees,
+        uint256 fulfilledAssets,
         uint256 precision
     )
         internal
@@ -71,7 +71,7 @@ library SuperVaultAccountingLib {
         }
 
         uint256 newTotalShares = existingShares + requestedShares;
-        uint256 newTotalAssets = existingAssets + currentAssetsWithFees;
+        uint256 newTotalAssets = existingAssets + fulfilledAssets;
 
         if (newTotalShares > 0) {
             newAverageWithdrawPrice = newTotalAssets.mulDiv(precision, newTotalShares, Math.Rounding.Floor);
