@@ -576,7 +576,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, governor, treasury);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
