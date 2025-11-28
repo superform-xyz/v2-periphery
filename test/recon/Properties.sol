@@ -136,6 +136,10 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         uint256 previewDepositShares = superVault.previewDeposit(previewMintAssets);
         uint256 price = superVaultStrategy.getStoredPPS();
 
+        // @dev Edge case: If feeBps >= 100% (10000), returns 0 (impossible to mint with 100%+ fees)
+        ISuperVaultStrategy.FeeConfig memory cfg = superVaultStrategy.getConfigInfo();
+        if (cfg.managementFeeBps >= 10_000) return;
+
         if (price > 0) {
             eq(shares, previewDepositShares, "previewMint and previewDeposit equivalence (from shares)");
         }
