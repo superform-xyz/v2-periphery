@@ -297,10 +297,12 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
     function doomsday_primaryManagerAlwaysChangeable() public {
         address strategy = address(superVaultStrategy);
         address newManager = _getActor();
+        _switchActor(1);
+        address feeRecipient = _getActor();
 
         // Since address(this) has SUPER_GOVERNOR_ROLE, this should always succeed
         vm.prank(address(this));
-        try superGovernor.changePrimaryManager(strategy, newManager) {
+        try superGovernor.changePrimaryManager(strategy, newManager, feeRecipient) {
         // Call succeeded - this is expected behavior
         }
         catch (bytes memory err) {
@@ -331,15 +333,6 @@ abstract contract DoomsdayTargets is BaseTargetFunctions, Properties {
                     t(false, "users should always be able to withdraw unless the system is paused");
                 }
             }
-        }
-    }
-
-    /// @dev Property: Claiming redemptions should never revert with INVALID_REDEEM_CLAIM
-    function doomsday_redemptionsNeverReverts(uint256 shares) public asActor {
-        try superVault.redeem(shares, _getActor(), _getActor()) { }
-        catch (bytes memory err) {
-            bool unexpectedError = checkError(err, "INVALID_REDEEM_CLAIM()");
-            t(!unexpectedError, "Claiming redemptions should never revert with INVALID_REDEEM_CLAIM");
         }
     }
 

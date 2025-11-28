@@ -12,6 +12,7 @@ import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerklePr
 // Superform
 import { SuperVault } from "src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "src/SuperVault/SuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperGovernor } from "src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -207,7 +208,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         _strategyData[strategy].deviationThreshold = 5e17; // Default: 50% deviation threshold
 
         emit VaultDeployed(superVault, strategy, escrow, params.asset, params.name, params.symbol, vars.currentNonce);
-        emit PPSUpdated(strategy, vars.initialPPS, 0, 0, _strategyData[strategy].lastUpdateTimestamp);
+        emit PPSUpdated(strategy, vars.initialPPS, _strategyData[strategy].lastUpdateTimestamp);
 
         return (superVault, strategy, escrow);
     }
@@ -278,8 +279,6 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
                     strategy: strategy,
                     isExempt: (!paymentsEnabled) || (upkeepCost == 0),
                     pps: args.ppss[i],
-                    validatorSet: args.validatorSets[i],
-                    totalValidators: args.totalValidator,
                     timestamp: ts,
                     upkeepCost: upkeepCost
                 })
@@ -379,7 +378,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Create withdrawal request
         pendingUpkeepWithdrawals[strategy] = UpkeepWithdrawalRequest({
-            initiator: msg.sender, amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
+            amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
         });
 
         emit UpkeepWithdrawalProposed(
@@ -392,7 +391,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         UpkeepWithdrawalRequest memory request = pendingUpkeepWithdrawals[strategy];
 
         // Check that a request exists
-        if (request.initiator == address(0)) revert UPKEEP_WITHDRAWAL_NOT_FOUND();
+        if (request.effectiveTime == 0) revert UPKEEP_WITHDRAWAL_NOT_FOUND();
 
         // Check that timelock has passed
         if (block.timestamp < request.effectiveTime) revert UPKEEP_WITHDRAWAL_NOT_READY();
@@ -414,10 +413,11 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
             _strategyUpkeepBalance[strategy] -= withdrawalAmount;
         }
 
-        // Transfer UP tokens to the original initiator (not msg.sender)
-        IERC20(upToken).safeTransfer(request.initiator, withdrawalAmount);
+        // Transfer UP tokens to the original main manager (not msg.sender)
+        address mainManager = _strategyData[strategy].mainManager;
+        IERC20(upToken).safeTransfer(mainManager, withdrawalAmount);
 
-        emit UpkeepWithdrawn(strategy, request.initiator, withdrawalAmount);
+        emit UpkeepWithdrawn(strategy, mainManager, withdrawalAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -548,15 +548,17 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
     ///      - Pending minUpdateInterval proposals
     ///      - ALL secondary managers (they may be controlled by malicious manager)
     /// @dev This ensures clean slate for new manager without inherited vulnerabilities
-    function changePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
+    function changePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    ) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (strategy == address(0)) revert ZERO_ADDRESS();
-
-        if (newManager == address(0)) revert ZERO_ADDRESS();
+        if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
         address oldManager = _strategyData[strategy].mainManager;
 
@@ -583,19 +585,29 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // SECURITY: Cancel any pending upkeep withdrawal to prevent old manager from withdrawing
-        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+        if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
             delete pendingUpkeepWithdrawals[strategy];
             emit UpkeepWithdrawalCancelled(strategy);
         }
 
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
+
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
     /// @inheritdoc ISuperVaultAggregator
-    function proposeChangePrimaryManager(address strategy, address newManager) external validStrategy(strategy) {
+    function proposeChangePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    )
+        external
+        validStrategy(strategy)
+    {
         // Only secondary managers can propose changes to the primary manager
         if (!_strategyData[strategy].secondaryManagers.contains(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
@@ -608,9 +620,10 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Store proposal in the strategy data
         _strategyData[strategy].proposedManager = newManager;
+        _strategyData[strategy].proposedFeeRecipient = feeRecipient;
         _strategyData[strategy].managerChangeEffectiveTime = effectiveTime;
 
-        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, effectiveTime);
+        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, feeRecipient, effectiveTime);
     }
 
     /// @inheritdoc ISuperVaultAggregator
@@ -629,6 +642,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
 
         // Clear the proposal
         _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
         emit PrimaryManagerChangeCancelled(strategy, cancelledManager);
@@ -656,19 +670,51 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         }
 
         // Cancel any pending upkeep withdrawal to ensure clean transition
-        if (pendingUpkeepWithdrawals[strategy].initiator != address(0)) {
+        if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
             delete pendingUpkeepWithdrawals[strategy];
             emit UpkeepWithdrawalCancelled(strategy);
         }
 
+        _strategyData[strategy].proposedHooksRoot = bytes32(0);
+        _strategyData[strategy].hooksRootEffectiveTime = 0;
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;
 
+        // Set the new fee recipient
+        address feeRecipient = _strategyData[strategy].proposedFeeRecipient;
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
+
         // Clear the proposal
         _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
         _strategyData[strategy].managerChangeEffectiveTime = 0;
 
-        emit PrimaryManagerChanged(strategy, oldManager, newManager);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing
+    /// them for the previous manager's performance.
+    /// @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
+    /// @dev This function is only callable by SUPER_GOVERNOR
+    function resetHighWaterMark(address strategy) external validStrategy(strategy) {
+        // Only SuperGovernor can call this
+        if (msg.sender != address(SUPER_GOVERNOR)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        uint256 newHwmPps = ISuperVaultStrategy(strategy).getStoredPPS();
+
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
+
+        emit HighWaterMarkReset(strategy, newHwmPps);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1006,6 +1052,21 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultsCount() external view returns (uint256) {
+        return _superVaults.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultStrategiesCount() external view returns (uint256) {
+        return _superVaultStrategies.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultEscrowsCount() external view returns (uint256) {
+        return _superVaultEscrows.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
     function getAllSuperVaults() external view returns (address[] memory) {
         return _superVaults.values();
     }
@@ -1139,7 +1200,6 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
         // [Property 9: Rate Limit Enforcement]
         // Enforce minimum time interval between PPS updates to prevent spam and ensure
         // adequate time for market conditions to change meaningfully.
-        // Skip this check if strategy is paused (allows immediate update after unpause).
         if (!_strategyData[args.strategy].isPaused && (args.timestamp - lastUpdate < minInterval)) {
             emit UpdateTooFrequent();
             return;
@@ -1211,7 +1271,7 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
                 _strategyData[args.strategy].ppsStale = false;
                 emit StrategyPPSStaleReset(args.strategy);
             }
-            emit PPSUpdated(args.strategy, args.pps, args.validatorSet, args.totalValidators, args.timestamp);
+            emit PPSUpdated(args.strategy, args.pps, args.timestamp);
         }
         // If checks failed, PPS remains at old value (safer for external integrators)
     }

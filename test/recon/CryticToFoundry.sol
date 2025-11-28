@@ -330,8 +330,6 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         uint256 maxDep = superVault.maxRedeem(_getActor());
         vm.expectRevert();
         superVault.redeem(maxDep + 1, _getActor(), _getActor());
-
-        doomsday_redemptionsNeverReverts(shares);
     }
 
     // forge test --match-test test_property_previewEquivalenceFromAssets_ -vvv

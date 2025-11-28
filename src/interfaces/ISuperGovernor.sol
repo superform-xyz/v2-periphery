@@ -43,8 +43,6 @@ interface ISuperGovernor is IAccessControl {
     error NO_PROPOSED_FEE(FeeType feeType);
     /// @notice Thrown when timelock period has not expired
     error TIMELOCK_NOT_EXPIRED();
-    /// @notice Thrown when a validator is not registered
-    error VALIDATOR_NOT_REGISTERED();
     /// @notice Thrown when a validator is already registered
     error VALIDATOR_ALREADY_REGISTERED();
     /// @notice Thrown when trying to change active PPS oracle directly
@@ -75,10 +73,6 @@ interface ISuperGovernor is IAccessControl {
     error MAX_STALENESS_TOO_LOW();
     /// @notice Thrown when there's no pending change but one is expected
     error NO_PENDING_CHANGE();
-    /// @notice Thrown when a manager is not registered
-    error MANAGER_NOT_REGISTERED();
-    /// @notice Thrown when a manager is already registered
-    error MANAGER_ALREADY_REGISTERED();
     /// @notice Thrown when the super oracle is not found
     error SUPER_ORACLE_NOT_FOUND();
     /// @notice Thrown when the up token is not found
@@ -135,10 +129,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param newRoot The new Merkle root.
     event SuperBankHookMerkleRootUpdated(address indexed hook, bytes32 newRoot);
 
-    /// @notice Emitted when the active PPS Oracle's quorum requirement is updated
-    /// @param quorum The new quorum value
-    event PPSOracleQuorumUpdated(uint256 quorum);
-
     /// @notice Emitted when an active PPS oracle is initially set
     /// @param oracle The address of the set oracle
     event ActivePPSOracleSet(address indexed oracle);
@@ -174,14 +164,6 @@ interface ISuperGovernor is IAccessControl {
     /// @param newMinStaleness The new minimum staleness value
     event MinStalenessChanged(uint256 newMinStaleness);
 
-    /// @notice Emitted when a superform manager is added
-    /// @param manager The address of the added manager
-    event SuperformManagerAdded(address indexed manager);
-
-    /// @notice Emitted when a superform manager is removed
-    /// @param manager The address of the removed manager
-    event SuperformManagerRemoved(address indexed manager);
-
     /// @notice Emitted when gas info is set
     /// @param oracle The address of the oracle
     /// @param gasIncreasePerEntryBatch The gas increase per entry for the oracle
@@ -203,7 +185,17 @@ interface ISuperGovernor is IAccessControl {
     /// @dev Only SuperGovernor can call this function directly
     /// @param strategy The strategy address
     /// @param newManager The new primary manager address
-    function changePrimaryManager(address strategy, address newManager) external;
+    /// @param feeRecipient The new fee recipient address
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
+
+    /// @notice Resets the high-water mark PPS to the current PPS
+    /// @dev Only SuperGovernor can call this function
+    /// @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until the fee config are updated after the week timelock.
+    /// @dev This function will reset the High Water Mark (vaultHwmPps) to the current PPS value for the given strategy
+    /// @param strategy Address of the strategy to reset the high-water mark for
+    function resetHighWaterMark(address strategy) external;
 
     /// @notice Permanently freezes all manager takeovers globally
     function freezeManagerTakeover() external;
@@ -369,18 +361,7 @@ interface ISuperGovernor is IAccessControl {
     function proposeMinStaleness(uint256 newMinStaleness) external;
 
     /// @notice Executes a previously proposed minimum staleness change after timelock has expired
-    function executeMinStalenesChange() external;
-
-    /*//////////////////////////////////////////////////////////////
-                        SUPERFORM MANAGER MANAGEMENT
-    //////////////////////////////////////////////////////////////*/
-    /// @notice Adds a manager to the superform managers list
-    /// @param manager Address of the manager to add
-    function addSuperformManager(address manager) external;
-
-    /// @notice Removes a manager from the superform managers list
-    /// @param manager Address of the manager to remove
-    function removeSuperformManager(address manager) external;
+    function executeMinStalenessChange() external;
 
     /*//////////////////////////////////////////////////////////////
                            SUPERBANK HOOKS MGMT
@@ -524,32 +505,6 @@ interface ISuperGovernor is IAccessControl {
     /// @return effectiveTime The timestamp when the change becomes effective
     function getProposedUpkeepPaymentsStatus() external view returns (bool enabled, uint256 effectiveTime);
 
-    /// @notice Checks if an address is a registered superform manager
-    /// @param manager The address to check
-    /// @return isSuperform True if the address is a superform manager
-    function isSuperformManager(address manager) external view returns (bool);
-
-    /// @notice Gets the list of all superform managers
-    /// @return managers The list of all superform manager addresses
-    function getAllSuperformManagers() external view returns (address[] memory);
-
-    /// @notice Returns up to `limit` superform managers starting from `cursor`
-    /// @param cursor The index to start reading from (0 … len-1)
-    /// @param limit The maximum number of records to return
-    /// @return chunkOfManagers The array slice [cursor … cursor+limit-1]
-    /// @return next The next cursor value the caller should use, or 0 to indicate done
-    function getManagersPaginated(
-        uint256 cursor,
-        uint256 limit
-    )
-        external
-        view
-        returns (address[] memory chunkOfManagers, uint256 next);
-
-    /// @notice Gets the number of superform managers
-    /// @return The number of superform managers
-    function getSuperformManagersCount() external view returns (uint256);
-
     /// @notice Gets the SUP strategy ID
     /// @return The ID of the SUP strategy vault
     function SUP_STRATEGY() external view returns (bytes32);
@@ -582,6 +537,9 @@ interface ISuperGovernor is IAccessControl {
     /// @param oracle_ The address of the oracle to get gas info for
     /// @return The gas info for the specified oracle
     function getGasInfo(address oracle_) external view returns (uint256);
+
+    /// @notice Cancels a previously proposed oracle provider removal
+    function cancelOracleProviderRemoval() external;
 
     /// @notice Executes a previously proposed oracle provider removal after timelock has expired
     function executeOracleProviderRemoval() external;

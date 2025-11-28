@@ -14,7 +14,7 @@ import { Properties } from "../Properties.sol";
 abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
     function superVaultAggregator_proposeChangePrimaryManager_clamped() public {
-        superVaultAggregator_proposeChangePrimaryManager(address(superVaultStrategy), _getActor());
+        superVaultAggregator_proposeChangePrimaryManager(address(superVaultStrategy), _getActor(), _getActor());
     }
 
     function superVaultAggregator_cancelChangePrimaryManager_clamped() public {
@@ -123,8 +123,8 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
     //     superVaultAggregator.forwardPPS(updateAuthority, args);
     // }
 
-    function superVaultAggregator_proposeChangePrimaryManager(address strategy, address newManager) public asActor {
-        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager);
+    function superVaultAggregator_proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) public asActor {
+        superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, feeRecipient);
     }
 
     function superVaultAggregator_cancelChangePrimaryManager(address strategy) public asActor {

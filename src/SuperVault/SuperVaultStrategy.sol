@@ -16,7 +16,6 @@ import { LibSort } from "solady/utils/LibSort.sol";
 import {
     ISuperHook,
     ISuperHookResult,
-    ISuperHookResultOutflow,
     ISuperHookContextAware,
     ISuperHookInspector
 } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
@@ -47,8 +46,8 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     uint256 private constant BPS_PRECISION = 10_000;
     uint256 private constant MAX_PERFORMANCE_FEE = 5100; // 51% max performance fee
 
-    /// @dev Default redeem slippage tolerance when user hasn't set their own (1%)
-    uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 100;
+    /// @dev Default redeem slippage tolerance when user hasn't set their own (0.5%)
+    uint16 public constant DEFAULT_REDEEM_SLIPPAGE_BPS = 50;
 
     /// @dev Minimum allowed staleness threshold for PPS updates (prevents too-frequent validation)
     uint256 private constant MIN_PPS_EXPIRATION_THRESHOLD = 1 minutes;
@@ -58,6 +57,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
     /// @dev Timelock period after unpause during which performance fee skimming is disabled (rug prevention)
     uint256 private constant POST_UNPAUSE_SKIM_TIMELOCK = 12 hours;
+
+    /// @dev Timelock duration for fee config and PPS expiration threshold updates
+    uint256 private constant PROPOSAL_TIMELOCK = 1 weeks;
 
     uint256 public PRECISION; // Slot 0: 32 bytes
 
@@ -96,7 +98,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice High-water mark price-per-share for performance fee calculation
     /// @dev Represents the PPS at which performance fees were last collected
     ///      Scaled by PRECISION (e.g., 1e6 for USDC vaults, 1e18 for 18-decimal vaults)
-    ///      Only updated during skimPerformanceFee() when fees are taken
+    ///      Updated during skimPerformanceFee() when fees are taken, and in executeVaultFeeConfigUpdate()
     uint256 public vaultHwmPps;
 
     // --- Redeem Request State ---
@@ -318,7 +320,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         uint256[] calldata totalAssetsOut
     )
         external
-        payable
         nonReentrant
     {
         _isManager(msg.sender);
@@ -394,16 +395,16 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         if (currentPPS == 0) revert INVALID_PPS();
 
         // Get the high-water mark PPS (baseline for fee calculation)
-        uint256 hwmPPS = vaultHwmPps;
+        uint256 hwmPps = vaultHwmPps;
 
         // Check if there's any per-share growth above HWM
-        if (currentPPS <= hwmPPS) {
+        if (currentPPS <= hwmPps) {
             // No growth above HWM, no fee to collect
             return;
         }
 
         // Calculate PPS growth above HWM
-        uint256 ppsGrowth = currentPPS - hwmPPS;
+        uint256 ppsGrowth = currentPPS - hwmPps;
 
         // Calculate total profit: (PPS growth) * (total shares) / PRECISION
         // This represents the total assets gained above the high-water mark
@@ -458,7 +459,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
                         YIELD SOURCE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ISuperVaultStrategy
-    function manageYieldSource(address source, address oracle, uint8 actionType) external {
+    function manageYieldSource(address source, address oracle, YieldSourceAction actionType) external {
         _isPrimaryManager(msg.sender);
         _manageYieldSource(source, oracle, actionType);
     }
@@ -467,7 +468,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     function manageYieldSources(
         address[] calldata sources,
         address[] calldata oracles,
-        uint8[] calldata actionTypes
+        YieldSourceAction[] calldata actionTypes
     )
         external
     {
@@ -481,6 +482,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         for (uint256 i; i < length; ++i) {
             _manageYieldSource(sources[i], oracles[i], actionTypes[i]);
         }
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function changeFeeRecipient(address newRecipient) external {
+        if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
+
+        feeConfig.recipient = newRecipient;
+        emit FeeRecipientChanged(newRecipient);
     }
 
     /// @inheritdoc ISuperVaultStrategy
@@ -499,7 +508,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         proposedFeeConfig = FeeConfig({
             performanceFeeBps: performanceFeeBps, managementFeeBps: managementFeeBps, recipient: recipient
         });
-        feeConfigEffectiveTime = block.timestamp + 1 weeks;
+        feeConfigEffectiveTime = block.timestamp + PROPOSAL_TIMELOCK;
         emit VaultFeeConfigProposed(performanceFeeBps, managementFeeBps, recipient, feeConfigEffectiveTime);
     }
 
@@ -527,15 +536,24 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultStrategy
-    function managePPSExpiration(uint8 action, uint256 staleness_) external {
-        if (action == 1) {
+    function resetHighWaterMark(uint256 newHwmPps) external {
+        if (msg.sender != address(_getSuperVaultAggregator())) revert ACCESS_DENIED();
+
+        if (newHwmPps == 0) revert INVALID_PPS();
+
+        vaultHwmPps = newHwmPps;
+
+        emit HighWaterMarkReset(newHwmPps);
+    }
+
+    /// @inheritdoc ISuperVaultStrategy
+    function managePPSExpiration(PPSExpirationAction action, uint256 staleness_) external {
+        if (action == PPSExpirationAction.Propose) {
             _proposePPSExpiration(staleness_);
-        } else if (action == 2) {
+        } else if (action == PPSExpirationAction.Execute) {
             _updatePPSExpiration();
-        } else if (action == 3) {
+        } else if (action == PPSExpirationAction.Cancel) {
             _cancelPPSExpirationProposalUpdate();
-        } else {
-            revert ACTION_TYPE_DISALLOWED();
         }
     }
 
@@ -730,6 +748,9 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         ISuperHook(address(vars.hookContract)).setExecutionContext(address(this));
         vars.executions = vars.hookContract.build(prevHook, address(this), hookCalldata);
         for (uint256 j; j < vars.executions.length; ++j) {
+            // Block hooks from calling the SuperVaultAggregator directly
+            address aggregatorAddr = address(_getSuperVaultAggregator());
+            if (vars.executions[j].target == aggregatorAddr) revert OPERATION_FAILED();
             (vars.success,) =
                 vars.executions[j].target.call{ value: vars.executions[j].value }(vars.executions[j].callData);
             if (!vars.success) revert OPERATION_FAILED();
@@ -833,16 +854,14 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     /// @notice Internal function to manage a yield source
     /// @param source Address of the yield source
     /// @param oracle Address of the oracle
-    /// @param actionType Type of action: 0=Add, 1=UpdateOracle, 2=Remove
-    function _manageYieldSource(address source, address oracle, uint8 actionType) internal {
-        if (actionType == 0) {
+    /// @param actionType Type of action (see YieldSourceAction enum)
+    function _manageYieldSource(address source, address oracle, YieldSourceAction actionType) internal {
+        if (actionType == YieldSourceAction.Add) {
             _addYieldSource(source, oracle);
-        } else if (actionType == 1) {
+        } else if (actionType == YieldSourceAction.UpdateOracle) {
             _updateYieldSourceOracle(source, oracle);
-        } else if (actionType == 2) {
+        } else if (actionType == YieldSourceAction.Remove) {
             _removeYieldSource(source);
-        } else {
-            revert ACTION_TYPE_DISALLOWED();
         }
     }
 
@@ -895,7 +914,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
 
         uint256 currentProposedThreshold = proposedPPSExpiryThreshold;
         proposedPPSExpiryThreshold = _threshold;
-        ppsExpiryThresholdEffectiveTime = block.timestamp + 1 weeks;
+        ppsExpiryThresholdEffectiveTime = block.timestamp + PROPOSAL_TIMELOCK;
 
         emit PPSExpirationProposed(currentProposedThreshold, _threshold, ppsExpiryThresholdEffectiveTime);
     }
@@ -946,13 +965,6 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         } catch {
             return false;
         }
-    }
-
-    /// @notice Internal function to get the previous hook's output amount
-    /// @param prevHook Address of the previous hook
-    /// @return Output amount of the previous hook
-    function _getPreviousHookOutAmount(address prevHook) private view returns (uint256) {
-        return ISuperHookResultOutflow(prevHook).getOutAmount(address(this));
     }
 
     /// @notice Internal function to handle a redeem
@@ -1018,15 +1030,15 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
     }
 
     /// @notice Internal function to handle a redeem claim
+    /// @dev Only updates state. Vault is responsible for calling Escrow.returnAssets() after this returns.
+    ///      Callers (SuperVault.withdraw/redeem) already validate assetsToClaim <= state.maxWithdraw.
     /// @param controller Address of the controller
-    /// @param receiver Address of the receiver
+    /// @param receiver Address of the receiver (used for event only)
     /// @param assetsToClaim Amount of assets to claim
     function _handleClaimRedeem(address controller, address receiver, uint256 assetsToClaim) private {
         if (assetsToClaim == 0) revert INVALID_AMOUNT();
         if (controller == address(0)) revert ZERO_ADDRESS();
         SuperVaultState storage state = superVaultState[controller];
-        if (state.maxWithdraw < assetsToClaim) revert INVALID_REDEEM_CLAIM();
-        ISuperVault(_vault).extractAndSendAssets(receiver, assetsToClaim);
         state.maxWithdraw -= assetsToClaim;
         emit RedeemRequestClaimed(receiver, controller, assetsToClaim, 0);
     }

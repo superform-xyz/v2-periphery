@@ -334,8 +334,8 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     //     superVaultAggregator.setStrategyHooksRootVetoStatus(strategy, vetoed);
     // }
 
-    function superVaultAggregator_changePrimaryManager(address strategy, address newManager) public asAdmin {
-        superVaultAggregator.changePrimaryManager(strategy, newManager);
+    function superVaultAggregator_changePrimaryManager(address strategy, address newManager, address feeRecipient) public asAdmin {
+        superVaultAggregator.changePrimaryManager(strategy, newManager, feeRecipient);
     }
 
     /// Helpers
