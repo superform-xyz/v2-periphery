@@ -23,6 +23,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     // Roles & Addresses
     address internal sGovernor;
     address internal governor;
+    address internal guardian;
     address internal oracleManager;
     address internal treasury;
     address internal user;
@@ -60,6 +61,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function setUp() public {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
+        guardian = _deployAccount(0x10, "Guardian");
         treasury = _deployAccount(0x3, "Treasury");
         oracleManager = _deployAccount(0x4, "OracleManager");
         user = _deployAccount(0x5, "User");
@@ -78,7 +80,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, guardian, treasury);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -110,7 +112,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
-        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
         vm.stopPrank();
     }
 
@@ -129,28 +130,35 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, oracleManager, governor, treasury);
+        new SuperGovernor(address(0), governor, governor, oracleManager, governor, guardian, treasury);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, address(0), governor, oracleManager, governor, treasury);
+        new SuperGovernor(sGovernor, address(0), governor, oracleManager, governor, guardian, treasury);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, address(0));
+        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, guardian, address(0));
     }
 
     /// @notice Tests constructor revert on zero address oracleManager.
     function test_constructor_Revert_ZeroOracleManager() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, governor, governor, address(0), governor, treasury);
+        new SuperGovernor(sGovernor, governor, governor, address(0), governor, guardian, treasury);
+    }
+
+    /// @notice Tests constructor revert on zero address guardian.
+    function test_constructor_Revert_ZeroGuardian() public {
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+
+        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, address(0), treasury);
     }
 
     // =============================================================
@@ -318,7 +326,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_IsGuardian() public view {
-        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertTrue(superGovernor.isGuardian(guardian), "Guardian should be a guardian");
+        assertFalse(superGovernor.isGuardian(governor), "Governor should not be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
@@ -382,7 +391,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangePrimaryManager_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
@@ -585,7 +594,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangeHooksRootUpdateTimelock_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFE, "FreshSuperGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
@@ -640,7 +649,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // The constructor automatically grants GOVERNOR_ROLE to the 2nd parameter (governor)
         address freshSGovernor = _deployAccount(0xFD, "FreshSuperGovernor3");
         address freshGovernor2 = _deployAccount(0xFC, "FreshGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury);
 
         bytes32 newRoot = keccak256("new global hooks root");
 
@@ -670,7 +679,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_SetGlobalHooksVetoStatus() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         superGovernor.setGlobalHooksRootVetoStatus(true);
         bool vetoed = aggregator.isGlobalHooksRootVetoed();
         assertTrue(vetoed, "Global hooks should be vetoed");
@@ -680,18 +689,10 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Covers SuperGovernor.sol:229-230 - if (aggregator == address(0)) revert CONTRACT_NOT_FOUND()
     function test_SetGlobalHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
-        // Pass governor as 2nd param, and grant GUARDIAN_ROLE to governor after
         address freshSGovernor = _deployAccount(0xFB, "FreshSuperGovernor4");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
-        // Get GUARDIAN_ROLE before prank to avoid consuming the prank
-        bytes32 guardianRole = freshGovernor.GUARDIAN_ROLE();
-
-        // Grant GUARDIAN_ROLE to governor (who already has GOVERNOR_ROLE from constructor)
-        vm.prank(freshSGovernor);
-        freshGovernor.grantRole(guardianRole, governor);
-
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         freshGovernor.setGlobalHooksRootVetoStatus(true);
     }
@@ -717,7 +718,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_SetStrategyHooksVetoStatus() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
         bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
         assertTrue(vetoed, "Strategy hooks should be vetoed");
@@ -726,7 +727,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests setStrategyHooksRootVetoStatus reverts when strategy is zero address
     /// @dev Covers SuperGovernor.sol:237 - if (strategy == address(0)) revert INVALID_ADDRESS()
     function test_SetStrategyHooksVetoStatus_RevertsOnZeroStrategy() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
         superGovernor.setStrategyHooksRootVetoStatus(address(0), true);
     }
@@ -735,18 +736,10 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Covers SuperGovernor.sol:239-240 - if (aggregator == address(0)) revert CONTRACT_NOT_FOUND()
     function test_SetStrategyHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
-        // Pass governor as 2nd param, and grant GUARDIAN_ROLE to governor after
         address freshSGovernor = _deployAccount(0xF9, "FreshSuperGovernor5");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
-        // Get GUARDIAN_ROLE before prank to avoid consuming the prank
-        bytes32 guardianRole = freshGovernor.GUARDIAN_ROLE();
-
-        // Grant GUARDIAN_ROLE to governor (who already has GOVERNOR_ROLE from constructor)
-        vm.prank(freshSGovernor);
-        freshGovernor.grantRole(guardianRole, governor);
-
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         freshGovernor.setStrategyHooksRootVetoStatus(strategy1, true);
     }
@@ -798,7 +791,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xF7, "FreshSuperGovernor6");
         address freshGovernor2 = _deployAccount(0xF6, "FreshGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury);
 
         uint256 claimAmount = 1000;
 

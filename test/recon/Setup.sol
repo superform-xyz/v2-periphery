@@ -177,6 +177,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
             address(this), // bankManager role
             address(this), // oracleManager role
             address(this), // gasManager role
+            address(this), // guardian role
             feeRecipient // treasury
         );
 

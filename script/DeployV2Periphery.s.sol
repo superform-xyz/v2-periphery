@@ -298,10 +298,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 __getBytecode(SUPER_GOVERNOR_KEY, env),
                 abi.encode(
                     configuration.owner,
-                    configuration.owner,
+                    configuration.governor,
                     configuration.bankManager,
                     configuration.oracleManager,
                     configuration.gasManager,
+                    configuration.guardian,
                     configuration.treasury
                 )
             )
