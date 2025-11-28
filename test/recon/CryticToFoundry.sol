@@ -735,4 +735,30 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
         doomsday_cannotClaimMoreThanRequested(shares);
     }
+    
+    // forge test --match-test test_property_comparePreviewMintAndConvertToAssets_0 -vvv 
+    function test_property_comparePreviewMintAndConvertToAssets_3() public {
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0,10000,0x00000000000000000000000000000000DeaDBeef);
+    
+        vm.warp(block.timestamp + 604924);
+    
+        vm.roll(block.number + 1);
+    
+        superVaultStrategy_executeVaultFeeConfigUpdate();
+    
+        property_comparePreviewMintAndConvertToAssets(1);
+    }
+
+    // forge test --match-test test_property_previewEquivalenceFromAssets_2 -vvv 
+    function test_property_previewEquivalenceFromAssets_4() public {
+        superVaultStrategy_proposeVaultFeeConfigUpdate(0,10000,0x00000000000000000000000000000000DeaDBeef);
+
+        vm.warp(block.timestamp + 604955);
+
+        vm.roll(block.number + 1);
+
+        superVaultStrategy_executeVaultFeeConfigUpdate();
+
+        property_previewEquivalenceFromAssets(1);
+    }
 }

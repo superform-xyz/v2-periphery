@@ -15,7 +15,6 @@ import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHoo
 import { ISuperVaultStrategy } from "src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 
 // Test dependencies
-import { console2 } from "forge-std/console2.sol";
 import { MockERC7540Tester } from "test/recon/mocks/MockERC7540Tester.sol";
 import { YieldSourceType } from "test/recon/managers/YieldManager.sol";
 import { IStandardizedYield } from "@superform-v2-core/src/vendor/pendle/IStandardizedYield.sol";
@@ -416,7 +415,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     function _executeRedeemFulfillment(uint256 totalRedeemShares, address[] memory requestingUsers) internal {
         (uint256 expectedAssetsOut, address hookAddress, bytes memory hookData) =
             _convertSVStoUnderlyingShares(totalRedeemShares);
-        console2.log("Expected Assets Out redeem hooks", expectedAssetsOut);
 
         address[] memory hooks = new address[](1);
         hooks[0] = hookAddress;
@@ -448,10 +446,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
 
         // Fulfill the redemption requests from liquidity
         superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
-
-        for (uint256 i; i < totalAssetsOut.length; i++) {
-            console2.log("Total Assets Out", totalAssetsOut[i]);
-        }
     }
 
     function _executeRedeemFulfillmentWithLoss(
@@ -463,17 +457,12 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
     {
         (uint256 expectedAssets,,) = _convertSVStoUnderlyingShares_WithLoss(totalRedeemShares, lossOnWithdraw);
         _executeRedeemHooksWithLoss(totalRedeemShares, lossOnWithdraw);
-        console2.log("Expected Assets Out redeem hooks with loss", expectedAssets);
 
         uint256[] memory expectedAssetsArr = new uint256[](1);
         expectedAssetsArr[0] = expectedAssets;
 
         uint256[] memory totalAssetsOut =
             calculateAdjustedFulfillment(superVaultStrategy, requestingUsers, expectedAssetsArr);
-
-        for (uint256 i; i < totalAssetsOut.length; i++) {
-            console2.log("Total Assets Out", totalAssetsOut[i]);
-        }
 
         superVaultStrategy.fulfillRedeemRequests(requestingUsers, totalAssetsOut);
     }
@@ -620,8 +609,6 @@ abstract contract AdminTargets is BaseTargetFunctions, Properties {
             // Balance is sufficient, no truncation needed
             return expectedShares;
         }
-
-        console2.log("---");
 
         // Calculate minimum acceptable balance based on tolerance
         uint256 minAcceptableBalance = expectedShares * (10_000 - toleranceBps) / 10_000;

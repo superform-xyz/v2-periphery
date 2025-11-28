@@ -1,0 +1,194 @@
+
+# Recon Recap for superform-xyz/v2-periphery
+
+## Fuzzer overview
+- Fuzzer: ECHIDNA
+- Duration: 10m56s
+- Coverage: 115885
+- Failed: 0
+- Passed: 170
+- Number of tests: 275749
+
+## Link to job
+https://getrecon.xyz/shares/58399797-f1a1-4fd9-9563-edf2bc326308
+
+<details>
+  <summary> <h2> Results </h2> </summary>
+
+| Property | Status |
+|----------|--------|
+| superVaultStrategy_handleOperations4626Mint(address,uint256,uint256,uint256) | ✅ |
+| superVault_transfer(uint256,uint256) | ✅ |
+| superVaultStrategy_manageYieldSource(address,address,uint8) | ✅ |
+| doomsday_maxRedeemResetsAfterFullRedemption(uint256) | ✅ |
+| superGovernor_proposeFee(uint8,uint256) | ✅ |
+| superGovernor_executeUpkeepClaim(uint256) | ✅ |
+| superVault_requestRedeem(uint256) | ✅ |
+| doomsday_allUsersCanWithdraw() | ✅ |
+| superVaultStrategy_fulfillRedeemRequests_clamped(uint256) | ✅ |
+| superVaultStrategy_fulfillRedeemRequests(uint256,address[]) | ✅ |
+| yieldSource_claimCancelRedeemRequest(uint256,address,address) | ✅ |
+| superVaultEscrow_initialize(address) | ✅ |
+| yieldSource_withdraw(uint256,address,address) | ✅ |
+| superGovernor_executeFeeUpdate_clamped(uint256) | ✅ |
+| property_comparePreviewDepositAndConvertToShares(uint256) | ✅ |
+| _getRandomActor(uint256) | ✅ |
+| superVaultStrategy_executeVaultFeeConfigUpdate() | ✅ |
+| superGovernor_proposeUpkeepPaymentsChange(bool) | ✅ |
+| superVaultAggregator_executeChangePrimaryManager(address) | ✅ |
+| excludeSenders() | ✅ |
+| superVaultAggregator_proposeChangePrimaryManager(address,address,address) | ✅ |
+| crytic_erc7540_4_mint(uint256) | ✅ |
+| _executeRedeemRequestsArgs(uint256) | ✅ |
+| property_maxDepositZeroWhenPaused() | ✅ |
+| targetInterfaces() | ✅ |
+| yieldSource_setDecimalsOffset(uint8) | ✅ |
+| asset_approve(address,uint128) | ✅ |
+| superGovernor_executeFeeUpdate(uint8) | ✅ |
+| superVaultAggregator_removeSecondaryManager(address,address) | ✅ |
+| add_new_vault() | ✅ |
+| crytic_erc7540_7_withdraw(uint256) | ✅ |
+| targetSenders() | ✅ |
+| superVault_invalidateNonce(bytes32) | ✅ |
+| superVault_redeem_clamped(uint256) | ✅ |
+| ECDSAPPSOracle_updatePPS((address[],bytes[][],uint256[],uint256[])) | ✅ |
+| targetContracts() | ✅ |
+| crytic_erc7540_1() | ✅ |
+| crytic_erc7540_4_withdraw(uint256) | ✅ |
+| yieldSource_requestDeposit(uint256,address,address) | ✅ |
+| property_previewEquivalenceFromAssets(uint256) | ✅ |
+| erc7540_4_redeem(address,uint256) | ✅ |
+| superVault_requestRedeem_clamped(uint256) | ✅ |
+| doomsday_previewMintEquivalence(uint256) | ✅ |
+| mockERC4626YieldSourceOracle_setValidAsset(address,bool) | ✅ |
+| erc7540_6(address) | ✅ |
+| yieldSource_transferFrom(address,address,uint256) | ✅ |
+| switch_asset(uint256) | ✅ |
+| doomsday_cannotClaimMoreThanRequested(uint256) | ✅ |
+| superVaultAggregator_addSecondaryManager(address,address) | ✅ |
+| superVaultAggregator_updateDeviationThreshold(address,uint256) | ✅ |
+| property_assetBacking() | ✅ |
+| erc7540_3(address) | ✅ |
+| yieldSource_simulateGain(uint256) | ✅ |
+| property_maxMintZeroWhenPaused() | ✅ |
+| superVaultAggregator_createVault_clamped(uint256,uint256,uint256,uint256) | ✅ |
+| yieldSource_deposit7540(uint256,address,address) | ✅ |
+| property_maxRedeemMaxWithdrawSymmetry() | ✅ |
+| MAX_ROUNDING_ERROR() | ✅ |
+| _sumStrategyAssets() | ✅ |
+| asset_mint(address,uint128) | ✅ |
+| targetArtifactSelectors() | ✅ |
+| switchActor(uint256) | ✅ |
+| erc7540_7_withdraw(address,uint256) | ✅ |
+| yieldSource_requestRedeem(uint256,address,address) | ✅ |
+| superVaultEscrow_escrowShares(address,uint256) | ✅ |
+| superVault_redeem(uint256) | ✅ |
+| superVault_withdraw_clamped(uint256) | ✅ |
+| property_cancelDoesntChangeTotalSupply() | ✅ |
+| superVaultAggregator_cancelChangePrimaryManager_clamped() | ✅ |
+| superVault_withdraw(uint256) | ✅ |
+| yieldSource_cancelDepositRequest(uint256,address) | ✅ |
+| yieldSource_redeem(uint256,address,address) | ✅ |
+| property_escrowBalance() | ✅ |
+| superVault_cancelRedeem() | ✅ |
+| superVaultAggregator_createVault((address,string,string,address,address[],uint256,uint256,(uint256,uint256,address))) | ✅ |
+| erc7540_4_mint(address,uint256) | ✅ |
+| yieldSource_simulateLoss(uint256) | ✅ |
+| add_new_asset(uint8) | ✅ |
+| superVaultStrategy_manageYieldSources(address[],address[],uint8[]) | ✅ |
+| property_previewEquivalenceFromShares(uint256) | ✅ |
+| erc7540_5(address,address,uint256) | ✅ |
+| crytic_erc7540_5(uint256) | ✅ |
+| setpreviewAssetsGreater(uint256) | ✅ |
+| targetArtifacts() | ✅ |
+| superVaultAggregator_cancelChangePrimaryManager(address) | ✅ |
+| superGovernor_proposeFee_clamped(uint256,uint256) | ✅ |
+| erc7540_1(address) | ✅ |
+| superVault_deposit(uint256) | ✅ |
+| property_avgPPSMonotonicity() | ✅ |
+| property_oraclePPSDoesntChangeOnAddOrRemove() | ✅ |
+| targetSelectors() | ✅ |
+| doomsday_previewDepositEquivalence(uint256) | ✅ |
+| superVaultStrategy_fulfillRedeemRequests_WithLoss(uint256,uint256,address[]) | ✅ |
+| ECDSAPPSOracle_updatePPS_clamped(uint256) | ✅ |
+| superGovernor_proposeMinStaleness(uint256) | ✅ |
+| superVaultStrategy_executeHooks((address[],bytes[],uint256[],bytes32[][],bytes32[][])) | ✅ |
+| yieldSource_switchToERC4626() | ✅ |
+| yieldSource_transfer(address,uint256) | ✅ |
+| yieldSource_setLossOnWithdraw(uint256) | ✅ |
+| yieldSource_setOperator(address,bool) | ✅ |
+| yieldSource_deposit5115(address,address,uint256,uint256,bool) | ✅ |
+| superVaultAggregator_changePrimaryManager(address,address,address) | ✅ |
+| yieldSource_switchToERC7540() | ✅ |
+| superVaultAggregator_claimUpkeep(uint256) | ✅ |
+| superVaultStrategy_handleOperations7540(uint8,address,address,uint256) | ✅ |
+| superGovernor_proposeUpkeepPaymentsChange_clamped() | ✅ |
+| superVault_setOperator(uint256,bool) | ✅ |
+| erc7540_4_deposit(address,uint256) | ✅ |
+| superVaultAggregator_depositUpkeep(uint256) | ✅ |
+| crytic_erc7540_4_redeem(uint256) | ✅ |
+| property_avgPPSDoesntDecrease() | ✅ |
+| erc7540_7_deposit(address,uint256) | ✅ |
+| yieldSource_cancelRedeemRequest(uint256,address) | ✅ |
+| property_fulfillOnlyBurnsRequestedAmount() | ✅ |
+| yieldSource_setRevertBehavior4626(uint8,uint8) | ✅ |
+| excludeSelectors() | ✅ |
+| doomsday_maxWithdrawResetsAfterFullWithdrawal(uint256) | ✅ |
+| excludeArtifacts() | ✅ |
+| erc7540_4_withdraw(address,uint256) | ✅ |
+| erc7540_7_mint(address,uint256) | ✅ |
+| superVault_approve(address,uint256) | ✅ |
+| doomsday_fulfillDoesntOverRedeemMultipleActors(uint256[3],uint256[3]) | ✅ |
+| property_shareSolvency() | ✅ |
+| failed() | ✅ |
+| superGovernor_executeUpkeepPaymentsChange() | ✅ |
+| superVaultStrategy_proposeVaultFeeConfigUpdate(uint256,uint256,address) | ✅ |
+| superVaultAggregator_executeChangePrimaryManager_clamped() | ✅ |
+| mockERC5115YieldSourceOracle_setValidAsset(address,bool) | ✅ |
+| switch_vault(uint256) | ✅ |
+| property_totalSharesDontDecreaseOnRedemptionRequest() | ✅ |
+| doomsday_mintRedeemSymmetrical(uint256) | ✅ |
+| yieldSource_switchToERC5115() | ✅ |
+| crytic_erc7540_3() | ✅ |
+| crytic_erc7540_2() | ✅ |
+| yieldSource_switchRandom(uint256) | ✅ |
+| yieldSource_redeem5115(address,uint256,address,uint256,bool) | ✅ |
+| property_totalAssets() | ✅ |
+| yieldSource_claimCancelDepositRequest(uint256,address,address) | ✅ |
+| superVaultEscrow_returnShares(address,uint256) | ✅ |
+| superGovernor_proposeGlobalHooksRoot_clamped(bytes32) | ✅ |
+| yieldSource_setRevertBehavior5115(uint8) | ✅ |
+| property_sumOfClaimable() | ✅ |
+| excludeContracts() | ✅ |
+| erc7540_7_redeem(address,uint256) | ✅ |
+| superVault_transferFrom(uint256,uint256,uint256) | ✅ |
+| superVaultAggregator_proposeChangePrimaryManager_clamped() | ✅ |
+| erc7540_2(address) | ✅ |
+| setPreviewSharesGreater(uint256) | ✅ |
+| superVaultAggregator_proposeWithdrawUpkeep(address) | ✅ |
+| superVaultStrategy_handleOperations7540_clamped(uint256,uint256) | ✅ |
+| doomsday_depositWithdrawSymmetrical(uint256) | ✅ |
+| property_comparePreviewMintAndConvertToAssets(uint256) | ✅ |
+| superGovernor_executeMinStalenessChange() | ✅ |
+| superVaultStrategy_executeHooks_clamped(uint256[],uint256[],bool[]) | ✅ |
+| property_sumOfAssetsMaxWithdrawable() | ✅ |
+| doomsday_primaryManagerAlwaysChangeable() | ✅ |
+| yieldSource_approve(address,uint256) | ✅ |
+| superVault_burnShares(uint256) | ✅ |
+| superVaultStrategy_handleOperations4626Deposit(address,uint256) | ✅ |
+| IS_TEST() | ✅ |
+| superVault_mint(uint256) | ✅ |
+| superVaultStrategy_manageYieldSource_clamped(uint256) | ✅ |
+| superVaultAggregator_executeWithdrawUpkeep(address) | ✅ |
+| yieldSource_mint(uint256,address) | ✅ |
+| crytic_erc7540_4_deposit(uint256) | ✅ |
+| crytic_erc7540_7_redeem(uint256) | ✅ |
+| yieldSource_deposit(uint256,address) | ✅ |
+| yieldSourceOracle_setValidAsset_clamped() | ✅ |
+| superGovernor_proposeGlobalHooksRoot(bytes32) | ✅ |
+| AssertionFailed(..) | ✅ |
+
+
+
+</details>
+
