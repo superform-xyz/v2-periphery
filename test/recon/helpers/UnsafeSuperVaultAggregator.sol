@@ -1052,6 +1052,21 @@ contract UnsafeSuperVaultAggregator is ISuperVaultAggregator {
     }
 
     /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultsCount() external view returns (uint256) {
+        return _superVaults.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultStrategiesCount() external view returns (uint256) {
+        return _superVaultStrategies.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
+    function getSuperVaultEscrowsCount() external view returns (uint256) {
+        return _superVaultEscrows.length();
+    }
+
+    /// @inheritdoc ISuperVaultAggregator
     function getAllSuperVaults() external view returns (address[] memory) {
         return _superVaults.values();
     }
