@@ -15,13 +15,6 @@ import { console2 } from "forge-std/console2.sol";
 ///      Step 4: Revoke DEFAULT_ADMIN_ROLE from deployer
 contract TransferSuperGovernorRole is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
-                              CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice The deployer address that currently holds the roles
-    address internal constant DEPLOYER = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
-
-    /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
