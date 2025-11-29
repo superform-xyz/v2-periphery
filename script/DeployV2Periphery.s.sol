@@ -492,27 +492,16 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("msg.sender:", msg.sender);
         console2.log("SuperGovernor address:", peripheryContracts.superGovernor);
 
-        console2.log("[Step 1] Granting temporary roles to deployer...");
-        // Grant SUPER_GOVERNOR_ROLE and GOVERNOR_ROLE to deployer temporarily for configuration
-        // The deployer has DEFAULT_ADMIN_ROLE as configuration.owner
-        SuperGovernor(peripheryContracts.superGovernor).grantRole(
-            keccak256("SUPER_GOVERNOR_ROLE"),
-            msg.sender
-        );
-        console2.log("[Step 1a] DONE - Granted SUPER_GOVERNOR_ROLE to deployer");
-        SuperGovernor(peripheryContracts.superGovernor).grantRole(
-            keccak256("GOVERNOR_ROLE"),
-            msg.sender
-        );
-        console2.log("[Step 1b] DONE - Granted GOVERNOR_ROLE to deployer");
+        // NOTE: SUPER_GOVERNOR_ROLE and GOVERNOR_ROLE are already granted to the deployer
+        // in the SuperGovernor constructor via configuration.owner and configuration.governor
 
-        console2.log("[Step 2] Setting active PPS oracle...");
+        console2.log("[Step 1] Setting active PPS oracle...");
         console2.log("  Oracle address:", peripheryContracts.ecdsappsOracle);
         // Configure SuperGovernor with oracle
         SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
-        console2.log("[Step 2] DONE - Set active PPS oracle");
+        console2.log("[Step 1] DONE - Set active PPS oracle");
 
-        console2.log("[Step 3] Setting validator configuration...");
+        console2.log("[Step 2] Setting validator configuration...");
         // Set validator configuration with quorum of 1
         bytes[] memory validatorPublicKeys = new bytes[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
@@ -527,9 +516,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 1, // quorum
                 "" // offchainConfig
             );
-        console2.log("[Step 3] DONE - Set validator configuration with", validators.length, "validators and quorum of 1");
+        console2.log("[Step 2] DONE - Set validator configuration with", validators.length, "validators and quorum of 1");
 
-        console2.log("[Step 4] Setting SuperVaultAggregator address...");
+        console2.log("[Step 3] Setting SuperVaultAggregator address...");
         console2.log("  Aggregator address:", peripheryContracts.superVaultAggregator);
         // Configure SuperGovernor with aggregator
         SuperGovernor(peripheryContracts.superGovernor)
@@ -537,25 +526,18 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 SuperGovernor(peripheryContracts.superGovernor).SUPER_VAULT_AGGREGATOR(),
                 peripheryContracts.superVaultAggregator
             );
-        console2.log("[Step 4] DONE - Set SuperVaultAggregator address");
+        console2.log("[Step 3] DONE - Set SuperVaultAggregator address");
 
-        // Revoke temporary SUPER_GOVERNOR_ROLE from deployer
-        // SuperGovernor(peripheryContracts.superGovernor).revokeRole(
-        //     keccak256("SUPER_GOVERNOR_ROLE"),
-        //     msg.sender
-        // );
-        // console2.log("Revoked temporary SUPER_GOVERNOR_ROLE from deployer");
-
-        console2.log("[Step 5] Checking if need to configure governor roles...");
+        console2.log("[Step 4] Checking if need to configure governor roles...");
         console2.log("  configuration.owner:", configuration.owner);
         console2.log("  TEST_DEPLOYER:", TEST_DEPLOYER);
         // Grant roles and revoke from deployer for production
         if (configuration.owner != TEST_DEPLOYER) {
-            console2.log("[Step 5] Configuring governor roles...");
+            console2.log("[Step 4] Configuring governor roles...");
             _configureGovernorRoles(SuperGovernor(peripheryContracts.superGovernor));
-            console2.log("[Step 5] DONE - Configured governor roles");
+            console2.log("[Step 4] DONE - Configured governor roles");
         } else {
-            console2.log("[Step 5] SKIPPED - Test environment, not configuring governor roles");
+            console2.log("[Step 4] SKIPPED - Test environment, not configuring governor roles");
         }
 
         console2.log("All core periphery contracts configured successfully");
