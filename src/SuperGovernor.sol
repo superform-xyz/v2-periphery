@@ -256,7 +256,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setOracleMaxStaleness(uint256 newMaxStaleness) external onlyRole(_GOVERNOR_ROLE) {
+    function setOracleMaxStaleness(uint256 newMaxStaleness) external onlyRole(_ORACLE_MANAGER_ROLE) {
         if (newMaxStaleness < _minStaleness) revert MAX_STALENESS_TOO_LOW();
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -265,7 +265,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) external onlyRole(_GOVERNOR_ROLE) {
+    function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) external onlyRole(_ORACLE_MANAGER_ROLE) {
         if (feed == address(0)) revert INVALID_ADDRESS();
         if (newMaxStaleness < _minStaleness) revert MAX_STALENESS_TOO_LOW();
         address oracle = _addressRegistry[SUPER_ORACLE];
@@ -280,7 +280,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         uint256[] calldata newMaxStalenessList_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         // Validate all staleness values before proceeding
         for (uint256 i; i < newMaxStalenessList_.length; i++) {
@@ -301,7 +301,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address[] calldata feeds_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -318,7 +318,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function queueOracleProviderRemoval(bytes32[] calldata providers) external onlyRole(_GOVERNOR_ROLE) {
+    function queueOracleProviderRemoval(bytes32[] calldata providers) external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
@@ -332,7 +332,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         uint256[] calldata gracePeriods_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         address oracleL2 = _addressRegistry[SUPER_ORACLE];
         if (oracleL2 == address(0)) revert CONTRACT_NOT_FOUND();
