@@ -51,6 +51,10 @@ abstract contract Constants {
     string internal constant SUPER_VAULT_STRATEGY_KEY = "SuperVaultStrategy";
     string internal constant SUPER_VAULT_ESCROW_KEY = "SuperVaultEscrow";
 
+    // Validator configuration defaults
+    uint256 internal constant INITIAL_VALIDATOR_CONFIG_VERSION = 1;
+    uint256 internal constant INITIAL_VALIDATOR_QUORUM = 1;
+
     // core contract keys (for deterministic address computation)
     string internal constant SUPER_DEPLOYER_KEY = "SuperDeployer";
     string internal constant SUPER_EXECUTOR_KEY = "SuperExecutor";

@@ -27,6 +27,8 @@ abstract contract ConfigBase is Constants {
 
     /// @notice Array of validator addresses
     address[] public validators;
+    /// @notice Array of validator public keys (corresponding to validators array)
+    bytes[] public validatorPublicKeys;
 
     mapping(uint64 chainId => string chainName) internal chainNames;
     bytes internal SALT_NAMESPACE;
@@ -74,9 +76,8 @@ abstract contract ConfigBase is Constants {
         chainNames[BNB_CHAIN_ID] = BNB_KEY;
 
         // ===== COMMON CONFIGURATION =====
-        if (env == 0 || env == 2) {
-            // Production and Staging environments
-            // Owner and deployer are the same for prod/staging
+        if (env == 0) {
+            // Production environment
             configuration.owner = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.deployer = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.treasury = SUPERFORM_TREASURY;
@@ -89,11 +90,32 @@ abstract contract ConfigBase is Constants {
             configuration.governor = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.guardian = GUARDIAN;
 
-            // Set validator addresses
+            // Set production validator addresses and public keys
+            validators.push(0x31a11c7502F6A5E551F50f0871d72E8Ce02D39E2);
+            validatorPublicKeys.push(
+                hex"04cc93b5c7c7fd2399dcf22a9501d7db18a326a568288d93cd41dea78035652dd65b6519153abdfa2b3bf1afefd1b1492d2b0f39652863adf81055748978f483a0"
+            );
+        } else if (env == 2) {
+            // Staging environment
+            configuration.owner = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
+            configuration.deployer = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
+            configuration.treasury = SUPERFORM_TREASURY;
+            configuration.oracleManager = ORACLE_MANAGER;
+            configuration.bankManager = DEFAULT_MANAGER;
+            configuration.gasManager = GAS_MANAGER;
+            // NOTE: Governor starts as deployer address to allow running
+            // add_hooks_to_governor_staging_prod.sh right after deployment
+            // (before Fireblocks is set up). Transfer to GOVERNOR later.
+            configuration.governor = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
+            configuration.guardian = GUARDIAN;
+
+            // Set staging validator addresses (empty public keys for now)
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
             validators.push(0x33E69B6b8342882274c03Bcdc8a1873c6DA52573);
+            validatorPublicKeys.push("");
+            validatorPublicKeys.push("");
         } else {
-            // Test environment
+            // Test environment (vnet)
             configuration.owner = TEST_DEPLOYER;
             configuration.deployer = TEST_DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
@@ -103,9 +125,11 @@ abstract contract ConfigBase is Constants {
             configuration.governor = DEFAULT_MANAGER;
             configuration.guardian = DEFAULT_MANAGER;
 
-            // Set validator addresses
+            // Set test validator addresses (empty public keys for now)
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);
             validators.push(0x33E69B6b8342882274c03Bcdc8a1873c6DA52573);
+            validatorPublicKeys.push("");
+            validatorPublicKeys.push("");
         }
     }
 }

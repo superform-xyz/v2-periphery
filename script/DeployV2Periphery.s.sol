@@ -502,21 +502,19 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Step 1] DONE - Set active PPS oracle");
 
         console2.log("[Step 2] Setting validator configuration...");
-        // Set validator configuration with quorum of 1
-        bytes[] memory validatorPublicKeys = new bytes[](validators.length);
-        for (uint256 i = 0; i < validators.length; i++) {
-            validatorPublicKeys[i] = ""; // Empty public keys for now
-        }
-
-        SuperGovernor(peripheryContracts.superGovernor)
-            .setValidatorConfig(
-                1, // version
-                validators,
-                validatorPublicKeys,
-                1, // quorum
-                "" // offchainConfig
-            );
-        console2.log("[Step 2] DONE - Set validator configuration with", validators.length, "validators and quorum of 1");
+        SuperGovernor(peripheryContracts.superGovernor).setValidatorConfig(
+            INITIAL_VALIDATOR_CONFIG_VERSION,
+            validators,
+            validatorPublicKeys,
+            INITIAL_VALIDATOR_QUORUM,
+            "" // offchainConfig - empty for initial setup
+        );
+        console2.log(
+            "[Step 2] DONE - Set validator configuration with",
+            validators.length,
+            "validators and quorum of",
+            INITIAL_VALIDATOR_QUORUM
+        );
 
         console2.log("[Step 3] Setting SuperVaultAggregator address...");
         console2.log("  Aggregator address:", peripheryContracts.superVaultAggregator);
