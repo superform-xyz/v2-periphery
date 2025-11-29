@@ -83,7 +83,10 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = DEFAULT_MANAGER;
             configuration.gasManager = GAS_MANAGER;
-            configuration.governor = GOVERNOR;
+            // NOTE: Governor starts as deployer address to allow running
+            // add_hooks_to_governor_staging_prod.sh right after deployment
+            // (before Fireblocks is set up). Transfer to GOVERNOR later.
+            configuration.governor = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
             configuration.guardian = GUARDIAN;
 
             // Set validator addresses
