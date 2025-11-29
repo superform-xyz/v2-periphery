@@ -272,8 +272,8 @@ To add more networks:
 ## Environment Variables
 
 ### Forge Environments:
-- `FORGE_ENV=2` - Staging (uses `DEPLOYSTAGING1.0.0` salt namespace)
-- `FORGE_ENV=0` - Production (uses `DEPLOYPROD1.0.0` salt namespace)
+- `FORGE_ENV=2` - Staging (uses `STAGING1.0.0` salt namespace)
+- `FORGE_ENV=0` - Production (uses `PROD1.0.0` salt namespace)
 
 ### Required Credentials (from 1Password):
 - `BASE_RPC_URL` - Base network RPC endpoint
@@ -319,8 +319,8 @@ To add more networks:
 ## Important Notes
 
 ### Salt Namespaces:
-- **Staging**: `DEPLOYSTAGING1.0.0` - Ensures different addresses from production
-- **Production**: `DEPLOYPROD1.0.0` - Production-specific deterministic addresses
+- **Staging**: `STAGING1.0.0` - Ensures different addresses from production
+- **Production**: `PROD1.0.0` - Production-specific deterministic addresses
 
 ### CREATE2 Deployment:
 All contracts use CREATE2 for deterministic addresses. Same bytecode + same salt = same address across all networks.

@@ -48,9 +48,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # S3 bucket for fetching contract addresses
 readonly BUCKET="superform-deployment-state"
 
-# Salt namespaces
-readonly STAGING_SALT_NAMESPACE="DEPLOYSTAGING1.0.0"
-readonly PRODUCTION_SALT_NAMESPACE="DEPLOYPROD1.0.0"
+# Salt namespaces (must match ConfigBase.sol)
+readonly STAGING_SALT_NAMESPACE="STAGING1.0.0"
+readonly PRODUCTION_SALT_NAMESPACE="PROD1.0.0"
 
 ###################################################################################
 # Helper Functions
