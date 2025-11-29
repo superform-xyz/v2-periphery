@@ -434,6 +434,23 @@ Copy the environment file:
 cp .env.example .env
 ```
 
+### Updating Dependencies
+
+To update a submodule to the latest commit on its tracked branch (e.g., `v2-core` tracking `dev`):
+
+```bash
+# Sync submodule configuration from .gitmodules
+git submodule sync lib/v2-core
+
+# Update submodule to latest from remote branch
+git submodule update --init --remote lib/v2-core
+
+# Update the Foundry lock file
+forge update
+```
+
+> **Note**: The `.gitmodules` file specifies which branch each submodule tracks (e.g., `branch = dev` for v2-core). The `--remote` flag pulls the latest from that branch.
+
 ### Building & Testing
 
 Build:
