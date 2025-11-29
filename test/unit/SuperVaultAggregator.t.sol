@@ -5305,7 +5305,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         bytes32[] memory providersToRemove = new bytes32[](1);
         providersToRemove[0] = averageProvider;
 
-        vm.startPrank(governor);
+        vm.startPrank(oracleManager);
         superGovernor.queueOracleProviderRemoval(providersToRemove);
         vm.warp(block.timestamp + 1 hours + 1); // Wait for timelock
         ISuperOracle(superOracle).executeProviderRemoval();

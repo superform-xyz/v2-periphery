@@ -297,8 +297,10 @@ contract SuperAssetTest is BaseTestSuperAsset {
         superGovernor.setOracleFeedMaxStaleness(address(mockFeedSuperAssetShares1), 14 days);
         superGovernor.setOracleFeedMaxStaleness(address(mockFeedSuperVault1Shares), 14 days);
         superGovernor.setOracleFeedMaxStaleness(address(mockFeedSuperVault2Shares), 14 days);
-        superGovernor.setEmergencyPrice(address(primaryAsset), 1e8);
         vm.stopPrank();
+        // Call oracle directly since setEmergencyPrice was removed from SuperGovernor
+        vm.prank(address(superGovernor));
+        oracle.setEmergencyPrice(address(primaryAsset), 1e8);
 
         console.log("Feed staleness set");
 
