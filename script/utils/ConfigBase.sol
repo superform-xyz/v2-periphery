@@ -50,26 +50,24 @@ abstract contract ConfigBase is Constants {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets up base configuration including chain names and common addresses
-    /// @param env Environment (0 = production, 1 = test, 2 = staging)
-    /// @param saltNamespace Salt namespace for deployment (if empty, uses environment-specific default)
+    /// @param env Environment: 0 = production, 1 = test, 2 = staging
+    /// @param saltNamespace Salt namespace (required for env=1, ignored for env=0/2)
     function _setBaseConfiguration(uint256 env, string memory saltNamespace) internal {
         // Validate environment parameter to prevent silent fallback to test config
         require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
 
-        // Set salt namespace based on environment with different salts for prod vs staging
-        // For test environment (env=1), saltNamespace must be provided explicitly
-        if (bytes(saltNamespace).length == 0) {
-            if (env == 0) {
-                // Production environment - use production salt
-                SALT_NAMESPACE = bytes(PRODUCTION_SALT_NAMESPACE);
-            } else if (env == 2) {
-                // Staging environment - use staging salt
-                SALT_NAMESPACE = bytes(STAGING_SALT_NAMESPACE);
-            } else {
-                // Test environment (env=1) requires explicit salt namespace
-                revert("TEST_ENV_REQUIRES_SALT_NAMESPACE");
-            }
+        // Set salt namespace based on environment
+        // Production and staging use fixed salts (not overridable) for deterministic addresses
+        // Test environment requires explicit salt namespace
+        if (env == 0) {
+            // Production environment - always use production salt
+            SALT_NAMESPACE = bytes(PRODUCTION_SALT_NAMESPACE);
+        } else if (env == 2) {
+            // Staging environment - always use staging salt
+            SALT_NAMESPACE = bytes(STAGING_SALT_NAMESPACE);
         } else {
+            // Test environment (env=1) requires explicit salt namespace
+            require(bytes(saltNamespace).length > 0, "TEST_ENV_REQUIRES_SALT_NAMESPACE");
             SALT_NAMESPACE = bytes(saltNamespace);
         }
 
