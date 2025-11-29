@@ -53,7 +53,11 @@ abstract contract ConfigBase is Constants {
     /// @param env Environment (0 = production, 1 = test, 2 = staging)
     /// @param saltNamespace Salt namespace for deployment (if empty, uses environment-specific default)
     function _setBaseConfiguration(uint256 env, string memory saltNamespace) internal {
+        // Validate environment parameter to prevent silent fallback to test config
+        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
+
         // Set salt namespace based on environment with different salts for prod vs staging
+        // For test environment (env=1), saltNamespace must be provided explicitly
         if (bytes(saltNamespace).length == 0) {
             if (env == 0) {
                 // Production environment - use production salt
@@ -62,7 +66,8 @@ abstract contract ConfigBase is Constants {
                 // Staging environment - use staging salt
                 SALT_NAMESPACE = bytes(STAGING_SALT_NAMESPACE);
             } else {
-                revert("INVALID_ENVIRONMENT");
+                // Test environment (env=1) requires explicit salt namespace
+                revert("TEST_ENV_REQUIRES_SALT_NAMESPACE");
             }
         } else {
             SALT_NAMESPACE = bytes(saltNamespace);
@@ -114,7 +119,7 @@ abstract contract ConfigBase is Constants {
             validators.push(0x33E69B6b8342882274c03Bcdc8a1873c6DA52573);
             validatorPublicKeys.push("");
             validatorPublicKeys.push("");
-        } else {
+        } else if (env == 1) {
             // Test environment (vnet)
             configuration.owner = TEST_DEPLOYER;
             configuration.deployer = TEST_DEPLOYER;
@@ -131,5 +136,6 @@ abstract contract ConfigBase is Constants {
             validatorPublicKeys.push("");
             validatorPublicKeys.push("");
         }
+        // No else needed - env is already validated at function start
     }
 }
