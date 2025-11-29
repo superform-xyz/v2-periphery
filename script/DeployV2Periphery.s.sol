@@ -526,27 +526,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             );
         console2.log("[Step 3] DONE - Set SuperVaultAggregator address");
 
-        console2.log("[Step 4] Checking if need to configure governor roles...");
-        console2.log("  configuration.owner:", configuration.owner);
-        console2.log("  TEST_DEPLOYER:", TEST_DEPLOYER);
-        // Grant roles and revoke from deployer for production
-        if (configuration.owner != TEST_DEPLOYER) {
-            console2.log("[Step 4] Configuring governor roles...");
-            _configureGovernorRoles(SuperGovernor(peripheryContracts.superGovernor));
-            console2.log("[Step 4] DONE - Configured governor roles");
-        } else {
-            console2.log("[Step 4] SKIPPED - Test environment, not configuring governor roles");
-        }
+        // NOTE: Governor roles are granted to the deployer (0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8) initially
+        // via configuration.governor in the SuperGovernor constructor. Transfer to the actual GOVERNOR
+        // address should happen later via a separate script after Fireblocks is set up.
 
         console2.log("All core periphery contracts configured successfully");
-    }
-
-    function _configureGovernorRoles(SuperGovernor superGovernor) internal {
-        // Grant SUPER_GOVERNOR_ROLE to the validator address and revoke from TEST_DEPLOYER
-        superGovernor.grantRole(keccak256("SUPER_GOVERNOR_ROLE"), 0xd95f4bc7733d9E94978244C0a27c1815878a59BB);
-        console2.log("Granted SUPER_GOVERNOR_ROLE to: 0xd95f4bc7733d9E94978244C0a27c1815878a59BB");
-
-        superGovernor.revokeRole(keccak256("SUPER_GOVERNOR_ROLE"), TEST_DEPLOYER);
-        console2.log("Revoked SUPER_GOVERNOR_ROLE from TEST_DEPLOYER");
     }
 }
