@@ -252,6 +252,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Configure contracts
         _configurePeripheryContracts(peripheryContracts, coreAddresses);
 
+        // Run smoke test to verify deployment
+        _smokeTest(peripheryContracts);
+
         // Write all exported contracts for this chain
         _writeExportedContracts(chainId);
 
@@ -274,6 +277,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Configure contracts
         _configurePeripheryContracts(peripheryContracts, coreAddresses);
+
+        // Run smoke test to verify deployment
+        _smokeTest(peripheryContracts);
 
         // Write all exported contracts for this chain
         _writeExportedContracts(chainId);
@@ -526,10 +532,53 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             );
         console2.log("[Step 3] DONE - Set SuperVaultAggregator address");
 
-        // NOTE: Governor roles are granted to the deployer (0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8) initially
-        // via configuration.governor in the SuperGovernor constructor. Transfer to the actual GOVERNOR
-        // address should happen later via a separate script after Fireblocks is set up.
+        // NOTE: Governor roles are granted to the deployer initially via configuration.governor
+        // in the SuperGovernor constructor. Transfer to the actual GOVERNOR address should happen
+        // later via TransferSuperGovernorRole script after Fireblocks is set up.
 
         console2.log("All core periphery contracts configured successfully");
+    }
+
+    /// @notice Smoke test to verify roles and configuration are set correctly post-deployment
+    /// @param peripheryContracts The deployed periphery contract addresses
+    function _smokeTest(PeripheryContracts memory peripheryContracts) internal view {
+        console2.log("");
+        console2.log("=== Running Smoke Test ===");
+
+        SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
+        bytes32 superGovernorRole = keccak256("SUPER_GOVERNOR_ROLE");
+        bytes32 defaultAdminRole = governor.DEFAULT_ADMIN_ROLE();
+
+        // Verify SUPER_GOVERNOR_ROLE is held by deployer
+        bool deployerHasSuperGovernorRole = governor.hasRole(superGovernorRole, DEPLOYER);
+        bool deployerHasDefaultAdminRole = governor.hasRole(defaultAdminRole, DEPLOYER);
+
+        console2.log("[Role Check] DEPLOYER has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
+        console2.log("[Role Check] DEPLOYER has DEFAULT_ADMIN_ROLE:", deployerHasDefaultAdminRole);
+
+        require(deployerHasSuperGovernorRole, "SMOKE_TEST_FAILED: Deployer missing SUPER_GOVERNOR_ROLE");
+        require(deployerHasDefaultAdminRole, "SMOKE_TEST_FAILED: Deployer missing DEFAULT_ADMIN_ROLE");
+
+        // Verify active PPS oracle is set
+        address activePPSOracle = governor.getActivePPSOracle();
+        console2.log("[Config Check] Active PPS Oracle:", activePPSOracle);
+        require(activePPSOracle == peripheryContracts.ecdsappsOracle, "SMOKE_TEST_FAILED: PPS Oracle mismatch");
+
+        // Verify SuperVaultAggregator is set
+        address aggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
+        console2.log("[Config Check] SuperVaultAggregator:", aggregator);
+        require(
+            aggregator == peripheryContracts.superVaultAggregator, "SMOKE_TEST_FAILED: Aggregator mismatch"
+        );
+
+        // Verify validator configuration
+        (, address[] memory validatorAddrs,, uint256 quorum) = governor.getValidatorConfig();
+        console2.log("[Config Check] Validator count:", validatorAddrs.length);
+        console2.log("[Config Check] Quorum:", quorum);
+        require(validatorAddrs.length > 0, "SMOKE_TEST_FAILED: No validators configured");
+        require(quorum == INITIAL_VALIDATOR_QUORUM, "SMOKE_TEST_FAILED: Quorum mismatch");
+
+        console2.log("=== Smoke Test PASSED ===");
+        console2.log("");
     }
 }
