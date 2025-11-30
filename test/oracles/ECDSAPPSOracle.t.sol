@@ -188,6 +188,139 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         );
     }
 
+    function test_UpdatePPS_GasCost_SingleEntry() public {
+        // Create valid proofs from multiple validators
+        bytes[] memory proofs = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
+
+        // Prepare single entry update
+        address[] memory strategies = new address[](1);
+        strategies[0] = address(svStrategy);
+
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = proofs;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = PPS;
+
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = block.timestamp;
+
+        IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
+            strategies: strategies,
+            proofsArray: proofsArray,
+            ppss: ppss,
+            timestamps: timestamps
+        });
+
+        // Measure gas cost
+        uint256 gasBefore = gasleft();
+        oracleECDSA.updatePPS(args);
+        uint256 gasAfter = gasleft();
+
+        uint256 gasUsed = gasBefore - gasAfter;
+        emit log_named_uint("Gas used for updatePPS with 1 entry", gasUsed);
+    }
+
+    function test_UpdatePPS_GasCost_TwoEntries() public {
+        // Create a second strategy
+        (, address strategy2,) = aggregatorSuperVault.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: address(asset),
+                name: "Second TestVault",
+                symbol: "TV2",
+                mainManager: mockManager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                })
+            })
+        );
+
+        // Prepare two entry update
+        address[] memory strategies = new address[](2);
+        strategies[0] = address(svStrategy);
+        strategies[1] = strategy2;
+
+        uint256[] memory ppss = new uint256[](2);
+        ppss[0] = PPS;
+        ppss[1] = PPS;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = block.timestamp;
+        timestamps[1] = block.timestamp;
+
+        // Sort strategies in ascending order (required by contract)
+        if (uint160(strategies[0]) > uint160(strategies[1])) {
+            (strategies[0], strategies[1]) = (strategies[1], strategies[0]);
+            (ppss[0], ppss[1]) = (ppss[1], ppss[0]);
+            (timestamps[0], timestamps[1]) = (timestamps[1], timestamps[0]);
+        }
+
+        // Create proofs for each strategy
+        bytes[][] memory proofsArray = new bytes[][](2);
+        proofsArray[0] = _createValidProofsForStrategy(strategies[0], ppss[0], timestamps[0]);
+        proofsArray[1] = _createValidProofsForStrategy(strategies[1], ppss[1], timestamps[1]);
+
+        IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
+            strategies: strategies,
+            proofsArray: proofsArray,
+            ppss: ppss,
+            timestamps: timestamps
+        });
+
+        // Measure gas cost
+        uint256 gasBefore = gasleft();
+        oracleECDSA.updatePPS(args);
+        uint256 gasAfter = gasleft();
+
+        uint256 gasUsed = gasBefore - gasAfter;
+        emit log_named_uint("Gas used for updatePPS with 2 entries", gasUsed);
+        emit log_named_uint("Incremental gas per entry (2 entries - 1 entry)", gasUsed > 99619 ? gasUsed - 99619 : 0);
+    }
+
+    /// @notice Helper to create valid proofs for any strategy (not just svStrategy)
+    function _createValidProofsForStrategy(
+        address strategy_,
+        uint256 pps,
+        uint256 timestamp
+    )
+        internal
+        view
+        returns (bytes[] memory)
+    {
+        // Create digest with all parameters
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                oracleECDSA.UPDATE_PPS_TYPEHASH(),
+                strategy_,
+                pps,
+                timestamp,
+                oracleECDSA.noncePerStrategy(strategy_)
+            )
+        );
+        bytes32 domainSeparator = oracleECDSA.domainSeparator();
+        bytes32 digest = MessageHashUtils.toTypedDataHash(domainSeparator, structHash);
+
+        // Use 2 validators (matching quorum)
+        uint256[] memory signerKeys = new uint256[](2);
+        signerKeys[0] = validator1PrivateKey;
+        signerKeys[1] = validator2PrivateKey;
+
+        // Sort signer keys by address
+        _sortSignerKeysByAddress(signerKeys);
+
+        // Create proofs array
+        bytes[] memory proofs = new bytes[](signerKeys.length);
+        for (uint256 i = 0; i < signerKeys.length; i++) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerKeys[i], digest);
+            proofs[i] = abi.encodePacked(r, s, v);
+        }
+
+        return proofs;
+    }
+
     function test_UpdatePPS_InvalidReplay() public {
         // Create valid proofs from multiple validators
         bytes[] memory proofs = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
