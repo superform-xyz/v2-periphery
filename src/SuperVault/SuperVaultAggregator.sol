@@ -588,6 +588,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
+
         address oldManager = _strategyData[strategy].mainManager;
 
         // SECURITY: Clear any pending manager proposals to prevent malicious re-takeover
@@ -645,6 +648,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         }
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
+
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
 
         // Set up the proposal with 7-day timelock
         uint256 effectiveTime = block.timestamp + _MANAGER_CHANGE_TIMELOCK;
