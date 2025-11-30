@@ -114,6 +114,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
+        superGovernor.setAddress(superGovernor.UPKEEP_TOKEN(), address(upToken));
         vm.stopPrank();
     }
 
@@ -192,9 +193,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Tests with a random interface ID that should not be supported
     function test_SupportsInterface_UnsupportedInterface() public view {
         bytes4 randomInterfaceId = bytes4(keccak256("RandomInterface()"));
-        assertFalse(
-            superGovernor.supportsInterface(randomInterfaceId), "Should not support random interface"
-        );
+        assertFalse(superGovernor.supportsInterface(randomInterfaceId), "Should not support random interface");
     }
 
     /// @notice Tests supportsInterface returns false for zero interface ID
@@ -208,31 +207,20 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Tests with 0xffffffff which is an invalid/reserved interface ID in ERC-165
     function test_SupportsInterface_InvalidInterfaceId() public view {
         bytes4 invalidInterfaceId = 0xffffffff;
-        assertFalse(
-            superGovernor.supportsInterface(invalidInterfaceId), "Should not support invalid interface ID"
-        );
+        assertFalse(superGovernor.supportsInterface(invalidInterfaceId), "Should not support invalid interface ID");
     }
 
     /// @notice Tests supportsInterface with multiple known interfaces
     /// @dev Verifies all supported interfaces return true
     function test_SupportsInterface_MultipleKnownInterfaces() public view {
         // Test ISuperGovernor
-        assertTrue(
-            superGovernor.supportsInterface(type(ISuperGovernor).interfaceId),
-            "Should support ISuperGovernor"
-        );
+        assertTrue(superGovernor.supportsInterface(type(ISuperGovernor).interfaceId), "Should support ISuperGovernor");
 
         // Test IAccessControl
-        assertTrue(
-            superGovernor.supportsInterface(type(IAccessControl).interfaceId),
-            "Should support IAccessControl"
-        );
+        assertTrue(superGovernor.supportsInterface(type(IAccessControl).interfaceId), "Should support IAccessControl");
 
         // Test IERC165
-        assertTrue(
-            superGovernor.supportsInterface(type(IERC165).interfaceId),
-            "Should support IERC165"
-        );
+        assertTrue(superGovernor.supportsInterface(type(IERC165).interfaceId), "Should support IERC165");
     }
 
     // =============================================================
@@ -471,7 +459,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangePrimaryManager_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
@@ -500,9 +489,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to change manager as regular user (no roles)
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE)
         );
         superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
     }
@@ -576,7 +563,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, governor, treasury);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
@@ -726,7 +714,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangeHooksRootUpdateTimelock_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFE, "FreshSuperGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
@@ -781,7 +770,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // The constructor automatically grants GOVERNOR_ROLE to the 2nd parameter (governor)
         address freshSGovernor = _deployAccount(0xFD, "FreshSuperGovernor3");
         address freshGovernor2 = _deployAccount(0xFC, "FreshGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(
+            freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury
+        );
 
         bytes32 newRoot = keccak256("new global hooks root");
 
@@ -822,7 +813,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_SetGlobalHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFB, "FreshSuperGovernor4");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
@@ -869,7 +861,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_SetStrategyHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xF9, "FreshSuperGovernor5");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury);
 
         vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
@@ -907,8 +900,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // This should pass the aggregator != address(0) check at line 513
         // It may revert with INSUFFICIENT_UPKEEP, which is expected business logic
         try superGovernor.executeUpkeepClaim(claimAmount) {
-            // Success - aggregator was set and had sufficient upkeep
-        } catch (bytes memory reason) {
+        // Success - aggregator was set and had sufficient upkeep
+        }
+        catch (bytes memory reason) {
             // If it reverts, ensure it's not CONTRACT_NOT_FOUND
             // CONTRACT_NOT_FOUND would indicate line 513 failed
             bytes4 selector = bytes4(reason);
@@ -923,7 +917,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xF7, "FreshSuperGovernor6");
         address freshGovernor2 = _deployAccount(0xF6, "FreshGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(
+            freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury
+        );
 
         uint256 claimAmount = 1000;
 
@@ -2250,7 +2246,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Test with sGovernor (should fail - needs ORACLE_MANAGER_ROLE specifically)
         vm.prank(sGovernor);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE
+            )
         );
         superGovernor.setOracleMaxStaleness(validStaleness);
 
@@ -2388,7 +2386,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Test with sGovernor (should fail - needs ORACLE_MANAGER_ROLE specifically)
         vm.prank(sGovernor);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE
+            )
         );
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
@@ -2994,13 +2994,7 @@ contract MockSuperOracleForStaleness {
 contract MockSuperOracleL2 {
     bool private _batchSetUptimeFeedCalled;
 
-    function batchSetUptimeFeed(
-        address[] calldata,
-        address[] calldata,
-        uint256[] calldata
-    )
-        external
-    {
+    function batchSetUptimeFeed(address[] calldata, address[] calldata, uint256[] calldata) external {
         _batchSetUptimeFeedCalled = true;
     }
 

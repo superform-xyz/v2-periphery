@@ -66,10 +66,12 @@ contract SuperVaultTest is PeripheryHelpers {
         superVaultAggregator = new SuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl);
 
         // Register dependencies on SuperGovernor
+        // Both UP (for SuperBank.distribute) and UPKEEP_TOKEN (for upkeep payments) are set to same token for tests
         upToken = address(new MockUp(address(this)));
         superBank = makeAddr("superBank");
         vm.startPrank(sGovernor);
         superGovernor.setAddress(superGovernor.UP(), upToken);
+        superGovernor.setAddress(superGovernor.UPKEEP_TOKEN(), upToken);
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
@@ -87,9 +89,7 @@ contract SuperVaultTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                 })
             })
         );
@@ -120,10 +120,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Mint shares to user
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -148,10 +148,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Mint shares to user and create cancel request
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
@@ -180,10 +180,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Mint shares to user and create cancel request
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
@@ -216,10 +216,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Create a cancel request
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         uint256 sharesToRedeem = vault.balanceOf(testUser) / 2;
@@ -243,9 +243,9 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser2 = _deployAccount(0xDEF, "TestUser2");
 
         // Setup user1 with cancel request
-        deal(address(asset), testUser1, 10000e18);
+        deal(address(asset), testUser1, 10_000e18);
         vm.startPrank(testUser1);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser1);
         uint256 sharesToRedeem1 = vault.balanceOf(testUser1) / 2;
         vault.requestRedeem(sharesToRedeem1, testUser1, testUser1);
@@ -253,9 +253,9 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Setup user2 with no cancel request
-        deal(address(asset), testUser2, 10000e18);
+        deal(address(asset), testUser2, 10_000e18);
         vm.startPrank(testUser2);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser2);
         vm.stopPrank();
 
@@ -413,10 +413,10 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // First deposit some assets to initialize PPS
         address depositor = _deployAccount(0x123, "Depositor");
-        deal(address(asset), depositor, 10000e18);
+        deal(address(asset), depositor, 10_000e18);
 
         vm.startPrank(depositor);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
         testVault.deposit(1000e18, depositor);
         vm.stopPrank();
 
@@ -462,10 +462,10 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // First deposit some assets to initialize PPS (though it should still work even without this)
         address depositor = _deployAccount(0x123, "Depositor");
-        deal(address(asset), depositor, 10000e18);
+        deal(address(asset), depositor, 10_000e18);
 
         vm.startPrank(depositor);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
         // Note: deposit should fail with 100% fee, but we can still test previewMint
         vm.stopPrank();
 
@@ -492,10 +492,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
 
         // Test: Attempt to deposit 0 assets should revert with ZERO_AMOUNT
         vm.expectRevert(ISuperVault.ZERO_AMOUNT.selector);
@@ -512,10 +512,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Manipulate PPS to an extremely high value so that shares calculation rounds to 0
@@ -556,10 +556,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -591,10 +591,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: User deposits but has no redemption request
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         vm.stopPrank();
 
@@ -615,10 +615,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address operatorAddr = makeAddr("operator");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -659,10 +659,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address otherReceiver = makeAddr("otherReceiver");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -698,10 +698,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address arbitraryReceiver = makeAddr("arbitraryReceiver");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -729,7 +729,9 @@ contract SuperVaultTest is PeripheryHelpers {
         vault.withdraw(claimableAssets, arbitraryReceiver, testUser);
 
         uint256 receiverBalanceAfter = asset.balanceOf(arbitraryReceiver);
-        assertEq(receiverBalanceAfter - receiverBalanceBefore, claimableAssets, "Arbitrary receiver should receive assets");
+        assertEq(
+            receiverBalanceAfter - receiverBalanceBefore, claimableAssets, "Arbitrary receiver should receive assets"
+        );
     }
 
     /// @notice Tests withdraw reverts when non-operator calls on behalf of controller
@@ -738,10 +740,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address nonOperator = makeAddr("nonOperator");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -774,10 +776,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address operatorAddr = makeAddr("operator");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -818,10 +820,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address otherReceiver = makeAddr("otherReceiver");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -857,10 +859,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address arbitraryReceiver = makeAddr("arbitraryReceiver");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -897,10 +899,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address nonOperator = makeAddr("nonOperator");
 
         // Setup: User deposits and requests redemption to have claimable assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
 
         // Request redemption
@@ -944,11 +946,8 @@ contract SuperVaultTest is PeripheryHelpers {
         address strategyImpl = address(new SuperVaultStrategy(address(superGovernor)));
 
         // Prepare valid fee config
-        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy.FeeConfig({
-            performanceFeeBps: 1000,
-            managementFeeBps: 500,
-            recipient: manager
-        });
+        ISuperVaultStrategy.FeeConfig memory feeConfig =
+            ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 500, recipient: manager });
 
         // Prepare initialization data with vaultAddress = address(0)
         bytes memory initData = abi.encodeWithSelector(
@@ -975,11 +974,8 @@ contract SuperVaultTest is PeripheryHelpers {
         });
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            SuperVaultStrategy.initialize.selector,
-            address(vault),
-            feeConfig
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(SuperVaultStrategy.initialize.selector, address(vault), feeConfig);
 
         // Test: Attempt to deploy proxy with invalid performanceFeeBps should revert
         vm.expectRevert(ISuperVaultStrategy.INVALID_PERFORMANCE_FEE_BPS.selector);
@@ -999,11 +995,8 @@ contract SuperVaultTest is PeripheryHelpers {
         });
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            SuperVaultStrategy.initialize.selector,
-            address(vault),
-            feeConfig
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(SuperVaultStrategy.initialize.selector, address(vault), feeConfig);
 
         // Test: Attempt to deploy proxy with invalid managementFeeBps should revert
         vm.expectRevert(ISuperVaultStrategy.INVALID_PERFORMANCE_FEE_BPS.selector);
@@ -1020,15 +1013,12 @@ contract SuperVaultTest is PeripheryHelpers {
         ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy.FeeConfig({
             performanceFeeBps: 0,
             managementFeeBps: 500, // Non-zero management fee
-            recipient: address(0)  // Zero address recipient should revert
+            recipient: address(0) // Zero address recipient should revert
         });
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            SuperVaultStrategy.initialize.selector,
-            address(vault),
-            feeConfig
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(SuperVaultStrategy.initialize.selector, address(vault), feeConfig);
 
         // Test: Attempt to deploy proxy with fees > 0 and zero recipient should revert
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
@@ -1044,16 +1034,13 @@ contract SuperVaultTest is PeripheryHelpers {
         // Prepare fee config with both fees = 0 and recipient = address(0)
         ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy.FeeConfig({
             performanceFeeBps: 0,
-            managementFeeBps: 0,   // Zero fees
-            recipient: address(0)  // Zero recipient is allowed when fees are 0
+            managementFeeBps: 0, // Zero fees
+            recipient: address(0) // Zero recipient is allowed when fees are 0
         });
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            SuperVaultStrategy.initialize.selector,
-            address(vault),
-            feeConfig
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(SuperVaultStrategy.initialize.selector, address(vault), feeConfig);
 
         // Test: Should successfully deploy with zero fees and zero recipient
         address proxyAddress = address(new ERC1967Proxy(strategyImpl, initData));
@@ -1081,18 +1068,12 @@ contract SuperVaultTest is PeripheryHelpers {
         address strategyImpl = address(new SuperVaultStrategy(address(superGovernor)));
 
         // Prepare valid fee config
-        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy.FeeConfig({
-            performanceFeeBps: 1000,
-            managementFeeBps: 500,
-            recipient: manager
-        });
+        ISuperVaultStrategy.FeeConfig memory feeConfig =
+            ISuperVaultStrategy.FeeConfig({ performanceFeeBps: 1000, managementFeeBps: 500, recipient: manager });
 
         // Prepare initialization data with mock vault that has invalid asset
-        bytes memory initData = abi.encodeWithSelector(
-            SuperVaultStrategy.initialize.selector,
-            address(mockVault),
-            feeConfig
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(SuperVaultStrategy.initialize.selector, address(mockVault), feeConfig);
 
         // Test: Attempt to deploy proxy with vault that has invalid asset should revert
         vm.expectRevert(ISuperVaultStrategy.INVALID_ASSET.selector);
@@ -1106,10 +1087,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user approval but attempt to deposit 0 assets
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
 
         // Test: Attempt to deposit 0 assets should revert with ZERO_AMOUNT
         // The vault checks this before calling the strategy, but both have the validation
@@ -1125,10 +1106,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
 
         // Test: Attempt to deposit with address(0) as receiver should revert
         // Note: The vault passes msg.sender as controller to the strategy
@@ -1144,10 +1125,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Veto the global hooks root (only SuperGovernor can do this)
@@ -1193,10 +1174,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
 
         // Test: Deposit a tiny amount (1 wei)
         // With 99.99% fee, feeAssets = ceil(1 * 9999 / 10000) = ceil(0.9999) = 1
@@ -1212,15 +1193,15 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Use storage manipulation to corrupt the PPS to 0 in the aggregator
-        // The aggregator stores strategy data in a mapping: mapping(address strategy => StrategyData) private _strategyData
-        // StrategyData struct has pps as the first field
+        // The aggregator stores strategy data in a mapping: mapping(address strategy => StrategyData) private
+        // _strategyData StrategyData struct has pps as the first field
         // For mappings, the storage slot is: keccak256(abi.encode(key, slot))
         // We need to find the slot number for _strategyData mapping in SuperVaultAggregator
 
@@ -1259,10 +1240,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Manipulate PPS to an extremely high value so that sharesNet rounds to 0
@@ -1310,10 +1291,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Pause the strategy
@@ -1335,10 +1316,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Pause and then unpause the strategy to make PPS stale
@@ -1363,10 +1344,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Fast forward time beyond ppsExpiration (default is 1 day)
@@ -1431,10 +1412,10 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Setup: Give user assets and approval
         address testUser = _deployAccount(0xDEF, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
 
         // Test: Attempt to deposit should revert at the defensive check (line 178)
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
@@ -1452,10 +1433,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
 
         // Test: Attempt to mint 0 shares should revert with ZERO_AMOUNT
         // The vault checks this before calling the strategy
@@ -1470,10 +1451,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
 
         // Test: Attempt to mint with address(0) as receiver should revert
         vm.expectRevert(ISuperVault.ZERO_ADDRESS.selector);
@@ -1487,10 +1468,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Veto the global hooks root (only SuperGovernor can do this)
@@ -1536,10 +1517,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
 
         // Get manager's balance before
         uint256 managerBalanceBefore = asset.balanceOf(manager);
@@ -1572,10 +1553,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Pause the strategy
@@ -1594,10 +1575,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Pause and then unpause the strategy to make PPS stale
@@ -1618,10 +1599,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xDEF, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Fast forward time beyond ppsExpiration (default is 1 day)
@@ -1668,10 +1649,10 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Setup: Give user assets and approval
         address testUser = _deployAccount(0xDEF, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(vaultAddress, 10000e18);
+        asset.approve(vaultAddress, 10_000e18);
 
         // Test: Attempt to mint should revert with ZERO_ADDRESS at the fee transfer check
         vm.expectRevert(ISuperVaultStrategy.ZERO_ADDRESS.selector);
@@ -1760,7 +1741,7 @@ contract SuperVaultTest is PeripheryHelpers {
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 0,
-                    managementFeeBps: 10000, // 100% fee (edge case allowed in init)
+                    managementFeeBps: 10_000, // 100% fee (edge case allowed in init)
                     recipient: manager
                 })
             })
@@ -1812,7 +1793,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Formula: assetsGross = assetsNet * BPS_PRECISION / (BPS_PRECISION - feeBps) (ceil rounding)
         uint256 feeBps = 500;
-        uint256 expectedAssetsGross = Math.mulDiv(assetsNet, 10000, (10000 - feeBps), Math.Rounding.Ceil);
+        uint256 expectedAssetsGross = Math.mulDiv(assetsNet, 10_000, (10_000 - feeBps), Math.Rounding.Ceil);
         assertEq(assetsGross, expectedAssetsGross, "assetsGross should match expected calculation");
 
         // Verify the fee amount
@@ -1822,7 +1803,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Verify the fee relationship using the inverse formula
         // If assetsGross = assetsNet * BPS / (BPS - fee), then
         // feeAmount = assetsGross - assetsNet = assetsNet * fee / (BPS - fee)
-        uint256 expectedFeeFromFormula = Math.mulDiv(assetsNet, feeBps, (10000 - feeBps), Math.Rounding.Ceil);
+        uint256 expectedFeeFromFormula = Math.mulDiv(assetsNet, feeBps, (10_000 - feeBps), Math.Rounding.Ceil);
         assertEq(feeAmount, expectedFeeFromFormula, "Fee should match formula derivation");
     }
 
@@ -1847,9 +1828,7 @@ contract SuperVaultTest is PeripheryHelpers {
                     minUpdateInterval: 5,
                     maxStaleness: 300,
                     feeConfig: ISuperVaultStrategy.FeeConfig({
-                        performanceFeeBps: 0,
-                        managementFeeBps: feeBps,
-                        recipient: manager
+                        performanceFeeBps: 0, managementFeeBps: feeBps, recipient: manager
                     })
                 })
             );
@@ -1863,7 +1842,7 @@ contract SuperVaultTest is PeripheryHelpers {
             assertGt(assetsGross, assetsNet, "assetsGross should be greater than assetsNet");
 
             // Verify formula: assetsGross = assetsNet * BPS_PRECISION / (BPS_PRECISION - feeBps)
-            uint256 calculatedGross = Math.mulDiv(assetsNet, 10000, (10000 - feeBps), Math.Rounding.Ceil);
+            uint256 calculatedGross = Math.mulDiv(assetsNet, 10_000, (10_000 - feeBps), Math.Rounding.Ceil);
             assertEq(assetsGross, calculatedGross, "Formula should match for all fee percentages");
         }
     }
@@ -2119,12 +2098,12 @@ contract SuperVaultTest is PeripheryHelpers {
         assertGt(uint160(testUser2), uint160(testUser1), "testUser2 should be > testUser1");
 
         // Setup: Give both users assets and have them deposit and request redemptions
-        deal(address(asset), testUser1, 10000e18);
-        deal(address(asset), testUser2, 10000e18);
+        deal(address(asset), testUser1, 10_000e18);
+        deal(address(asset), testUser2, 10_000e18);
 
         // User1 deposits and requests redemption
         vm.startPrank(testUser1);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser1);
         uint256 shares1 = vault.balanceOf(testUser1);
         vault.requestRedeem(shares1, testUser1, testUser1);
@@ -2132,7 +2111,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // User2 deposits and requests redemption
         vm.startPrank(testUser2);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser2);
         uint256 shares2 = vault.balanceOf(testUser2);
         vault.requestRedeem(shares2, testUser2, testUser2);
@@ -2170,12 +2149,12 @@ contract SuperVaultTest is PeripheryHelpers {
         }
 
         // Setup: Give both users assets and have them deposit and request redemptions
-        deal(address(asset), testUser1, 10000e18);
-        deal(address(asset), testUser2, 10000e18);
+        deal(address(asset), testUser1, 10_000e18);
+        deal(address(asset), testUser2, 10_000e18);
 
         // User1 deposits and requests redemption
         vm.startPrank(testUser1);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser1);
         uint256 shares1 = vault.balanceOf(testUser1);
         vault.requestRedeem(shares1, testUser1, testUser1);
@@ -2183,7 +2162,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // User2 deposits and requests redemption
         vm.startPrank(testUser2);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser2);
         vault.requestRedeem(vault.balanceOf(testUser2), testUser2, testUser2);
         vm.stopPrank();
@@ -2197,9 +2176,9 @@ contract SuperVaultTest is PeripheryHelpers {
         // Create totalAssetsOut with realistic values that will pass bounds checks for first two iterations
         // With 0.5% slippage (50 bps), min is 995e18 (99.5% of 1000e18 theoretical)
         uint256[] memory totalAssetsOut = new uint256[](3);
-        totalAssetsOut[0] = 995e18;  // Matches expected min for user1 (99.5% of theoretical)
-        totalAssetsOut[1] = 995e18;  // Matches expected min for user2 (99.5% of theoretical)
-        totalAssetsOut[2] = 100e18;  // This won't matter since we'll revert at sorting check
+        totalAssetsOut[0] = 995e18; // Matches expected min for user1 (99.5% of theoretical)
+        totalAssetsOut[1] = 995e18; // Matches expected min for user2 (99.5% of theoretical)
+        totalAssetsOut[2] = 100e18; // This won't matter since we'll revert at sorting check
 
         // Test: The `<=` check at line 338 will catch controllers[2] == controllers[1]
         // This revert happens during iteration validation, before state modifications
@@ -2214,10 +2193,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and have them deposit and request redemption
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         uint256 shares = vault.balanceOf(testUser);
         vault.requestRedeem(shares, testUser, testUser);
@@ -2255,10 +2234,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and have them deposit and request redemption
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         uint256 shares = vault.balanceOf(testUser);
         vault.requestRedeem(shares, testUser, testUser);
@@ -2279,9 +2258,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Test: Attempt to fulfill with totalAssetsOut below minimum should revert with BOUNDS_EXCEEDED
         vm.prank(manager);
-        vm.expectRevert(
-            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 980e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 980e18));
         strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
@@ -2291,10 +2268,10 @@ contract SuperVaultTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and have them deposit and request redemption
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         uint256 shares = vault.balanceOf(testUser);
         vault.requestRedeem(shares, testUser, testUser);
@@ -2314,9 +2291,7 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Test: Attempt to fulfill with totalAssetsOut above theoretical should revert with BOUNDS_EXCEEDED
         vm.prank(manager);
-        vm.expectRevert(
-            abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 1010e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultStrategy.BOUNDS_EXCEEDED.selector, 995e18, 1000e18, 1010e18));
         strategy.fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
@@ -2329,10 +2304,10 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_SkimPerformanceFee_RevertsOnZeroPPS() public {
         // Setup: Deposit to create some vault supply (required to get past the early return)
         address testUser = _deployAccount(0xABC, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         vm.stopPrank();
 
@@ -2369,10 +2344,10 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_SkimPerformanceFee_RevertsOnInsufficientFreeAssets() public {
         // Setup: Deposit to create some vault supply and establish a baseline
         address testUser = _deployAccount(0xABC, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         vm.stopPrank();
 
@@ -2498,7 +2473,8 @@ contract SuperVaultTest is PeripheryHelpers {
         oracles[0] = address(0x3);
         oracles[1] = address(0x4);
 
-        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3); // Mismatch: 3 instead of 2
+        ISuperVaultStrategy.YieldSourceAction[] memory actionTypes = new ISuperVaultStrategy.YieldSourceAction[](3); // Mismatch:
+        // 3 instead of 2
         actionTypes[0] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
         actionTypes[1] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
         actionTypes[2] = ISuperVaultStrategy.YieldSourceAction.UpdateOracle;
@@ -2864,7 +2840,8 @@ contract SuperVaultTest is PeripheryHelpers {
         address notManager = _deployAccount(0xBAD, "NotManager");
         vm.prank(notManager);
         vm.expectRevert(ISuperVaultStrategy.MANAGER_NOT_AUTHORIZED.selector);
-        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0); // staleness_ param ignored for Execute
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Execute, 0); // staleness_ param ignored
+        // for Execute
     }
 
     /// @notice Tests updatePPSExpiration reverts when called before effective time
@@ -2872,7 +2849,8 @@ contract SuperVaultTest is PeripheryHelpers {
     function test_UpdatePPSExpiration_RevertsOnInvalidTimestamp() public {
         // First propose a threshold
         vm.prank(manager);
-        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours); // This sets effective time to block.timestamp + 1 week
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 2 hours); // This sets effective
+        // time to block.timestamp + 1 week
 
         // Try to update immediately (before effective time)
         vm.prank(manager);
@@ -3020,7 +2998,8 @@ contract SuperVaultTest is PeripheryHelpers {
         // Verify state is cleared by trying to cancel again - should revert with NO_PROPOSAL
         vm.prank(manager);
         vm.expectRevert(ISuperVaultStrategy.NO_PROPOSAL.selector);
-        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0); // Should fail because ppsExpiryThresholdEffectiveTime == 0
+        strategy.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Cancel, 0); // Should fail because
+        // ppsExpiryThresholdEffectiveTime == 0
     }
 
     /// @notice Tests cancelPPSExpirationProposal emits correct event
@@ -3089,7 +3068,7 @@ contract SuperVaultTest is PeripheryHelpers {
     /// @dev Covers SuperVaultStrategy.sol:547
     function test_SetRedeemSlippage_RevertsOnExcessiveSlippage() public {
         address _user = _deployAccount(0xABC, "TestUser");
-        uint16 invalidSlippage = 10001; // BPS_PRECISION is 10000
+        uint16 invalidSlippage = 10_001; // BPS_PRECISION is 10000
 
         vm.prank(_user);
         vm.expectRevert(ISuperVaultStrategy.INVALID_REDEEM_SLIPPAGE_BPS.selector);
@@ -3127,7 +3106,7 @@ contract SuperVaultTest is PeripheryHelpers {
     /// @dev Covers edge case: exactly BPS_PRECISION (10000 = 100%)
     function test_SetRedeemSlippage_SucceedsWithMaximumSlippage() public {
         address _user = _deployAccount(0xABC, "TestUser");
-        uint16 maxSlippage = 10000; // Exactly BPS_PRECISION (100%)
+        uint16 maxSlippage = 10_000; // Exactly BPS_PRECISION (100%)
 
         vm.prank(_user);
         strategy.setRedeemSlippage(maxSlippage);
@@ -3387,7 +3366,8 @@ contract SuperVaultTest is PeripheryHelpers {
         // Remove one source
         address[] memory sourcesToRemove = new address[](1);
         address[] memory oraclesToRemove = new address[](1);
-        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes = new ISuperVaultStrategy.YieldSourceAction[](1);
+        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes =
+            new ISuperVaultStrategy.YieldSourceAction[](1);
 
         sourcesToRemove[0] = address(0x1111);
         oraclesToRemove[0] = address(0); // Ignored for removal
@@ -3432,7 +3412,8 @@ contract SuperVaultTest is PeripheryHelpers {
         // Remove 2 sources
         address[] memory sourcesToRemove = new address[](2);
         address[] memory oraclesToRemove = new address[](2);
-        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes = new ISuperVaultStrategy.YieldSourceAction[](2);
+        ISuperVaultStrategy.YieldSourceAction[] memory removeActionTypes =
+            new ISuperVaultStrategy.YieldSourceAction[](2);
 
         sourcesToRemove[0] = address(0x1111);
         sourcesToRemove[1] = address(0x3333);
@@ -3816,7 +3797,7 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Set both to a very high value
-        uint256 veryHighValue = 1000000e18; // 1 million times starting PPS
+        uint256 veryHighValue = 1_000_000e18; // 1 million times starting PPS
 
         // Set HWM
         vm.store(address(strategy), bytes32(uint256(16)), bytes32(veryHighValue));
@@ -3929,8 +3910,8 @@ contract SuperVaultTest is PeripheryHelpers {
     // containsYieldSource Tests
     // =============================================================
 
-    /// @notice Tests containsYieldSource returns false when source doesn't exist, true after adding, and false after removing
-    /// @dev Covers SuperVaultStrategy.sol:630-632
+    /// @notice Tests containsYieldSource returns false when source doesn't exist, true after adding, and false after
+    /// removing @dev Covers SuperVaultStrategy.sol:630-632
     function test_ContainsYieldSource() public {
         // Setup: Define yield source addresses
         address yieldSourceAddr = address(0x1234);
@@ -4254,8 +4235,8 @@ contract SuperVaultTest is PeripheryHelpers {
 
     /// @notice Tests that line 1012 check exists (defensive check for pendingCancelRedeemRequest flag)
     /// @dev Covers SuperVaultStrategy.sol:1012 - third if statement in _handleClaimCancelRedeem
-    /// @dev This is a defensive check: if (!state.pendingCancelRedeemRequest) revert CANCELLATION_REDEEM_REQUEST_PENDING()
-    /// @dev The check ensures pendingCancelRedeemRequest is true when claiming
+    /// @dev This is a defensive check: if (!state.pendingCancelRedeemRequest) revert
+    /// CANCELLATION_REDEEM_REQUEST_PENDING() @dev The check ensures pendingCancelRedeemRequest is true when claiming
     /// @dev This condition cannot be triggered through normal operations since:
     /// @dev - fulfillCancelRedeemRequests keeps pendingCancelRedeemRequest = true
     /// @dev - Only claimCancelRedeemRequest sets it to false (after passing all checks)
@@ -4474,7 +4455,9 @@ contract SuperVaultTest is PeripheryHelpers {
         uint256 claimedShares = vault.claimCancelRedeemRequest(0, arbitraryReceiver, testUser);
 
         uint256 receiverBalanceAfter = vault.balanceOf(arbitraryReceiver);
-        assertEq(receiverBalanceAfter - receiverBalanceBefore, claimedShares, "Arbitrary receiver should receive shares");
+        assertEq(
+            receiverBalanceAfter - receiverBalanceBefore, claimedShares, "Arbitrary receiver should receive shares"
+        );
     }
 
     /// @notice Tests claimCancelRedeemRequest reverts when non-operator calls on behalf of controller
@@ -4552,9 +4535,9 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Deposit to ensure vault has funds
         address testUser = _deployAccount(0xABC, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         vm.stopPrank();
 
@@ -4647,9 +4630,9 @@ contract SuperVaultTest is PeripheryHelpers {
 
         // Setup: Deposit to ensure vault has funds
         address testUser = _deployAccount(0xABC, "TestUser");
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vault.deposit(1000e18, testUser);
         vm.stopPrank();
 
@@ -4664,10 +4647,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Call 1: changePrimaryManager
         targets[0] = address(superGovernor);
         calldatas[0] = abi.encodeWithSelector(
-            ISuperGovernor.changePrimaryManager.selector,
-            address(strategy),
-            newManager,
-            newFeeRecipient
+            ISuperGovernor.changePrimaryManager.selector, address(strategy), newManager, newFeeRecipient
         );
 
         // Call 2: resetHighWaterMark

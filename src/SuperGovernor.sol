@@ -5,6 +5,7 @@ pragma solidity 0.8.30;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // Superform
 import { ISuperGovernor, FeeType } from "./interfaces/ISuperGovernor.sol";
@@ -72,7 +73,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     uint256 private _proposedMinStaleness;
     uint256 private _minStalenessEffectiveTime;
 
-    // Oracle constants for price conversions in _convertGasToUp()
+    // Oracle constants for price conversions in _convertGasToUpkeepToken()
     // Standard ERC-7281 address for native token (ETH)
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     // ISO 4217 numeric code for USD (840)
@@ -99,6 +100,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
+    bytes32 public constant UPKEEP_TOKEN = keccak256("UPKEEP_TOKEN");
     bytes32 public constant SUP_STRATEGY = keccak256("SUP_STRATEGY");
     bytes32 public constant TREASURY = keccak256("TREASURY");
     bytes32 public constant SUPER_BANK = keccak256("SUPER_BANK");
@@ -122,7 +124,15 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
     /// @param guardian Address that will have the GUARDIAN_ROLE for veto operations
     /// @param treasury Address of the treasury
-    constructor(address superGovernor, address governor, address bankManager, address oracleManager, address gasManager, address guardian, address treasury) {
+    constructor(
+        address superGovernor,
+        address governor,
+        address bankManager,
+        address oracleManager,
+        address gasManager,
+        address guardian,
+        address treasury
+    ) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
                 || gasManager == address(0) || oracleManager == address(0) || guardian == address(0)
@@ -185,7 +195,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address strategy,
         address newManager,
         address feeRecipient
-    ) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+    )
+        external
+        onlyRole(_SUPER_GOVERNOR_ROLE)
+    {
         // Check if takeovers are globally frozen
         if (_managerTakeoversFrozen) revert MANAGER_TAKEOVERS_FROZEN();
 
@@ -200,7 +213,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function resetHighWaterMark(address strategy) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (strategy == address(0)) revert INVALID_ADDRESS();
-        
+
         address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
         if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
 
@@ -738,7 +751,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256) {
-        return _convertGasToUp(_gasPerEntry[oracle_]);
+        return _convertGasToUpkeepToken(_gasPerEntry[oracle_]);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -786,17 +799,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Converts gas units to UP token cost using multi-step oracle pricing
-    /// @dev Performs 3 oracle conversions: Gas->Native, Native->USD, USD->UP
+    /// @notice Converts gas units to UPKEEP_TOKEN cost using multi-step oracle pricing
+    /// @dev Performs 3 oracle conversions: Gas->Native, Native->USD, USD->UPKEEP_TOKEN
     /// @dev Uses AVERAGE_PROVIDER for all price feeds to ensure consistency
     /// @dev Uses Math.Rounding.Ceil to ensure sufficient upkeep coverage
+    /// @dev Dynamically queries token decimals to support tokens with different decimal places (e.g., USDC=6, WETH=18)
     /// @param gasAmount The gas units to convert
-    /// @return requiredUpTokens The equivalent amount in UP tokens (18 decimals)
-    function _convertGasToUp(uint256 gasAmount) internal view returns (uint256) {
+    /// @return requiredUpkeepTokens The equivalent amount in UPKEEP_TOKEN (token's native decimals)
+    function _convertGasToUpkeepToken(uint256 gasAmount) internal view returns (uint256) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert SUPER_ORACLE_NOT_FOUND();
-        address upToken = _addressRegistry[UP];
-        if (upToken == address(0)) revert UP_NOT_FOUND();
+        address upkeepToken = _addressRegistry[UPKEEP_TOKEN];
+        if (upkeepToken == address(0)) revert UPKEEP_TOKEN_NOT_FOUND();
+
+        // Get the upkeep token's decimals dynamically
+        uint8 tokenDecimals = IERC20Metadata(upkeepToken).decimals();
+        uint256 tokenUnit = 10 ** tokenDecimals;
 
         // Step 1: convert gas to native token (wei)
         (uint256 weiAmount,,,) =
@@ -806,18 +824,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         (uint256 nativeToUsd,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
-        // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+        // Step 3: convert USD to UPKEEP_TOKEN (how much USD per 1 UPKEEP_TOKEN)
+        (uint256 upkeepTokenPerUsd,,,) = ISuperOracle(oracle)
             .getQuoteFromProvider(
-                1e18, // 1 UP token (18 decimals)
-                upToken,
+                tokenUnit, // 1 UPKEEP_TOKEN (using actual decimals)
+                upkeepToken,
                 USD_TOKEN,
                 AVERAGE_PROVIDER
             );
 
-        // Calculate required UP tokens
-        // usdAmount / upPerUsd = required UP tokens
-        uint256 requiredUpTokens = Math.mulDiv(nativeToUsd, 1e18, upPerUsd, Math.Rounding.Ceil);
-        return requiredUpTokens;
+        // Calculate required UPKEEP_TOKEN
+        // usdAmount / upkeepTokenPerUsd = required UPKEEP_TOKEN
+        uint256 requiredUpkeepTokens = Math.mulDiv(nativeToUsd, tokenUnit, upkeepTokenPerUsd, Math.Rounding.Ceil);
+        return requiredUpkeepTokens;
     }
 }

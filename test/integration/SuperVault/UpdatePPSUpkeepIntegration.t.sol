@@ -148,8 +148,10 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         // Set SuperOracle
         governor.setAddress(governor.SUPER_ORACLE(), address(superOracle));
 
-        // Set UP token
+        // Set UP and UPKEEP_TOKEN
+        // Both are the same token for mainnet testing; on L2s UPKEEP_TOKEN would be WETH
         governor.setAddress(governor.UP(), address(upToken));
+        governor.setAddress(governor.UPKEEP_TOKEN(), address(upToken));
 
         // Set validators
         address[] memory validators = new address[](2);
@@ -206,9 +208,7 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: treasury
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: treasury
                 })
             })
         );
@@ -265,10 +265,7 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         // Call updatePPS
         ecdsaOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -283,14 +280,10 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
 
         // Assertions
         assertEq(
-            initialStrategyUpkeep - finalStrategyUpkeep,
-            upkeepCost,
-            "Strategy upkeep should decrease by upkeep cost"
+            initialStrategyUpkeep - finalStrategyUpkeep, upkeepCost, "Strategy upkeep should decrease by upkeep cost"
         );
         assertEq(
-            finalClaimableUpkeep - initialClaimableUpkeep,
-            upkeepCost,
-            "Claimable upkeep should increase by upkeep cost"
+            finalClaimableUpkeep - initialClaimableUpkeep, upkeepCost, "Claimable upkeep should increase by upkeep cost"
         );
     }
 
@@ -342,10 +335,7 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
 
         ecdsaOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
-                strategies: strategies,
-                proofsArray: proofsArray,
-                ppss: ppss,
-                timestamps: timestamps
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
         );
 
@@ -360,7 +350,11 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         address _strategy,
         uint256 _pps,
         uint256 _timestamp
-    ) internal view returns (bytes[] memory) {
+    )
+        internal
+        view
+        returns (bytes[] memory)
+    {
         uint256 nonce = ecdsaOracle.noncePerStrategy(_strategy);
 
         bytes32 digest = _getDigest(_strategy, _pps, _timestamp, nonce);
@@ -384,25 +378,16 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         uint256 _pps,
         uint256 _timestamp,
         uint256 _nonce
-    ) internal view returns (bytes32) {
+    )
+        internal
+        view
+        returns (bytes32)
+    {
         // Must use abi.encodePacked to match ECDSAPPSOracle.validateProofs
-        bytes32 structHash = keccak256(
-            abi.encodePacked(
-                ecdsaOracle.UPDATE_PPS_TYPEHASH(),
-                _strategy,
-                _pps,
-                _timestamp,
-                _nonce
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encodePacked(ecdsaOracle.UPDATE_PPS_TYPEHASH(), _strategy, _pps, _timestamp, _nonce));
 
-        return keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                ecdsaOracle.domainSeparator(),
-                structHash
-            )
-        );
+        return keccak256(abi.encodePacked("\x19\x01", ecdsaOracle.domainSeparator(), structHash));
     }
 
     function _sign(uint256 privateKey, bytes32 digest) internal pure returns (bytes memory) {

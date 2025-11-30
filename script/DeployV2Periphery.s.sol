@@ -169,7 +169,16 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("Estimated cost (gwei):", totalCostGwei);
         console2.log("");
         console2.log("=====> ESTIMATED_NATIVE_COST_WEI:", totalCostWei);
-        console2.log(string(abi.encodePacked("=====> ESTIMATED_NATIVE_COST_ETH: ", vm.toString(totalCostEthWhole), ".", vm.toString(totalCostEthFraction))));
+        console2.log(
+            string(
+                abi.encodePacked(
+                    "=====> ESTIMATED_NATIVE_COST_ETH: ",
+                    vm.toString(totalCostEthWhole),
+                    ".",
+                    vm.toString(totalCostEthFraction)
+                )
+            )
+        );
         console2.log("=====> CONTRACTS_TO_DEPLOY:", contractsNeedingDeployment);
         console2.log("======================================");
     }
@@ -183,7 +192,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         string memory contractName,
         uint64 chainId,
         uint256 env
-    ) internal view returns (uint256 gasEstimate) {
+    )
+        internal
+        view
+        returns (uint256 gasEstimate)
+    {
         // Check if contract is already deployed
         ContractStatus memory status = contractDeploymentStatus[chainId][contractName];
         if (status.isDeployed) {
@@ -214,7 +227,17 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         uint256 baseCost = 32_000 + 21_000 + 50_000;
         gasEstimate = (baseCost + initCodeCost) * 120 / 100; // 20% buffer
 
-        console2.log(string(abi.encodePacked(contractName, " - Bytecode size: ", vm.toString(bytecode.length), " bytes, estimated gas: ", vm.toString(gasEstimate))));
+        console2.log(
+            string(
+                abi.encodePacked(
+                    contractName,
+                    " - Bytecode size: ",
+                    vm.toString(bytecode.length),
+                    " bytes, estimated gas: ",
+                    vm.toString(gasEstimate)
+                )
+            )
+        );
 
         return gasEstimate;
     }
@@ -461,20 +484,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             SUPER_VAULT_KEY,
             chainId,
             __getSalt(SUPER_VAULT_KEY),
-            abi.encodePacked(
-                __getBytecode(SUPER_VAULT_KEY, env),
-                abi.encode(peripheryContracts.superGovernor)
-            )
+            abi.encodePacked(__getBytecode(SUPER_VAULT_KEY, env), abi.encode(peripheryContracts.superGovernor))
         );
 
         peripheryContracts.strategyImpl = __deployContractIfNeeded(
             SUPER_VAULT_STRATEGY_KEY,
             chainId,
             __getSalt(SUPER_VAULT_STRATEGY_KEY),
-            abi.encodePacked(
-                __getBytecode(SUPER_VAULT_STRATEGY_KEY, env),
-                abi.encode(peripheryContracts.superGovernor)
-            )
+            abi.encodePacked(__getBytecode(SUPER_VAULT_STRATEGY_KEY, env), abi.encode(peripheryContracts.superGovernor))
         );
 
         peripheryContracts.escrowImpl = __deployContractIfNeeded(
@@ -526,21 +543,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Deploy SuperOracle (mainnet) or SuperOracleL2 (L2 chains)
         // Mainnet: GAS->WEI, ETH->USD, UP->USD
         // L2: ETH->USD only (gas oracle and UP oracle not available)
-        peripheryContracts.superOracle = _deploySuperOracle(
-            chainId,
-            peripheryContracts.superGovernor,
-            peripheryContracts.fixedPriceOracle
-        );
+        peripheryContracts.superOracle =
+            _deploySuperOracle(chainId, peripheryContracts.superGovernor, peripheryContracts.fixedPriceOracle);
 
         // Deploy SuperBank
         peripheryContracts.superBank = __deployContractIfNeeded(
             SUPER_BANK_KEY,
             chainId,
             __getSalt(SUPER_BANK_KEY),
-            abi.encodePacked(
-                type(SuperBank).creationCode,
-                abi.encode(peripheryContracts.superGovernor)
-            )
+            abi.encodePacked(type(SuperBank).creationCode, abi.encode(peripheryContracts.superGovernor))
         );
 
         console2.log("All periphery contracts deployment completed successfully with full validation");
@@ -562,8 +573,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         returns (address superOracle)
     {
         // Configure initial oracle feeds
-        // Mainnet: 3 feeds (GAS->WEI, ETH->USD, UP->USD)
-        // L2 chains: 1 feed (ETH->USD only) - gas oracle and UP oracle only available on mainnet
+        // Mainnet: 3 feeds (GAS->WEI, ETH->USD, UP->USD) - UPKEEP_TOKEN = UP
+        // L2 chains: 2 feeds (ETH->USD, WETH->USD) - UPKEEP_TOKEN = WETH (uses same price as ETH)
 
         address[] memory bases;
         address[] memory quotes;
@@ -572,6 +583,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         if (chainId == MAINNET_CHAIN_ID) {
             // Mainnet: include GAS->WEI, ETH->USD, and UP->USD oracles
+            // UPKEEP_TOKEN on mainnet is UP, so UP->USD oracle is used for upkeep cost calculations
             bases = new address[](3);
             quotes = new address[](3);
             providers = new bytes32[](3);
@@ -590,6 +602,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             feeds[1] = ORACLE_ETH_USD_MAINNET;
 
             // Feed 3: UP -> USD (using FixedPriceOracle)
+            // This is used for UPKEEP_TOKEN pricing on mainnet (UPKEEP_TOKEN = UP)
             bases[2] = UP_TOKEN;
             quotes[2] = USD_TOKEN;
             providers[2] = PROVIDER_SUPERFORM;
@@ -600,49 +613,75 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 chainId,
                 __getSalt(SUPER_ORACLE_KEY),
                 abi.encodePacked(
-                    type(SuperOracle).creationCode,
-                    abi.encode(superGovernor, bases, quotes, providers, feeds)
+                    type(SuperOracle).creationCode, abi.encode(superGovernor, bases, quotes, providers, feeds)
                 )
             );
 
             console2.log("SuperOracle deployed at:", superOracle);
             console2.log("  Chain ID:", chainId);
-            console2.log("  Configured oracles: GAS->WEI, ETH->USD, UP->USD");
+            console2.log("  Configured oracles: GAS->WEI, ETH->USD, UP->USD (UPKEEP_TOKEN)");
         } else {
-            // L2 chains: only ETH->USD oracle (no gas oracle or UP oracle available)
-            bases = new address[](1);
-            quotes = new address[](1);
-            providers = new bytes32[](1);
-            feeds = new address[](1);
+            // L2 chains: ETH->USD and WETH->USD oracles
+            // UPKEEP_TOKEN on L2s is WETH, which has the same price as ETH
+            //
+            // TODO: _convertGasToUpkeepToken() requires 3 oracle feeds:
+            //   1. GAS_QUOTE -> WEI_QUOTE (gas price oracle) - NOT YET AVAILABLE ON L2s
+            //   2. NATIVE_TOKEN -> USD (ETH/USD)
+            //   3. UPKEEP_TOKEN -> USD (WETH/USD)
+            //
+            // Until we have a gas oracle for L2s, getUpkeepCostPerSingleUpdate() will revert.
+            // For now we configure ETH->USD and WETH->USD. The GAS oracle needs to be added
+            // via SuperGovernor.queueOracleUpdate() once we identify the L2 gas oracle feed.
+            //
+            // Potential L2 gas oracles to investigate:
+            // - Chainlink L2 gas price feeds (if available)
+            // - Custom gas price oracle implementation
+            // - Use a fixed gas price oracle as temporary solution
+            bases = new address[](2);
+            quotes = new address[](2);
+            providers = new bytes32[](2);
+            feeds = new address[](2);
 
-            // Feed 1: ETH -> USD
-            bases[0] = NATIVE_TOKEN;
-            quotes[0] = USD_TOKEN;
-            providers[0] = PROVIDER_CHAINLINK;
+            address ethUsdOracle;
+            address upkeepToken;
 
             if (chainId == BASE_CHAIN_ID) {
-                feeds[0] = ORACLE_ETH_USD_BASE;
+                ethUsdOracle = ORACLE_ETH_USD_BASE;
+                upkeepToken = UPKEEP_TOKEN_BASE;
             } else {
                 revert("ORACLE_ETH_USD not configured for this chain");
             }
+
+            // Feed 1: ETH -> USD (NATIVE_TOKEN pricing)
+            bases[0] = NATIVE_TOKEN;
+            quotes[0] = USD_TOKEN;
+            providers[0] = PROVIDER_CHAINLINK;
+            feeds[0] = ethUsdOracle;
+
+            // Feed 2: WETH (UPKEEP_TOKEN) -> USD
+            // Uses the same oracle as ETH->USD since WETH is 1:1 with ETH
+            bases[1] = upkeepToken;
+            quotes[1] = USD_TOKEN;
+            providers[1] = PROVIDER_CHAINLINK;
+            feeds[1] = ethUsdOracle;
 
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_L2_KEY,
                 chainId,
                 __getSalt(SUPER_ORACLE_L2_KEY),
                 abi.encodePacked(
-                    type(SuperOracleL2).creationCode,
-                    abi.encode(superGovernor, bases, quotes, providers, feeds)
+                    type(SuperOracleL2).creationCode, abi.encode(superGovernor, bases, quotes, providers, feeds)
                 )
             );
 
             console2.log("SuperOracleL2 deployed at:", superOracle);
             console2.log("  Chain ID:", chainId);
-            console2.log("  Configured oracles: ETH->USD");
+            console2.log("  Configured oracles: ETH->USD, WETH->USD (UPKEEP_TOKEN)");
 
             // NOTE: Uptime feed configured in _configurePeripheryContracts via SuperGovernor.batchSetOracleUptimeFeed
-            console2.log("  WARNING: GAS->WEI oracle not configured (mainnet only)");
-            console2.log("  WARNING: UP->USD oracle not configured (mainnet only)");
+            console2.log("  TODO: GAS->WEI oracle NOT configured - getUpkeepCostPerSingleUpdate() will revert");
+            console2.log("        Add L2 gas oracle via SuperGovernor.queueOracleUpdate() when available");
+            console2.log("  NOTE: UP token not available on L2s, using WETH for upkeep payments");
         }
 
         return superOracle;
@@ -669,13 +708,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Step 1] DONE - Set active PPS oracle");
 
         console2.log("[Step 2] Setting validator configuration...");
-        SuperGovernor(peripheryContracts.superGovernor).setValidatorConfig(
-            INITIAL_VALIDATOR_CONFIG_VERSION,
-            validators,
-            validatorPublicKeys,
-            INITIAL_VALIDATOR_QUORUM,
-            "" // offchainConfig - empty for initial setup
-        );
+        SuperGovernor(peripheryContracts.superGovernor)
+            .setValidatorConfig(
+                INITIAL_VALIDATOR_CONFIG_VERSION,
+                validators,
+                validatorPublicKeys,
+                INITIAL_VALIDATOR_QUORUM,
+                "" // offchainConfig - empty for initial setup
+            );
         console2.log(
             "[Step 2] DONE - Set validator configuration with",
             validators.length,
@@ -696,19 +736,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Step 4] Setting SuperOracle address...");
         console2.log("  Oracle address:", peripheryContracts.superOracle);
         SuperGovernor(peripheryContracts.superGovernor)
-            .setAddress(
-                SuperGovernor(peripheryContracts.superGovernor).SUPER_ORACLE(),
-                peripheryContracts.superOracle
-            );
+            .setAddress(SuperGovernor(peripheryContracts.superGovernor).SUPER_ORACLE(), peripheryContracts.superOracle);
         console2.log("[Step 4] DONE - Set SuperOracle address");
 
         console2.log("[Step 5] Setting SuperBank address...");
         console2.log("  Bank address:", peripheryContracts.superBank);
         SuperGovernor(peripheryContracts.superGovernor)
-            .setAddress(
-                SuperGovernor(peripheryContracts.superGovernor).SUPER_BANK(),
-                peripheryContracts.superBank
-            );
+            .setAddress(SuperGovernor(peripheryContracts.superGovernor).SUPER_BANK(), peripheryContracts.superBank);
         console2.log("[Step 5] DONE - Set SuperBank address");
 
         // Step 6: Configure uptime feed for L2 chains (SuperOracleL2 requires uptime feeds)
@@ -793,9 +827,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Verify SuperVaultAggregator is set
         address aggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
         console2.log("[Config Check] SuperVaultAggregator:", aggregator);
-        require(
-            aggregator == peripheryContracts.superVaultAggregator, "SMOKE_TEST_FAILED: Aggregator mismatch"
-        );
+        require(aggregator == peripheryContracts.superVaultAggregator, "SMOKE_TEST_FAILED: Aggregator mismatch");
 
         // Verify SuperOracle is set
         address superOracle = governor.getAddress(governor.SUPER_ORACLE());
