@@ -301,7 +301,6 @@ contract SuperAssetTest is BaseTestSuperAsset {
         // Call oracle directly since setEmergencyPrice was removed from SuperGovernor
         vm.prank(address(superGovernor));
         oracle.setEmergencyPrice(address(primaryAsset), 1e8);
-
         console.log("Feed staleness set");
 
         console.log("List of Token Addresses");

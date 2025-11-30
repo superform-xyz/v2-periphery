@@ -340,6 +340,28 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         ISuperOracleL2(oracleL2).batchSetUptimeFeed(dataOracles_, uptimeOracles_, gracePeriods_);
     }
 
+    /// @inheritdoc ISuperGovernor
+    function setEmergencyPrice(address token, uint256 price) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperOracle(oracle).setEmergencyPrice(token, price);
+    }
+
+    /// @inheritdoc ISuperGovernor
+    function batchSetEmergencyPrices(
+        address[] calldata tokens_,
+        uint256[] calldata prices_
+    )
+        external
+        onlyRole(_SUPER_GOVERNOR_ROLE)
+    {
+        address oracle = _addressRegistry[SUPER_ORACLE];
+        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
+
+        ISuperOracle(oracle).batchSetEmergencyPrice(tokens_, prices_);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             HOOK MANAGEMENT
     //////////////////////////////////////////////////////////////*/

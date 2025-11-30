@@ -1377,6 +1377,135 @@ contract SuperGovernorTest is PeripheryHelpers {
         assertEq(superGovernor.getPPSOracleQuorum(), quorum, "Quorum should be updated");
         assertEq(superGovernor.getValidatorsCount(), 2, "Should have 2 validators");
     }
+    
+    // =============================================================
+    // Emergency Price Tests
+    // =============================================================
+    function test_SetEmergencyPrice() public {
+        uint256 emergencyPrice = 1e18;
+
+        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
+
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+
+        // Set the oracle in the registry
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(oracle));
+
+        vm.prank(sGovernor);
+        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
+
+        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
+    }
+
+    /// @notice Tests setEmergencyPrice reverts when oracle is not set in registry
+    /// @dev Covers SuperGovernor.sol:333 - if (oracle == address(0)) revert CONTRACT_NOT_FOUND()
+    function test_SetEmergencyPrice_Revert_OracleNotSet() public {
+        address token = makeAddr("token");
+        uint256 price = 1e18;
+
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.setEmergencyPrice(token, price);
+    }
+
+    /// @notice Tests batchSetEmergencyPrices reverts when oracle is not set in registry
+    /// @dev Covers SuperGovernor.sol:347 - if (oracle == address(0)) revert CONTRACT_NOT_FOUND()
+    function test_BatchSetEmergencyPrices_Revert_OracleNotSet() public {
+        address[] memory tokens = new address[](2);
+        tokens[0] = makeAddr("token1");
+        tokens[1] = makeAddr("token2");
+
+        uint256[] memory prices = new uint256[](2);
+        prices[0] = 1e18;
+        prices[1] = 2e18;
+
+        vm.prank(sGovernor);
+        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
+        superGovernor.batchSetEmergencyPrices(tokens, prices);
+    }
+
+    /// @notice Tests batchSetEmergencyPrices successfully delegates to oracle
+    /// @dev Covers SuperGovernor.sol:339-350 success path with oracle delegation
+    function test_BatchSetEmergencyPrices_Success() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Prepare test data
+        address[] memory tokens = new address[](2);
+        tokens[0] = makeAddr("token1");
+        tokens[1] = makeAddr("token2");
+
+        uint256[] memory prices = new uint256[](2);
+        prices[0] = 1e18;
+        prices[1] = 2e18;
+
+        // Call batchSetEmergencyPrices
+        vm.prank(sGovernor);
+        superGovernor.batchSetEmergencyPrices(tokens, prices);
+
+        // Verify oracle received the call
+        assertTrue(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should have received the batch call");
+        assertEq(mockOracle.getLastBatchTokensLength(), 2, "Should have 2 tokens");
+        assertEq(mockOracle.getLastBatchToken(0), tokens[0], "First token should match");
+        assertEq(mockOracle.getLastBatchToken(1), tokens[1], "Second token should match");
+        assertEq(mockOracle.getLastBatchPrice(0), prices[0], "First price should match");
+        assertEq(mockOracle.getLastBatchPrice(1), prices[1], "Second price should match");
+    }
+
+    /// @notice Tests batchSetEmergencyPrices access control
+    /// @dev Covers SuperGovernor.sol:345 - onlyRole(_SUPER_GOVERNOR_ROLE)
+    function test_BatchSetEmergencyPrices_AccessControl() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Prepare test data
+        address[] memory tokens = new address[](2);
+        tokens[0] = makeAddr("token1");
+        tokens[1] = makeAddr("token2");
+
+        uint256[] memory prices = new uint256[](2);
+        prices[0] = 1e18;
+        prices[1] = 2e18;
+
+        // Try to call from unauthorized address
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        superGovernor.batchSetEmergencyPrices(tokens, prices);
+
+        // Verify oracle did not receive the call
+        assertFalse(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should not have received the call");
+    }
+
+    /// @notice Tests batchSetEmergencyPrices with empty arrays delegates to oracle
+    /// @dev Covers SuperGovernor.sol:339-350 with edge case - oracle will handle validation
+    function test_BatchSetEmergencyPrices_EmptyArrays() public {
+        // Setup mock oracle
+        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
+        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
+        vm.prank(sGovernor);
+        superGovernor.setAddress(oracleKey, address(mockOracle));
+
+        // Prepare empty arrays
+        address[] memory tokens = new address[](0);
+        uint256[] memory prices = new uint256[](0);
+
+        // Call should succeed at SuperGovernor level and delegate to oracle
+        vm.prank(sGovernor);
+        superGovernor.batchSetEmergencyPrices(tokens, prices);
+
+        // Verify oracle received the call (even with empty arrays)
+        assertTrue(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should have received the call");
+        assertEq(mockOracle.getLastBatchTokensLength(), 0, "Should have 0 tokens");
+    }
+
 
     // =============================================================
     // PPS Oracle Management Tests
@@ -2987,6 +3116,42 @@ contract MockSuperOracleForStaleness {
     {
         // Return amount as-is for simplicity in testing
         return (amount, 0, 0, 0);
+    }
+
+    // Emergency price tracking
+    mapping(address => uint256) private _emergencyPrices;
+    bool private _batchSetEmergencyPriceCalled;
+    address[] private _lastBatchTokens;
+    uint256[] private _lastBatchPrices;
+
+    function setEmergencyPrice(address token, uint256 price) external {
+        _emergencyPrices[token] = price;
+    }
+
+    function getEmergencyPrice(address token) external view returns (uint256) {
+        return _emergencyPrices[token];
+    }
+
+    function batchSetEmergencyPrice(address[] calldata tokens, uint256[] calldata prices) external {
+        _batchSetEmergencyPriceCalled = true;
+        _lastBatchTokens = tokens;
+        _lastBatchPrices = prices;
+    }
+
+    function batchSetEmergencyPriceCalled() external view returns (bool) {
+        return _batchSetEmergencyPriceCalled;
+    }
+
+    function getLastBatchTokensLength() external view returns (uint256) {
+        return _lastBatchTokens.length;
+    }
+
+    function getLastBatchToken(uint256 index) external view returns (address) {
+        return _lastBatchTokens[index];
+    }
+
+    function getLastBatchPrice(uint256 index) external view returns (uint256) {
+        return _lastBatchPrices[index];
     }
 }
 

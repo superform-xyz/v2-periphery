@@ -25,6 +25,9 @@ contract MockSuperGovernor {
     // Mock implementation of addVaultBank
     function addVaultBank(uint64 chainId, address vaultBank) public { }
 
+    // Mock implementation of batchSetEmergencyPrices
+    function batchSetEmergencyPrices(address[] memory tokens_, uint256[] memory prices_) public { }
+
     // Mock implementation of batchSetOracleUptimeFeed
     function batchSetOracleUptimeFeed(
         address[] memory dataOracles_,
@@ -145,6 +148,9 @@ contract MockSuperGovernor {
 
     // Mock implementation of setAddress
     function setAddress(bytes32 key, address value) public { }
+
+    // Mock implementation of setEmergencyPrice
+    function setEmergencyPrice(address token, uint256 price) public { }
 
     // Mock implementation of setGasInfo
     function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) public { }
