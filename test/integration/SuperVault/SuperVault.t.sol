@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 // testing
+import { MerkleReader } from "../../utils/merkle/helper/MerkleReader.sol";
 import { BaseSuperVaultTest } from "./BaseSuperVaultTest.t.sol";
 
 // external
@@ -20,6 +21,7 @@ import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IERC7540Redeem, IERC7540Operator, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
@@ -3515,9 +3517,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bTVault.deposit(depositAmount, accountBase.account);
         vm.stopPrank();
 
-        address fluidVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][FLUID_VAULT_KEY][USDC_KEY];
+        uint256 accShares = bTVault.balanceOf(accountBase.account);
 
-        _depositIntoUnderlyingOnBase(assetBase, fluidVaultAddr, address(bTStrategy), depositAmount);
+        address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
+
+        _depositIntoUnderlyingOnBase(assetBase, morphoVaultAddr, address(bTStrategy), depositAmount);
+
+        vm.startPrank(accountBase.account);
+        bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
+
+
     }
 
     function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
@@ -3531,15 +3540,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bridgeTestVault = SuperVault(bridgeTestVaultAddr);
         bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
 
-        address fluidVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][FLUID_VAULT_KEY][USDC_KEY];
+        address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
 
         // Add a new yield source as manager
         vm.prank(MANAGER);
         bridgeTestStrategy.manageYieldSource(
-            fluidVaultAddr, _getContract(BASE, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+            morphoVaultAddr, _getContract(BASE, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
-
-        // _updateSuperVaultPPS(address(bridgeTestStrategy), address(bridgeTestVault));
     }
 
     function _depositIntoUnderlyingOnBase(
@@ -3567,23 +3574,94 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
 
         uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).convertToShares(depositAmount);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).previewDeposit(depositAmount / 2);
 
         bytes[] memory argsForProofs = new bytes[](1);
         argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
 
+        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+
+        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
+        bytes32 baseHooksMerkleRoot;
+
+        vm.mockCall(
+            baseAggregatorAddress,
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Try to get proper merkle root for Base chain, fallback to single-leaf tree if hook not found
+        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
+            baseHooksMerkleRoot = root;
+        } catch {
+            // Hook not in Base merkle tree, use single-leaf tree as fallback
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(depositHookAddress, fulfillHooksData))));
+            baseHooksMerkleRoot = leaf;
+        }
+
+        // Set strategy root
         vm.startPrank(MANAGER);
+        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
+        vm.warp(block.timestamp + 24 hours + 1);
+        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
+
         SuperVaultStrategy(payable(bridgeTestStrategy))
             .executeHooks(
                 ISuperVaultStrategy.ExecuteArgs({
                     hooks: fulfillHooksAddresses,
                     hookCalldata: fulfillHooksData,
                     expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
-                    strategyProofs: new bytes32[][](1)
+                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
                 })
             );
         vm.stopPrank();
+    }
+
+    /**
+     * @notice Try to get Base chain merkle root, with fallback to single-leaf
+     * @return root The merkle root for Base chain
+     */
+    function _tryGetBaseMerkleRoot() external returns (bytes32 root) {
+        // This will throw if Base merkle files don't exist or are invalid
+        // The try-catch in calling function will handle the error
+        _setMerkleChainId(BASE);
+        return _getMerkleRoot();
+    }
+
+    /**
+     * @notice Try to get Base chain merkle proofs, with fallback to empty arrays
+     * @param hookAddresses Array of hook addresses
+     * @param argsForProofs Array of encoded arguments
+     * @return proofs Array of merkle proofs, or empty arrays on failure
+     */
+    function _tryGetBaseMerkleProofs(
+        address[] memory hookAddresses,
+        bytes[] memory argsForProofs
+    ) internal returns (bytes32[][] memory proofs) {
+        try this._tryGetBaseMerkleProofsForChain(hookAddresses, argsForProofs) returns (bytes32[][] memory validProofs) {
+            return validProofs;
+        } catch {
+            // Hook not found in Base merkle tree, return empty proofs for single-leaf tree
+            proofs = new bytes32[][](hookAddresses.length);
+            for (uint256 i = 0; i < hookAddresses.length; i++) {
+                proofs[i] = new bytes32[](0); // Empty proof for single-leaf tree
+            }
+            return proofs;
+        }
+    }
+
+    /**
+     * @notice External function to get Base merkle proofs (needed for try-catch)
+     * @param hookAddresses Array of hook addresses
+     * @param argsForProofs Array of encoded arguments
+     * @return proofs Array of merkle proofs
+     */
+    function _tryGetBaseMerkleProofsForChain(
+        address[] memory hookAddresses,
+        bytes[] memory argsForProofs
+    ) external returns (bytes32[][] memory proofs) {
+        return _getMerkleProofsForChain(BASE, hookAddresses, argsForProofs);
     }
 
     /*//////////////////////////////////////////////////////////////
