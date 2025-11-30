@@ -835,7 +835,6 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
         // Calculate required UPKEEP_TOKEN
         // usdAmount / upkeepTokenPerUsd = required UPKEEP_TOKEN
-        uint256 requiredUpkeepTokens = Math.mulDiv(nativeToUsd, tokenUnit, upkeepTokenPerUsd, Math.Rounding.Ceil);
-        return requiredUpkeepTokens;
+        return Math.mulDiv(nativeToUsd, tokenUnit, upkeepTokenPerUsd, Math.Rounding.Ceil);
     }
 }
