@@ -10,6 +10,7 @@ import { SuperGovernor } from "../../../../../src/SuperGovernor.sol";
 import { IncentiveFundContract } from "../../../src/SuperAsset/IncentiveFundContract.sol";
 import { IncentiveCalculationContract } from "../../../src/SuperAsset/IncentiveCalculationContract.sol";
 import { SuperOracle } from "../../../../../src/oracles/SuperOracle.sol";
+import { ISuperOracle } from "../../../../../src/interfaces/oracles/ISuperOracle.sol";
 import { MockERC20 } from "../../../../../test/mocks/MockERC20.sol";
 import { Mock4626Vault } from "../../../../../test/mocks/Mock4626Vault.sol";
 import { MockAggregator } from "../../../../../test/mocks/MockAggregator.sol";
@@ -107,7 +108,8 @@ contract SuperAssetTest is BaseTestSuperAsset {
             admin, // oracleManager role
             admin, // gasManager role
             admin, // guardian role
-            makeAddr("treasury") // treasury
+            makeAddr("treasury"), // treasury
+            false // upkeepPaymentsEnabled
         );
         console.log("SuperGovernor deployed");
 
@@ -298,9 +300,6 @@ contract SuperAssetTest is BaseTestSuperAsset {
         superGovernor.setOracleFeedMaxStaleness(address(mockFeedSuperVault1Shares), 14 days);
         superGovernor.setOracleFeedMaxStaleness(address(mockFeedSuperVault2Shares), 14 days);
         vm.stopPrank();
-        // Call oracle directly since setEmergencyPrice was removed from SuperGovernor
-        vm.prank(address(superGovernor));
-        oracle.setEmergencyPrice(address(primaryAsset), 1e8);
 
         console.log("Feed staleness set");
 
@@ -1270,7 +1269,8 @@ contract SuperAssetTest is BaseTestSuperAsset {
         ISuperAsset.DepositArgs memory depositArgs = ISuperAsset.DepositArgs({
             receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
-        vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_ORACLE_OFF.selector, address(tokenIn)));
+        // Oracle now reverts with NO_VALID_REPORTED_PRICES when all feeds are stale
+        vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         superAsset.deposit(depositArgs);
         vm.stopPrank();
     }
@@ -1289,7 +1289,8 @@ contract SuperAssetTest is BaseTestSuperAsset {
             receiver: user, tokenIn: address(tokenIn), amountTokenToDeposit: 100e18, minSharesOut: 0
         });
 
-        vm.expectRevert(abi.encodeWithSelector(ISuperAsset.SUPPORTED_ASSET_PRICE_ORACLE_OFF.selector, address(tokenIn)));
+        // Oracle now reverts with NO_VALID_REPORTED_PRICES when all feeds return zero/invalid prices
+        vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         superAsset.deposit(depositArgs);
         vm.stopPrank();
     }

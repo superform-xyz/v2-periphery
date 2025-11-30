@@ -77,6 +77,8 @@ interface ISuperGovernor is IAccessControl {
     error SUPER_ORACLE_NOT_FOUND();
     /// @notice Thrown when the up token is not found
     error UP_NOT_FOUND();
+    /// @notice Thrown when the upkeep token is not found
+    error UPKEEP_TOKEN_NOT_FOUND();
     /// @notice Thrown when the gas info is invalid
     error INVALID_GAS_INFO();
 
@@ -502,6 +504,10 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the UP ID
     /// @return The ID of the UP token
     function UP() external view returns (bytes32);
+
+    /// @notice Gets the UPKEEP_TOKEN ID
+    /// @return The ID of the UPKEEP_TOKEN (used for upkeep payments, can be UP on mainnet or WETH/USDC on L2s)
+    function UPKEEP_TOKEN() external view returns (bytes32);
 
     /// @notice Gets the Treasury ID
     /// @return The ID for the Treasury in the registry

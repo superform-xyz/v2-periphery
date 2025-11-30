@@ -3,16 +3,20 @@ pragma solidity >=0.8.30;
 
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { SuperGovernor } from "../src/SuperGovernor.sol";
+import { FixedPriceOracle } from "../src/oracles/FixedPriceOracle.sol";
 import { console2 } from "forge-std/console2.sol";
 
 /// @title TransferSuperGovernorRole
-/// @notice Script to transfer SUPER_GOVERNOR_ROLE and DEFAULT_ADMIN_ROLE from deployer to production address
+/// @notice Script to transfer GOVERNOR_ROLE, SUPER_GOVERNOR_ROLE, and DEFAULT_ADMIN_ROLE from deployer to production
 /// @dev This script should be run after deployment once Fireblocks is set up
-/// @dev The transfer follows a 4-step process as documented in test_Role_TransferSuperGovernorRole:
-///      Step 1: Grant SUPER_GOVERNOR_ROLE to new address
-///      Step 2: Grant DEFAULT_ADMIN_ROLE to new address
-///      Step 3: Revoke SUPER_GOVERNOR_ROLE from deployer
-///      Step 4: Revoke DEFAULT_ADMIN_ROLE from deployer
+/// @dev The transfer follows a 7-step process:
+///      Step 1: Grant GOVERNOR_ROLE to production GOVERNOR address
+///      Step 2: Revoke GOVERNOR_ROLE from deployer
+///      Step 3: Grant SUPER_GOVERNOR_ROLE to production SUPER_GOVERNOR_ADDRESS
+///      Step 4: Grant DEFAULT_ADMIN_ROLE to production SUPER_GOVERNOR_ADDRESS
+///      Step 5: Revoke SUPER_GOVERNOR_ROLE from deployer
+///      Step 6: Revoke DEFAULT_ADMIN_ROLE from deployer
+///      Step 7: Transfer FixedPriceOracle ownership to SuperGovernor
 contract TransferSuperGovernorRole is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
@@ -34,7 +38,7 @@ contract TransferSuperGovernorRole is DeployV2Base {
         // Set base configuration
         _setBaseConfiguration(env, saltNamespace);
 
-        console2.log("=== Transferring SUPER_GOVERNOR_ROLE ===");
+        console2.log("=== Transferring Roles ===");
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);
         console2.log("Salt Namespace:", saltNamespace);
@@ -48,9 +52,11 @@ contract TransferSuperGovernorRole is DeployV2Base {
 
         console2.log("SuperGovernor address:", superGovernorAddr);
         console2.log("Current holder (deployer):", DEPLOYER);
-        console2.log("New holder:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("New GOVERNOR:", GOVERNOR);
+        console2.log("New SUPER_GOVERNOR:", SUPER_GOVERNOR_ADDRESS);
 
         SuperGovernor superGovernor = SuperGovernor(superGovernorAddr);
+        bytes32 governorRole = keccak256("GOVERNOR_ROLE");
         bytes32 superGovernorRole = keccak256("SUPER_GOVERNOR_ROLE");
         bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
 
@@ -58,16 +64,21 @@ contract TransferSuperGovernorRole is DeployV2Base {
         console2.log("");
         console2.log("=== Verifying Initial State ===");
 
+        bool deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
         bool deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
         bool deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
+        bool newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
         bool newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
         bool newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
 
+        console2.log("Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
         console2.log("Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
         console2.log("Deployer has DEFAULT_ADMIN_ROLE:", deployerHasAdminRole);
+        console2.log("New GOVERNOR has GOVERNOR_ROLE:", newGovernorHasRole);
         console2.log("New address has SUPER_GOVERNOR_ROLE:", newHasSuperGovernorRole);
         console2.log("New address has DEFAULT_ADMIN_ROLE:", newHasAdminRole);
 
+        require(deployerHasGovernorRole, "Deployer must have GOVERNOR_ROLE");
         require(deployerHasSuperGovernorRole, "Deployer must have SUPER_GOVERNOR_ROLE");
         require(deployerHasAdminRole, "Deployer must have DEFAULT_ADMIN_ROLE");
 
@@ -75,48 +86,76 @@ contract TransferSuperGovernorRole is DeployV2Base {
         console2.log("");
         console2.log("=== Executing Role Transfer ===");
 
-        // Step 1: Grant SUPER_GOVERNOR_ROLE to new address
-        console2.log("[Step 1] Granting SUPER_GOVERNOR_ROLE to new address...");
+        // Step 1: Grant GOVERNOR_ROLE to production GOVERNOR address
+        console2.log("[Step 1] Granting GOVERNOR_ROLE to production GOVERNOR address...");
+        superGovernor.grantRole(governorRole, GOVERNOR);
+        console2.log("[Step 1] DONE - Granted GOVERNOR_ROLE to:", GOVERNOR);
+
+        // Step 2: Revoke GOVERNOR_ROLE from deployer
+        console2.log("[Step 2] Revoking GOVERNOR_ROLE from deployer...");
+        superGovernor.revokeRole(governorRole, DEPLOYER);
+        console2.log("[Step 2] DONE - Revoked GOVERNOR_ROLE from:", DEPLOYER);
+
+        // Verify GOVERNOR_ROLE transfer
+        deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
+        newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
+        console2.log("[Verify] Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
+        console2.log("[Verify] New GOVERNOR has GOVERNOR_ROLE:", newGovernorHasRole);
+        require(!deployerHasGovernorRole, "Deployer should not have GOVERNOR_ROLE");
+        require(newGovernorHasRole, "New GOVERNOR should have GOVERNOR_ROLE");
+
+        // Step 3: Grant SUPER_GOVERNOR_ROLE to new address
+        console2.log("[Step 3] Granting SUPER_GOVERNOR_ROLE to new address...");
         superGovernor.grantRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
-        console2.log("[Step 1] DONE - Granted SUPER_GOVERNOR_ROLE to:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("[Step 3] DONE - Granted SUPER_GOVERNOR_ROLE to:", SUPER_GOVERNOR_ADDRESS);
 
-        // Step 2: Grant DEFAULT_ADMIN_ROLE to new address
-        console2.log("[Step 2] Granting DEFAULT_ADMIN_ROLE to new address...");
+        // Step 4: Grant DEFAULT_ADMIN_ROLE to new address
+        console2.log("[Step 4] Granting DEFAULT_ADMIN_ROLE to new address...");
         superGovernor.grantRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
-        console2.log("[Step 2] DONE - Granted DEFAULT_ADMIN_ROLE to:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("[Step 4] DONE - Granted DEFAULT_ADMIN_ROLE to:", SUPER_GOVERNOR_ADDRESS);
 
-        // Step 3: Revoke SUPER_GOVERNOR_ROLE from deployer
-        console2.log("[Step 3] Revoking SUPER_GOVERNOR_ROLE from deployer...");
+        // Step 5: Revoke SUPER_GOVERNOR_ROLE from deployer
+        console2.log("[Step 5] Revoking SUPER_GOVERNOR_ROLE from deployer...");
         superGovernor.revokeRole(superGovernorRole, DEPLOYER);
-        console2.log("[Step 3] DONE - Revoked SUPER_GOVERNOR_ROLE from:", DEPLOYER);
+        console2.log("[Step 5] DONE - Revoked SUPER_GOVERNOR_ROLE from:", DEPLOYER);
 
-        // Step 4: Revoke DEFAULT_ADMIN_ROLE from deployer
-        console2.log("[Step 4] Revoking DEFAULT_ADMIN_ROLE from deployer...");
+        // Step 6: Revoke DEFAULT_ADMIN_ROLE from deployer
+        console2.log("[Step 6] Revoking DEFAULT_ADMIN_ROLE from deployer...");
         superGovernor.revokeRole(defaultAdminRole, DEPLOYER);
-        console2.log("[Step 4] DONE - Revoked DEFAULT_ADMIN_ROLE from:", DEPLOYER);
+        console2.log("[Step 6] DONE - Revoked DEFAULT_ADMIN_ROLE from:", DEPLOYER);
+
+        // Step 7: Transfer FixedPriceOracle ownership to SuperGovernor
+        _transferFixedPriceOracleOwnership(chainId, env, saltNamespace, superGovernorAddr);
 
         // Verify final state
         console2.log("");
         console2.log("=== Verifying Final State ===");
 
+        deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
         deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
         deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
+        newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
         newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
         newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
 
+        console2.log("Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
         console2.log("Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
         console2.log("Deployer has DEFAULT_ADMIN_ROLE:", deployerHasAdminRole);
+        console2.log("New GOVERNOR has GOVERNOR_ROLE:", newGovernorHasRole);
         console2.log("New address has SUPER_GOVERNOR_ROLE:", newHasSuperGovernorRole);
         console2.log("New address has DEFAULT_ADMIN_ROLE:", newHasAdminRole);
 
+        require(!deployerHasGovernorRole, "Deployer should not have GOVERNOR_ROLE");
         require(!deployerHasSuperGovernorRole, "Deployer should not have SUPER_GOVERNOR_ROLE");
         require(!deployerHasAdminRole, "Deployer should not have DEFAULT_ADMIN_ROLE");
+        require(newGovernorHasRole, "New GOVERNOR should have GOVERNOR_ROLE");
         require(newHasSuperGovernorRole, "New address should have SUPER_GOVERNOR_ROLE");
         require(newHasAdminRole, "New address should have DEFAULT_ADMIN_ROLE");
 
         console2.log("");
         console2.log("=== Role Transfer Complete ===");
-        console2.log("SUPER_GOVERNOR_ROLE successfully transferred to:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("GOVERNOR_ROLE transferred to:", GOVERNOR);
+        console2.log("SUPER_GOVERNOR_ROLE transferred to:", SUPER_GOVERNOR_ADDRESS);
     }
 
     /// @notice Get SuperGovernor address from deployment files
@@ -188,6 +227,70 @@ contract TransferSuperGovernorRole is DeployV2Base {
         } catch {
             return "";
         }
+    }
+
+    /// @notice Transfer FixedPriceOracle ownership to SuperGovernor
+    function _transferFixedPriceOracleOwnership(
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace,
+        address superGovernorAddr
+    )
+        internal
+    {
+        console2.log("[Step 7] Transferring FixedPriceOracle ownership to SuperGovernor...");
+        address fixedPriceOracleAddr = _getFixedPriceOracleAddress(chainId, env, saltNamespace);
+        if (fixedPriceOracleAddr != address(0)) {
+            FixedPriceOracle oracle = FixedPriceOracle(fixedPriceOracleAddr);
+            address currentOwner = oracle.owner();
+            console2.log("  FixedPriceOracle address:", fixedPriceOracleAddr);
+            console2.log("  Current owner:", currentOwner);
+            console2.log("  New owner (SuperGovernor):", superGovernorAddr);
+
+            if (currentOwner == DEPLOYER) {
+                oracle.transferOwnership(superGovernorAddr);
+                console2.log("[Step 7] DONE - Transferred FixedPriceOracle ownership to SuperGovernor");
+
+                // Verify ownership transfer
+                address newOwner = oracle.owner();
+                require(newOwner == superGovernorAddr, "FixedPriceOracle ownership transfer failed");
+                console2.log("[Verify] FixedPriceOracle new owner:", newOwner);
+            } else if (currentOwner == superGovernorAddr) {
+                console2.log("[Step 7] SKIPPED - FixedPriceOracle already owned by SuperGovernor");
+            } else {
+                console2.log("[Step 7] WARNING - FixedPriceOracle owned by unexpected address:", currentOwner);
+            }
+        } else {
+            console2.log("[Step 7] SKIPPED - FixedPriceOracle not found (mainnet only)");
+        }
+    }
+
+    /// @notice Get FixedPriceOracle address from deployment files
+    function _getFixedPriceOracleAddress(
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        view
+        returns (address)
+    {
+        // Try to get from local contract addresses first
+        address oracle = _getContract(chainId, "FixedPriceOracle");
+        if (oracle != address(0)) {
+            return oracle;
+        }
+
+        // Read from periphery deployment JSON files
+        string memory peripheryJson = _readPeripheryContractsFromOutput(chainId, env, saltNamespace);
+        if (bytes(peripheryJson).length > 0) {
+            address oracleAddr = _safeParseJsonAddress(peripheryJson, ".FixedPriceOracle");
+            if (oracleAddr != address(0)) {
+                return oracleAddr;
+            }
+        }
+
+        return address(0);
     }
 
     /// @notice Get chain name from chain ID

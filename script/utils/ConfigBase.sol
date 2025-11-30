@@ -44,10 +44,50 @@ abstract contract ConfigBase is Constants {
 
     address internal constant GOVERNOR = 0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC;
     address internal constant GUARDIAN = 0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F;
+    address internal constant SUPER_GOVERNOR_ADDRESS = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
     address internal constant GAS_MANAGER = 0x4d7AACD4b72e6BC6eA0eee6AA61A773A8b556B99;
     address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
-    /// @notice Bank manager address for SuperBank operations
     address internal constant BANK_MANAGER = 0xBe3B40a05BA6120B73F94c5018Bc90E49A6275E7;
+
+    /*//////////////////////////////////////////////////////////////
+                            ORACLE ADDRESSES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Gas to ETH oracle (Fast Gas / Gwei feed) - same on all chains
+    address internal constant ORACLE_GAS_TO_ETH = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
+
+    /// @notice ETH/USD oracle on Mainnet
+    address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+
+    /// @notice ETH/USD oracle on Base
+    address internal constant ORACLE_ETH_USD_BASE = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
+
+    /// @notice Base Sequencer Uptime Feed (required for SuperOracleL2)
+    address internal constant ORACLE_SEQUENCER_UPTIME_BASE = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
+
+    // Oracle constants for SuperOracle configuration (must match SuperGovernor constants)
+    address internal constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address internal constant USD_TOKEN = address(840);
+    address internal constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address internal constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
+    address internal constant UP_TOKEN = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
+    int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
+    uint8 internal constant UP_PRICE_DECIMALS = 18;
+    bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
+    bytes32 internal constant PROVIDER_SUPERFORM = keccak256("SUPERFORM");
+
+    /*//////////////////////////////////////////////////////////////
+                        UPKEEP TOKEN ADDRESSES
+    //////////////////////////////////////////////////////////////*/
+    /// @notice UPKEEP_TOKEN is used for upkeep payments in SuperVaultAggregator
+    /// @dev On mainnet: UPKEEP_TOKEN = UP_TOKEN
+    /// @dev On L2s: UPKEEP_TOKEN = WETH (since UP token is only on mainnet)
+
+    /// @notice UPKEEP_TOKEN on Mainnet (same as UP_TOKEN)
+    address internal constant UPKEEP_TOKEN_MAINNET = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
+
+    /// @notice UPKEEP_TOKEN on Base (WETH)
+    address internal constant UPKEEP_TOKEN_BASE = 0x4200000000000000000000000000000000000006;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
@@ -91,9 +131,6 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = BANK_MANAGER;
             configuration.gasManager = GAS_MANAGER;
-            // NOTE: Governor starts as deployer address to allow running
-            // add_hooks_to_governor_staging_prod.sh right after deployment
-            // (before Fireblocks is set up). Transfer to GOVERNOR later.
             configuration.governor = DEPLOYER;
             configuration.guardian = GUARDIAN;
 
@@ -110,9 +147,6 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = BANK_MANAGER;
             configuration.gasManager = GAS_MANAGER;
-            // NOTE: Governor starts as deployer address to allow running
-            // add_hooks_to_governor_staging_prod.sh right after deployment
-            // (before Fireblocks is set up). Transfer to GOVERNOR later.
             configuration.governor = DEPLOYER;
             configuration.guardian = GUARDIAN;
 
@@ -123,14 +157,14 @@ abstract contract ConfigBase is Constants {
             validatorPublicKeys.push("");
         } else if (env == 1) {
             // Test environment (vnet)
-            configuration.owner = TEST_DEPLOYER;
-            configuration.deployer = TEST_DEPLOYER;
+            configuration.owner = DEPLOYER;
+            configuration.deployer = DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
-            configuration.oracleManager = TEST_DEPLOYER;
-            configuration.bankManager = TEST_DEPLOYER;
-            configuration.gasManager = TEST_DEPLOYER;
-            configuration.governor = TEST_DEPLOYER;
-            configuration.guardian = TEST_DEPLOYER;
+            configuration.oracleManager = DEPLOYER;
+            configuration.bankManager = DEPLOYER;
+            configuration.gasManager = DEPLOYER;
+            configuration.governor = DEPLOYER;
+            configuration.guardian = DEPLOYER;
 
             // Set test validator addresses (empty public keys for now)
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

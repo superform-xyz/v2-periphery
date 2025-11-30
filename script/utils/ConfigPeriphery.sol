@@ -13,7 +13,7 @@ abstract contract ConfigPeriphery is ConfigBase {
 
     /// @notice Sets up periphery contract dependencies
     /// @dev Configures addresses required for periphery contract deployment and operation
-    function _setPeripheryConfiguration() internal { 
+    function _setPeripheryConfiguration() internal {
         // empty for now
     }
 }

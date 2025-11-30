@@ -131,7 +131,8 @@ contract VaultBankTest is PeripheryHelpers {
 
         mockProver = new MockCrossL2ProverV2();
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury);
+        superGovernor =
+            new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
         // Deploy SuperRegistry with governor as both superRegistryAdmin and registryAdmin
         superRegistry = new SuperRegistry(governor, governor, address(mockProver));

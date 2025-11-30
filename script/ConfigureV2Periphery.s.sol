@@ -16,7 +16,6 @@ contract ConfigureV2Periphery is DeployV2Base {
         address transferErc20Hook;
         address batchTransferHook;
         address batchTransferFromHook;
-        address offrampTokensHook;
         address deposit4626VaultHook;
         address approveAndDeposit4626VaultHook;
         address redeem4626VaultHook;
@@ -28,7 +27,6 @@ contract ConfigureV2Periphery is DeployV2Base {
         address approveAndRequestDeposit7540VaultHook;
         address redeem7540VaultHook;
         address requestRedeem7540VaultHook;
-        address acrossSendFundsAndExecuteOnDstHook;
         address swap1InchHook;
         address swapOdosHook;
         address approveAndSwapOdosHook;
@@ -36,17 +34,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         address cancelRedeemRequest7540Hook;
         address claimCancelDepositRequest7540Hook;
         address claimCancelRedeemRequest7540Hook;
-        address deBridgeSendOrderAndExecuteOnDstHook;
-        address deBridgeCancelOrderHook;
-        address ethenaCooldownSharesHook;
-        address ethenaUnstakeHook;
-        address markRootAsUsedHook;
         address merklClaimRewardHook;
-        address circleGatewayWalletHook;
-        address circleGatewayMinterHook;
-        address circleGatewayAddDelegateHook;
-        address circleGatewayRemoveDelegateHook;
-        address setOperator7540Hook;
         address pendleRouterRedeemHook;
         address pendleRouterSwapHook;
     }
@@ -128,7 +116,44 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Register all hooks with SuperGovernor
         _registerAllHooks(params.superGovernor, hooks);
 
+        // Set UP and UPKEEP_TOKEN addresses in SuperGovernor
+        _setTokenAddresses(params.superGovernor, params.chainId);
+
         console2.log("=== Configuration Complete ===");
+    }
+
+    /// @notice Set UP and UPKEEP_TOKEN addresses in SuperGovernor
+    /// @dev On mainnet: Both UP and UPKEEP_TOKEN are set to UP_TOKEN
+    /// @dev On L2s: UP is set to address(0) (not available), UPKEEP_TOKEN is set to WETH
+    function _setTokenAddresses(address superGovernor, uint64 chainId) internal {
+        ISuperGovernor governor = ISuperGovernor(superGovernor);
+
+        console2.log("Setting token addresses in SuperGovernor...");
+
+        if (chainId == MAINNET_CHAIN_ID) {
+            // Mainnet: Both UP and UPKEEP_TOKEN are the UP token
+            console2.log("  Chain: Mainnet");
+            console2.log("  UP token:", UP_TOKEN);
+            console2.log("  UPKEEP_TOKEN:", UPKEEP_TOKEN_MAINNET);
+
+            governor.setAddress(keccak256("UP"), UP_TOKEN);
+            governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_MAINNET);
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (mainnet)");
+        } else if (chainId == BASE_CHAIN_ID) {
+            // Base: Only UPKEEP_TOKEN is set (UP token doesn't exist on L2s)
+            console2.log("  Chain: Base");
+            console2.log("  UP token: NOT SET (only on mainnet)");
+            console2.log("  UPKEEP_TOKEN:", UPKEEP_TOKEN_BASE);
+
+            // Note: We don't set UP on L2s - it will remain address(0)
+            // SuperBank.distribute() will revert if called on L2s (by design)
+            governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_BASE);
+
+            console2.log("SUCCESS: UPKEEP_TOKEN address set (Base)");
+        } else {
+            console2.log("WARNING: Unknown chain ID, skipping token address setup");
+        }
     }
 
     /// @notice Get SuperGovernor address from deployment files
@@ -186,7 +211,6 @@ contract ConfigureV2Periphery is DeployV2Base {
         hooks.transferErc20Hook = _safeParseJsonAddress(coreJson, ".TransferERC20Hook");
         hooks.batchTransferHook = _safeParseJsonAddress(coreJson, ".BatchTransferHook");
         hooks.batchTransferFromHook = _safeParseJsonAddress(coreJson, ".BatchTransferFromHook");
-        hooks.offrampTokensHook = _safeParseJsonAddress(coreJson, ".OfframpTokensHook");
         hooks.deposit4626VaultHook = _safeParseJsonAddress(coreJson, ".Deposit4626VaultHook");
         hooks.approveAndDeposit4626VaultHook = _safeParseJsonAddress(coreJson, ".ApproveAndDeposit4626VaultHook");
         hooks.redeem4626VaultHook = _safeParseJsonAddress(coreJson, ".Redeem4626VaultHook");
@@ -199,8 +223,6 @@ contract ConfigureV2Periphery is DeployV2Base {
             _safeParseJsonAddress(coreJson, ".ApproveAndRequestDeposit7540VaultHook");
         hooks.redeem7540VaultHook = _safeParseJsonAddress(coreJson, ".Redeem7540VaultHook");
         hooks.requestRedeem7540VaultHook = _safeParseJsonAddress(coreJson, ".RequestRedeem7540VaultHook");
-        hooks.acrossSendFundsAndExecuteOnDstHook =
-            _safeParseJsonAddress(coreJson, ".AcrossSendFundsAndExecuteOnDstHook");
         hooks.swap1InchHook = _safeParseJsonAddress(coreJson, ".Swap1InchHook");
         hooks.swapOdosHook = _safeParseJsonAddress(coreJson, ".SwapOdosV2Hook");
         hooks.approveAndSwapOdosHook = _safeParseJsonAddress(coreJson, ".ApproveAndSwapOdosV2Hook");
@@ -208,18 +230,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         hooks.cancelRedeemRequest7540Hook = _safeParseJsonAddress(coreJson, ".CancelRedeemRequest7540Hook");
         hooks.claimCancelDepositRequest7540Hook = _safeParseJsonAddress(coreJson, ".ClaimCancelDepositRequest7540Hook");
         hooks.claimCancelRedeemRequest7540Hook = _safeParseJsonAddress(coreJson, ".ClaimCancelRedeemRequest7540Hook");
-        hooks.deBridgeSendOrderAndExecuteOnDstHook =
-            _safeParseJsonAddress(coreJson, ".DeBridgeSendOrderAndExecuteOnDstHook");
-        hooks.deBridgeCancelOrderHook = _safeParseJsonAddress(coreJson, ".DeBridgeCancelOrderHook");
-        hooks.ethenaCooldownSharesHook = _safeParseJsonAddress(coreJson, ".EthenaCooldownSharesHook");
-        hooks.ethenaUnstakeHook = _safeParseJsonAddress(coreJson, ".EthenaUnstakeHook");
-        hooks.markRootAsUsedHook = _safeParseJsonAddress(coreJson, ".MarkRootAsUsedHook");
         hooks.merklClaimRewardHook = _safeParseJsonAddress(coreJson, ".MerklClaimRewardHook");
-        hooks.circleGatewayWalletHook = _safeParseJsonAddress(coreJson, ".CircleGatewayWalletHook");
-        hooks.circleGatewayMinterHook = _safeParseJsonAddress(coreJson, ".CircleGatewayMinterHook");
-        hooks.circleGatewayAddDelegateHook = _safeParseJsonAddress(coreJson, ".CircleGatewayAddDelegateHook");
-        hooks.circleGatewayRemoveDelegateHook = _safeParseJsonAddress(coreJson, ".CircleGatewayRemoveDelegateHook");
-        hooks.setOperator7540Hook = _safeParseJsonAddress(coreJson, ".SetOperator7540Hook");
         hooks.pendleRouterRedeemHook = _safeParseJsonAddress(coreJson, ".PendleRouterRedeemHook");
         hooks.pendleRouterSwapHook = _safeParseJsonAddress(coreJson, ".PendleRouterSwapHook");
     }
@@ -339,7 +350,7 @@ contract ConfigureV2Periphery is DeployV2Base {
     /// @notice Register all hooks with SuperGovernor
     function _registerAllHooks(address superGovernor, HookAddresses memory hooks) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
-        uint256 totalHooks = 37; // Total number of hooks in HookAddresses struct
+        uint256 totalHooks = 25; // Total number of hooks in HookAddresses struct
         uint256 successCount = 0;
 
         console2.log("Registering hooks with SuperGovernor...");
@@ -350,7 +361,6 @@ contract ConfigureV2Periphery is DeployV2Base {
         successCount += _registerHook(governor, hooks.transferErc20Hook, "transferErc20Hook");
         successCount += _registerHook(governor, hooks.batchTransferHook, "batchTransferHook");
         successCount += _registerHook(governor, hooks.batchTransferFromHook, "batchTransferFromHook");
-        successCount += _registerHook(governor, hooks.offrampTokensHook, "offrampTokensHook");
 
         // Vault hooks
         successCount += _registerHook(governor, hooks.deposit4626VaultHook, "deposit4626VaultHook");
@@ -365,7 +375,7 @@ contract ConfigureV2Periphery is DeployV2Base {
             governor, hooks.approveAndRequestDeposit7540VaultHook, "approveAndRequestDeposit7540VaultHook"
         );
 
-        // Async request hooks (isFulfillRequestsHook = true)
+        // Async request hooks
         successCount += _registerHook(governor, hooks.requestDeposit7540VaultHook, "requestDeposit7540VaultHook");
         successCount += _registerHook(governor, hooks.requestRedeem7540VaultHook, "requestRedeem7540VaultHook");
         successCount += _registerHook(
@@ -379,36 +389,13 @@ contract ConfigureV2Periphery is DeployV2Base {
         successCount += _registerHook(governor, hooks.cancelDepositRequest7540Hook, "cancelDepositRequest7540Hook");
         successCount += _registerHook(governor, hooks.cancelRedeemRequest7540Hook, "cancelRedeemRequest7540Hook");
 
-        // Bridge hooks
-        successCount += _registerHook(
-            governor, hooks.acrossSendFundsAndExecuteOnDstHook, "acrossSendFundsAndExecuteOnDstHook"
-        );
-        successCount += _registerHook(
-            governor, hooks.deBridgeSendOrderAndExecuteOnDstHook, "deBridgeSendOrderAndExecuteOnDstHook"
-        );
-        successCount += _registerHook(governor, hooks.deBridgeCancelOrderHook, "deBridgeCancelOrderHook");
-
         // Swap hooks
         successCount += _registerHook(governor, hooks.swap1InchHook, "swap1InchHook");
         successCount += _registerHook(governor, hooks.swapOdosHook, "swapOdosHook");
         successCount += _registerHook(governor, hooks.approveAndSwapOdosHook, "approveAndSwapOdosHook");
 
         // Protocol-specific hooks
-        successCount += _registerHook(governor, hooks.ethenaCooldownSharesHook, "ethenaCooldownSharesHook");
-        successCount += _registerHook(governor, hooks.ethenaUnstakeHook, "ethenaUnstakeHook");
-        successCount += _registerHook(governor, hooks.markRootAsUsedHook, "markRootAsUsedHook");
         successCount += _registerHook(governor, hooks.merklClaimRewardHook, "merklClaimRewardHook");
-
-        // Circle Gateway hooks
-        successCount += _registerHook(governor, hooks.circleGatewayWalletHook, "circleGatewayWalletHook");
-        successCount += _registerHook(governor, hooks.circleGatewayMinterHook, "circleGatewayMinterHook");
-        successCount += _registerHook(governor, hooks.circleGatewayAddDelegateHook, "circleGatewayAddDelegateHook");
-        successCount += _registerHook(
-            governor, hooks.circleGatewayRemoveDelegateHook, "circleGatewayRemoveDelegateHook"
-        );
-
-        // 7540 operator hook
-        successCount += _registerHook(governor, hooks.setOperator7540Hook, "setOperator7540Hook");
 
         // Pendle hooks
         successCount += _registerHook(governor, hooks.pendleRouterRedeemHook, "pendleRouterRedeemHook");
