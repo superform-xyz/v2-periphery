@@ -44,6 +44,7 @@ abstract contract ConfigBase is Constants {
 
     address internal constant GOVERNOR = 0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC;
     address internal constant GUARDIAN = 0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F;
+    address internal constant SUPER_GOVERNOR_ADDRESS = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
     address internal constant GAS_MANAGER = 0x4d7AACD4b72e6BC6eA0eee6AA61A773A8b556B99;
     address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
     /// @notice Bank manager address for SuperBank operations
