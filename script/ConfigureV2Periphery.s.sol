@@ -37,6 +37,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         address merklClaimRewardHook;
         address pendleRouterRedeemHook;
         address pendleRouterSwapHook;
+        address acrossSendFundsAndExecuteOnDstHook;
     }
 
     /// @notice Configuration parameters for hook setup
@@ -233,6 +234,8 @@ contract ConfigureV2Periphery is DeployV2Base {
         hooks.merklClaimRewardHook = _safeParseJsonAddress(coreJson, ".MerklClaimRewardHook");
         hooks.pendleRouterRedeemHook = _safeParseJsonAddress(coreJson, ".PendleRouterRedeemHook");
         hooks.pendleRouterSwapHook = _safeParseJsonAddress(coreJson, ".PendleRouterSwapHook");
+        hooks.acrossSendFundsAndExecuteOnDstHook =
+            _safeParseJsonAddress(coreJson, ".AcrossSendFundsAndExecuteOnDstHook");
     }
 
     /// @notice Safely parse an address from JSON, returning zero address on failure
@@ -350,7 +353,7 @@ contract ConfigureV2Periphery is DeployV2Base {
     /// @notice Register all hooks with SuperGovernor
     function _registerAllHooks(address superGovernor, HookAddresses memory hooks) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
-        uint256 totalHooks = 25; // Total number of hooks in HookAddresses struct
+        uint256 totalHooks = 26; // Total number of hooks in HookAddresses struct
         uint256 successCount = 0;
 
         console2.log("Registering hooks with SuperGovernor...");
@@ -400,6 +403,10 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Pendle hooks
         successCount += _registerHook(governor, hooks.pendleRouterRedeemHook, "pendleRouterRedeemHook");
         successCount += _registerHook(governor, hooks.pendleRouterSwapHook, "pendleRouterSwapHook");
+
+        // Across bridge hooks
+        successCount +=
+            _registerHook(governor, hooks.acrossSendFundsAndExecuteOnDstHook, "acrossSendFundsAndExecuteOnDstHook");
 
         console2.log("Hook registration complete:");
         console2.log("- Successfully registered:", successCount);
