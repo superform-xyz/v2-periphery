@@ -150,12 +150,12 @@ contract HalmosTester is ActorManager, AssetManager, SymTest, Test {
 
         bytes memory executeArgsBytes = abi.encode(executeArgs);
 
-        (bool executeSuccess,) =
-            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.executeHooks.selector, executeArgsBytes));
+        (bool executeSuccess,) = address(superVaultStrategy)
+            .call(abi.encodePacked(superVaultStrategy.executeHooks.selector, executeArgsBytes));
         vm.assume(executeSuccess);
 
-        (bool fulfillSuccess,) =
-            address(superVaultStrategy).call(abi.encodePacked(superVaultStrategy.fulfillRedeemRequests.selector, controllers));
+        (bool fulfillSuccess,) = address(superVaultStrategy)
+            .call(abi.encodePacked(superVaultStrategy.fulfillRedeemRequests.selector, controllers));
         vm.assume(fulfillSuccess);
     }
 

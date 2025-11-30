@@ -42,20 +42,15 @@ set -euo pipefail  # Exit on error, undefined var, pipe failure
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source network configuration
-if [ ! -f "$SCRIPT_DIR/networks-staging.sh" ]; then
-    echo "ERROR: networks-staging.sh not found in $SCRIPT_DIR"
-    exit 1
-fi
-
-source "$SCRIPT_DIR/networks-staging.sh"
+# Network configuration will be sourced after environment is determined
+# See source_network_config function
 
 # S3 bucket for fetching contract addresses
 readonly BUCKET="superform-deployment-state"
 
-# Salt namespaces
-readonly STAGING_SALT_NAMESPACE="DEPLOYSTAGING1.0.0"
-readonly PRODUCTION_SALT_NAMESPACE="DEPLOYPROD1.0.0"
+# Salt namespaces (must match ConfigBase.sol)
+readonly STAGING_SALT_NAMESPACE="STAGING1.0.0"
+readonly PRODUCTION_SALT_NAMESPACE="PROD1.0.0"
 
 ###################################################################################
 # Helper Functions
@@ -104,6 +99,26 @@ validate_environment() {
         log "ERROR" "Must be either 'staging' or 'prod'"
         exit 1
     fi
+}
+
+# Source network configuration based on environment
+source_network_config() {
+    local environment=$1
+    local network_config_file
+
+    if [ "$environment" = "staging" ]; then
+        network_config_file="$SCRIPT_DIR/networks-staging.sh"
+    else
+        network_config_file="$SCRIPT_DIR/networks-production.sh"
+    fi
+
+    if [ ! -f "$network_config_file" ]; then
+        log "ERROR" "Network config not found: $network_config_file"
+        exit 1
+    fi
+
+    log "INFO" "Loading network configuration from: $network_config_file"
+    source "$network_config_file"
 }
 
 # Validate mode parameter
@@ -300,7 +315,7 @@ configure_all_networks() {
     local supported_network_ids=$(get_supported_networks)
 
     if [ -z "$supported_network_ids" ]; then
-        log "ERROR" "No networks found in networks-staging.sh"
+        log "ERROR" "No networks found in network configuration"
         return 1
     fi
 
@@ -392,6 +407,9 @@ main() {
 
     # Validate environment
     validate_environment "$environment"
+
+    # Source network configuration based on environment
+    source_network_config "$environment"
 
     # Validate mode
     validate_mode "$mode"

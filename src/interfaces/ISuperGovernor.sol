@@ -77,6 +77,8 @@ interface ISuperGovernor is IAccessControl {
     error SUPER_ORACLE_NOT_FOUND();
     /// @notice Thrown when the up token is not found
     error UP_NOT_FOUND();
+    /// @notice Thrown when the upkeep token is not found
+    error UPKEEP_TOKEN_NOT_FOUND();
     /// @notice Thrown when the gas info is invalid
     error INVALID_GAS_INFO();
 
@@ -264,16 +266,6 @@ interface ISuperGovernor is IAccessControl {
         uint256[] calldata gracePeriods
     )
         external;
-
-    /// @notice Sets the emergency price for a token
-    /// @param token The address of the token
-    /// @param price The emergency price to set
-    function setEmergencyPrice(address token, uint256 price) external;
-
-    /// @notice Sets the emergency price for multiple tokens o
-    /// @param tokens Array of token addresses
-    /// @param prices Array of emergency prices
-    function batchSetEmergencyPrices(address[] calldata tokens, uint256[] calldata prices) external;
 
     /*//////////////////////////////////////////////////////////////
                           HOOK MANAGEMENT
@@ -512,6 +504,10 @@ interface ISuperGovernor is IAccessControl {
     /// @notice Gets the UP ID
     /// @return The ID of the UP token
     function UP() external view returns (bytes32);
+
+    /// @notice Gets the UPKEEP_TOKEN ID
+    /// @return The ID of the UPKEEP_TOKEN (used for upkeep payments, can be UP on mainnet or WETH/USDC on L2s)
+    function UPKEEP_TOKEN() external view returns (bytes32);
 
     /// @notice Gets the Treasury ID
     /// @return The ID for the Treasury in the registry

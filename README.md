@@ -183,7 +183,7 @@ This mechanism ensures that hook execution is always subject to both governance 
 
 **Upkeep System (Operational Costs)**:
 - **Purpose**: Covers gas costs for PPS updates and oracle operations
-- **Mechanism**: Managers deposit UP tokens via `depositUpkeep()` to fund ongoing operations
+- **Mechanism**: Managers deposit upkeep tokens via `depositUpkeep()` to fund ongoing operations (UP on mainnet, WETH on L2s)
 - **Usage**: Automatically deducted during PPS updates to compensate keepers and validators
 - **Accumulation**: Spent upkeep accumulates in `claimableUpkeep` for batch distribution to SuperBank
 - **Two-Step Withdrawal**: Managers must propose withdrawal (24-hour timelock) before execution, giving governance intervention window
@@ -216,7 +216,7 @@ A malicious manager could:
 4. Back-run to restore prices, keeping the extracted value
 
 With the stake system:
-1. The manager must deposit significant UP tokens as stake
+1. The manager must deposit significant upkeep tokens as stake
 2. Off-chain monitoring detects the malicious behavior
 3. SuperGovernor immediately slashes the stake (potentially worth more than extracted value)
 4. Slashed funds go to SuperBank for protocol treasury or user compensation
@@ -433,6 +433,23 @@ Copy the environment file:
 ```bash
 cp .env.example .env
 ```
+
+### Updating Dependencies
+
+To update a submodule to the latest commit on its tracked branch (e.g., `v2-core` tracking `dev`):
+
+```bash
+# Sync submodule configuration from .gitmodules
+git submodule sync lib/v2-core
+
+# Update submodule to latest from remote branch
+git submodule update --init --remote lib/v2-core
+
+# Update the Foundry lock file
+forge update
+```
+
+> **Note**: The `.gitmodules` file specifies which branch each submodule tracks (e.g., `branch = dev` for v2-core). The `--remote` flag pulls the latest from that branch.
 
 ### Building & Testing
 

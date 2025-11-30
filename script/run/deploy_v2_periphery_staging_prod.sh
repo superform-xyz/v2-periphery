@@ -42,27 +42,27 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $*" >&2
 }
 
-# Function to extract contract names from update_locked_bytecode.sh
+# Function to extract contract names from regenerate_bytecode.sh
 extract_contracts_from_regenerate_script() {
     local array_name=$1
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
 
     if [[ ! -f "$script_path" ]]; then
         return 1
     fi
 
-    # Extract contract names from the specified array in update_locked_bytecode.sh
+    # Extract contract names from the specified array in regenerate_bytecode.sh
     # Find the array definition and stop at the closing parenthesis
     sed -n "/${array_name}=(/,/^)/p" "$script_path" | grep -o '"[^"]*"' | tr -d '"'
 }
 
-# Function to report bytecode availability (sourced from update_locked_bytecode.sh)
+# Function to report bytecode availability (sourced from regenerate_bytecode.sh)
 report_bytecode_availability() {
     log "INFO" "Analyzing bytecode availability from $LOCKED_BYTECODE_PATH..."
 
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
     if [[ ! -f "$script_path" ]]; then
-        echo -e "${RED}❌ Cannot find update_locked_bytecode.sh at: $script_path${NC}"
+        echo -e "${RED}❌ Cannot find regenerate_bytecode.sh at: $script_path${NC}"
         return 1
     fi
 
@@ -70,7 +70,7 @@ report_bytecode_availability() {
     local available_contracts=()
 
     # Extract and check core periphery contracts
-    log "INFO" "Checking core periphery contracts from update_locked_bytecode.sh..."
+    log "INFO" "Checking core periphery contracts from regenerate_bytecode.sh..."
     local core_contracts
     core_contracts=$(extract_contracts_from_regenerate_script "CORE_PERIPHERY_CONTRACTS")
     for contract in $core_contracts; do
@@ -111,9 +111,9 @@ report_bytecode_availability() {
     return 0
 }
 
-# Function to get expected contract count from update_locked_bytecode.sh
+# Function to get expected contract count from regenerate_bytecode.sh
 get_expected_contract_count() {
-    local script_path="$PROJECT_ROOT/script/run/update_locked_bytecode.sh"
+    local script_path="$PROJECT_ROOT/script/run/regenerate_bytecode.sh"
 
     if [[ ! -f "$script_path" ]]; then
         echo "6"
@@ -136,12 +136,12 @@ analyze_deployment_status() {
     local needs_deployment=false
     local networks_with_missing=()
 
-    # Get expected contract count from update_locked_bytecode.sh
+    # Get expected contract count from regenerate_bytecode.sh
     local total_expected
     total_expected=$(get_expected_contract_count)
 
     if [[ $total_expected -eq 0 ]]; then
-        echo -e "${RED}❌ Unable to determine expected contract count from update_locked_bytecode.sh${NC}"
+        echo -e "${RED}❌ Unable to determine expected contract count from regenerate_bytecode.sh${NC}"
         return 2
     fi
 
@@ -194,6 +194,9 @@ analyze_deployment_status() {
         return 2  # Error state
     fi
 }
+
+# Associative array to store estimated costs for each network
+declare -A NETWORK_ESTIMATED_COSTS
 
 # Function to check V2 Periphery addresses on a network and capture deployment status
 check_v2_periphery_addresses() {
@@ -262,6 +265,126 @@ check_v2_periphery_addresses() {
     fi
 }
 
+# Function to estimate deployment costs for a network
+estimate_deployment_costs() {
+    local network_id=$1
+    local network_name=$2
+    local rpc_url_var=$3
+
+    echo -e "${CYAN}Estimating deployment costs for $network_name (Chain ID: $network_id)...${NC}"
+
+    # Check if RPC URL is set
+    if [[ -z "${!rpc_url_var}" ]]; then
+        echo -e "${RED}  ❌ ERROR: RPC URL variable $rpc_url_var is not set or empty${NC}"
+        return 1
+    fi
+
+    # Run the estimation script
+    local estimate_output
+    local forge_exit_code
+
+    estimate_output=$(forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
+        --sig 'runEstimate(uint256,uint64)' $FORGE_ENV $network_id \
+        --rpc-url ${!rpc_url_var} \
+        --chain $network_id \
+        -vv 2>&1)
+    forge_exit_code=$?
+
+    if [[ $forge_exit_code -ne 0 ]]; then
+        echo -e "${YELLOW}  ⚠️  Could not estimate costs for $network_name${NC}"
+        return 1
+    fi
+
+    # Extract cost information
+    local cost_wei=$(echo "$estimate_output" | grep "ESTIMATED_NATIVE_COST_WEI:" | grep -o "[0-9]\+$")
+    local contracts_to_deploy=$(echo "$estimate_output" | grep "CONTRACTS_TO_DEPLOY:" | grep -o "[0-9]\+$")
+    local gas_price_line=$(echo "$estimate_output" | grep "Current Gas Price:")
+
+    if [[ -n "$cost_wei" ]]; then
+        # Store the cost for this network
+        NETWORK_ESTIMATED_COSTS["${network_id}"]="${cost_wei}:${contracts_to_deploy}:${network_name}"
+
+        # Convert wei to more readable format
+        # Using bc for floating point arithmetic if available, otherwise show wei
+        if command -v bc &> /dev/null; then
+            local cost_eth=$(echo "scale=6; $cost_wei / 1000000000000000000" | bc)
+            echo -e "${GREEN}  💰 Estimated cost: ${cost_eth} ETH/Native (${cost_wei} wei)${NC}"
+        else
+            echo -e "${GREEN}  💰 Estimated cost: ${cost_wei} wei${NC}"
+        fi
+        echo -e "${CYAN}     Contracts to deploy: ${contracts_to_deploy}${NC}"
+        if [[ -n "$gas_price_line" ]]; then
+            echo -e "${CYAN}     ${gas_price_line}${NC}"
+        fi
+        return 0
+    else
+        echo -e "${YELLOW}  ⚠️  Could not parse cost estimation${NC}"
+        return 1
+    fi
+}
+
+# Function to print cost estimation summary
+print_cost_estimation_summary() {
+    if [[ ${#NETWORK_ESTIMATED_COSTS[@]} -eq 0 ]]; then
+        return
+    fi
+
+    echo -e "${BLUE}💰 Deployment Cost Estimation Summary${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    local total_cost_wei=0
+    local total_contracts=0
+
+    printf "${WHITE}%-15s %-20s %-25s %-15s${NC}\n" "Chain ID" "Network" "Estimated Cost" "Contracts"
+    printf "${CYAN}%-15s %-20s %-25s %-15s${NC}\n" "--------" "-------" "--------------" "---------"
+
+    for network_id in "${!NETWORK_ESTIMATED_COSTS[@]}"; do
+        IFS=':' read -r cost_wei contracts network_name <<< "${NETWORK_ESTIMATED_COSTS[$network_id]}"
+
+        # Convert to ETH for display
+        local cost_display
+        if command -v bc &> /dev/null && [[ -n "$cost_wei" ]]; then
+            cost_display=$(echo "scale=6; $cost_wei / 1000000000000000000" | bc)
+            cost_display="${cost_display} ETH"
+        else
+            cost_display="${cost_wei} wei"
+        fi
+
+        if [[ "$contracts" == "0" ]]; then
+            printf "${GREEN}%-15s %-20s %-25s %-15s${NC}\n" "$network_id" "$network_name" "0 (all deployed)" "$contracts"
+        else
+            printf "${YELLOW}%-15s %-20s %-25s %-15s${NC}\n" "$network_id" "$network_name" "$cost_display" "$contracts"
+        fi
+
+        # Accumulate totals
+        if [[ -n "$cost_wei" ]]; then
+            total_cost_wei=$((total_cost_wei + cost_wei))
+        fi
+        if [[ -n "$contracts" ]]; then
+            total_contracts=$((total_contracts + contracts))
+        fi
+    done
+
+    echo ""
+    printf "${CYAN}%-15s %-20s %-25s %-15s${NC}\n" "--------" "-------" "--------------" "---------"
+
+    # Print total
+    local total_cost_display
+    if command -v bc &> /dev/null; then
+        total_cost_display=$(echo "scale=6; $total_cost_wei / 1000000000000000000" | bc)
+        total_cost_display="${total_cost_display} ETH"
+    else
+        total_cost_display="${total_cost_wei} wei"
+    fi
+
+    printf "${WHITE}%-15s %-20s %-25s %-15s${NC}\n" "TOTAL" "All Networks" "$total_cost_display" "$total_contracts"
+    echo ""
+    echo -e "${YELLOW}⚠️  Note: These are estimates based on current gas prices. Actual costs may vary.${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 print_header
 
 # Script directory and project root setup
@@ -269,8 +392,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Find project root (go up from script/run/ to project root)
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Initialize locked bytecode path (same for both staging and prod)
-LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode"
+# Locked bytecode path will be set based on environment
+# - prod: locked-bytecode (audited, production-ready)
+# - staging: locked-bytecode-dev (development/staging versions)
+LOCKED_BYTECODE_PATH=""
 
 # Network configuration will be sourced after environment is determined
 
@@ -295,10 +420,12 @@ ACCOUNT=$3
 # Validate environment and source network configuration
 if [ "$ENVIRONMENT" = "staging" ]; then
     echo -e "${CYAN}🌐 Loading staging network configuration...${NC}"
-    echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode${NC}"
+    LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode-dev"
+    echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode-dev${NC}"
     source "$SCRIPT_DIR/networks-staging.sh"
 elif [ "$ENVIRONMENT" = "prod" ]; then
     echo -e "${CYAN}🌐 Loading production network configuration...${NC}"
+    LOCKED_BYTECODE_PATH="$PROJECT_ROOT/script/locked-bytecode"
     echo -e "${CYAN}📁 Using locked bytecode folder: locked-bytecode${NC}"
     source "$SCRIPT_DIR/networks-production.sh"
 else
@@ -488,6 +615,22 @@ elif [[ $ANALYSIS_RESULT -eq 2 ]]; then
 fi
 
 # If we reach here, deployment is needed (ANALYSIS_RESULT == 1)
+
+print_separator
+
+# ===== COST ESTIMATION PHASE =====
+echo -e "${BLUE}💰 Estimating deployment costs...${NC}"
+echo -e "${CYAN}This will estimate the ETH/native token required for deployment on each chain.${NC}"
+echo ""
+
+for network_def in "${NETWORKS[@]}"; do
+    IFS=':' read -r network_id network_name rpc_var <<< "$network_def"
+    estimate_deployment_costs "$network_id" "$network_name" "$rpc_var"
+    echo ""
+done
+
+# Print cost estimation summary
+print_cost_estimation_summary
 
 print_separator
 

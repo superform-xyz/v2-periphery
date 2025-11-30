@@ -21,7 +21,6 @@ import { BaseHook } from "@superform-v2-core/src/hooks/BaseHook.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 
 contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
-
     address operator = address(0x123);
     uint256 constant userPrivateKey = 0xA11CE;
     address userAddress;
@@ -115,7 +114,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
         approveAndSwapOdosHookAddressETH = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
         superGovernor.registerHook(approveAndSwapOdosHookAddressETH);
     }
-    
+
     function _createOdosSwapCalldataRequest(
         address _tokenIn,
         address _tokenOut,
@@ -636,8 +635,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             // Apply slippage tolerance (0.1%)
-            arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
+            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
@@ -743,8 +741,7 @@ contract SuperVaultSwapTest is BaseSuperVaultTest, ClaimsMerkleHelper {
 
         for (uint256 i; i < arrays.expectedAssetsOrSharesOut.length; i++) {
             // Apply slippage tolerance (0.1%)
-            arrays.expectedAssetsOrSharesOut[i] =
-                arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
+            arrays.expectedAssetsOrSharesOut[i] = arrays.expectedAssetsOrSharesOut[i] * (1e5 - 1e3) / 1e5;
         }
 
         arrays.argsForProofs[0] =
