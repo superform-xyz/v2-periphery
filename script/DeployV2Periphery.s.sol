@@ -438,6 +438,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("All periphery dependencies validated successfully");
 
         // Deploy SuperGovernor
+        // upkeepPaymentsEnabled is true for mainnet, false for other chains
+        bool upkeepPaymentsEnabled = chainId == MAINNET_CHAIN_ID;
         peripheryContracts.superGovernor = __deployContractIfNeeded(
             SUPER_GOVERNOR_KEY,
             chainId,
@@ -451,7 +453,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     configuration.oracleManager,
                     configuration.gasManager,
                     configuration.guardian,
-                    configuration.treasury
+                    configuration.treasury,
+                    upkeepPaymentsEnabled
                 )
             )
         );

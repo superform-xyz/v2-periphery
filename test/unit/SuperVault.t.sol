@@ -56,7 +56,7 @@ contract SuperVaultTest is PeripheryHelpers {
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, governor, treasury, false);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
