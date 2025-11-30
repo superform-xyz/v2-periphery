@@ -85,6 +85,10 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultStrategy"
     "SuperVaultEscrow"
     "ECDSAPPSOracle"
+    "FixedPriceOracle"
+    "SuperOracle"
+    "SuperOracleL2"
+    "SuperBank"
 )
 
 # Function to copy contract artifact

@@ -50,6 +50,26 @@ abstract contract ConfigBase is Constants {
     address internal constant BANK_MANAGER = 0xBe3B40a05BA6120B73F94c5018Bc90E49A6275E7;
 
     /*//////////////////////////////////////////////////////////////
+                            ORACLE ADDRESSES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Gas to ETH oracle (Fast Gas / Gwei feed) - same on all chains
+    address internal constant ORACLE_GAS_TO_ETH = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
+
+    /// @notice ETH/USD oracle on Mainnet
+    address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
+
+    /// @notice ETH/USD oracle on Base
+    address internal constant ORACLE_ETH_USD_BASE = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
+
+    // Oracle constants for SuperOracle configuration (must match SuperGovernor constants)
+    address internal constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address internal constant USD_TOKEN = address(840);
+    address internal constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
+    address internal constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
+    bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
+
+    /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
 
