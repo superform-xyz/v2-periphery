@@ -44,9 +44,9 @@ abstract contract ConfigBase is Constants {
 
     address internal constant GOVERNOR = 0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC;
     address internal constant GUARDIAN = 0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F;
+    address internal constant SUPER_GOVERNOR_ADDRESS = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
     address internal constant GAS_MANAGER = 0x4d7AACD4b72e6BC6eA0eee6AA61A773A8b556B99;
     address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
-    /// @notice Bank manager address for SuperBank operations
     address internal constant BANK_MANAGER = 0xBe3B40a05BA6120B73F94c5018Bc90E49A6275E7;
 
     /*//////////////////////////////////////////////////////////////
@@ -112,9 +112,6 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = BANK_MANAGER;
             configuration.gasManager = GAS_MANAGER;
-            // NOTE: Governor starts as deployer address to allow running
-            // add_hooks_to_governor_staging_prod.sh right after deployment
-            // (before Fireblocks is set up). Transfer to GOVERNOR later.
             configuration.governor = DEPLOYER;
             configuration.guardian = GUARDIAN;
 
@@ -131,9 +128,6 @@ abstract contract ConfigBase is Constants {
             configuration.oracleManager = ORACLE_MANAGER;
             configuration.bankManager = BANK_MANAGER;
             configuration.gasManager = GAS_MANAGER;
-            // NOTE: Governor starts as deployer address to allow running
-            // add_hooks_to_governor_staging_prod.sh right after deployment
-            // (before Fireblocks is set up). Transfer to GOVERNOR later.
             configuration.governor = DEPLOYER;
             configuration.guardian = GUARDIAN;
 
@@ -144,14 +138,14 @@ abstract contract ConfigBase is Constants {
             validatorPublicKeys.push("");
         } else if (env == 1) {
             // Test environment (vnet)
-            configuration.owner = TEST_DEPLOYER;
-            configuration.deployer = TEST_DEPLOYER;
+            configuration.owner = DEPLOYER;
+            configuration.deployer = DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
-            configuration.oracleManager = TEST_DEPLOYER;
-            configuration.bankManager = TEST_DEPLOYER;
-            configuration.gasManager = TEST_DEPLOYER;
-            configuration.governor = TEST_DEPLOYER;
-            configuration.guardian = TEST_DEPLOYER;
+            configuration.oracleManager = DEPLOYER;
+            configuration.bankManager = DEPLOYER;
+            configuration.gasManager = DEPLOYER;
+            configuration.governor = DEPLOYER;
+            configuration.guardian = DEPLOYER;
 
             // Set test validator addresses (empty public keys for now)
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

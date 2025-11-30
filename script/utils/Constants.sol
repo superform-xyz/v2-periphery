@@ -57,9 +57,6 @@ abstract contract Constants {
     uint256 internal constant INITIAL_VALIDATOR_CONFIG_VERSION = 1;
     uint256 internal constant INITIAL_VALIDATOR_QUORUM = 1;
 
-    // Role addresses for production
-    address internal constant SUPER_GOVERNOR_ADDRESS = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
-
     // core contract keys (for deterministic address computation)
     string internal constant SUPER_DEPLOYER_KEY = "SuperDeployer";
     string internal constant SUPER_EXECUTOR_KEY = "SuperExecutor";
