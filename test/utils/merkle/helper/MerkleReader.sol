@@ -18,6 +18,9 @@ error EmptyInput();
 abstract contract MerkleReader is StdCheats, PeripheryHelpers {
     using stdJson for string;
 
+    // Chain ID for merkle operations (defaults to ETH)
+    uint256 private currentChainId = 1;
+
     // Updated paths to the new output files
     string private basePathForRoot = "/test/utils/merkle/output/jsGeneratedRoot_1";
     string private basePathForTreeDump = "/test/utils/merkle/output/jsTreeDump_1";
@@ -37,6 +40,16 @@ abstract contract MerkleReader is StdCheats, PeripheryHelpers {
         bytes encodedHookName;
         bytes encodedValue;
         bytes encodedProof;
+    }
+
+    /**
+     * @notice Set the chain ID for merkle operations
+     * @param chainId The chain ID to use
+     */
+    function _setMerkleChainId(uint256 chainId) internal {
+        currentChainId = chainId;
+        basePathForRoot = string.concat("/test/utils/merkle/output/jsGeneratedRoot_", vm.toString(currentChainId));
+        basePathForTreeDump = string.concat("/test/utils/merkle/output/jsTreeDump_", vm.toString(currentChainId));
     }
 
     /**
@@ -169,13 +182,14 @@ abstract contract MerkleReader is StdCheats, PeripheryHelpers {
             argsArg = string.concat(argsArg, vm.toString(encodedHookArgs[i]));
         }
 
-        // Build command to call JS script
-        string[] memory cmd = new string[](5);
+        // Build command to call JS script with chain ID
+        string[] memory cmd = new string[](6);
         cmd[0] = "node";
         cmd[1] = string.concat(vm.projectRoot(), "/test/utils/merkle/merkle-js/efficient-proof-lookup.js");
         cmd[2] = "batch";
         cmd[3] = addressesArg;
         cmd[4] = argsArg;
+        cmd[5] = vm.toString(currentChainId);
 
         // Execute JS script and get result
         bytes memory result = vm.ffi(cmd);
@@ -186,6 +200,27 @@ abstract contract MerkleReader is StdCheats, PeripheryHelpers {
         proofs = abi.decode(vm.parseJson(resultStr), (bytes32[][]));
 
         return proofs;
+    }
+
+    /**
+     * @notice Get Merkle proofs for multiple hooks for a specific chain
+     * @param chainId The chain ID to use for merkle operations
+     * @param hookAddresses Array of hook contract addresses
+     * @param encodedHookArgs Array of packed-encoded hook arguments corresponding to each hook
+     * @return proofs Array of Merkle proofs for each hook/args combination
+     */
+    function _getMerkleProofsForChain(
+        uint256 chainId,
+        address[] memory hookAddresses,
+        bytes[] memory encodedHookArgs
+    )
+        internal
+        returns (bytes32[][] memory proofs)
+    {
+        uint256 originalChainId = currentChainId;
+        _setMerkleChainId(chainId);
+        proofs = _getMerkleProofsForHooks(hookAddresses, encodedHookArgs);
+        _setMerkleChainId(originalChainId);
     }
 
     /**
