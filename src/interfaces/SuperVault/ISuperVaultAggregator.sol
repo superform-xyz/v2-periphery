@@ -151,9 +151,7 @@ interface ISuperVaultAggregator {
     /// @param strategy Address of the strategy
     /// @param pps New price-per-share value
     /// @param timestamp Timestamp of the update
-    event PPSUpdated(
-        address indexed strategy, uint256 pps, uint256 timestamp
-    );
+    event PPSUpdated(address indexed strategy, uint256 pps, uint256 timestamp);
 
     /// @notice Emitted when a strategy is paused due to missed updates
     /// @param strategy Address of the paused strategy
@@ -171,21 +169,23 @@ interface ISuperVaultAggregator {
     /// @notice Emitted when upkeep tokens are deposited
     /// @param strategy Address of the strategy
     /// @param depositor Address of the depositor
-    /// @param amount Amount of UP tokens deposited
+    /// @param amount Amount of upkeep tokens deposited
     event UpkeepDeposited(address indexed strategy, address indexed depositor, uint256 amount);
 
     /// @notice Emitted when upkeep tokens are withdrawn
     /// @param strategy Address of the strategy
     /// @param withdrawer Address of the withdrawer (main manager of the strategy)
-    /// @param amount Amount of UP tokens withdrawn
+    /// @param amount Amount of upkeep tokens withdrawn
     event UpkeepWithdrawn(address indexed strategy, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when an upkeep withdrawal is proposed (start of 24h timelock)
     /// @param strategy Address of the strategy
     /// @param mainManager Address of the main manager who proposed the withdrawal
-    /// @param amount Amount of UP tokens to withdraw
+    /// @param amount Amount of upkeep tokens to withdraw
     /// @param effectiveTime Timestamp when withdrawal can be executed
-    event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime);
+    event UpkeepWithdrawalProposed(
+        address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime
+    );
 
     /// @notice Emitted when a pending upkeep withdrawal is cancelled (e.g., during governance takeover)
     /// @param strategy Address of the strategy
@@ -193,7 +193,7 @@ interface ISuperVaultAggregator {
 
     /// @notice Emitted when upkeep tokens are spent for validation
     /// @param strategy Address of the strategy
-    /// @param amount Amount of UP tokens spent
+    /// @param amount Amount of upkeep tokens spent
     /// @param balance Current balance of the strategy
     /// @param claimableUpkeep Amount of upkeep tokens claimable
     event UpkeepSpent(address indexed strategy, uint256 amount, uint256 balance, uint256 claimableUpkeep);
@@ -213,7 +213,9 @@ interface ISuperVaultAggregator {
     /// @param oldManager Address of the old primary manager
     /// @param newManager Address of the new primary manager
     /// @param feeRecipient Address of the new fee recipient
-    event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient);
+    event PrimaryManagerChanged(
+        address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient
+    );
 
     /// @notice Emitted when a change to primary manager is proposed by a secondary manager
     /// @param strategy Address of the strategy
@@ -221,7 +223,11 @@ interface ISuperVaultAggregator {
     /// @param newManager Address of the proposed new primary manager
     /// @param effectiveTime Timestamp when the proposal can be executed
     event PrimaryManagerChangeProposed(
-        address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime
+        address indexed strategy,
+        address indexed proposer,
+        address indexed newManager,
+        address feeRecipient,
+        uint256 effectiveTime
     );
 
     /// @notice Emitted when a primary manager change proposal is cancelled
@@ -489,12 +495,13 @@ interface ISuperVaultAggregator {
                         UPKEEP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposits UP tokens for strategy upkeep
+    /// @notice Deposits upkeep tokens for strategy upkeep
+    /// @dev The upkeep token is configurable per chain (UP on mainnet, WETH on L2s, etc.)
     /// @param strategy Address of the strategy to deposit for
-    /// @param amount Amount of UP tokens to deposit
+    /// @param amount Amount of upkeep tokens to deposit
     function depositUpkeep(address strategy, uint256 amount) external;
 
-    /// @notice Proposes withdrawal of UP tokens from strategy upkeep balance (starts 24h timelock)
+    /// @notice Proposes withdrawal of upkeep tokens from strategy upkeep balance (starts 24h timelock)
     /// @dev Only the main manager can propose. Withdraws full balance at time of proposal.
     /// @param strategy Address of the strategy to withdraw from
     function proposeWithdrawUpkeep(address strategy) external;
@@ -505,7 +512,7 @@ interface ISuperVaultAggregator {
     function executeWithdrawUpkeep(address strategy) external;
 
     /// @notice Claims upkeep tokens from the contract
-    /// @param amount Amount of UP tokens to claim
+    /// @param amount Amount of upkeep tokens to claim
     function claimUpkeep(uint256 amount) external;
 
     /*//////////////////////////////////////////////////////////////
@@ -708,7 +715,7 @@ interface ISuperVaultAggregator {
 
     /// @notice Gets the current upkeep balance for a strategy
     /// @param strategy Address of the strategy
-    /// @return balance Current upkeep balance in UP tokens
+    /// @return balance Current upkeep balance in upkeep tokens
     function getUpkeepBalance(address strategy) external view returns (uint256 balance);
 
     /// @notice Gets the main manager for a strategy
@@ -820,7 +827,7 @@ interface ISuperVaultAggregator {
     /// @notice Gets the total number of SuperVaults
     /// @return count The total number of SuperVaults
     function getSuperVaultsCount() external view returns (uint256);
- 
+
     /// @notice Gets the total number of SuperVaultStrategies
     /// @return count The total number of SuperVaultStrategies
     function getSuperVaultStrategiesCount() external view returns (uint256);

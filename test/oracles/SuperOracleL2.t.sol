@@ -601,7 +601,7 @@ contract SuperOracleL2Test is Test {
 
         // Set valid answer but stale timestamp (older than defaultStaleness = 86400)
         dataFeed.setAnswer(int256(INITIAL_PRICE));
-        dataFeed.setUpdatedAt(block.timestamp - 86401); // 1 second past staleness limit
+        dataFeed.setUpdatedAt(block.timestamp - 86_401); // 1 second past staleness limit
 
         // Should revert because block.timestamp - updatedAt > limit
         vm.expectRevert(ISuperOracle.ORACLE_UNTRUSTED_DATA.selector);
@@ -703,7 +703,7 @@ contract SuperOracleL2Test is Test {
 
         // Set dataFeed1 to have valid answer but stale timestamp
         dataFeed.setAnswer(int256(INITIAL_PRICE));
-        dataFeed.setUpdatedAt(block.timestamp - 86401); // Stale
+        dataFeed.setUpdatedAt(block.timestamp - 86_401); // Stale
         // Set dataFeed2 to have valid answer and fresh timestamp
         dataFeed2.setAnswer(int256(INITIAL_PRICE));
         dataFeed2.setUpdatedAt(block.timestamp);
@@ -726,7 +726,7 @@ contract SuperOracleL2Test is Test {
 
         // Set updatedAt to exactly the staleness limit (should NOT revert)
         dataFeed.setAnswer(int256(INITIAL_PRICE));
-        dataFeed.setUpdatedAt(block.timestamp - 86400); // Exactly at limit (not over)
+        dataFeed.setUpdatedAt(block.timestamp - 86_400); // Exactly at limit (not over)
 
         // Should succeed because block.timestamp - updatedAt == limit (not >)
         (uint256 quoteAmount,,,) =
@@ -795,7 +795,9 @@ contract SuperOracleL2Test is Test {
 
         // Call with specific provider (revertOnError = true) should revert with ORACLE_DECIMALS_CALL_FAIL
         vm.expectRevert(abi.encodeWithSelector(ISuperOracleL2.ORACLE_DECIMALS_CALL_FAIL.selector, address(failingFeed)));
-        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("FAILING_PROVIDER"));
+        oracle.getQuoteFromProvider(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("FAILING_PROVIDER")
+        );
     }
 
     /// @notice Tests catch block returns 0 when decimals() fails and revertOnError = false
@@ -900,7 +902,7 @@ contract SuperOracleL2Test is Test {
         // Normal call with sufficient gas should revert with ORACLE_DECIMALS_CALL_FAIL
         // not INSUFFICIENT_GAS_FOR_EXTERNAL_CALL
         vm.expectRevert(abi.encodeWithSelector(ISuperOracleL2.ORACLE_DECIMALS_CALL_FAIL.selector, address(failingFeed)));
-        oracle.getQuoteFromProvider{gas: 500000}(
+        oracle.getQuoteFromProvider{ gas: 500_000 }(
             1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("FAILING_PROVIDER")
         );
 
@@ -949,14 +951,17 @@ contract SuperOracleL2Test is Test {
 
         // Path 1: revertOnError = true (specific provider) should revert
         vm.expectRevert(abi.encodeWithSelector(ISuperOracleL2.ORACLE_DECIMALS_CALL_FAIL.selector, address(failingFeed)));
-        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("FAILING_PROVIDER"));
+        oracle.getQuoteFromProvider(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("FAILING_PROVIDER")
+        );
 
-        // Path 2: revertOnError = false (AVERAGE_PROVIDER with only this provider) should revert with NO_VALID_REPORTED_PRICES
-        // because it skips the failing oracle and has no valid oracles left
+        // Path 2: revertOnError = false (AVERAGE_PROVIDER with only this provider) should revert with
+        // NO_VALID_REPORTED_PRICES because it skips the failing oracle and has no valid oracles left
         bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
         vm.expectRevert(ISuperOracle.NO_VALID_REPORTED_PRICES.selector);
         oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
     }
+
     /*//////////////////////////////////////////////////////////////
             TRY/CATCH COVERAGE TESTS FOR NEW FIX
     //////////////////////////////////////////////////////////////*/
@@ -1139,7 +1144,9 @@ contract SuperOracleL2Test is Test {
         vm.expectRevert(
             abi.encodeWithSelector(ISuperOracle.ORACLE_ROUND_DATA_CALL_FAIL.selector, address(revertingDataFeed))
         );
-        oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("REVERTING_PROVIDER"));
+        oracle.getQuoteFromProvider(
+            1 * 10 ** 15, address(baseToken), address(quoteToken), keccak256("REVERTING_PROVIDER")
+        );
     }
 
     /// @notice Tests that NO_UPTIME_FEED returns 0 when revertOnError=false (AVERAGE_PROVIDER)
@@ -1209,7 +1216,7 @@ contract SuperOracleL2Test is Test {
         gracePeriodFeed.setUpdatedAt(block.timestamp);
 
         MockAggregator staleFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
-        staleFeed.setUpdatedAt(block.timestamp - 86401); // Stale
+        staleFeed.setUpdatedAt(block.timestamp - 86_401); // Stale
 
         // Create uptime feeds
         MockL2Sequencer workingUptime = new MockL2Sequencer();
@@ -1253,7 +1260,7 @@ contract SuperOracleL2Test is Test {
         workingFeed.setUpdatedAt(block.timestamp);
         sequencerDownFeed.setUpdatedAt(block.timestamp);
         gracePeriodFeed.setUpdatedAt(block.timestamp);
-        staleFeed.setUpdatedAt(block.timestamp - 86401); // Keep stale
+        staleFeed.setUpdatedAt(block.timestamp - 86_401); // Keep stale
 
         workingUptime.setStartedAt(block.timestamp - GRACE_PERIOD * 2);
         gracePeriodUptime.setStartedAt(block.timestamp - 100);
@@ -1440,7 +1447,7 @@ contract SuperOracleL2Test is Test {
         // The gas-consuming uptime feed should return 0 (line 120's && revertOnError is false)
         // and the working provider should return a valid quote
         bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
-        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{ gas: 5_000_000 }(
             1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
         );
 
@@ -1454,7 +1461,8 @@ contract SuperOracleL2Test is Test {
         MockAggregator workingFeed = new MockAggregator(int256(INITIAL_PRICE), uint8(PRICE_DECIMALS));
         workingFeed.setUpdatedAt(block.timestamp);
 
-        MockAggregatorGasConsumerOnLatestRoundData gasConsumingDataFeed = new MockAggregatorGasConsumerOnLatestRoundData();
+        MockAggregatorGasConsumerOnLatestRoundData gasConsumingDataFeed =
+            new MockAggregatorGasConsumerOnLatestRoundData();
 
         // Create uptime feeds
         MockL2Sequencer workingUptimeFeed = new MockL2Sequencer();
@@ -1501,7 +1509,7 @@ contract SuperOracleL2Test is Test {
 
         // Use AVERAGE_PROVIDER (revertOnError=false) with plenty of gas
         bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
-        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{ gas: 5_000_000 }(
             1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
         );
 
@@ -1565,7 +1573,7 @@ contract SuperOracleL2Test is Test {
 
         // Use AVERAGE_PROVIDER (revertOnError=false) with plenty of gas
         bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
-        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{gas: 5_000_000}(
+        (uint256 quoteAmount,,,) = oracle.getQuoteFromProvider{ gas: 5_000_000 }(
             1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider
         );
 

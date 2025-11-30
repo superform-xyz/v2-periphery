@@ -45,10 +45,7 @@ abstract contract OracleTargets is BaseTargetFunctions, Properties {
         timestamps[0] = block.timestamp;
 
         IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
-            strategies: strategies,
-            proofsArray: proofsArray,
-            ppss: ppss,
-            timestamps: timestamps
+            strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
         });
 
         ECDSAPPSOracle_updatePPS(args);

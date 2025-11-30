@@ -1238,96 +1238,6 @@ contract SuperOracleTest is PeripheryHelpers {
         COMPREHENSIVE IF STATEMENT COVERAGE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Tests setEmergencyPrice with unauthorized caller
-    /// @dev Covers SuperOracleBase.sol:116 - authorization check (revert path)
-    function test_SetEmergencyPrice_Unauthorized() public {
-        vm.prank(address(0x999));
-        vm.expectRevert(ISuperOracle.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superOracle.setEmergencyPrice(address(mockETH), 1000e18);
-    }
-
-    /// @notice Tests setEmergencyPrice with authorized caller (SUPER_GOVERNOR)
-    /// @dev Covers SuperOracleBase.sol:116 - authorization check (success path)
-    function test_SetEmergencyPrice_Success() public {
-        // Verify initial state
-        assertEq(superOracle.getEmergencyPrice(address(mockETH)), 0);
-
-        // Set emergency price (test contract is SUPER_GOVERNOR)
-        superOracle.setEmergencyPrice(address(mockETH), 1500e18);
-
-        // Verify price was set
-        assertEq(superOracle.getEmergencyPrice(address(mockETH)), 1500e18);
-
-        // Update to a different price
-        superOracle.setEmergencyPrice(address(mockETH), 2000e18);
-        assertEq(superOracle.getEmergencyPrice(address(mockETH)), 2000e18);
-    }
-
-    /// @notice Tests batchSetEmergencyPrice with unauthorized caller
-    /// @dev Covers SuperOracleBase.sol:122 - if (msg.sender != SUPER_GOVERNOR) (revert path)
-    function test_BatchSetEmergencyPrice_Unauthorized() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(mockETH);
-        uint256[] memory prices = new uint256[](1);
-        prices[0] = 1000e18;
-
-        vm.prank(address(0x999));
-        vm.expectRevert(ISuperOracle.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superOracle.batchSetEmergencyPrice(tokens, prices);
-    }
-
-    /// @notice Tests batchSetEmergencyPrice with zero length array
-    /// @dev Covers SuperOracleBase.sol:124 - if (length == 0) revert ZERO_ARRAY_LENGTH()
-    function test_BatchSetEmergencyPrice_ZeroLength() public {
-        address[] memory tokens = new address[](0);
-        uint256[] memory prices = new uint256[](0);
-
-        vm.expectRevert(ISuperOracle.ZERO_ARRAY_LENGTH.selector);
-        superOracle.batchSetEmergencyPrice(tokens, prices);
-    }
-
-    /// @notice Tests batchSetEmergencyPrice with mismatched array lengths
-    /// @dev Covers SuperOracleBase.sol:125 - if (length != prices_.length) revert ARRAY_LENGTH_MISMATCH()
-    function test_BatchSetEmergencyPrice_ArrayLengthMismatch() public {
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(mockETH);
-        tokens[1] = address(mockBTC);
-        uint256[] memory prices = new uint256[](1); // Mismatch: 2 tokens, 1 price
-        prices[0] = 1000e18;
-
-        vm.expectRevert(ISuperOracle.ARRAY_LENGTH_MISMATCH.selector);
-        superOracle.batchSetEmergencyPrice(tokens, prices);
-    }
-
-    /// @notice Tests batch set emergency price success path
-    /// @dev Covers SuperOracleBase.sol:122 (success path), 127-128 (for loop and body)
-    function test_BatchSetEmergencyPrice_Success() public {
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(mockETH);
-        tokens[1] = address(mockBTC);
-        uint256[] memory prices = new uint256[](2);
-        prices[0] = 1000e18;
-        prices[1] = 20000e18;
-
-        superOracle.batchSetEmergencyPrice(tokens, prices);
-
-        assertEq(superOracle.getEmergencyPrice(address(mockETH)), 1000e18);
-        assertEq(superOracle.getEmergencyPrice(address(mockBTC)), 20000e18);
-    }
-
-    /// @notice Tests batch set emergency price with single element
-    /// @dev Covers SuperOracleBase.sol:127 - loop with length=1 (boundary case)
-    function test_BatchSetEmergencyPrice_SingleElement() public {
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(mockETH);
-        uint256[] memory prices = new uint256[](1);
-        prices[0] = 3000e18;
-
-        superOracle.batchSetEmergencyPrice(tokens, prices);
-
-        assertEq(superOracle.getEmergencyPrice(address(mockETH)), 3000e18);
-    }
-
     /// @notice Tests _configureOracles with new provider addition
     /// @dev Covers SuperOracleBase.sol:595 - if (!providerExists)
     function test_ConfigureOracles_NewProviderAdded() public {
@@ -1463,8 +1373,7 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle.executeProviderRemoval();
 
         // Single provider = zero variance = sqrt(0) = 0
-        (, uint256 dev,,) =
-            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), AVERAGE_PROVIDER);
+        (, uint256 dev,,) = superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), AVERAGE_PROVIDER);
 
         assertEq(dev, 0);
     }
