@@ -1280,7 +1280,7 @@ contract SuperOracleL2Test is Test {
 
         // Use AVERAGE_PROVIDER - should only use the working provider
         bytes32 averageProvider = keccak256("AVERAGE_PROVIDER");
-        (uint256 quoteAmount,, uint256 totalProviders, uint256 availableProviders) =
+        (uint256 quoteAmount,,, uint256 availableProviders) =
             oracle.getQuoteFromProvider(1 * 10 ** 15, address(baseToken), address(quoteToken), averageProvider);
 
         assertGt(quoteAmount, 0, "Should get quote from the working provider");
