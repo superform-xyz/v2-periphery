@@ -77,7 +77,8 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         ppsOracle1 = _deployAccount(0xC, "PPSOracle1");
         ppsOracle2 = _deployAccount(0xD, "PPSOracle2");
         admin = _deployAccount(0xE, "Admin");
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
+        superGovernor =
+            new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
         superBank = new SuperBank(address(superGovernor));
         up = new Up(admin);
@@ -355,16 +356,12 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         uint256 expectedTreasuryAmount = 50 ether;
 
         vm.expectEmit(true, true, true, true);
-        emit ISuperBank.RevenueDistributed(
-            address(up), supToken, treasury, expectedSupAmount, expectedTreasuryAmount
-        );
+        emit ISuperBank.RevenueDistributed(address(up), supToken, treasury, expectedSupAmount, expectedTreasuryAmount);
         superBank.distribute(upAmount);
 
         // Both should receive 50%
         assertEq(up.balanceOf(supToken), initialSupBalance + expectedSupAmount, "sUP token should receive 50%");
-        assertEq(
-            up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 50%"
-        );
+        assertEq(up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 50%");
     }
 
     /// @notice Tests distribute with very small amounts that could round to zero
@@ -475,9 +472,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
 
         // Both should receive their respective shares
         assertEq(up.balanceOf(supToken), initialSupBalance + expectedSupAmount, "sUP token should receive 30%");
-        assertEq(
-            up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 70%"
-        );
+        assertEq(up.balanceOf(treasury), initialTreasuryBalance + expectedTreasuryAmount, "Treasury should receive 70%");
     }
 
     /// @notice Tests executeHooks reverts when caller is not bank manager
@@ -1309,7 +1304,8 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         //base is source
         vm.selectFork(baseForkId);
         {
-            superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
+            superGovernor =
+                new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
             superBank = new SuperBank(address(superGovernor));
             up = new Up(admin);
@@ -1831,4 +1827,5 @@ contract MockHookInspectFails {
 /// @dev Used to test the catch branch when interface is missing
 contract MockHookNoInspect {
     // No inspect() method - doesn't implement ISuperHookInspector
-}
+
+    }

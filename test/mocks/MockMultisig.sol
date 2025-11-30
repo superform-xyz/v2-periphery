@@ -9,10 +9,7 @@ contract MockMultisig {
     /// @param targets Array of target contract addresses
     /// @param data Array of calldata for each call
     /// @return results Array of return data from each call
-    function executeBatch(
-        address[] calldata targets,
-        bytes[] calldata data
-    ) external returns (bytes[] memory results) {
+    function executeBatch(address[] calldata targets, bytes[] calldata data) external returns (bytes[] memory results) {
         require(targets.length == data.length, "Length mismatch");
 
         results = new bytes[](targets.length);

@@ -104,13 +104,14 @@ contract MerkleTestHelper {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            bytes32(0), // yieldSourceOracleId placeholder
-            yieldSource,
-            owner,
-            shares,
-            usePrevHookAmount
-        );
+        return
+            abi.encodePacked(
+                bytes32(0), // yieldSourceOracleId placeholder
+                yieldSource,
+                owner,
+                shares,
+                usePrevHookAmount
+            );
     }
 
     /// @notice Generate encoded hook arguments for ApproveAndDeposit4626VaultHook
@@ -129,13 +130,14 @@ contract MerkleTestHelper {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            bytes32(0), // yieldSourceOracleId placeholder
-            yieldSource,
-            token,
-            amount,
-            usePrevHookAmount
-        );
+        return
+            abi.encodePacked(
+                bytes32(0), // yieldSourceOracleId placeholder
+                yieldSource,
+                token,
+                amount,
+                usePrevHookAmount
+            );
     }
 
     /// @notice Create a leaf hash for a specific hook and arguments
