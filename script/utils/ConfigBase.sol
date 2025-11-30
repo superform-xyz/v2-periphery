@@ -157,14 +157,14 @@ abstract contract ConfigBase is Constants {
             validatorPublicKeys.push("");
         } else if (env == 1) {
             // Test environment (vnet)
-            configuration.owner = DEPLOYER;
-            configuration.deployer = DEPLOYER;
+            configuration.owner = TEST_DEPLOYER;
+            configuration.deployer = TEST_DEPLOYER;
             configuration.treasury = SUPERFORM_TREASURY;
-            configuration.oracleManager = DEPLOYER;
-            configuration.bankManager = DEPLOYER;
-            configuration.gasManager = DEPLOYER;
-            configuration.governor = DEPLOYER;
-            configuration.guardian = DEPLOYER;
+            configuration.oracleManager = TEST_DEPLOYER;
+            configuration.bankManager = TEST_DEPLOYER;
+            configuration.gasManager = TEST_DEPLOYER;
+            configuration.governor = TEST_DEPLOYER;
+            configuration.guardian = TEST_DEPLOYER;
 
             // Set test validator addresses (empty public keys for now)
             validators.push(0x02cbf3dac926743ec757b5A51310f46580e25A04);

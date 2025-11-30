@@ -289,10 +289,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
-        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId);
+        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId, env);
 
         // Run smoke test to verify deployment
-        _smokeTest(peripheryContracts, chainId);
+        _smokeTest(peripheryContracts, chainId, env);
 
         // Write all exported contracts for this chain
         _writeExportedContracts(chainId);
@@ -315,10 +315,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
-        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId);
+        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId, env);
 
         // Run smoke test to verify deployment
-        _smokeTest(peripheryContracts, chainId);
+        _smokeTest(peripheryContracts, chainId, env);
 
         // Write all exported contracts for this chain
         _writeExportedContracts(chainId);
@@ -461,8 +461,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("All periphery dependencies validated successfully");
 
         // Deploy SuperGovernor
-        // upkeepPaymentsEnabled is true for mainnet, false for other chains
-        bool upkeepPaymentsEnabled = chainId == MAINNET_CHAIN_ID;
+        // upkeepPaymentsEnabled is true only for production environment
+        bool upkeepPaymentsEnabled = env == 0;
         peripheryContracts.superGovernor = __deployContractIfNeeded(
             SUPER_GOVERNOR_KEY,
             chainId,
@@ -544,10 +544,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         );
 
         // Deploy SuperOracle (mainnet) or SuperOracleL2 (L2 chains)
+        // Skip for test environment (env == 1) since Chainlink oracles not available on vnet
         // Mainnet: GAS->WEI, ETH->USD, UP->USD
         // L2: ETH->USD only (gas oracle and UP oracle not available)
-        peripheryContracts.superOracle =
-            _deploySuperOracle(chainId, peripheryContracts.superGovernor, peripheryContracts.fixedPriceOracle);
+        if (env != 1) {
+            peripheryContracts.superOracle =
+                _deploySuperOracle(chainId, peripheryContracts.superGovernor, peripheryContracts.fixedPriceOracle);
+        } else {
+            console2.log("[!] Skipping SuperOracle deployment for test environment");
+        }
 
         // Deploy SuperBank
         peripheryContracts.superBank = __deployContractIfNeeded(
@@ -693,7 +698,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     function _configurePeripheryContracts(
         PeripheryContracts memory peripheryContracts,
         CoreContractAddresses memory,
-        uint64 chainId
+        uint64 chainId,
+        uint256 env
     )
         internal
     {
@@ -736,11 +742,18 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             );
         console2.log("[Step 3] DONE - Set SuperVaultAggregator address");
 
-        console2.log("[Step 4] Setting SuperOracle address...");
-        console2.log("  Oracle address:", peripheryContracts.superOracle);
-        SuperGovernor(peripheryContracts.superGovernor)
-            .setAddress(SuperGovernor(peripheryContracts.superGovernor).SUPER_ORACLE(), peripheryContracts.superOracle);
-        console2.log("[Step 4] DONE - Set SuperOracle address");
+        // Skip SuperOracle configuration for test environment (env == 1)
+        if (env != 1) {
+            console2.log("[Step 4] Setting SuperOracle address...");
+            console2.log("  Oracle address:", peripheryContracts.superOracle);
+            SuperGovernor(peripheryContracts.superGovernor)
+                .setAddress(
+                    SuperGovernor(peripheryContracts.superGovernor).SUPER_ORACLE(), peripheryContracts.superOracle
+                );
+            console2.log("[Step 4] DONE - Set SuperOracle address");
+        } else {
+            console2.log("[Step 4] Skipping SuperOracle configuration for test environment");
+        }
 
         console2.log("[Step 5] Setting SuperBank address...");
         console2.log("  Bank address:", peripheryContracts.superBank);
@@ -749,7 +762,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Step 5] DONE - Set SuperBank address");
 
         // Step 6: Configure uptime feed for L2 chains (SuperOracleL2 requires uptime feeds)
-        if (chainId != MAINNET_CHAIN_ID) {
+        // Skip for test environment (env == 1) since oracles not deployed
+        if (env != 1 && chainId != MAINNET_CHAIN_ID) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
             SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
@@ -795,23 +809,32 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @notice Smoke test to verify roles and configuration are set correctly post-deployment
     /// @param peripheryContracts The deployed periphery contract addresses
     /// @param chainId The chain ID for chain-specific oracle selection
-    function _smokeTest(PeripheryContracts memory peripheryContracts, uint64 chainId) internal view {
+    /// @param env Environment (0 = prod, 1 = test, 2 = staging)
+    function _smokeTest(PeripheryContracts memory peripheryContracts, uint64 chainId, uint256 env) internal view {
         console2.log("");
         console2.log("=== Running Smoke Test ===");
 
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
-        bytes32 superGovernorRole = keccak256("SUPER_GOVERNOR_ROLE");
-        bytes32 defaultAdminRole = governor.DEFAULT_ADMIN_ROLE();
 
-        // Verify SUPER_GOVERNOR_ROLE is held by deployer
-        bool deployerHasSuperGovernorRole = governor.hasRole(superGovernorRole, DEPLOYER);
-        bool deployerHasDefaultAdminRole = governor.hasRole(defaultAdminRole, DEPLOYER);
+        // Verify SUPER_GOVERNOR_ROLE is held by deployer (use configuration.deployer for env-specific address)
+        console2.log("[Role Check] DEPLOYER address:", configuration.deployer);
+        console2.log(
+            "[Role Check] DEPLOYER has SUPER_GOVERNOR_ROLE:",
+            governor.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), configuration.deployer)
+        );
+        console2.log(
+            "[Role Check] DEPLOYER has DEFAULT_ADMIN_ROLE:",
+            governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer)
+        );
 
-        console2.log("[Role Check] DEPLOYER has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
-        console2.log("[Role Check] DEPLOYER has DEFAULT_ADMIN_ROLE:", deployerHasDefaultAdminRole);
-
-        require(deployerHasSuperGovernorRole, "SMOKE_TEST_FAILED: Deployer missing SUPER_GOVERNOR_ROLE");
-        require(deployerHasDefaultAdminRole, "SMOKE_TEST_FAILED: Deployer missing DEFAULT_ADMIN_ROLE");
+        require(
+            governor.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer missing SUPER_GOVERNOR_ROLE"
+        );
+        require(
+            governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer missing DEFAULT_ADMIN_ROLE"
+        );
 
         // Verify active PPS oracle is set
         address activePPSOracle = governor.getActivePPSOracle();
@@ -822,7 +845,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Config Check] FixedPriceOracle:", peripheryContracts.fixedPriceOracle);
         require(peripheryContracts.fixedPriceOracle != address(0), "SMOKE_TEST_FAILED: FixedPriceOracle not deployed");
         FixedPriceOracle fixedOracle = FixedPriceOracle(peripheryContracts.fixedPriceOracle);
-        require(fixedOracle.owner() == DEPLOYER, "SMOKE_TEST_FAILED: FixedPriceOracle owner mismatch");
+        require(fixedOracle.owner() == configuration.deployer, "SMOKE_TEST_FAILED: FixedPriceOracle owner mismatch");
         require(fixedOracle.decimals() == UP_PRICE_DECIMALS, "SMOKE_TEST_FAILED: FixedPriceOracle decimals mismatch");
         (, int256 price,,,) = fixedOracle.latestRoundData();
         require(price == INITIAL_UP_PRICE, "SMOKE_TEST_FAILED: FixedPriceOracle price mismatch");
@@ -832,11 +855,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Config Check] SuperVaultAggregator:", aggregator);
         require(aggregator == peripheryContracts.superVaultAggregator, "SMOKE_TEST_FAILED: Aggregator mismatch");
 
-        // Verify SuperOracle is set
-        address superOracle = governor.getAddress(governor.SUPER_ORACLE());
-        console2.log("[Config Check] SuperOracle:", superOracle);
-        require(superOracle == peripheryContracts.superOracle, "SMOKE_TEST_FAILED: SuperOracle mismatch");
-        require(superOracle != address(0), "SMOKE_TEST_FAILED: SuperOracle not set");
+        // Verify SuperOracle is set (skip for test environment since oracle not deployed)
+        if (env != 1) {
+            address superOracle = governor.getAddress(governor.SUPER_ORACLE());
+            console2.log("[Config Check] SuperOracle:", superOracle);
+            require(superOracle == peripheryContracts.superOracle, "SMOKE_TEST_FAILED: SuperOracle mismatch");
+            require(superOracle != address(0), "SMOKE_TEST_FAILED: SuperOracle not set");
+        } else {
+            console2.log("[Config Check] Skipping SuperOracle verification for test environment");
+        }
 
         // Verify SuperBank is set
         address superBank = governor.getAddress(governor.SUPER_BANK());
@@ -852,7 +879,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         require(quorum == INITIAL_VALIDATOR_QUORUM, "SMOKE_TEST_FAILED: Quorum mismatch");
 
         // Verify oracle feeds return valid prices via SuperOracle integration
-        _verifyOracleFeeds(peripheryContracts.superOracle, chainId);
+        // Skip for test environment (env == 1) since oracles may not be available on vnet
+        if (env != 1) {
+            _verifyOracleFeeds(peripheryContracts.superOracle, chainId);
+        } else {
+            console2.log("[Config Check] Skipping oracle feed verification for test environment");
+        }
 
         console2.log("=== Smoke Test PASSED ===");
         console2.log("");
