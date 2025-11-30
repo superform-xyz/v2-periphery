@@ -3273,32 +3273,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("ppsAfter: ", aggregator.getPPS(address(strategyGearSuperVault)));
     }
 
-    function _setupBridgeTestVault() internal {
-        vm.selectFork(FORKS[BASE]);
-        asset = IERC20Metadata(existingUnderlyingTokens[BASE][USDC_KEY]);
-
-        (address bridgeTestVaultAddr, address bridgeTestStrategyAddr,) = _deployVault(address(asset), "svBridgeTest");
-
-        vm.label(bridgeTestVaultAddr, "BridgeTestVault");
-        vm.label(bridgeTestStrategyAddr, "BridgeTestStrategy");
-
-        bridgeTestVault = SuperVault(bridgeTestVaultAddr);
-        bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
-
-        // Add a new yield source as manager
-        vm.startPrank(MANAGER);
-        bridgeTestStrategy.manageYieldSource(
-            address(gearboxVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
-        );
-
-        bridgeTestStrategy.proposeVaultFeeConfigUpdate(100, 0, TREASURY);
-        vm.warp(block.timestamp + 1 weeks);
-        bridgeTestStrategy.executeVaultFeeConfigUpdate();
-        vm.stopPrank();
-
-        _updateSuperVaultPPS(address(bridgeTestStrategy), address(bridgeTestVault));
-    }
-
     function _setupGearVault() internal {
         // Deploy vault trio
         (address gearSuperVaultAddr, address strategyAddr, address escrowAddr) =
@@ -3517,11 +3491,91 @@ contract SuperVaultTest is BaseSuperVaultTest {
                             TOKEN BRIDGE TESTS
     //////////////////////////////////////////////////////////////*/
     function test_SuperBank_TokenBridge_BaseToETH() public {
-        _setupBridgeTestVault();
+        address assetBase = existingUnderlyingTokens[BASE][USDC_KEY];
+        (SuperVault bTVault, SuperVaultStrategy bTStrategy) = _setupBridgeTestVault(assetBase);
+
+        uint256 depositAmount = 100_000e6;
 
         vm.selectFork(FORKS[BASE]);
 
-        _deposit
+        AccountInstance memory accountBase = makeAccountInstance("accountBase");
+
+        deal(assetBase, accountBase.account, depositAmount);
+
+        vm.startPrank(accountBase.account);
+        IERC20(assetBase).approve(address(bTVault), depositAmount);
+        bTVault.deposit(depositAmount, accountBase.account);
+        vm.stopPrank();
+
+        address fluidVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][FLUID_VAULT_KEY][USDC_KEY];
+
+        _depositIntoUnderlyingOnBase(assetBase, fluidVaultAddr, address(bTStrategy), depositAmount);
+    }
+
+    function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
+        vm.selectFork(FORKS[BASE]);
+
+        (address bridgeTestVaultAddr, address bridgeTestStrategyAddr,) = _deployVaultOnBase(assetBridgeTest, "svBridgeTest");
+
+        vm.label(bridgeTestVaultAddr, "BridgeTestVault");
+        vm.label(bridgeTestStrategyAddr, "BridgeTestStrategy");
+
+        bridgeTestVault = SuperVault(bridgeTestVaultAddr);
+        bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
+
+        address fluidVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][FLUID_VAULT_KEY][USDC_KEY];
+
+        // Add a new yield source as manager
+        vm.prank(MANAGER);
+        bridgeTestStrategy.manageYieldSource(
+            fluidVaultAddr, _getContract(BASE, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+        );
+
+        // _updateSuperVaultPPS(address(bridgeTestStrategy), address(bridgeTestVault));
+    }
+
+    function _depositIntoUnderlyingOnBase(
+        address assetOnBase, 
+        address baseUnderlying, 
+        address bridgeTestStrategy,
+        uint256 depositAmount
+    ) internal {
+        address depositHookAddress = _getHookAddress(BASE, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = depositHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+
+        // Split the deposit between two hooks
+        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            baseUnderlying,
+            assetOnBase,
+            depositAmount,
+            false,
+            address(0),
+            0
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).convertToShares(depositAmount);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        vm.startPrank(MANAGER);
+        SuperVaultStrategy(payable(bridgeTestStrategy))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _getMerkleProofsForHooks(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](1)
+                })
+            );
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////

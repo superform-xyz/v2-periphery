@@ -338,6 +338,50 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
     }
 
     /**
+     * @notice Deploys a new SuperVault on Basewith default configuration
+     * @return vaultAddr The address of the deployed SuperVault
+     * @return strategyAddr The address of the deployed SuperVaultStrategy
+     * @return escrowAddr The address of the deployed SuperVaultEscrow
+     */
+    function _deployVaultOnBase(
+        address _asset,
+        string memory _superVaultSymbol
+    )
+        internal
+        returns (address vaultAddr, address strategyAddr, address escrowAddr)
+    {
+        vm.selectFork(FORKS[BASE]);
+        vm.startPrank(SV_MANAGER);
+
+        SuperVaultAggregator aggregatorBase = SuperVaultAggregator(_getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY));
+
+        // Deploy the vault trio
+        (vaultAddr, strategyAddr, escrowAddr) = aggregatorBase.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: _asset,
+                name: "SuperVault",
+                symbol: _superVaultSymbol,
+                mainManager: MANAGER,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 1 weeks,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 500, managementFeeBps: 0, recipient: address(this)
+                })
+            })
+        );
+
+        // Label the contracts for easier identification
+        vm.label(vaultAddr, string.concat("SuperVault ", _superVaultSymbol));
+        vm.label(strategyAddr, string.concat("SuperVaultStrategy ", _superVaultSymbol));
+        vm.label(escrowAddr, string.concat("SuperVaultEscrow ", _superVaultSymbol));
+
+        vm.stopPrank();
+
+        return (vaultAddr, strategyAddr, escrowAddr);
+    }
+
+    /**
      * @notice Deploys a new SuperVault with default configuration
      * @param _superVaultSymbol The symbol for the SuperVault
      * @return vaultAddr The address of the deployed SuperVault
