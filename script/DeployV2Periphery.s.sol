@@ -10,7 +10,7 @@ import { SuperBank } from "../src/SuperBank.sol";
 import { FixedPriceOracle } from "../src/oracles/FixedPriceOracle.sol";
 import { SuperOracle } from "../src/oracles/SuperOracle.sol";
 import { SuperOracleL2 } from "../src/oracles/SuperOracleL2.sol";
-import { AggregatorV3Interface } from "../src/vendor/chainlink/AggregatorV3Interface.sol";
+import { ISuperOracle } from "../src/interfaces/oracles/ISuperOracle.sol";
 
 import { console2 } from "forge-std/console2.sol";
 
@@ -266,7 +266,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
-        _configurePeripheryContracts(peripheryContracts, coreAddresses);
+        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId);
 
         // Run smoke test to verify deployment
         _smokeTest(peripheryContracts, chainId);
@@ -292,7 +292,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         PeripheryContracts memory peripheryContracts = _deployPeripheryContracts(chainId, env);
 
         // Configure contracts
-        _configurePeripheryContracts(peripheryContracts, coreAddresses);
+        _configurePeripheryContracts(peripheryContracts, coreAddresses, chainId);
 
         // Run smoke test to verify deployment
         _smokeTest(peripheryContracts, chainId);
@@ -639,6 +639,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("SuperOracleL2 deployed at:", superOracle);
             console2.log("  Chain ID:", chainId);
             console2.log("  Configured oracles: ETH->USD");
+
+            // NOTE: Uptime feed configured in _configurePeripheryContracts via SuperGovernor.batchSetOracleUptimeFeed
             console2.log("  WARNING: GAS->WEI oracle not configured (mainnet only)");
             console2.log("  WARNING: UP->USD oracle not configured (mainnet only)");
         }
@@ -648,7 +650,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
     function _configurePeripheryContracts(
         PeripheryContracts memory peripheryContracts,
-        CoreContractAddresses memory
+        CoreContractAddresses memory,
+        uint64 chainId
     )
         internal
     {
@@ -707,6 +710,43 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 peripheryContracts.superBank
             );
         console2.log("[Step 5] DONE - Set SuperBank address");
+
+        // Step 6: Configure uptime feed for L2 chains (SuperOracleL2 requires uptime feeds)
+        if (chainId != MAINNET_CHAIN_ID) {
+            console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
+
+            SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
+            bytes32 oracleManagerRole = keccak256("ORACLE_MANAGER_ROLE");
+
+            // Grant ORACLE_MANAGER_ROLE to deployer temporarily (deployer has DEFAULT_ADMIN_ROLE)
+            bool hadRole = governor.hasRole(oracleManagerRole, msg.sender);
+            if (!hadRole) {
+                governor.grantRole(oracleManagerRole, msg.sender);
+                console2.log("  Granted ORACLE_MANAGER_ROLE to deployer");
+            }
+
+            address[] memory dataOracles = new address[](1);
+            address[] memory uptimeOracles = new address[](1);
+            uint256[] memory gracePeriodsList = new uint256[](1);
+
+            if (chainId == BASE_CHAIN_ID) {
+                dataOracles[0] = ORACLE_ETH_USD_BASE;
+                uptimeOracles[0] = ORACLE_SEQUENCER_UPTIME_BASE;
+            } else {
+                revert("ORACLE_SEQUENCER_UPTIME not configured for this chain");
+            }
+            gracePeriodsList[0] = 0; // Use default grace period (1 hour)
+
+            governor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriodsList);
+
+            // Revoke temporary role
+            if (!hadRole) {
+                governor.revokeRole(oracleManagerRole, msg.sender);
+                console2.log("  Revoked ORACLE_MANAGER_ROLE from deployer");
+            }
+
+            console2.log("[Step 6] DONE - Configured uptime feed for ETH/USD oracle");
+        }
 
         // NOTE: Governor roles are granted to the deployer initially via configuration.governor
         // in the SuperGovernor constructor. Transfer to the actual GOVERNOR address should happen
@@ -776,87 +816,78 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         require(validatorAddrs.length > 0, "SMOKE_TEST_FAILED: No validators configured");
         require(quorum == INITIAL_VALIDATOR_QUORUM, "SMOKE_TEST_FAILED: Quorum mismatch");
 
-        // Verify oracle feeds return valid prices and recent timestamps
-        _verifyOracleFeeds(peripheryContracts.fixedPriceOracle, chainId);
+        // Verify oracle feeds return valid prices via SuperOracle integration
+        _verifyOracleFeeds(peripheryContracts.superOracle, chainId);
 
         console2.log("=== Smoke Test PASSED ===");
         console2.log("");
     }
 
-    /// @notice Verify oracle feeds return valid prices and timestamps within 2 days
-    /// @param fixedPriceOracleAddr The FixedPriceOracle address
+    /// @notice Verify oracle feeds return valid prices via SuperOracle integration
+    /// @dev Uses AVERAGE_PROVIDER to test the full oracle pipeline
+    /// @param superOracleAddr The SuperOracle/SuperOracleL2 address
     /// @param chainId The chain ID for chain-specific oracle selection
-    function _verifyOracleFeeds(address fixedPriceOracleAddr, uint64 chainId) internal view {
+    function _verifyOracleFeeds(address superOracleAddr, uint64 chainId) internal view {
         console2.log("");
-        console2.log("=== Verifying Oracle Feeds ===");
+        console2.log("=== Verifying Oracle Feeds via SuperOracle ===");
+        console2.log("SuperOracle address:", superOracleAddr);
 
-        uint256 maxStaleness = 2 days;
+        bytes32 AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
+        ISuperOracle oracle = ISuperOracle(superOracleAddr);
 
-        // 1. Verify FixedPriceOracle (UP/USD)
-        console2.log("[Oracle 1] FixedPriceOracle (UP/USD):");
+        // 1. Verify ETH/USD feed (available on all chains)
+        console2.log("[Feed 1] NATIVE_TOKEN -> USD_TOKEN (ETH/USD):");
         {
-            (, int256 upPrice,, uint256 upUpdatedAt,) = FixedPriceOracle(fixedPriceOracleAddr).latestRoundData();
-            console2.log("  Price:", uint256(upPrice));
-            console2.log("  Updated at:", upUpdatedAt);
-            console2.log("  Current time:", block.timestamp);
+            uint256 oneEth = 1e18;
+            (uint256 ethUsdQuote,, uint256 totalProviders, uint256 availableProviders) =
+                oracle.getQuoteFromProvider(oneEth, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
-            require(upPrice > 0, "SMOKE_TEST_FAILED: FixedPriceOracle price is zero");
-            require(
-                block.timestamp - upUpdatedAt <= maxStaleness,
-                "SMOKE_TEST_FAILED: FixedPriceOracle timestamp too stale (> 2 days)"
-            );
+            console2.log("  1 ETH = %s USD (18 decimals)", ethUsdQuote);
+            console2.log("  Total providers:", totalProviders);
+            console2.log("  Available providers:", availableProviders);
+
+            require(ethUsdQuote > 0, "SMOKE_TEST_FAILED: ETH/USD quote is zero");
+            require(availableProviders > 0, "SMOKE_TEST_FAILED: No available providers for ETH/USD");
             console2.log("  Status: VALID");
         }
 
-        // 2. Verify Gas Oracle (GAS -> WEI) - Mainnet only
+        // 2. Verify GAS -> WEI feed (mainnet only)
         if (chainId == MAINNET_CHAIN_ID) {
-            console2.log("[Oracle 2] Gas Oracle (ORACLE_GAS_TO_ETH):");
-            AggregatorV3Interface gasOracle = AggregatorV3Interface(ORACLE_GAS_TO_ETH);
-            (, int256 gasPrice,, uint256 gasUpdatedAt,) = gasOracle.latestRoundData();
-            console2.log("  Price (gwei):", uint256(gasPrice));
-            console2.log("  Updated at:", gasUpdatedAt);
-            console2.log("  Current time:", block.timestamp);
+            console2.log("[Feed 2] GAS_QUOTE -> WEI_QUOTE (Gas Price):");
+            {
+                uint256 oneGasUnit = 1;
+                (uint256 gasWeiQuote,, uint256 totalProviders, uint256 availableProviders) =
+                    oracle.getQuoteFromProvider(oneGasUnit, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
 
-            require(gasPrice > 0, "SMOKE_TEST_FAILED: Gas oracle price is zero");
-            require(
-                block.timestamp - gasUpdatedAt <= maxStaleness,
-                "SMOKE_TEST_FAILED: Gas oracle timestamp too stale (> 2 days)"
-            );
-            console2.log("  Status: VALID");
-        } else {
-            console2.log("[Oracle 2] Gas Oracle: SKIPPED (mainnet only)");
-        }
+                console2.log("  1 gas unit = %s wei", gasWeiQuote);
+                console2.log("  Total providers:", totalProviders);
+                console2.log("  Available providers:", availableProviders);
 
-        // 3. Verify ETH/USD Oracle (chain-specific)
-        console2.log("[Oracle 3] ETH/USD Oracle:");
-        {
-            address ethUsdOracleAddr;
-            if (chainId == MAINNET_CHAIN_ID) {
-                ethUsdOracleAddr = ORACLE_ETH_USD_MAINNET;
-                console2.log("  Using: Mainnet ETH/USD Oracle");
-            } else if (chainId == BASE_CHAIN_ID) {
-                ethUsdOracleAddr = ORACLE_ETH_USD_BASE;
-                console2.log("  Using: Base ETH/USD Oracle");
-            } else {
-                ethUsdOracleAddr = ORACLE_ETH_USD_MAINNET;
-                console2.log("  Using: Mainnet ETH/USD Oracle (default)");
+                require(gasWeiQuote > 0, "SMOKE_TEST_FAILED: GAS/WEI quote is zero");
+                require(availableProviders > 0, "SMOKE_TEST_FAILED: No available providers for GAS/WEI");
+                console2.log("  Status: VALID");
             }
-            console2.log("  Address:", ethUsdOracleAddr);
 
-            AggregatorV3Interface ethUsdOracle = AggregatorV3Interface(ethUsdOracleAddr);
-            (, int256 ethPrice,, uint256 ethUpdatedAt,) = ethUsdOracle.latestRoundData();
-            console2.log("  Price (USD, 8 decimals):", uint256(ethPrice));
-            console2.log("  Updated at:", ethUpdatedAt);
-            console2.log("  Current time:", block.timestamp);
+            // 3. Verify UP -> USD feed (mainnet only)
+            console2.log("[Feed 3] UP_TOKEN -> USD_TOKEN (UP/USD):");
+            {
+                uint256 oneUp = 1e18;
+                (uint256 upUsdQuote,, uint256 totalProviders, uint256 availableProviders) =
+                    oracle.getQuoteFromProvider(oneUp, UP_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
-            require(ethPrice > 0, "SMOKE_TEST_FAILED: ETH/USD oracle price is zero");
-            require(
-                block.timestamp - ethUpdatedAt <= maxStaleness,
-                "SMOKE_TEST_FAILED: ETH/USD oracle timestamp too stale (> 2 days)"
-            );
-            console2.log("  Status: VALID");
+                console2.log("  1 UP = %s USD (18 decimals)", upUsdQuote);
+                console2.log("  Total providers:", totalProviders);
+                console2.log("  Available providers:", availableProviders);
+
+                require(upUsdQuote > 0, "SMOKE_TEST_FAILED: UP/USD quote is zero");
+                require(availableProviders > 0, "SMOKE_TEST_FAILED: No available providers for UP/USD");
+                console2.log("  Status: VALID");
+            }
+        } else {
+            console2.log("[Feed 2] GAS_QUOTE -> WEI_QUOTE: SKIPPED (mainnet only)");
+            console2.log("[Feed 3] UP_TOKEN -> USD_TOKEN: SKIPPED (mainnet only)");
         }
 
-        console2.log("=== All Oracle Feeds Verified ===");
+        console2.log("=== All Oracle Feeds Verified via SuperOracle ===");
     }
 }

@@ -62,6 +62,9 @@ abstract contract ConfigBase is Constants {
     /// @notice ETH/USD oracle on Base
     address internal constant ORACLE_ETH_USD_BASE = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
 
+    /// @notice Base Sequencer Uptime Feed (required for SuperOracleL2)
+    address internal constant ORACLE_SEQUENCER_UPTIME_BASE = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
+
     // Oracle constants for SuperOracle configuration (must match SuperGovernor constants)
     address internal constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     address internal constant USD_TOKEN = address(840);
