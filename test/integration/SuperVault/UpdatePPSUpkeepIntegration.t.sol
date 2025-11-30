@@ -67,10 +67,13 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
     // Constants
     uint256 constant GAS_PER_ENTRY = 60_000;
     uint256 constant PPS = 1e6; // 1.0 in 6 decimals
+    // Pin fork to a specific block for deterministic oracle prices
+    // Block 21679000 is from early Jan 2025 with stable oracle data
+    uint256 constant FORK_BLOCK = 21_679_000;
 
     function setUp() public {
-        // Fork mainnet at a recent block
-        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+        // Fork mainnet at a specific block for deterministic tests
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"), FORK_BLOCK);
 
         deployer = makeAddr("deployer");
         manager = makeAddr("manager");
