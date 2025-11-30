@@ -3273,6 +3273,32 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("ppsAfter: ", aggregator.getPPS(address(strategyGearSuperVault)));
     }
 
+    function _setupBridgeTestVault() internal {
+        vm.selectFork(FORKS[BASE]);
+        asset = IERC20Metadata(existingUnderlyingTokens[BASE][USDC_KEY]);
+
+        (address bridgeTestVaultAddr, address bridgeTestStrategyAddr,) = _deployVault(address(asset), "svBridgeTest");
+
+        vm.label(bridgeTestVaultAddr, "BridgeTestVault");
+        vm.label(bridgeTestStrategyAddr, "BridgeTestStrategy");
+
+        bridgeTestVault = SuperVault(bridgeTestVaultAddr);
+        bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
+
+        // Add a new yield source as manager
+        vm.startPrank(MANAGER);
+        bridgeTestStrategy.manageYieldSource(
+            address(gearboxVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+        );
+
+        bridgeTestStrategy.proposeVaultFeeConfigUpdate(100, 0, TREASURY);
+        vm.warp(block.timestamp + 1 weeks);
+        bridgeTestStrategy.executeVaultFeeConfigUpdate();
+        vm.stopPrank();
+
+        _updateSuperVaultPPS(address(bridgeTestStrategy), address(bridgeTestVault));
+    }
+
     function _setupGearVault() internal {
         // Deploy vault trio
         (address gearSuperVaultAddr, address strategyAddr, address escrowAddr) =
@@ -3485,6 +3511,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ISuperExecutor.ExecutorEntry({ hooksAddresses: claimHooksAddresses, hooksData: claimHooksData });
         UserOpData memory claimUserOpData = _getExecOps(instanceOnEth, superExecutorOnEth, abi.encode(claimEntry));
         executeOp(claimUserOpData);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            TOKEN BRIDGE TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_SuperBank_TokenBridge_BaseToETH() public {
+        _setupBridgeTestVault();
+
+        vm.selectFork(FORKS[BASE]);
+
+        _deposit
     }
 
     /*//////////////////////////////////////////////////////////////
