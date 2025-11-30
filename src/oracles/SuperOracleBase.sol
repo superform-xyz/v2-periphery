@@ -379,7 +379,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             // Require that enough gas was provided to prevent an OOG revert
             // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
             // oracle failures
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (revertOnError && gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
             return 0;
@@ -406,7 +406,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         } catch {
             // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
             // oracle failures
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (revertOnError && gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
