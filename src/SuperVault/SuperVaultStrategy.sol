@@ -1090,10 +1090,7 @@ contract SuperVaultStrategy is ISuperVaultStrategy, Initializable, ReentrancyGua
         //       then the onchain PPS gets never updated and eventually it should not be used anymore, which is what the
         // `ppsExpiration` logic controls
         uint256 lastPPSUpdateTimestamp = aggregator.getLastUpdateTimestamp(address(this));
-
-        uint256 aggMaxStaleness = aggregator.getMaxStaleness(address(this));
-        uint256 elapsed = block.timestamp - lastPPSUpdateTimestamp;
-        return (elapsed > aggMaxStaleness) && (elapsed > ppsExpiration);
+        return block.timestamp - lastPPSUpdateTimestamp > ppsExpiration;
     }
 
     /// @notice Validates full pps state by checking pause, stale, and PPS update status
