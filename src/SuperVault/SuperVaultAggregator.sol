@@ -704,12 +704,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // If new manager is already a secondary manager, remove them
         _strategyData[strategy].secondaryManagers.remove(newManager);
 
-        // Make the old primary manager a secondary manager
-        if (_strategyData[strategy].secondaryManagers.length() < MAX_SECONDARY_MANAGERS) {
-            _strategyData[strategy].secondaryManagers.add(oldManager);
-        } else {
-            emit OldPrimaryManagerRemoved(strategy, oldManager);
-        }
+        // SECURITY: Clear all secondary managers to prevent privilege retntion
+        _strategyData[strategy].secondaryManagers.clear();
 
         // Cancel any pending upkeep withdrawal to ensure clean transition
         if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
