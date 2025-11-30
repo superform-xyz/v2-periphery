@@ -581,7 +581,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(
             IERC20(upToken).balanceOf(superBank),
             superBankBalanceBefore + claimAmount,
-            "SuperBank should receive UP tokens"
+            "SuperBank should receive upkeep tokens"
         );
     }
 

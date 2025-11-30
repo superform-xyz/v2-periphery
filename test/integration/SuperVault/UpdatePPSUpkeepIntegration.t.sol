@@ -216,16 +216,16 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         strategy = strat;
     }
 
-    /// @notice Test that UP token is used for upkeep when updatePPS is called
+    /// @notice Test that upkeep token is used for upkeep when updatePPS is called
     function test_UpdatePPS_UsesUpTokenForUpkeep() public {
         // First, get the upkeep cost per entry
         uint256 upkeepCost = governor.getUpkeepCostPerSingleUpdate(address(ecdsaOracle));
-        console2.log("Upkeep cost per entry (in UP tokens):", upkeepCost);
+        console2.log("Upkeep cost per entry (in upkeep tokens):", upkeepCost);
 
         // Verify the cost is reasonable (should be > 0 with real oracles)
         assertGt(upkeepCost, 0, "Upkeep cost should be > 0");
 
-        // Mint UP tokens to manager and deposit as upkeep
+        // Mint upkeep tokens to manager and deposit as upkeep
         uint256 depositAmount = upkeepCost * 10; // Deposit 10x the cost for safety
         vm.prank(deployer);
         upToken.mint(manager, depositAmount);
@@ -293,7 +293,7 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
 
         console2.log("=== Upkeep Cost Breakdown ===");
         console2.log("Gas per entry:", GAS_PER_ENTRY);
-        console2.log("Upkeep cost in UP tokens:", upkeepCost);
+        console2.log("Upkeep cost in upkeep tokens:", upkeepCost);
 
         // Upkeep cost depends on gas price, ETH price, and UP price from real oracles
         // Just verify it's a reasonable non-zero value

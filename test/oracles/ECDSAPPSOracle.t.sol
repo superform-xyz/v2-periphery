@@ -2063,7 +2063,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Deposit upkeep to prevent auto-pause due to insufficient balance
         vm.startPrank(mockManager);
-        // Mint and approve UP tokens for upkeep
+        // Mint and approve upkeep tokens for upkeep
         deal(upToken, mockManager, 100 ether);
         IERC20(upToken).approve(address(aggregatorSuperVault), 100 ether);
         aggregatorSuperVault.depositUpkeep(svStrategy, 100 ether);

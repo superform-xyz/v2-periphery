@@ -183,7 +183,7 @@ This mechanism ensures that hook execution is always subject to both governance 
 
 **Upkeep System (Operational Costs)**:
 - **Purpose**: Covers gas costs for PPS updates and oracle operations
-- **Mechanism**: Managers deposit UP tokens via `depositUpkeep()` to fund ongoing operations
+- **Mechanism**: Managers deposit upkeep tokens via `depositUpkeep()` to fund ongoing operations (UP on mainnet, WETH on L2s)
 - **Usage**: Automatically deducted during PPS updates to compensate keepers and validators
 - **Accumulation**: Spent upkeep accumulates in `claimableUpkeep` for batch distribution to SuperBank
 - **Two-Step Withdrawal**: Managers must propose withdrawal (24-hour timelock) before execution, giving governance intervention window
@@ -216,7 +216,7 @@ A malicious manager could:
 4. Back-run to restore prices, keeping the extracted value
 
 With the stake system:
-1. The manager must deposit significant UP tokens as stake
+1. The manager must deposit significant upkeep tokens as stake
 2. Off-chain monitoring detects the malicious behavior
 3. SuperGovernor immediately slashes the stake (potentially worth more than extracted value)
 4. Slashed funds go to SuperBank for protocol treasury or user compensation
