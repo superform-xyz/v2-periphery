@@ -1611,6 +1611,13 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(secondaryManagers.length, 1, "Should have 1 secondary manager");
     }
 
+    /// @notice Tests changePrimaryManager reverts if new primary manager is already the primary manager
+    function test_ChangePrimaryManager_RevertIfNewPrimaryManagerIsAlreadyThePrimaryManager() public {
+        vm.prank(address(superGovernor));
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.changePrimaryManager(strategy, manager, treasury);
+    }
+
     /// @notice Tests emergency replacement clears pending hook root proposals
     function test_ChangePrimaryManager_ClearsPendingHookProposals() public {
         // Setup: Create pending hook root proposal
@@ -1636,10 +1643,19 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         assertEq(effectiveTime, 0, "Hook effective time should be cleared");
     }
 
+    /// @notice Tests that proposeChangePrimaryManager reverts if new primary manager is already the primary manager
+    function test_ProposeChangePrimaryManager_RevertIfNewPrimaryManagerIsAlreadyThePrimaryManager() public {
+        address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+
+        vm.prank(secondaryManagers[0]);
+        vm.expectRevert(ISuperVaultAggregator.MANAGER_ALREADY_EXISTS.selector);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, manager, treasury);
+    }
+
+    /// @notice Tests that executeChangePrimaryManager removes old primary manager and sets new primary manager and fee recipient
     function test_ExecuteChangePrimaryManager() public {
         // Test that old primary manager get removed and new primary manager has been set
         address[] memory secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
-        uint256 len = secondaryManagers.length;
 
         // Test that new primary manager has been set
         address currentManager = superVaultAggregator.getMainManager(strategy);
@@ -1653,17 +1669,21 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
 
         // Verify old primary manager has been removed
         secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
-        assertEq(secondaryManagers.length, len + 1, "Should have 0 secondary managers");
-        assertEq(secondaryManagers[1], currentManager, "Old primary manager should be made secondary manager");
+        assertEq(secondaryManagers.length, 0, "Should have 0 secondary managers");
 
         // Verify new primary manager has been set
         currentManager = superVaultAggregator.getMainManager(strategy);
         assertEq(currentManager, newPrimaryManager, "New manager should be set");
+        
+        address newSecondaryManager = _deployAccount(0x13, "NewSecondaryManager");
 
-        secondaryManagers = superVaultAggregator.getSecondaryManagers(strategy);
+        // Add new secondary manager
+        vm.prank(currentManager);
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
+
         address nextPrimaryManager = _deployAccount(0x14, "NextManager");
 
-        vm.startPrank(secondaryManagers[0]);
+        vm.startPrank(newSecondaryManager);
         superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, treasury);
         vm.warp(block.timestamp + 1 weeks);
 
@@ -1673,19 +1693,19 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         vm.stopPrank();
 
         vm.startPrank(nextPrimaryManager);
-        superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x15, "NewSecondaryManager"));
+        newSecondaryManager = _deployAccount(0x15, "NewSecondaryManager");
+        superVaultAggregator.addSecondaryManager(strategy, newSecondaryManager);
         superVaultAggregator.addSecondaryManager(strategy, _deployAccount(0x16, "NewSecondaryManager"));
         vm.stopPrank();
 
-        vm.startPrank(secondaryManagers[0]);
-        superVaultAggregator.proposeChangePrimaryManager(strategy, nextPrimaryManager, treasury);
+        address thirdPrimaryManager = _deployAccount(0x17, "ThirdPrimaryManager");
+
+        vm.startPrank(newSecondaryManager);
+        superVaultAggregator.proposeChangePrimaryManager(strategy, thirdPrimaryManager, treasury);
         vm.warp(block.timestamp + 1 weeks);
 
         vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.OldPrimaryManagerRemoved(strategy, nextPrimaryManager);
-
-        vm.expectEmit(true, true, false, false);
-        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, newPrimaryManager, treasury);
+        emit ISuperVaultAggregator.PrimaryManagerChanged(strategy, nextPrimaryManager, thirdPrimaryManager, treasury);
 
         superVaultAggregator.executeChangePrimaryManager(strategy);
         vm.stopPrank();
