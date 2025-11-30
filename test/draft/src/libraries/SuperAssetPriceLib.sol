@@ -12,8 +12,6 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 library SuperAssetPriceLib {
     using Math for uint256;
 
-    error INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
     /// @dev Gets the price of a token with circuit breakers
     /// @param args The arguments for the price calculation
     /// @return priceUSD The price of the token in USD
@@ -73,21 +71,7 @@ library SuperAssetPriceLib {
 
         bytes32 AVERAGE_PROVIDER = keccak256("AVERAGE_PROVIDER");
 
-        uint256 gasBefore = gasleft();
-
-        try superOracle.getQuoteFromProvider(unitVaultAsset, vaultAsset, USD, AVERAGE_PROVIDER) returns (
-            uint256 _priceUSD, uint256 _stddev, uint256, uint256 _m
-        ) {
-            priceUSD = _priceUSD;
-            stddev = _stddev;
-            M = _m;
-        } catch {
-            // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-            priceUSD = superOracle.getEmergencyPrice(vaultAsset);
-            stddev = 0;
-            M = 0;
-        }
+        (priceUSD, stddev,, M) = superOracle.getQuoteFromProvider(unitVaultAsset, vaultAsset, USD, AVERAGE_PROVIDER);
 
         uint256 pricePerShare = IYieldSourceOracle(oracle).getPricePerShare(token);
         if (priceUSD > 0) {
@@ -171,21 +155,7 @@ library SuperAssetPriceLib {
         ISuperAsset.TokenData memory tokenData = superAsset.getTokenData(token);
 
         if (tokenData.isSupportedERC20) {
-            uint256 gasBefore = gasleft();
-
-            try superOracle.getQuoteFromProvider(one, token, USD, AVERAGE_PROVIDER) returns (
-                uint256 _priceUSD, uint256 _stddev, uint256, uint256 _m
-            ) {
-                priceUSD = _priceUSD;
-                stddev = _stddev;
-                M = _m;
-            } catch {
-                // Require that enough gas was provided to prevent an OOG revert
-                if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-
-                priceUSD = superOracle.getEmergencyPrice(token);
-                M = 0;
-            }
+            (priceUSD, stddev,, M) = superOracle.getQuoteFromProvider(one, token, USD, AVERAGE_PROVIDER);
         } else if (tokenData.isSupportedUnderlyingVault) {
             (priceUSD, stddev, M) =
                 _derivePriceFromUnderlyingVault(superOracle, superAsset, USD, token, tokenData.oracle);
@@ -236,16 +206,6 @@ library SuperAssetPriceLib {
 
         ISuperOracle superOracle = ISuperOracle(superOracleAddress);
 
-        uint256 gasBefore = gasleft();
-
-        try superOracle.getQuoteFromProvider(oneUnitAsset, primaryAsset, USD, AVERAGE_PROVIDER) returns (
-            uint256 _priceUSD, uint256, uint256, uint256
-        ) {
-            assetPriceUSD = _priceUSD;
-        } catch {
-            // Require that enough gas was provided to prevent an OOG revert
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
-            assetPriceUSD = superOracle.getEmergencyPrice(primaryAsset);
-        }
+        (assetPriceUSD,,,) = superOracle.getQuoteFromProvider(oneUnitAsset, primaryAsset, USD, AVERAGE_PROVIDER);
     }
 }
