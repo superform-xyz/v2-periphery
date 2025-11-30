@@ -51,9 +51,7 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
             minUpdateInterval: minUpdateInterval,
             maxStaleness: maxStaleness,
             feeConfig: ISuperVaultStrategy.FeeConfig({
-                performanceFeeBps: performanceFeeBps,
-                managementFeeBps: managementFeeBps,
-                recipient: address(this)
+                performanceFeeBps: performanceFeeBps, managementFeeBps: managementFeeBps, recipient: address(this)
             })
         });
 
@@ -123,7 +121,14 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
     //     superVaultAggregator.forwardPPS(updateAuthority, args);
     // }
 
-    function superVaultAggregator_proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) public asActor {
+    function superVaultAggregator_proposeChangePrimaryManager(
+        address strategy,
+        address newManager,
+        address feeRecipient
+    )
+        public
+        asActor
+    {
         superVaultAggregator.proposeChangePrimaryManager(strategy, newManager, feeRecipient);
     }
 
@@ -150,9 +155,7 @@ abstract contract SuperVaultAggregatorTargets is BaseTargetFunctions, Properties
         public
         asActor
     {
-        superVaultAggregator.updateDeviationThreshold(
-            strategy, deviationThreshold_
-        );
+        superVaultAggregator.updateDeviationThreshold(strategy, deviationThreshold_);
     }
 
     function superVaultAggregator_proposeWithdrawUpkeep(address strategy) public asActor {

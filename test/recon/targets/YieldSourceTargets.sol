@@ -17,7 +17,6 @@ import { YieldSourceType } from "../managers/YieldManager.sol";
 /// @dev Target functions for yield source testers which are used as yield sources in SuperVaultStrategy
 abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
-
     /// ERC20 functions (available across all types as they inherit from MockERC20) ///
     function yieldSource_approve(address spender, uint256 value) public asActor {
         YieldSourceType currentType = _getCurrentYieldSourceType();
@@ -131,9 +130,8 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC5115) {
-            MockERC5115Tester(yieldSource).deposit(
-                receiver, tokenIn, amountTokenToDeposit, minSharesOut, depositFromInternalBalance
-            );
+            MockERC5115Tester(yieldSource)
+                .deposit(receiver, tokenIn, amountTokenToDeposit, minSharesOut, depositFromInternalBalance);
         }
     }
 
@@ -151,9 +149,8 @@ abstract contract YieldSourceTargets is BaseTargetFunctions, Properties {
         address yieldSource = _getYieldSource();
 
         if (currentType == YieldSourceType.ERC5115) {
-            MockERC5115Tester(yieldSource).redeem(
-                receiver, amountSharesToRedeem, tokenOut, minTokenOut, burnFromInternalBalance
-            );
+            MockERC5115Tester(yieldSource)
+                .redeem(receiver, amountSharesToRedeem, tokenOut, minTokenOut, burnFromInternalBalance);
         }
     }
 

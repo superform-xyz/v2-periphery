@@ -13,10 +13,7 @@ contract MockECDSAPPSOracle {
     //Mock implementation of updatePPS
     function updatePPS(IECDSAPPSOracle.UpdatePPSArgs memory args) public {
         ISuperVaultAggregator.ForwardPPSArgs memory forwardArgs = ISuperVaultAggregator.ForwardPPSArgs({
-            strategies: args.strategies,
-            ppss: args.ppss,
-            timestamps: args.timestamps,
-            updateAuthority: msg.sender
+            strategies: args.strategies, ppss: args.ppss, timestamps: args.timestamps, updateAuthority: msg.sender
         });
 
         ISuperVaultAggregator(_SUPER_GOVERNORReturn_0).forwardPPS(forwardArgs);

@@ -48,7 +48,7 @@ contract FixedPriceOracleTest is Test {
 
     /// @notice Test price update by owner
     function test_FixedPriceOracle_SetPrice() public {
-        int256 newPrice = 0.10e18; // $0.10
+        int256 newPrice = 0.1e18; // $0.10
 
         fixedPriceOracle.setPrice(newPrice);
 
@@ -62,7 +62,7 @@ contract FixedPriceOracleTest is Test {
 
         vm.prank(nonOwner);
         vm.expectRevert();
-        fixedPriceOracle.setPrice(0.10e18);
+        fixedPriceOracle.setPrice(0.1e18);
     }
 
     /// @notice Test that zero/negative price cannot be set
@@ -92,7 +92,7 @@ contract FixedPriceOracleTest is Test {
         vm.warp(initialTimestamp + 365 days);
 
         // latestRoundData should return current timestamp (not stale)
-        (, int256 answer, uint256 startedAt, uint256 updatedAt, ) = fixedPriceOracle.latestRoundData();
+        (, int256 answer, uint256 startedAt, uint256 updatedAt,) = fixedPriceOracle.latestRoundData();
 
         assertEq(answer, INITIAL_UP_PRICE, "Price should remain the same");
         assertEq(startedAt, block.timestamp, "startedAt should be current timestamp");
@@ -219,11 +219,11 @@ contract FixedPriceOracleTest is Test {
         console2.log("");
 
         int256[] memory prices = new int256[](5);
-        prices[0] = 0.05e18;  // $0.05
-        prices[1] = 0.09e18;  // $0.09
-        prices[2] = 0.10e18;  // $0.10
-        prices[3] = 0.50e18;  // $0.50
-        prices[4] = 1.00e18;  // $1.00
+        prices[0] = 0.05e18; // $0.05
+        prices[1] = 0.09e18; // $0.09
+        prices[2] = 0.1e18; // $0.10
+        prices[3] = 0.5e18; // $0.50
+        prices[4] = 1.0e18; // $1.00
 
         uint256 usdCost = 0.75e18; // $0.75 in 18 decimals
 
