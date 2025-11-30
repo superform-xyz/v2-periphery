@@ -8197,13 +8197,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 lastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
         uint256 ppsExpiration = testStrategy.ppsExpiration();
+        uint256 aggMaxStaleness = aggregator.getMaxStaleness(address(testStrategy));
         console2.log("Last PPS update:", lastUpdateTime);
         console2.log("PPS expiration period:", ppsExpiration);
 
-        // Warp time forward by ppsExpiration + 1 second to trigger expiration
-        vm.warp(lastUpdateTime + ppsExpiration + 1);
+        // Warp time forward to trigger expiration
+        // The check requires: (elapsed > aggMaxStaleness) && (elapsed > ppsExpiration)
+        // So we need to exceed the maximum of both values
+        uint256 maxRequiredElapsed = ppsExpiration > aggMaxStaleness ? ppsExpiration : aggMaxStaleness;
+        vm.warp(lastUpdateTime + maxRequiredElapsed + 1);
         console2.log("Warped to:", block.timestamp);
         console2.log("Time since last update:", block.timestamp - lastUpdateTime);
+        console2.log("Elapsed exceeds aggMaxStaleness:", (block.timestamp - lastUpdateTime) > aggMaxStaleness);
+        console2.log("Elapsed exceeds ppsExpiration:", (block.timestamp - lastUpdateTime) > ppsExpiration);
 
         // ===== Test operations revert with PPS_EXPIRED =====
         // Note: All operations except ClaimRedeem check PPS expiration and should revert when PPS is expired.
