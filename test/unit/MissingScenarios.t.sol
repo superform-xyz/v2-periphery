@@ -64,7 +64,8 @@ contract MissingScenariosTest is PeripheryHelpers {
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
+        superGovernor =
+            new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -80,9 +81,11 @@ contract MissingScenariosTest is PeripheryHelpers {
         superBank = new SuperBank(address(superGovernor));
 
         // Register dependencies on SuperGovernor
+        // Both UP (for SuperBank.distribute) and UPKEEP_TOKEN (for upkeep payments) are set to same token for tests
         upToken = address(new MockUp(address(this)));
         vm.startPrank(sGovernor);
         superGovernor.setAddress(superGovernor.UP(), upToken);
+        superGovernor.setAddress(superGovernor.UPKEEP_TOKEN(), upToken);
         superGovernor.setAddress(superGovernor.SUPER_BANK(), address(superBank));
         superGovernor.setAddress(superGovernor.SUPER_ORACLE(), superOracle);
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
@@ -100,9 +103,7 @@ contract MissingScenariosTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                 })
             })
         );
@@ -131,9 +132,7 @@ contract MissingScenariosTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                 })
             })
         );
@@ -164,10 +163,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         emit ISuperVaultAggregator.UnknownStrategy(address(0xDEAD));
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
 
@@ -190,9 +186,7 @@ contract MissingScenariosTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                 })
             })
         );
@@ -224,10 +218,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         emit ISuperVaultAggregator.PPSUpdateRejectedStrategyPaused(address(strategy));
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
     }
@@ -247,9 +238,7 @@ contract MissingScenariosTest is PeripheryHelpers {
                 minUpdateInterval: 5,
                 maxStaleness: 300,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
-                    performanceFeeBps: 1000,
-                    managementFeeBps: 0,
-                    recipient: manager
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
                 })
             })
         );
@@ -281,10 +270,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         emit ISuperVaultAggregator.StaleUpdate(address(strategy), manager, timestamps[0]);
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
     }
@@ -300,10 +286,10 @@ contract MissingScenariosTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Verify strategy has zero upkeep balance
@@ -329,10 +315,10 @@ contract MissingScenariosTest is PeripheryHelpers {
         address testUser = _deployAccount(0xABC, "TestUser");
 
         // Setup: Give user assets and approval
-        deal(address(asset), testUser, 10000e18);
+        deal(address(asset), testUser, 10_000e18);
 
         vm.startPrank(testUser);
-        asset.approve(address(vault), 10000e18);
+        asset.approve(address(vault), 10_000e18);
         vm.stopPrank();
 
         // Deposit upkeep for the strategy (using UP token)
@@ -389,10 +375,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         expectedOutputs[0] = 0;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: data,
-            merkleProofs: merkleProofs,
-            expectedAssetsOrSharesOut: expectedOutputs
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
         });
 
         // Mock a valid Merkle root
@@ -435,10 +418,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         expectedOutputs[0] = 0;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: data,
-            merkleProofs: merkleProofs,
-            expectedAssetsOrSharesOut: expectedOutputs
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
         });
 
         // Mock a valid Merkle root
@@ -485,10 +465,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         expectedOutputs[0] = 0;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: data,
-            merkleProofs: merkleProofs,
-            expectedAssetsOrSharesOut: expectedOutputs
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
         });
 
         // Should revert with HOOK_NOT_REGISTERED
@@ -553,10 +530,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         expectedOutputs[1] = 0;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: data,
-            merkleProofs: merkleProofs,
-            expectedAssetsOrSharesOut: expectedOutputs
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
         });
 
         // Expect PreExecuteCalled events with correct prevHook values
@@ -599,7 +573,8 @@ contract MissingScenariosTest is PeripheryHelpers {
         vm.stopPrank();
 
         // Create Merkle roots
-        bytes32 leaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(successHook), abi.encodePacked(mockTarget)))));
+        bytes32 leaf1 =
+            keccak256(bytes.concat(keccak256(abi.encode(address(successHook), abi.encodePacked(mockTarget)))));
         bytes32 leaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(failHook), abi.encodePacked(mockTarget)))));
 
         vm.mockCall(
@@ -631,10 +606,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         expectedOutputs[1] = 0;
 
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: data,
-            merkleProofs: merkleProofs,
-            expectedAssetsOrSharesOut: expectedOutputs
+            hooks: hooks, data: data, merkleProofs: merkleProofs, expectedAssetsOrSharesOut: expectedOutputs
         });
 
         // Should revert - second hook's build() fails
@@ -678,10 +650,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         vm.prank(address(ecdsaPPSOracle));
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
 
@@ -718,10 +687,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         vm.prank(address(ecdsaPPSOracle));
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
 
@@ -742,10 +708,7 @@ contract MissingScenariosTest is PeripheryHelpers {
         emit ISuperVaultAggregator.UpdateTooFrequent();
         superVaultAggregator.forwardPPS(
             ISuperVaultAggregator.ForwardPPSArgs({
-                strategies: strategies,
-                ppss: ppss,
-                timestamps: timestamps,
-                updateAuthority: manager
+                strategies: strategies, ppss: ppss, timestamps: timestamps, updateAuthority: manager
             })
         );
 

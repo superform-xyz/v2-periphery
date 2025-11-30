@@ -192,12 +192,14 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
             address(superGovernor), address(vaultImpl), address(strategyImpl), address(escrowImpl)
         );
 
-        // 7. Register the SuperVaultAggregator and UpToken address with SuperGovernor
+        // 7. Register the SuperVaultAggregator, UpToken and UpkeepToken address with SuperGovernor
         superGovernor.setAddress(superGovernor.SUPER_VAULT_AGGREGATOR(), address(superVaultAggregator));
 
         address[] memory assets = _getAssets();
+        // Both UP (for SuperBank.distribute) and UPKEEP_TOKEN (for upkeep payments) are set to same token for tests
         superGovernor.setAddress(superGovernor.UP(), assets[1]); // the second deployed token in the AssetManager is the
         // UPToken
+        superGovernor.setAddress(superGovernor.UPKEEP_TOKEN(), assets[1]); // UPKEEP_TOKEN same as UP for tests
         superGovernor.setAddress(superGovernor.SUPER_BANK(), address(this));
 
         // 8. Deploy Mocks and Oracles

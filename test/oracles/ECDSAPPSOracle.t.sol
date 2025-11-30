@@ -66,7 +66,14 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Create a new governor specifically for these tests
         governor = new SuperGovernor(
-            governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, governorAddress, TREASURY, false
+            governorAddress,
+            governorAddress,
+            governorAddress,
+            governorAddress,
+            governorAddress,
+            governorAddress,
+            TREASURY,
+            false
         );
 
         // Deploy implementation contracts first
@@ -133,6 +140,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         governor.executeUpkeepPaymentsChange();
 
         governor.setAddress(governor.UP(), upToken);
+        governor.setAddress(governor.UPKEEP_TOKEN(), upToken);
         governor.setAddress(governor.SUPER_ORACLE(), address(superOracle));
         governor.setGasInfo(address(oracleECDSA), 10_000);
 
@@ -206,10 +214,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         timestamps[0] = block.timestamp;
 
         IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
-            strategies: strategies,
-            proofsArray: proofsArray,
-            ppss: ppss,
-            timestamps: timestamps
+            strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
         });
 
         // Measure gas cost
@@ -264,10 +269,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         proofsArray[1] = _createValidProofsForStrategy(strategies[1], ppss[1], timestamps[1]);
 
         IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
-            strategies: strategies,
-            proofsArray: proofsArray,
-            ppss: ppss,
-            timestamps: timestamps
+            strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
         });
 
         // Measure gas cost
@@ -277,7 +279,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         uint256 gasUsed = gasBefore - gasAfter;
         emit log_named_uint("Gas used for updatePPS with 2 entries", gasUsed);
-        emit log_named_uint("Incremental gas per entry (2 entries - 1 entry)", gasUsed > 99619 ? gasUsed - 99619 : 0);
+        emit log_named_uint("Incremental gas per entry (2 entries - 1 entry)", gasUsed > 99_619 ? gasUsed - 99_619 : 0);
     }
 
     /// @notice Helper to create valid proofs for any strategy (not just svStrategy)
@@ -293,11 +295,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         // Create digest with all parameters
         bytes32 structHash = keccak256(
             abi.encodePacked(
-                oracleECDSA.UPDATE_PPS_TYPEHASH(),
-                strategy_,
-                pps,
-                timestamp,
-                oracleECDSA.noncePerStrategy(strategy_)
+                oracleECDSA.UPDATE_PPS_TYPEHASH(), strategy_, pps, timestamp, oracleECDSA.noncePerStrategy(strategy_)
             )
         );
         bytes32 domainSeparator = oracleECDSA.domainSeparator();
@@ -597,8 +595,9 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     function test_UpdatePPS_InvalidTotalValidatorsReverts() public {
         // Create a fresh governor with no validators configured
         address freshGovernor = _deployAccount(0xFFF, "FreshGovernor");
-        SuperGovernor noValidatorGovernor =
-            new SuperGovernor(freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY, false);
+        SuperGovernor noValidatorGovernor = new SuperGovernor(
+            freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, freshGovernor, TREASURY, false
+        );
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(noValidatorGovernor)));
@@ -1040,37 +1039,14 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Proofs array must match strategiesLength
         data.proofsArray = new bytes[][](3);
-        data.proofsArray[0] = _createValidProofs(
-            data.strategies[0], 
-            data.ppss[0], 
-            data.timestamps[0], 
-            new uint256[](0)
-        );
-        data.proofsArray[1] = _createValidProofs(
-            data.strategies[1], 
-            data.ppss[1], 
-            data.timestamps[1],
-            new uint256[](0)
-        );
-        data.proofsArray[2] = _createValidProofs(
-            data.strategies[1], 
-            data.ppss[2], 
-            data.timestamps[2], 
-            new uint256[](0)
-        );
+        data.proofsArray[0] = _createValidProofs(data.strategies[0], data.ppss[0], data.timestamps[0], new uint256[](0));
+        data.proofsArray[1] = _createValidProofs(data.strategies[1], data.ppss[1], data.timestamps[1], new uint256[](0));
+        data.proofsArray[2] = _createValidProofs(data.strategies[1], data.ppss[2], data.timestamps[2], new uint256[](0));
 
-        vm.mockCall(
-            governorAddress,
-            abi.encodeWithSelector(ISuperGovernor.getValidatorsCount.selector),
-            abi.encode(10)
-        );
+        vm.mockCall(governorAddress, abi.encodeWithSelector(ISuperGovernor.getValidatorsCount.selector), abi.encode(10));
 
         // Required quorum returned by governor
-        vm.mockCall(
-            governorAddress,
-            abi.encodeWithSelector(ISuperGovernor.getPPSOracleQuorum.selector),
-            abi.encode(2)
-        );
+        vm.mockCall(governorAddress, abi.encodeWithSelector(ISuperGovernor.getPPSOracleQuorum.selector), abi.encode(2));
 
         vm.mockCall(
             governorAddress,
@@ -1099,9 +1075,13 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
     }
 
     function _swapIfNeeded(
-        address[] memory strategies, 
+        address[] memory strategies,
         uint256[] memory ppss
-    ) internal pure returns (address[] memory, uint256[] memory) {
+    )
+        internal
+        pure
+        returns (address[] memory, uint256[] memory)
+    {
         // --- Compare (0,1) ---
         if (uint160(strategies[0]) > uint160(strategies[1])) {
             // swap strategy
@@ -2084,7 +2064,7 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
 
         // Deposit upkeep to prevent auto-pause due to insufficient balance
         vm.startPrank(mockManager);
-        // Mint and approve UP tokens for upkeep
+        // Mint and approve upkeep tokens for upkeep
         deal(upToken, mockManager, 100 ether);
         IERC20(upToken).approve(address(aggregatorSuperVault), 100 ether);
         aggregatorSuperVault.depositUpkeep(svStrategy, 100 ether);

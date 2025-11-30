@@ -1373,8 +1373,7 @@ contract SuperOracleTest is PeripheryHelpers {
         superOracle.executeProviderRemoval();
 
         // Single provider = zero variance = sqrt(0) = 0
-        (, uint256 dev,,) =
-            superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), AVERAGE_PROVIDER);
+        (, uint256 dev,,) = superOracle.getQuoteFromProvider(1e18, address(mockETH), address(mockUSD), AVERAGE_PROVIDER);
 
         assertEq(dev, 0);
     }
