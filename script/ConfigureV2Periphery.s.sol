@@ -128,7 +128,26 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Register all hooks with SuperGovernor
         _registerAllHooks(params.superGovernor, hooks);
 
+        // Set UP token address in SuperGovernor
+        _setUpTokenAddress(params.superGovernor);
+
         console2.log("=== Configuration Complete ===");
+    }
+
+    /// @notice Set UP token address in SuperGovernor
+    function _setUpTokenAddress(address superGovernor) internal {
+        ISuperGovernor governor = ISuperGovernor(superGovernor);
+
+        console2.log("Setting UP token address in SuperGovernor...");
+        console2.log("  UP token:", UP_TOKEN);
+
+        try governor.setAddress(keccak256("UP"), UP_TOKEN) {
+            console2.log("SUCCESS: UP token address set");
+        } catch Error(string memory reason) {
+            console2.log("FAILED: Setting UP token failed - %s", reason);
+        } catch {
+            console2.log("FAILED: Setting UP token failed - unknown error");
+        }
     }
 
     /// @notice Get SuperGovernor address from deployment files

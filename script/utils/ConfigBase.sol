@@ -67,6 +67,7 @@ abstract contract ConfigBase is Constants {
     address internal constant USD_TOKEN = address(840);
     address internal constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
     address internal constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
+    address internal constant UP_TOKEN = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
 
     /*//////////////////////////////////////////////////////////////

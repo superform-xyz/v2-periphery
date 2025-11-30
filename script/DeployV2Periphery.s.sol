@@ -524,11 +524,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         );
 
         // Deploy SuperOracle (mainnet) or SuperOracleL2 (L2 chains)
-        // Initial feeds: GAS->WEI, ETH->USD
-        // UP->USD feed will be configured after UP token deployment
+        // Mainnet: GAS->WEI, ETH->USD, UP->USD
+        // L2: ETH->USD only (gas oracle and UP oracle not available)
         peripheryContracts.superOracle = _deploySuperOracle(
             chainId,
-            peripheryContracts.superGovernor
+            peripheryContracts.superGovernor,
+            peripheryContracts.fixedPriceOracle
         );
 
         // Deploy SuperBank
@@ -550,44 +551,50 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @notice Deploy SuperOracle (mainnet) or SuperOracleL2 (L2 chains) with initial oracle feeds
     /// @param chainId The chain ID to deploy on
     /// @param superGovernor The SuperGovernor address
+    /// @param fixedPriceOracle The FixedPriceOracle address for UP/USD pricing
     /// @return superOracle The deployed SuperOracle address
     function _deploySuperOracle(
         uint64 chainId,
-        address superGovernor
+        address superGovernor,
+        address fixedPriceOracle
     )
         internal
         returns (address superOracle)
     {
         // Configure initial oracle feeds
-        // 2 feeds: GAS->WEI, ETH->USD
-        // UP->USD will be added later when UP token is deployed
-        address[] memory bases = new address[](2);
-        address[] memory quotes = new address[](2);
-        bytes32[] memory providers = new bytes32[](2);
-        address[] memory feeds = new address[](2);
+        // Mainnet: 3 feeds (GAS->WEI, ETH->USD, UP->USD)
+        // L2 chains: 1 feed (ETH->USD only) - gas oracle and UP oracle only available on mainnet
 
-        // Feed 1: GAS -> WEI (gas price oracle)
-        bases[0] = GAS_QUOTE;
-        quotes[0] = WEI_QUOTE;
-        providers[0] = PROVIDER_CHAINLINK;
-        feeds[0] = ORACLE_GAS_TO_ETH;
+        address[] memory bases;
+        address[] memory quotes;
+        bytes32[] memory providers;
+        address[] memory feeds;
 
-        // Feed 2: ETH -> USD
-        bases[1] = NATIVE_TOKEN;
-        quotes[1] = USD_TOKEN;
-        providers[1] = PROVIDER_CHAINLINK;
-        // Use chain-specific ETH/USD oracle
         if (chainId == MAINNET_CHAIN_ID) {
-            feeds[1] = ORACLE_ETH_USD_MAINNET;
-        } else if (chainId == BASE_CHAIN_ID) {
-            feeds[1] = ORACLE_ETH_USD_BASE;
-        } else {
-            // Default to mainnet oracle for other chains (should be configured per chain)
-            feeds[1] = ORACLE_ETH_USD_MAINNET;
-        }
+            // Mainnet: include GAS->WEI, ETH->USD, and UP->USD oracles
+            bases = new address[](3);
+            quotes = new address[](3);
+            providers = new bytes32[](3);
+            feeds = new address[](3);
 
-        // Deploy SuperOracle for mainnet, SuperOracleL2 for L2 chains
-        if (chainId == MAINNET_CHAIN_ID) {
+            // Feed 1: GAS -> WEI (gas price oracle) - mainnet only
+            bases[0] = GAS_QUOTE;
+            quotes[0] = WEI_QUOTE;
+            providers[0] = PROVIDER_CHAINLINK;
+            feeds[0] = ORACLE_GAS_TO_ETH;
+
+            // Feed 2: ETH -> USD
+            bases[1] = NATIVE_TOKEN;
+            quotes[1] = USD_TOKEN;
+            providers[1] = PROVIDER_CHAINLINK;
+            feeds[1] = ORACLE_ETH_USD_MAINNET;
+
+            // Feed 3: UP -> USD (using FixedPriceOracle)
+            bases[2] = UP_TOKEN;
+            quotes[2] = USD_TOKEN;
+            providers[2] = PROVIDER_CHAINLINK;
+            feeds[2] = fixedPriceOracle;
+
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
                 chainId,
@@ -597,7 +604,28 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     abi.encode(superGovernor, bases, quotes, providers, feeds)
                 )
             );
+
+            console2.log("SuperOracle deployed at:", superOracle);
+            console2.log("  Chain ID:", chainId);
+            console2.log("  Configured oracles: GAS->WEI, ETH->USD, UP->USD");
         } else {
+            // L2 chains: only ETH->USD oracle (no gas oracle or UP oracle available)
+            bases = new address[](1);
+            quotes = new address[](1);
+            providers = new bytes32[](1);
+            feeds = new address[](1);
+
+            // Feed 1: ETH -> USD
+            bases[0] = NATIVE_TOKEN;
+            quotes[0] = USD_TOKEN;
+            providers[0] = PROVIDER_CHAINLINK;
+
+            if (chainId == BASE_CHAIN_ID) {
+                feeds[0] = ORACLE_ETH_USD_BASE;
+            } else {
+                revert("ORACLE_ETH_USD not configured for this chain");
+            }
+
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_L2_KEY,
                 chainId,
@@ -607,11 +635,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                     abi.encode(superGovernor, bases, quotes, providers, feeds)
                 )
             );
-        }
 
-        console2.log("SuperOracle deployed at:", superOracle);
-        console2.log("  Chain ID:", chainId);
-        console2.log("  Is L2:", chainId != MAINNET_CHAIN_ID);
+            console2.log("SuperOracleL2 deployed at:", superOracle);
+            console2.log("  Chain ID:", chainId);
+            console2.log("  Configured oracles: ETH->USD");
+            console2.log("  WARNING: GAS->WEI oracle not configured (mainnet only)");
+            console2.log("  WARNING: UP->USD oracle not configured (mainnet only)");
+        }
 
         return superOracle;
     }
@@ -778,9 +808,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("  Status: VALID");
         }
 
-        // 2. Verify Gas Oracle (GAS -> WEI)
-        console2.log("[Oracle 2] Gas Oracle (ORACLE_GAS_TO_ETH):");
-        {
+        // 2. Verify Gas Oracle (GAS -> WEI) - Mainnet only
+        if (chainId == MAINNET_CHAIN_ID) {
+            console2.log("[Oracle 2] Gas Oracle (ORACLE_GAS_TO_ETH):");
             AggregatorV3Interface gasOracle = AggregatorV3Interface(ORACLE_GAS_TO_ETH);
             (, int256 gasPrice,, uint256 gasUpdatedAt,) = gasOracle.latestRoundData();
             console2.log("  Price (gwei):", uint256(gasPrice));
@@ -793,6 +823,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 "SMOKE_TEST_FAILED: Gas oracle timestamp too stale (> 2 days)"
             );
             console2.log("  Status: VALID");
+        } else {
+            console2.log("[Oracle 2] Gas Oracle: SKIPPED (mainnet only)");
         }
 
         // 3. Verify ETH/USD Oracle (chain-specific)
