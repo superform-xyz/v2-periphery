@@ -177,6 +177,41 @@ contract FixedPriceOracleTest is Test {
         console2.log("Dollar value of UP tokens: %s (should be ~0.75e18)", dollarValue);
     }
 
+    /// @notice Test ownership transfer
+    function test_FixedPriceOracle_TransferOwnership() public {
+        address newOwner = makeAddr("newOwner");
+
+        // Initial owner is this contract
+        assertEq(fixedPriceOracle.owner(), owner);
+
+        // Transfer ownership
+        fixedPriceOracle.transferOwnership(newOwner);
+
+        // Verify new owner
+        assertEq(fixedPriceOracle.owner(), newOwner);
+
+        // Old owner can no longer set price
+        vm.expectRevert();
+        fixedPriceOracle.setPrice(0.15e18);
+
+        // New owner can set price
+        vm.prank(newOwner);
+        fixedPriceOracle.setPrice(0.15e18);
+
+        (, int256 answer,,,) = fixedPriceOracle.latestRoundData();
+        assertEq(answer, 0.15e18);
+    }
+
+    /// @notice Test that non-owner cannot transfer ownership
+    function test_FixedPriceOracle_TransferOwnership_RevertNonOwner() public {
+        address nonOwner = makeAddr("nonOwner");
+        address newOwner = makeAddr("newOwner");
+
+        vm.prank(nonOwner);
+        vm.expectRevert();
+        fixedPriceOracle.transferOwnership(newOwner);
+    }
+
     /// @notice Test with different UP prices to understand token economics
     function test_FixedPriceOracle_DifferentPrices() public {
         console2.log("=== UP Token Cost at Different Prices ===");

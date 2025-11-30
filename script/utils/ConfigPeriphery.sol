@@ -11,11 +11,6 @@ abstract contract ConfigPeriphery is ConfigBase {
                           PERIPHERY CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
-    // FixedPriceOracle configuration for UP/USD price
-    // Initial UP price: $0.09 USD with 18 decimals
-    int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
-    uint8 internal constant UP_PRICE_DECIMALS = 18;
-
     /// @notice Sets up periphery contract dependencies
     /// @dev Configures addresses required for periphery contract deployment and operation
     function _setPeripheryConfiguration() internal {

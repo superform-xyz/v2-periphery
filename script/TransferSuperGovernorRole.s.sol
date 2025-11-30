@@ -3,18 +3,20 @@ pragma solidity >=0.8.30;
 
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { SuperGovernor } from "../src/SuperGovernor.sol";
+import { FixedPriceOracle } from "../src/oracles/FixedPriceOracle.sol";
 import { console2 } from "forge-std/console2.sol";
 
 /// @title TransferSuperGovernorRole
 /// @notice Script to transfer GOVERNOR_ROLE, SUPER_GOVERNOR_ROLE, and DEFAULT_ADMIN_ROLE from deployer to production
 /// @dev This script should be run after deployment once Fireblocks is set up
-/// @dev The transfer follows a 6-step process:
+/// @dev The transfer follows a 7-step process:
 ///      Step 1: Grant GOVERNOR_ROLE to production GOVERNOR address
 ///      Step 2: Revoke GOVERNOR_ROLE from deployer
 ///      Step 3: Grant SUPER_GOVERNOR_ROLE to production SUPER_GOVERNOR_ADDRESS
 ///      Step 4: Grant DEFAULT_ADMIN_ROLE to production SUPER_GOVERNOR_ADDRESS
 ///      Step 5: Revoke SUPER_GOVERNOR_ROLE from deployer
 ///      Step 6: Revoke DEFAULT_ADMIN_ROLE from deployer
+///      Step 7: Transfer FixedPriceOracle ownership to SuperGovernor
 contract TransferSuperGovernorRole is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
@@ -122,6 +124,9 @@ contract TransferSuperGovernorRole is DeployV2Base {
         superGovernor.revokeRole(defaultAdminRole, DEPLOYER);
         console2.log("[Step 6] DONE - Revoked DEFAULT_ADMIN_ROLE from:", DEPLOYER);
 
+        // Step 7: Transfer FixedPriceOracle ownership to SuperGovernor
+        _transferFixedPriceOracleOwnership(chainId, env, saltNamespace, superGovernorAddr);
+
         // Verify final state
         console2.log("");
         console2.log("=== Verifying Final State ===");
@@ -222,6 +227,70 @@ contract TransferSuperGovernorRole is DeployV2Base {
         } catch {
             return "";
         }
+    }
+
+    /// @notice Transfer FixedPriceOracle ownership to SuperGovernor
+    function _transferFixedPriceOracleOwnership(
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace,
+        address superGovernorAddr
+    )
+        internal
+    {
+        console2.log("[Step 7] Transferring FixedPriceOracle ownership to SuperGovernor...");
+        address fixedPriceOracleAddr = _getFixedPriceOracleAddress(chainId, env, saltNamespace);
+        if (fixedPriceOracleAddr != address(0)) {
+            FixedPriceOracle oracle = FixedPriceOracle(fixedPriceOracleAddr);
+            address currentOwner = oracle.owner();
+            console2.log("  FixedPriceOracle address:", fixedPriceOracleAddr);
+            console2.log("  Current owner:", currentOwner);
+            console2.log("  New owner (SuperGovernor):", superGovernorAddr);
+
+            if (currentOwner == DEPLOYER) {
+                oracle.transferOwnership(superGovernorAddr);
+                console2.log("[Step 7] DONE - Transferred FixedPriceOracle ownership to SuperGovernor");
+
+                // Verify ownership transfer
+                address newOwner = oracle.owner();
+                require(newOwner == superGovernorAddr, "FixedPriceOracle ownership transfer failed");
+                console2.log("[Verify] FixedPriceOracle new owner:", newOwner);
+            } else if (currentOwner == superGovernorAddr) {
+                console2.log("[Step 7] SKIPPED - FixedPriceOracle already owned by SuperGovernor");
+            } else {
+                console2.log("[Step 7] WARNING - FixedPriceOracle owned by unexpected address:", currentOwner);
+            }
+        } else {
+            console2.log("[Step 7] SKIPPED - FixedPriceOracle not found (mainnet only)");
+        }
+    }
+
+    /// @notice Get FixedPriceOracle address from deployment files
+    function _getFixedPriceOracleAddress(
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        view
+        returns (address)
+    {
+        // Try to get from local contract addresses first
+        address oracle = _getContract(chainId, "FixedPriceOracle");
+        if (oracle != address(0)) {
+            return oracle;
+        }
+
+        // Read from periphery deployment JSON files
+        string memory peripheryJson = _readPeripheryContractsFromOutput(chainId, env, saltNamespace);
+        if (bytes(peripheryJson).length > 0) {
+            address oracleAddr = _safeParseJsonAddress(peripheryJson, ".FixedPriceOracle");
+            if (oracleAddr != address(0)) {
+                return oracleAddr;
+            }
+        }
+
+        return address(0);
     }
 
     /// @notice Get chain name from chain ID

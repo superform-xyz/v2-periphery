@@ -129,13 +129,8 @@ contract ConfigureV2Periphery is DeployV2Base {
         console2.log("Setting UP token address in SuperGovernor...");
         console2.log("  UP token:", UP_TOKEN);
 
-        try governor.setAddress(keccak256("UP"), UP_TOKEN) {
-            console2.log("SUCCESS: UP token address set");
-        } catch Error(string memory reason) {
-            console2.log("FAILED: Setting UP token failed - %s", reason);
-        } catch {
-            console2.log("FAILED: Setting UP token failed - unknown error");
-        }
+        governor.setAddress(keccak256("UP"), UP_TOKEN);
+        console2.log("SUCCESS: UP token address set");
     }
 
     /// @notice Get SuperGovernor address from deployment files
