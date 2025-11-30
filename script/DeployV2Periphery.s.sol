@@ -592,7 +592,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             // Feed 3: UP -> USD (using FixedPriceOracle)
             bases[2] = UP_TOKEN;
             quotes[2] = USD_TOKEN;
-            providers[2] = PROVIDER_CHAINLINK;
+            providers[2] = PROVIDER_SUPERFORM;
             feeds[2] = fixedPriceOracle;
 
             superOracle = __deployContractIfNeeded(

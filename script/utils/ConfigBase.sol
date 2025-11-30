@@ -68,7 +68,10 @@ abstract contract ConfigBase is Constants {
     address internal constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
     address internal constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
     address internal constant UP_TOKEN = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
+    int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
+    uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
+    bytes32 internal constant PROVIDER_SUPERFORM = keccak256("SUPERFORM");
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
