@@ -73,7 +73,7 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
         // Deploy contracts
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -2313,7 +2313,8 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
             freshOracleManager,
             freshGovernor,
             freshGovernor,
-            freshTreasury
+            freshTreasury,
+            false
         );
 
         // Set the SUPER_ORACLE address (required for _convertGasToUpkeepToken)

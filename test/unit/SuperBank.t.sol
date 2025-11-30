@@ -77,7 +77,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         ppsOracle1 = _deployAccount(0xC, "PPSOracle1");
         ppsOracle2 = _deployAccount(0xD, "PPSOracle2");
         admin = _deployAccount(0xE, "Admin");
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury);
+        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
         superBank = new SuperBank(address(superGovernor));
         up = new Up(admin);
@@ -1309,7 +1309,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         //base is source
         vm.selectFork(baseForkId);
         {
-            superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury);
+            superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, governor, treasury, false);
 
             superBank = new SuperBank(address(superGovernor));
             up = new Up(admin);

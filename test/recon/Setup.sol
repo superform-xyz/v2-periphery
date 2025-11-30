@@ -178,7 +178,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, YieldManager, 
             address(this), // oracleManager role
             address(this), // gasManager role
             address(this), // guardian role
-            feeRecipient // treasury
+            feeRecipient, // treasury
+            false // upkeepPaymentsEnabled
         );
 
         // 5. Deploy implementation contracts for the aggregator

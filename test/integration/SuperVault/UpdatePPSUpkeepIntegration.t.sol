@@ -84,7 +84,7 @@ contract UpdatePPSUpkeepIntegrationTest is Test {
         upToken = new MockUp(deployer);
 
         // Deploy SuperGovernor with deployer as all roles initially
-        governor = new SuperGovernor(deployer, deployer, deployer, deployer, deployer, deployer, treasury);
+        governor = new SuperGovernor(deployer, deployer, deployer, deployer, deployer, deployer, treasury, false);
 
         // Deploy implementation contracts
         address vaultImpl = address(new SuperVault(address(governor)));

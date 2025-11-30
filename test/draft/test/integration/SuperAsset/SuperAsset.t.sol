@@ -108,7 +108,8 @@ contract SuperAssetTest is BaseTestSuperAsset {
             admin, // oracleManager role
             admin, // gasManager role
             admin, // guardian role
-            makeAddr("treasury") // treasury
+            makeAddr("treasury"), // treasury
+            false // upkeepPaymentsEnabled
         );
         console.log("SuperGovernor deployed");
 

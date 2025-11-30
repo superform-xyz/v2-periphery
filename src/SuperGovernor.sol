@@ -124,6 +124,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
     /// @param guardian Address that will have the GUARDIAN_ROLE for veto operations
     /// @param treasury Address of the treasury
+    /// @param upkeepPaymentsEnabled Initial value for upkeep payments (true for mainnet, false otherwise)
     constructor(
         address superGovernor,
         address governor,
@@ -131,7 +132,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address oracleManager,
         address gasManager,
         address guardian,
-        address treasury
+        address treasury,
+        bool upkeepPaymentsEnabled
     ) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
@@ -172,6 +174,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Prevents oracle manipulation via extremely low staleness values
         // Ensures sufficient time for price feed updates across providers
         _minStaleness = 300;
+
+        // Initialize upkeep payments enabled status
+        // True for mainnet (where upkeep is needed), false otherwise
+        _upkeepPaymentsEnabled = upkeepPaymentsEnabled;
     }
 
     /*//////////////////////////////////////////////////////////////
