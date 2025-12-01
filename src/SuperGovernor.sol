@@ -5,6 +5,7 @@ pragma solidity 0.8.30;
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // Superform
 import { ISuperGovernor, FeeType } from "./interfaces/ISuperGovernor.sol";
@@ -72,7 +73,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     uint256 private _proposedMinStaleness;
     uint256 private _minStalenessEffectiveTime;
 
-    // Oracle constants for price conversions in _convertGasToUp()
+    // Oracle constants for price conversions in _convertGasToUpkeepToken()
     // Standard ERC-7281 address for native token (ETH)
     address private constant NATIVE_TOKEN = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     // ISO 4217 numeric code for USD (840)
@@ -99,6 +100,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     // Common contract keys
     bytes32 public constant UP = keccak256("UP");
+    bytes32 public constant UPKEEP_TOKEN = keccak256("UPKEEP_TOKEN");
     bytes32 public constant SUP_STRATEGY = keccak256("SUP_STRATEGY");
     bytes32 public constant TREASURY = keccak256("TREASURY");
     bytes32 public constant SUPER_BANK = keccak256("SUPER_BANK");
@@ -120,11 +122,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @param bankManager Address that will have the BANK_MANAGER_ROLE for daily operations
     /// @param oracleManager Address that will have the ORACLE_MANAGER_ROLE for daily operations
     /// @param gasManager Address that will have the GAS_MANAGER_ROLE for daily operations
+    /// @param guardian Address that will have the GUARDIAN_ROLE for veto operations
     /// @param treasury Address of the treasury
-    constructor(address superGovernor, address governor, address bankManager, address oracleManager, address gasManager, address treasury) {
+    /// @param upkeepPaymentsEnabled Initial value for upkeep payments (true for mainnet, false otherwise)
+    constructor(
+        address superGovernor,
+        address governor,
+        address bankManager,
+        address oracleManager,
+        address gasManager,
+        address guardian,
+        address treasury,
+        bool upkeepPaymentsEnabled
+    ) {
         if (
             superGovernor == address(0) || treasury == address(0) || governor == address(0) || bankManager == address(0)
-                || gasManager == address(0) || oracleManager == address(0)
+                || gasManager == address(0) || oracleManager == address(0) || guardian == address(0)
         ) revert INVALID_ADDRESS();
 
         // Set up roles
@@ -134,10 +147,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         _grantRole(_BANK_MANAGER_ROLE, bankManager);
         _grantRole(_ORACLE_MANAGER_ROLE, oracleManager);
         _grantRole(_GAS_MANAGER_ROLE, gasManager);
-        // Setup GUARDIAN_ROLE without assigning any address
-        _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
+        _grantRole(_GUARDIAN_ROLE, guardian);
 
         // Set role admins
+        _setRoleAdmin(_GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_SUPER_GOVERNOR_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(_BANK_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
@@ -161,6 +174,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         // Prevents oracle manipulation via extremely low staleness values
         // Ensures sufficient time for price feed updates across providers
         _minStaleness = 300;
+
+        // Initialize upkeep payments enabled status
+        // True for mainnet (where upkeep is needed), false otherwise
+        _upkeepPaymentsEnabled = upkeepPaymentsEnabled;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -184,7 +201,10 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address strategy,
         address newManager,
         address feeRecipient
-    ) external onlyRole(_SUPER_GOVERNOR_ROLE) {
+    )
+        external
+        onlyRole(_SUPER_GOVERNOR_ROLE)
+    {
         // Check if takeovers are globally frozen
         if (_managerTakeoversFrozen) revert MANAGER_TAKEOVERS_FROZEN();
 
@@ -199,7 +219,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /// @inheritdoc ISuperGovernor
     function resetHighWaterMark(address strategy) external onlyRole(_SUPER_GOVERNOR_ROLE) {
         if (strategy == address(0)) revert INVALID_ADDRESS();
-        
+
         address aggregator = _addressRegistry[SUPER_VAULT_AGGREGATOR];
         if (aggregator == address(0)) revert CONTRACT_NOT_FOUND();
 
@@ -255,7 +275,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setOracleMaxStaleness(uint256 newMaxStaleness) external onlyRole(_GOVERNOR_ROLE) {
+    function setOracleMaxStaleness(uint256 newMaxStaleness) external onlyRole(_ORACLE_MANAGER_ROLE) {
         if (newMaxStaleness < _minStaleness) revert MAX_STALENESS_TOO_LOW();
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -264,7 +284,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) external onlyRole(_GOVERNOR_ROLE) {
+    function setOracleFeedMaxStaleness(address feed, uint256 newMaxStaleness) external onlyRole(_ORACLE_MANAGER_ROLE) {
         if (feed == address(0)) revert INVALID_ADDRESS();
         if (newMaxStaleness < _minStaleness) revert MAX_STALENESS_TOO_LOW();
         address oracle = _addressRegistry[SUPER_ORACLE];
@@ -279,7 +299,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         uint256[] calldata newMaxStalenessList_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         // Validate all staleness values before proceeding
         for (uint256 i; i < newMaxStalenessList_.length; i++) {
@@ -300,7 +320,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         address[] calldata feeds_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
@@ -317,7 +337,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     }
 
     /// @inheritdoc ISuperGovernor
-    function queueOracleProviderRemoval(bytes32[] calldata providers) external onlyRole(_GOVERNOR_ROLE) {
+    function queueOracleProviderRemoval(bytes32[] calldata providers) external onlyRole(_ORACLE_MANAGER_ROLE) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
 
@@ -331,34 +351,12 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         uint256[] calldata gracePeriods_
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(_ORACLE_MANAGER_ROLE)
     {
         address oracleL2 = _addressRegistry[SUPER_ORACLE];
         if (oracleL2 == address(0)) revert CONTRACT_NOT_FOUND();
 
         ISuperOracleL2(oracleL2).batchSetUptimeFeed(dataOracles_, uptimeOracles_, gracePeriods_);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function setEmergencyPrice(address token, uint256 price) external onlyRole(_GOVERNOR_ROLE) {
-        address oracle = _addressRegistry[SUPER_ORACLE];
-        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
-
-        ISuperOracle(oracle).setEmergencyPrice(token, price);
-    }
-
-    /// @inheritdoc ISuperGovernor
-    function batchSetEmergencyPrices(
-        address[] calldata tokens_,
-        uint256[] calldata prices_
-    )
-        external
-        onlyRole(_GOVERNOR_ROLE)
-    {
-        address oracle = _addressRegistry[SUPER_ORACLE];
-        if (oracle == address(0)) revert CONTRACT_NOT_FOUND();
-
-        ISuperOracle(oracle).batchSetEmergencyPrice(tokens_, prices_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -759,7 +757,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
 
     /// @inheritdoc ISuperGovernor
     function getUpkeepCostPerSingleUpdate(address oracle_) external view returns (uint256) {
-        return _convertGasToUp(_gasPerEntry[oracle_]);
+        return _convertGasToUpkeepToken(_gasPerEntry[oracle_]);
     }
 
     /// @inheritdoc ISuperGovernor
@@ -807,17 +805,22 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    /// @notice Converts gas units to UP token cost using multi-step oracle pricing
-    /// @dev Performs 3 oracle conversions: Gas->Native, Native->USD, USD->UP
+    /// @notice Converts gas units to UPKEEP_TOKEN cost using multi-step oracle pricing
+    /// @dev Performs 3 oracle conversions: Gas->Native, Native->USD, USD->UPKEEP_TOKEN
     /// @dev Uses AVERAGE_PROVIDER for all price feeds to ensure consistency
     /// @dev Uses Math.Rounding.Ceil to ensure sufficient upkeep coverage
+    /// @dev Dynamically queries token decimals to support tokens with different decimal places (e.g., USDC=6, WETH=18)
     /// @param gasAmount The gas units to convert
-    /// @return requiredUpTokens The equivalent amount in UP tokens (18 decimals)
-    function _convertGasToUp(uint256 gasAmount) internal view returns (uint256) {
+    /// @return requiredUpkeepTokens The equivalent amount in UPKEEP_TOKEN (token's native decimals)
+    function _convertGasToUpkeepToken(uint256 gasAmount) internal view returns (uint256) {
         address oracle = _addressRegistry[SUPER_ORACLE];
         if (oracle == address(0)) revert SUPER_ORACLE_NOT_FOUND();
-        address upToken = _addressRegistry[UP];
-        if (upToken == address(0)) revert UP_NOT_FOUND();
+        address upkeepToken = _addressRegistry[UPKEEP_TOKEN];
+        if (upkeepToken == address(0)) revert UPKEEP_TOKEN_NOT_FOUND();
+
+        // Get the upkeep token's decimals dynamically
+        uint8 tokenDecimals = IERC20Metadata(upkeepToken).decimals();
+        uint256 tokenUnit = 10 ** tokenDecimals;
 
         // Step 1: convert gas to native token (wei)
         (uint256 weiAmount,,,) =
@@ -827,18 +830,18 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
         (uint256 nativeToUsd,,,) =
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
-        // Step 3: convert USD to UP (how much USD per UP token)
-        (uint256 upPerUsd,,,) = ISuperOracle(oracle)
+        // Step 3: convert USD to UPKEEP_TOKEN (how much USD per 1 UPKEEP_TOKEN)
+        (uint256 usdPerUpkeepToken,,,) = ISuperOracle(oracle)
             .getQuoteFromProvider(
-                1e18, // 1 UP token (18 decimals)
-                upToken,
+                tokenUnit, // 1 UPKEEP_TOKEN (using actual decimals)
+                upkeepToken,
                 USD_TOKEN,
                 AVERAGE_PROVIDER
             );
 
-        // Calculate required UP tokens
-        // usdAmount / upPerUsd = required UP tokens
-        uint256 requiredUpTokens = Math.mulDiv(nativeToUsd, 1e18, upPerUsd, Math.Rounding.Ceil);
-        return requiredUpTokens;
+        // Calculate required UPKEEP_TOKEN
+        // (usdAmount * tokenUnit) / usdPerUpkeepToken = required UPKEEP_TOKEN
+        // Simplifies to: usdAmount / (usdPerUpkeepToken / tokenUnit) = tokens needed
+        return Math.mulDiv(nativeToUsd, tokenUnit, usdPerUpkeepToken, Math.Rounding.Ceil);
     }
 }

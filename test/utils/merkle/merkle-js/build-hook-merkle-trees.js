@@ -65,7 +65,7 @@ if (process.argv.length > 3 && !process.argv[3].startsWith('--')) {
  */
 function buildHookDefinitions(detectedHooks) {
   const hookDefinitions = {};
-  
+
   for (const [hookName, address] of Object.entries(detectedHooks)) {
     // Get configuration for this hook
     const config = hookConfigs[hookName];
@@ -73,7 +73,7 @@ function buildHookDefinitions(detectedHooks) {
       console.warn(`No configuration found for hook: ${hookName}`);
       continue;
     }
-    
+
     // Use the hook name directly (already in proper PascalCase from contract name)
     hookDefinitions[hookName] = {
       // Contract address of the deployed hook
@@ -87,10 +87,10 @@ function buildHookDefinitions(detectedHooks) {
       // Store full configuration for advanced features
       config: config
     };
-    
+
     console.log(`Built definition for ${hookName} -> ${address}`);
   }
-  
+
   return hookDefinitions;
 }
 
@@ -106,7 +106,7 @@ let hookDefinitions = {};
  */
 function getAddressesForType(type, chainId, hookName = null) {
   let addresses = [];
-  
+
   switch (type) {
     case 'token':
       addresses = (tokenList[chainId] || []).map(item => item.address);
@@ -128,12 +128,12 @@ function getAddressesForType(type, chainId, hookName = null) {
     default:
       return [];
   }
-  
+
   // Apply hook-specific filtering if hookName is provided
   if (hookName && hookConfigs[hookName]) {
     addresses = applyHookFiltering(addresses, type, hookName, chainId);
   }
-  
+
   return addresses;
 }
 
@@ -148,7 +148,7 @@ function getAddressesForType(type, chainId, hookName = null) {
 function applyHookFiltering(addresses, type, hookName, chainId) {
   const config = hookConfigs[hookName];
   if (!config) return addresses;
-  
+
   let allowedList = [];
   switch (type) {
     case 'token':
@@ -164,17 +164,17 @@ function applyHookFiltering(addresses, type, hookName, chainId) {
       allowedList = config.allowedStaking || ['all'];
       break;
   }
-  
+
   // If 'all' is specified, return all addresses
   if (allowedList.includes('all')) {
     return addresses;
   }
-  
+
   // If 'none' is specified, return empty array
   if (allowedList.includes('none')) {
     return [];
   }
-  
+
   // Filter addresses based on allowed symbols
   // For now, return all addresses (symbol-based filtering will be implemented in Step 4)
   console.log(`Hook ${hookName} filtering for ${type}: ${allowedList.join(', ')}`);
@@ -348,7 +348,7 @@ function generateMerkleTrees(detectedHooks, chainId) {
   // Build hook definitions from detected hooks
   hookDefinitions = buildHookDefinitions(detectedHooks);
   const hookNames = Object.keys(hookDefinitions);
-  
+
   console.log(`Processing ${hookNames.length} detected hooks:`);
   for (const [hookName, address] of Object.entries(detectedHooks)) {
     console.log(`- ${hookName}: ${address}`);
@@ -446,7 +446,7 @@ function generateMerkleTrees(detectedHooks, chainId) {
  */
 function main(detectedHooks = null) {
   const chainId = 1; // Ethereum mainnet as specified in the requirements
-  
+
   if (detectedHooks) {
     // Use provided detected hooks (called from deterministic-merkle-pregeneration.js)
     console.log('Using detected hooks from console output');
@@ -455,7 +455,7 @@ function main(detectedHooks = null) {
     // Legacy command line argument processing
     console.log('No detected hooks provided - using legacy command line processing');
     console.log('This mode will be deprecated in favor of automatic hook detection');
-    
+
     // For now, create empty hook definitions to prevent errors
     hookDefinitions = {};
     generateMerkleTrees({}, chainId);

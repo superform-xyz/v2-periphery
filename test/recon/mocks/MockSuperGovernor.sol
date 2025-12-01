@@ -25,17 +25,13 @@ contract MockSuperGovernor {
     // Mock implementation of addVaultBank
     function addVaultBank(uint64 chainId, address vaultBank) public { }
 
-    // Mock implementation of batchSetEmergencyPrices
-    function batchSetEmergencyPrices(address[] memory tokens_, uint256[] memory prices_) public { }
-
     // Mock implementation of batchSetOracleUptimeFeed
     function batchSetOracleUptimeFeed(
         address[] memory dataOracles_,
         address[] memory uptimeOracles_,
         uint256[] memory gracePeriods_
     )
-        public
-    { }
+        public { }
 
     // Mock implementation of changeHooksRootUpdateTimelock
     function changeHooksRootUpdateTimelock(uint256 newTimelock) public { }
@@ -113,8 +109,7 @@ contract MockSuperGovernor {
         bytes32[] memory providers_,
         address[] memory feeds_
     )
-        public
-    { }
+        public { }
 
     // Mock implementation of registerHook
     function registerHook(address hook, bool isFulfillRequestsHook) public { }
@@ -148,9 +143,6 @@ contract MockSuperGovernor {
 
     // Mock implementation of setAddress
     function setAddress(bytes32 key, address value) public { }
-
-    // Mock implementation of setEmergencyPrice
-    function setEmergencyPrice(address token, uint256 price) public { }
 
     // Mock implementation of setGasInfo
     function setGasInfo(address oracle, uint256 baseGasBatch, uint256 gasIncreasePerEntryBatch) public { }
@@ -731,7 +723,13 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getAddress
-    function getAddress(bytes32 /*key*/) public view returns (address) {
+    function getAddress(
+        bytes32 /*key*/
+    )
+        public
+        view
+        returns (address)
+    {
         return _getAddressReturn_0;
     }
 
@@ -746,17 +744,37 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getFee
-    function getFee(uint8 /*feeType*/) public view returns (uint256) {
+    function getFee(
+        uint8 /*feeType*/
+    )
+        public
+        view
+        returns (uint256)
+    {
         return _getFeeReturn_0;
     }
 
     // Mock implementation of getGasInfo
-    function getGasInfo(address /*oracle_*/) public view returns (ISuperGovernor_GasInfo memory) {
+    function getGasInfo(
+        address /*oracle_*/
+    )
+        public
+        view
+        returns (ISuperGovernor_GasInfo memory)
+    {
         return _getGasInfoReturn_0;
     }
 
     // Mock implementation of getManagersPaginated
-    function getManagersPaginated(uint256 /*cursor*/, uint256 /*limit*/) public view returns (address[] memory, uint256) {
+    function getManagersPaginated(
+        uint256,
+        /*cursor*/
+        uint256 /*limit*/
+    )
+        public
+        view
+        returns (address[] memory, uint256)
+    {
         return (_getManagersPaginatedReturn_0, _getManagersPaginatedReturn_1);
     }
 
@@ -781,7 +799,13 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getProposedSuperBankHookMerkleRoot
-    function getProposedSuperBankHookMerkleRoot(address /*hook*/) public view returns (bytes32, uint256) {
+    function getProposedSuperBankHookMerkleRoot(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bytes32, uint256)
+    {
         return (_getProposedSuperBankHookMerkleRootReturn_0, _getProposedSuperBankHookMerkleRootReturn_1);
     }
 
@@ -791,7 +815,13 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getProposedVaultBankHookMerkleRoot
-    function getProposedVaultBankHookMerkleRoot(address /*hook*/) public view returns (bytes32, uint256) {
+    function getProposedVaultBankHookMerkleRoot(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bytes32, uint256)
+    {
         return (_getProposedVaultBankHookMerkleRootReturn_0, _getProposedVaultBankHookMerkleRootReturn_1);
     }
 
@@ -826,12 +856,24 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getRoleAdmin
-    function getRoleAdmin(bytes32 /*role*/) public view returns (bytes32) {
+    function getRoleAdmin(
+        bytes32 /*role*/
+    )
+        public
+        view
+        returns (bytes32)
+    {
         return _getRoleAdminReturn_0;
     }
 
     // Mock implementation of getSuperBankHookMerkleRoot
-    function getSuperBankHookMerkleRoot(address /*hook*/) public view returns (bytes32) {
+    function getSuperBankHookMerkleRoot(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bytes32)
+    {
         return _getSuperBankHookMerkleRootReturn_0;
     }
 
@@ -841,7 +883,15 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getUpkeepCostPerBatchUpdate
-    function getUpkeepCostPerBatchUpdate(address /*oracle_*/, uint256 /*chargeableEntries_*/) public view returns (uint256) {
+    function getUpkeepCostPerBatchUpdate(
+        address,
+        /*oracle_*/
+        uint256 /*chargeableEntries_*/
+    )
+        public
+        view
+        returns (uint256)
+    {
         return _getUpkeepCostPerBatchUpdateReturn_0;
     }
 
@@ -851,42 +901,92 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of getVaultBank
-    function getVaultBank(uint64 /*chainId*/) public view returns (address) {
+    function getVaultBank(
+        uint64 /*chainId*/
+    )
+        public
+        view
+        returns (address)
+    {
         return _getVaultBankReturn_0;
     }
 
     // Mock implementation of getVaultBankHookMerkleRoot
-    function getVaultBankHookMerkleRoot(address /*hook*/) public view returns (bytes32) {
+    function getVaultBankHookMerkleRoot(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bytes32)
+    {
         return _getVaultBankHookMerkleRootReturn_0;
     }
 
     // Mock implementation of hasRole
-    function hasRole(bytes32 /*role*/, address /*account*/) public view returns (bool) {
+    function hasRole(
+        bytes32,
+        /*role*/
+        address /*account*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _hasRoleReturn_0;
     }
 
     // Mock implementation of isActivePPSOracle
-    function isActivePPSOracle(address /*oracle*/) public view returns (bool) {
+    function isActivePPSOracle(
+        address /*oracle*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isActivePPSOracleReturn_0;
     }
 
     // Mock implementation of isExecutor
-    function isExecutor(address /*executor*/) public view returns (bool) {
+    function isExecutor(
+        address /*executor*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isExecutorReturn_0;
     }
 
     // Mock implementation of isFulfillRequestsHookRegistered
-    function isFulfillRequestsHookRegistered(address /*hook*/) public view returns (bool) {
+    function isFulfillRequestsHookRegistered(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isFulfillRequestsHookRegisteredReturn_0;
     }
 
     // Mock implementation of isGuardian
-    function isGuardian(address /*guardian*/) public view returns (bool) {
+    function isGuardian(
+        address /*guardian*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isGuardianReturn_0;
     }
 
     // Mock implementation of isHookRegistered
-    function isHookRegistered(address /*hook*/) public view returns (bool) {
+    function isHookRegistered(
+        address /*hook*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isHookRegisteredReturn_0;
     }
 
@@ -896,17 +996,35 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of isProtectedKeeper
-    function isProtectedKeeper(address /*keeper*/) public view returns (bool) {
+    function isProtectedKeeper(
+        address /*keeper*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isProtectedKeeperReturn_0;
     }
 
     // Mock implementation of isRelayer
-    function isRelayer(address /*relayer*/) public view returns (bool) {
+    function isRelayer(
+        address /*relayer*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isRelayerReturn_0;
     }
 
     // Mock implementation of isSuperformManager
-    function isSuperformManager(address /*manager*/) public view returns (bool) {
+    function isSuperformManager(
+        address /*manager*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isSuperformManagerReturn_0;
     }
 
@@ -916,17 +1034,35 @@ contract MockSuperGovernor {
     }
 
     // Mock implementation of isValidator
-    function isValidator(address /*validator*/) public view returns (bool) {
+    function isValidator(
+        address /*validator*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isValidatorReturn_0;
     }
 
     // Mock implementation of isWhitelistedIncentiveToken
-    function isWhitelistedIncentiveToken(address /*token*/) public view returns (bool) {
+    function isWhitelistedIncentiveToken(
+        address /*token*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _isWhitelistedIncentiveTokenReturn_0;
     }
 
     // Mock implementation of supportsInterface
-    function supportsInterface(bytes4 /*interfaceId*/) public view returns (bool) {
+    function supportsInterface(
+        bytes4 /*interfaceId*/
+    )
+        public
+        view
+        returns (bool)
+    {
         return _supportsInterfaceReturn_0;
     }
 }

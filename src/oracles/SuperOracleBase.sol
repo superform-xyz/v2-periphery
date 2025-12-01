@@ -20,9 +20,6 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     /// @notice Mapping of feed to max staleness period
     mapping(address feed => uint256 maxStaleness) public feedMaxStaleness;
 
-    /// @notice Mapping of token to emergency price when oracle is down
-    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
-
     uint256 public defaultStaleness;
 
     /// @notice Pending oracle update
@@ -109,24 +106,6 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
     function setFeedMaxStaleness(address feed, uint256 newMaxStaleness) external {
         if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
         _setFeedMaxStaleness(feed, newMaxStaleness);
-    }
-
-    /// @inheritdoc ISuperOracle
-    function setEmergencyPrice(address token_, uint256 price_) external {
-        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        _setEmergencyPrice(token_, price_);
-    }
-
-    /// @inheritdoc ISuperOracle
-    function batchSetEmergencyPrice(address[] calldata tokens_, uint256[] calldata prices_) external {
-        if (msg.sender != SUPER_GOVERNOR) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        uint256 length = tokens_.length;
-        if (length == 0) revert ZERO_ARRAY_LENGTH();
-        if (length != prices_.length) revert ARRAY_LENGTH_MISMATCH();
-
-        for (uint256 i; i < length; ++i) {
-            _setEmergencyPrice(tokens_[i], prices_[i]);
-        }
     }
 
     /// @inheritdoc ISuperOracle
@@ -291,11 +270,6 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         }
     }
 
-    /// @inheritdoc ISuperOracle
-    function getEmergencyPrice(address token) external view returns (uint256) {
-        return emergencyPrices[token];
-    }
-
     /// @inheritdoc IOracle
     function getQuote(
         uint256 baseAmount,
@@ -379,7 +353,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
             // Require that enough gas was provided to prevent an OOG revert
             // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
             // oracle failures
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (revertOnError && gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_ROUND_DATA_CALL_FAIL(oracle);
             return 0;
@@ -406,7 +380,7 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
         } catch {
             // EIP-150: Ensure at least 1/64 of gas remained to prevent out-of-gas reverts being misinterpreted as
             // oracle failures
-            if (gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
+            if (revertOnError && gasleft() <= gasBefore / 64) revert INSUFFICIENT_GAS_FOR_EXTERNAL_CALL();
 
             if (revertOnError) revert ORACLE_DECIMALS_CALL_FAIL(oracle);
             return 0;
@@ -599,13 +573,5 @@ abstract contract SuperOracleBase is ISuperOracle, IOracle {
                 isProviderSet[provider] = true;
             }
         }
-    }
-
-    /// @notice Internal logic to set an emergency price for a token.
-    /// @param token_ The address of the token.
-    /// @param price_ The emergency price to set.
-    function _setEmergencyPrice(address token_, uint256 price_) internal {
-        emergencyPrices[token_] = price_;
-        emit EmergencyPriceUpdated(token_, price_);
     }
 }

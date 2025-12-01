@@ -184,9 +184,9 @@ interface ISuperVaultStrategy {
 
     /// @notice Action types for PPS expiration threshold management
     enum PPSExpirationAction {
-        Propose, // 1: Propose a new PPS expiration threshold
-        Execute, // 2: Execute the proposed threshold update
-        Cancel // 3: Cancel the pending threshold proposal
+        Propose, // 0: Propose a new PPS expiration threshold
+        Execute, // 1: Execute the proposed threshold update
+        Cancel // 2: Cancel the pending threshold proposal
     }
 
     /*//////////////////////////////////////////////////////////////

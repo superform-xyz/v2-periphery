@@ -33,8 +33,6 @@ var (
 type ISuperVaultAggregatorForwardPPSArgs struct {
 	Strategies      []common.Address
 	Ppss            []*big.Int
-	ValidatorSets   []*big.Int
-	TotalValidator  *big.Int
 	Timestamps      []*big.Int
 	UpdateAuthority common.Address
 }
@@ -68,7 +66,7 @@ type ISuperVaultStrategyFeeConfig struct {
 
 // SuperVaultAggregatorMetaData contains all meta data concerning the SuperVaultAggregator contract.
 var SuperVaultAggregatorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategyImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrowImpl_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ESCROW_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_SECONDARY_MANAGERS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"STRATEGY_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractISuperGovernor\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPKEEP_WITHDRAWAL_TIMELOCK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VAULT_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"cancelChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"cancelMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeGlobalLeavesStatus\",\"inputs\":[{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimUpkeep\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimableUpkeep\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"createVault\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.VaultCreationParams\",\"components\":[{\"name\":\"asset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"mainManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"secondaryManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"minUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeConfig\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultStrategy.FeeConfig\",\"components\":[{\"name\":\"performanceFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"managementFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"superVault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeGlobalHooksRootUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeStrategyHooksRootUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeWithdrawUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"forwardPPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ForwardPPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"validatorSets\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"totalValidator\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultEscrows\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultStrategies\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaults\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentNonce\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDeviationThreshold\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getHooksRootUpdateTimelock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUnpauseTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUpdateTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMainManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMaxStaleness\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"staleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"interval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPS\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPendingManagerChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSecondaryManagers\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepBalance\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isAnyManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootActive\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootVetoed\",\"inputs\":[],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isMainManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isPPSStale\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isStale\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSecondaryManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isPaused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pauseStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"pendingUpkeepWithdrawals\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"initiator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeWithdrawUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"superVaultEscrows\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaultStrategies\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaults\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpauseStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateDeviationThreshold\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"deviationThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updatePPSAfterSkim\",\"inputs\":[{\"name\":\"newPPS\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateHook\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateHooks\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"argsArray\",\"type\":\"tuple[]\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs[]\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"validHooks\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"DeviationThresholdUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdated\",\"inputs\":[{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalLeavesStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"indexed\":false,\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"indexed\":false,\"internalType\":\"bool[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HooksRootUpdateTimelockChanged\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InsufficientUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategyAddr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"cost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cancelledInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeRejected\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposedInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"currentMaxStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OldPrimaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdateRejectedStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"validatorSet\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"totalValidators\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdatedAfterSkim\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldPPS\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newPPS\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"feeAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangeCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cancelledManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProvidedTimestampExceedsBlockTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"argsTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blockTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleSignatureAfterUnpause\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"signatureTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"lastUnpauseTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyCheckFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStale\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStaleReset\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpausePPSTimelockUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TimestampNotMonotonic\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnknownStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpdateTooFrequent\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepClaimed\",\"inputs\":[{\"name\":\"superBank\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepCostUpdated\",\"inputs\":[{\"name\":\"oldCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newCost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepDeposited\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"depositor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepSpent\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"claimableUpkeep\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawalCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawalProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"initiator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawn\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeployed\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"asset\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"nonce\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_NOT_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CANNOT_ADD_PROTECTED_KEEPER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CANNOT_REMOVE_LAST_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedDeployment\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_VALIDATION_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INDEX_OUT_OF_BOUNDS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP_BALANCE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ARRAY_LENGTH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"INVALID_VAULT_PARAMS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_EXISTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_CHANGE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MIN_UPDATE_INTERVAL_TOO_HIGH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MISMATCHED_ARRAY_LENGTHS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NOT_A_GUARDIAN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_GLOBAL_ROOT_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_MANAGER_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_ROOT_UPDATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_DEDUCTION_TOO_LARGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_MUST_DECREASE_AFTER_SKIM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ROOT_UPDATE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_ALREADY_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_NOT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TOO_MANY_SECONDARY_MANAGERS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_CALLER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_UPDATE_AUTHORITY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNKNOWN_STRATEGY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNPAUSE_TIMELOCK_NOT_MET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPDATE_TOO_STALE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPKEEP_WITHDRAWAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPKEEP_WITHDRAWAL_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"VAULT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ARRAY_LENGTH\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"superGovernor_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategyImpl_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrowImpl_\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ESCROW_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"MAX_SECONDARY_MANAGERS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"STRATEGY_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUPER_GOVERNOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractISuperGovernor\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPKEEP_WITHDRAWAL_TIMELOCK\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VAULT_IMPLEMENTATION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"cancelChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"cancelMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changeGlobalLeavesStatus\",\"inputs\":[{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"feeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimUpkeep\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"claimableUpkeep\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"createVault\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.VaultCreationParams\",\"components\":[{\"name\":\"asset\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"mainManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"secondaryManagers\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"minUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"maxStaleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeConfig\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultStrategy.FeeConfig\",\"components\":[{\"name\":\"performanceFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"managementFeeBps\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"superVault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeGlobalHooksRootUpdate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeStrategyHooksRootUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"executeWithdrawUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"forwardPPS\",\"inputs\":[{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ForwardPPSArgs\",\"components\":[{\"name\":\"strategies\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"ppss\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"timestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultEscrows\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaultStrategies\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAllSuperVaults\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentNonce\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDeviationThreshold\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getHooksRootUpdateTimelock\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUnpauseTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getLastUpdateTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMainManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMaxStaleness\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"staleness\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"interval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPPS\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"pps\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPendingManagerChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedGlobalHooksRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedMinUpdateInterval\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposedInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposedStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSecondaryManagers\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperVaultEscrowsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperVaultStrategiesCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getSuperVaultsCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUpkeepBalance\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isAnyManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootActive\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isGlobalHooksRootVetoed\",\"inputs\":[],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isMainManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isPPSStale\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isStale\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isSecondaryManager\",\"inputs\":[{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyHooksRootVetoed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isPaused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pauseStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"pendingUpkeepWithdrawals\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proposeChangePrimaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"feeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeGlobalHooksRoot\",\"inputs\":[{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeMinUpdateIntervalChange\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeStrategyHooksRoot\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proposeWithdrawUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSecondaryManager\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resetHighWaterMark\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setGlobalHooksRootVetoStatus\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setHooksRootUpdateTimelock\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setStrategyHooksRootVetoStatus\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"superVaultEscrows\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaultStrategies\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"superVaults\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpauseStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateDeviationThreshold\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"deviationThreshold_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updatePPSAfterSkim\",\"inputs\":[{\"name\":\"newPPS\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"feeAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validateHook\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"args\",\"type\":\"tuple\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"isValid\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateHooks\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"argsArray\",\"type\":\"tuple[]\",\"internalType\":\"structISuperVaultAggregator.ValidateHookArgs[]\",\"components\":[{\"name\":\"hookAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"hookArgs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"globalProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"strategyProof\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}]}],\"outputs\":[{\"name\":\"validHooks\",\"type\":\"bool[]\",\"internalType\":\"bool[]\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"DeviationThresholdUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"deviationThreshold\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootUpdated\",\"inputs\":[{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GlobalLeavesStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"leaves\",\"type\":\"bytes32[]\",\"indexed\":false,\"internalType\":\"bytes32[]\"},{\"name\":\"statuses\",\"type\":\"bool[]\",\"indexed\":false,\"internalType\":\"bool[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HighWaterMarkReset\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newHWM\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"HooksRootUpdateTimelockChanged\",\"inputs\":[{\"name\":\"newTimelock\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InsufficientUpkeep\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategyAddr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"cost\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cancelledInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChangeRejected\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposedInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"currentMaxStaleness\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinUpdateIntervalChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newMinUpdateInterval\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OldPrimaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdateRejectedStrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"pps\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PPSUpdatedAfterSkim\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldPPS\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newPPS\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"feeAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangeCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"cancelledManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChangeProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"feeRecipient\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PrimaryManagerChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"feeRecipient\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProvidedTimestampExceedsBlockTimestamp\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"argsTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blockTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerAdded\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SecondaryManagerRemoved\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"manager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleSignatureAfterUnpause\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"signatureTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"lastUnpauseTimestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StaleUpdate\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"updateAuthority\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyCheckFailed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"reason\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdateProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootUpdated\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"newRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyHooksRootVetoStatusChanged\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vetoed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"root\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStale\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPPSStaleReset\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyPaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StrategyUnpaused\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TimestampNotMonotonic\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnknownStrategy\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpdateTooFrequent\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepClaimed\",\"inputs\":[{\"name\":\"superBank\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepDeposited\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"depositor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepSpent\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"balance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"claimableUpkeep\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawalCancelled\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawalProposed\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"mainManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"effectiveTime\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UpkeepWithdrawn\",\"inputs\":[{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeployed\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"strategy\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"escrow\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"asset\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"name\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"symbol\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"nonce\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ARRAY_LENGTH_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CALLER_NOT_AUTHORIZED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedDeployment\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"HOOK_VALIDATION_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INDEX_OUT_OF_BOUNDS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INSUFFICIENT_UPKEEP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ARRAY_LENGTH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_ASSET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_TIMESTAMP\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"INVALID_VAULT_PARAMS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBalance\",\"inputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"needed\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MANAGER_ALREADY_EXISTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MANAGER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MAX_STALENESS_TOO_LOW\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MIN_UPDATE_INTERVAL_TOO_HIGH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MISMATCHED_ARRAY_LENGTHS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_GLOBAL_ROOT_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_MANAGER_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_DEDUCTION_TOO_LARGE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_MUST_DECREASE_AFTER_SKIM\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"PPS_STALE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ROOT_UPDATE_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SECONDARY_MANAGER_CANNOT_BE_PRIMARY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_ALREADY_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_NOT_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"STRATEGY_PAUSED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TIMELOCK_NOT_EXPIRED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TOO_MANY_SECONDARY_MANAGERS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_CALLER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_PPS_ORACLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNAUTHORIZED_UPDATE_AUTHORITY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UNKNOWN_STRATEGY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPKEEP_WITHDRAWAL_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UPKEEP_WITHDRAWAL_NOT_READY\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ARRAY_LENGTH\",\"inputs\":[]}]",
 }
 
 // SuperVaultAggregatorABI is the input ABI used to generate the binding from.
@@ -1079,6 +1077,99 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetStrategyHooks
 	return _SuperVaultAggregator.Contract.GetStrategyHooksRoot(&_SuperVaultAggregator.CallOpts, strategy)
 }
 
+// GetSuperVaultEscrowsCount is a free data retrieval call binding the contract method 0x5558c3cc.
+//
+// Solidity: function getSuperVaultEscrowsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSuperVaultEscrowsCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getSuperVaultEscrowsCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetSuperVaultEscrowsCount is a free data retrieval call binding the contract method 0x5558c3cc.
+//
+// Solidity: function getSuperVaultEscrowsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetSuperVaultEscrowsCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultEscrowsCount(&_SuperVaultAggregator.CallOpts)
+}
+
+// GetSuperVaultEscrowsCount is a free data retrieval call binding the contract method 0x5558c3cc.
+//
+// Solidity: function getSuperVaultEscrowsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetSuperVaultEscrowsCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultEscrowsCount(&_SuperVaultAggregator.CallOpts)
+}
+
+// GetSuperVaultStrategiesCount is a free data retrieval call binding the contract method 0x94459ea4.
+//
+// Solidity: function getSuperVaultStrategiesCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSuperVaultStrategiesCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getSuperVaultStrategiesCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetSuperVaultStrategiesCount is a free data retrieval call binding the contract method 0x94459ea4.
+//
+// Solidity: function getSuperVaultStrategiesCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetSuperVaultStrategiesCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultStrategiesCount(&_SuperVaultAggregator.CallOpts)
+}
+
+// GetSuperVaultStrategiesCount is a free data retrieval call binding the contract method 0x94459ea4.
+//
+// Solidity: function getSuperVaultStrategiesCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetSuperVaultStrategiesCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultStrategiesCount(&_SuperVaultAggregator.CallOpts)
+}
+
+// GetSuperVaultsCount is a free data retrieval call binding the contract method 0x07cbebc1.
+//
+// Solidity: function getSuperVaultsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCaller) GetSuperVaultsCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SuperVaultAggregator.contract.Call(opts, &out, "getSuperVaultsCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetSuperVaultsCount is a free data retrieval call binding the contract method 0x07cbebc1.
+//
+// Solidity: function getSuperVaultsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) GetSuperVaultsCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultsCount(&_SuperVaultAggregator.CallOpts)
+}
+
+// GetSuperVaultsCount is a free data retrieval call binding the contract method 0x07cbebc1.
+//
+// Solidity: function getSuperVaultsCount() view returns(uint256)
+func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) GetSuperVaultsCount() (*big.Int, error) {
+	return _SuperVaultAggregator.Contract.GetSuperVaultsCount(&_SuperVaultAggregator.CallOpts)
+}
+
 // GetUpkeepBalance is a free data retrieval call binding the contract method 0x1aef3510.
 //
 // Solidity: function getUpkeepBalance(address strategy) view returns(uint256 balance)
@@ -1360,9 +1451,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) IsStrategyPaused
 
 // PendingUpkeepWithdrawals is a free data retrieval call binding the contract method 0x5f4bc1be.
 //
-// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(address initiator, uint256 amount, uint256 effectiveTime)
+// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(uint256 amount, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorCaller) PendingUpkeepWithdrawals(opts *bind.CallOpts, strategy common.Address) (struct {
-	Initiator     common.Address
 	Amount        *big.Int
 	EffectiveTime *big.Int
 }, error) {
@@ -1370,7 +1460,6 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) PendingUpkeepWithdrawal
 	err := _SuperVaultAggregator.contract.Call(opts, &out, "pendingUpkeepWithdrawals", strategy)
 
 	outstruct := new(struct {
-		Initiator     common.Address
 		Amount        *big.Int
 		EffectiveTime *big.Int
 	})
@@ -1378,9 +1467,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) PendingUpkeepWithdrawal
 		return *outstruct, err
 	}
 
-	outstruct.Initiator = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	outstruct.Amount = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-	outstruct.EffectiveTime = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.Amount = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.EffectiveTime = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -1388,9 +1476,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorCaller) PendingUpkeepWithdrawal
 
 // PendingUpkeepWithdrawals is a free data retrieval call binding the contract method 0x5f4bc1be.
 //
-// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(address initiator, uint256 amount, uint256 effectiveTime)
+// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(uint256 amount, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorSession) PendingUpkeepWithdrawals(strategy common.Address) (struct {
-	Initiator     common.Address
 	Amount        *big.Int
 	EffectiveTime *big.Int
 }, error) {
@@ -1399,9 +1486,8 @@ func (_SuperVaultAggregator *SuperVaultAggregatorSession) PendingUpkeepWithdrawa
 
 // PendingUpkeepWithdrawals is a free data retrieval call binding the contract method 0x5f4bc1be.
 //
-// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(address initiator, uint256 amount, uint256 effectiveTime)
+// Solidity: function pendingUpkeepWithdrawals(address strategy) view returns(uint256 amount, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorCallerSession) PendingUpkeepWithdrawals(strategy common.Address) (struct {
-	Initiator     common.Address
 	Amount        *big.Int
 	EffectiveTime *big.Int
 }, error) {
@@ -1647,25 +1733,25 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangeGlobal
 	return _SuperVaultAggregator.Contract.ChangeGlobalLeavesStatus(&_SuperVaultAggregator.TransactOpts, leaves, statuses, strategy)
 }
 
-// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0xbd579e55.
 //
-// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "changePrimaryManager", strategy, newManager)
+// Solidity: function changePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "changePrimaryManager", strategy, newManager, feeRecipient)
 }
 
-// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0xbd579e55.
 //
-// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
+// Solidity: function changePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager, feeRecipient)
 }
 
-// ChangePrimaryManager is a paid mutator transaction binding the contract method 0x906811e0.
+// ChangePrimaryManager is a paid mutator transaction binding the contract method 0xbd579e55.
 //
-// Solidity: function changePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
+// Solidity: function changePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ChangePrimaryManager(strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager, feeRecipient)
 }
 
 // ClaimUpkeep is a paid mutator transaction binding the contract method 0xd4eb9083.
@@ -1836,23 +1922,23 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ExecuteWithd
 	return _SuperVaultAggregator.Contract.ExecuteWithdrawUpkeep(&_SuperVaultAggregator.TransactOpts, strategy)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0x4f590c02.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xc27bda9b.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],address) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ForwardPPS(opts *bind.TransactOpts, args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.contract.Transact(opts, "forwardPPS", args)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0x4f590c02.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xc27bda9b.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],address) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorSession) ForwardPPS(args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }
 
-// ForwardPPS is a paid mutator transaction binding the contract method 0x4f590c02.
+// ForwardPPS is a paid mutator transaction binding the contract method 0xc27bda9b.
 //
-// Solidity: function forwardPPS((address[],uint256[],uint256[],uint256,uint256[],address) args) returns()
+// Solidity: function forwardPPS((address[],uint256[],uint256[],address) args) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ForwardPPS(args ISuperVaultAggregatorForwardPPSArgs) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.ForwardPPS(&_SuperVaultAggregator.TransactOpts, args)
 }
@@ -1878,25 +1964,25 @@ func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) PauseStrateg
 	return _SuperVaultAggregator.Contract.PauseStrategy(&_SuperVaultAggregator.TransactOpts, strategy)
 }
 
-// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0xbea3edb1.
 //
-// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ProposeChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.contract.Transact(opts, "proposeChangePrimaryManager", strategy, newManager)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ProposeChangePrimaryManager(opts *bind.TransactOpts, strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "proposeChangePrimaryManager", strategy, newManager, feeRecipient)
 }
 
-// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0xbea3edb1.
 //
-// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager, feeRecipient)
 }
 
-// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0x20b64b64.
+// ProposeChangePrimaryManager is a paid mutator transaction binding the contract method 0xbea3edb1.
 //
-// Solidity: function proposeChangePrimaryManager(address strategy, address newManager) returns()
-func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address) (*types.Transaction, error) {
-	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager)
+// Solidity: function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ProposeChangePrimaryManager(strategy common.Address, newManager common.Address, feeRecipient common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ProposeChangePrimaryManager(&_SuperVaultAggregator.TransactOpts, strategy, newManager, feeRecipient)
 }
 
 // ProposeGlobalHooksRoot is a paid mutator transaction binding the contract method 0xb0e5173b.
@@ -2002,6 +2088,27 @@ func (_SuperVaultAggregator *SuperVaultAggregatorSession) RemoveSecondaryManager
 // Solidity: function removeSecondaryManager(address strategy, address manager) returns()
 func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) RemoveSecondaryManager(strategy common.Address, manager common.Address) (*types.Transaction, error) {
 	return _SuperVaultAggregator.Contract.RemoveSecondaryManager(&_SuperVaultAggregator.TransactOpts, strategy, manager)
+}
+
+// ResetHighWaterMark is a paid mutator transaction binding the contract method 0x7ac432ff.
+//
+// Solidity: function resetHighWaterMark(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactor) ResetHighWaterMark(opts *bind.TransactOpts, strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.contract.Transact(opts, "resetHighWaterMark", strategy)
+}
+
+// ResetHighWaterMark is a paid mutator transaction binding the contract method 0x7ac432ff.
+//
+// Solidity: function resetHighWaterMark(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorSession) ResetHighWaterMark(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ResetHighWaterMark(&_SuperVaultAggregator.TransactOpts, strategy)
+}
+
+// ResetHighWaterMark is a paid mutator transaction binding the contract method 0x7ac432ff.
+//
+// Solidity: function resetHighWaterMark(address strategy) returns()
+func (_SuperVaultAggregator *SuperVaultAggregatorTransactorSession) ResetHighWaterMark(strategy common.Address) (*types.Transaction, error) {
+	return _SuperVaultAggregator.Contract.ResetHighWaterMark(&_SuperVaultAggregator.TransactOpts, strategy)
 }
 
 // SetGlobalHooksRootVetoStatus is a paid mutator transaction binding the contract method 0xd5f3cd86.
@@ -2710,159 +2817,6 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseGlobalHooksRootV
 	return event, nil
 }
 
-// SuperVaultAggregatorGlobalHooksRootVetoedIterator is returned from FilterGlobalHooksRootVetoed and is used to iterate over the raw logs and unpacked data for GlobalHooksRootVetoed events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorGlobalHooksRootVetoedIterator struct {
-	Event *SuperVaultAggregatorGlobalHooksRootVetoed // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorGlobalHooksRootVetoedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorGlobalHooksRootVetoed)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorGlobalHooksRootVetoed)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorGlobalHooksRootVetoedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorGlobalHooksRootVetoedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorGlobalHooksRootVetoed represents a GlobalHooksRootVetoed event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorGlobalHooksRootVetoed struct {
-	Guardian common.Address
-	Root     [32]byte
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterGlobalHooksRootVetoed is a free log retrieval operation binding the contract event 0x26c1ad46cb7f3649d1025e06bdbe8fc101891e84299550e6e28b5b5c62e09ec3.
-//
-// Solidity: event GlobalHooksRootVetoed(address indexed guardian, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterGlobalHooksRootVetoed(opts *bind.FilterOpts, guardian []common.Address, root [][32]byte) (*SuperVaultAggregatorGlobalHooksRootVetoedIterator, error) {
-
-	var guardianRule []interface{}
-	for _, guardianItem := range guardian {
-		guardianRule = append(guardianRule, guardianItem)
-	}
-	var rootRule []interface{}
-	for _, rootItem := range root {
-		rootRule = append(rootRule, rootItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "GlobalHooksRootVetoed", guardianRule, rootRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorGlobalHooksRootVetoedIterator{contract: _SuperVaultAggregator.contract, event: "GlobalHooksRootVetoed", logs: logs, sub: sub}, nil
-}
-
-// WatchGlobalHooksRootVetoed is a free log subscription operation binding the contract event 0x26c1ad46cb7f3649d1025e06bdbe8fc101891e84299550e6e28b5b5c62e09ec3.
-//
-// Solidity: event GlobalHooksRootVetoed(address indexed guardian, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchGlobalHooksRootVetoed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorGlobalHooksRootVetoed, guardian []common.Address, root [][32]byte) (event.Subscription, error) {
-
-	var guardianRule []interface{}
-	for _, guardianItem := range guardian {
-		guardianRule = append(guardianRule, guardianItem)
-	}
-	var rootRule []interface{}
-	for _, rootItem := range root {
-		rootRule = append(rootRule, rootItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "GlobalHooksRootVetoed", guardianRule, rootRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorGlobalHooksRootVetoed)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "GlobalHooksRootVetoed", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseGlobalHooksRootVetoed is a log parse operation binding the contract event 0x26c1ad46cb7f3649d1025e06bdbe8fc101891e84299550e6e28b5b5c62e09ec3.
-//
-// Solidity: event GlobalHooksRootVetoed(address indexed guardian, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseGlobalHooksRootVetoed(log types.Log) (*SuperVaultAggregatorGlobalHooksRootVetoed, error) {
-	event := new(SuperVaultAggregatorGlobalHooksRootVetoed)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "GlobalHooksRootVetoed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // SuperVaultAggregatorGlobalLeavesStatusChangedIterator is returned from FilterGlobalLeavesStatusChanged and is used to iterate over the raw logs and unpacked data for GlobalLeavesStatusChanged events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorGlobalLeavesStatusChangedIterator struct {
 	Event *SuperVaultAggregatorGlobalLeavesStatusChanged // Event containing the contract specifics and raw log
@@ -3003,6 +2957,159 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchGlobalLeavesStat
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseGlobalLeavesStatusChanged(log types.Log) (*SuperVaultAggregatorGlobalLeavesStatusChanged, error) {
 	event := new(SuperVaultAggregatorGlobalLeavesStatusChanged)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "GlobalLeavesStatusChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultAggregatorHighWaterMarkResetIterator is returned from FilterHighWaterMarkReset and is used to iterate over the raw logs and unpacked data for HighWaterMarkReset events raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorHighWaterMarkResetIterator struct {
+	Event *SuperVaultAggregatorHighWaterMarkReset // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultAggregatorHighWaterMarkResetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultAggregatorHighWaterMarkReset)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultAggregatorHighWaterMarkReset)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultAggregatorHighWaterMarkResetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultAggregatorHighWaterMarkResetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultAggregatorHighWaterMarkReset represents a HighWaterMarkReset event raised by the SuperVaultAggregator contract.
+type SuperVaultAggregatorHighWaterMarkReset struct {
+	Strategy common.Address
+	NewHWM   *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterHighWaterMarkReset is a free log retrieval operation binding the contract event 0x38e30977945dee262f7d3e5f9f9ece987d5ecad1b6889f39dfcf011923dbdf2b.
+//
+// Solidity: event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterHighWaterMarkReset(opts *bind.FilterOpts, strategy []common.Address, newHWM []*big.Int) (*SuperVaultAggregatorHighWaterMarkResetIterator, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var newHWMRule []interface{}
+	for _, newHWMItem := range newHWM {
+		newHWMRule = append(newHWMRule, newHWMItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "HighWaterMarkReset", strategyRule, newHWMRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultAggregatorHighWaterMarkResetIterator{contract: _SuperVaultAggregator.contract, event: "HighWaterMarkReset", logs: logs, sub: sub}, nil
+}
+
+// WatchHighWaterMarkReset is a free log subscription operation binding the contract event 0x38e30977945dee262f7d3e5f9f9ece987d5ecad1b6889f39dfcf011923dbdf2b.
+//
+// Solidity: event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchHighWaterMarkReset(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorHighWaterMarkReset, strategy []common.Address, newHWM []*big.Int) (event.Subscription, error) {
+
+	var strategyRule []interface{}
+	for _, strategyItem := range strategy {
+		strategyRule = append(strategyRule, strategyItem)
+	}
+	var newHWMRule []interface{}
+	for _, newHWMItem := range newHWM {
+		newHWMRule = append(newHWMRule, newHWMItem)
+	}
+
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "HighWaterMarkReset", strategyRule, newHWMRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultAggregatorHighWaterMarkReset)
+				if err := _SuperVaultAggregator.contract.UnpackLog(event, "HighWaterMarkReset", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseHighWaterMarkReset is a log parse operation binding the contract event 0x38e30977945dee262f7d3e5f9f9ece987d5ecad1b6889f39dfcf011923dbdf2b.
+//
+// Solidity: event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseHighWaterMarkReset(log types.Log) (*SuperVaultAggregatorHighWaterMarkReset, error) {
+	event := new(SuperVaultAggregatorHighWaterMarkReset)
+	if err := _SuperVaultAggregator.contract.UnpackLog(event, "HighWaterMarkReset", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -4256,17 +4363,15 @@ func (it *SuperVaultAggregatorPPSUpdatedIterator) Close() error {
 
 // SuperVaultAggregatorPPSUpdated represents a PPSUpdated event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorPPSUpdated struct {
-	Strategy        common.Address
-	Pps             *big.Int
-	ValidatorSet    *big.Int
-	TotalValidators *big.Int
-	Timestamp       *big.Int
-	Raw             types.Log // Blockchain specific contextual infos
+	Strategy  common.Address
+	Pps       *big.Int
+	Timestamp *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterPPSUpdated is a free log retrieval operation binding the contract event 0x6d34c506f5dca7955f1dc32a066710945d4bd7d9f480452cac2ff87766c280b2.
+// FilterPPSUpdated is a free log retrieval operation binding the contract event 0xdacecd2f542e0332ebba232014aeb2099cc06386862bc8d88d8446b826382ece.
 //
-// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp)
+// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 timestamp)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPPSUpdated(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorPPSUpdatedIterator, error) {
 
 	var strategyRule []interface{}
@@ -4281,9 +4386,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPPSUpdated(opts
 	return &SuperVaultAggregatorPPSUpdatedIterator{contract: _SuperVaultAggregator.contract, event: "PPSUpdated", logs: logs, sub: sub}, nil
 }
 
-// WatchPPSUpdated is a free log subscription operation binding the contract event 0x6d34c506f5dca7955f1dc32a066710945d4bd7d9f480452cac2ff87766c280b2.
+// WatchPPSUpdated is a free log subscription operation binding the contract event 0xdacecd2f542e0332ebba232014aeb2099cc06386862bc8d88d8446b826382ece.
 //
-// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp)
+// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 timestamp)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPPSUpdated(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPPSUpdated, strategy []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
@@ -4323,9 +4428,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPPSUpdated(opts 
 	}), nil
 }
 
-// ParsePPSUpdated is a log parse operation binding the contract event 0x6d34c506f5dca7955f1dc32a066710945d4bd7d9f480452cac2ff87766c280b2.
+// ParsePPSUpdated is a log parse operation binding the contract event 0xdacecd2f542e0332ebba232014aeb2099cc06386862bc8d88d8446b826382ece.
 //
-// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 validatorSet, uint256 totalValidators, uint256 timestamp)
+// Solidity: event PPSUpdated(address indexed strategy, uint256 pps, uint256 timestamp)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePPSUpdated(log types.Log) (*SuperVaultAggregatorPPSUpdated, error) {
 	event := new(SuperVaultAggregatorPPSUpdated)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PPSUpdated", log); err != nil {
@@ -4708,13 +4813,14 @@ type SuperVaultAggregatorPrimaryManagerChangeProposed struct {
 	Strategy      common.Address
 	Proposer      common.Address
 	NewManager    common.Address
+	FeeRecipient  common.Address
 	EffectiveTime *big.Int
 	Raw           types.Log // Blockchain specific contextual infos
 }
 
-// FilterPrimaryManagerChangeProposed is a free log retrieval operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
+// FilterPrimaryManagerChangeProposed is a free log retrieval operation binding the contract event 0xfb67e6bbbfba8245b27d33889b32a324c5cdc2b0c52d738d9e65642d770a2164.
 //
-// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerChangeProposed(opts *bind.FilterOpts, strategy []common.Address, proposer []common.Address, newManager []common.Address) (*SuperVaultAggregatorPrimaryManagerChangeProposedIterator, error) {
 
 	var strategyRule []interface{}
@@ -4737,9 +4843,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerC
 	return &SuperVaultAggregatorPrimaryManagerChangeProposedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryManagerChangeProposed", logs: logs, sub: sub}, nil
 }
 
-// WatchPrimaryManagerChangeProposed is a free log subscription operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
+// WatchPrimaryManagerChangeProposed is a free log subscription operation binding the contract event 0xfb67e6bbbfba8245b27d33889b32a324c5cdc2b0c52d738d9e65642d770a2164.
 //
-// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerChangeProposed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryManagerChangeProposed, strategy []common.Address, proposer []common.Address, newManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
@@ -4787,9 +4893,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerCh
 	}), nil
 }
 
-// ParsePrimaryManagerChangeProposed is a log parse operation binding the contract event 0x4ee609fb141edc43691a25b420b8584e6ed4fb79e4d8f2063a40872160375883.
+// ParsePrimaryManagerChangeProposed is a log parse operation binding the contract event 0xfb67e6bbbfba8245b27d33889b32a324c5cdc2b0c52d738d9e65642d770a2164.
 //
-// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, uint256 effectiveTime)
+// Solidity: event PrimaryManagerChangeProposed(address indexed strategy, address indexed proposer, address indexed newManager, address feeRecipient, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryManagerChangeProposed(log types.Log) (*SuperVaultAggregatorPrimaryManagerChangeProposed, error) {
 	event := new(SuperVaultAggregatorPrimaryManagerChangeProposed)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChangeProposed", log); err != nil {
@@ -4868,15 +4974,16 @@ func (it *SuperVaultAggregatorPrimaryManagerChangedIterator) Close() error {
 
 // SuperVaultAggregatorPrimaryManagerChanged represents a PrimaryManagerChanged event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorPrimaryManagerChanged struct {
-	Strategy   common.Address
-	OldManager common.Address
-	NewManager common.Address
-	Raw        types.Log // Blockchain specific contextual infos
+	Strategy     common.Address
+	OldManager   common.Address
+	NewManager   common.Address
+	FeeRecipient common.Address
+	Raw          types.Log // Blockchain specific contextual infos
 }
 
-// FilterPrimaryManagerChanged is a free log retrieval operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
+// FilterPrimaryManagerChanged is a free log retrieval operation binding the contract event 0x7e62e1ec80a87937e5d40f5a5e42a516befc032971f2b16e0dc1839c9b08b5b7.
 //
-// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerChanged(opts *bind.FilterOpts, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (*SuperVaultAggregatorPrimaryManagerChangedIterator, error) {
 
 	var strategyRule []interface{}
@@ -4899,9 +5006,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterPrimaryManagerC
 	return &SuperVaultAggregatorPrimaryManagerChangedIterator{contract: _SuperVaultAggregator.contract, event: "PrimaryManagerChanged", logs: logs, sub: sub}, nil
 }
 
-// WatchPrimaryManagerChanged is a free log subscription operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
+// WatchPrimaryManagerChanged is a free log subscription operation binding the contract event 0x7e62e1ec80a87937e5d40f5a5e42a516befc032971f2b16e0dc1839c9b08b5b7.
 //
-// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerChanged(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorPrimaryManagerChanged, strategy []common.Address, oldManager []common.Address, newManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
@@ -4949,9 +5056,9 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchPrimaryManagerCh
 	}), nil
 }
 
-// ParsePrimaryManagerChanged is a log parse operation binding the contract event 0x4fabd2698f36f819418b0ded3a29b7e2572bef7ee7bd0875f5b5bb805333c6fc.
+// ParsePrimaryManagerChanged is a log parse operation binding the contract event 0x7e62e1ec80a87937e5d40f5a5e42a516befc032971f2b16e0dc1839c9b08b5b7.
 //
-// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager)
+// Solidity: event PrimaryManagerChanged(address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParsePrimaryManagerChanged(log types.Log) (*SuperVaultAggregatorPrimaryManagerChanged, error) {
 	event := new(SuperVaultAggregatorPrimaryManagerChanged)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "PrimaryManagerChanged", log); err != nil {
@@ -6315,168 +6422,6 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyHooksRoo
 	return event, nil
 }
 
-// SuperVaultAggregatorStrategyHooksRootVetoedIterator is returned from FilterStrategyHooksRootVetoed and is used to iterate over the raw logs and unpacked data for StrategyHooksRootVetoed events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorStrategyHooksRootVetoedIterator struct {
-	Event *SuperVaultAggregatorStrategyHooksRootVetoed // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorStrategyHooksRootVetoedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorStrategyHooksRootVetoed)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorStrategyHooksRootVetoed)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorStrategyHooksRootVetoedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorStrategyHooksRootVetoedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorStrategyHooksRootVetoed represents a StrategyHooksRootVetoed event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorStrategyHooksRootVetoed struct {
-	Guardian common.Address
-	Strategy common.Address
-	Root     [32]byte
-	Raw      types.Log // Blockchain specific contextual infos
-}
-
-// FilterStrategyHooksRootVetoed is a free log retrieval operation binding the contract event 0x13fb75f412cd7275ea6c0c59de6d99dd291eddab76417824e0edc385e5d75561.
-//
-// Solidity: event StrategyHooksRootVetoed(address indexed guardian, address indexed strategy, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStrategyHooksRootVetoed(opts *bind.FilterOpts, guardian []common.Address, strategy []common.Address, root [][32]byte) (*SuperVaultAggregatorStrategyHooksRootVetoedIterator, error) {
-
-	var guardianRule []interface{}
-	for _, guardianItem := range guardian {
-		guardianRule = append(guardianRule, guardianItem)
-	}
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var rootRule []interface{}
-	for _, rootItem := range root {
-		rootRule = append(rootRule, rootItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StrategyHooksRootVetoed", guardianRule, strategyRule, rootRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorStrategyHooksRootVetoedIterator{contract: _SuperVaultAggregator.contract, event: "StrategyHooksRootVetoed", logs: logs, sub: sub}, nil
-}
-
-// WatchStrategyHooksRootVetoed is a free log subscription operation binding the contract event 0x13fb75f412cd7275ea6c0c59de6d99dd291eddab76417824e0edc385e5d75561.
-//
-// Solidity: event StrategyHooksRootVetoed(address indexed guardian, address indexed strategy, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyHooksRootVetoed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStrategyHooksRootVetoed, guardian []common.Address, strategy []common.Address, root [][32]byte) (event.Subscription, error) {
-
-	var guardianRule []interface{}
-	for _, guardianItem := range guardian {
-		guardianRule = append(guardianRule, guardianItem)
-	}
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-	var rootRule []interface{}
-	for _, rootItem := range root {
-		rootRule = append(rootRule, rootItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StrategyHooksRootVetoed", guardianRule, strategyRule, rootRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorStrategyHooksRootVetoed)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyHooksRootVetoed", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseStrategyHooksRootVetoed is a log parse operation binding the contract event 0x13fb75f412cd7275ea6c0c59de6d99dd291eddab76417824e0edc385e5d75561.
-//
-// Solidity: event StrategyHooksRootVetoed(address indexed guardian, address indexed strategy, bytes32 indexed root)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyHooksRootVetoed(log types.Log) (*SuperVaultAggregatorStrategyHooksRootVetoed, error) {
-	event := new(SuperVaultAggregatorStrategyHooksRootVetoed)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyHooksRootVetoed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // SuperVaultAggregatorStrategyPPSStaleIterator is returned from FilterStrategyPPSStale and is used to iterate over the raw logs and unpacked data for StrategyPPSStale events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorStrategyPPSStaleIterator struct {
 	Event *SuperVaultAggregatorStrategyPPSStale // Event containing the contract specifics and raw log
@@ -6903,151 +6848,6 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyPaused(o
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyPaused(log types.Log) (*SuperVaultAggregatorStrategyPaused, error) {
 	event := new(SuperVaultAggregatorStrategyPaused)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyPaused", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator is returned from FilterStrategyUnpausePPSTimelockUpdated and is used to iterate over the raw logs and unpacked data for StrategyUnpausePPSTimelockUpdated events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator struct {
-	Event *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated represents a StrategyUnpausePPSTimelockUpdated event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated struct {
-	Strategy    common.Address
-	NewTimelock *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
-}
-
-// FilterStrategyUnpausePPSTimelockUpdated is a free log retrieval operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
-//
-// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterStrategyUnpausePPSTimelockUpdated(opts *bind.FilterOpts, strategy []common.Address) (*SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "StrategyUnpausePPSTimelockUpdated", strategyRule)
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorStrategyUnpausePPSTimelockUpdatedIterator{contract: _SuperVaultAggregator.contract, event: "StrategyUnpausePPSTimelockUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchStrategyUnpausePPSTimelockUpdated is a free log subscription operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
-//
-// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchStrategyUnpausePPSTimelockUpdated(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated, strategy []common.Address) (event.Subscription, error) {
-
-	var strategyRule []interface{}
-	for _, strategyItem := range strategy {
-		strategyRule = append(strategyRule, strategyItem)
-	}
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "StrategyUnpausePPSTimelockUpdated", strategyRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyUnpausePPSTimelockUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseStrategyUnpausePPSTimelockUpdated is a log parse operation binding the contract event 0xcaa1beb16816b2a2a6d26301cfbde569da7a04748029f8b0239f2f23c1a7681d.
-//
-// Solidity: event StrategyUnpausePPSTimelockUpdated(address indexed strategy, uint256 newTimelock)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseStrategyUnpausePPSTimelockUpdated(log types.Log) (*SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated, error) {
-	event := new(SuperVaultAggregatorStrategyUnpausePPSTimelockUpdated)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "StrategyUnpausePPSTimelockUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -7753,141 +7553,6 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepClaimed(lo
 	return event, nil
 }
 
-// SuperVaultAggregatorUpkeepCostUpdatedIterator is returned from FilterUpkeepCostUpdated and is used to iterate over the raw logs and unpacked data for UpkeepCostUpdated events raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorUpkeepCostUpdatedIterator struct {
-	Event *SuperVaultAggregatorUpkeepCostUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *SuperVaultAggregatorUpkeepCostUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(SuperVaultAggregatorUpkeepCostUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(SuperVaultAggregatorUpkeepCostUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *SuperVaultAggregatorUpkeepCostUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *SuperVaultAggregatorUpkeepCostUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// SuperVaultAggregatorUpkeepCostUpdated represents a UpkeepCostUpdated event raised by the SuperVaultAggregator contract.
-type SuperVaultAggregatorUpkeepCostUpdated struct {
-	OldCost *big.Int
-	NewCost *big.Int
-	Raw     types.Log // Blockchain specific contextual infos
-}
-
-// FilterUpkeepCostUpdated is a free log retrieval operation binding the contract event 0x39bca166dfce33a0df0f6a53e61159a307a9cf65e4c4982a9d025df35b60e746.
-//
-// Solidity: event UpkeepCostUpdated(uint256 oldCost, uint256 newCost)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepCostUpdated(opts *bind.FilterOpts) (*SuperVaultAggregatorUpkeepCostUpdatedIterator, error) {
-
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepCostUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return &SuperVaultAggregatorUpkeepCostUpdatedIterator{contract: _SuperVaultAggregator.contract, event: "UpkeepCostUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchUpkeepCostUpdated is a free log subscription operation binding the contract event 0x39bca166dfce33a0df0f6a53e61159a307a9cf65e4c4982a9d025df35b60e746.
-//
-// Solidity: event UpkeepCostUpdated(uint256 oldCost, uint256 newCost)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepCostUpdated(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepCostUpdated) (event.Subscription, error) {
-
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepCostUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(SuperVaultAggregatorUpkeepCostUpdated)
-				if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepCostUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseUpkeepCostUpdated is a log parse operation binding the contract event 0x39bca166dfce33a0df0f6a53e61159a307a9cf65e4c4982a9d025df35b60e746.
-//
-// Solidity: event UpkeepCostUpdated(uint256 oldCost, uint256 newCost)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepCostUpdated(log types.Log) (*SuperVaultAggregatorUpkeepCostUpdated, error) {
-	event := new(SuperVaultAggregatorUpkeepCostUpdated)
-	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepCostUpdated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // SuperVaultAggregatorUpkeepDepositedIterator is returned from FilterUpkeepDeposited and is used to iterate over the raw logs and unpacked data for UpkeepDeposited events raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorUpkeepDepositedIterator struct {
 	Event *SuperVaultAggregatorUpkeepDeposited // Event containing the contract specifics and raw log
@@ -8403,7 +8068,7 @@ func (it *SuperVaultAggregatorUpkeepWithdrawalProposedIterator) Close() error {
 // SuperVaultAggregatorUpkeepWithdrawalProposed represents a UpkeepWithdrawalProposed event raised by the SuperVaultAggregator contract.
 type SuperVaultAggregatorUpkeepWithdrawalProposed struct {
 	Strategy      common.Address
-	Initiator     common.Address
+	MainManager   common.Address
 	Amount        *big.Int
 	EffectiveTime *big.Int
 	Raw           types.Log // Blockchain specific contextual infos
@@ -8411,19 +8076,19 @@ type SuperVaultAggregatorUpkeepWithdrawalProposed struct {
 
 // FilterUpkeepWithdrawalProposed is a free log retrieval operation binding the contract event 0x9609899ca39d06bc75b43075ca3e965886967fd4cd3ec9d86aec014aaa5169db.
 //
-// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawalProposed(opts *bind.FilterOpts, strategy []common.Address, initiator []common.Address) (*SuperVaultAggregatorUpkeepWithdrawalProposedIterator, error) {
+// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawalProposed(opts *bind.FilterOpts, strategy []common.Address, mainManager []common.Address) (*SuperVaultAggregatorUpkeepWithdrawalProposedIterator, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var initiatorRule []interface{}
-	for _, initiatorItem := range initiator {
-		initiatorRule = append(initiatorRule, initiatorItem)
+	var mainManagerRule []interface{}
+	for _, mainManagerItem := range mainManager {
+		mainManagerRule = append(mainManagerRule, mainManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepWithdrawalProposed", strategyRule, initiatorRule)
+	logs, sub, err := _SuperVaultAggregator.contract.FilterLogs(opts, "UpkeepWithdrawalProposed", strategyRule, mainManagerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -8432,19 +8097,19 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) FilterUpkeepWithdrawa
 
 // WatchUpkeepWithdrawalProposed is a free log subscription operation binding the contract event 0x9609899ca39d06bc75b43075ca3e965886967fd4cd3ec9d86aec014aaa5169db.
 //
-// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime)
-func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawalProposed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepWithdrawalProposed, strategy []common.Address, initiator []common.Address) (event.Subscription, error) {
+// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime)
+func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawalProposed(opts *bind.WatchOpts, sink chan<- *SuperVaultAggregatorUpkeepWithdrawalProposed, strategy []common.Address, mainManager []common.Address) (event.Subscription, error) {
 
 	var strategyRule []interface{}
 	for _, strategyItem := range strategy {
 		strategyRule = append(strategyRule, strategyItem)
 	}
-	var initiatorRule []interface{}
-	for _, initiatorItem := range initiator {
-		initiatorRule = append(initiatorRule, initiatorItem)
+	var mainManagerRule []interface{}
+	for _, mainManagerItem := range mainManager {
+		mainManagerRule = append(mainManagerRule, mainManagerItem)
 	}
 
-	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepWithdrawalProposed", strategyRule, initiatorRule)
+	logs, sub, err := _SuperVaultAggregator.contract.WatchLogs(opts, "UpkeepWithdrawalProposed", strategyRule, mainManagerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -8478,7 +8143,7 @@ func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) WatchUpkeepWithdrawal
 
 // ParseUpkeepWithdrawalProposed is a log parse operation binding the contract event 0x9609899ca39d06bc75b43075ca3e965886967fd4cd3ec9d86aec014aaa5169db.
 //
-// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed initiator, uint256 amount, uint256 effectiveTime)
+// Solidity: event UpkeepWithdrawalProposed(address indexed strategy, address indexed mainManager, uint256 amount, uint256 effectiveTime)
 func (_SuperVaultAggregator *SuperVaultAggregatorFilterer) ParseUpkeepWithdrawalProposed(log types.Log) (*SuperVaultAggregatorUpkeepWithdrawalProposed, error) {
 	event := new(SuperVaultAggregatorUpkeepWithdrawalProposed)
 	if err := _SuperVaultAggregator.contract.UnpackLog(event, "UpkeepWithdrawalProposed", log); err != nil {

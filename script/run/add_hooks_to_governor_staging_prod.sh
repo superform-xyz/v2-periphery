@@ -42,20 +42,15 @@ set -euo pipefail  # Exit on error, undefined var, pipe failure
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source network configuration
-if [ ! -f "$SCRIPT_DIR/networks-staging.sh" ]; then
-    echo "ERROR: networks-staging.sh not found in $SCRIPT_DIR"
-    exit 1
-fi
-
-source "$SCRIPT_DIR/networks-staging.sh"
+# Network configuration will be sourced after environment is determined
+# See source_network_config function
 
 # S3 bucket for fetching contract addresses
 readonly BUCKET="superform-deployment-state"
 
-# Salt namespaces
-readonly STAGING_SALT_NAMESPACE="DEPLOYSTAGING1.0.0"
-readonly PRODUCTION_SALT_NAMESPACE="DEPLOYPROD1.0.0"
+# Salt namespaces (must match ConfigBase.sol)
+readonly STAGING_SALT_NAMESPACE="STAGING1.0.0"
+readonly PRODUCTION_SALT_NAMESPACE="PROD1.0.0"
 
 ###################################################################################
 # Helper Functions
@@ -106,6 +101,26 @@ validate_environment() {
     fi
 }
 
+# Source network configuration based on environment
+source_network_config() {
+    local environment=$1
+    local network_config_file
+
+    if [ "$environment" = "staging" ]; then
+        network_config_file="$SCRIPT_DIR/networks-staging.sh"
+    else
+        network_config_file="$SCRIPT_DIR/networks-production.sh"
+    fi
+
+    if [ ! -f "$network_config_file" ]; then
+        log "ERROR" "Network config not found: $network_config_file"
+        exit 1
+    fi
+
+    log "INFO" "Loading network configuration from: $network_config_file"
+    source "$network_config_file"
+}
+
 # Validate mode parameter
 validate_mode() {
     local mode=$1
@@ -151,7 +166,7 @@ check_aws_access() {
     log "INFO" "AWS CLI configured successfully"
 }
 
-# Read merged state from S3
+# Read merged state from S3 (for staging)
 read_merged_state_from_s3() {
     local environment=$1
     local s3_path="s3://$BUCKET/$environment/latest.json"
@@ -173,6 +188,30 @@ read_merged_state_from_s3() {
     else
         log "ERROR" "Failed to read merged state from S3: $s3_path"
         log "ERROR" "Make sure you have run the merge script first"
+        return 1
+    fi
+}
+
+# Read merged state from local file (for prod)
+read_merged_state_from_local() {
+    local environment=$1
+    local local_path="$SCRIPT_DIR/../output/$environment/latest.json"
+
+    log "INFO" "Reading merged state from local: $local_path"
+
+    if [ -f "$local_path" ]; then
+        # Validate JSON
+        if ! jq '.' "$local_path" >/dev/null 2>&1; then
+            log "ERROR" "Invalid JSON in local merged state file"
+            return 1
+        fi
+
+        log "INFO" "Successfully validated local merged state"
+        echo "$local_path"
+        return 0
+    else
+        log "ERROR" "Local merged state not found: $local_path"
+        log "ERROR" "Run merge_periphery_to_core_local_prod.sh first"
         return 1
     fi
 }
@@ -285,11 +324,19 @@ configure_all_networks() {
 
     log "INFO" "Starting hook configuration for all networks..."
 
-    # Read merged state from S3
+    # Read merged state - use local file for prod, S3 for staging
     local merged_state_file
-    if ! merged_state_file=$(read_merged_state_from_s3 "$environment"); then
-        log "ERROR" "Failed to read merged state from S3"
-        return 1
+    if [ "$environment" = "prod" ]; then
+        if ! merged_state_file=$(read_merged_state_from_local "$environment"); then
+            log "ERROR" "Failed to read merged state from local"
+            return 1
+        fi
+    else
+        # staging - continue using S3
+        if ! merged_state_file=$(read_merged_state_from_s3 "$environment"); then
+            log "ERROR" "Failed to read merged state from S3"
+            return 1
+        fi
     fi
 
     local success_count=0
@@ -300,7 +347,7 @@ configure_all_networks() {
     local supported_network_ids=$(get_supported_networks)
 
     if [ -z "$supported_network_ids" ]; then
-        log "ERROR" "No networks found in networks-staging.sh"
+        log "ERROR" "No networks found in network configuration"
         return 1
     fi
 
@@ -393,6 +440,9 @@ main() {
     # Validate environment
     validate_environment "$environment"
 
+    # Source network configuration based on environment
+    source_network_config "$environment"
+
     # Validate mode
     validate_mode "$mode"
 
@@ -433,8 +483,10 @@ main() {
     # Check prerequisites
     log "INFO" "Checking prerequisites..."
 
-    # Check AWS access
-    check_aws_access
+    # Check AWS access (only needed for staging)
+    if [ "$environment" = "staging" ]; then
+        check_aws_access
+    fi
 
     # Load RPC URLs
     load_rpc_urls

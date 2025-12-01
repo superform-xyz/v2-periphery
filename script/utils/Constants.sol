@@ -38,7 +38,9 @@ abstract contract Constants {
     string internal constant SUPER_VAULT_AGGREGATOR_KEY = "SuperVaultAggregator";
     string internal constant ECDSAPPS_ORACLE_KEY = "ECDSAPPSOracle";
     string internal constant ECDSAPPS_ORACLE_VERSION = "1.0";
+    string internal constant FIXED_PRICE_ORACLE_KEY = "FixedPriceOracle";
     string internal constant SUPER_ORACLE_KEY = "SuperOracle";
+    string internal constant SUPER_ORACLE_L2_KEY = "SuperOracleL2";
     string internal constant SUPER_BANK_KEY = "SuperBank";
     string internal constant BUNDLER_REGISTRY_KEY = "BundlerRegistry";
     string internal constant SUPER_ASSET_KEY = "SuperAsset";
@@ -50,6 +52,10 @@ abstract contract Constants {
     string internal constant SUPER_VAULT_KEY = "SuperVault";
     string internal constant SUPER_VAULT_STRATEGY_KEY = "SuperVaultStrategy";
     string internal constant SUPER_VAULT_ESCROW_KEY = "SuperVaultEscrow";
+
+    // Validator configuration defaults
+    uint256 internal constant INITIAL_VALIDATOR_CONFIG_VERSION = 1;
+    uint256 internal constant INITIAL_VALIDATOR_QUORUM = 1;
 
     // core contract keys (for deterministic address computation)
     string internal constant SUPER_DEPLOYER_KEY = "SuperDeployer";

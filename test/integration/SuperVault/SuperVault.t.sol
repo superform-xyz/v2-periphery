@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 // testing
+import { MerkleReader } from "../../utils/merkle/helper/MerkleReader.sol";
 import { BaseSuperVaultTest } from "./BaseSuperVaultTest.t.sol";
 
 // external
@@ -16,10 +17,16 @@ import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptog
 
 // superform
 import { ISuperVault } from "../../../src/interfaces/SuperVault/ISuperVault.sol";
+import { AcrossV3Helper } from "pigeon/across/AcrossV3Helper.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
+import { SuperGovernor } from "../../../src/SuperGovernor.sol";
+import { SuperBank } from "../../../src/SuperBank.sol";
+import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
+import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IERC7540Redeem, IERC7540Operator, IERC7741 } from "../../../src/vendor/standards/ERC7540/IERC7540Vault.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
@@ -2305,7 +2312,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(vars.newVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -3300,10 +3311,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Add a new yield source as manager
         vm.startPrank(MANAGER);
         strategyGearSuperVault.manageYieldSource(
-            address(gearboxVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+            address(gearboxVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         strategyGearSuperVault.manageYieldSource(
-            address(gearboxFarmingPool), _getContract(ETH, STAKING_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+            address(gearboxFarmingPool),
+            _getContract(ETH, STAKING_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
         );
         vm.stopPrank();
 
@@ -3485,6 +3500,518 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ISuperExecutor.ExecutorEntry({ hooksAddresses: claimHooksAddresses, hooksData: claimHooksData });
         UserOpData memory claimUserOpData = _getExecOps(instanceOnEth, superExecutorOnEth, abi.encode(claimEntry));
         executeOp(claimUserOpData);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            TOKEN BRIDGE TESTS
+    //////////////////////////////////////////////////////////////*/
+    function test_SuperBank_TokenBridge_BaseToETH() public {
+        // Step 1: Setup and initial deposits
+        (address assetBase, address assetETH, uint256 superBankEthBefore) = _setupBridgeTestAssets();
+
+        // Step 2: Setup vault and perform deposits
+        (SuperVault bTVault, SuperVaultStrategy bTStrategy, SuperGovernor govBase, SuperVaultAggregator aggregatorBase) = _setupBridgeTestVault(assetBase);
+        _performBridgeTestDeposits(assetBase, bTVault, bTStrategy);
+
+        // Step 3: Process performance fees and redeem flow
+        _processBridgeTestRedemption(bTVault, bTStrategy, govBase, aggregatorBase);
+
+        // Step 4: Execute bridge and verify
+        _executeBridgeAndVerify(assetBase, assetETH, superBankEthBefore);
+    }
+
+    function _setupBridgeTestAssets() internal returns (address assetBase, address assetETH, uint256 superBankEthBefore) {
+        vm.selectFork(FORKS[ETH]);
+        assetETH = existingUnderlyingTokens[ETH][USDC_KEY];
+        address superBankETH = _getContract(ETH, SUPER_BANK_KEY);
+        superBankEthBefore = IERC20(assetETH).balanceOf(superBankETH);
+
+        vm.selectFork(FORKS[BASE]);
+        assetBase = existingUnderlyingTokens[BASE][USDC_KEY];
+    }
+
+    function _performBridgeTestDeposits(address assetBase, SuperVault bTVault, SuperVaultStrategy bTStrategy) internal {
+        uint256 depositAmount = 100_000e6;
+
+        AccountInstance memory accountBase = makeAccountInstance("accountBase");
+        AccountInstance memory accountBase1 = makeAccountInstance("accountBase1");
+
+        deal(assetBase, accountBase.account, depositAmount);
+        deal(assetBase, accountBase1.account, depositAmount);
+
+        vm.startPrank(accountBase.account);
+        IERC20(assetBase).approve(address(bTVault), depositAmount);
+        bTVault.deposit(depositAmount, accountBase.account);
+        vm.stopPrank();
+
+        vm.startPrank(accountBase1.account);
+        IERC20(assetBase).approve(address(bTVault), depositAmount);
+        bTVault.deposit(depositAmount, accountBase1.account);
+        vm.stopPrank();
+
+        address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
+        _depositIntoUnderlyingOnBase(assetBase, morphoVaultAddr, address(bTStrategy), depositAmount);
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+    }
+
+    function _processBridgeTestRedemption(SuperVault bTVault, SuperVaultStrategy bTStrategy, SuperGovernor govBase, SuperVaultAggregator aggregatorBase) internal {
+        AccountInstance memory accountBase = makeAccountInstance("accountBase");
+        AccountInstance memory accountBase1 = makeAccountInstance("accountBase1");
+        uint256 accShares = bTVault.balanceOf(accountBase.account);
+
+        vm.prank(MANAGER);
+        bTStrategy.skimPerformanceFee();
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+
+        vm.startPrank(accountBase.account);
+        bTStrategy.setRedeemSlippage(9900);
+        bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
+        vm.stopPrank();
+
+        vm.startPrank(accountBase1.account);
+        bTStrategy.setRedeemSlippage(9900);
+        bTVault.requestRedeem(accShares, accountBase1.account, accountBase1.account);
+        vm.stopPrank();
+
+        address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
+        _redeemFromUnderlyingOnBase(morphoVaultAddr, address(bTStrategy));
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+        
+        _fulfillRedeemRequestsOnBase(accountBase.account, accountBase1.account, address(bTStrategy));
+
+        uint256 claimableUpkeep = aggregatorBase.claimableUpkeep();
+        vm.prank(address(govBase));
+        aggregatorBase.claimUpkeep(claimableUpkeep);
+    }
+
+    function _executeBridgeAndVerify(address assetBase, address assetETH, uint256 superBankEthBefore) internal {
+        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+        uint256 bankBalanceBaseBefore = IERC20(assetBase).balanceOf(address(superBankBase));
+
+        _bridgeToSuperBankOnETH(assetBase, assetETH, bankBalanceBaseBefore);
+
+        // Verify that funds were transferred from SuperBank Base (either to mock or bridge)
+        uint256 bankBalanceBaseAfter = IERC20(assetBase).balanceOf(address(superBankBase));
+        assertLt(bankBalanceBaseAfter, bankBalanceBaseBefore, "Funds should have been transferred from SuperBank Base");
+
+        // Since mock executes real Across hook, verify funds arrived on ETH
+        console2.log("Bridge hook execution completed successfully");
+        console2.log("SuperBank Base balance before: ", bankBalanceBaseBefore);
+        console2.log("SuperBank Base balance after: ", bankBalanceBaseAfter);
+
+        // Check if funds arrived on ETH SuperBank
+        vm.selectFork(FORKS[ETH]);
+        address superBankETH = _getContract(ETH, SUPER_BANK_KEY);
+        uint256 bankBalanceETHAfter = IERC20(assetETH).balanceOf(superBankETH);
+        console2.log("SuperBank ETH balance before: ", superBankEthBefore);
+        console2.log("SuperBank ETH balance after: ", bankBalanceETHAfter);
+
+        assertEq(bankBalanceETHAfter, bankBalanceBaseBefore, "Funds should have been transferred from SuperBank Base to SuperBank ETH");
+    }
+
+    function _setupBridgeTestVault(address assetBridgeTest) internal returns 
+    (
+        SuperVault bridgeTestVault, 
+        SuperVaultStrategy bridgeTestStrategy,
+        SuperGovernor govBase,
+        SuperVaultAggregator aggregatorBase
+    ) {
+        vm.selectFork(FORKS[BASE]);
+
+        // Setup contract instances
+        (address bridgeTestVaultAddr, address bridgeTestStrategyAddr,) = _deployVaultOnBase(assetBridgeTest, "svBridgeTest");
+
+        vm.label(bridgeTestVaultAddr, "BridgeTestVault");
+        vm.label(bridgeTestStrategyAddr, "BridgeTestStrategy");
+
+        bridgeTestVault = SuperVault(bridgeTestVaultAddr);
+        bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
+
+        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+
+        // Set fee config
+        vm.startPrank(MANAGER);
+        bridgeTestStrategy.proposeVaultFeeConfigUpdate(5000, 5000, superBankBase);
+        vm.warp(block.timestamp + 1 weeks);
+        bridgeTestStrategy.executeVaultFeeConfigUpdate();
+        vm.stopPrank();
+
+        // Set underlying yield source
+        address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
+
+        // Add a new yield source as manager
+        vm.prank(MANAGER);
+        bridgeTestStrategy.manageYieldSource(
+            morphoVaultAddr, _getContract(BASE, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+        );
+
+        _updateSuperVaultBasePPS(bridgeTestStrategyAddr, bridgeTestVaultAddr);
+
+        // Deposit upkeep as manager
+        govBase = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
+        govBase.setAddress(govBase.UPKEEP_TOKEN(), assetBridgeTest);
+        govBase.setAddress(govBase.SUPER_BANK(), superBankBase);
+
+        address aggregatorBaseAddr = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+        aggregatorBase = SuperVaultAggregator(aggregatorBaseAddr);
+
+        deal(assetBridgeTest, MANAGER, 200_000e6);
+        vm.startPrank(MANAGER);
+        IERC20(assetBridgeTest).approve(aggregatorBaseAddr, 100_000e6);
+        aggregatorBase.depositUpkeep(bridgeTestStrategyAddr, 100_000e6);
+        vm.stopPrank();
+
+        return (bridgeTestVault, bridgeTestStrategy, govBase, aggregatorBase);
+    }
+
+    /**
+     * @notice Helper function to deposit into underlying vault on Base chain with merkle proofs
+     * @param assetOnBase The asset to deposit
+     * @param baseUnderlying The underlying vault to deposit into
+     * @param bridgeTestStrategy The strategy executing the deposit
+     * @param depositAmount The amount of asset to deposit
+     */
+    function _depositIntoUnderlyingOnBase(
+        address assetOnBase, 
+        address baseUnderlying, 
+        address bridgeTestStrategy,
+        uint256 depositAmount
+    ) internal {
+        address depositHookAddress = _getHookAddress(BASE, APPROVE_AND_DEPOSIT_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = depositHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+
+        // Split the deposit between two hooks
+        fulfillHooksData[0] = _createApproveAndDeposit4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            baseUnderlying,
+            assetOnBase,
+            depositAmount,
+            false,
+            address(0),
+            0
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).previewDeposit(depositAmount / 2);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+
+        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
+        bytes32 baseHooksMerkleRoot;
+
+        vm.mockCall(
+            baseAggregatorAddress,
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Try to get proper merkle root for Base chain, fallback to single-leaf tree if hook not found
+        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
+            baseHooksMerkleRoot = root;
+        } catch {
+            // Hook not in Base merkle tree, use single-leaf tree as fallback
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(depositHookAddress, fulfillHooksData))));
+            baseHooksMerkleRoot = leaf;
+        }
+
+        // Set strategy root
+        vm.startPrank(MANAGER);
+        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
+        vm.warp(block.timestamp + 24 hours + 1);
+        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
+
+        SuperVaultStrategy(payable(bridgeTestStrategy))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
+                })
+            );
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Helper function to redeem from underlying vault on Base chain with merkle proofs
+     * @param baseUnderlying The underlying vault to redeem from
+     * @param bridgeTestStrategy The strategy executing the redemption
+     */
+    function _redeemFromUnderlyingOnBase(
+        address baseUnderlying,
+        address bridgeTestStrategy
+    ) internal {
+        address redeemHookAddress = _getHookAddress(BASE, REDEEM_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = redeemHookAddress;
+
+        uint256 redeemAmount = IERC4626(baseUnderlying).balanceOf(bridgeTestStrategy);
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+
+        // Create redemption hook data
+        fulfillHooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            baseUnderlying,
+            bridgeTestStrategy,
+            redeemAmount,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).previewRedeem(redeemAmount);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+
+        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
+        bytes32 baseHooksMerkleRoot;
+
+        vm.mockCall(
+            baseAggregatorAddress,
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Try to get proper merkle root for Base chain, fallback to single-leaf tree if hook not found
+        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
+            baseHooksMerkleRoot = root;
+        } catch {
+            // Hooks not in Base merkle tree, use single-leaf tree as fallback for each hook
+            bytes32 redeemLeaf = keccak256(bytes.concat(keccak256(abi.encode(redeemHookAddress, fulfillHooksData[0]))));
+            // For two leaves, create a simple merkle root
+            baseHooksMerkleRoot = redeemLeaf;
+        }
+
+        // Set strategy root
+        vm.startPrank(MANAGER);
+        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
+        vm.warp(block.timestamp + 24 hours + 1);
+        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
+
+        SuperVaultStrategy(payable(bridgeTestStrategy))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
+                })
+            );
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Helper function to fulfill redeem requests on Base chain
+     * @param accountBase The account to fulfill the redeem request for
+     * @param accountBase1 The account to fulfill the redeem request for
+     * @param bridgeTestStrategy The strategy executing the redeem requests
+     */
+    function _fulfillRedeemRequestsOnBase(
+        address accountBase,
+        address accountBase1,
+        address bridgeTestStrategy
+    ) internal {
+        address[] memory requestingUsers = new address[](2);
+        requestingUsers[0] = accountBase;
+        requestingUsers[1] = accountBase1;
+
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses using AssetAdjustmentHelper
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(
+            ISuperVaultStrategy(bridgeTestStrategy),
+            existingUnderlyingTokens[BASE][USDC_KEY],
+            requestingUsers
+        );
+
+        vm.startPrank(MANAGER);
+        SuperVaultStrategy(payable(bridgeTestStrategy)).fulfillRedeemRequests(requestingUsers, totalAssetsOut);
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Try to get Base chain merkle root, with fallback to single-leaf
+     * @return root The merkle root for Base chain
+     */
+    function _tryGetBaseMerkleRoot() external returns (bytes32 root) {
+        // This will throw if Base merkle files don't exist or are invalid
+        // The try-catch in calling function will handle the error
+        _setMerkleChainId(BASE);
+        return _getMerkleRoot();
+    }
+
+    /**
+     * @notice Try to get Base chain merkle proofs, with fallback to empty arrays
+     * @param hookAddresses Array of hook addresses
+     * @param argsForProofs Array of encoded arguments
+     * @return proofs Array of merkle proofs, or empty arrays on failure
+     */
+    function _tryGetBaseMerkleProofs(
+        address[] memory hookAddresses,
+        bytes[] memory argsForProofs
+    ) internal returns (bytes32[][] memory proofs) {
+        try this._tryGetBaseMerkleProofsForChain(hookAddresses, argsForProofs) returns (bytes32[][] memory validProofs) {
+            return validProofs;
+        } catch {
+            // Hook not found in Base merkle tree, return empty proofs for single-leaf tree
+            proofs = new bytes32[][](hookAddresses.length);
+            for (uint256 i = 0; i < hookAddresses.length; i++) {
+                proofs[i] = new bytes32[](0); // Empty proof for single-leaf tree
+            }
+            return proofs;
+        }
+    }
+
+    /**
+     * @notice External function to get Base merkle proofs (needed for try-catch)
+     * @param hookAddresses Array of hook addresses
+     * @param argsForProofs Array of encoded arguments
+     * @return proofs Array of merkle proofs
+     */
+    function _tryGetBaseMerkleProofsForChain(
+        address[] memory hookAddresses,
+        bytes[] memory argsForProofs
+    ) external returns (bytes32[][] memory proofs) {
+        return _getMerkleProofsForChain(BASE, hookAddresses, argsForProofs);
+    }
+
+    /**
+     * @notice Helper function to bridge funds from Base to SuperBank on ETH using Across
+     * @param assetOnBase The asset to bridge from Base
+     * @param assetOnETH The expected asset on ETH
+     * @param bridgeAmount The amount to bridge
+     */
+    function _bridgeToSuperBankOnETH(
+        address assetOnBase,
+        address assetOnETH,
+        uint256 bridgeAmount
+    ) internal {
+        address approveHookAddress = _getHookAddress(BASE, APPROVE_ERC20_HOOK_KEY);
+        address acrossHookAddress = _getHookAddress(BASE, ACROSS_SEND_FUNDS_AND_EXECUTE_ON_DST_HOOK_KEY);
+
+        address spokedPoolV3 = SPOKE_POOL_V3_ADDRESSES[BASE];
+
+        address[] memory fulfillHooksAddresses = new address[](2);
+        fulfillHooksAddresses[0] = approveHookAddress;
+        fulfillHooksAddresses[1] = acrossHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](2);
+        fulfillHooksData[0] = _createApproveHookData(
+            assetOnBase,
+            spokedPoolV3,
+            bridgeAmount,
+            false
+        );
+
+        // Get SuperBank address on ETH as recipient
+        address superBankETH = _getContract(ETH, SUPER_BANK_KEY);
+
+        // Create Across hook data with SuperBank as recipient
+        fulfillHooksData[1] = _createAcrossV3ReceiveFundsNoExecution(
+            superBankETH,
+            assetOnBase,
+            assetOnETH,
+            bridgeAmount,
+            bridgeAmount,
+            ETH,
+            false,
+            ""
+        );
+
+        // Use real SuperBank with proper hook verification
+        address payable superBankBase = payable(_getContract(BASE, SUPER_BANK_KEY));
+        SuperGovernor govBase = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
+
+        // Set up merkle roots for hooks before execution
+        _setupSuperBankHookMerkleRoots(govBase, fulfillHooksAddresses, fulfillHooksData);
+
+        // Create proper merkle proofs for hook execution
+        bytes32[][] memory merkleProofs = _createSuperBankMerkleProofs(fulfillHooksAddresses);
+
+        // Create hook execution data struct for real SuperBank
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: fulfillHooksAddresses,
+            data: fulfillHooksData,
+            merkleProofs: merkleProofs,
+            expectedAssetsOrSharesOut: new uint256[](fulfillHooksAddresses.length)
+        });
+
+        // Execute hooks via real SuperBank with proper role
+        SuperBank(superBankBase).executeHooks(executionData);
+        AcrossV3Helper acrossV3Helper = AcrossV3Helper(_getContract(BASE, ACROSS_V3_HELPER_KEY));
+        acrossV3Helper.help(
+                SPOKE_POOL_V3_ADDRESSES[BASE],
+                SPOKE_POOL_V3_ADDRESSES[ETH],
+                ACROSS_RELAYER,
+                block.timestamp,
+                FORKS[ETH],
+                ETH,
+                BASE,
+                vm.getRecordedLogs()
+        );
+    }
+
+    /// @notice Helper function to set up merkle roots for SuperBank hooks
+    /// @param govBase The SuperGovernor instance
+    /// @param hooks Array of hook addresses
+    /// @param hooksData Array of hook data
+    function _setupSuperBankHookMerkleRoots(
+        SuperGovernor govBase,
+        address[] memory hooks,
+        bytes[] memory hooksData
+    ) internal {
+        for (uint256 i = 0; i < hooks.length; i++) {
+            address hookAddress = hooks[i];
+            bytes memory hookData = hooksData[i];
+
+            // Get hook args from inspect() - this is what goes into the merkle leaf
+            bytes memory hookArgs = ISuperHookInspector(hookAddress).inspect(hookData);
+
+            // Create merkle leaf: keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))))
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))));
+
+            // For a single-leaf tree, the root equals the leaf
+            bytes32 merkleRoot = leaf;
+
+            // Propose and execute the merkle root for this hook
+            govBase.proposeSuperBankHookMerkleRoot(hookAddress, merkleRoot);
+
+            // Warp past the timelock (7 days)
+            vm.warp(block.timestamp + 7 days + 1);
+
+            // Execute the merkle root update
+            govBase.executeSuperBankHookMerkleRootUpdate(hookAddress);
+        }
+    }
+
+    /// @notice Helper function to create merkle proofs for SuperBank hooks
+    /// @param hooks Array of hook addresses
+    /// @return merkleProofs Array of merkle proofs (empty for single-leaf trees)
+    function _createSuperBankMerkleProofs(
+        address[] memory hooks
+    ) internal pure returns (bytes32[][] memory merkleProofs) {
+        merkleProofs = new bytes32[][](hooks.length);
+
+        for (uint256 i = 0; i < hooks.length; i++) {
+            // For single-leaf trees, empty proof is valid when root equals leaf
+            merkleProofs[i] = new bytes32[](0);
+        }
+
+        return merkleProofs;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -3752,7 +4279,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(newVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -5264,7 +5795,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(newVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         vars.initialFluidVaultPPS = fluidVault.convertToAssets(1e18);
@@ -5711,8 +6246,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         expectedAssetsOrSharesOut[1] = IERC4626(vars.ruggableVault).previewDeposit(allocationAmountVault2);
 
         for (uint256 i; i < expectedAssetsOrSharesOut.length; i++) {
-            // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 = 0.5%)
-            expectedAssetsOrSharesOut[i] = expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 4e2 / 1e5;
+            // Reduce by 0.4% to account for execution slippage (must be less than DEFAULT_REDEEM_SLIPPAGE_BPS of 50 =
+            // 0.5%)
+            expectedAssetsOrSharesOut[i] =
+                expectedAssetsOrSharesOut[i] - expectedAssetsOrSharesOut[i] * 4e2 / 1e5;
         }
 
         _depositFreeAssets(
@@ -5815,7 +6352,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Add Euler vault as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(eulerVaultAddr, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            eulerVaultAddr,
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         // Get initial balances
@@ -6029,9 +6570,21 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // add vaults to SV
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
-        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
-        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(vars.vault1),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
+        strategy.manageYieldSource(
+            address(vars.vault2),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
+        strategy.manageYieldSource(
+            address(vars.vault3),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         // use 3 users to perform deposits
@@ -6220,9 +6773,21 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // add vaults to SV
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(vars.vault1), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
-        strategy.manageYieldSource(address(vars.vault2), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
-        strategy.manageYieldSource(address(vars.vault3), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(vars.vault1),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
+        strategy.manageYieldSource(
+            address(vars.vault2),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
+        strategy.manageYieldSource(
+            address(vars.vault3),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         // use 3 users to perform deposits
@@ -6666,7 +7231,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // remove fluid vault entirely
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Remove);
+        strategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Remove
+        );
         vm.stopPrank();
 
         // check new balances
@@ -6716,7 +7285,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // re-add fluid vault
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         // try allocate again
@@ -7015,7 +7588,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // -- add it as a new yield source
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(newVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        strategy.manageYieldSource(
+            address(newVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         vars.initialFluidVaultBalance = fluidVault.balanceOf(address(strategy));
@@ -7809,9 +8386,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Replace aaveVault with ruggableVault in the strategy
         vm.startPrank(MANAGER);
-        strategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add); // Add
+        strategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        ); // Add
 
-        strategy.manageYieldSource(ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add); // Add
+        strategy.manageYieldSource(
+            ruggableVault, _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
+        ); // Add
         // ruggableVault
         vm.stopPrank();
 
@@ -8133,13 +8716,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 lastUpdateTime = aggregator.getLastUpdateTimestamp(address(testStrategy));
         uint256 ppsExpiration = testStrategy.ppsExpiration();
+        uint256 aggMaxStaleness = aggregator.getMaxStaleness(address(testStrategy));
         console2.log("Last PPS update:", lastUpdateTime);
         console2.log("PPS expiration period:", ppsExpiration);
 
-        // Warp time forward by ppsExpiration + 1 second to trigger expiration
-        vm.warp(lastUpdateTime + ppsExpiration + 1);
+        // Warp time forward to trigger expiration
+        // The check requires: (elapsed > aggMaxStaleness) && (elapsed > ppsExpiration)
+        // So we need to exceed the maximum of both values
+        uint256 maxRequiredElapsed = ppsExpiration > aggMaxStaleness ? ppsExpiration : aggMaxStaleness;
+        vm.warp(lastUpdateTime + maxRequiredElapsed + 1);
         console2.log("Warped to:", block.timestamp);
         console2.log("Time since last update:", block.timestamp - lastUpdateTime);
+        console2.log("Elapsed exceeds aggMaxStaleness:", (block.timestamp - lastUpdateTime) > aggMaxStaleness);
+        console2.log("Elapsed exceeds ppsExpiration:", (block.timestamp - lastUpdateTime) > ppsExpiration);
 
         // ===== Test operations revert with PPS_EXPIRED =====
         // Note: All operations except ClaimRedeem check PPS expiration and should revert when PPS is expired.
@@ -8492,7 +9081,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         superGovernor.resetHighWaterMark(address(strategy));
 
-        assertEq(SuperVaultStrategy(payable(address(strategy))).vaultHwmPps(), currentPPS, "High Water Mark should be reset to current PPS");
+        assertEq(
+            SuperVaultStrategy(payable(address(strategy))).vaultHwmPps(),
+            currentPPS,
+            "High Water Mark should be reset to current PPS"
+        );
     }
 
     function test_ResetHighWaterMark_RevertUnauthorized() public {
@@ -8581,9 +9174,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         addActions[0] = ISuperVaultStrategy.YieldSourceAction.Add;
         vm.startPrank(MANAGER);
         strategy.manageYieldSources(
-            _toArray(ethReceiver),
-            _toArray(_getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY)),
-            addActions
+            _toArray(ethReceiver), _toArray(_getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY)), addActions
         );
         vm.stopPrank();
 
@@ -9083,8 +9674,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Setup yield sources for this vault
         vm.startPrank(MANAGER);
-        testStrategy.manageYieldSource(address(fluidVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
-        testStrategy.manageYieldSource(address(aaveVault), _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add);
+        testStrategy.manageYieldSource(
+            address(fluidVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
+        testStrategy.manageYieldSource(
+            address(aaveVault),
+            _getContract(ETH, ERC4626_YIELD_SOURCE_ORACLE_KEY),
+            ISuperVaultStrategy.YieldSourceAction.Add
+        );
         vm.stopPrank();
 
         _updateSuperVaultPPS(vars.strategyAddr, vars.vaultAddr);
@@ -10564,7 +11163,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertFalse(vault.isOperator(address(strategy), newOperator), "Operator should not be set initially");
 
         // Encode the hook data:
-        // bytes32 placeholder (32 bytes) + vault address (20 bytes) + operator address (20 bytes) + approved bool (1 byte)
+        // bytes32 placeholder (32 bytes) + vault address (20 bytes) + operator address (20 bytes) + approved bool (1
+        // byte)
         bytes memory hookData = _encodeSetOperator7540HookData(address(vault), newOperator, true);
 
         // Create the execute args
@@ -10576,9 +11176,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Mock the validateHook call to bypass Merkle proof verification for testing
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         // Execute the hook via the strategy as MANAGER
@@ -10620,9 +11218,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Mock validateHook
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         // Execute to approve operator
@@ -10672,9 +11268,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Mock validateHook for all calls
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         // Set first operator

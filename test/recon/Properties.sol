@@ -136,6 +136,10 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         uint256 previewDepositShares = superVault.previewDeposit(previewMintAssets);
         uint256 price = superVaultStrategy.getStoredPPS();
 
+        // @dev Edge case: If feeBps >= 100% (10000), returns 0 (impossible to mint with 100%+ fees)
+        ISuperVaultStrategy.FeeConfig memory cfg = superVaultStrategy.getConfigInfo();
+        if (cfg.managementFeeBps >= 10_000) return;
+
         if (price > 0) {
             eq(shares, previewDepositShares, "previewMint and previewDeposit equivalence (from shares)");
         }
@@ -148,6 +152,10 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         uint256 previewMintAssets_over = superVault.previewMint(previewDepositShares + 1);
         uint256 price = superVaultStrategy.getStoredPPS();
 
+        // @dev Edge case: If feeBps >= 100% (10000), returns 0 (impossible to mint with 100%+ fees)
+        ISuperVaultStrategy.FeeConfig memory cfg = superVaultStrategy.getConfigInfo();
+        if (cfg.managementFeeBps >= 10_000) return;
+
         if (price > 0) {
             gte(assets, previewMintAssets_under, "previewMint and previewDeposit equivalence under (from assets)");
 
@@ -159,6 +167,11 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
     function property_comparePreviewMintAndConvertToAssets(uint256 shares) public {
         uint256 previewMintAssets = superVault.previewMint(shares);
         uint256 convertToAssets = superVault.convertToAssets(shares);
+
+        // @dev Edge case: If feeBps >= 100% (10000), returns 0 (impossible to mint with 100%+ fees)
+        ISuperVaultStrategy.FeeConfig memory cfg = superVaultStrategy.getConfigInfo();
+        if (cfg.managementFeeBps >= 10_000) return;
+
         gte(previewMintAssets, convertToAssets, "previewMint is >= convertToAssets");
     }
 
@@ -214,7 +227,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         if (
             _currentOp == OpType.FULFILL && _before.oraclePPS > _before.state[_getActor()].averageRequestPPS // fulfilled
                 // at a higher price
-                && _after.state[_getActor()].pendingRedeemRequest != 0 
+                && _after.state[_getActor()].pendingRedeemRequest != 0
             // avg
             // gets reset to 0 in this case
         ) {
@@ -235,18 +248,10 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
             // Check that burned amount is correct
             if (totalSupplyDelta < pendingRedeemDelta) {
                 // Burned less than requested
-                gte(
-                    totalSupplyDelta,
-                    pendingRedeemDelta,
-                    "burned less than requested beyond tolerance"
-                );
+                gte(totalSupplyDelta, pendingRedeemDelta, "burned less than requested beyond tolerance");
             } else {
                 // Burned more than requested
-                lte(
-                    totalSupplyDelta,
-                    pendingRedeemDelta,
-                    "burned more than requested beyond tolerance"
-                );
+                lte(totalSupplyDelta, pendingRedeemDelta, "burned more than requested beyond tolerance");
             }
         }
     }
