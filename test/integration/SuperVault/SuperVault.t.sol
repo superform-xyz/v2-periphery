@@ -21,6 +21,9 @@ import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
+import { SuperBank } from "../../../src/SuperBank.sol";
+import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
+import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -3943,48 +3946,19 @@ contract SuperVaultTest is BaseSuperVaultTest {
             superBankETH                   // SuperBank ETH address
         );
 
-        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
-        expectedAssetsOrSharesOut[0] = 0; // Bridge operations don't return assets to strategy
+        // Execute hooks via SuperBank instead of strategy
+        address payable superBankBase = payable(_getContract(BASE, SUPER_BANK_KEY));
 
-        bytes[] memory argsForProofs = new bytes[](1);
-        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+        // Create hook execution data struct for SuperBank
+        IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
+            hooks: fulfillHooksAddresses,
+            data: fulfillHooksData,
+            merkleProofs: new bytes32[][](fulfillHooksAddresses.length),
+            expectedAssetsOrSharesOut: new uint256[](fulfillHooksAddresses.length)
+        });
 
-        // Handle merkle root validation (same pattern as other helper functions)
-        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
-        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
-
-        vm.mockCall(
-            baseAggregatorAddress,
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
-        );
-
-        bytes32 baseHooksMerkleRoot;
-        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
-            baseHooksMerkleRoot = root;
-        } catch {
-            // Fallback to single-leaf tree
-            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(acrossHookAddress, fulfillHooksData[0]))));
-            baseHooksMerkleRoot = leaf;
-        }
-
-        // Set strategy root and execute
-        vm.startPrank(MANAGER);
-        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
-        vm.warp(block.timestamp + 24 hours + 1);
-        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
-
-        SuperVaultStrategy(payable(bridgeTestStrategy))
-            .executeHooks(
-                ISuperVaultStrategy.ExecuteArgs({
-                    hooks: fulfillHooksAddresses,
-                    hookCalldata: fulfillHooksData,
-                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
-                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
-                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
-                })
-            );
-        vm.stopPrank();
+        vm.prank(MANAGER);
+        SuperBank(superBankBase).executeHooks(executionData);
     }
 
     /*//////////////////////////////////////////////////////////////
