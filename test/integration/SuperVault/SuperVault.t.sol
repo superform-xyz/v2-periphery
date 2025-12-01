@@ -3523,10 +3523,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _depositIntoUnderlyingOnBase(assetBase, morphoVaultAddr, address(bTStrategy), depositAmount);
 
-        vm.startPrank(accountBase.account);
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+
+        vm.prank(accountBase.account);
         bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
 
-
+        _redeemFromUnderlyingOnBase(assetBase, morphoVaultAddr, address(bTStrategy));
     }
 
     function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
@@ -3597,6 +3599,88 @@ contract SuperVaultTest is BaseSuperVaultTest {
             // Hook not in Base merkle tree, use single-leaf tree as fallback
             bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(depositHookAddress, fulfillHooksData))));
             baseHooksMerkleRoot = leaf;
+        }
+
+        // Set strategy root
+        vm.startPrank(MANAGER);
+        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
+        vm.warp(block.timestamp + 24 hours + 1);
+        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
+
+        SuperVaultStrategy(payable(bridgeTestStrategy))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
+                })
+            );
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Helper function to redeem from underlying vault on Base chain with merkle proofs
+     * @param assetOnBase The asset to receive after redemption
+     * @param baseUnderlying The underlying vault to redeem from
+     * @param bridgeTestStrategy The strategy executing the redemption
+     */
+    function _redeemFromUnderlyingOnBase(
+        address assetOnBase,
+        address baseUnderlying,
+        address bridgeTestStrategy
+    ) internal {
+        // address approveHookAddress = _getHookAddress(BASE, APPROVE_ERC20_HOOK_KEY);
+        address redeemHookAddress = _getHookAddress(BASE, REDEEM_4626_VAULT_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        // fulfillHooksAddresses[0] = approveHookAddress;
+        fulfillHooksAddresses[0] = redeemHookAddress;
+
+        uint256 redeemAmount = IERC4626(baseUnderlying).balanceOf(bridgeTestStrategy);
+
+        bytes[] memory fulfillHooksData = new bytes[](2);
+
+        // First approve the vault shares for redemption
+        //fulfillHooksData[0] = abi.encode(baseUnderlying, baseUnderlying, redeemAmount);
+
+        // Create redemption hook data
+        fulfillHooksData[0] = _createRedeem4626HookData(
+            _getYieldSourceOracleId(bytes32(bytes(ERC4626_YIELD_SOURCE_ORACLE_KEY)), MANAGER),
+            baseUnderlying,
+            bridgeTestStrategy,
+            redeemAmount,
+            false
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        // expectedAssetsOrSharesOut[0] = 0; // Approve hook doesn't return assets/shares
+        expectedAssetsOrSharesOut[0] = IERC4626(address(baseUnderlying)).previewRedeem(redeemAmount);
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+
+        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
+        bytes32 baseHooksMerkleRoot;
+
+        vm.mockCall(
+            baseAggregatorAddress,
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        // Try to get proper merkle root for Base chain, fallback to single-leaf tree if hook not found
+        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
+            baseHooksMerkleRoot = root;
+        } catch {
+            // Hooks not in Base merkle tree, use single-leaf tree as fallback for each hook
+            // bytes32 approveLeaf = keccak256(bytes.concat(keccak256(abi.encode(approveHookAddress, fulfillHooksData[0]))));
+            bytes32 redeemLeaf = keccak256(bytes.concat(keccak256(abi.encode(redeemHookAddress, fulfillHooksData[0]))));
+            // For two leaves, create a simple merkle root
+            baseHooksMerkleRoot = redeemLeaf;
         }
 
         // Set strategy root
