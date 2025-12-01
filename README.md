@@ -1,8 +1,9 @@
 [![codecov](https://codecov.io/gh/superform-xyz/v2-periphery/graph/badge.svg?token=UL1Ifly2c4)](https://codecov.io/gh/superform-xyz/v2-periphery)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # Overview
 
-Superform v2 Periphery is the user-facing layer built on top of Superform v2 Core. It provides permissionless vault infrastructure secured by a decentralized validator network, a governance framework with timelocked controls and guardian oversight, and economic coordination through the $UP token.
+Superform v2 Periphery is the user-facing layer built on top of [Superform v2 Core](https://github.com/superform-xyz/v2-core). It provides permissionless vault infrastructure secured by a decentralized validator network, a governance framework with timelocked controls and guardian oversight, and economic coordination through the $UP token.
 
 Periphery currently consists of the following components:
 
@@ -11,9 +12,7 @@ Periphery currently consists of the following components:
 - **SuperBank**: Protocol treasury and revenue distribution engine. Receives protocol fees, slashed manager upkeep, and executes governance-approved hook operations for resource allocation.
 - **SuperGovernor**: Permissioned registry and access control hub. Manages contract addresses, role-based permissions (SUPER_GOVERNOR, GOVERNOR, GUARDIAN, BANK_MANAGER), timelocked parameter updates, and emergency intervention powers.
 
-View product documentation here: https://docs.superform.xyz/
-
-View audits here: https://github.com/superform-xyz/v2-periphery/tree/dev/audits
+📚 [Documentation](https://docs.superform.xyz/) | 🔒 [Audits](https://github.com/superform-xyz/v2-periphery/tree/dev/audits)
 
 ## Repository Structure
 
