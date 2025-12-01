@@ -3957,6 +3957,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
             expectedAssetsOrSharesOut: new uint256[](fulfillHooksAddresses.length)
         });
 
+        // Grant BANK_MANAGER_ROLE to MANAGER if not already granted
+        SuperGovernor governor = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
+        bytes32 bankManagerRole = governor.BANK_MANAGER_ROLE();
+        if (!governor.hasRole(bankManagerRole, MANAGER)) {
+            vm.prank(governor.getRoleAdmin(bankManagerRole));
+            governor.grantRole(bankManagerRole, MANAGER);
+        }
+
         vm.prank(MANAGER);
         SuperBank(superBankBase).executeHooks(executionData);
     }
