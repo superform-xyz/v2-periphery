@@ -357,11 +357,11 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function depositUpkeep(address strategy, uint256 amount) external validStrategy(strategy) {
         if (amount == 0) revert ZERO_AMOUNT();
 
-        // Get the UP token address from SUPER_GOVERNOR
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
+        // Get the UPKEEP_TOKEN address from SUPER_GOVERNOR
+        address upkeepToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UPKEEP_TOKEN());
 
-        // Transfer UP tokens from msg.sender to this contract
-        IERC20(upToken).safeTransferFrom(msg.sender, address(this), amount);
+        // Transfer UPKEEP_TOKEN from msg.sender to this contract
+        IERC20(upkeepToken).safeTransferFrom(msg.sender, address(this), amount);
 
         // Update upkeep balance for this strategy
         _strategyUpkeepBalance[strategy] += amount;
@@ -379,12 +379,12 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         if (claimableUpkeep < amount) revert INSUFFICIENT_UPKEEP();
         claimableUpkeep -= amount;
 
-        // Get the UP token address from SUPER_GOVERNOR
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
+        // Get the UPKEEP_TOKEN address from SUPER_GOVERNOR
+        address upkeepToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UPKEEP_TOKEN());
 
-        // Transfer UP tokens to `SuperBank`
+        // Transfer UPKEEP_TOKEN to `SuperBank`
         address _superBank = _getSuperBank();
-        IERC20(upToken).safeTransfer(_superBank, amount);
+        IERC20(upkeepToken).safeTransfer(_superBank, amount);
         emit UpkeepClaimed(_superBank, amount);
     }
 
@@ -401,8 +401,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         // Create withdrawal request
         pendingUpkeepWithdrawals[strategy] = UpkeepWithdrawalRequest({
-            amount: currentBalance, 
-            effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
+            amount: currentBalance, effectiveTime: block.timestamp + UPKEEP_WITHDRAWAL_TIMELOCK
         });
 
         emit UpkeepWithdrawalProposed(
@@ -429,17 +428,17 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
         // Clear the pending request
         delete pendingUpkeepWithdrawals[strategy];
 
-        // Get the UP token address from SUPER_GOVERNOR
-        address upToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UP());
+        // Get the UPKEEP_TOKEN address from SUPER_GOVERNOR
+        address upkeepToken = SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.UPKEEP_TOKEN());
 
         // Update upkeep balance
         unchecked {
             _strategyUpkeepBalance[strategy] -= withdrawalAmount;
         }
 
-        // Transfer UP tokens to the original main manager (not msg.sender)
+        // Transfer UPKEEP_TOKEN to the original main manager (not msg.sender)
         address mainManager = _strategyData[strategy].mainManager;
-        IERC20(upToken).safeTransfer(mainManager, withdrawalAmount);
+        IERC20(upkeepToken).safeTransfer(mainManager, withdrawalAmount);
 
         emit UpkeepWithdrawn(strategy, mainManager, withdrawalAmount);
     }
@@ -588,6 +587,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
+
         address oldManager = _strategyData[strategy].mainManager;
 
         // SECURITY: Clear any pending manager proposals to prevent malicious re-takeover
@@ -646,6 +648,9 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
+
         // Set up the proposal with 7-day timelock
         uint256 effectiveTime = block.timestamp + _MANAGER_CHANGE_TIMELOCK;
 
@@ -695,15 +700,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         address oldManager = _strategyData[strategy].mainManager;
 
-        // If new manager is already a secondary manager, remove them
-        _strategyData[strategy].secondaryManagers.remove(newManager);
-
-        // Make the old primary manager a secondary manager
-        if (_strategyData[strategy].secondaryManagers.length() < MAX_SECONDARY_MANAGERS) {
-            _strategyData[strategy].secondaryManagers.add(oldManager);
-        } else {
-            emit OldPrimaryManagerRemoved(strategy, oldManager);
-        }
+        // SECURITY: Clear all secondary managers to prevent privilege retntion
+        _strategyData[strategy].secondaryManagers.clear();
 
         // Cancel any pending upkeep withdrawal to ensure clean transition
         if (pendingUpkeepWithdrawals[strategy].effectiveTime != 0) {
@@ -736,8 +734,8 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     /// @dev If a manager is replaced while the strategy is below its
     /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
     /// until the fee config are updated after the week timelock.
-    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a neutral baseline. 
-    /// @dev This function is only callable by SUPER_GOVERNOR
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a
+    /// neutral baseline. @dev This function is only callable by SUPER_GOVERNOR
     function resetHighWaterMark(address strategy) external validStrategy(strategy) {
         // Only SuperGovernor can call this
         if (msg.sender != address(SUPER_GOVERNOR)) {
@@ -985,7 +983,7 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
     function getSuperVaultsCount() external view returns (uint256) {
         return _superVaults.length();
     }
- 
+
     /// @inheritdoc ISuperVaultAggregator
     function getSuperVaultStrategiesCount() external view returns (uint256) {
         return _superVaultStrategies.length();

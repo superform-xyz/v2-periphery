@@ -32,6 +32,7 @@ abstract contract TargetFunctions is
     SuperGovernorTargets,
     YieldSourceTargets
 {
-/// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
-/// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
-}
+    /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
+    /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
+
+    }

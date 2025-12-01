@@ -33,50 +33,61 @@ import {
 import { IPLimitRouter } from "@pendle/interfaces/IPLimitRouter.sol";
 
 /**
-test_PendleRouterSwap
-
-Description:
-Simulates a straightforward flow where the strategy receives USDC from the vault and swaps it into Pendle PT tokens. The swap uses Odos to route the swap path and Pendle to mint the PT position.
-What it proves:
-Confirms that the swap succeeds and that the strategy effectively receives the newly minted PT tokens, verifying the basic swap integration and approvals.
-
-test_PendleRouterSwapAndRedeemX
-
-Description:
-Covers the complete lifecycle of a yield position: the vault deposits USDC, swaps into PT tokens, time progresses until PT maturity, and then the PT position is redeemed back into pufETH.
-What it proves:
-Ensures that matured PT tokens are correctly redeemable through Pendle and the final output (pufETH) ends up back in the strategy — validating the full round-trip flow on a matured position.
-
-test_PendleRouterSwapAndRedeemBeforeMaturity
-
-Description:
-Simulates a redemption before PT maturity, where both PT and YT tokens are needed to unlock the position. The test deposits funds, swaps into PT, injects matching YT tokens, and then redeems both into pufETH.
-What it proves:
-Validates that the strategy properly handles early exits using the PT + YT redemption path, and confirms that both tokens are consumed and converted into the expected output asset.
-
-test_PendleRouterSwapWithValidLimitOrderValidation
-
-Description:
-Executes a PT swap using the Pendle limit-order mechanism, passing valid order parameters (price, expiry, etc.). This simulates placing a structured swap order instead of using a market swap.
-What it proves:
-Ensures that limit orders with valid parameters are accepted and that the swap still results in PT tokens being received.
-
-test_PendleRouterSwapWithExpiredLimitOrderReverts
-
-Description:
-Intentionally sets a limit order with an expiry timestamp that is already in the past, then attempts the swap.
-What it proves:
-Verifies that stale/expired limit orders are rejected by the Pendle router and the transaction reverts without modifying state — protecting users from accidental or malicious execution of outdated orders.
-
-test_PendleRouterSwapWithTightSlippageReverts
-
-Description:
-Attempts a swap while forcing an unrealistically high minPtOut value. This simulates the user specifying slippage that can never be satisfied.
-What it proves:
-Validates that slippage checks work correctly and prevent swaps when output is below expectations, ensuring safe capital handling and unchanged state on failure.
-
-Mocks are used for Odos and order book. 
-*/
+ * test_PendleRouterSwap
+ *
+ * Description:
+ * Simulates a straightforward flow where the strategy receives USDC from the vault and swaps it into Pendle PT tokens.
+ * The swap uses Odos to route the swap path and Pendle to mint the PT position.
+ * What it proves:
+ * Confirms that the swap succeeds and that the strategy effectively receives the newly minted PT tokens, verifying the
+ * basic swap integration and approvals.
+ *
+ * test_PendleRouterSwapAndRedeemX
+ *
+ * Description:
+ * Covers the complete lifecycle of a yield position: the vault deposits USDC, swaps into PT tokens, time progresses
+ * until PT maturity, and then the PT position is redeemed back into pufETH.
+ * What it proves:
+ * Ensures that matured PT tokens are correctly redeemable through Pendle and the final output (pufETH) ends up back in
+ * the strategy — validating the full round-trip flow on a matured position.
+ *
+ * test_PendleRouterSwapAndRedeemBeforeMaturity
+ *
+ * Description:
+ * Simulates a redemption before PT maturity, where both PT and YT tokens are needed to unlock the position. The test
+ * deposits funds, swaps into PT, injects matching YT tokens, and then redeems both into pufETH.
+ * What it proves:
+ * Validates that the strategy properly handles early exits using the PT + YT redemption path, and confirms that both
+ * tokens are consumed and converted into the expected output asset.
+ *
+ * test_PendleRouterSwapWithValidLimitOrderValidation
+ *
+ * Description:
+ * Executes a PT swap using the Pendle limit-order mechanism, passing valid order parameters (price, expiry, etc.). This
+ * simulates placing a structured swap order instead of using a market swap.
+ * What it proves:
+ * Ensures that limit orders with valid parameters are accepted and that the swap still results in PT tokens being
+ * received.
+ *
+ * test_PendleRouterSwapWithExpiredLimitOrderReverts
+ *
+ * Description:
+ * Intentionally sets a limit order with an expiry timestamp that is already in the past, then attempts the swap.
+ * What it proves:
+ * Verifies that stale/expired limit orders are rejected by the Pendle router and the transaction reverts without
+ * modifying state — protecting users from accidental or malicious execution of outdated orders.
+ *
+ * test_PendleRouterSwapWithTightSlippageReverts
+ *
+ * Description:
+ * Attempts a swap while forcing an unrealistically high minPtOut value. This simulates the user specifying slippage
+ * that can never be satisfied.
+ * What it proves:
+ * Validates that slippage checks work correctly and prevent swaps when output is below expectations, ensuring safe
+ * capital handling and unchanged state on failure.
+ *
+ * Mocks are used for Odos and order book.
+ */
 
 /// @notice Separate test file for Pendle integration tests
 /// @dev Fork is pinned to a specific block to ensure Pendle market is active and avoid MarketExpired errors
@@ -85,17 +96,18 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
     // Fork configuration - pinned to block before Pendle pufETH market expiry
     // This ensures deterministic tests and prevents failures due to market expiration
-    uint256 public constant FORK_BLOCK_NUMBER = 20_500_000; // Block before market 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a expiry
+    uint256 public constant FORK_BLOCK_NUMBER = 20_500_000; // Block before market
+    // 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a expiry
 
     // Odos and Pendle addresses
     address public odosRouterAddress;
     address public pendlePufETHMarket;
-    
+
     // Token addresses
     IERC20 public eUSDe;
     IERC20 public yt_eUSDe;
     IERC20 public pt_eUSDe;
-    
+
     // Hooks
     PendleRouterSwapHook public pendleRouterSwapHook;
     address public approveAndSwapOdosHookAddress;
@@ -145,7 +157,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         // Deploy hooks
         pendleRouterSwapHook = new PendleRouterSwapHook(CHAIN_1_PENDLE_ROUTER);
         approveAndSwapOdosHookAddress = address(new ApproveAndSwapOdosV2Hook(odosRouterAddress));
-        
+
         // Register hooks
         superGovernor.registerHook(approveAndSwapOdosHookAddress);
         superGovernor.registerHook(address(pendleRouterSwapHook));
@@ -183,20 +195,14 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, syTokenIns[1], amount));
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -255,20 +261,14 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion instead of hardcoded 1e12
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -311,9 +311,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         uint256 pufETHBalanceBefore = IERC20(pufETH).balanceOf(address(strategy));
@@ -378,20 +376,15 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
-        deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount)); // Convert USDC 6 decimals to WETH 18 decimals
+        deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount)); // Convert
+        // USDC 6 decimals to WETH 18 decimals
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -443,9 +436,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         uint256 pufETHBalanceBefore = IERC20(pufETH).balanceOf(address(strategy));
@@ -512,11 +503,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router to perform a 1:1 swap
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Deal WETH to Pendle Router to simulate successful Odos swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
@@ -524,16 +511,10 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         // Mock the limitRouter fill call that Pendle will make
         // The fill function signature: fill(FillOrderParams[],address,uint256,bytes,bytes)
         // We need to mock it to return (actualMaking, actualTaking, totalFee, callbackReturn)
-        vm.mockCall(
-            CHAIN_1_PENDLE_ROUTER,
-            abi.encodeWithSelector(IPLimitRouter.fill.selector),
-            abi.encode(0, 0, 0, "")
-        );
+        vm.mockCall(CHAIN_1_PENDLE_ROUTER, abi.encodeWithSelector(IPLimitRouter.fill.selector), abi.encode(0, 0, 0, ""));
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         vm.startPrank(MANAGER);
@@ -595,18 +576,12 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         // Expect the transaction to revert due to expired order
@@ -624,7 +599,9 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         // Verify no state changes occurred
-        assertEq(asset.balanceOf(address(strategy)), vars.strategyBalance, "USDC balance should be unchanged after revert");
+        assertEq(
+            asset.balanceOf(address(strategy)), vars.strategyBalance, "USDC balance should be unchanged after revert"
+        );
         assertEq(IERC20(vars.pt).balanceOf(address(strategy)), 0, "Strategy should have no PT tokens after failed swap");
     }
 
@@ -670,19 +647,13 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router to perform a 1:1 swap
-        vm.mockCall(
-            CHAIN_1_ODOS_ROUTER,
-            abi.encodeWithSignature("swapCompact()"),
-            abi.encode(0)
-        );
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
         // Deal WETH to Pendle Router to simulate successful Odos swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         // Expect the transaction to revert due to slippage check failure
@@ -702,7 +673,9 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         vm.stopPrank();
 
         // Verify no state changes occurred - balances should remain unchanged
-        assertEq(asset.balanceOf(address(strategy)), vars.strategyBalance, "USDC balance should be unchanged after revert");
+        assertEq(
+            asset.balanceOf(address(strategy)), vars.strategyBalance, "USDC balance should be unchanged after revert"
+        );
         assertEq(IERC20(vars.pt).balanceOf(address(strategy)), 0, "Strategy should have no PT tokens after failed swap");
     }
 
@@ -759,9 +732,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         // - Integration bugs
 
         vm.mockCall(
-            address(aggregator),
-            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
-            abi.encode(true)
+            address(aggregator), abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector), abi.encode(true)
         );
 
         uint256 strategyUsdcBefore = asset.balanceOf(address(strategy));
@@ -816,7 +787,6 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         vm.stopPrank();
     }
 
-
     /*//////////////////////////////////////////////////////////////
                      INTERNAL
     //////////////////////////////////////////////////////////////*/
@@ -826,7 +796,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
     function _scaleTokenAmount(address tokenIn, address tokenOut, uint256 amount) internal view returns (uint256) {
         uint256 decimalsIn = IERC20Metadata(tokenIn).decimals();
         uint256 decimalsOut = IERC20Metadata(tokenOut).decimals();
-        return amount * 10**(decimalsOut - decimalsIn);
+        return amount * 10 ** (decimalsOut - decimalsIn);
     }
 
     /// @notice Safely reads token addresses from a Pendle market with validation
@@ -835,11 +805,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
     /// @return sy The SY token address
     /// @return pt The PT token address
     /// @return yt The YT token address
-    function _safeReadMarketTokens(address marketAddress)
-        internal
-        view
-        returns (address sy, address pt, address yt)
-    {
+    function _safeReadMarketTokens(address marketAddress) internal view returns (address sy, address pt, address yt) {
         require(marketAddress != address(0), "Invalid market address: zero address");
 
         IPendleMarket market = IPendleMarket(marketAddress);
@@ -877,14 +843,22 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             decodeOdosSwapCalldata(odosCalldata);
 
             pendleTxData = _createTokenToPtPendleTxDataWithOdos(
-                market_, account_, tokenIn_, 1, amount_, tokenMint_, odosCalldata, CHAIN_1_PENDLE_SWAP, CHAIN_1_ODOS_ROUTER
+                market_,
+                account_,
+                tokenIn_,
+                1,
+                amount_,
+                tokenMint_,
+                odosCalldata,
+                CHAIN_1_PENDLE_SWAP,
+                CHAIN_1_ODOS_ROUTER
             );
         } else {
             revert("Not implemented");
         }
         return abi.encodePacked(
             bytes32(bytes("")), // yieldSourceOracleId
-            market_,            // yieldSource
+            market_, // yieldSource
             usePrevHookAmount_,
             value_,
             pendleTxData
@@ -917,14 +891,22 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             decodeOdosSwapCalldata(odosCalldata);
 
             pendleTxData = _createTokenToPtPendleTxDataWithOdos(
-                market_, account_, tokenIn_, minPtOut_, amount_, tokenMint_, odosCalldata, CHAIN_1_PENDLE_SWAP, CHAIN_1_ODOS_ROUTER
+                market_,
+                account_,
+                tokenIn_,
+                minPtOut_,
+                amount_,
+                tokenMint_,
+                odosCalldata,
+                CHAIN_1_PENDLE_SWAP,
+                CHAIN_1_ODOS_ROUTER
             );
         } else {
             revert("Not implemented");
         }
         return abi.encodePacked(
             bytes32(bytes("")), // yieldSourceOracleId
-            market_,            // yieldSource
+            market_, // yieldSource
             usePrevHookAmount_,
             value_,
             pendleTxData
@@ -963,7 +945,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         }
         return abi.encodePacked(
             bytes32(bytes("")), // yieldSourceOracleId
-            market_,            // yieldSource
+            market_, // yieldSource
             usePrevHookAmount_,
             value_,
             pendleTxData
@@ -1012,11 +994,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             market_,
             1, // minPtOut
             ApproxParams({
-                guessMin: 1,
-                guessMax: 1e24,
-                guessOffchain: 1e18,
-                maxIteration: 30,
-                eps: 10_000_000_000_000
+                guessMin: 1, guessMax: 1e24, guessOffchain: 1e18, maxIteration: 30, eps: 10_000_000_000_000
             }),
             TokenInput({
                 tokenIn: tokenIn_,
@@ -1078,7 +1056,9 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             minTokenOut: minTokenOut,
             tokenRedeemSy: tokenRedeemSy,
             pendleSwap: address(0),
-            swapData: SwapData({ swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false })
+            swapData: SwapData({
+                swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false
+            })
         });
     }
 
@@ -1113,21 +1093,14 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             tokenMintSy: tokenMintSY_,
             pendleSwap: pendleSwap_,
             swapData: SwapData({
-                extRouter: odosRouter_,
-                extCalldata: odosCalldata_,
-                needScale: false,
-                swapType: SwapType.ODOS
+                extRouter: odosRouter_, extCalldata: odosCalldata_, needScale: false, swapType: SwapType.ODOS
             })
         });
 
         // Approximation parameters for PT output
         // Using wide bounds since we're swapping USDC (6 decimals) to PT tokens (18 decimals)
         ApproxParams memory guessPtOut = ApproxParams({
-            guessMin: 1,
-            guessMax: 1e24,
-            guessOffchain: 1e18,
-            maxIteration: 30,
-            eps: 10_000_000_000_000
+            guessMin: 1, guessMax: 1e24, guessOffchain: 1e18, maxIteration: 30, eps: 10_000_000_000_000
         });
 
         pendleTxData = abi.encodeWithSelector(
@@ -1175,10 +1148,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             tokenRedeemSy: tokenOut_,
             pendleSwap: address(0),
             swapData: SwapData({
-                swapType: SwapType.NONE,
-                extRouter: address(0),
-                extCalldata: bytes(""),
-                needScale: false
+                swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false
             })
         });
 
@@ -1200,7 +1170,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         return abi.encodePacked(
             bytes32(bytes("")), // yieldSourceOracleId
-            market_,            // yieldSource
+            market_, // yieldSource
             usePrevHookAmount_,
             value_,
             pendleTxData

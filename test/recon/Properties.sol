@@ -227,7 +227,7 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
         if (
             _currentOp == OpType.FULFILL && _before.oraclePPS > _before.state[_getActor()].averageRequestPPS // fulfilled
                 // at a higher price
-                && _after.state[_getActor()].pendingRedeemRequest != 0 
+                && _after.state[_getActor()].pendingRedeemRequest != 0
             // avg
             // gets reset to 0 in this case
         ) {
@@ -248,18 +248,10 @@ abstract contract Properties is BeforeAfter, Asserts, ERC7540Properties {
             // Check that burned amount is correct
             if (totalSupplyDelta < pendingRedeemDelta) {
                 // Burned less than requested
-                gte(
-                    totalSupplyDelta,
-                    pendingRedeemDelta,
-                    "burned less than requested beyond tolerance"
-                );
+                gte(totalSupplyDelta, pendingRedeemDelta, "burned less than requested beyond tolerance");
             } else {
                 // Burned more than requested
-                lte(
-                    totalSupplyDelta,
-                    pendingRedeemDelta,
-                    "burned more than requested beyond tolerance"
-                );
+                lte(totalSupplyDelta, pendingRedeemDelta, "burned more than requested beyond tolerance");
             }
         }
     }

@@ -25,6 +25,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     // Roles & Addresses
     address internal sGovernor;
     address internal governor;
+    address internal guardian;
     address internal oracleManager;
     address internal treasury;
     address internal user;
@@ -62,6 +63,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     function setUp() public {
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
+        guardian = _deployAccount(0x10, "Guardian");
         treasury = _deployAccount(0x3, "Treasury");
         oracleManager = _deployAccount(0x4, "OracleManager");
         user = _deployAccount(0x5, "User");
@@ -80,7 +82,8 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, treasury);
+        superGovernor =
+            new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, guardian, treasury, false);
 
         // Deploy implementation contracts first
         address vaultImpl = address(new SuperVault(address(superGovernor)));
@@ -112,7 +115,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         superGovernor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         superGovernor.setAddress(superGovernor.SUPER_BANK(), superBank);
         superGovernor.setAddress(superGovernor.UP(), address(upToken));
-        superGovernor.grantRole(superGovernor.GUARDIAN_ROLE(), governor);
+        superGovernor.setAddress(superGovernor.UPKEEP_TOKEN(), address(upToken));
         vm.stopPrank();
     }
 
@@ -131,28 +134,35 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests constructor revert on zero address superGovernor.
     function test_constructor_Revert_ZeroAdmin() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
-        new SuperGovernor(address(0), governor, governor, oracleManager, governor, treasury);
+        new SuperGovernor(address(0), governor, governor, oracleManager, governor, guardian, treasury, false);
     }
 
     /// @notice Tests constructor revert on zero address governor.
     function test_constructor_Revert_ZeroGovernor() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, address(0), governor, oracleManager, governor, treasury);
+        new SuperGovernor(sGovernor, address(0), governor, oracleManager, governor, guardian, treasury, false);
     }
 
     /// @notice Tests constructor revert on zero address treasury.
     function test_constructor_Revert_ZeroTreasury() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, address(0));
+        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, guardian, address(0), false);
     }
 
     /// @notice Tests constructor revert on zero address oracleManager.
     function test_constructor_Revert_ZeroOracleManager() public {
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
 
-        new SuperGovernor(sGovernor, governor, governor, address(0), governor, treasury);
+        new SuperGovernor(sGovernor, governor, governor, address(0), governor, guardian, treasury, false);
+    }
+
+    /// @notice Tests constructor revert on zero address guardian.
+    function test_constructor_Revert_ZeroGuardian() public {
+        vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
+
+        new SuperGovernor(sGovernor, governor, governor, oracleManager, governor, address(0), treasury, false);
     }
 
     // =============================================================
@@ -184,9 +194,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Tests with a random interface ID that should not be supported
     function test_SupportsInterface_UnsupportedInterface() public view {
         bytes4 randomInterfaceId = bytes4(keccak256("RandomInterface()"));
-        assertFalse(
-            superGovernor.supportsInterface(randomInterfaceId), "Should not support random interface"
-        );
+        assertFalse(superGovernor.supportsInterface(randomInterfaceId), "Should not support random interface");
     }
 
     /// @notice Tests supportsInterface returns false for zero interface ID
@@ -200,31 +208,20 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Tests with 0xffffffff which is an invalid/reserved interface ID in ERC-165
     function test_SupportsInterface_InvalidInterfaceId() public view {
         bytes4 invalidInterfaceId = 0xffffffff;
-        assertFalse(
-            superGovernor.supportsInterface(invalidInterfaceId), "Should not support invalid interface ID"
-        );
+        assertFalse(superGovernor.supportsInterface(invalidInterfaceId), "Should not support invalid interface ID");
     }
 
     /// @notice Tests supportsInterface with multiple known interfaces
     /// @dev Verifies all supported interfaces return true
     function test_SupportsInterface_MultipleKnownInterfaces() public view {
         // Test ISuperGovernor
-        assertTrue(
-            superGovernor.supportsInterface(type(ISuperGovernor).interfaceId),
-            "Should support ISuperGovernor"
-        );
+        assertTrue(superGovernor.supportsInterface(type(ISuperGovernor).interfaceId), "Should support ISuperGovernor");
 
         // Test IAccessControl
-        assertTrue(
-            superGovernor.supportsInterface(type(IAccessControl).interfaceId),
-            "Should support IAccessControl"
-        );
+        assertTrue(superGovernor.supportsInterface(type(IAccessControl).interfaceId), "Should support IAccessControl");
 
         // Test IERC165
-        assertTrue(
-            superGovernor.supportsInterface(type(IERC165).interfaceId),
-            "Should support IERC165"
-        );
+        assertTrue(superGovernor.supportsInterface(type(IERC165).interfaceId), "Should support IERC165");
     }
 
     // =============================================================
@@ -400,7 +397,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_IsGuardian() public view {
-        assertTrue(superGovernor.isGuardian(governor), "Governor should be a guardian");
+        assertTrue(superGovernor.isGuardian(guardian), "Guardian should be a guardian");
+        assertFalse(superGovernor.isGuardian(governor), "Governor should not be a guardian");
         assertFalse(superGovernor.isGuardian(address(this)), "This contract should not be a guardian");
     }
 
@@ -462,7 +460,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangePrimaryManager_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury, false);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
@@ -491,9 +490,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Try to change manager as regular user (no roles)
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, SUPER_GOVERNOR_ROLE)
         );
         superGovernor.changePrimaryManager(strategy1, newManager, feeRecipient);
     }
@@ -567,7 +564,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_HighWaterMarkReset_Revert_AggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFF, "FreshSuperGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, governor, treasury, false);
 
         // Don't set the aggregator in registry - it should be address(0)
         vm.prank(freshSGovernor);
@@ -717,7 +715,8 @@ contract SuperGovernorTest is PeripheryHelpers {
     function test_ChangeHooksRootUpdateTimelock_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xFE, "FreshSuperGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury, false);
 
         vm.prank(freshSGovernor);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
@@ -772,7 +771,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // The constructor automatically grants GOVERNOR_ROLE to the 2nd parameter (governor)
         address freshSGovernor = _deployAccount(0xFD, "FreshSuperGovernor3");
         address freshGovernor2 = _deployAccount(0xFC, "FreshGovernor");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(
+            freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury, false
+        );
 
         bytes32 newRoot = keccak256("new global hooks root");
 
@@ -802,7 +803,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_SetGlobalHooksVetoStatus() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         superGovernor.setGlobalHooksRootVetoStatus(true);
         bool vetoed = aggregator.isGlobalHooksRootVetoed();
         assertTrue(vetoed, "Global hooks should be vetoed");
@@ -812,18 +813,11 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Covers SuperGovernor.sol:229-230 - if (aggregator == address(0)) revert CONTRACT_NOT_FOUND()
     function test_SetGlobalHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
-        // Pass governor as 2nd param, and grant GUARDIAN_ROLE to governor after
         address freshSGovernor = _deployAccount(0xFB, "FreshSuperGovernor4");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury, false);
 
-        // Get GUARDIAN_ROLE before prank to avoid consuming the prank
-        bytes32 guardianRole = freshGovernor.GUARDIAN_ROLE();
-
-        // Grant GUARDIAN_ROLE to governor (who already has GOVERNOR_ROLE from constructor)
-        vm.prank(freshSGovernor);
-        freshGovernor.grantRole(guardianRole, governor);
-
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         freshGovernor.setGlobalHooksRootVetoStatus(true);
     }
@@ -849,7 +843,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     function test_SetStrategyHooksVetoStatus() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         superGovernor.setStrategyHooksRootVetoStatus(address(strategy1), true);
         bool vetoed = aggregator.isStrategyHooksRootVetoed(address(strategy1));
         assertTrue(vetoed, "Strategy hooks should be vetoed");
@@ -858,7 +852,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @notice Tests setStrategyHooksRootVetoStatus reverts when strategy is zero address
     /// @dev Covers SuperGovernor.sol:237 - if (strategy == address(0)) revert INVALID_ADDRESS()
     function test_SetStrategyHooksVetoStatus_RevertsOnZeroStrategy() public {
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
         superGovernor.setStrategyHooksRootVetoStatus(address(0), true);
     }
@@ -867,18 +861,11 @@ contract SuperGovernorTest is PeripheryHelpers {
     /// @dev Covers SuperGovernor.sol:239-240 - if (aggregator == address(0)) revert CONTRACT_NOT_FOUND()
     function test_SetStrategyHooksVetoStatus_RevertsWhenAggregatorNotSet() public {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
-        // Pass governor as 2nd param, and grant GUARDIAN_ROLE to governor after
         address freshSGovernor = _deployAccount(0xF9, "FreshSuperGovernor5");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, governor, governor, governor, governor, treasury);
+        SuperGovernor freshGovernor =
+            new SuperGovernor(freshSGovernor, governor, governor, governor, governor, guardian, treasury, false);
 
-        // Get GUARDIAN_ROLE before prank to avoid consuming the prank
-        bytes32 guardianRole = freshGovernor.GUARDIAN_ROLE();
-
-        // Grant GUARDIAN_ROLE to governor (who already has GOVERNOR_ROLE from constructor)
-        vm.prank(freshSGovernor);
-        freshGovernor.grantRole(guardianRole, governor);
-
-        vm.prank(governor);
+        vm.prank(guardian);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         freshGovernor.setStrategyHooksRootVetoStatus(strategy1, true);
     }
@@ -914,8 +901,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // This should pass the aggregator != address(0) check at line 513
         // It may revert with INSUFFICIENT_UPKEEP, which is expected business logic
         try superGovernor.executeUpkeepClaim(claimAmount) {
-            // Success - aggregator was set and had sufficient upkeep
-        } catch (bytes memory reason) {
+        // Success - aggregator was set and had sufficient upkeep
+        }
+        catch (bytes memory reason) {
             // If it reverts, ensure it's not CONTRACT_NOT_FOUND
             // CONTRACT_NOT_FOUND would indicate line 513 failed
             bytes4 selector = bytes4(reason);
@@ -930,7 +918,9 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Deploy a fresh SuperGovernor instance without setting the aggregator
         address freshSGovernor = _deployAccount(0xF7, "FreshSuperGovernor6");
         address freshGovernor2 = _deployAccount(0xF6, "FreshGovernor2");
-        SuperGovernor freshGovernor = new SuperGovernor(freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, treasury);
+        SuperGovernor freshGovernor = new SuperGovernor(
+            freshSGovernor, freshGovernor2, freshGovernor2, freshGovernor2, freshGovernor2, guardian, treasury, false
+        );
 
         uint256 claimAmount = 1000;
 
@@ -1383,134 +1373,6 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Verify state was updated correctly
         assertEq(superGovernor.getPPSOracleQuorum(), quorum, "Quorum should be updated");
         assertEq(superGovernor.getValidatorsCount(), 2, "Should have 2 validators");
-    }
-
-    // =============================================================
-    // Emergency Price Tests
-    // =============================================================
-    function test_SetEmergencyPrice() public {
-        uint256 emergencyPrice = 1e18;
-
-        MockSuperOracleForStaleness oracle = new MockSuperOracleForStaleness();
-
-        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
-
-        // Set the oracle in the registry
-        vm.prank(sGovernor);
-        superGovernor.setAddress(oracleKey, address(oracle));
-
-        vm.prank(governor);
-        superGovernor.setEmergencyPrice(address(asset), emergencyPrice);
-
-        assertEq(oracle.getEmergencyPrice(address(asset)), emergencyPrice, "Emergency price should be set");
-    }
-
-    /// @notice Tests setEmergencyPrice reverts when oracle is not set in registry
-    /// @dev Covers SuperGovernor.sol:333 - if (oracle == address(0)) revert CONTRACT_NOT_FOUND()
-    function test_SetEmergencyPrice_Revert_OracleNotSet() public {
-        address token = makeAddr("token");
-        uint256 price = 1e18;
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        superGovernor.setEmergencyPrice(token, price);
-    }
-
-    /// @notice Tests batchSetEmergencyPrices reverts when oracle is not set in registry
-    /// @dev Covers SuperGovernor.sol:347 - if (oracle == address(0)) revert CONTRACT_NOT_FOUND()
-    function test_BatchSetEmergencyPrices_Revert_OracleNotSet() public {
-        address[] memory tokens = new address[](2);
-        tokens[0] = makeAddr("token1");
-        tokens[1] = makeAddr("token2");
-
-        uint256[] memory prices = new uint256[](2);
-        prices[0] = 1e18;
-        prices[1] = 2e18;
-
-        vm.prank(governor);
-        vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
-        superGovernor.batchSetEmergencyPrices(tokens, prices);
-    }
-
-    /// @notice Tests batchSetEmergencyPrices successfully delegates to oracle
-    /// @dev Covers SuperGovernor.sol:339-350 success path with oracle delegation
-    function test_BatchSetEmergencyPrices_Success() public {
-        // Setup mock oracle
-        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
-        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
-        vm.prank(sGovernor);
-        superGovernor.setAddress(oracleKey, address(mockOracle));
-
-        // Prepare test data
-        address[] memory tokens = new address[](2);
-        tokens[0] = makeAddr("token1");
-        tokens[1] = makeAddr("token2");
-
-        uint256[] memory prices = new uint256[](2);
-        prices[0] = 1e18;
-        prices[1] = 2e18;
-
-        // Call batchSetEmergencyPrices
-        vm.prank(governor);
-        superGovernor.batchSetEmergencyPrices(tokens, prices);
-
-        // Verify oracle received the call
-        assertTrue(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should have received the batch call");
-        assertEq(mockOracle.getLastBatchTokensLength(), 2, "Should have 2 tokens");
-        assertEq(mockOracle.getLastBatchToken(0), tokens[0], "First token should match");
-        assertEq(mockOracle.getLastBatchToken(1), tokens[1], "Second token should match");
-        assertEq(mockOracle.getLastBatchPrice(0), prices[0], "First price should match");
-        assertEq(mockOracle.getLastBatchPrice(1), prices[1], "Second price should match");
-    }
-
-    /// @notice Tests batchSetEmergencyPrices access control
-    /// @dev Covers SuperGovernor.sol:345 - onlyRole(_GOVERNOR_ROLE)
-    function test_BatchSetEmergencyPrices_AccessControl() public {
-        // Setup mock oracle
-        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
-        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
-        vm.prank(sGovernor);
-        superGovernor.setAddress(oracleKey, address(mockOracle));
-
-        // Prepare test data
-        address[] memory tokens = new address[](2);
-        tokens[0] = makeAddr("token1");
-        tokens[1] = makeAddr("token2");
-
-        uint256[] memory prices = new uint256[](2);
-        prices[0] = 1e18;
-        prices[1] = 2e18;
-
-        // Try to call from unauthorized address
-        address unauthorized = makeAddr("unauthorized");
-        vm.prank(unauthorized);
-        vm.expectRevert();
-        superGovernor.batchSetEmergencyPrices(tokens, prices);
-
-        // Verify oracle did not receive the call
-        assertFalse(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should not have received the call");
-    }
-
-    /// @notice Tests batchSetEmergencyPrices with empty arrays delegates to oracle
-    /// @dev Covers SuperGovernor.sol:339-350 with edge case - oracle will handle validation
-    function test_BatchSetEmergencyPrices_EmptyArrays() public {
-        // Setup mock oracle
-        MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
-        bytes32 oracleKey = superGovernor.SUPER_ORACLE();
-        vm.prank(sGovernor);
-        superGovernor.setAddress(oracleKey, address(mockOracle));
-
-        // Prepare empty arrays
-        address[] memory tokens = new address[](0);
-        uint256[] memory prices = new uint256[](0);
-
-        // Call should succeed at SuperGovernor level and delegate to oracle
-        vm.prank(governor);
-        superGovernor.batchSetEmergencyPrices(tokens, prices);
-
-        // Verify oracle received the call (even with empty arrays)
-        assertTrue(mockOracle.batchSetEmergencyPriceCalled(), "Oracle should have received the call");
-        assertEq(mockOracle.getLastBatchTokensLength(), 0, "Should have 0 tokens");
     }
 
     // =============================================================
@@ -2199,7 +2061,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         uint256 validStaleness = 400; // Greater than min staleness of 300
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.setOracleMaxStaleness(validStaleness);
 
         // Verify the mock oracle received the call
@@ -2220,7 +2082,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         uint256 tooLowStaleness = 200; // Less than min staleness of 300
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.MAX_STALENESS_TOO_LOW.selector);
         superGovernor.setOracleMaxStaleness(tooLowStaleness);
     }
@@ -2237,7 +2099,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         address feed = address(0x123);
         uint256 validStaleness = 500;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.setOracleFeedMaxStaleness(feed, validStaleness);
 
         assertEq(mockOracle.lastFeed(), feed, "Oracle should have received the feed address");
@@ -2256,7 +2118,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         address feed = address(0x123);
         uint256 tooLowStaleness = 250; // Less than min staleness of 300
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.MAX_STALENESS_TOO_LOW.selector);
         superGovernor.setOracleFeedMaxStaleness(feed, tooLowStaleness);
     }
@@ -2272,7 +2134,7 @@ contract SuperGovernorTest is PeripheryHelpers {
 
         uint256 validStaleness = 400;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.INVALID_ADDRESS.selector);
         superGovernor.setOracleFeedMaxStaleness(address(0), validStaleness);
     }
@@ -2296,7 +2158,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         stalenessList[1] = 500;
         stalenessList[2] = 600;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.setOracleFeedMaxStalenessBatch(feeds, stalenessList);
 
         assertTrue(mockOracle.batchCalled(), "Oracle batch function should have been called");
@@ -2321,7 +2183,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         stalenessList[1] = 200; // Too low!
         stalenessList[2] = 600; // Valid
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.MAX_STALENESS_TOO_LOW.selector);
         superGovernor.setOracleFeedMaxStalenessBatch(feeds, stalenessList);
     }
@@ -2345,14 +2207,14 @@ contract SuperGovernorTest is PeripheryHelpers {
         // Now values that were previously valid should be rejected
         uint256 previouslyValidStaleness = 600; // Was > 300, but now < 800
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.MAX_STALENESS_TOO_LOW.selector);
         superGovernor.setOracleMaxStaleness(previouslyValidStaleness);
 
         // But values above the new minimum should work
         uint256 nowValidStaleness = 900;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.setOracleMaxStaleness(nowValidStaleness);
         assertEq(mockOracle.lastMaxStaleness(), nowValidStaleness, "Oracle should accept valid staleness");
     }
@@ -2369,37 +2231,39 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256 validStaleness = 400;
         address feed = address(0x123);
 
-        // Test with user (should fail - needs GOVERNOR_ROLE)
+        // Test with user (should fail - needs ORACLE_MANAGER_ROLE)
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, ORACLE_MANAGER_ROLE)
         );
         superGovernor.setOracleMaxStaleness(validStaleness);
 
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, ORACLE_MANAGER_ROLE)
         );
         superGovernor.setOracleFeedMaxStaleness(feed, validStaleness);
 
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
+        // Test with sGovernor (should fail - needs ORACLE_MANAGER_ROLE specifically)
         vm.prank(sGovernor);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE
+            )
         );
         superGovernor.setOracleMaxStaleness(validStaleness);
 
-        // Test with governor (should succeed)
-        vm.prank(governor);
+        // Test with oracleManager (should succeed)
+        vm.prank(oracleManager);
         superGovernor.setOracleMaxStaleness(validStaleness);
-        assertEq(mockOracle.lastMaxStaleness(), validStaleness, "Governor should be able to set staleness");
+        assertEq(mockOracle.lastMaxStaleness(), validStaleness, "OracleManager should be able to set staleness");
     }
 
     /// @notice Tests reverting when oracle is not set in registry
     function test_OracleStalenesValidation_Revert_OracleNotSet() public {
         uint256 validStaleness = 400;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.setOracleMaxStaleness(validStaleness);
     }
@@ -2410,7 +2274,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         address feed = makeAddr("testFeed");
         uint256 validStaleness = 400;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.setOracleFeedMaxStaleness(feed, validStaleness);
     }
@@ -2426,7 +2290,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         stalenessList[0] = 400;
         stalenessList[1] = 500;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.setOracleFeedMaxStalenessBatch(feeds, stalenessList);
     }
@@ -2460,7 +2324,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         feeds[0] = address(0x555);
         feeds[1] = address(0x666);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
         // Verify the mock oracle received the call
@@ -2487,12 +2351,12 @@ contract SuperGovernorTest is PeripheryHelpers {
         address[] memory feeds = new address[](1);
         feeds[0] = address(0x555);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
     }
 
-    /// @notice Tests queueOracleUpdate access control - only GOVERNOR_ROLE can call
+    /// @notice Tests queueOracleUpdate access control - only ORACLE_MANAGER_ROLE can call
     function test_OracleUpdateManagement_QueueOracleUpdate_AccessControl() public {
         MockSuperOracleForStaleness mockOracle = new MockSuperOracleForStaleness();
 
@@ -2513,24 +2377,26 @@ contract SuperGovernorTest is PeripheryHelpers {
         address[] memory feeds = new address[](1);
         feeds[0] = address(0x555);
 
-        // Test with user (should fail - needs GOVERNOR_ROLE)
+        // Test with user (should fail - needs ORACLE_MANAGER_ROLE)
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, ORACLE_MANAGER_ROLE)
         );
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
-        // Test with sGovernor (should fail - needs GOVERNOR_ROLE specifically)
+        // Test with sGovernor (should fail - needs ORACLE_MANAGER_ROLE specifically)
         vm.prank(sGovernor);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, GOVERNOR_ROLE)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sGovernor, ORACLE_MANAGER_ROLE
+            )
         );
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
-        // Test with governor (should succeed)
-        vm.prank(governor);
+        // Test with oracleManager (should succeed)
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
-        assertTrue(mockOracle.oracleUpdateQueued(), "Governor should be able to queue oracle update");
+        assertTrue(mockOracle.oracleUpdateQueued(), "OracleManager should be able to queue oracle update");
     }
 
     /// @notice Tests queueOracleUpdate with empty arrays
@@ -2547,7 +2413,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         bytes32[] memory providers = new bytes32[](0);
         address[] memory feeds = new address[](0);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
         // Verify the mock oracle received the call with empty arrays
@@ -2580,7 +2446,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         address[] memory feeds = new address[](1);
         feeds[0] = address(0x555);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
         // Now execute the update
@@ -2635,7 +2501,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         bytes32[] memory providers = new bytes32[](1);
         providers[0] = keccak256("PROVIDER1");
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.queueOracleProviderRemoval(providers);
     }
@@ -2776,7 +2642,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256[] memory gracePeriods = new uint256[](1);
         gracePeriods[0] = 3600;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
     }
@@ -2804,7 +2670,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         gracePeriods[0] = 3600;
         gracePeriods[1] = 7200;
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
 
         // Verify the mock received the call
@@ -2812,7 +2678,7 @@ contract SuperGovernorTest is PeripheryHelpers {
     }
 
     /// @notice Tests batchSetOracleUptimeFeed access control
-    /// @dev Covers SuperGovernor.sol:322 - onlyRole(_GOVERNOR_ROLE) modifier
+    /// @dev Covers SuperGovernor.sol:322 - onlyRole(_ORACLE_MANAGER_ROLE) modifier
     function test_OracleUpdateManagement_BatchSetOracleUptimeFeed_AccessControl() public {
         MockSuperOracleL2 mockOracleL2 = new MockSuperOracleL2();
 
@@ -2829,17 +2695,17 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256[] memory gracePeriods = new uint256[](1);
         gracePeriods[0] = 3600;
 
-        // Try with user (should fail - needs GOVERNOR_ROLE)
+        // Try with user (should fail - needs ORACLE_MANAGER_ROLE)
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, GOVERNOR_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, ORACLE_MANAGER_ROLE)
         );
         superGovernor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
 
-        // Try with governor (should succeed - has GOVERNOR_ROLE)
-        vm.prank(governor);
+        // Try with oracleManager (should succeed - has ORACLE_MANAGER_ROLE)
+        vm.prank(oracleManager);
         superGovernor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
-        assertTrue(mockOracleL2.batchSetUptimeFeedCalled(), "Governor should be able to call");
+        assertTrue(mockOracleL2.batchSetUptimeFeedCalled(), "OracleManager should be able to call");
     }
 
     /// @notice Tests batchSetOracleUptimeFeed with empty arrays
@@ -2856,7 +2722,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         uint256[] memory gracePeriods = new uint256[](0);
 
         // Should delegate to oracle (oracle will validate)
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.batchSetOracleUptimeFeed(dataOracles, uptimeOracles, gracePeriods);
     }
 
@@ -2907,7 +2773,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         feeds[1] = address(0x888);
         feeds[2] = address(0x999);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases, quotes, providers, feeds);
 
         // Verify queuing worked
@@ -2945,7 +2811,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         address[] memory feeds1 = new address[](1);
         feeds1[0] = address(0x555);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases1, quotes1, providers1, feeds1);
 
         // Second queue operation (should overwrite)
@@ -2965,7 +2831,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         feeds2[0] = address(0x666);
         feeds2[1] = address(0x777);
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         superGovernor.queueOracleUpdate(bases2, quotes2, providers2, feeds2);
 
         // Verify the second operation overwrote the first
@@ -2980,7 +2846,7 @@ contract SuperGovernorTest is PeripheryHelpers {
         bytes32[] memory providers = new bytes32[](1);
         providers[0] = keccak256("PROVIDER1");
 
-        vm.prank(governor);
+        vm.prank(oracleManager);
         vm.expectRevert(ISuperGovernor.CONTRACT_NOT_FOUND.selector);
         superGovernor.queueOracleProviderRemoval(providers);
 
@@ -3039,42 +2905,6 @@ contract MockSuperOracleForStaleness {
     bool public oracleUpdateQueued;
     bool public oracleUpdateExecuted;
     bool public providerRemovalExecuted;
-
-    mapping(address token => uint256 emergencyPrice) public emergencyPrices;
-    bool public batchSetEmergencyPriceCalled;
-    address[] public lastBatchTokens;
-    uint256[] public lastBatchPrices;
-
-    function setEmergencyPrice(address token, uint256 emergencyPrice) external {
-        emergencyPrices[token] = emergencyPrice;
-    }
-
-    function getEmergencyPrice(address token) external view returns (uint256) {
-        return emergencyPrices[token];
-    }
-
-    function batchSetEmergencyPrice(address[] calldata tokens, uint256[] calldata prices) external {
-        batchSetEmergencyPriceCalled = true;
-        delete lastBatchTokens;
-        delete lastBatchPrices;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            lastBatchTokens.push(tokens[i]);
-            lastBatchPrices.push(prices[i]);
-            emergencyPrices[tokens[i]] = prices[i];
-        }
-    }
-
-    function getLastBatchTokensLength() external view returns (uint256) {
-        return lastBatchTokens.length;
-    }
-
-    function getLastBatchToken(uint256 index) external view returns (address) {
-        return lastBatchTokens[index];
-    }
-
-    function getLastBatchPrice(uint256 index) external view returns (uint256) {
-        return lastBatchPrices[index];
-    }
 
     function setDefaultStaleness(uint256 newMaxStaleness) external {
         lastMaxStaleness = newMaxStaleness;
@@ -3165,13 +2995,7 @@ contract MockSuperOracleForStaleness {
 contract MockSuperOracleL2 {
     bool private _batchSetUptimeFeedCalled;
 
-    function batchSetUptimeFeed(
-        address[] calldata,
-        address[] calldata,
-        uint256[] calldata
-    )
-        external
-    {
+    function batchSetUptimeFeed(address[] calldata, address[] calldata, uint256[] calldata) external {
         _batchSetUptimeFeedCalled = true;
     }
 
