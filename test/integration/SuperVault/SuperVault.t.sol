@@ -24,7 +24,6 @@ import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { SuperBank } from "../../../src/SuperBank.sol";
 import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
 import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
-import { MockSuperBankForBridge } from "../../mocks/MockSuperBankForBridge.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -3895,6 +3894,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
     /**
      * @notice Helper function to bridge funds from Base to SuperBank on ETH using Across
+     * @dev Uses real SuperBank with proper merkle root validation
      * @param assetOnBase The asset to bridge from Base
      * @param assetOnETH The expected asset on ETH
      * @param bridgeAmount The amount to bridge
@@ -3936,27 +3936,70 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ""
         );
 
-        // Use mock SuperBank to bypass complex hook validation
-        MockSuperBankForBridge mockSuperBank = new MockSuperBankForBridge();
-
-        // Transfer funds to mock SuperBank for bridging
+        // Get real SuperBank and Governor on Base
         address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
-        uint256 currentBalance = IERC20(assetOnBase).balanceOf(superBankBase);
-        if (currentBalance >= bridgeAmount) {
-            vm.prank(superBankBase);
-            IERC20(assetOnBase).transfer(address(mockSuperBank), bridgeAmount);
-        }
+        SuperGovernor govBase = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
 
-        // Create hook execution data struct for mock SuperBank
+        // Set up merkle roots for SuperBank hooks
+        // Each hook needs its own merkle root based on (hookAddress, hookArgs from inspect())
+        _setupSuperBankHookMerkleRoot(govBase, approveHookAddress, fulfillHooksData[0]);
+        _setupSuperBankHookMerkleRoot(govBase, acrossHookAddress, fulfillHooksData[1]);
+
+        // Create merkle proofs (empty for single-leaf trees)
+        bytes32[][] memory merkleProofs = new bytes32[][](2);
+        merkleProofs[0] = new bytes32[](0);
+        merkleProofs[1] = new bytes32[](0);
+
+        // Create hook execution data struct
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
             hooks: fulfillHooksAddresses,
             data: fulfillHooksData,
-            merkleProofs: new bytes32[][](fulfillHooksAddresses.length),
+            merkleProofs: merkleProofs,
             expectedAssetsOrSharesOut: new uint256[](fulfillHooksAddresses.length)
         });
 
-        // Execute hooks via mock SuperBank - now properly executes real hook logic without validation
-        mockSuperBank.executeHooks(executionData);
+        // Execute hooks via real SuperBank (requires BANK_MANAGER_ROLE)
+        // address(this) (test contract) has admin role and can grant BANK_MANAGER_ROLE
+        bytes32 bankManagerRole = govBase.BANK_MANAGER_ROLE();
+
+        // Grant BANK_MANAGER_ROLE to test contract if not already granted
+        if (!govBase.hasRole(bankManagerRole, address(this))) {
+            govBase.grantRole(bankManagerRole, address(this));
+        }
+
+        SuperBank(payable(superBankBase)).executeHooks(executionData);
+    }
+
+    /**
+     * @notice Helper to set up merkle root for a SuperBank hook
+     * @dev Creates single-leaf merkle tree where root = leaf
+     * @param gov The SuperGovernor to configure
+     * @param hookAddress The hook address
+     * @param hookData The hook calldata
+     */
+    function _setupSuperBankHookMerkleRoot(
+        SuperGovernor gov,
+        address hookAddress,
+        bytes memory hookData
+    ) internal {
+        // Get hook args from inspect() - this is what goes into the merkle leaf
+        bytes memory hookArgs = ISuperHookInspector(hookAddress).inspect(hookData);
+
+        // Create merkle leaf: keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))))
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))));
+
+        // For a single-leaf tree, the root equals the leaf
+        bytes32 merkleRoot = leaf;
+
+        // Propose the merkle root for this hook (requires GOVERNOR_ROLE)
+        // address(this) (test contract) has GOVERNOR_ROLE from setUp()
+        gov.proposeSuperBankHookMerkleRoot(hookAddress, merkleRoot);
+
+        // Warp past the timelock (7 days)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Execute the merkle root update
+        gov.executeSuperBankHookMerkleRootUpdate(hookAddress);
     }
 
     /*//////////////////////////////////////////////////////////////

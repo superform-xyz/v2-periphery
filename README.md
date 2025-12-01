@@ -465,6 +465,31 @@ Supply your node rpc directly in the makefile and then
 make ftest
 ```
 
+### PPS Update Gas Costs
+
+Validators submit signed Price-Per-Share (PPS) updates to the `ECDSAPPSOracle` contract. The protocol charges managers an upkeep fee to cover these gas costs.
+
+#### Gas Cost Breakdown
+
+Each PPS update transaction consists of:
+
+| Component | Gas Cost | Description |
+|-----------|----------|-------------|
+| Base transaction | ~63,000 | Fixed overhead (signature validation, state setup) |
+| Per strategy | ~62,000 | Incremental cost for each additional strategy in the batch |
+
+**Example**: Updating 5 strategies costs approximately `63,000 + (5 × 62,000) = 373,000 gas`
+
+#### Verifying Gas Costs
+
+To independently verify these measurements:
+
+```bash
+forge test --match-test "test_UpdatePPS_GasCost_SingleEntry|test_UpdatePPS_GasCost_TwoEntries" --gas-report
+```
+
+The test output shows actual transaction gas for 1 and 2 strategy updates. The difference between them equals the per-strategy incremental cost.
+
 ## Recon Invariant Testing Suite
 
 ### Usage

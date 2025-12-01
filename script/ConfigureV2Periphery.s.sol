@@ -11,8 +11,8 @@ contract ConfigureV2Periphery is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Gas increase per entry batch for ECDSAPPSOracle upkeep cost calculation
-    /// @dev Based on gas measurements: each additional PPS entry costs ~60,000 gas
-    uint256 internal constant GAS_PER_ENTRY = 60_000;
+    /// @dev Based on gas measurements: updatePPS costs ~62,125 gas per entry (includes ECDSA validation)
+    uint256 internal constant GAS_PER_ENTRY = 65_000;
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -213,13 +213,8 @@ contract ConfigureV2Periphery is DeployV2Base {
         }
 
         // Call setGasInfo
-        try governor.setGasInfo(ecdsaPPSOracle, GAS_PER_ENTRY) {
-            console2.log("SUCCESS: setGasInfo called successfully");
-        } catch Error(string memory reason) {
-            console2.log("FAILED: setGasInfo failed -", reason);
-        } catch {
-            console2.log("FAILED: setGasInfo failed - unknown error");
-        }
+        governor.setGasInfo(ecdsaPPSOracle, GAS_PER_ENTRY);
+        console2.log("SUCCESS: setGasInfo called successfully");
 
         // Revoke temporary role if it was granted
         if (!hadRole) {
