@@ -70,7 +70,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("");
 
         // Compute deployed contract addresses
-        PeripheryContracts memory peripheryContracts = _computePeripheryContractAddresses(chainId, env);
+        PeripheryContracts memory peripheryContracts = _computePeripheryContractAddresses(env);
 
         // Run smoke tests
         _smokeTest(peripheryContracts, chainId, env);
@@ -79,13 +79,9 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
     }
 
     /// @notice Compute periphery contract addresses from deployment
-    /// @param chainId Chain ID
     /// @param env Environment
     /// @return peripheryContracts Struct containing all periphery contract addresses
-    function _computePeripheryContractAddresses(
-        uint64 chainId,
-        uint256 env
-    )
+    function _computePeripheryContractAddresses(uint256 env)
         internal
         view
         returns (PeripheryContracts memory peripheryContracts)
@@ -207,21 +203,28 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("");
         console2.log("=== Verifying Role Configuration ===");
 
-        // Get all role identifiers
-        bytes32 defaultAdminRole = governor.DEFAULT_ADMIN_ROLE();
-        bytes32 superGovernorRole = governor.SUPER_GOVERNOR_ROLE();
-        bytes32 governorRole = governor.GOVERNOR_ROLE();
-        bytes32 bankManagerRole = governor.BANK_MANAGER_ROLE();
-        bytes32 oracleManagerRole = governor.ORACLE_MANAGER_ROLE();
-        bytes32 gasManagerRole = governor.GAS_MANAGER_ROLE();
-        bytes32 guardianRole = governor.GUARDIAN_ROLE();
-
         // Check deployer roles (should have admin roles initially)
         console2.log("[Role Check] Deployer address:", configuration.deployer);
+        _verifyDeployerAdminRoles(governor);
 
-        bool hasDefaultAdmin = governor.hasRole(defaultAdminRole, configuration.deployer);
-        bool hasSuperGovernor = governor.hasRole(superGovernorRole, configuration.deployer);
-        bool hasGovernor = governor.hasRole(governorRole, configuration.deployer);
+        // Check configured role holders from configuration
+        console2.log("");
+        console2.log("[Role Check] Configured role holders:");
+        _verifyOperationalRoleHolders(governor);
+
+        // Verify deployer does NOT have operational roles
+        console2.log("");
+        console2.log("[Role Check] Verifying deployer does NOT have operational roles:");
+        _verifyDeployerNoOperationalRoles(governor);
+
+        console2.log("=== Role Verification Complete ===");
+    }
+
+    /// @notice Verify deployer has required admin roles
+    function _verifyDeployerAdminRoles(SuperGovernor governor) internal view {
+        bool hasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer);
+        bool hasSuperGovernor = governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), configuration.deployer);
+        bool hasGovernor = governor.hasRole(governor.GOVERNOR_ROLE(), configuration.deployer);
 
         console2.log("  DEFAULT_ADMIN_ROLE:", hasDefaultAdmin);
         console2.log("  SUPER_GOVERNOR_ROLE:", hasSuperGovernor);
@@ -230,55 +233,70 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         require(hasDefaultAdmin, "SMOKE_TEST_FAILED: Deployer missing DEFAULT_ADMIN_ROLE");
         require(hasSuperGovernor, "SMOKE_TEST_FAILED: Deployer missing SUPER_GOVERNOR_ROLE");
         require(hasGovernor, "SMOKE_TEST_FAILED: Deployer missing GOVERNOR_ROLE");
+    }
 
-        // Check configured role holders from configuration
-        console2.log("");
-        console2.log("[Role Check] Configured role holders:");
-
+    /// @notice Verify operational role holders have their roles
+    function _verifyOperationalRoleHolders(SuperGovernor governor) internal view {
         // Bank Manager
         console2.log("  Bank Manager address:", configuration.bankManager);
-        bool bankManagerHasRole = governor.hasRole(bankManagerRole, configuration.bankManager);
-        console2.log("    has BANK_MANAGER_ROLE:", bankManagerHasRole);
-        require(bankManagerHasRole, "SMOKE_TEST_FAILED: Bank manager missing BANK_MANAGER_ROLE");
+        require(
+            governor.hasRole(governor.BANK_MANAGER_ROLE(), configuration.bankManager),
+            "SMOKE_TEST_FAILED: Bank manager missing BANK_MANAGER_ROLE"
+        );
+        console2.log("    has BANK_MANAGER_ROLE: true");
 
         // Oracle Manager
         console2.log("  Oracle Manager address:", configuration.oracleManager);
-        bool oracleManagerHasRole = governor.hasRole(oracleManagerRole, configuration.oracleManager);
-        console2.log("    has ORACLE_MANAGER_ROLE:", oracleManagerHasRole);
-        require(oracleManagerHasRole, "SMOKE_TEST_FAILED: Oracle manager missing ORACLE_MANAGER_ROLE");
+        require(
+            governor.hasRole(governor.ORACLE_MANAGER_ROLE(), configuration.oracleManager),
+            "SMOKE_TEST_FAILED: Oracle manager missing ORACLE_MANAGER_ROLE"
+        );
+        console2.log("    has ORACLE_MANAGER_ROLE: true");
 
         // Gas Manager
         console2.log("  Gas Manager address:", configuration.gasManager);
-        bool gasManagerHasRole = governor.hasRole(gasManagerRole, configuration.gasManager);
-        console2.log("    has GAS_MANAGER_ROLE:", gasManagerHasRole);
-        require(gasManagerHasRole, "SMOKE_TEST_FAILED: Gas manager missing GAS_MANAGER_ROLE");
+        require(
+            governor.hasRole(governor.GAS_MANAGER_ROLE(), configuration.gasManager),
+            "SMOKE_TEST_FAILED: Gas manager missing GAS_MANAGER_ROLE"
+        );
+        console2.log("    has GAS_MANAGER_ROLE: true");
 
         // Guardian
         console2.log("  Guardian address:", configuration.guardian);
-        bool guardianHasRole = governor.hasRole(guardianRole, configuration.guardian);
-        console2.log("    has GUARDIAN_ROLE:", guardianHasRole);
-        require(guardianHasRole, "SMOKE_TEST_FAILED: Guardian missing GUARDIAN_ROLE");
+        require(
+            governor.hasRole(governor.GUARDIAN_ROLE(), configuration.guardian),
+            "SMOKE_TEST_FAILED: Guardian missing GUARDIAN_ROLE"
+        );
+        console2.log("    has GUARDIAN_ROLE: true");
+    }
 
-        // Verify deployer does NOT have operational roles (unless they are the same address)
-        console2.log("");
-        console2.log("[Role Check] Verifying deployer does not have unintended operational roles:");
+    /// @notice Verify deployer does NOT have operational roles
+    function _verifyDeployerNoOperationalRoles(SuperGovernor governor) internal view {
+        require(
+            !governor.hasRole(governor.BANK_MANAGER_ROLE(), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer should NOT have BANK_MANAGER_ROLE"
+        );
+        console2.log("  Deployer has BANK_MANAGER_ROLE: false");
 
-        if (configuration.deployer != configuration.bankManager) {
-            bool deployerHasBankManager = governor.hasRole(bankManagerRole, configuration.deployer);
-            console2.log("  Deployer has BANK_MANAGER_ROLE:", deployerHasBankManager);
-            // Note: This is informational, not a failure - deployer might temporarily have role
-        }
+        require(
+            !governor.hasRole(governor.ORACLE_MANAGER_ROLE(), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer should NOT have ORACLE_MANAGER_ROLE"
+        );
+        console2.log("  Deployer has ORACLE_MANAGER_ROLE: false");
 
-        if (configuration.deployer != configuration.gasManager) {
-            bool deployerHasGasManager = governor.hasRole(gasManagerRole, configuration.deployer);
-            console2.log("  Deployer has GAS_MANAGER_ROLE:", deployerHasGasManager);
-            // After SetGasInfo, deployer should NOT have this role
-            if (deployerHasGasManager) {
-                console2.log("  WARNING: Deployer still has GAS_MANAGER_ROLE - should be revoked after SetGasInfo");
-            }
-        }
+        require(
+            !governor.hasRole(governor.GAS_MANAGER_ROLE(), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer should NOT have GAS_MANAGER_ROLE"
+        );
+        console2.log("  Deployer has GAS_MANAGER_ROLE: false");
 
-        console2.log("=== Role Verification Complete ===");
+        require(
+            !governor.hasRole(governor.GUARDIAN_ROLE(), configuration.deployer),
+            "SMOKE_TEST_FAILED: Deployer should NOT have GUARDIAN_ROLE"
+        );
+        console2.log("  Deployer has GUARDIAN_ROLE: false");
+
+        console2.log("  Deployer does not have any operational roles: PASSED");
     }
 
     /// @notice Verify gas info is configured correctly for ECDSAPPSOracle
