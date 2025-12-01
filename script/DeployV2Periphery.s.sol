@@ -801,6 +801,38 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("[Step 6] DONE - Configured uptime feed for ETH/USD oracle");
         }
 
+        // Step 7: Set gas info for ECDSAPPSOracle (mainnet only)
+        if (chainId == MAINNET_CHAIN_ID) {
+            console2.log("[Step 7] Setting gas info for ECDSAPPSOracle...");
+
+            SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
+            bytes32 gasManagerRole = governor.GAS_MANAGER_ROLE();
+
+            // Check if deployer already has the role
+            bool hadRole = governor.hasRole(gasManagerRole, configuration.deployer);
+            console2.log("  Deployer has GAS_MANAGER_ROLE:", hadRole);
+
+            // Grant role temporarily if needed (deployer has DEFAULT_ADMIN_ROLE)
+            if (!hadRole) {
+                governor.grantRole(gasManagerRole, configuration.deployer);
+                console2.log("  Granted GAS_MANAGER_ROLE to deployer");
+            }
+
+            // Call setGasInfo
+            console2.log("  ECDSAPPSOracle address:", peripheryContracts.ecdsappsOracle);
+            console2.log("  Gas per entry:", GAS_PER_ENTRY);
+            governor.setGasInfo(peripheryContracts.ecdsappsOracle, GAS_PER_ENTRY);
+            console2.log("[Step 7] DONE - setGasInfo called successfully");
+
+            // Revoke temporary role if it was granted
+            if (!hadRole) {
+                governor.revokeRole(gasManagerRole, configuration.deployer);
+                console2.log("  Revoked GAS_MANAGER_ROLE from deployer");
+            }
+        } else {
+            console2.log("[Step 7] Skipping setGasInfo (only for mainnet, current chain:", chainId, ")");
+        }
+
         // NOTE: Governor roles are granted to the deployer initially via configuration.governor
         // in the SuperGovernor constructor. Transfer to the actual GOVERNOR address should happen
         // later via TransferSuperGovernorRole script after Fireblocks is set up.

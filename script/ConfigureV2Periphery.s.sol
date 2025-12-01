@@ -7,14 +7,6 @@ import { console2 } from "forge-std/console2.sol";
 
 contract ConfigureV2Periphery is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
-                            CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Gas increase per entry batch for ECDSAPPSOracle upkeep cost calculation
-    /// @dev Based on gas measurements: updatePPS costs ~62,125 gas per entry (includes ECDSA validation)
-    uint256 internal constant GAS_PER_ENTRY = 65_000;
-
-    /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
@@ -128,8 +120,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Set UP and UPKEEP_TOKEN addresses in SuperGovernor
         _setTokenAddresses(params.superGovernor, params.chainId);
 
-        // Set gas info for ECDSAPPSOracle (mainnet only)
-        _setGasInfo(params);
+        // NOTE: Gas info for ECDSAPPSOracle is now set during deployment in DeployV2Periphery.s.sol
 
         console2.log("=== Configuration Complete ===");
     }
@@ -165,61 +156,6 @@ contract ConfigureV2Periphery is DeployV2Base {
             console2.log("SUCCESS: UPKEEP_TOKEN address set (Base)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
-        }
-    }
-
-    /// @notice Set gas info for ECDSAPPSOracle (mainnet only)
-    /// @dev This sets the gas increase per entry batch used to calculate upkeep costs
-    /// @dev Temporarily grants GAS_MANAGER_ROLE to deployer if not already held, then revokes it
-    function _setGasInfo(ConfigParams memory params) internal {
-        // Only set gas info on mainnet
-        if (params.chainId != MAINNET_CHAIN_ID) {
-            console2.log("Skipping setGasInfo (only for mainnet, current chain:", params.chainId, ")");
-            return;
-        }
-
-        console2.log("Setting gas info for ECDSAPPSOracle on mainnet...");
-
-        ISuperGovernor governor = ISuperGovernor(params.superGovernor);
-
-        // Get ECDSAPPSOracle address from periphery deployment
-        string memory peripheryJson =
-            _readPeripheryContractsFromOutput(params.chainId, params.env, params.saltNamespace);
-
-        address ecdsaPPSOracle = address(0);
-        if (bytes(peripheryJson).length > 0) {
-            ecdsaPPSOracle = _safeParseJsonAddress(peripheryJson, ".ECDSAPPSOracle");
-        }
-
-        if (ecdsaPPSOracle == address(0)) {
-            console2.log("WARNING: ECDSAPPSOracle not found, skipping setGasInfo");
-            return;
-        }
-
-        console2.log("  ECDSAPPSOracle address:", ecdsaPPSOracle);
-        console2.log("  Gas per entry:", GAS_PER_ENTRY);
-
-        // Get GAS_MANAGER_ROLE
-        bytes32 gasManagerRole = governor.GAS_MANAGER_ROLE();
-
-        // Check if deployer already has the role
-        bool hadRole = governor.hasRole(gasManagerRole, msg.sender);
-        console2.log("  Deployer has GAS_MANAGER_ROLE:", hadRole);
-
-        // Grant role temporarily if needed (deployer has DEFAULT_ADMIN_ROLE)
-        if (!hadRole) {
-            governor.grantRole(gasManagerRole, msg.sender);
-            console2.log("  Granted GAS_MANAGER_ROLE to deployer");
-        }
-
-        // Call setGasInfo
-        governor.setGasInfo(ecdsaPPSOracle, GAS_PER_ENTRY);
-        console2.log("SUCCESS: setGasInfo called successfully");
-
-        // Revoke temporary role if it was granted
-        if (!hadRole) {
-            governor.revokeRole(gasManagerRole, msg.sender);
-            console2.log("  Revoked GAS_MANAGER_ROLE from deployer");
         }
     }
 

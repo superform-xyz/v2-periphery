@@ -90,6 +90,14 @@ abstract contract ConfigBase is Constants {
     address internal constant UPKEEP_TOKEN_BASE = 0x4200000000000000000000000000000000000006;
 
     /*//////////////////////////////////////////////////////////////
+                            GAS CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Gas increase per entry batch for ECDSAPPSOracle upkeep cost calculation
+    /// @dev Based on gas measurements: updatePPS costs ~62,125 gas per entry (includes ECDSA validation)
+    uint256 internal constant GAS_PER_ENTRY = 65_000;
+
+    /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
     //////////////////////////////////////////////////////////////*/
 
