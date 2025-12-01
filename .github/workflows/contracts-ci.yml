@@ -153,6 +153,46 @@ jobs:
           echo "## Tests result" >> $GITHUB_STEP_SUMMARY
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
+  smoke-test:
+    needs: ["build"]
+    runs-on: "SuperformCore3"
+    steps:
+      - name: "Check out the repo"
+        uses: "actions/checkout@v4"
+
+      - name: "Install Foundry"
+        uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.6"
+
+      - name: "Install Foundry dependencies"
+        run: forge install
+
+      - name: "Install pnpm"
+        run: npm install -g pnpm
+
+      - name: "Install ModuleKit"
+        working-directory: ./lib/v2-core/lib/modulekit
+        run: pnpm install
+
+      - name: "Install Nexus"
+        working-directory: ./lib/v2-core/lib/nexus
+        run: yarn
+
+      - name: "Install Safe7579"
+        working-directory: ./lib/v2-core/lib/safe7579
+        run: yarn
+
+      - name: "Run smoke tests"
+        run: |
+          chmod +x ./script/run/smoke_test_v2_periphery.sh
+          ./script/run/smoke_test_v2_periphery.sh prod
+
+      - name: "Add smoke test summary"
+        run: |
+          echo "## Smoke Tests result" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+
   vnet-deploy:
     needs: ["test"]
     if:
