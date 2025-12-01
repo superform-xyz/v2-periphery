@@ -3,7 +3,7 @@
 
 # Overview
 
-Superform v2 Periphery is the user-facing layer built on top of [Superform v2 Core](https://github.com/superform-xyz/v2-core). It provides permissionless vault infrastructure secured by a decentralized validator network, a governance framework with timelocked controls and guardian oversight, and economic coordination through the $UP token.
+Superform v2 Periphery is the user-facing layer built on top of [Superform v2 Core](https://github.com/superform-xyz/v2-core). It provides permissionless vault infrastructure secured by a decentralized validator network, a governance framework with timelocked controls and guardian oversight, and coordination through the $UP token.
 
 Periphery currently consists of the following components:
 
@@ -52,7 +52,7 @@ graph TD
     sUP[sUP Stakers] -->|Governance| SuperGovernor
     SuperGovernor -->|Protocol Config| SuperVaultAggregator
     SuperGovernor -->|Fee Distribution| SuperBank
-    SuperBank -->|Revenue Share| UP[UP Token]
+    SuperBank -->|Discretionary Actions| UP[UP Token]
     
     classDef core fill:#e6f7ff,stroke:#1890ff
     classDef periphery fill:#f6ffed,stroke:#52c41a
@@ -87,7 +87,7 @@ Factory and registry for SuperVault triads. Single source of truth for Price-Per
 
 #### UP Token
 
-Utility and governance token for the Superform ecosystem. Staked $UP (sUP) is a SuperVault that confers governance rights and access to protocol revenue.
+$UP enables participation in the coordination of the Superform Protocol. Token holders may stake their tokens to mint sUP, a SuperVault that confers governance rights which enables voting on key parameters such as validator policies, fee caps, and SuperAsset listings.
 
 #### SuperGovernor
 
@@ -95,7 +95,7 @@ Central registry and access control hub for the Superform periphery. Manages rol
 
 #### SuperBank
 
-Protocol treasury that handles revenue distribution between sUP stakers and the treasury, and executes governance-approved hook operations.  
+Protocol treasury that handles protocol fees and executes governance-approved hook operations.  
 
 ## Development Setup
 
