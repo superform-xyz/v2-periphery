@@ -3640,7 +3640,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         uint256 redeemAmount = IERC4626(baseUnderlying).balanceOf(bridgeTestStrategy);
 
-        bytes[] memory fulfillHooksData = new bytes[](2);
+        bytes[] memory fulfillHooksData = new bytes[](1);
 
         // First approve the vault shares for redemption
         //fulfillHooksData[0] = abi.encode(baseUnderlying, baseUnderlying, redeemAmount);
