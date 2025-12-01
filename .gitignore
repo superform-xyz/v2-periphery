@@ -3,9 +3,12 @@ cache
 coverage
 node_modules
 out
+.claude
+.cursor
 
 # files
 *.env
+CLAUDE.md
 *.log
 .DS_Store
 .pnp.*
