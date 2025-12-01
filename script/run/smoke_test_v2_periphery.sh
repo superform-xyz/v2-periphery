@@ -146,19 +146,18 @@ main() {
     # Set environment-specific configuration
     local forge_env
     local networks_file
+    local is_ci_environment="${CI:-false}"
 
     if [ "$environment" = "prod" ]; then
         log "INFO" "Loading production network configuration..."
         networks_file="$SCRIPT_DIR/networks-production.sh"
         forge_env=0
-        export CI=true
-        export GITHUB_REF_NAME="prod"
+        export GITHUB_REF_NAME="${GITHUB_REF_NAME:-prod}"
     else
         log "INFO" "Loading staging network configuration..."
         networks_file="$SCRIPT_DIR/networks-staging.sh"
         forge_env=2
-        export CI=true
-        export GITHUB_REF_NAME="staging"
+        export GITHUB_REF_NAME="${GITHUB_REF_NAME:-staging}"
     fi
 
     # Source network configuration
@@ -170,11 +169,21 @@ main() {
 
     echo -e "${GREEN}Network configuration loaded for $environment environment${NC}"
 
-    # Load RPC URLs
+    # Load RPC URLs - use different method for CI vs local
     echo -e "${CYAN}Loading RPC URLs...${NC}"
-    if ! load_rpc_urls; then
-        echo -e "${RED}Failed to load some RPC URLs from credential manager${NC}"
-        exit 1
+    if [[ "$is_ci_environment" == "true" ]]; then
+        # CI environment - load from environment variables
+        if ! load_rpc_urls_ci; then
+            echo -e "${RED}Failed to load RPC URLs from environment variables${NC}"
+            echo -e "${YELLOW}Make sure ETHEREUM_RPC_URL is set in GitHub secrets${NC}"
+            exit 1
+        fi
+    else
+        # Local environment - load from 1Password
+        if ! load_rpc_urls; then
+            echo -e "${RED}Failed to load some RPC URLs from credential manager${NC}"
+            exit 1
+        fi
     fi
 
     print_separator
