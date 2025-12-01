@@ -166,7 +166,7 @@ check_aws_access() {
     log "INFO" "AWS CLI configured successfully"
 }
 
-# Read merged state from S3
+# Read merged state from S3 (for staging)
 read_merged_state_from_s3() {
     local environment=$1
     local s3_path="s3://$BUCKET/$environment/latest.json"
@@ -188,6 +188,30 @@ read_merged_state_from_s3() {
     else
         log "ERROR" "Failed to read merged state from S3: $s3_path"
         log "ERROR" "Make sure you have run the merge script first"
+        return 1
+    fi
+}
+
+# Read merged state from local file (for prod)
+read_merged_state_from_local() {
+    local environment=$1
+    local local_path="$SCRIPT_DIR/../output/$environment/latest.json"
+
+    log "INFO" "Reading merged state from local: $local_path"
+
+    if [ -f "$local_path" ]; then
+        # Validate JSON
+        if ! jq '.' "$local_path" >/dev/null 2>&1; then
+            log "ERROR" "Invalid JSON in local merged state file"
+            return 1
+        fi
+
+        log "INFO" "Successfully validated local merged state"
+        echo "$local_path"
+        return 0
+    else
+        log "ERROR" "Local merged state not found: $local_path"
+        log "ERROR" "Run merge_periphery_to_core_local_prod.sh first"
         return 1
     fi
 }
@@ -300,11 +324,19 @@ configure_all_networks() {
 
     log "INFO" "Starting hook configuration for all networks..."
 
-    # Read merged state from S3
+    # Read merged state - use local file for prod, S3 for staging
     local merged_state_file
-    if ! merged_state_file=$(read_merged_state_from_s3 "$environment"); then
-        log "ERROR" "Failed to read merged state from S3"
-        return 1
+    if [ "$environment" = "prod" ]; then
+        if ! merged_state_file=$(read_merged_state_from_local "$environment"); then
+            log "ERROR" "Failed to read merged state from local"
+            return 1
+        fi
+    else
+        # staging - continue using S3
+        if ! merged_state_file=$(read_merged_state_from_s3 "$environment"); then
+            log "ERROR" "Failed to read merged state from S3"
+            return 1
+        fi
     fi
 
     local success_count=0
@@ -451,8 +483,10 @@ main() {
     # Check prerequisites
     log "INFO" "Checking prerequisites..."
 
-    # Check AWS access
-    check_aws_access
+    # Check AWS access (only needed for staging)
+    if [ "$environment" = "staging" ]; then
+        check_aws_access
+    fi
 
     # Load RPC URLs
     load_rpc_urls
