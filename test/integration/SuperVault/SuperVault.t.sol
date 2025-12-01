@@ -20,6 +20,7 @@ import { ISuperVault } from "../../../src/interfaces/SuperVault/ISuperVault.sol"
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
+import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -3502,7 +3503,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
     //////////////////////////////////////////////////////////////*/
     function test_SuperBank_TokenBridge_BaseToETH() public {
         address assetBase = existingUnderlyingTokens[BASE][USDC_KEY];
-        (SuperVault bTVault, SuperVaultStrategy bTStrategy) = _setupBridgeTestVault(assetBase);
+
+        (SuperVault bTVault, SuperVaultStrategy bTStrategy, SuperGovernor govBase, SuperVaultAggregator aggregatorBase) = _setupBridgeTestVault(assetBase);
 
         uint256 depositAmount = 100_000e6;
 
@@ -3538,6 +3540,28 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Update PPS after skimming to sync vault state
         _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
 
+        // Get SuperBank balance before bridge and bridge performance fees to ETH
+        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+        uint256 bankBalanceBaseBefore = IERC20(assetBase).balanceOf(address(superBankBase));
+        console2.log("SuperBank Base balance before bridge: ", bankBalanceBaseBefore);
+
+        // Bridge performance fees to SuperBank on ETH if there are any
+        if (bankBalanceBaseBefore > 0) {
+            uint256 bridgeAmount = bankBalanceBaseBefore / 2; // Bridge half the balance
+            console2.log("Bridging amount: ", bridgeAmount);
+
+            _bridgeToSuperBankOnETH(
+                assetBase,
+                existingUnderlyingTokens[ETH][USDC_KEY],
+                address(bTStrategy),
+                bridgeAmount
+            );
+
+            // Check balance after bridge
+            uint256 bankBalanceBaseAfter = IERC20(assetBase).balanceOf(address(superBankBase));
+            console2.log("SuperBank Base balance after bridge: ", bankBalanceBaseAfter);
+        }
+
         vm.startPrank(accountBase.account);
         bTStrategy.setRedeemSlippage(9900);
         bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
@@ -3554,11 +3578,31 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _fulfillRedeemRequestsOnBase(accountBase.account, accountBase1.account, address(bTStrategy));
 
-        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+        // Claim upkeep
+        uint256 claimableUpkeep = aggregatorBase.claimableUpkeep();
+        vm.prank(address(govBase));
+        aggregatorBase.claimUpkeep(claimableUpkeep);
+
         console2.log("SB balance: ", IERC20(assetBase).balanceOf(address(superBankBase)));
+
+        // Verify bridge success on ETH
+        vm.selectFork(FORKS[ETH]);
+        console2.log("SuperBank ETH balance after bridge: ",
+            IERC20(existingUnderlyingTokens[ETH][USDC_KEY]).balanceOf(_getContract(ETH, SUPER_BANK_KEY)));
+
+        // Return to Base fork for final checks
+        vm.selectFork(FORKS[BASE]);
+        console2.log("Final SuperBank Base balance: ",
+            IERC20(assetBase).balanceOf(superBankBase));
     }
 
-    function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
+    function _setupBridgeTestVault(address assetBridgeTest) internal returns 
+    (
+        SuperVault bridgeTestVault, 
+        SuperVaultStrategy bridgeTestStrategy,
+        SuperGovernor govBase,
+        SuperVaultAggregator aggregatorBase
+    ) {
         vm.selectFork(FORKS[BASE]);
 
         // Setup contract instances
@@ -3589,6 +3633,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
         );
 
         _updateSuperVaultBasePPS(bridgeTestStrategyAddr, bridgeTestVaultAddr);
+
+        // Deposit upkeep as manager
+        govBase = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
+        govBase.setAddress(govBase.UPKEEP_TOKEN(), assetBridgeTest);
+        govBase.setAddress(govBase.SUPER_BANK(), superBankBase);
+
+        address aggregatorBaseAddr = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+        aggregatorBase = SuperVaultAggregator(aggregatorBaseAddr);
+
+        deal(assetBridgeTest, MANAGER, 200_000e6);
+        vm.startPrank(MANAGER);
+        IERC20(assetBridgeTest).approve(aggregatorBaseAddr, 100_000e6);
+        aggregatorBase.depositUpkeep(bridgeTestStrategyAddr, 100_000e6);
+        vm.stopPrank();
+
+        return (bridgeTestVault, bridgeTestStrategy, govBase, aggregatorBase);
     }
 
     /**
@@ -3740,6 +3800,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Helper function to fulfill redeem requests on Base chain
+     * @param accountBase The account to fulfill the redeem request for
+     * @param accountBase1 The account to fulfill the redeem request for
+     * @param bridgeTestStrategy The strategy executing the redeem requests
+     */
     function _fulfillRedeemRequestsOnBase(
         address accountBase,
         address accountBase1,
@@ -3808,6 +3874,117 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bytes[] memory argsForProofs
     ) external returns (bytes32[][] memory proofs) {
         return _getMerkleProofsForChain(BASE, hookAddresses, argsForProofs);
+    }
+
+    /**
+     * @notice Helper function to create Across hook data for bridging to SuperBank
+     * @param inputToken The token to bridge from source chain
+     * @param outputToken The token expected on destination chain
+     * @param inputAmount The amount being bridged
+     * @param outputAmount The expected amount on destination (after fees)
+     * @param destinationChainId The destination chain ID
+     * @param superBankRecipient The SuperBank address on destination chain
+     * @return hookData Encoded hook data for Across bridge
+     */
+    function _createAcrossHookDataForSuperBank(
+        address inputToken,
+        address outputToken,
+        uint256 inputAmount,
+        uint256 outputAmount,
+        uint64 destinationChainId,
+        address superBankRecipient
+    ) internal pure returns (bytes memory hookData) {
+        hookData = abi.encodePacked(
+            uint256(0),                     // value (no native token)
+            superBankRecipient,             // recipient (SuperBank on destination)
+            inputToken,                     // inputToken
+            outputToken,                    // outputToken
+            inputAmount,                    // inputAmount
+            outputAmount,                   // outputAmount
+            uint256(destinationChainId),    // destinationChainId
+            address(0),                     // exclusiveRelayer (none)
+            uint32(10 minutes),             // fillDeadlineOffset
+            uint32(0),                      // exclusivityPeriod
+            false,                          // usePrevHookAmount
+            bytes("")                       // destinationMessage (empty for simple transfer)
+        );
+    }
+
+    /**
+     * @notice Helper function to bridge funds from Base to SuperBank on ETH using Across
+     * @param assetOnBase The asset to bridge from Base
+     * @param assetOnETH The expected asset on ETH
+     * @param bridgeTestStrategy The strategy executing the bridge
+     * @param bridgeAmount The amount to bridge
+     */
+    function _bridgeToSuperBankOnETH(
+        address assetOnBase,
+        address assetOnETH,
+        address bridgeTestStrategy,
+        uint256 bridgeAmount
+    ) internal {
+        address acrossHookAddress = _getHookAddress(BASE, ACROSS_SEND_FUNDS_AND_EXECUTE_ON_DST_HOOK_KEY);
+
+        address[] memory fulfillHooksAddresses = new address[](1);
+        fulfillHooksAddresses[0] = acrossHookAddress;
+
+        bytes[] memory fulfillHooksData = new bytes[](1);
+
+        // Get SuperBank address on ETH as recipient
+        address superBankETH = _getContract(ETH, SUPER_BANK_KEY);
+
+        // Create Across hook data with SuperBank as recipient
+        fulfillHooksData[0] = _createAcrossHookDataForSuperBank(
+            assetOnBase,                    // inputToken (USDC on Base)
+            assetOnETH,                     // outputToken (USDC on ETH)
+            bridgeAmount,                   // inputAmount
+            bridgeAmount * 99 / 100,        // outputAmount (accounting for ~1% bridge fees)
+            ETH,                           // destinationChainId
+            superBankETH                   // SuperBank ETH address
+        );
+
+        uint256[] memory expectedAssetsOrSharesOut = new uint256[](1);
+        expectedAssetsOrSharesOut[0] = 0; // Bridge operations don't return assets to strategy
+
+        bytes[] memory argsForProofs = new bytes[](1);
+        argsForProofs[0] = ISuperHookInspector(fulfillHooksAddresses[0]).inspect(fulfillHooksData[0]);
+
+        // Handle merkle root validation (same pattern as other helper functions)
+        address baseAggregatorAddress = _getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY);
+        SuperVaultAggregator baseAggregator = SuperVaultAggregator(baseAggregatorAddress);
+
+        vm.mockCall(
+            baseAggregatorAddress,
+            abi.encodeWithSelector(ISuperVaultAggregator.validateHook.selector),
+            abi.encode(true)
+        );
+
+        bytes32 baseHooksMerkleRoot;
+        try this._tryGetBaseMerkleRoot() returns (bytes32 root) {
+            baseHooksMerkleRoot = root;
+        } catch {
+            // Fallback to single-leaf tree
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(acrossHookAddress, fulfillHooksData[0]))));
+            baseHooksMerkleRoot = leaf;
+        }
+
+        // Set strategy root and execute
+        vm.startPrank(MANAGER);
+        baseAggregator.proposeStrategyHooksRoot(bridgeTestStrategy, baseHooksMerkleRoot);
+        vm.warp(block.timestamp + 24 hours + 1);
+        baseAggregator.executeStrategyHooksRootUpdate(bridgeTestStrategy);
+
+        SuperVaultStrategy(payable(bridgeTestStrategy))
+            .executeHooks(
+                ISuperVaultStrategy.ExecuteArgs({
+                    hooks: fulfillHooksAddresses,
+                    hookCalldata: fulfillHooksData,
+                    expectedAssetsOrSharesOut: expectedAssetsOrSharesOut,
+                    globalProofs: _tryGetBaseMerkleProofs(fulfillHooksAddresses, argsForProofs),
+                    strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
+                })
+            );
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
