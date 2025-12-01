@@ -831,7 +831,7 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             ISuperOracle(oracle).getQuoteFromProvider(weiAmount, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
 
         // Step 3: convert USD to UPKEEP_TOKEN (how much USD per 1 UPKEEP_TOKEN)
-        (uint256 upkeepTokenPerUsd,,,) = ISuperOracle(oracle)
+        (uint256 usdPerUpkeepToken,,,) = ISuperOracle(oracle)
             .getQuoteFromProvider(
                 tokenUnit, // 1 UPKEEP_TOKEN (using actual decimals)
                 upkeepToken,
@@ -840,7 +840,8 @@ contract SuperGovernor is ISuperGovernor, AccessControl {
             );
 
         // Calculate required UPKEEP_TOKEN
-        // usdAmount / upkeepTokenPerUsd = required UPKEEP_TOKEN
-        return Math.mulDiv(nativeToUsd, tokenUnit, upkeepTokenPerUsd, Math.Rounding.Ceil);
+        // (usdAmount * tokenUnit) / usdPerUpkeepToken = required UPKEEP_TOKEN
+        // Simplifies to: usdAmount / (usdPerUpkeepToken / tokenUnit) = tokens needed
+        return Math.mulDiv(nativeToUsd, tokenUnit, usdPerUpkeepToken, Math.Rounding.Ceil);
     }
 }

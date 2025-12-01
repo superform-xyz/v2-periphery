@@ -770,10 +770,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             bytes32 oracleManagerRole = keccak256("ORACLE_MANAGER_ROLE");
 
             // Grant ORACLE_MANAGER_ROLE to deployer temporarily (deployer has DEFAULT_ADMIN_ROLE)
-            bool hadRole = governor.hasRole(oracleManagerRole, msg.sender);
+            // Note: We use configuration.deployer instead of msg.sender because in Foundry scripts,
+            // msg.sender may differ from the actual caller address (--sender flag) during simulation
+            bool hadRole = governor.hasRole(oracleManagerRole, configuration.deployer);
             if (!hadRole) {
-                governor.grantRole(oracleManagerRole, msg.sender);
-                console2.log("  Granted ORACLE_MANAGER_ROLE to deployer");
+                governor.grantRole(oracleManagerRole, configuration.deployer);
+                console2.log("  Granted ORACLE_MANAGER_ROLE to deployer:", configuration.deployer);
             }
 
             address[] memory dataOracles = new address[](1);
@@ -792,7 +794,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
             // Revoke temporary role
             if (!hadRole) {
-                governor.revokeRole(oracleManagerRole, msg.sender);
+                governor.revokeRole(oracleManagerRole, configuration.deployer);
                 console2.log("  Revoked ORACLE_MANAGER_ROLE from deployer");
             }
 
