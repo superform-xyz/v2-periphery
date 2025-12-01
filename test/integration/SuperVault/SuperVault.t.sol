@@ -3532,13 +3532,21 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
 
-        vm.prank(accountBase.account);
+        vm.startPrank(accountBase.account);
+        bTStrategy.setRedeemSlippage(9900);
         bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
+        vm.stopPrank();
 
-        vm.prank(accountBase1.account);
+        vm.startPrank(accountBase1.account);
+        bTStrategy.setRedeemSlippage(9900);
         bTVault.requestRedeem(accShares, accountBase1.account, accountBase1.account);
+        vm.stopPrank();
 
         _redeemFromUnderlyingOnBase(morphoVaultAddr, address(bTStrategy));
+
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+
+        _fulfillRedeemRequestsOnBase(accountBase.account, accountBase1.account, address(bTStrategy));
     }
 
     function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
@@ -3707,6 +3715,30 @@ contract SuperVaultTest is BaseSuperVaultTest {
                     strategyProofs: new bytes32[][](fulfillHooksAddresses.length)
                 })
             );
+        vm.stopPrank();
+    }
+
+    function _fulfillRedeemRequestsOnBase(
+        address accountBase,
+        address accountBase1,
+        address bridgeTestStrategy
+    ) internal {
+        address[] memory requestingUsers = new address[](2);
+        requestingUsers[0] = accountBase;
+        requestingUsers[1] = accountBase1;
+
+        // Sort and unique controllers before fulfillment
+        requestingUsers = _sortAndUniqueControllers(requestingUsers);
+
+        // Calculate adjusted totalAssetsOut accounting for execution losses using AssetAdjustmentHelper
+        uint256[] memory totalAssetsOut = calculateLiquidityOnlyFulfillment(
+            ISuperVaultStrategy(bridgeTestStrategy),
+            existingUnderlyingTokens[BASE][USDC_KEY],
+            requestingUsers
+        );
+
+        vm.startPrank(MANAGER);
+        SuperVaultStrategy(payable(bridgeTestStrategy)).fulfillRedeemRequests(requestingUsers, totalAssetsOut);
         vm.stopPrank();
     }
 
