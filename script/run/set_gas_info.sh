@@ -9,33 +9,35 @@
 #   during deployment or needs to be updated.
 #
 # Usage:
-#   ./set_gas_info.sh --env <env> --chain-id <chain_id> [--simulate] [--rpc-url <url>]
+#   ./set_gas_info.sh <environment> [simulate]
 #
 #   Parameters:
-#     --env        Environment: 0 = production, 2 = staging (required)
-#     --chain-id   Chain ID (must be 1 for mainnet) (required)
-#     --simulate   Run in simulation mode without broadcasting (optional)
-#     --rpc-url    RPC URL (optional, defaults to ETH_RPC_URL env var)
+#     environment  Environment: "production" or "staging" (required)
+#     simulate     Optional: add "simulate" to run without broadcasting
 #
 # Examples:
-#   # Simulate on mainnet production
-#   ./set_gas_info.sh --env 0 --chain-id 1 --simulate
-#
-#   # Execute on mainnet production
-#   ./set_gas_info.sh --env 0 --chain-id 1
+#   # Simulate on mainnet staging
+#   ./set_gas_info.sh staging simulate
 #
 #   # Execute on mainnet staging
-#   ./set_gas_info.sh --env 2 --chain-id 1
+#   ./set_gas_info.sh staging
+#
+#   # Simulate on mainnet production
+#   ./set_gas_info.sh production simulate
+#
+#   # Execute on mainnet production
+#   ./set_gas_info.sh production
 #
 # Prerequisites:
-#   - ETH_RPC_URL environment variable set (or use --rpc-url)
+#   - ETH_RPC_URL environment variable set
 #   - ETH_PRIVATE_KEY environment variable set (or use 1Password)
 #   - Deployer must have DEFAULT_ADMIN_ROLE on SuperGovernor
 #
 # Note:
-#   Salt namespace is fixed based on environment:
-#   - Production (env=0): PROD1.0.0
-#   - Staging (env=2): STAGING1.0.0
+#   - This script only runs on mainnet (chain ID 1)
+#   - Salt namespace is fixed based on environment:
+#     - Production: PROD1.0.0
+#     - Staging: STAGING1.0.0
 #
 # Author: Superform Team
 ###################################################################################
@@ -48,6 +50,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly CHAIN_ID=1  # Mainnet only
 
 ###################################################################################
 # Helper Functions
@@ -61,26 +64,26 @@ log() {
 
 usage() {
     cat << EOF
-Usage: $0 --env <env> --chain-id <chain_id> [--simulate] [--rpc-url <url>]
+Usage: $0 <environment> [simulate]
 
-Options:
-    --env        Environment: 0 = production, 2 = staging (required)
-    --chain-id   Chain ID (must be 1 for mainnet) (required)
-    --simulate   Run in simulation mode without broadcasting
-    --rpc-url    RPC URL (optional, defaults to ETH_RPC_URL env var)
-    --help       Show this help message
-
-Note: Salt namespace is fixed based on environment (PROD1.0.0 or STAGING1.0.0)
+Arguments:
+    environment  Environment: "production" or "staging" (required)
+    simulate     Optional: add "simulate" to run without broadcasting
 
 Examples:
-    # Simulate on mainnet production
-    $0 --env 0 --chain-id 1 --simulate
-
-    # Execute on mainnet production
-    $0 --env 0 --chain-id 1
+    # Simulate on mainnet staging
+    $0 staging simulate
 
     # Execute on mainnet staging
-    $0 --env 2 --chain-id 1
+    $0 staging
+
+    # Simulate on mainnet production
+    $0 production simulate
+
+    # Execute on mainnet production
+    $0 production
+
+Note: This script only runs on mainnet (chain ID 1)
 EOF
     exit 1
 }
@@ -108,19 +111,12 @@ get_private_key() {
 }
 
 get_rpc_url() {
-    local provided_rpc="${1:-}"
-
-    if [ -n "$provided_rpc" ]; then
-        echo "$provided_rpc"
-        return 0
-    fi
-
     if [ -n "${ETH_RPC_URL:-}" ]; then
         echo "$ETH_RPC_URL"
         return 0
     fi
 
-    log "ERROR" "No RPC URL provided. Use --rpc-url or set ETH_RPC_URL environment variable"
+    log "ERROR" "No RPC URL found. Set ETH_RPC_URL environment variable"
     exit 1
 }
 
@@ -129,80 +125,48 @@ get_rpc_url() {
 ###################################################################################
 
 main() {
-    local env=""
-    local chain_id=""
+    # Check minimum arguments
+    if [ $# -lt 1 ]; then
+        log "ERROR" "Missing required argument: environment"
+        usage
+    fi
+
+    local environment="$1"
     local simulate=false
-    local rpc_url=""
 
-    # Parse arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --env)
-                env="$2"
-                shift 2
-                ;;
-            --chain-id)
-                chain_id="$2"
-                shift 2
-                ;;
-            --simulate)
-                simulate=true
-                shift
-                ;;
-            --rpc-url)
-                rpc_url="$2"
-                shift 2
-                ;;
-            --help)
-                usage
-                ;;
-            *)
-                log "ERROR" "Unknown option: $1"
-                usage
-                ;;
-        esac
-    done
-
-    # Validate required arguments
-    if [ -z "$env" ]; then
-        log "ERROR" "Missing required argument: --env"
-        usage
+    # Check for simulate flag
+    if [ $# -ge 2 ] && [ "$2" = "simulate" ]; then
+        simulate=true
     fi
 
-    if [ -z "$chain_id" ]; then
-        log "ERROR" "Missing required argument: --chain-id"
-        usage
-    fi
-
-    # Validate env
-    if [ "$env" != "0" ] && [ "$env" != "2" ]; then
-        log "ERROR" "Invalid environment: $env. Must be 0 (production) or 2 (staging)"
-        exit 1
-    fi
-
-    # Validate chain ID (mainnet only)
-    if [ "$chain_id" != "1" ]; then
-        log "ERROR" "Invalid chain ID: $chain_id. Gas info is only set on mainnet (chain ID 1)"
-        exit 1
-    fi
+    # Map environment to env number
+    local env
+    local salt
+    case "$environment" in
+        production|prod)
+            env=0
+            salt="PROD1.0.0"
+            ;;
+        staging)
+            env=2
+            salt="STAGING1.0.0"
+            ;;
+        *)
+            log "ERROR" "Invalid environment: $environment. Must be 'production' or 'staging'"
+            usage
+            ;;
+    esac
 
     # Get RPC URL
-    rpc_url=$(get_rpc_url "$rpc_url")
-
-    # Determine salt based on environment (for display only - script uses fixed salt internally)
-    local salt
-    if [ "$env" = "0" ]; then
-        salt="PROD1.0.0"
-    else
-        salt="STAGING1.0.0"
-    fi
+    local rpc_url
+    rpc_url=$(get_rpc_url)
 
     log "INFO" "============================================"
     log "INFO" "SetGasInfo Script"
     log "INFO" "============================================"
-    log "INFO" "Environment: $env"
-    log "INFO" "Chain ID: $chain_id"
-    log "INFO" "Salt (fixed): $salt"
+    log "INFO" "Environment: $environment (env=$env)"
+    log "INFO" "Chain ID: $CHAIN_ID (mainnet)"
+    log "INFO" "Salt: $salt"
     log "INFO" "Simulate: $simulate"
     log "INFO" "RPC URL: ${rpc_url:0:50}..."
     log "INFO" "============================================"
@@ -210,7 +174,7 @@ main() {
     # Build forge command
     local forge_cmd="forge script"
     forge_cmd+=" ${PROJECT_ROOT}/script/SetGasInfo.s.sol:SetGasInfo"
-    forge_cmd+=" --sig 'run(uint256,uint64)' $env $chain_id"
+    forge_cmd+=" --sig 'run(uint256,uint64)' $env $CHAIN_ID"
     forge_cmd+=" --rpc-url '$rpc_url'"
 
     if [ "$simulate" = true ]; then
