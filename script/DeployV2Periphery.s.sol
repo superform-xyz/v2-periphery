@@ -3,6 +3,7 @@ pragma solidity >=0.8.30;
 
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { ConfigPeriphery } from "./utils/ConfigPeriphery.sol";
+import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
 
 // Periphery contracts
 import { SuperGovernor } from "../src/SuperGovernor.sol";
@@ -332,28 +333,200 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     function _checkPeripheryContracts(uint64 chainId, uint256 env) internal {
         console2.log("=== Core Periphery Contracts ===");
 
-        // Core periphery contracts
-        __checkContract(SUPER_GOVERNOR_KEY, __getSalt(SUPER_GOVERNOR_KEY), "", env);
-        __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), "", env);
-        __checkContract(FIXED_PRICE_ORACLE_KEY, __getSalt(FIXED_PRICE_ORACLE_KEY), "", env);
+        // Check SuperGovernor and get its address for dependent contracts
+        address superGovernorAddr = _checkSuperGovernor(env);
 
-        // SuperOracle (mainnet) or SuperOracleL2 (L2 chains)
+        // Check ECDSAPPSOracle
+        _checkECDSAPPSOracle(superGovernorAddr, env);
+
+        // Check FixedPriceOracle and get its address
+        address fixedPriceOracleAddr = _checkFixedPriceOracle();
+
+        // Check SuperOracle (mainnet) or SuperOracleL2 (L2 chains)
         if (chainId == MAINNET_CHAIN_ID) {
-            __checkContract(SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), "", env);
+            _checkSuperOracleMainnet(superGovernorAddr, fixedPriceOracleAddr);
         } else {
-            __checkContract(SUPER_ORACLE_L2_KEY, __getSalt(SUPER_ORACLE_L2_KEY), "", env);
+            _checkSuperOracleL2(chainId, superGovernorAddr);
         }
 
-        // SuperBank
-        __checkContract(SUPER_BANK_KEY, __getSalt(SUPER_BANK_KEY), "", env);
+        // Check SuperBank
+        _checkSuperBank(superGovernorAddr);
 
-        // Vault implementations
-        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), "", env);
-        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), "", env);
+        // Check vault implementations and aggregator
+        _checkVaultContracts(superGovernorAddr, env);
+    }
+
+    /// @notice Check SuperGovernor and return its computed address
+    function _checkSuperGovernor(uint256 env) internal returns (address) {
+        bool upkeepPaymentsEnabled = env == 0;
+        bytes memory args = abi.encode(
+            configuration.owner,
+            configuration.governor,
+            configuration.bankManager,
+            configuration.oracleManager,
+            configuration.gasManager,
+            configuration.guardian,
+            configuration.treasury,
+            upkeepPaymentsEnabled
+        );
+        __checkContract(SUPER_GOVERNOR_KEY, __getSalt(SUPER_GOVERNOR_KEY), args, env);
+
+        return DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(__getBytecode(SUPER_GOVERNOR_KEY, env), args),
+            __getSalt(SUPER_GOVERNOR_KEY)
+        );
+    }
+
+    /// @notice Check ECDSAPPSOracle
+    function _checkECDSAPPSOracle(address superGovernorAddr, uint256 env) internal {
+        bytes memory args = abi.encode(superGovernorAddr, ECDSAPPS_ORACLE_KEY, ECDSAPPS_ORACLE_VERSION);
+        __checkContract(ECDSAPPS_ORACLE_KEY, __getSalt(ECDSAPPS_ORACLE_KEY), args, env);
+    }
+
+    /// @notice Check FixedPriceOracle and return its computed address
+    function _checkFixedPriceOracle() internal returns (address) {
+        bytes memory args = abi.encode(INITIAL_UP_PRICE, UP_PRICE_DECIMALS, configuration.deployer);
+        __checkContractWithBytecode(
+            FIXED_PRICE_ORACLE_KEY,
+            __getSalt(FIXED_PRICE_ORACLE_KEY),
+            type(FixedPriceOracle).creationCode,
+            args
+        );
+        return DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(type(FixedPriceOracle).creationCode, args),
+            __getSalt(FIXED_PRICE_ORACLE_KEY)
+        );
+    }
+
+    /// @notice Check SuperBank
+    function _checkSuperBank(address superGovernorAddr) internal {
+        bytes memory args = abi.encode(superGovernorAddr);
+        __checkContractWithBytecode(SUPER_BANK_KEY, __getSalt(SUPER_BANK_KEY), type(SuperBank).creationCode, args);
+    }
+
+    /// @notice Check vault implementation contracts and aggregator
+    function _checkVaultContracts(address superGovernorAddr, uint256 env) internal {
+        bytes memory vaultArgs = abi.encode(superGovernorAddr);
+
+        // Check vault implementations
+        __checkContract(SUPER_VAULT_KEY, __getSalt(SUPER_VAULT_KEY), vaultArgs, env);
+        __checkContract(SUPER_VAULT_STRATEGY_KEY, __getSalt(SUPER_VAULT_STRATEGY_KEY), vaultArgs, env);
         __checkContract(SUPER_VAULT_ESCROW_KEY, __getSalt(SUPER_VAULT_ESCROW_KEY), "", env);
 
-        // SuperVaultAggregator (depends on implementations)
-        __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), "", env);
+        // Compute implementation addresses for aggregator
+        address vaultImpl = DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(__getBytecode(SUPER_VAULT_KEY, env), vaultArgs),
+            __getSalt(SUPER_VAULT_KEY)
+        );
+        address strategyImpl = DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(__getBytecode(SUPER_VAULT_STRATEGY_KEY, env), vaultArgs),
+            __getSalt(SUPER_VAULT_STRATEGY_KEY)
+        );
+        address escrowImpl = DeterministicDeployerLib.computeAddress(
+            __getBytecode(SUPER_VAULT_ESCROW_KEY, env),
+            __getSalt(SUPER_VAULT_ESCROW_KEY)
+        );
+
+        // Check aggregator
+        bytes memory aggregatorArgs = abi.encode(superGovernorAddr, vaultImpl, strategyImpl, escrowImpl);
+        __checkContract(SUPER_VAULT_AGGREGATOR_KEY, __getSalt(SUPER_VAULT_AGGREGATOR_KEY), aggregatorArgs, env);
+    }
+
+    /// @notice Check SuperOracle on mainnet with proper oracle feed configuration
+    function _checkSuperOracleMainnet(address superGovernorAddr, address fixedPriceOracleAddr) internal {
+        address[] memory bases = new address[](3);
+        address[] memory quotes = new address[](3);
+        bytes32[] memory providers = new bytes32[](3);
+        address[] memory feeds = new address[](3);
+
+        // Feed 1: GAS -> WEI
+        bases[0] = GAS_QUOTE;
+        quotes[0] = WEI_QUOTE;
+        providers[0] = PROVIDER_CHAINLINK;
+        feeds[0] = ORACLE_GAS_TO_ETH;
+
+        // Feed 2: ETH -> USD
+        bases[1] = NATIVE_TOKEN;
+        quotes[1] = USD_TOKEN;
+        providers[1] = PROVIDER_CHAINLINK;
+        feeds[1] = ORACLE_ETH_USD_MAINNET;
+
+        // Feed 3: UP -> USD
+        bases[2] = UP_TOKEN;
+        quotes[2] = USD_TOKEN;
+        providers[2] = PROVIDER_SUPERFORM;
+        feeds[2] = fixedPriceOracleAddr;
+
+        bytes memory superOracleArgs = abi.encode(superGovernorAddr, bases, quotes, providers, feeds);
+        __checkContractWithBytecode(
+            SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
+        );
+    }
+
+    /// @notice Check SuperOracleL2 with proper oracle feed configuration
+    function _checkSuperOracleL2(uint64 chainId, address superGovernorAddr) internal {
+        address[] memory bases = new address[](2);
+        address[] memory quotes = new address[](2);
+        bytes32[] memory providers = new bytes32[](2);
+        address[] memory feeds = new address[](2);
+
+        address ethUsdOracle;
+        address upkeepToken;
+
+        if (chainId == BASE_CHAIN_ID) {
+            ethUsdOracle = ORACLE_ETH_USD_BASE;
+            upkeepToken = UPKEEP_TOKEN_BASE;
+        } else {
+            revert("ORACLE_ETH_USD not configured for this chain");
+        }
+
+        // Feed 1: ETH -> USD
+        bases[0] = NATIVE_TOKEN;
+        quotes[0] = USD_TOKEN;
+        providers[0] = PROVIDER_CHAINLINK;
+        feeds[0] = ethUsdOracle;
+
+        // Feed 2: WETH (UPKEEP_TOKEN) -> USD
+        bases[1] = upkeepToken;
+        quotes[1] = USD_TOKEN;
+        providers[1] = PROVIDER_CHAINLINK;
+        feeds[1] = ethUsdOracle;
+
+        bytes memory superOracleArgs = abi.encode(superGovernorAddr, bases, quotes, providers, feeds);
+        __checkContractWithBytecode(
+            SUPER_ORACLE_L2_KEY, __getSalt(SUPER_ORACLE_L2_KEY), type(SuperOracleL2).creationCode, superOracleArgs
+        );
+    }
+
+    /// @notice Check contract using provided bytecode instead of locked bytecode
+    /// @dev Used for contracts deployed with type().creationCode
+    function __checkContractWithBytecode(
+        string memory contractName,
+        bytes32 salt,
+        bytes memory bytecode,
+        bytes memory args
+    )
+        internal
+    {
+        // Compute address with provided bytecode and args
+        address contractAddr = DeterministicDeployerLib.computeAddress(abi.encodePacked(bytecode, args), salt);
+
+        // Check if deployed
+        uint256 codeSize = contractAddr.code.length;
+        bool isDeployed = codeSize > 0;
+
+        // Store deployment status
+        _saveContractStatus(uint64(block.chainid), contractName, isDeployed, contractAddr);
+
+        // Update counters
+        if (isDeployed) {
+            deployed++;
+        }
+        total++;
+
+        // Log status
+        console2.log(string(abi.encodePacked(contractName, " Addr: ")), contractAddr, " || >> Code Size: ", codeSize);
+        console2.log("");
     }
 
     /// @notice Compute core contract addresses deterministically
@@ -799,38 +972,6 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             }
 
             console2.log("[Step 6] DONE - Configured uptime feed for ETH/USD oracle");
-        }
-
-        // Step 7: Set gas info for ECDSAPPSOracle (mainnet only)
-        if (chainId == MAINNET_CHAIN_ID) {
-            console2.log("[Step 7] Setting gas info for ECDSAPPSOracle...");
-
-            SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
-            bytes32 gasManagerRole = governor.GAS_MANAGER_ROLE();
-
-            // Check if deployer already has the role
-            bool hadRole = governor.hasRole(gasManagerRole, configuration.deployer);
-            console2.log("  Deployer has GAS_MANAGER_ROLE:", hadRole);
-
-            // Grant role temporarily if needed (deployer has DEFAULT_ADMIN_ROLE)
-            if (!hadRole) {
-                governor.grantRole(gasManagerRole, configuration.deployer);
-                console2.log("  Granted GAS_MANAGER_ROLE to deployer");
-            }
-
-            // Call setGasInfo
-            console2.log("  ECDSAPPSOracle address:", peripheryContracts.ecdsappsOracle);
-            console2.log("  Gas per entry:", GAS_PER_ENTRY);
-            governor.setGasInfo(peripheryContracts.ecdsappsOracle, GAS_PER_ENTRY);
-            console2.log("[Step 7] DONE - setGasInfo called successfully");
-
-            // Revoke temporary role if it was granted
-            if (!hadRole) {
-                governor.revokeRole(gasManagerRole, configuration.deployer);
-                console2.log("  Revoked GAS_MANAGER_ROLE from deployer");
-            }
-        } else {
-            console2.log("[Step 7] Skipping setGasInfo (only for mainnet, current chain:", chainId, ")");
         }
 
         // NOTE: Governor roles are granted to the deployer initially via configuration.governor
