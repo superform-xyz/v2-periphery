@@ -700,9 +700,6 @@ contract SuperVaultAggregator is ISuperVaultAggregator {
 
         address oldManager = _strategyData[strategy].mainManager;
 
-        // If new manager is already a secondary manager, remove them
-        _strategyData[strategy].secondaryManagers.remove(newManager);
-
         // SECURITY: Clear all secondary managers to prevent privilege retntion
         _strategyData[strategy].secondaryManagers.clear();
 
