@@ -17,6 +17,7 @@ import { MessageHashUtils } from "openzeppelin-contracts/contracts/utils/cryptog
 
 // superform
 import { ISuperVault } from "../../../src/interfaces/SuperVault/ISuperVault.sol";
+import { AcrossV3Helper } from "pigeon/across/AcrossV3Helper.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
@@ -3605,11 +3606,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("SuperBank ETH balance before: ", superBankEthBefore);
         console2.log("SuperBank ETH balance after: ", bankBalanceETHAfter);
 
-        if (bankBalanceETHAfter > superBankEthBefore) {
-            console2.log("SUCCESS: Bridge transferred funds to ETH SuperBank!");
-        } else {
-            console2.log("NOTE: No funds detected on ETH SuperBank (bridge may take time or need relay)");
-        }
+        assertEq(bankBalanceETHAfter, bankBalanceBaseBefore, "Funds should have been transferred from SuperBank Base to SuperBank ETH");
     }
 
     function _setupBridgeTestVault(address assetBridgeTest) internal returns 
@@ -3955,6 +3952,17 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Execute hooks via real SuperBank with proper role
         SuperBank(superBankBase).executeHooks(executionData);
+        AcrossV3Helper acrossV3Helper = AcrossV3Helper(_getContract(BASE, ACROSS_V3_HELPER_KEY));
+        acrossV3Helper.help(
+                SPOKE_POOL_V3_ADDRESSES[BASE],
+                SPOKE_POOL_V3_ADDRESSES[ETH],
+                ACROSS_RELAYER,
+                block.timestamp,
+                FORKS[ETH],
+                ETH,
+                BASE,
+                vm.getRecordedLogs()
+        );
     }
 
     /// @notice Helper function to set up merkle roots for SuperBank hooks
