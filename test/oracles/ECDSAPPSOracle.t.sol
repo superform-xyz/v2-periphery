@@ -282,6 +282,96 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         emit log_named_uint("Incremental gas per entry (2 entries - 1 entry)", gasUsed > 99_619 ? gasUsed - 99_619 : 0);
     }
 
+    /// @notice Comprehensive gas measurement test with 1-5 entries
+    /// @dev This test measures ACTUAL transaction gas (not gasleft) by using Foundry's gas tracking
+    function test_UpdatePPS_GasCost_Comprehensive() public {
+        // Create 4 additional strategies (we already have svStrategy as #1)
+        address[] memory allStrategies = new address[](5);
+        allStrategies[0] = svStrategy;
+
+        for (uint256 i = 1; i < 5; i++) {
+            (, address newStrategy,) = aggregatorSuperVault.createVault(
+                ISuperVaultAggregator.VaultCreationParams({
+                    asset: address(asset),
+                    name: string(abi.encodePacked("TestVault", vm.toString(i + 1))),
+                    symbol: string(abi.encodePacked("TV", vm.toString(i + 1))),
+                    mainManager: mockManager,
+                    secondaryManagers: new address[](0),
+                    minUpdateInterval: 5,
+                    maxStaleness: 300,
+                    feeConfig: ISuperVaultStrategy.FeeConfig({
+                        performanceFeeBps: 1000, managementFeeBps: 0, recipient: TREASURY
+                    })
+                })
+            );
+            allStrategies[i] = newStrategy;
+        }
+
+        // Sort all strategies
+        for (uint256 i = 0; i < allStrategies.length; i++) {
+            for (uint256 j = i + 1; j < allStrategies.length; j++) {
+                if (uint160(allStrategies[i]) > uint160(allStrategies[j])) {
+                    (allStrategies[i], allStrategies[j]) = (allStrategies[j], allStrategies[i]);
+                }
+            }
+        }
+
+        emit log("=== COMPREHENSIVE GAS MEASUREMENT ===");
+        emit log("Testing updatePPS with 1 to 5 entries");
+        emit log("");
+
+        uint256[] memory gasResults = new uint256[](5);
+
+        // Test with 1 to 5 entries
+        for (uint256 numEntries = 1; numEntries <= 5; numEntries++) {
+            // Prepare arrays for this batch size
+            address[] memory strategies = new address[](numEntries);
+            uint256[] memory ppss = new uint256[](numEntries);
+            uint256[] memory timestamps = new uint256[](numEntries);
+            bytes[][] memory proofsArray = new bytes[][](numEntries);
+
+            for (uint256 i = 0; i < numEntries; i++) {
+                strategies[i] = allStrategies[i];
+                ppss[i] = PPS;
+                timestamps[i] = block.timestamp;
+                proofsArray[i] = _createValidProofsForStrategy(strategies[i], ppss[i], timestamps[i]);
+            }
+
+            IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies,
+                proofsArray: proofsArray,
+                ppss: ppss,
+                timestamps: timestamps
+            });
+
+            // Measure gas - this captures actual transaction gas
+            uint256 gasStart = gasleft();
+            oracleECDSA.updatePPS(args);
+            uint256 gasEnd = gasleft();
+
+            gasResults[numEntries - 1] = gasStart - gasEnd;
+            emit log_named_uint(string(abi.encodePacked("Entries: ", vm.toString(numEntries), " | Execution gas")), gasResults[numEntries - 1]);
+
+            // Warp time to allow next update
+            vm.warp(block.timestamp + 10);
+        }
+
+        emit log("");
+        emit log("=== INCREMENTAL GAS PER ENTRY ===");
+
+        uint256 totalIncremental = 0;
+        for (uint256 i = 1; i < 5; i++) {
+            uint256 incremental = gasResults[i] - gasResults[i - 1];
+            totalIncremental += incremental;
+            emit log_named_uint(string(abi.encodePacked("From ", vm.toString(i), " to ", vm.toString(i + 1), " entries")), incremental);
+        }
+
+        uint256 avgIncremental = totalIncremental / 4;
+        emit log("");
+        emit log_named_uint("Average incremental gas per entry", avgIncremental);
+        emit log_named_uint("Recommended GAS_PER_ENTRY (+10%)", avgIncremental * 110 / 100);
+    }
+
     /// @notice Helper to create valid proofs for any strategy (not just svStrategy)
     function _createValidProofsForStrategy(
         address strategy_,

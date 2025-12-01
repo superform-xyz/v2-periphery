@@ -34,6 +34,7 @@ import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregat
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperExecutor } from "@superform-v2-core/src/interfaces/ISuperExecutor.sol";
+import { ECDSAPPSOracle } from "../../../src/oracles/ECDSAPPSOracle.sol";
 import { FeeType } from "../../../src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
@@ -325,6 +326,50 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
                 maxStaleness: 1 weeks,
                 feeConfig: ISuperVaultStrategy.FeeConfig({
                     performanceFeeBps: 1000, managementFeeBps: 0, recipient: address(this)
+                })
+            })
+        );
+
+        // Label the contracts for easier identification
+        vm.label(vaultAddr, string.concat("SuperVault ", _superVaultSymbol));
+        vm.label(strategyAddr, string.concat("SuperVaultStrategy ", _superVaultSymbol));
+        vm.label(escrowAddr, string.concat("SuperVaultEscrow ", _superVaultSymbol));
+
+        vm.stopPrank();
+
+        return (vaultAddr, strategyAddr, escrowAddr);
+    }
+
+    /**
+     * @notice Deploys a new SuperVault on Basewith default configuration
+     * @return vaultAddr The address of the deployed SuperVault
+     * @return strategyAddr The address of the deployed SuperVaultStrategy
+     * @return escrowAddr The address of the deployed SuperVaultEscrow
+     */
+    function _deployVaultOnBase(
+        address _asset,
+        string memory _superVaultSymbol
+    )
+        internal
+        returns (address vaultAddr, address strategyAddr, address escrowAddr)
+    {
+        vm.selectFork(FORKS[BASE]);
+        vm.startPrank(SV_MANAGER);
+
+        SuperVaultAggregator aggregatorBase = SuperVaultAggregator(_getContract(BASE, SUPER_VAULT_AGGREGATOR_KEY));
+
+        // Deploy the vault trio
+        (vaultAddr, strategyAddr, escrowAddr) = aggregatorBase.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: _asset,
+                name: "SuperVault",
+                symbol: _superVaultSymbol,
+                mainManager: MANAGER,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 1 weeks,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 500, managementFeeBps: 0, recipient: address(this)
                 })
             })
         );
@@ -2681,6 +2726,89 @@ contract BaseSuperVaultTest is MerkleReader, BaseTest, HooksHelpers, AssetAdjust
         timestamps[0] = vars.timestamp;
 
         ecdsappsOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
+            })
+        );
+
+        // Log the updated PPS for debugging
+        console2.log("Updated PPS for strategy", strategyAddr, vars.pps);
+
+        // Return the calculated PPS value
+        pps = vars.pps;
+        return pps;
+    }
+
+    /**
+     * @notice Updates the PPS (Price Per Share) using TotalAssetHelper
+     * @return pps The calculated and updated price per share value
+     * @dev This function uses TotalAssetHelper to get totalAssets, calculates PPS,
+     *      creates a signature, and updates the PPS through the ECDSAPPSOracle contract
+     */
+    function _updateSuperVaultBasePPS(address strategyAddr, address vault_) internal returns (uint256 pps) {
+        UpdatePPSVars memory vars;
+
+        // Create a temporary TotalAssetHelper for cross-fork scenarios
+        TotalAssetHelper tempTotalAssetHelper = new TotalAssetHelper();
+
+        vars.totalSupplyAmount = SuperVault(vault_).totalSupply();
+
+        // Get current totalAssets from TotalAssetHelper
+        (vars.currentTotalAssets,) = tempTotalAssetHelper.totalAssets(strategyAddr);
+        vars.precision = SuperVault(vault_).PRECISION();
+
+        // Calculate price per share based on current totalAssets and totalSupply
+        if (vars.totalSupplyAmount == 0) {
+            // For first deposit, set initial PPS to 1 unit in price decimals
+            vars.pps = vars.precision;
+        } else {
+            // Calculate current PPS in price decimals using total assets from helper
+            vars.pps = vars.currentTotalAssets.mulDiv(vars.precision, vars.totalSupplyAmount, Math.Rounding.Floor);
+        }
+
+        // Get the current timestamp for the signature
+        vars.timestamp = block.timestamp;
+
+        ECDSAPPSOracle baseOracle = ECDSAPPSOracle(_getContract(BASE, ECDSAPPS_ORACLE_KEY));
+
+        // Create the message hash with all parameters (using simplified format)
+        bytes32 structHash = keccak256(
+            abi.encodePacked(
+                baseOracle.UPDATE_PPS_TYPEHASH(),
+                strategyAddr,
+                vars.pps,
+                vars.timestamp,
+                baseOracle.noncePerStrategy(strategyAddr)
+            )
+        );
+        vars.ethSignedMessageHash = MessageHashUtils.toTypedDataHash(baseOracle.domainSeparator(), structHash);
+
+        // Create signature (r, s, v) components using the constant KEEPER address
+        (vars.v, vars.r, vars.s) = vm.sign(VALIDATOR_KEY, vars.ethSignedMessageHash);
+
+        // Combine the signature components into a single bytes signature
+        vars.signature = abi.encodePacked(vars.r, vars.s, vars.v);
+
+        // Create an array of proofs with the signature
+        vars.proofs = new bytes[](1);
+        vars.proofs[0] = vars.signature;
+
+        // Call batchUpdatePPS on the ECDSAPPSOracle with a single entry
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategyAddr;
+
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = vars.proofs;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = vars.pps;
+
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = vars.timestamp;
+
+        // baseOracle already declared above
+
+        baseOracle.updatePPS(
             IECDSAPPSOracle.UpdatePPSArgs({
                 strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
             })
