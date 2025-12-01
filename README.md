@@ -208,7 +208,3 @@ Broken properties can be turned into unit tests using [Recon's tools](https://ge
 ```shell
 forge test --match-test <reproducer-test-name> -vv
 ```
-
-## License
-
-Apache-2.0
