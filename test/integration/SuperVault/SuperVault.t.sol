@@ -24,7 +24,6 @@ import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { SuperBank } from "../../../src/SuperBank.sol";
 import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
 import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
-import { MockSuperBankForBridge } from "../../mocks/MockSuperBankForBridge.sol";
 import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
 import { SuperVaultAggregator } from "../../../src/SuperVault/SuperVaultAggregator.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -3936,27 +3935,75 @@ contract SuperVaultTest is BaseSuperVaultTest {
             ""
         );
 
-        // Use mock SuperBank to bypass complex hook validation
-        MockSuperBankForBridge mockSuperBank = new MockSuperBankForBridge();
+        // Use real SuperBank with proper hook verification
+        address payable superBankBase = payable(_getContract(BASE, SUPER_BANK_KEY));
+        SuperGovernor govBase = SuperGovernor(_getContract(BASE, SUPER_GOVERNOR_KEY));
 
-        // Transfer funds to mock SuperBank for bridging
-        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
-        uint256 currentBalance = IERC20(assetOnBase).balanceOf(superBankBase);
-        if (currentBalance >= bridgeAmount) {
-            vm.prank(superBankBase);
-            IERC20(assetOnBase).transfer(address(mockSuperBank), bridgeAmount);
-        }
+        // Set up merkle roots for hooks before execution
+        _setupSuperBankHookMerkleRoots(govBase, fulfillHooksAddresses, fulfillHooksData);
 
-        // Create hook execution data struct for mock SuperBank
+        // Create proper merkle proofs for hook execution
+        bytes32[][] memory merkleProofs = _createSuperBankMerkleProofs(fulfillHooksAddresses);
+
+        // Create hook execution data struct for real SuperBank
         IHookExecutionData.HookExecutionData memory executionData = IHookExecutionData.HookExecutionData({
             hooks: fulfillHooksAddresses,
             data: fulfillHooksData,
-            merkleProofs: new bytes32[][](fulfillHooksAddresses.length),
+            merkleProofs: merkleProofs,
             expectedAssetsOrSharesOut: new uint256[](fulfillHooksAddresses.length)
         });
 
-        // Execute hooks via mock SuperBank - now properly executes real hook logic without validation
-        mockSuperBank.executeHooks(executionData);
+        // Execute hooks via real SuperBank with proper role
+        SuperBank(superBankBase).executeHooks(executionData);
+    }
+
+    /// @notice Helper function to set up merkle roots for SuperBank hooks
+    /// @param govBase The SuperGovernor instance
+    /// @param hooks Array of hook addresses
+    /// @param hooksData Array of hook data
+    function _setupSuperBankHookMerkleRoots(
+        SuperGovernor govBase,
+        address[] memory hooks,
+        bytes[] memory hooksData
+    ) internal {
+        for (uint256 i = 0; i < hooks.length; i++) {
+            address hookAddress = hooks[i];
+            bytes memory hookData = hooksData[i];
+
+            // Get hook args from inspect() - this is what goes into the merkle leaf
+            bytes memory hookArgs = ISuperHookInspector(hookAddress).inspect(hookData);
+
+            // Create merkle leaf: keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))))
+            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))));
+
+            // For a single-leaf tree, the root equals the leaf
+            bytes32 merkleRoot = leaf;
+
+            // Propose and execute the merkle root for this hook
+            govBase.proposeSuperBankHookMerkleRoot(hookAddress, merkleRoot);
+
+            // Warp past the timelock (7 days)
+            vm.warp(block.timestamp + 7 days + 1);
+
+            // Execute the merkle root update
+            govBase.executeSuperBankHookMerkleRootUpdate(hookAddress);
+        }
+    }
+
+    /// @notice Helper function to create merkle proofs for SuperBank hooks
+    /// @param hooks Array of hook addresses
+    /// @return merkleProofs Array of merkle proofs (empty for single-leaf trees)
+    function _createSuperBankMerkleProofs(
+        address[] memory hooks
+    ) internal pure returns (bytes32[][] memory merkleProofs) {
+        merkleProofs = new bytes32[][](hooks.length);
+
+        for (uint256 i = 0; i < hooks.length; i++) {
+            // For single-leaf trees, empty proof is valid when root equals leaf
+            merkleProofs[i] = new bytes32[](0);
+        }
+
+        return merkleProofs;
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -532,9 +532,6 @@ contract UpdatePPSUpkeepIntegrationBaseTest is Test {
         uint256 strategyUpkeepAfterDeposit = aggregator.getUpkeepBalance(strategy);
         console2.log("Strategy upkeep balance after deposit:", strategyUpkeepAfterDeposit);
 
-        uint256 claimableUpkeepBefore = aggregator.claimableUpkeep();
-        uint256 superBankBalanceBefore = IERC20(WETH_BASE).balanceOf(address(superBank));
-
         console2.log("=== Step 3: Run PPS update ===");
         vm.warp(block.timestamp + 10);
 
