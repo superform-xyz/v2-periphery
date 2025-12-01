@@ -3532,6 +3532,12 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
 
+        vm.prank(MANAGER);
+        bTStrategy.skimPerformanceFee();
+
+        // Update PPS after skimming to sync vault state
+        _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
+
         vm.startPrank(accountBase.account);
         bTStrategy.setRedeemSlippage(9900);
         bTVault.requestRedeem(accShares, accountBase.account, accountBase.account);
@@ -3547,11 +3553,15 @@ contract SuperVaultTest is BaseSuperVaultTest {
         _updateSuperVaultBasePPS(address(bTStrategy), address(bTVault));
 
         _fulfillRedeemRequestsOnBase(accountBase.account, accountBase1.account, address(bTStrategy));
+
+        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+        console2.log("SB balance: ", IERC20(assetBase).balanceOf(address(superBankBase)));
     }
 
     function _setupBridgeTestVault(address assetBridgeTest) internal returns (SuperVault bridgeTestVault, SuperVaultStrategy bridgeTestStrategy) {
         vm.selectFork(FORKS[BASE]);
 
+        // Setup contract instances
         (address bridgeTestVaultAddr, address bridgeTestStrategyAddr,) = _deployVaultOnBase(assetBridgeTest, "svBridgeTest");
 
         vm.label(bridgeTestVaultAddr, "BridgeTestVault");
@@ -3560,6 +3570,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bridgeTestVault = SuperVault(bridgeTestVaultAddr);
         bridgeTestStrategy = SuperVaultStrategy(payable(bridgeTestStrategyAddr));
 
+        address superBankBase = _getContract(BASE, SUPER_BANK_KEY);
+
+        // Set fee config
+        vm.startPrank(MANAGER);
+        bridgeTestStrategy.proposeVaultFeeConfigUpdate(5000, 5000, superBankBase);
+        vm.warp(block.timestamp + 1 weeks);
+        bridgeTestStrategy.executeVaultFeeConfigUpdate();
+        vm.stopPrank();
+
+        // Set underlying yield source
         address morphoVaultAddr = realVaultAddresses[BASE][ERC4626_VAULT_KEY][MORPHO_GAUNTLET_USDC_PRIME_KEY][USDC_KEY];
 
         // Add a new yield source as manager
@@ -3567,6 +3587,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         bridgeTestStrategy.manageYieldSource(
             morphoVaultAddr, _getContract(BASE, ERC4626_YIELD_SOURCE_ORACLE_KEY), ISuperVaultStrategy.YieldSourceAction.Add
         );
+
+        _updateSuperVaultBasePPS(bridgeTestStrategyAddr, bridgeTestVaultAddr);
     }
 
     /**
