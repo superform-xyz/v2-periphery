@@ -196,6 +196,22 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         );
     }
 
+    /// @notice Gas measurement test with upkeep payments DISABLED
+    /// @dev IMPORTANT: This test measures gas with isUpkeepPaymentsEnabled=false (set in setUp)
+    ///
+    /// Test gas (~100k/entry) vs Mainnet gas (~133k/entry) difference:
+    /// - Test: Upkeep payments disabled, skips getUpkeepCostPerSingleUpdate() call
+    /// - Mainnet: Upkeep payments enabled, each strategy calls:
+    ///   1. SUPER_GOVERNOR.getUpkeepCostPerSingleUpdate(msg.sender)
+    ///   2. Which calls _convertGasToUpkeepToken() making 3 oracle calls:
+    ///      - ISuperOracle.getQuoteFromProvider(Gas -> Wei) ~10-15k gas
+    ///      - ISuperOracle.getQuoteFromProvider(Wei -> USD) ~10-15k gas
+    ///      - ISuperOracle.getQuoteFromProvider(USD -> UPKEEP_TOKEN) ~10-15k gas
+    ///   3. Plus IERC20Metadata.decimals() call ~2-3k gas
+    ///
+    /// Total difference: ~30-40k gas per strategy from upkeep cost calculation
+    ///
+    /// For accurate mainnet estimates, see UpdatePPSUpkeepIntegrationBase.t.sol tests
     function test_UpdatePPS_GasCost_SingleEntry() public {
         // Create valid proofs from multiple validators
         bytes[] memory proofs = _createValidProofs(address(svStrategy), PPS, block.timestamp, new uint256[](0));
@@ -218,14 +234,111 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         });
 
         // Measure gas cost
+        // NOTE: This is ~100k gas. On mainnet with upkeep enabled, expect ~130-140k per entry
         uint256 gasBefore = gasleft();
         oracleECDSA.updatePPS(args);
         uint256 gasAfter = gasleft();
 
         uint256 gasUsed = gasBefore - gasAfter;
-        emit log_named_uint("Gas used for updatePPS with 1 entry", gasUsed);
+        emit log_named_uint("Gas used for updatePPS with 1 entry (upkeep DISABLED)", gasUsed);
+        emit log("NOTE: Mainnet with upkeep enabled adds ~30-40k gas per entry for oracle price lookups");
     }
 
+    /// @notice Gas measurement test with upkeep payments ENABLED (simulates mainnet)
+    /// @dev This test enables upkeep payments and mocks oracle responses to measure realistic gas
+    function test_UpdatePPS_GasCost_SingleEntry_WithUpkeepEnabled() public {
+        // ==================== SETUP UPKEEP PAYMENTS ====================
+
+        // Get the upkeep token (using the asset as mock upkeep token for simplicity)
+        address upkeepToken = address(asset);
+
+        vm.startPrank(governorAddress);
+
+        // Set UPKEEP_TOKEN address
+        governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+        // Set gas info for oracle (65000 gas per entry as per ConfigBase.sol)
+        governor.setGasInfo(address(oracleECDSA), 65_000);
+
+        // Enable upkeep payments (propose -> warp -> execute)
+        governor.proposeUpkeepPaymentsChange(true);
+        vm.warp(block.timestamp + 8 days);
+        governor.executeUpkeepPaymentsChange();
+
+        vm.stopPrank();
+
+        // Mock oracle responses for getQuoteFromProvider
+        // The oracle needs to return (quote, timestamp, oracleProvider, feed) tuple
+        // _convertGasToUpkeepToken makes 3 oracle calls:
+        //   1. Gas -> Wei (gas price)
+        //   2. Wei -> USD (ETH/USD)
+        //   3. UPKEEP_TOKEN -> USD (token/USD)
+        // We use a single mock that returns a reasonable value for all calls
+        // This is fine for gas measurement purposes
+        bytes memory oracleResponse = abi.encode(
+            uint256(1_000_000), // Generic response value
+            uint256(block.timestamp),
+            bytes32("AVERAGE"),
+            address(0)
+        );
+
+        vm.mockCall(
+            address(superOracle),
+            abi.encodeWithSelector(superOracle.getQuoteFromProvider.selector),
+            oracleResponse
+        );
+
+        // ==================== DEPOSIT UPKEEP ====================
+
+        // Deposit upkeep tokens for the strategy
+        uint256 upkeepDeposit = 100 ether;
+        deal(upkeepToken, mockManager, upkeepDeposit);
+
+        vm.startPrank(mockManager);
+        IERC20(upkeepToken).approve(address(aggregatorSuperVault), upkeepDeposit);
+        aggregatorSuperVault.depositUpkeep(svStrategy, upkeepDeposit);
+        vm.stopPrank();
+
+        // ==================== MEASURE GAS ====================
+
+        // Warp time to ensure we can update (past any rate limits)
+        vm.warp(block.timestamp + 1 days);
+
+        // Create valid proofs
+        bytes[] memory proofs = _createValidProofs(svStrategy, PPS, block.timestamp, new uint256[](0));
+
+        // Prepare single entry update
+        address[] memory strategies = new address[](1);
+        strategies[0] = svStrategy;
+
+        bytes[][] memory proofsArray = new bytes[][](1);
+        proofsArray[0] = proofs;
+
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = PPS;
+
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = block.timestamp;
+
+        IECDSAPPSOracle.UpdatePPSArgs memory args = IECDSAPPSOracle.UpdatePPSArgs({
+            strategies: strategies, proofsArray: proofsArray, ppss: ppss, timestamps: timestamps
+        });
+
+        // Measure gas cost with upkeep enabled
+        uint256 gasBefore = gasleft();
+        oracleECDSA.updatePPS(args);
+        uint256 gasAfter = gasleft();
+
+        uint256 gasUsed = gasBefore - gasAfter;
+        emit log_named_uint("Gas used for updatePPS with 1 entry (upkeep ENABLED)", gasUsed);
+        emit log("This includes 3 oracle calls for gas->token price conversion");
+
+        // Also log the difference from disabled test
+        emit log_named_uint("Estimated oracle overhead per entry", gasUsed > 99_553 ? gasUsed - 99_553 : 0);
+    }
+
+    /// @notice Gas measurement test for 2 entries with upkeep payments DISABLED
+    /// @dev See test_UpdatePPS_GasCost_SingleEntry for mainnet vs test gas difference explanation
     function test_UpdatePPS_GasCost_TwoEntries() public {
         // Create a second strategy
         (, address strategy2,) = aggregatorSuperVault.createVault(
@@ -282,8 +395,15 @@ contract ECDSAPPSOracleTest is BaseSuperVaultTest {
         emit log_named_uint("Incremental gas per entry (2 entries - 1 entry)", gasUsed > 99_619 ? gasUsed - 99_619 : 0);
     }
 
-    /// @notice Comprehensive gas measurement test with 1-5 entries
-    /// @dev This test measures ACTUAL transaction gas (not gasleft) by using Foundry's gas tracking
+    /// @notice Comprehensive gas measurement test with 1-5 entries (upkeep payments DISABLED)
+    /// @dev This test measures execution gas with isUpkeepPaymentsEnabled=false
+    ///
+    /// MAINNET GAS ESTIMATION:
+    /// - Test results: ~100k base + ~57k per additional entry
+    /// - Mainnet with upkeep enabled: Add ~30-40k per entry for oracle price lookups
+    /// - Example: 3 strategies on mainnet = ~400k gas (vs ~270k in test)
+    ///
+    /// See test_UpdatePPS_GasCost_SingleEntry for detailed breakdown of the difference
     function test_UpdatePPS_GasCost_Comprehensive() public {
         // Create 4 additional strategies (we already have svStrategy as #1)
         address[] memory allStrategies = new address[](5);

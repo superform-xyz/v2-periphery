@@ -93,9 +93,8 @@ abstract contract ConfigBase is Constants {
                             GAS CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Gas increase per entry batch for ECDSAPPSOracle upkeep cost calculation
-    /// @dev Based on gas measurements: updatePPS costs ~62,125 gas per entry (includes ECDSA validation)
-    uint256 internal constant GAS_PER_ENTRY = 65_000;
+    /// @notice Gas per entry for ECDSAPPSOracle upkeep cost calculation
+    uint256 internal constant GAS_PER_ENTRY = 135_000;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
