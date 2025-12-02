@@ -6,7 +6,7 @@
 # Define staging networks
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
-    # "1:Ethereum:ETH_MAINNET"
+    "1:Ethereum:ETH_MAINNET"
     "8453:Base:BASE_MAINNET"
     # "56:BNB:BSC_MAINNET"
     # "42161:Arbitrum:ARBITRUM_MAINNET"
@@ -17,9 +17,9 @@ NETWORKS=(
 get_network_name() {
     local network_id=$1
     case "$network_id" in
-        # 1)
-        #     echo "Ethereum"
-        #     ;;
+        1)
+            echo "Ethereum"
+            ;;
         8453)
             echo "Base"
             ;;
@@ -43,9 +43,9 @@ get_network_name() {
 get_rpc_var() {
     local network_id=$1
     case "$network_id" in
-        # 1)
-        #     echo "ETH_MAINNET"
-        #     ;;
+        1)
+            echo "ETH_MAINNET"
+            ;;
         8453)
             echo "BASE_MAINNET"
             ;;
@@ -69,9 +69,9 @@ get_rpc_var() {
 get_rpc_url() {
     local network_id=$1
     case "$network_id" in
-        # 1)
-        #     echo "$ETH_MAINNET"
-        #     ;;
+        1)
+            echo "$ETH_MAINNET"
+            ;;
         8453)
             echo "$BASE_MAINNET"
             ;;
@@ -117,10 +117,10 @@ load_rpc_urls() {
 
     local failed_rpcs=()
 
-    # echo "  • Loading Ethereum RPC..."
-    # if ! export ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("ETHEREUM_RPC_URL")
-    # fi
+    echo "  • Loading Ethereum RPC..."
+    if ! export ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("ETHEREUM_RPC_URL")
+    fi
 
     echo "  • Loading Base RPC..."
     if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
@@ -151,7 +151,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Staging RPC URLs loaded successfully (Base only)"
+    echo "✅ Staging RPC URLs loaded successfully (Ethereum, Base)"
 }
 
 # Load Etherscan V2 API key for verification

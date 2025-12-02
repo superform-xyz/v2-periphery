@@ -52,7 +52,6 @@ abstract contract ConfigBase is Constants {
     /*//////////////////////////////////////////////////////////////
                             ORACLE ADDRESSES
     //////////////////////////////////////////////////////////////*/
-
     /// @notice Gas to ETH oracle (Fast Gas / Gwei feed) - same on all chains
     address internal constant ORACLE_GAS_TO_ETH = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
 

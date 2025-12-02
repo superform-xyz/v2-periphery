@@ -9,6 +9,12 @@ import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/Determini
 import { SuperGovernor } from "../src/SuperGovernor.sol";
 import { FixedPriceOracle } from "../src/oracles/FixedPriceOracle.sol";
 import { ISuperOracle } from "../src/interfaces/oracles/ISuperOracle.sol";
+import { FeeType } from "../src/interfaces/ISuperGovernor.sol";
+import { ISuperVaultAggregator } from "../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
+import { ISuperVault } from "../src/interfaces/SuperVault/ISuperVault.sol";
+import { ISuperVaultStrategy } from "../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { console2 } from "forge-std/console2.sol";
 
@@ -31,6 +37,12 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         address strategyImpl;
         address escrowImpl;
     }
+
+    /// @notice Maximum number of warnings to track
+    uint256 internal constant MAX_WARNINGS = 20;
+
+    /// @notice Array to track warning messages
+    string[] internal warnings;
 
     /// @notice Sets up complete configuration for periphery contracts
     /// @param env Environment (0/2 = production, 1 = test)
@@ -63,11 +75,14 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @notice Internal function to run all smoke tests
     /// @param chainId The target chain ID
     /// @param env Environment
-    function _runSmokeTests(uint64 chainId, uint256 env) internal view {
+    function _runSmokeTests(uint64 chainId, uint256 env) internal {
         console2.log("====== V2 Periphery Smoke Tests ======");
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);
         console2.log("");
+
+        // Clear warnings array
+        delete warnings;
 
         // Compute deployed contract addresses
         PeripheryContracts memory peripheryContracts = _computePeripheryContractAddresses(env);
@@ -75,7 +90,40 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         // Run smoke tests
         _smokeTest(peripheryContracts, chainId, env);
 
+        // Print warnings summary at the end
+        _printWarningsSummary();
+
         console2.log("====== All Smoke Tests Completed ======");
+    }
+
+    /// @notice Add a warning to the warnings list
+    /// @param warning The warning message to add
+    function _addWarning(string memory warning) internal {
+        if (warnings.length < MAX_WARNINGS) {
+            warnings.push(warning);
+        }
+    }
+
+    /// @notice Print all warnings at the end of the smoke test
+    function _printWarningsSummary() internal view {
+        if (warnings.length > 0) {
+            console2.log("");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("!!! WARNINGS SUMMARY !!!");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("Total warnings:", warnings.length);
+            console2.log("");
+
+            for (uint256 i = 0; i < warnings.length; i++) {
+                console2.log("[WARNING", i + 1, "]", warnings[i]);
+            }
+
+            console2.log("");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        } else {
+            console2.log("");
+            console2.log("No warnings detected.");
+        }
     }
 
     /// @notice Compute periphery contract addresses from deployment
@@ -131,7 +179,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @param peripheryContracts The deployed periphery contract addresses
     /// @param chainId The chain ID for chain-specific oracle selection
     /// @param env Environment (0 = prod, 1 = test, 2 = staging)
-    function _smokeTest(PeripheryContracts memory peripheryContracts, uint64 chainId, uint256 env) internal view {
+    function _smokeTest(PeripheryContracts memory peripheryContracts, uint64 chainId, uint256 env) internal {
         console2.log("");
         console2.log("=== Running Smoke Test ===");
 
@@ -192,6 +240,24 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         } else {
             console2.log("[Config Check] Skipping oracle feed verification for test environment");
         }
+
+        // Verify upkeep payments status
+        _verifyUpkeepPaymentsStatus(governor, env);
+
+        // Verify fee configuration
+        _verifyFeeConfiguration(governor);
+
+        // Verify registered hooks
+        _verifyRegisteredHooks(governor);
+
+        // Verify min staleness configuration
+        _verifyMinStaleness(governor);
+
+        // Verify UP and UPKEEP_TOKEN addresses (mainnet only)
+        _verifyUpkeepTokenConfig(governor, chainId);
+
+        // Verify deployed vaults (if any exist)
+        _verifyDeployedVaults(peripheryContracts.superVaultAggregator, peripheryContracts.superGovernor);
 
         console2.log("=== Smoke Test PASSED ===");
         console2.log("");
@@ -397,5 +463,405 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         }
 
         console2.log("=== All Oracle Feeds Verified via SuperOracle ===");
+    }
+
+    /// @notice Verify upkeep payments status is configured correctly
+    /// @param governor The SuperGovernor contract
+    /// @param env Environment (0 = prod, 1 = test, 2 = staging)
+    function _verifyUpkeepPaymentsStatus(SuperGovernor governor, uint256 env) internal {
+        console2.log("");
+        console2.log("=== Verifying Upkeep Payments Status ===");
+
+        bool upkeepEnabled = governor.isUpkeepPaymentsEnabled();
+        console2.log("[Upkeep Check] Upkeep payments enabled:", upkeepEnabled);
+
+        if (env == 0) {
+            // Production should have upkeep payments enabled
+            require(upkeepEnabled, "SMOKE_TEST_FAILED: Upkeep payments should be enabled on production");
+            console2.log("[Upkeep Check] Status: VALID (production - enabled)");
+        } else {
+            // Staging/test - just log the status
+            console2.log("[Upkeep Check] Status: OK (non-production environment)");
+        }
+
+        // Check for pending upkeep change
+        (bool proposedStatus, uint256 effectiveTime) = governor.getProposedUpkeepPaymentsStatus();
+        if (effectiveTime > 0) {
+            console2.log("[Upkeep Check] WARNING: Pending upkeep payments change detected");
+            console2.log("  Proposed status:", proposedStatus);
+            console2.log("  Effective time:", effectiveTime);
+            _addWarning("Pending upkeep payments change detected");
+        } else {
+            console2.log("[Upkeep Check] No pending upkeep payments change");
+        }
+
+        console2.log("=== Upkeep Payments Status Verification Complete ===");
+    }
+
+    /// @notice Verify fee configuration is within expected bounds
+    /// @param governor The SuperGovernor contract
+    function _verifyFeeConfiguration(SuperGovernor governor) internal view {
+        console2.log("");
+        console2.log("=== Verifying Fee Configuration ===");
+
+        uint256 revenueShare = governor.getFee(FeeType.REVENUE_SHARE);
+        uint256 performanceFeeShare = governor.getFee(FeeType.PERFORMANCE_FEE_SHARE);
+
+        console2.log("[Fee Check] Revenue share (bps):", revenueShare);
+        console2.log("[Fee Check] Performance fee share (bps):", performanceFeeShare);
+
+        // Verify fees are within reasonable bounds
+        // Revenue share: max 100% (10000 bps)
+        require(revenueShare <= 10_000, "SMOKE_TEST_FAILED: Revenue share too high (max 100%)");
+        // Performance fee share: max 100% (10000 bps)
+        require(performanceFeeShare <= 10_000, "SMOKE_TEST_FAILED: Performance fee share too high (max 100%)");
+
+        console2.log("[Fee Check] All fees within acceptable bounds");
+        console2.log("=== Fee Configuration Verification Complete ===");
+    }
+
+    /// @notice Verify registered hooks on SuperGovernor
+    /// @param governor The SuperGovernor contract
+    function _verifyRegisteredHooks(SuperGovernor governor) internal {
+        console2.log("");
+        console2.log("=== Verifying Registered Hooks ===");
+
+        address[] memory hooks = governor.getRegisteredHooks();
+        console2.log("[Hooks Check] Total registered hooks:", hooks.length);
+
+        // Log first few hooks for verification (up to 10)
+        uint256 displayCount = hooks.length > 10 ? 10 : hooks.length;
+        for (uint256 i = 0; i < displayCount; i++) {
+            console2.log("  Hook", i, ":", hooks[i]);
+            require(governor.isHookRegistered(hooks[i]), "SMOKE_TEST_FAILED: Hook not properly registered");
+        }
+
+        if (hooks.length > 10) {
+            console2.log("  ... and", hooks.length - 10, "more hooks");
+        }
+
+        // We expect at least some hooks to be registered in production
+        // But don't fail if none - this might be valid in some environments
+        if (hooks.length == 0) {
+            console2.log("[Hooks Check] WARNING: No hooks registered");
+            _addWarning("No hooks registered");
+        } else {
+            console2.log("[Hooks Check] All displayed hooks verified as registered");
+        }
+
+        console2.log("=== Registered Hooks Verification Complete ===");
+    }
+
+    /// @notice Verify minimum staleness configuration
+    /// @param governor The SuperGovernor contract
+    function _verifyMinStaleness(SuperGovernor governor) internal {
+        console2.log("");
+        console2.log("=== Verifying Min Staleness Configuration ===");
+
+        uint256 minStaleness = governor.getMinStaleness();
+        console2.log("[Staleness Check] Min staleness (seconds):", minStaleness);
+        console2.log("[Staleness Check] Min staleness (hours):", minStaleness / 3600);
+
+        // Min staleness should be at least 5 minutes (300 seconds) - warn if too low
+        if (minStaleness < 300) {
+            string memory warningMsg = "Min staleness is too low (should be >= 5 minutes)";
+            console2.log("[Staleness Check] WARNING:", warningMsg);
+            _addWarning(warningMsg);
+        } else {
+            console2.log("[Staleness Check] Min staleness is valid");
+        }
+
+        // Check for pending min staleness change
+        (uint256 proposedMinStaleness, uint256 effectiveTime) = governor.getProposedMinStaleness();
+        if (effectiveTime > 0) {
+            console2.log("[Staleness Check] WARNING: Pending min staleness change detected");
+            console2.log("  Proposed min staleness:", proposedMinStaleness);
+            console2.log("  Effective time:", effectiveTime);
+            _addWarning("Pending min staleness change detected");
+        }
+
+        console2.log("=== Min Staleness Verification Complete ===");
+    }
+
+    /// @notice Verify UP and UPKEEP_TOKEN addresses are configured (mainnet only)
+    /// @param governor The SuperGovernor contract
+    /// @param chainId The chain ID
+    function _verifyUpkeepTokenConfig(SuperGovernor governor, uint64 chainId) internal view {
+        console2.log("");
+        console2.log("=== Verifying Upkeep Token Configuration ===");
+
+        if (chainId == MAINNET_CHAIN_ID) {
+            // On mainnet, UP and UPKEEP_TOKEN should be set
+            address upToken = governor.getAddress(keccak256("UP"));
+            address upkeepToken = governor.getAddress(keccak256("UPKEEP_TOKEN"));
+
+            console2.log("[Token Check] UP token:", upToken);
+            console2.log("[Token Check] UPKEEP_TOKEN:", upkeepToken);
+
+            require(upToken != address(0), "SMOKE_TEST_FAILED: UP token not set on mainnet");
+            require(upkeepToken != address(0), "SMOKE_TEST_FAILED: UPKEEP_TOKEN not set on mainnet");
+
+            console2.log("[Token Check] Mainnet token addresses verified");
+        } else {
+            console2.log("[Token Check] Skipping UP/UPKEEP_TOKEN check (non-mainnet chain)");
+        }
+
+        console2.log("=== Upkeep Token Configuration Verification Complete ===");
+    }
+
+    /// @notice Verify deployed SuperVaults are functioning correctly
+    /// @param aggregatorAddr The SuperVaultAggregator address
+    /// @param governorAddr The SuperGovernor address for immutable verification
+    function _verifyDeployedVaults(address aggregatorAddr, address governorAddr) internal {
+        console2.log("");
+        console2.log("=== Verifying Deployed Vaults ===");
+
+        if (aggregatorAddr == address(0)) {
+            console2.log("[Vault Check] SuperVaultAggregator not set, skipping vault verification");
+            return;
+        }
+
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(aggregatorAddr);
+
+        uint256 vaultCount = aggregator.getSuperVaultsCount();
+        uint256 strategyCount = aggregator.getSuperVaultStrategiesCount();
+        uint256 escrowCount = aggregator.getSuperVaultEscrowsCount();
+
+        console2.log("[Vault Check] Total SuperVaults:", vaultCount);
+        console2.log("[Vault Check] Total Strategies:", strategyCount);
+        console2.log("[Vault Check] Total Escrows:", escrowCount);
+
+        // Verify counts match (should be 1:1:1 ratio)
+        require(vaultCount == strategyCount, "SMOKE_TEST_FAILED: Vault/Strategy count mismatch");
+        require(vaultCount == escrowCount, "SMOKE_TEST_FAILED: Vault/Escrow count mismatch");
+
+        // Verify hooks root update timelock is set
+        uint256 hooksTimelock = aggregator.getHooksRootUpdateTimelock();
+        console2.log("[Vault Check] Hooks root update timelock (seconds):", hooksTimelock);
+        require(hooksTimelock > 0, "SMOKE_TEST_FAILED: Hooks root update timelock not set");
+
+        // Check global hooks root veto status
+        bool globalVetoed = aggregator.isGlobalHooksRootVetoed();
+        console2.log("[Vault Check] Global hooks root vetoed:", globalVetoed);
+
+        if (vaultCount > 0) {
+            // Verify all vaults, not just the first one
+            for (uint256 i = 0; i < vaultCount; i++) {
+                _verifySingleVault(aggregator, governorAddr, i);
+            }
+        } else {
+            console2.log("[Vault Check] No vaults deployed yet, skipping vault-specific checks");
+        }
+
+        console2.log("=== Deployed Vaults Verification Complete ===");
+    }
+
+    /// @notice Verify a single SuperVault's immutable and deployment parameters
+    /// @param aggregator The SuperVaultAggregator contract
+    /// @param governorAddr The expected SuperGovernor address
+    /// @param index The index of the vault to verify
+    function _verifySingleVault(ISuperVaultAggregator aggregator, address governorAddr, uint256 index) internal {
+        address vaultAddr = aggregator.superVaults(index);
+        address strategyAddr = aggregator.superVaultStrategies(index);
+        address escrowAddr = aggregator.superVaultEscrows(index);
+
+        console2.log("");
+        console2.log("[Vault", index, "] Verifying vault:", vaultAddr);
+        console2.log("  Strategy:", strategyAddr);
+        console2.log("  Escrow:", escrowAddr);
+
+        // Verify vault immutables and get vault info for strategy checks
+        (uint8 vaultDecimals, address vaultAsset, string memory vaultSymbol) =
+            _verifyVaultImmutables(vaultAddr, strategyAddr, escrowAddr, governorAddr);
+
+        // Verify strategy immutables
+        _verifyStrategyImmutables(strategyAddr, vaultAddr, vaultAsset, vaultDecimals, governorAddr);
+
+        // Verify aggregator data
+        _verifyAggregatorData(aggregator, strategyAddr, vaultSymbol);
+
+        // Verify fee configuration
+        _verifyVaultFeeConfig(strategyAddr);
+
+        console2.log("[Vault", index, "] Verification PASSED");
+    }
+
+    /// @notice Verify vault immutable parameters
+    function _verifyVaultImmutables(
+        address vaultAddr,
+        address strategyAddr,
+        address escrowAddr,
+        address governorAddr
+    )
+        internal
+        view
+        returns (uint8 vaultDecimals, address vaultAsset, string memory vaultSymbol)
+    {
+        // Get vault info
+        string memory vaultName = IERC20Metadata(vaultAddr).name();
+        vaultSymbol = IERC20Metadata(vaultAddr).symbol();
+        vaultDecimals = IERC20Metadata(vaultAddr).decimals();
+        vaultAsset = IERC4626(vaultAddr).asset();
+
+        console2.log("  Vault Name:", vaultName);
+        console2.log("  Vault Symbol:", vaultSymbol);
+        console2.log("  Vault Decimals:", vaultDecimals);
+        console2.log("  Vault Asset:", vaultAsset);
+
+        // Verify vault's strategy and escrow pointers match aggregator
+        address vaultStrategy = _getVaultStrategy(vaultAddr);
+        address vaultEscrow = ISuperVault(vaultAddr).escrow();
+
+        console2.log("  Vault -> Strategy:", vaultStrategy);
+        console2.log("  Vault -> Escrow:", vaultEscrow);
+
+        require(vaultStrategy == strategyAddr, "SMOKE_TEST_FAILED: Vault strategy mismatch");
+        require(vaultEscrow == escrowAddr, "SMOKE_TEST_FAILED: Vault escrow mismatch");
+
+        // Verify vault's SUPER_GOVERNOR immutable
+        address vaultGovernor = _getVaultSuperGovernor(vaultAddr);
+        console2.log("  Vault SUPER_GOVERNOR:", vaultGovernor);
+        require(vaultGovernor == governorAddr, "SMOKE_TEST_FAILED: Vault SUPER_GOVERNOR mismatch");
+
+        // Verify vault PRECISION matches 10^decimals
+        uint256 vaultPrecision = _getVaultPrecision(vaultAddr);
+        uint256 expectedPrecision = 10 ** vaultDecimals;
+        console2.log("  Vault PRECISION:", vaultPrecision);
+        console2.log("  Expected PRECISION:", expectedPrecision);
+        require(vaultPrecision == expectedPrecision, "SMOKE_TEST_FAILED: Vault PRECISION mismatch");
+    }
+
+    /// @notice Verify strategy immutable parameters
+    function _verifyStrategyImmutables(
+        address strategyAddr,
+        address vaultAddr,
+        address vaultAsset,
+        uint8 vaultDecimals,
+        address governorAddr
+    )
+        internal
+        view
+    {
+        // Verify strategy's vault info
+        (address stratVault, address stratAsset, uint8 stratDecimals) =
+            ISuperVaultStrategy(strategyAddr).getVaultInfo();
+        console2.log("  Strategy -> Vault:", stratVault);
+        console2.log("  Strategy -> Asset:", stratAsset);
+        console2.log("  Strategy Decimals:", stratDecimals);
+
+        require(stratVault == vaultAddr, "SMOKE_TEST_FAILED: Strategy vault mismatch");
+        require(stratAsset == vaultAsset, "SMOKE_TEST_FAILED: Strategy asset mismatch");
+        require(stratDecimals == vaultDecimals, "SMOKE_TEST_FAILED: Strategy decimals mismatch");
+
+        // Verify strategy's SUPER_GOVERNOR immutable
+        address strategyGovernor = _getStrategySuperGovernor(strategyAddr);
+        console2.log("  Strategy SUPER_GOVERNOR:", strategyGovernor);
+        require(strategyGovernor == governorAddr, "SMOKE_TEST_FAILED: Strategy SUPER_GOVERNOR mismatch");
+
+        // Verify strategy PRECISION matches 10^decimals
+        uint256 strategyPrecision = _getStrategyPrecision(strategyAddr);
+        uint256 expectedPrecision = 10 ** vaultDecimals;
+        console2.log("  Strategy PRECISION:", strategyPrecision);
+        require(strategyPrecision == expectedPrecision, "SMOKE_TEST_FAILED: Strategy PRECISION mismatch");
+    }
+
+    /// @notice Verify aggregator data for a strategy
+    function _verifyAggregatorData(
+        ISuperVaultAggregator aggregator,
+        address strategyAddr,
+        string memory vaultSymbol
+    )
+        internal
+    {
+        // Verify strategy has valid PPS
+        uint256 pps = aggregator.getPPS(strategyAddr);
+        console2.log("  Strategy PPS:", pps);
+        require(pps > 0, "SMOKE_TEST_FAILED: Strategy PPS is zero");
+
+        // Check strategy pause status
+        bool isPaused = aggregator.isStrategyPaused(strategyAddr);
+        console2.log("  Strategy paused:", isPaused);
+        if (isPaused) {
+            _addWarning(string.concat("Vault ", vaultSymbol, " strategy is paused"));
+        }
+
+        // Check PPS staleness
+        bool isStale = aggregator.isPPSStale(strategyAddr);
+        console2.log("  PPS stale:", isStale);
+        if (isStale) {
+            _addWarning(string.concat("Vault ", vaultSymbol, " PPS is stale"));
+        }
+
+        // Get main manager
+        address mainManager = aggregator.getMainManager(strategyAddr);
+        console2.log("  Main manager:", mainManager);
+        require(mainManager != address(0), "SMOKE_TEST_FAILED: Strategy has no main manager");
+
+        // Get upkeep balance
+        uint256 upkeepBalance = aggregator.getUpkeepBalance(strategyAddr);
+        console2.log("  Upkeep balance:", upkeepBalance);
+
+        // Get staleness configuration
+        uint256 maxStaleness = aggregator.getMaxStaleness(strategyAddr);
+        uint256 minUpdateInterval = aggregator.getMinUpdateInterval(strategyAddr);
+        console2.log("  Max staleness (seconds):", maxStaleness);
+        console2.log("  Min update interval (seconds):", minUpdateInterval);
+
+        // Verify min update interval < max staleness
+        require(
+            minUpdateInterval < maxStaleness, "SMOKE_TEST_FAILED: minUpdateInterval must be less than maxStaleness"
+        );
+
+        // Get deviation threshold
+        uint256 deviationThreshold = aggregator.getDeviationThreshold(strategyAddr);
+        console2.log("  Deviation threshold:", deviationThreshold);
+    }
+
+    /// @notice Verify vault fee configuration
+    function _verifyVaultFeeConfig(address strategyAddr) internal view {
+        ISuperVaultStrategy.FeeConfig memory feeConfig = ISuperVaultStrategy(strategyAddr).getConfigInfo();
+        console2.log("  Performance fee (bps):", feeConfig.performanceFeeBps);
+        console2.log("  Management fee (bps):", feeConfig.managementFeeBps);
+        console2.log("  Fee recipient:", feeConfig.recipient);
+
+        // Verify fees are reasonable
+        require(feeConfig.performanceFeeBps <= 5000, "SMOKE_TEST_FAILED: Performance fee > 50%");
+        require(feeConfig.managementFeeBps <= 500, "SMOKE_TEST_FAILED: Management fee > 5%");
+        require(feeConfig.recipient != address(0), "SMOKE_TEST_FAILED: Fee recipient is zero");
+    }
+
+    /// @notice Get vault's strategy address via low-level call
+    function _getVaultStrategy(address vault) internal view returns (address) {
+        (bool success, bytes memory data) = vault.staticcall(abi.encodeWithSignature("strategy()"));
+        require(success, "SMOKE_TEST_FAILED: Failed to get vault strategy");
+        return abi.decode(data, (address));
+    }
+
+    /// @notice Get vault's SUPER_GOVERNOR address via low-level call
+    function _getVaultSuperGovernor(address vault) internal view returns (address) {
+        (bool success, bytes memory data) = vault.staticcall(abi.encodeWithSignature("SUPER_GOVERNOR()"));
+        require(success, "SMOKE_TEST_FAILED: Failed to get vault SUPER_GOVERNOR");
+        return abi.decode(data, (address));
+    }
+
+    /// @notice Get vault's PRECISION via low-level call
+    function _getVaultPrecision(address vault) internal view returns (uint256) {
+        (bool success, bytes memory data) = vault.staticcall(abi.encodeWithSignature("PRECISION()"));
+        require(success, "SMOKE_TEST_FAILED: Failed to get vault PRECISION");
+        return abi.decode(data, (uint256));
+    }
+
+    /// @notice Get strategy's SUPER_GOVERNOR address via low-level call
+    function _getStrategySuperGovernor(address strategy) internal view returns (address) {
+        (bool success, bytes memory data) = strategy.staticcall(abi.encodeWithSignature("SUPER_GOVERNOR()"));
+        require(success, "SMOKE_TEST_FAILED: Failed to get strategy SUPER_GOVERNOR");
+        return abi.decode(data, (address));
+    }
+
+    /// @notice Get strategy's PRECISION via low-level call
+    function _getStrategyPrecision(address strategy) internal view returns (uint256) {
+        (bool success, bytes memory data) = strategy.staticcall(abi.encodeWithSignature("PRECISION()"));
+        require(success, "SMOKE_TEST_FAILED: Failed to get strategy PRECISION");
+        return abi.decode(data, (uint256));
     }
 }
