@@ -9,29 +9,29 @@
 #   during deployment or needs to be updated.
 #
 # Usage:
-#   ./set_gas_info.sh <environment> [simulate]
+#   ./set_gas_info.sh <environment> <mode> [account]
 #
 #   Parameters:
-#     environment  Environment: "production" or "staging" (required)
-#     simulate     Optional: add "simulate" to run without broadcasting
+#     environment: "prod" or "staging"
+#     mode: "simulate" or "execute"
+#     account: Account name (required for execute mode, e.g., "v2-supervaults")
 #
 # Examples:
 #   # Simulate on mainnet staging
 #   ./set_gas_info.sh staging simulate
 #
 #   # Execute on mainnet staging
-#   ./set_gas_info.sh staging
+#   ./set_gas_info.sh staging execute v2-supervaults
 #
-#   # Simulate on mainnet production
-#   ./set_gas_info.sh production simulate
+#   # Simulate on mainnet prod
+#   ./set_gas_info.sh prod simulate
 #
-#   # Execute on mainnet production
-#   ./set_gas_info.sh production
+#   # Execute on mainnet prod
+#   ./set_gas_info.sh prod execute v2-supervaults
 #
 # Prerequisites:
-#   - ETH_RPC_URL environment variable set
-#   - ETH_PRIVATE_KEY environment variable set (or use 1Password)
-#   - Deployer must have DEFAULT_ADMIN_ROLE on SuperGovernor
+#   - 1Password CLI configured for RPC URL access
+#   - For execute mode: Foundry account with DEFAULT_ADMIN_ROLE on SuperGovernor
 #
 # Note:
 #   - This script only runs on mainnet (chain ID 1)
@@ -52,6 +52,9 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 readonly CHAIN_ID=1  # Mainnet only
 
+# Deployer address for simulation
+readonly DEPLOYER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
+
 ###################################################################################
 # Helper Functions
 ###################################################################################
@@ -64,60 +67,69 @@ log() {
 
 usage() {
     cat << EOF
-Usage: $0 <environment> [simulate]
+Usage: $0 <environment> <mode> [account]
 
 Arguments:
-    environment  Environment: "production" or "staging" (required)
-    simulate     Optional: add "simulate" to run without broadcasting
+    environment  Environment: "prod" or "staging" (required)
+    mode         Mode: "simulate" or "execute" (required)
+    account      Account name (required for execute mode, e.g., "v2-supervaults")
 
 Examples:
     # Simulate on mainnet staging
     $0 staging simulate
 
     # Execute on mainnet staging
-    $0 staging
+    $0 staging execute v2-supervaults
 
-    # Simulate on mainnet production
-    $0 production simulate
+    # Simulate on mainnet prod
+    $0 prod simulate
 
-    # Execute on mainnet production
-    $0 production
+    # Execute on mainnet prod
+    $0 prod execute v2-supervaults
 
 Note: This script only runs on mainnet (chain ID 1)
 EOF
     exit 1
 }
 
-get_private_key() {
-    # Try 1Password first
-    if command -v op &> /dev/null; then
-        log "INFO" "Attempting to get private key from 1Password..."
-        local private_key
-        if private_key=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/DEPLOYER_PRIVATE_KEY/credential 2>/dev/null); then
-            echo "$private_key"
-            return 0
-        fi
+# Source network configuration based on environment
+source_network_config() {
+    local environment=$1
+    local network_config_file
+
+    if [ "$environment" = "staging" ]; then
+        network_config_file="$SCRIPT_DIR/networks-staging.sh"
+    else
+        network_config_file="$SCRIPT_DIR/networks-production.sh"
     fi
 
-    # Fallback to environment variable
-    if [ -n "${ETH_PRIVATE_KEY:-}" ]; then
-        log "INFO" "Using private key from ETH_PRIVATE_KEY environment variable"
-        echo "$ETH_PRIVATE_KEY"
-        return 0
+    if [ ! -f "$network_config_file" ]; then
+        log "ERROR" "Network config not found: $network_config_file"
+        exit 1
     fi
 
-    log "ERROR" "No private key found. Set ETH_PRIVATE_KEY or configure 1Password CLI"
-    exit 1
+    log "INFO" "Loading network configuration from: $network_config_file"
+    source "$network_config_file"
 }
 
-get_rpc_url() {
-    if [ -n "${ETH_RPC_URL:-}" ]; then
-        echo "$ETH_RPC_URL"
-        return 0
+# Validate environment parameter
+validate_environment() {
+    local environment=$1
+    if [ "$environment" != "staging" ] && [ "$environment" != "prod" ]; then
+        log "ERROR" "Invalid environment: $environment"
+        log "ERROR" "Must be either 'staging' or 'prod'"
+        exit 1
     fi
+}
 
-    log "ERROR" "No RPC URL found. Set ETH_RPC_URL environment variable"
-    exit 1
+# Validate mode parameter
+validate_mode() {
+    local mode=$1
+    if [ "$mode" != "simulate" ] && [ "$mode" != "execute" ]; then
+        log "ERROR" "Invalid mode: $mode"
+        log "ERROR" "Must be either 'simulate' or 'execute'"
+        exit 1
+    fi
 }
 
 ###################################################################################
@@ -126,24 +138,39 @@ get_rpc_url() {
 
 main() {
     # Check minimum arguments
-    if [ $# -lt 1 ]; then
-        log "ERROR" "Missing required argument: environment"
+    if [ $# -lt 2 ]; then
+        log "ERROR" "Missing required arguments"
         usage
     fi
 
     local environment="$1"
-    local simulate=false
+    local mode="$2"
+    local account="${3:-}"
 
-    # Check for simulate flag
-    if [ $# -ge 2 ] && [ "$2" = "simulate" ]; then
-        simulate=true
+    # Validate environment
+    validate_environment "$environment"
+
+    # Source network configuration based on environment
+    source_network_config "$environment"
+
+    # Validate mode
+    validate_mode "$mode"
+
+    # Validate account for execute mode
+    if [ "$mode" = "execute" ]; then
+        if [ -z "$account" ]; then
+            log "ERROR" "Account name is required for execute mode"
+            log "ERROR" "Usage: $0 $environment execute <account_name>"
+            exit 1
+        fi
+        log "INFO" "Using account: $account"
     fi
 
     # Map environment to env number
     local env
     local salt
     case "$environment" in
-        production|prod)
+        prod)
             env=0
             salt="PROD1.0.0"
             ;;
@@ -151,15 +178,18 @@ main() {
             env=2
             salt="STAGING1.0.0"
             ;;
-        *)
-            log "ERROR" "Invalid environment: $environment. Must be 'production' or 'staging'"
-            usage
-            ;;
     esac
 
-    # Get RPC URL
-    local rpc_url
-    rpc_url=$(get_rpc_url)
+    # Load RPC URLs from 1Password
+    log "INFO" "Loading RPC URLs..."
+    load_rpc_urls
+
+    # Get Ethereum RPC URL
+    local rpc_url="${ETH_MAINNET:-}"
+    if [ -z "$rpc_url" ]; then
+        log "ERROR" "ETH_MAINNET RPC URL not loaded. Check 1Password configuration."
+        exit 1
+    fi
 
     log "INFO" "============================================"
     log "INFO" "SetGasInfo Script"
@@ -167,26 +197,25 @@ main() {
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Chain ID: $CHAIN_ID (mainnet)"
     log "INFO" "Salt: $salt"
-    log "INFO" "Simulate: $simulate"
+    log "INFO" "Mode: $mode"
     log "INFO" "RPC URL: ${rpc_url:0:50}..."
     log "INFO" "============================================"
 
-    # Build forge command
+    # Build forge command (use relative path from project root)
     local forge_cmd="forge script"
-    forge_cmd+=" ${PROJECT_ROOT}/script/SetGasInfo.s.sol:SetGasInfo"
+    forge_cmd+=" script/SetGasInfo.s.sol:SetGasInfo"
     forge_cmd+=" --sig 'run(uint256,uint64)' $env $CHAIN_ID"
     forge_cmd+=" --rpc-url '$rpc_url'"
 
-    if [ "$simulate" = true ]; then
-        log "INFO" "Running in SIMULATION mode (no broadcast)"
+    # Set up forge flags based on mode
+    if [ "$mode" = "execute" ]; then
+        # Execute mode: Use --account flag with --broadcast
+        forge_cmd+=" --account $account --broadcast"
+        log "INFO" "Mode: Execute (will broadcast transactions using account: $account)"
     else
-        log "INFO" "Running in BROADCAST mode"
-        forge_cmd+=" --broadcast"
-
-        # Get private key for broadcast mode
-        local private_key
-        private_key=$(get_private_key)
-        forge_cmd+=" --private-key '$private_key'"
+        # Simulate mode: Use deployer address with --sender (no broadcast)
+        forge_cmd+=" --sender $DEPLOYER"
+        log "INFO" "Mode: Simulate (no broadcast, using sender: $DEPLOYER)"
     fi
 
     # Add verbosity
