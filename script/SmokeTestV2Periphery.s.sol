@@ -7,7 +7,6 @@ import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/Determini
 
 // Periphery contracts
 import { SuperGovernor } from "../src/SuperGovernor.sol";
-import { FixedPriceOracle } from "../src/oracles/FixedPriceOracle.sol";
 import { ISuperOracle } from "../src/interfaces/oracles/ISuperOracle.sol";
 import { FeeType } from "../src/interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
@@ -32,7 +31,6 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         address superBank;
         address superVaultAggregator;
         address ecdsappsOracle;
-        address fixedPriceOracle;
         address vaultImpl;
         address strategyImpl;
         address escrowImpl;
@@ -163,15 +161,6 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         peripheryContracts.superBank = governor.getAddress(governor.SUPER_BANK());
         peripheryContracts.ecdsappsOracle = governor.getActivePPSOracle();
 
-        // Compute FixedPriceOracle address
-        peripheryContracts.fixedPriceOracle = DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(
-                type(FixedPriceOracle).creationCode,
-                abi.encode(INITIAL_UP_PRICE, UP_PRICE_DECIMALS, configuration.deployer)
-            ),
-            __getSalt(FIXED_PRICE_ORACLE_KEY)
-        );
-
         return peripheryContracts;
     }
 
@@ -193,14 +182,6 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Config Check] Active PPS Oracle:", activePPSOracle);
         require(activePPSOracle == peripheryContracts.ecdsappsOracle, "SMOKE_TEST_FAILED: PPS Oracle mismatch");
 
-        // Verify FixedPriceOracle is deployed and configured correctly
-        console2.log("[Config Check] FixedPriceOracle:", peripheryContracts.fixedPriceOracle);
-        require(peripheryContracts.fixedPriceOracle != address(0), "SMOKE_TEST_FAILED: FixedPriceOracle not deployed");
-        FixedPriceOracle fixedOracle = FixedPriceOracle(peripheryContracts.fixedPriceOracle);
-        require(fixedOracle.owner() == configuration.deployer, "SMOKE_TEST_FAILED: FixedPriceOracle owner mismatch");
-        require(fixedOracle.decimals() == UP_PRICE_DECIMALS, "SMOKE_TEST_FAILED: FixedPriceOracle decimals mismatch");
-        (, int256 price,,,) = fixedOracle.latestRoundData();
-        require(price == INITIAL_UP_PRICE, "SMOKE_TEST_FAILED: FixedPriceOracle price mismatch");
 
         // Verify SuperVaultAggregator is set
         address aggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
@@ -269,9 +250,9 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("");
         console2.log("=== Verifying Role Configuration ===");
 
-        // Check deployer roles (should have admin roles initially)
+        // Check admin roles are assigned to correct addresses (not deployer)
         console2.log("[Role Check] Deployer address:", configuration.deployer);
-        _verifyDeployerAdminRoles(governor);
+        _verifyAdminRoles(governor);
 
         // Check configured role holders from configuration
         console2.log("");
@@ -286,19 +267,44 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("=== Role Verification Complete ===");
     }
 
-    /// @notice Verify deployer has required admin roles
-    function _verifyDeployerAdminRoles(SuperGovernor governor) internal view {
-        bool hasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer);
-        bool hasSuperGovernor = governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), configuration.deployer);
-        bool hasGovernor = governor.hasRole(governor.GOVERNOR_ROLE(), configuration.deployer);
+    /// @notice Verify admin roles are assigned to correct addresses
+    function _verifyAdminRoles(SuperGovernor governor) internal view {
+        // SUPER_GOVERNOR_ADDRESS should have DEFAULT_ADMIN_ROLE and SUPER_GOVERNOR_ROLE
+        bool superGovernorHasDefaultAdmin =
+            governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
+        bool superGovernorHasSuperGovernorRole =
+            governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), SUPER_GOVERNOR_ADDRESS);
 
-        console2.log("  DEFAULT_ADMIN_ROLE:", hasDefaultAdmin);
-        console2.log("  SUPER_GOVERNOR_ROLE:", hasSuperGovernor);
-        console2.log("  GOVERNOR_ROLE:", hasGovernor);
+        console2.log("[Role Check] SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("  DEFAULT_ADMIN_ROLE:", superGovernorHasDefaultAdmin);
+        console2.log("  SUPER_GOVERNOR_ROLE:", superGovernorHasSuperGovernorRole);
 
-        require(hasDefaultAdmin, "SMOKE_TEST_FAILED: Deployer missing DEFAULT_ADMIN_ROLE");
-        require(hasSuperGovernor, "SMOKE_TEST_FAILED: Deployer missing SUPER_GOVERNOR_ROLE");
-        require(hasGovernor, "SMOKE_TEST_FAILED: Deployer missing GOVERNOR_ROLE");
+        require(
+            superGovernorHasDefaultAdmin, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing DEFAULT_ADMIN_ROLE"
+        );
+        require(
+            superGovernorHasSuperGovernorRole, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing SUPER_GOVERNOR_ROLE"
+        );
+
+        // GOVERNOR address should have GOVERNOR_ROLE
+        bool governorHasGovernorRole = governor.hasRole(governor.GOVERNOR_ROLE(), GOVERNOR);
+        console2.log("[Role Check] GOVERNOR address:", GOVERNOR);
+        console2.log("  GOVERNOR_ROLE:", governorHasGovernorRole);
+        require(governorHasGovernorRole, "SMOKE_TEST_FAILED: GOVERNOR missing GOVERNOR_ROLE");
+
+        // Verify deployer does NOT have any admin roles anymore
+        bool deployerHasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer);
+        bool deployerHasSuperGovernor = governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), configuration.deployer);
+        bool deployerHasGovernor = governor.hasRole(governor.GOVERNOR_ROLE(), configuration.deployer);
+
+        console2.log("[Role Check] Verifying deployer does NOT have admin roles:");
+        console2.log("  Deployer has DEFAULT_ADMIN_ROLE:", deployerHasDefaultAdmin);
+        console2.log("  Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernor);
+        console2.log("  Deployer has GOVERNOR_ROLE:", deployerHasGovernor);
+
+        require(!deployerHasDefaultAdmin, "SMOKE_TEST_FAILED: Deployer should NOT have DEFAULT_ADMIN_ROLE");
+        require(!deployerHasSuperGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have SUPER_GOVERNOR_ROLE");
+        require(!deployerHasGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have GOVERNOR_ROLE");
     }
 
     /// @notice Verify operational role holders have their roles
