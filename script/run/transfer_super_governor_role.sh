@@ -9,16 +9,18 @@
 #   is set up.
 #
 # Usage:
-#   ./transfer_super_governor_role.sh <environment> <mode> [account]
+#   ./transfer_super_governor_role.sh <environment> <mode> [account] [--slow]
 #
 #   Parameters:
 #     environment: "staging" or "prod"
 #     mode: "simulate" or "execute"
 #     account: Account name (required for execute mode, e.g., "v2-supervaults")
+#     --slow: Optional flag to use polling instead of websockets for tx confirmation
 #
 #   Examples:
 #     ./transfer_super_governor_role.sh staging simulate
 #     ./transfer_super_governor_role.sh staging execute v2-supervaults
+#     ./transfer_super_governor_role.sh staging execute v2-supervaults --slow
 #     ./transfer_super_governor_role.sh prod simulate
 #     ./transfer_super_governor_role.sh prod execute v2-supervaults
 #
@@ -267,6 +269,7 @@ transfer_role_network() {
     local salt_namespace=$5
     local forge_env=$6
     local account=$7
+    local slow_flag=$8
 
     log "INFO" "Transferring SUPER_GOVERNOR_ROLE on $network_name (Chain ID: $network_id)"
 
@@ -298,11 +301,19 @@ transfer_role_network() {
     log "INFO" "  - Chain ID: $network_id"
     log "INFO" "  - Salt Namespace: $salt_namespace"
 
+    # Add --slow flag if requested
+    local slow_option=""
+    if [ "$slow_flag" = "true" ]; then
+        slow_option="--slow"
+        log "INFO" "  - Using --slow flag for polling-based tx confirmation"
+    fi
+
     # Execute the transfer script
     if forge script script/TransferSuperGovernorRole.s.sol:TransferSuperGovernorRole \
         --sig 'run(uint256,uint64,string)' "$forge_env" "$network_id" "$salt_namespace" \
         --rpc-url "$rpc_url" \
         $forge_flags \
+        $slow_option \
         -vvv; then
 
         log "INFO" "✅ Successfully transferred role on $network_name"
@@ -320,6 +331,7 @@ transfer_all_networks() {
     local salt_namespace=$3
     local forge_env=$4
     local account=$5
+    local slow_flag=$6
 
     log "INFO" "Starting role transfer for all networks..."
 
@@ -378,7 +390,7 @@ transfer_all_networks() {
         log "INFO" "Found SuperGovernor at: $governor_addr"
 
         # Transfer role on this network
-        if transfer_role_network "$environment" "$mode" "$network_id" "$network_name" "$salt_namespace" "$forge_env" "$account"; then
+        if transfer_role_network "$environment" "$mode" "$network_id" "$network_name" "$salt_namespace" "$forge_env" "$account" "$slow_flag"; then
             success_count=$((success_count + 1))
         else
             log "ERROR" "Role transfer failed for $network_name"
@@ -418,14 +430,16 @@ transfer_all_networks() {
 main() {
     # Check arguments
     if [ $# -lt 2 ]; then
-        log "ERROR" "Usage: $0 <environment> <mode> [account]"
+        log "ERROR" "Usage: $0 <environment> <mode> [account] [--slow]"
         log "ERROR" "  environment: 'staging' or 'prod'"
         log "ERROR" "  mode: 'simulate' or 'execute'"
         log "ERROR" "  account: Account name (required for execute mode)"
+        log "ERROR" "  --slow: Use polling instead of websockets for tx confirmation"
         log "ERROR" ""
         log "ERROR" "Examples:"
         log "ERROR" "  $0 staging simulate"
         log "ERROR" "  $0 staging execute v2-supervaults"
+        log "ERROR" "  $0 staging execute v2-supervaults --slow"
         log "ERROR" "  $0 prod simulate"
         log "ERROR" "  $0 prod execute v2-supervaults"
         log "ERROR" ""
@@ -437,7 +451,27 @@ main() {
 
     local environment=$1
     local mode=$2
-    local account="${3:-}"
+    local account=""
+    local slow_flag="false"
+
+    # Parse remaining arguments
+    shift 2
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --slow)
+                slow_flag="true"
+                ;;
+            *)
+                if [ -z "$account" ]; then
+                    account="$1"
+                else
+                    log "ERROR" "Unknown argument: $1"
+                    exit 1
+                fi
+                ;;
+        esac
+        shift
+    done
 
     # Validate environment
     validate_environment "$environment"
@@ -486,6 +520,9 @@ main() {
     if [ -n "$account" ]; then
         log "INFO" "Account: $account"
     fi
+    if [ "$slow_flag" = "true" ]; then
+        log "INFO" "Slow mode: enabled (using polling for tx confirmation)"
+    fi
 
     # Get configuration values
     local forge_env
@@ -519,7 +556,7 @@ main() {
     # Start transfer process
     log "INFO" "Starting role transfer process..."
 
-    if transfer_all_networks "$environment" "$mode" "$salt_namespace" "$forge_env" "$account"; then
+    if transfer_all_networks "$environment" "$mode" "$salt_namespace" "$forge_env" "$account" "$slow_flag"; then
         echo ""
         echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${GREEN}║                                                                                      ║${NC}"
