@@ -20,3 +20,12 @@
 [submodule "lib/halmos-cheatcodes"]
 	path = lib/halmos-cheatcodes
 	url = https://github.com/a16z/halmos-cheatcodes
+[submodule "lib/devtools"]
+	path = lib/devtools
+	url = https://github.com/layerzero-labs/devtools
+[submodule "lib/LayerZero-v2"]
+	path = lib/LayerZero-v2
+	url = https://github.com/layerzero-labs/LayerZero-v2
+[submodule "lib/solidity-bytes-utils"]
+	path = lib/solidity-bytes-utils
+	url = https://github.com/GNSPS/solidity-bytes-utils
