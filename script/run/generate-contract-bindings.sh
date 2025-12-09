@@ -18,9 +18,51 @@ find ./out -name "*.abi" | while read abi_file; do
   base_name_lower=$(echo "$base_name" | tr '[:upper:]' '[:lower:]')
   dir_name_lower=$(echo "$dir_name" | tr '[:upper:]' '[:lower:]')
 
-  if [[ "$base_name" != *Aggregator  && "$base_name" != *PPSOracle && "$base_name" != *SuperGovernor && "$base_name" != *FixedPriceOracle && "$base_name" != *SuperOracle && "$base_name" != *SuperOracleL2 && "$base_name" != *SuperBank ]]; then
-    continue
+  # Define allowed contract prefixes and suffixes for flexible matching
+declare -a ALLOWED_PREFIXES=(
+  "SuperGovernor"
+  "FixedPriceOracle"
+  "SuperOracle"
+  "SuperOracleL2"
+  "SuperBank"
+  "SuperVault"
+  "SuperVaultAggregator"
+  "SuperVaultStrategy"
+)
+
+declare -a ALLOWED_SUFFIXES=(
+  "PPSOracle"
+)
+
+# Check if contract name matches any allowed prefix or suffix
+contract_allowed=false
+
+# Check prefixes
+for prefix in "${ALLOWED_PREFIXES[@]}"; do
+  if [[ "$base_name" == "$prefix"* ]]; then
+    contract_allowed=true
+    break
   fi
+done
+
+# If no prefix match, check suffixes
+if [[ "$contract_allowed" == false ]]; then
+  for suffix in "${ALLOWED_SUFFIXES[@]}"; do
+    if [[ "$base_name" == *"$suffix" ]]; then
+      contract_allowed=true
+      break
+    fi
+  done
+fi
+
+if [[ "$contract_allowed" == false ]]; then
+  continue
+fi
+
+# Skip interface contracts (starting with I), mock contracts, and test helpers
+if [[ "$base_name" == I* || "$base_name" == Mock* || "$base_name" == *Targets || "$base_name" == *TestHelpers || "$base_name" == *Lib ]]; then
+  continue
+fi
   
   # Only process contracts that start with Super and don't end with hook
   if [[ "$base_name_lower" == *hook || "$dir_name" == *.t.sol ]]; then
@@ -34,6 +76,8 @@ find ./out -name "*.abi" | while read abi_file; do
     abigen --abi "$abi_file" \
         --pkg "$base_name" \
         --type "$base_name" \
+        --alias "_asset=${base_name}Asset" \
+        --alias "_totalAssets=${base_name}TotalAssets" \
         --out "contract_bindings/${base_name}/${base_name}.go"
 done
 
