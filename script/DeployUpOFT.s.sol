@@ -79,7 +79,11 @@ contract DeployUpOFT is Script {
     }
 
     function runCheck(uint256 env) public {
-        _setConfiguration(env, "");
+        runCheck(env, "");
+    }
+
+    function runCheck(uint256 env, string memory saltNamespace) public {
+        _setConfiguration(env, saltNamespace);
         console2.log("====== UP OFT Address Verification ======");
         console2.log("Environment:", env);
         console2.log("");
@@ -88,30 +92,74 @@ contract DeployUpOFT is Script {
 
         console2.log("=== Computed Addresses ===");
         console2.log("UpOFTAdapter (Ethereum):", contracts.adapter);
-        console2.log("  Code size:", contracts.adapter.code.length);
         console2.log("UpOFT (Base):", contracts.oft);
+        console2.log("");
+
+        string memory ethRpc = vm.envString("ETHEREUM_RPC_URL");
+        string memory baseRpc = vm.envString("BASE_RPC_URL");
+
+        uint256 ethFork = vm.createFork(ethRpc);
+        uint256 baseFork = vm.createFork(baseRpc);
+
+        vm.selectFork(ethFork);
+        console2.log("=== Ethereum (Chain ID: %s) ===", block.chainid);
+        console2.log("UpOFTAdapter:");
+        console2.log("  Address:", contracts.adapter);
+        console2.log("  Code size:", contracts.adapter.code.length);
+        console2.log("  Deployed:", contracts.adapter.code.length > 0 ? "YES" : "NO");
+
+        vm.selectFork(baseFork);
+        console2.log("");
+        console2.log("=== Base (Chain ID: %s) ===", block.chainid);
+        console2.log("UpOFT:");
+        console2.log("  Address:", contracts.oft);
         console2.log("  Code size:", contracts.oft.code.length);
+        console2.log("  Deployed:", contracts.oft.code.length > 0 ? "YES" : "NO");
         console2.log("");
     }
 
-    function deployAdapter(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function deployAdapter(uint256 env) public {
+        _deployAdapterWithBroadcast(env, "");
+    }
+
+    function deployAdapter(uint256 env, string memory saltNamespace) public {
+        _deployAdapterWithBroadcast(env, saltNamespace);
+    }
+
+    function _deployAdapterWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
         address deployed = _deployAdapter();
         console2.log("UpOFTAdapter deployed:", deployed);
     }
 
-    function deployOFT(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function deployOFT(uint256 env) public {
+        _deployOFTWithBroadcast(env, "");
+    }
+
+    function deployOFT(uint256 env, string memory saltNamespace) public {
+        _deployOFTWithBroadcast(env, saltNamespace);
+    }
+
+    function _deployOFTWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
         address deployed = _deployOFT();
         console2.log("UpOFT deployed:", deployed);
     }
 
-    function configurePeerOnEthereum(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function configurePeerOnEthereum(uint256 env) public {
+        _configurePeerOnEthereumWithBroadcast(env, "");
+    }
+
+    function configurePeerOnEthereum(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnEthereumWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnEthereumWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
         OFTContracts memory contracts = _computeAddresses();
@@ -123,8 +171,16 @@ contract DeployUpOFT is Script {
         console2.log("Ethereum adapter peer set to Base OFT:", contracts.oft);
     }
 
-    function configurePeerOnBase(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function configurePeerOnBase(uint256 env) public {
+        _configurePeerOnBaseWithBroadcast(env, "");
+    }
+
+    function configurePeerOnBase(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnBaseWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
         OFTContracts memory contracts = _computeAddresses();
@@ -136,8 +192,16 @@ contract DeployUpOFT is Script {
         console2.log("Base OFT peer set to Ethereum adapter:", contracts.adapter);
     }
 
-    function setEnforcedOptionsOnEthereum(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function setEnforcedOptionsOnEthereum(uint256 env) public {
+        _setEnforcedOptionsOnEthereumWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnEthereum(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnEthereumWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnEthereumWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
         OFTContracts memory contracts = _computeAddresses();
@@ -149,8 +213,16 @@ contract DeployUpOFT is Script {
         console2.log("Ethereum adapter enforced options set for Base destination");
     }
 
-    function setEnforcedOptionsOnBase(uint256 env) public broadcast(env) {
-        _setConfiguration(env, "");
+    function setEnforcedOptionsOnBase(uint256 env) public {
+        _setEnforcedOptionsOnBaseWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnBase(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnBaseWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
         OFTContracts memory contracts = _computeAddresses();
@@ -163,10 +235,18 @@ contract DeployUpOFT is Script {
     }
 
     function _deployAndConfigure(uint256 env) internal {
-        OFTContracts memory contracts = _computeAddresses();
+        address deployer;
+        if (env == 1) {
+            (deployer,) = deriveRememberKey(MNEMONIC, 0);
+        } else {
+            deployer = msg.sender;
+        }
+
+        OFTContracts memory contracts = _computeAddresses(deployer);
 
         console2.log("====== Deploying UP OFT System ======");
         console2.log("Environment:", env);
+        console2.log("Deployer:", deployer);
         console2.log("");
         console2.log("Computed addresses:");
         console2.log("  UpOFTAdapter (Ethereum):", contracts.adapter);
@@ -183,7 +263,6 @@ contract DeployUpOFT is Script {
         console2.log("=== Deploying on Ethereum (Chain ID: %s) ===", block.chainid);
 
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -199,7 +278,6 @@ contract DeployUpOFT is Script {
         console2.log("=== Deploying on Base (Chain ID: %s) ===", block.chainid);
 
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -215,7 +293,6 @@ contract DeployUpOFT is Script {
 
         vm.selectFork(ethFork);
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -228,7 +305,6 @@ contract DeployUpOFT is Script {
 
         vm.selectFork(baseFork);
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -244,7 +320,6 @@ contract DeployUpOFT is Script {
 
         vm.selectFork(ethFork);
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -257,7 +332,6 @@ contract DeployUpOFT is Script {
 
         vm.selectFork(baseFork);
         if (env == 1) {
-            (address deployer,) = deriveRememberKey(MNEMONIC, 0);
             vm.startBroadcast(deployer);
         } else {
             vm.startBroadcast();
@@ -275,11 +349,15 @@ contract DeployUpOFT is Script {
     }
 
     function _computeAddresses() internal view returns (OFTContracts memory contracts) {
+        return _computeAddresses(msg.sender);
+    }
+
+    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
-            abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, msg.sender));
+            abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
 
-        bytes memory oftBytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, msg.sender));
+        bytes memory oftBytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, owner));
         contracts.oft = DeterministicDeployerLib.computeAddress(oftBytecode, _getSalt("UpOFT"));
     }
 
