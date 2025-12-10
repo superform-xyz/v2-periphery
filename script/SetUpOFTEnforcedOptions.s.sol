@@ -25,6 +25,7 @@ import { IOAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/interf
  *   - OAPP_ADDRESS: Address of the OFT/OFTAdapter on the current chain
  *   - DST_EID: Destination LayerZero Endpoint ID
  *   - GAS_LIMIT: (Optional) Gas for lzReceive, defaults to 100000
+ *   - COMPOSE_GAS_LIMIT: (Optional) Gas for lzCompose callback, defaults to 500000
  *
  * LayerZero Endpoint IDs (mainnet):
  *   - Ethereum: 30101
@@ -52,18 +53,26 @@ contract SetUpOFTEnforcedOptions is Script {
         // 100k is typically sufficient for simple OFT transfers
         uint128 gasLimit = uint128(vm.envOr("GAS_LIMIT", uint256(100_000)));
 
-        // Build options using OptionsBuilder
-        // addExecutorLzReceiveOption(gas, value) - gas for execution, value for native token
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(gasLimit, 0);
+        // Default gas limit for lzCompose callback (can be overridden via env var)
+        // 500k is used for compose calls which may do more work
+        uint128 composeGasLimit = uint128(vm.envOr("COMPOSE_GAS_LIMIT", uint256(500_000)));
+
+        // Build options for SEND (standard transfer) - only needs lzReceive gas
+        bytes memory sendOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(gasLimit, 0);
+
+        // Build options for SEND_AND_CALL (transfer + compose) - needs both lzReceive and lzCompose gas
+        // The compose option index is 0 (first/only compose message in the OFT flow)
+        bytes memory sendAndCallOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(gasLimit, 0)
+            .addExecutorLzComposeOption(0, composeGasLimit, 0);
 
         // Create enforced options for both message types
         EnforcedOptionParam[] memory enforcedOptions = new EnforcedOptionParam[](2);
 
         // SEND message type (standard token transfer)
-        enforcedOptions[0] = EnforcedOptionParam({ eid: dstEid, msgType: SEND, options: options });
+        enforcedOptions[0] = EnforcedOptionParam({ eid: dstEid, msgType: SEND, options: sendOptions });
 
         // SEND_AND_CALL message type (token transfer + compose call)
-        enforcedOptions[1] = EnforcedOptionParam({ eid: dstEid, msgType: SEND_AND_CALL, options: options });
+        enforcedOptions[1] = EnforcedOptionParam({ eid: dstEid, msgType: SEND_AND_CALL, options: sendAndCallOptions });
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -74,6 +83,7 @@ contract SetUpOFTEnforcedOptions is Script {
         console2.log("Enforced options set successfully!");
         console2.log("  OApp:", oappAddress);
         console2.log("  Destination EID:", dstEid);
-        console2.log("  Gas Limit:", gasLimit);
+        console2.log("  Gas Limit (lzReceive):", gasLimit);
+        console2.log("  Compose Gas Limit (lzCompose):", composeGasLimit);
     }
 }
