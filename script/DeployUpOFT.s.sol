@@ -502,7 +502,7 @@ contract DeployUpOFT is Script {
         return _computeAddresses(msg.sender);
     }
 
-    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
+    function _computeAddresses(address owner) internal returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
             abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
