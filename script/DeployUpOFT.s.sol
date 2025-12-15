@@ -9,6 +9,13 @@ import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Opti
 import { EnforcedOptionParam } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { IOAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppOptionsType3.sol";
 import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
+import { ILayerZeroEndpointV2 } from
+    "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import { SetConfigParam } from
+    "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
+import { UlnConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol";
+import { ExecutorConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
+
 
 import { UpOFT } from "../src/UP/UpOFT.sol";
 import { UpOFTAdapter } from "../src/UP/UpOFTAdapter.sol";
@@ -31,9 +38,36 @@ contract DeployUpOFT is Script {
     uint128 internal constant GAS_LIMIT = 100_000;
     uint128 internal constant COMPOSE_GAS_LIMIT = 500_000;
 
+    uint32 internal constant EXECUTOR_CONFIG_TYPE = 1;
+    uint32 internal constant ULN_CONFIG_TYPE = 2;
+
+    // https://docs.layerzero.network/v2/deployments/deployed-contracts
+    address internal constant DVN1_BASE = 0x9e059a54699a285714207b43B055483E78FAac25; // DVN LZ Base
+    address internal constant DVN2_BASE = 0xEb62f578497Bdc351dD650853a751135212fAF49; // DVN Superform Base
+
+    address internal constant DVN1_ETH = 0x589dEDbD617e0CBcB916A9223F4d1300c294236b; // DVN LZ Eth
+    address internal constant DVN2_ETH = 0x7518f30bd5867b5fA86702556245Dead173afE46; // DVN Superform Eth
+
+    address internal constant SEND_LIB_BASE = 0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2;
+    address internal constant RECEIVE_LIB_BASE = 0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf;
+
+    address internal constant SEND_LIB_ETH = 0xbB2Ea70C9E858123480642Cf96acbcCE1372dCe1;
+    address internal constant RECEIVE_LIB_ETH = 0xc02Ab410f0734EFa3F14628780e6e695156024C2;
+
+    address internal constant EXECUTOR_ETH = 0x173272739Bd7Aa6e4e214714048a9fE699453059;
+    address internal constant EXECUTOR_BASE = 0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4;
+
+    uint32 internal constant GRACE_PERIOD = 0;
+
     string internal constant MNEMONIC = "test test test test test test test test test test test junk";
 
     bytes internal SALT_NAMESPACE;
+
+    UlnConfig ulnEthToBase;
+    UlnConfig ulnBaseToEth;
+
+    ExecutorConfig execEthToBase;
+    ExecutorConfig execBaseToEth;
 
     struct OFTContracts {
         address adapter;
@@ -66,6 +100,40 @@ contract DeployUpOFT is Script {
             require(bytes(saltNamespace).length > 0, "TEST_ENV_REQUIRES_SALT_NAMESPACE");
             SALT_NAMESPACE = bytes(saltNamespace);
         }
+
+        address[] memory dvnsEth = new address[](2);
+        dvnsEth[0] = DVN1_ETH;
+        dvnsEth[1] = DVN2_ETH;
+        ulnEthToBase = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 2,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsEth,
+            optionalDVNs: new address[](0)
+        });
+
+        address[] memory dvnsBase = new address[](2);
+        dvnsBase[0] = DVN1_BASE;
+        dvnsBase[1] = DVN2_BASE;
+        ulnBaseToEth = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 2,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsBase,
+            optionalDVNs: new address[](0)
+        });
+
+        execEthToBase = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_BASE
+        });
+
+        execBaseToEth = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_ETH
+        });
     }
 
     function run(uint256 env) public {
@@ -343,16 +411,85 @@ contract DeployUpOFT is Script {
         vm.stopBroadcast();
 
         console2.log("");
+        console2.log("=== Configuring Libraries + ULN/Executor Configs ===");
+        
+        // Ethereum side (Adapter)
+        vm.selectFork(ethFork);
+        if (env == 1) {
+            vm.startBroadcast(deployer);
+        } else { 
+            vm.startBroadcast(); 
+        }
+        _setLibraries({
+            oapp: contracts.adapter,
+            dstEid: BASE_EID,
+            srcEid: BASE_EID,
+            sendLib: SEND_LIB_ETH,
+            receiveLib: RECEIVE_LIB_ETH,
+            gracePeriod: GRACE_PERIOD
+        });
+
+        _setSendConfig({
+            oapp: contracts.adapter,
+            remoteEid: BASE_EID,
+            sendLib: SEND_LIB_ETH,
+            uln: ulnEthToBase,
+            exec: execEthToBase 
+        });
+
+        _setReceiveConfig({
+            oapp: contracts.adapter,
+            remoteEid: BASE_EID,
+            receiveLib: RECEIVE_LIB_ETH,
+            uln: ulnBaseToEth
+        });
+        vm.stopBroadcast();
+
+        // Base side (UpOFT)
+        if (env == 1) {
+            vm.startBroadcast(deployer);
+        } else { 
+            vm.startBroadcast(); 
+        }
+        _setLibraries({
+            oapp: contracts.oft,
+            dstEid: ETH_EID,
+            srcEid: ETH_EID,
+            sendLib: SEND_LIB_BASE,
+            receiveLib: RECEIVE_LIB_BASE,
+            gracePeriod: GRACE_PERIOD
+        });
+
+        _setSendConfig({
+            oapp: contracts.oft,
+            remoteEid: ETH_EID,
+            sendLib: SEND_LIB_BASE,
+            uln: ulnBaseToEth,
+            exec: execBaseToEth
+        });
+
+        _setReceiveConfig({
+            oapp: contracts.oft,
+            remoteEid: ETH_EID,
+            receiveLib: RECEIVE_LIB_BASE,
+            uln: ulnEthToBase
+        });
+
+        
+        vm.stopBroadcast();
+
+
+        console2.log("");
         console2.log("====== Deployment Complete ======");
         console2.log("UpOFTAdapter (Ethereum):", contracts.adapter);
         console2.log("UpOFT (Base):", contracts.oft);
     }
 
-    function _computeAddresses() internal view returns (OFTContracts memory contracts) {
+    function _computeAddresses() internal returns (OFTContracts memory contracts) {
         return _computeAddresses(msg.sender);
     }
 
-    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
+    function _computeAddresses(address owner) internal returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
             abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
@@ -423,6 +560,47 @@ contract DeployUpOFT is Script {
         enforcedOptions[1] = EnforcedOptionParam({ eid: dstEid, msgType: SEND_AND_CALL, options: sendAndCallOptions });
 
         IOAppOptionsType3(oapp).setEnforcedOptions(enforcedOptions);
+    }
+
+    function _setLibraries(
+        address oapp,
+        uint32 dstEid,
+        uint32 srcEid,
+        address sendLib,
+        address receiveLib,
+        uint32 gracePeriod
+    ) internal {
+        // outbound messages to dstEid use sendLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT).setSendLibrary(oapp, dstEid, sendLib);
+
+        // inbound messages from srcEid use receiveLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT).setReceiveLibrary(oapp, srcEid, receiveLib, gracePeriod);
+    }
+
+    function _setSendConfig(
+        address oapp,
+        uint32 remoteEid,
+        address sendLib,
+        UlnConfig memory uln,
+        ExecutorConfig memory exec
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](2);
+        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(exec));
+        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT).setConfig(oapp, sendLib, params);
+    }
+
+    function _setReceiveConfig(
+        address oapp,
+        uint32 remoteEid,
+        address receiveLib,
+        UlnConfig memory uln
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](1);
+        params[0] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT).setConfig(oapp, receiveLib, params);
     }
 
     function _getSalt(string memory name) internal view returns (bytes32) {
