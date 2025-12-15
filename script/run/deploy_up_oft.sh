@@ -131,6 +131,7 @@ if [ "$MODE" = "deploy" ]; then
     echo -e "${CYAN}     6. Set enforced options on Base${NC}"
     echo -e "${CYAN}     7. Configure libraries + ULN/DVN on Ethereum${NC}"
     echo -e "${CYAN}     8. Configure libraries + ULN/DVN on Base${NC}"
+    echo -e "${CYAN}     9. Export addresses to JSON files${NC}"
     echo ""
     read -p "$(echo -e ${YELLOW}Type \"DEPLOY\" to continue or anything else to abort: ${NC})" confirmation
     if [ "$confirmation" != "DEPLOY" ]; then
@@ -299,9 +300,25 @@ echo -e "${GREEN}✅ Base libraries + ULN configured${NC}"
 
 print_separator
 
+echo -e "${BLUE}📄 Exporting contract addresses to JSON...${NC}"
+
+forge script script/DeployUpOFT.s.sol:DeployUpOFT \
+    --sig 'exportAddresses(uint256)' $FORGE_ENV \
+    $SENDER_FLAG \
+    -vvv
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Failed to export addresses${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Addresses exported to script/output/$ENVIRONMENT/*/UpOFT-latest.json${NC}"
+
+print_separator
+
 echo -e "${GREEN}🎉 UP OFT Deployment Complete!${NC}"
 echo -e "${CYAN}   • UpOFTAdapter deployed on Ethereum${NC}"
 echo -e "${CYAN}   • UpOFT deployed on Base${NC}"
 echo -e "${CYAN}   • Peers configured bidirectionally${NC}"
 echo -e "${CYAN}   • Enforced options set on both chains${NC}"
 echo -e "${CYAN}   • Libraries + ULN/DVN configured on both chains${NC}"
+echo -e "${CYAN}   • Addresses exported to JSON files${NC}"
