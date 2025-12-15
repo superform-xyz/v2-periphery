@@ -781,4 +781,82 @@ contract DeployUpOFT is Script {
     function _getSalt(string memory name) internal view returns (bytes32) {
         return keccak256(abi.encodePacked("SuperformV2", SALT_NAMESPACE, name, "v2.0"));
     }
+
+    // ============ Export Functions ============
+
+    mapping(uint64 chainId => string contracts) private exportedContracts;
+    mapping(uint64 chainId => uint256 count) private contractCount;
+
+    function _exportContract(string memory contractName, address addr, uint64 chainId) internal {
+        contractCount[chainId]++;
+        string memory objectKey = string(abi.encodePacked("UP_OFT_EXPORTS_", vm.toString(uint256(chainId))));
+        exportedContracts[chainId] = vm.serializeAddress(objectKey, contractName, addr);
+    }
+
+    function _writeExportedContracts(uint64 chainId, string memory envName) internal {
+        if (contractCount[chainId] == 0) return;
+
+        string memory root = vm.projectRoot();
+        string memory chainOutputFolder = string(
+            abi.encodePacked("/script/output/", envName, "/", vm.toString(uint256(chainId)), "/")
+        );
+
+        // Create directory if it doesn't exist
+        vm.createDir(string(abi.encodePacked(root, chainOutputFolder)), true);
+
+        // Write to UpOFT-latest.json
+        string memory outputPath = string(abi.encodePacked(root, chainOutputFolder, "UpOFT-latest.json"));
+        vm.writeJson(exportedContracts[chainId], outputPath);
+
+        console2.log("Exported", contractCount[chainId], "contracts to:", outputPath);
+    }
+
+    function _getEnvName(uint256 env) internal pure returns (string memory) {
+        if (env == 0) return "prod";
+        if (env == 2) return "staging";
+        return "local";
+    }
+
+    /// @notice Export deployed contract addresses to JSON files
+    /// @dev Call this after deployment to write addresses to script/output/{env}/{chainId}/UpOFT-latest.json
+    function exportAddresses(uint256 env) public {
+        _exportAddresses(env, "");
+    }
+
+    function exportAddresses(uint256 env, string memory saltNamespace) public {
+        _exportAddresses(env, saltNamespace);
+    }
+
+    function _exportAddresses(uint256 env, string memory saltNamespace) internal {
+        _setConfiguration(env, saltNamespace);
+
+        address owner = msg.sender;
+        if (env == 1) {
+            (owner,) = deriveRememberKey(MNEMONIC, 0);
+        }
+
+        OFTContracts memory contracts = _computeAddresses(owner);
+        string memory envName = _getEnvName(env);
+
+        console2.log("");
+        console2.log("====== Exporting UP OFT Addresses ======");
+        console2.log("Environment:", envName);
+        console2.log("Owner:", owner);
+
+        // Export Ethereum contracts
+        _exportContract("UpOFTAdapter", contracts.adapter, MAINNET_CHAIN_ID);
+        _writeExportedContracts(MAINNET_CHAIN_ID, envName);
+
+        // Reset for Base
+        contractCount[MAINNET_CHAIN_ID] = 0;
+
+        // Export Base contracts
+        _exportContract("UpOFT", contracts.oft, BASE_CHAIN_ID);
+        _writeExportedContracts(BASE_CHAIN_ID, envName);
+
+        console2.log("");
+        console2.log("====== Export Complete ======");
+        console2.log("UpOFTAdapter (Ethereum):", contracts.adapter);
+        console2.log("UpOFT (Base):", contracts.oft);
+    }
 }
