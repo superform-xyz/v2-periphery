@@ -24,8 +24,8 @@ contract UpOftIntegrationTest is Test {
     uint32 constant BASE_EID = 30184;
     uint16 constant SEND = 1;
     uint16 constant SEND_AND_CALL = 2;
-    uint128 constant GAS_LIMIT = 100_000;
-    uint128 constant COMPOSE_GAS_LIMIT = 500_000;
+    uint128 constant GAS_LIMIT = 300_000;
+    uint128 constant COMPOSE_GAS_LIMIT = 1_000_000;
     uint256 constant BRIDGE_PERCENTAGE = 15;
 
     uint256 public ethForkId;

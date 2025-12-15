@@ -9,9 +9,12 @@ import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
  * @author Superform Foundation
  * @notice Native OFT representation of the UP token on non-Ethereum chains.
  * @dev Mints UP tokens when bridging in, burns when bridging out.
- *      Deploy this on destination chains (e.g., Base) where UP is not natively deployed.
+ *      Deploy this on chains (e.g., Base) where UP is not natively deployed.
  */
 contract UpOFT is OFT {
+    error NATIVE_TRANSFER_FAILED();
+    error ADDRESS_NOT_VALID();
+
     /**
      * @notice Initializes the OFT with the LayerZero endpoint.
      * @param _lzEndpoint The LayerZero v2 endpoint address for this chain
@@ -20,5 +23,15 @@ contract UpOFT is OFT {
     constructor(
         address _lzEndpoint,
         address _delegate
-    ) OFT("Superform", "UP", _lzEndpoint, _delegate) Ownable(_delegate) { }
+    ) OFT("Superform", "UP", _lzEndpoint, _delegate) Ownable(_delegate) {
+
+        if (_lzEndpoint == address(0) || _lzEndpoint.code.length == 0) {
+            revert ADDRESS_NOT_VALID();
+        }
+     }
+
+    function sweepNative(address payable to) external onlyOwner {
+        (bool s, ) = to.call{value: address(this).balance}("");
+        if(!s) revert NATIVE_TRANSFER_FAILED();
+    }
 }

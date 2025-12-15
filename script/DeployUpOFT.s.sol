@@ -35,8 +35,8 @@ contract DeployUpOFT is Script {
     uint16 internal constant SEND = 1;
     uint16 internal constant SEND_AND_CALL = 2;
 
-    uint128 internal constant GAS_LIMIT = 100_000;
-    uint128 internal constant COMPOSE_GAS_LIMIT = 500_000;
+    uint128 internal constant GAS_LIMIT = 300_000;
+    uint128 internal constant COMPOSE_GAS_LIMIT = 1_000_000;
 
     uint32 internal constant EXECUTOR_CONFIG_TYPE = 1;
     uint32 internal constant ULN_CONFIG_TYPE = 2;
@@ -446,6 +446,7 @@ contract DeployUpOFT is Script {
         vm.stopBroadcast();
 
         // Base side (UpOFT)
+        vm.selectFork(baseFork);
         if (env == 1) {
             vm.startBroadcast(deployer);
         } else { 
@@ -489,7 +490,7 @@ contract DeployUpOFT is Script {
         return _computeAddresses(msg.sender);
     }
 
-    function _computeAddresses(address owner) internal returns (OFTContracts memory contracts) {
+    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
             abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
