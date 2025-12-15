@@ -7,7 +7,7 @@
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
     "1:Ethereum:ETH_MAINNET"
-    "8453:Base:BASE_MAINNET"
+    # "8453:Base:BASE_MAINNET"  # Disabled: V2 periphery not deployed on Base yet
     # "56:BNB:BSC_MAINNET"
     # "42161:Arbitrum:ARBITRUM_MAINNET"
     # "10:Optimism:OPTIMISM_MAINNET"
@@ -27,9 +27,9 @@ get_network_name() {
         1)
             echo "Ethereum"
             ;;
-        8453)
-            echo "Base"
-            ;;
+        # 8453)
+        #     echo "Base"
+        #     ;;
         # 56)
         #     echo "BNB"
         #     ;;
@@ -74,9 +74,9 @@ get_rpc_var() {
         1)
             echo "ETH_MAINNET"
             ;;
-        8453)
-            echo "BASE_MAINNET"
-            ;;
+        # 8453)
+        #     echo "BASE_MAINNET"
+        #     ;;
         # 56)
         #     echo "BSC_MAINNET"
         #     ;;
@@ -121,9 +121,9 @@ get_rpc_url() {
         1)
             echo "$ETH_MAINNET"
             ;;
-        8453)
-            echo "$BASE_MAINNET"
-            ;;
+        # 8453)
+        #     echo "$BASE_MAINNET"
+        #     ;;
         # 56)
         #     echo "$BSC_MAINNET"
         #     ;;
@@ -195,12 +195,12 @@ load_rpc_urls_ci() {
         failed_rpcs+=("ETHEREUM_RPC_URL")
     fi
 
-    echo "  • Loading Base RPC..."
-    if [[ -n "${BASE_RPC_URL:-}" ]]; then
-        export BASE_MAINNET="$BASE_RPC_URL"
-    else
-        failed_rpcs+=("BASE_RPC_URL")
-    fi
+    # echo "  • Loading Base RPC..."
+    # if [[ -n "${BASE_RPC_URL:-}" ]]; then
+    #     export BASE_MAINNET="$BASE_RPC_URL"
+    # else
+    #     failed_rpcs+=("BASE_RPC_URL")
+    # fi
 
     # echo "  • Loading BSC RPC..."
     # if [[ -n "${BSC_RPC_URL:-}" ]]; then
@@ -282,7 +282,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum only)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -297,10 +297,10 @@ load_rpc_urls() {
         failed_rpcs+=("ETHEREUM_RPC_URL")
     fi
 
-    echo "  • Loading Base RPC..."
-    if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("BASE_RPC_URL")
-    fi
+    # echo "  • Loading Base RPC..."
+    # if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
+    #     failed_rpcs+=("BASE_RPC_URL")
+    # fi
 
     # echo "  • Loading BSC RPC..."
     # if ! export BSC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BSC_RPC_URL/credential 2>/dev/null); then
@@ -362,7 +362,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum only)"
 }
 
 # Load Etherscan V2 API key for verification
