@@ -53,17 +53,25 @@ if ! cast wallet list 2>/dev/null | sed 's/ (Local)//' | grep -q "^$ACCOUNT$"; t
     exit 1
 fi
 
+echo -e "${CYAN}   • Getting account address...${NC}"
+ACCOUNT_ADDRESS=$(cast wallet address --account "$ACCOUNT" 2>/dev/null)
+if [ -z "$ACCOUNT_ADDRESS" ]; then
+    echo -e "${RED}❌ Could not get address for account '$ACCOUNT'${NC}"
+    exit 1
+fi
+echo -e "${GREEN}   ✅ Account address: $ACCOUNT_ADDRESS${NC}"
+
 if [ "$MODE" = "simulate" ]; then
     echo -e "${YELLOW}🔍 Running in simulation mode for $ENVIRONMENT...${NC}"
     BROADCAST_FLAG=""
     VERIFY_FLAG=""
-    SENDER_FLAG="--sender 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
+    SENDER_FLAG="--sender $ACCOUNT_ADDRESS"
     ACCOUNT_FLAG=""
 elif [ "$MODE" = "deploy" ]; then
     echo -e "${GREEN}🚀 Running in deployment mode for $ENVIRONMENT...${NC}"
     BROADCAST_FLAG="--broadcast"
     VERIFY_FLAG="--verify"
-    SENDER_FLAG=""
+    SENDER_FLAG="--sender $ACCOUNT_ADDRESS"
     ACCOUNT_FLAG="--account $ACCOUNT"
 else
     echo -e "${RED}❌ Invalid mode: $MODE${NC}"
@@ -113,12 +121,16 @@ if [ "$MODE" = "deploy" ]; then
     echo -e "${CYAN}You are about to deploy UP OFT contracts:${NC}"
     echo -e "${CYAN}  • Environment: ${WHITE}$ENVIRONMENT${NC}"
     echo -e "${CYAN}  • Account: ${WHITE}$ACCOUNT${NC}"
-    echo -e "${CYAN}  • Contracts:${NC}"
-    echo -e "${CYAN}     - UpOFTAdapter on Ethereum (Chain ID: 1)${NC}"
-    echo -e "${CYAN}     - UpOFT on Base (Chain ID: 8453)${NC}"
-    echo -e "${CYAN}  • Configuration:${NC}"
-    echo -e "${CYAN}     - Set peers bidirectionally${NC}"
-    echo -e "${CYAN}     - Set enforced options on both chains${NC}"
+    echo -e "${CYAN}  • Account Address: ${WHITE}$ACCOUNT_ADDRESS${NC}"
+    echo -e "${CYAN}  • Steps:${NC}"
+    echo -e "${CYAN}     1. Deploy UpOFTAdapter on Ethereum (Chain ID: 1)${NC}"
+    echo -e "${CYAN}     2. Deploy UpOFT on Base (Chain ID: 8453)${NC}"
+    echo -e "${CYAN}     3. Configure peer on Ethereum (point to Base UpOFT)${NC}"
+    echo -e "${CYAN}     4. Configure peer on Base (point to Ethereum UpOFTAdapter)${NC}"
+    echo -e "${CYAN}     5. Set enforced options on Ethereum${NC}"
+    echo -e "${CYAN}     6. Set enforced options on Base${NC}"
+    echo -e "${CYAN}     7. Configure libraries + ULN/DVN on Ethereum${NC}"
+    echo -e "${CYAN}     8. Configure libraries + ULN/DVN on Base${NC}"
     echo ""
     read -p "$(echo -e ${YELLOW}Type \"DEPLOY\" to continue or anything else to abort: ${NC})" confirmation
     if [ "$confirmation" != "DEPLOY" ]; then
@@ -249,8 +261,47 @@ echo -e "${GREEN}✅ Base enforced options set${NC}"
 
 print_separator
 
+echo -e "${BLUE}🔧 Configuring libraries + ULN on Ethereum...${NC}"
+
+forge script script/DeployUpOFT.s.sol:DeployUpOFT \
+    --sig 'configureLibrariesOnEthereum(uint256)' $FORGE_ENV \
+    --rpc-url $ETH_MAINNET \
+    --chain 1 \
+    $ACCOUNT_FLAG \
+    $SENDER_FLAG \
+    $BROADCAST_FLAG \
+    -vvv
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Failed to configure libraries on Ethereum${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Ethereum libraries + ULN configured${NC}"
+
+print_separator
+
+echo -e "${BLUE}🔧 Configuring libraries + ULN on Base...${NC}"
+
+forge script script/DeployUpOFT.s.sol:DeployUpOFT \
+    --sig 'configureLibrariesOnBase(uint256)' $FORGE_ENV \
+    --rpc-url $BASE_MAINNET \
+    --chain 8453 \
+    $ACCOUNT_FLAG \
+    $SENDER_FLAG \
+    $BROADCAST_FLAG \
+    -vvv
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Failed to configure libraries on Base${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Base libraries + ULN configured${NC}"
+
+print_separator
+
 echo -e "${GREEN}🎉 UP OFT Deployment Complete!${NC}"
 echo -e "${CYAN}   • UpOFTAdapter deployed on Ethereum${NC}"
 echo -e "${CYAN}   • UpOFT deployed on Base${NC}"
 echo -e "${CYAN}   • Peers configured bidirectionally${NC}"
 echo -e "${CYAN}   • Enforced options set on both chains${NC}"
+echo -e "${CYAN}   • Libraries + ULN/DVN configured on both chains${NC}"

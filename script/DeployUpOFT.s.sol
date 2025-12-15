@@ -127,12 +127,12 @@ contract DeployUpOFT is Script {
 
         execEthToBase = ExecutorConfig({
             maxMessageSize: 10_000,
-            executor: EXECUTOR_BASE
+            executor: EXECUTOR_ETH
         });
 
         execBaseToEth = ExecutorConfig({
             maxMessageSize: 10_000,
-            executor: EXECUTOR_ETH
+            executor: EXECUTOR_BASE
         });
     }
 
@@ -204,8 +204,17 @@ contract DeployUpOFT is Script {
         } else {
             owner = msg.sender;
         }
+
+        console2.log("");
+        console2.log("====== Deploying UpOFTAdapter on Ethereum ======");
+        console2.log("Chain ID:", block.chainid);
+        console2.log("Owner:", owner);
+
         address deployed = _deployAdapter(owner);
+
+        console2.log("");
         console2.log("UpOFTAdapter deployed:", deployed);
+        console2.log("================================================");
     }
 
     function deployOFT(uint256 env) public {
@@ -226,8 +235,17 @@ contract DeployUpOFT is Script {
         } else {
             owner = msg.sender;
         }
+
+        console2.log("");
+        console2.log("====== Deploying UpOFT on Base ======");
+        console2.log("Chain ID:", block.chainid);
+        console2.log("Owner:", owner);
+
         address deployed = _deployOFT(owner);
+
+        console2.log("");
         console2.log("UpOFT deployed:", deployed);
+        console2.log("=====================================");
     }
 
     function configurePeerOnEthereum(uint256 env) public {
@@ -243,12 +261,19 @@ contract DeployUpOFT is Script {
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
         OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Ethereum ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Peer (Base UpOFT):", contracts.oft);
+
         if (contracts.adapter.code.length == 0) {
             console2.log("[!] UpOFTAdapter not deployed yet, skipping peer configuration");
             return;
         }
         _setPeer(contracts.adapter, BASE_EID, contracts.oft);
-        console2.log("Ethereum adapter peer set to Base OFT:", contracts.oft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("==========================================");
     }
 
     function configurePeerOnBase(uint256 env) public {
@@ -264,12 +289,19 @@ contract DeployUpOFT is Script {
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
         OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Base ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Peer (Ethereum UpOFTAdapter):", contracts.adapter);
+
         if (contracts.oft.code.length == 0) {
             console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
             return;
         }
         _setPeer(contracts.oft, ETH_EID, contracts.adapter);
-        console2.log("Base OFT peer set to Ethereum adapter:", contracts.adapter);
+        console2.log("[+] Peer configured successfully");
+        console2.log("======================================");
     }
 
     function setEnforcedOptionsOnEthereum(uint256 env) public {
@@ -285,12 +317,19 @@ contract DeployUpOFT is Script {
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
         OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Ethereum ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Destination: Base (EID:", BASE_EID, ")");
+
         if (contracts.adapter.code.length == 0) {
             console2.log("[!] UpOFTAdapter not deployed yet, skipping enforced options");
             return;
         }
         _setEnforcedOptions(contracts.adapter, BASE_EID);
-        console2.log("Ethereum adapter enforced options set for Base destination");
+        console2.log("[+] Enforced options set successfully");
+        console2.log("==================================================");
     }
 
     function setEnforcedOptionsOnBase(uint256 env) public {
@@ -306,12 +345,135 @@ contract DeployUpOFT is Script {
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
         OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Base ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Destination: Ethereum (EID:", ETH_EID, ")");
+
         if (contracts.oft.code.length == 0) {
             console2.log("[!] UpOFT not deployed yet, skipping enforced options");
             return;
         }
         _setEnforcedOptions(contracts.oft, ETH_EID);
-        console2.log("Base OFT enforced options set for Ethereum destination");
+        console2.log("[+] Enforced options set successfully");
+        console2.log("==============================================");
+    }
+
+    function configureLibrariesOnEthereum(uint256 env) public {
+        _configureLibrariesOnEthereumWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnEthereum(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnEthereumWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnEthereumWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Ethereum ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("SendLib:", SEND_LIB_ETH);
+        console2.log("ReceiveLib:", RECEIVE_LIB_ETH);
+        console2.log("DVN1 (LZ Labs):", DVN1_ETH);
+        console2.log("DVN2 (Superform):", DVN2_ETH);
+        console2.log("Executor:", EXECUTOR_BASE);
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.adapter,
+            dstEid: BASE_EID,
+            srcEid: BASE_EID,
+            sendLib: SEND_LIB_ETH,
+            receiveLib: RECEIVE_LIB_ETH,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.adapter,
+            remoteEid: BASE_EID,
+            sendLib: SEND_LIB_ETH,
+            uln: ulnEthToBase,
+            exec: execEthToBase
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.adapter,
+            remoteEid: BASE_EID,
+            receiveLib: RECEIVE_LIB_ETH,
+            uln: ulnEthToBase
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("================================================");
+    }
+
+    function configureLibrariesOnBase(uint256 env) public {
+        _configureLibrariesOnBaseWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnBase(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnBaseWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Base ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("SendLib:", SEND_LIB_BASE);
+        console2.log("ReceiveLib:", RECEIVE_LIB_BASE);
+        console2.log("DVN1 (LZ Labs):", DVN1_BASE);
+        console2.log("DVN2 (Superform):", DVN2_BASE);
+        console2.log("Executor:", EXECUTOR_ETH);
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.oft,
+            dstEid: ETH_EID,
+            srcEid: ETH_EID,
+            sendLib: SEND_LIB_BASE,
+            receiveLib: RECEIVE_LIB_BASE,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.oft,
+            remoteEid: ETH_EID,
+            sendLib: SEND_LIB_BASE,
+            uln: ulnBaseToEth,
+            exec: execBaseToEth
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.oft,
+            remoteEid: ETH_EID,
+            receiveLib: RECEIVE_LIB_BASE,
+            uln: ulnBaseToEth
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("============================================");
     }
 
     function _deployAndConfigure(uint256 env) internal {
