@@ -35,8 +35,8 @@ contract DeployUpOFT is Script {
     uint16 internal constant SEND = 1;
     uint16 internal constant SEND_AND_CALL = 2;
 
-    uint128 internal constant GAS_LIMIT = 100_000;
-    uint128 internal constant COMPOSE_GAS_LIMIT = 500_000;
+    uint128 internal constant GAS_LIMIT = 300_000;
+    uint128 internal constant COMPOSE_GAS_LIMIT = 1_000_000;
 
     uint32 internal constant EXECUTOR_CONFIG_TYPE = 1;
     uint32 internal constant ULN_CONFIG_TYPE = 2;
@@ -198,7 +198,13 @@ contract DeployUpOFT is Script {
         _setConfiguration(env, saltNamespace);
         require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
 
-        address deployed = _deployAdapter();
+        address owner;
+        if (env == 1) {
+            (owner,) = deriveRememberKey(MNEMONIC, 0);
+        } else {
+            owner = msg.sender;
+        }
+        address deployed = _deployAdapter(owner);
         console2.log("UpOFTAdapter deployed:", deployed);
     }
 
@@ -214,7 +220,13 @@ contract DeployUpOFT is Script {
         _setConfiguration(env, saltNamespace);
         require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
 
-        address deployed = _deployOFT();
+        address owner;
+        if (env == 1) {
+            (owner,) = deriveRememberKey(MNEMONIC, 0);
+        } else {
+            owner = msg.sender;
+        }
+        address deployed = _deployOFT(owner);
         console2.log("UpOFT deployed:", deployed);
     }
 
@@ -336,7 +348,7 @@ contract DeployUpOFT is Script {
             vm.startBroadcast();
         }
 
-        contracts.adapter = _deployAdapter();
+        contracts.adapter = _deployAdapter(deployer);
         console2.log("UpOFTAdapter deployed:", contracts.adapter);
 
         vm.stopBroadcast();
@@ -351,7 +363,7 @@ contract DeployUpOFT is Script {
             vm.startBroadcast();
         }
 
-        contracts.oft = _deployOFT();
+        contracts.oft = _deployOFT(deployer);
         console2.log("UpOFT deployed:", contracts.oft);
 
         vm.stopBroadcast();
@@ -441,11 +453,12 @@ contract DeployUpOFT is Script {
             oapp: contracts.adapter,
             remoteEid: BASE_EID,
             receiveLib: RECEIVE_LIB_ETH,
-            uln: ulnBaseToEth
+            uln: ulnEthToBase
         });
         vm.stopBroadcast();
 
         // Base side (UpOFT)
+        vm.selectFork(baseFork);
         if (env == 1) {
             vm.startBroadcast(deployer);
         } else { 
@@ -472,7 +485,7 @@ contract DeployUpOFT is Script {
             oapp: contracts.oft,
             remoteEid: ETH_EID,
             receiveLib: RECEIVE_LIB_BASE,
-            uln: ulnEthToBase
+            uln: ulnBaseToEth
         });
 
         
@@ -489,7 +502,7 @@ contract DeployUpOFT is Script {
         return _computeAddresses(msg.sender);
     }
 
-    function _computeAddresses(address owner) internal returns (OFTContracts memory contracts) {
+    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
             abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
@@ -498,10 +511,10 @@ contract DeployUpOFT is Script {
         contracts.oft = DeterministicDeployerLib.computeAddress(oftBytecode, _getSalt("UpOFT"));
     }
 
-    function _deployAdapter() internal returns (address) {
+    function _deployAdapter(address owner) internal returns (address) {
         bytes32 salt = _getSalt("UpOFTAdapter");
         bytes memory bytecode =
-            abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, msg.sender));
+            abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
 
         address predicted = DeterministicDeployerLib.computeAddress(bytecode, salt);
 
@@ -517,9 +530,9 @@ contract DeployUpOFT is Script {
         return deployed;
     }
 
-    function _deployOFT() internal returns (address) {
+    function _deployOFT(address owner) internal returns (address) {
         bytes32 salt = _getSalt("UpOFT");
-        bytes memory bytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, msg.sender));
+        bytes memory bytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, owner));
 
         address predicted = DeterministicDeployerLib.computeAddress(bytecode, salt);
 
