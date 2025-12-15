@@ -9,8 +9,10 @@ import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/Opti
 import { EnforcedOptionParam } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
 import { IOAppOptionsType3 } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppOptionsType3.sol";
 import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
-import { ILayerZeroEndpointV2, SetConfigParam } from
+import { ILayerZeroEndpointV2 } from
     "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import { SetConfigParam } from
+    "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
 import { UlnConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol";
 import { ExecutorConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
 
@@ -40,11 +42,11 @@ contract DeployUpOFT is Script {
     uint32 internal constant ULN_CONFIG_TYPE = 2;
 
     // https://docs.layerzero.network/v2/deployments/deployed-contracts
-    address internal constant DVN1_BASE = 0x9e059a54699a285714207b43b055483e78faac25; // DVN LZ Base
-    address internal constant DVN2_BASE = 0xeb62f578497bdc351dd650853a751135212faf49; // DVN Superform Base
+    address internal constant DVN1_BASE = 0x9e059a54699a285714207b43B055483E78FAac25; // DVN LZ Base
+    address internal constant DVN2_BASE = 0xEb62f578497Bdc351dD650853a751135212fAF49; // DVN Superform Base
 
-    address internal constant DVN1_ETH = 0x589dedbd617e0cbcb916a9223f4d1300c294236b; // DVN LZ Eth
-    address internal constant DVN2_ETH = 0x7518f30bd5867b5fa86702556245dead173afe46; // DVN Superform Eth
+    address internal constant DVN1_ETH = 0x589dEDbD617e0CBcB916A9223F4d1300c294236b; // DVN LZ Eth
+    address internal constant DVN2_ETH = 0x7518f30bd5867b5fA86702556245Dead173afE46; // DVN Superform Eth
 
     address internal constant SEND_LIB_BASE = 0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2;
     address internal constant RECEIVE_LIB_BASE = 0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf;
@@ -54,6 +56,8 @@ contract DeployUpOFT is Script {
 
     address internal constant EXECUTOR_ETH = 0x173272739Bd7Aa6e4e214714048a9fE699453059;
     address internal constant EXECUTOR_BASE = 0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4;
+
+    uint32 internal constant GRACE_PERIOD = 0;
 
     string internal constant MNEMONIC = "test test test test test test test test test test test junk";
 
@@ -97,21 +101,27 @@ contract DeployUpOFT is Script {
             SALT_NAMESPACE = bytes(saltNamespace);
         }
 
+        address[] memory dvnsEth = new address[](2);
+        dvnsEth[0] = DVN1_ETH;
+        dvnsEth[1] = DVN2_ETH;
         ulnEthToBase = UlnConfig({
             confirmations: 15,
             requiredDVNCount: 2,
             optionalDVNCount: type(uint8).max,
             optionalDVNThreshold: 0,
-            requiredDVNs: [DVN1_ETH, DVN2_ETH],
+            requiredDVNs: dvnsEth,
             optionalDVNs: new address[](0)
         });
 
+        address[] memory dvnsBase = new address[](2);
+        dvnsBase[0] = DVN1_BASE;
+        dvnsBase[1] = DVN2_BASE;
         ulnBaseToEth = UlnConfig({
             confirmations: 15,
             requiredDVNCount: 2,
             optionalDVNCount: type(uint8).max,
             optionalDVNThreshold: 0,
-            requiredDVNs: [DVN1_BASE, DVN2_BASE],
+            requiredDVNs: dvnsBase,
             optionalDVNs: new address[](0)
         });
 
@@ -475,11 +485,11 @@ contract DeployUpOFT is Script {
         console2.log("UpOFT (Base):", contracts.oft);
     }
 
-    function _computeAddresses() internal view returns (OFTContracts memory contracts) {
+    function _computeAddresses() internal returns (OFTContracts memory contracts) {
         return _computeAddresses(msg.sender);
     }
 
-    function _computeAddresses(address owner) internal view returns (OFTContracts memory contracts) {
+    function _computeAddresses(address owner) internal returns (OFTContracts memory contracts) {
         bytes memory adapterBytecode =
             abi.encodePacked(type(UpOFTAdapter).creationCode, abi.encode(UP_TOKEN, LZ_ENDPOINT, owner));
         contracts.adapter = DeterministicDeployerLib.computeAddress(adapterBytecode, _getSalt("UpOFTAdapter"));
@@ -574,7 +584,7 @@ contract DeployUpOFT is Script {
         UlnConfig memory uln,
         ExecutorConfig memory exec
     ) internal {
-        SetConfigParam;
+        SetConfigParam[] memory params = new SetConfigParam[](2);
         params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(exec));
         params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
 
@@ -587,7 +597,7 @@ contract DeployUpOFT is Script {
         address receiveLib,
         UlnConfig memory uln
     ) internal {
-        SetConfigParam;
+        SetConfigParam[] memory params = new SetConfigParam[](1);
         params[0] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
 
         ILayerZeroEndpointV2(LZ_ENDPOINT).setConfig(oapp, receiveLib, params);
