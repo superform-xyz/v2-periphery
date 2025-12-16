@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { AggregatorV3Interface } from "../vendor/chainlink/AggregatorV3Interface.sol";
 
 /// @title SuperformGasOracle
-/// @notice A Chainlink-compatible oracle that returns gas price in Gwei, updated by a keeper
+/// @notice A Chainlink-compatible oracle that returns gas price, updated by a keeper
 /// @dev Used as a gas price oracle on L2s where Chainlink's Fast Gas feed is not available.
 ///      Tracks round ID and update timestamp for proper staleness checks.
-contract SuperformGasOracle is AggregatorV3Interface, Ownable {
+///      Uses 9 decimals (same as Chainlink Fast Gas feed) for Gwei precision.
+///      Example: 48780027 = 48.780027 Gwei, 1000000 = 0.001 Gwei (typical for Base L2).
+contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -25,11 +27,22 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
     /// @param newGasPrice The new gas price
     event GasPriceUpdated(int256 oldGasPrice, int256 newGasPrice);
 
+    /// @notice Emitted when useBlockTimestamp flag is changed
+    /// @param enabled Whether block.timestamp is now used for timestamps
+    event UseBlockTimestampChanged(bool enabled);
+
+    /*//////////////////////////////////////////////////////////////
+                                 ROLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Role that can update the gas price
+    bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
+
     /*//////////////////////////////////////////////////////////////
                                  STATE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The gas price in Gwei
+    /// @notice The gas price with 9 decimals (0.001 Gwei = 1000000)
     int256 private _answer;
 
     /// @notice Timestamp when the price was last updated
@@ -38,7 +51,11 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
     /// @notice Current round ID (increments with each update)
     uint80 private _roundId;
 
-    /// @notice The number of decimals (0 for Gwei)
+    /// @notice If true, return block.timestamp for startedAt/updatedAt instead of stored timestamp
+    bool private _useBlockTimestamp = true;
+
+    /// @notice The number of decimals (9 for nano-Gwei precision, same as Chainlink)
+    /// @dev 0.001 Gwei = 1_000_000 with 9 decimals, 1 Gwei = 1_000_000_000 with 9 decimals
     uint8 private constant DECIMALS = 0;
 
     /// @notice Description of the oracle
@@ -52,22 +69,29 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the oracle with an initial gas price
-    /// @param initialGasPrice The initial gas price in Gwei (must be > 0)
-    /// @param owner_ The owner who can update the gas price (typically a keeper)
-    constructor(int256 initialGasPrice, address owner_) Ownable(owner_) {
+    /// @param initialGasPrice The initial gas price with 9 decimals (must be > 0)
+    /// @dev Example: 0.001 Gwei = 1_000_000, 1 Gwei = 1_000_000_000
+    /// @param admin_ The admin who can grant/revoke roles (receives DEFAULT_ADMIN_ROLE)
+    constructor(int256 initialGasPrice, address admin_) {
         if (initialGasPrice <= 0) revert INVALID_GAS_PRICE();
         _answer = initialGasPrice;
         _updatedAt = block.timestamp;
         _roundId = 1;
+
+        // Grant admin role (can grant/revoke KEEPER_ROLE)
+        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
+        // Grant keeper role to admin initially
+        _grantRole(KEEPER_ROLE, admin_);
     }
 
     /*//////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Sets the gas price (called by keeper)
-    /// @param newGasPrice The new gas price in Gwei (must be > 0)
-    function setGasPrice(int256 newGasPrice) external onlyOwner {
+    /// @notice Sets the gas price (called by keeper or admin)
+    /// @param newGasPrice The new gas price with 9 decimals (must be > 0)
+    /// @dev Example: 0.001 Gwei = 1_000_000, 1 Gwei = 1_000_000_000
+    function setGasPrice(int256 newGasPrice) external onlyRole(KEEPER_ROLE) {
         if (newGasPrice <= 0) revert INVALID_GAS_PRICE();
         int256 oldGasPrice = _answer;
         _answer = newGasPrice;
@@ -76,6 +100,19 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
             ++_roundId;
         }
         emit GasPriceUpdated(oldGasPrice, newGasPrice);
+    }
+
+    /// @notice Sets whether to use block.timestamp for startedAt/updatedAt
+    /// @param enabled If true, getRoundData and latestRoundData return block.timestamp
+    /// @dev When enabled, staleness checks will always pass (timestamp is always fresh)
+    function setUseBlockTimestamp(bool enabled) external onlyRole(KEEPER_ROLE) {
+        _useBlockTimestamp = enabled;
+        emit UseBlockTimestampChanged(enabled);
+    }
+
+    /// @notice Returns whether block.timestamp is used for startedAt/updatedAt
+    function useBlockTimestamp() external view returns (bool) {
+        return _useBlockTimestamp;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -105,7 +142,8 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (_roundId, _answer, _updatedAt, _updatedAt, _roundId);
+        uint256 timestamp = _useBlockTimestamp ? block.timestamp : _updatedAt;
+        return (_roundId, _answer, timestamp, timestamp, _roundId);
     }
 
     /// @inheritdoc AggregatorV3Interface
@@ -115,7 +153,8 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (_roundId, _answer, _updatedAt, _updatedAt, _roundId);
+        uint256 timestamp = _useBlockTimestamp ? block.timestamp : _updatedAt;
+        return (_roundId, _answer, timestamp, timestamp, _roundId);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -123,7 +162,7 @@ contract SuperformGasOracle is AggregatorV3Interface, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the latest gas price (legacy interface)
-    /// @return The gas price in Gwei
+    /// @return The gas price with 9 decimals
     function latestAnswer() external view returns (int256) {
         return _answer;
     }

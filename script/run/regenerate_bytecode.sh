@@ -89,6 +89,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperOracle"
     "SuperOracleL2"
     "SuperBank"
+    "SuperformGasOracle"
 )
 
 # Function to copy contract artifact

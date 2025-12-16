@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 import { SuperformGasOracle } from "../../src/oracles/SuperformGasOracle.sol";
 
@@ -10,17 +11,22 @@ import { SuperformGasOracle } from "../../src/oracles/SuperformGasOracle.sol";
 /// @notice Unit tests for SuperformGasOracle - Chainlink compatible gas price oracle
 contract SuperformGasOracleTest is Test {
     SuperformGasOracle public gasOracle;
-    address public owner;
+    address public admin;
 
-    // Test constants
-    int256 constant INITIAL_GAS_PRICE = 30; // 30 Gwei
+    // Test constants (9 decimals: 1_000_000 = 0.001 Gwei)
+    int256 constant INITIAL_GAS_PRICE = 1_000_000; // 0.001 Gwei (realistic for Base)
+
+    // Roles
+    bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
+    bytes32 constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 
     // Events
     event GasPriceUpdated(int256 oldGasPrice, int256 newGasPrice);
+    event UseBlockTimestampChanged(bool enabled);
 
     function setUp() public {
-        owner = address(this);
-        gasOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, owner);
+        admin = address(this);
+        gasOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, admin);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -32,8 +38,10 @@ contract SuperformGasOracleTest is Test {
         assertEq(gasOracle.decimals(), 0);
         assertEq(gasOracle.description(), "Superform Fast Gas / Gwei");
         assertEq(gasOracle.version(), 1);
-        assertEq(gasOracle.owner(), owner);
+        assertTrue(gasOracle.hasRole(DEFAULT_ADMIN_ROLE, admin));
+        assertTrue(gasOracle.hasRole(KEEPER_ROLE, admin));
         assertEq(gasOracle.latestAnswer(), INITIAL_GAS_PRICE);
+        assertTrue(gasOracle.useBlockTimestamp());
     }
 
     /// @notice Test constructor sets initial round data correctly
@@ -51,26 +59,40 @@ contract SuperformGasOracleTest is Test {
     /// @notice Test constructor reverts with zero gas price
     function test_Constructor_RevertsOnZeroPrice() public {
         vm.expectRevert(SuperformGasOracle.INVALID_GAS_PRICE.selector);
-        new SuperformGasOracle(0, owner);
+        new SuperformGasOracle(0, admin);
     }
 
     /// @notice Test constructor reverts with negative gas price
     function test_Constructor_RevertsOnNegativePrice() public {
         vm.expectRevert(SuperformGasOracle.INVALID_GAS_PRICE.selector);
-        new SuperformGasOracle(-1, owner);
+        new SuperformGasOracle(-1, admin);
     }
 
     /*//////////////////////////////////////////////////////////////
                             SET GAS PRICE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test gas price update by owner
+    /// @notice Test gas price update by admin (who has KEEPER_ROLE)
     function test_SetGasPrice_UpdatesPrice() public {
-        int256 newGasPrice = 50; // 50 Gwei
+        int256 newGasPrice = 50;
 
         gasOracle.setGasPrice(newGasPrice);
 
         assertEq(gasOracle.latestAnswer(), newGasPrice);
+    }
+
+    /// @notice Test gas price update by keeper
+    function test_SetGasPrice_UpdatesPriceByKeeper() public {
+        address keeper = makeAddr("keeper");
+
+        // Grant keeper role
+        gasOracle.grantRole(KEEPER_ROLE, keeper);
+
+        // Keeper updates price
+        vm.prank(keeper);
+        gasOracle.setGasPrice(2_000_000);
+
+        assertEq(gasOracle.latestAnswer(), 2_000_000);
     }
 
     /// @notice Test gas price update increments round ID
@@ -116,12 +138,14 @@ contract SuperformGasOracleTest is Test {
         gasOracle.setGasPrice(newGasPrice);
     }
 
-    /// @notice Test that non-owner cannot set gas price
-    function test_SetGasPrice_RevertsNonOwner() public {
-        address nonOwner = makeAddr("nonOwner");
+    /// @notice Test that non-keeper cannot set gas price
+    function test_SetGasPrice_RevertsNonKeeper() public {
+        address nonKeeper = makeAddr("nonKeeper");
 
-        vm.prank(nonOwner);
-        vm.expectRevert();
+        vm.prank(nonKeeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonKeeper, KEEPER_ROLE)
+        );
         gasOracle.setGasPrice(50);
     }
 
@@ -176,7 +200,7 @@ contract SuperformGasOracleTest is Test {
         assertEq(gasOracle.latestAnswer(), INITIAL_GAS_PRICE);
     }
 
-    /// @notice Test decimals returns 0 (Gwei)
+    /// @notice Test decimals returns 0 (Gwei precision)
     function test_Decimals_ReturnsZero() public view {
         assertEq(gasOracle.decimals(), 0);
     }
@@ -195,9 +219,12 @@ contract SuperformGasOracleTest is Test {
                             STALENESS TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test that updatedAt reflects actual update time (not block.timestamp)
+    /// @notice Test that updatedAt reflects actual update time when useBlockTimestamp is false
     function test_Staleness_TracksActualUpdateTime() public {
         uint256 updateTime = block.timestamp;
+
+        // Disable useBlockTimestamp to test stored timestamp behavior
+        gasOracle.setUseBlockTimestamp(false);
 
         // Warp time forward significantly (1 day)
         vm.warp(updateTime + 1 days);
@@ -210,10 +237,13 @@ contract SuperformGasOracleTest is Test {
         assertLt(updatedAt, block.timestamp, "updatedAt should be less than current time");
     }
 
-    /// @notice Test staleness detection scenario
+    /// @notice Test staleness detection scenario when useBlockTimestamp is false
     function test_Staleness_CanDetectStalePrice() public {
         uint256 maxStaleness = 1 hours;
         uint256 initialTime = block.timestamp;
+
+        // Disable useBlockTimestamp to test staleness detection
+        gasOracle.setUseBlockTimestamp(false);
 
         // Price is fresh
         (,,, uint256 updatedAt,) = gasOracle.latestRoundData();
@@ -233,41 +263,181 @@ contract SuperformGasOracleTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            OWNERSHIP TESTS
+                        USE BLOCK TIMESTAMP TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test ownership transfer
-    function test_TransferOwnership() public {
-        address newOwner = makeAddr("newOwner");
+    /// @notice Test setUseBlockTimestamp by keeper
+    function test_SetUseBlockTimestamp_ToggledByKeeper() public {
+        assertTrue(gasOracle.useBlockTimestamp());
 
-        // Initial owner is this contract
-        assertEq(gasOracle.owner(), owner);
+        gasOracle.setUseBlockTimestamp(false);
+        assertFalse(gasOracle.useBlockTimestamp());
 
-        // Transfer ownership
-        gasOracle.transferOwnership(newOwner);
+        gasOracle.setUseBlockTimestamp(true);
+        assertTrue(gasOracle.useBlockTimestamp());
+    }
 
-        // Verify new owner
-        assertEq(gasOracle.owner(), newOwner);
+    /// @notice Test that non-keeper cannot set useBlockTimestamp
+    function test_SetUseBlockTimestamp_RevertsNonKeeper() public {
+        address nonKeeper = makeAddr("nonKeeper");
 
-        // Old owner can no longer set gas price
-        vm.expectRevert();
-        gasOracle.setGasPrice(100);
+        vm.prank(nonKeeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonKeeper, KEEPER_ROLE)
+        );
+        gasOracle.setUseBlockTimestamp(true);
+    }
 
-        // New owner can set gas price
-        vm.prank(newOwner);
+    /// @notice Test setUseBlockTimestamp emits event
+    function test_SetUseBlockTimestamp_EmitsEvent() public {
+        vm.expectEmit(true, true, false, true);
+        emit UseBlockTimestampChanged(true);
+        gasOracle.setUseBlockTimestamp(true);
+
+        vm.expectEmit(true, true, false, true);
+        emit UseBlockTimestampChanged(false);
+        gasOracle.setUseBlockTimestamp(false);
+    }
+
+    /// @notice Test that useBlockTimestamp flag controls timestamp behavior
+    function test_UseBlockTimestamp_ControlsTimestampBehavior() public {
+        uint256 initialTime = block.timestamp;
+
+        // Warp forward
+        vm.warp(initialTime + 1 days);
+
+        // With flag enabled (default), should return block.timestamp
+        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.latestRoundData();
+        assertEq(startedAt, block.timestamp, "Should return block.timestamp when enabled");
+        assertEq(updatedAt, block.timestamp, "Should return block.timestamp when enabled");
+
+        // Disable flag
+        gasOracle.setUseBlockTimestamp(false);
+
+        // Without flag, should return stored timestamp
+        (,, startedAt, updatedAt,) = gasOracle.latestRoundData();
+        assertEq(startedAt, initialTime, "Should return stored timestamp when disabled");
+        assertEq(updatedAt, initialTime, "Should return stored timestamp when disabled");
+    }
+
+    /// @notice Test useBlockTimestamp prevents staleness (enabled by default)
+    function test_UseBlockTimestamp_PreventsStaleness() public {
+        uint256 maxStaleness = 1 hours;
+        uint256 initialTime = block.timestamp;
+
+        // Warp forward beyond staleness threshold
+        vm.warp(initialTime + 2 hours);
+
+        // With flag enabled (default), price appears fresh
+        (,,, uint256 updatedAt,) = gasOracle.latestRoundData();
+        assertEq(updatedAt, block.timestamp, "Should return current timestamp");
+        assertGe(updatedAt + maxStaleness, block.timestamp, "Price should appear fresh");
+
+        // Disable flag
+        gasOracle.setUseBlockTimestamp(false);
+
+        // Without flag, price is stale
+        (,,, updatedAt,) = gasOracle.latestRoundData();
+        assertLt(updatedAt + maxStaleness, block.timestamp, "Price should be stale when disabled");
+    }
+
+    /// @notice Test getRoundData also respects useBlockTimestamp flag (enabled by default)
+    function test_UseBlockTimestamp_GetRoundData() public {
+        uint256 initialTime = block.timestamp;
+
+        // Warp forward
+        vm.warp(initialTime + 1 days);
+
+        // getRoundData should return block.timestamp (flag enabled by default)
+        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.getRoundData(1);
+        assertEq(startedAt, block.timestamp, "getRoundData should return block.timestamp");
+        assertEq(updatedAt, block.timestamp, "getRoundData should return block.timestamp");
+
+        // Disable flag
+        gasOracle.setUseBlockTimestamp(false);
+
+        // getRoundData should now return stored timestamp
+        (,, startedAt, updatedAt,) = gasOracle.getRoundData(1);
+        assertEq(startedAt, initialTime, "getRoundData should return stored timestamp when disabled");
+        assertEq(updatedAt, initialTime, "getRoundData should return stored timestamp when disabled");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            ROLE MANAGEMENT TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test granting keeper role
+    function test_GrantKeeperRole() public {
+        address newKeeper = makeAddr("newKeeper");
+
+        // Initially doesn't have keeper role
+        assertFalse(gasOracle.hasRole(KEEPER_ROLE, newKeeper));
+
+        // Grant keeper role
+        gasOracle.grantRole(KEEPER_ROLE, newKeeper);
+
+        // Now has keeper role
+        assertTrue(gasOracle.hasRole(KEEPER_ROLE, newKeeper));
+
+        // New keeper can set gas price
+        vm.prank(newKeeper);
         gasOracle.setGasPrice(100);
 
         assertEq(gasOracle.latestAnswer(), 100);
     }
 
-    /// @notice Test that non-owner cannot transfer ownership
-    function test_TransferOwnership_RevertsNonOwner() public {
-        address nonOwner = makeAddr("nonOwner");
-        address newOwner = makeAddr("newOwner");
+    /// @notice Test revoking keeper role
+    function test_RevokeKeeperRole() public {
+        address keeper = makeAddr("keeper");
 
-        vm.prank(nonOwner);
-        vm.expectRevert();
-        gasOracle.transferOwnership(newOwner);
+        // Grant then revoke
+        gasOracle.grantRole(KEEPER_ROLE, keeper);
+        assertTrue(gasOracle.hasRole(KEEPER_ROLE, keeper));
+
+        gasOracle.revokeRole(KEEPER_ROLE, keeper);
+        assertFalse(gasOracle.hasRole(KEEPER_ROLE, keeper));
+
+        // Revoked keeper can no longer set gas price
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, keeper, KEEPER_ROLE)
+        );
+        gasOracle.setGasPrice(100);
+    }
+
+    /// @notice Test transferring admin role
+    function test_TransferAdminRole() public {
+        address newAdmin = makeAddr("newAdmin");
+
+        // Grant admin role to new admin
+        gasOracle.grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        assertTrue(gasOracle.hasRole(DEFAULT_ADMIN_ROLE, newAdmin));
+
+        // Revoke admin from original
+        gasOracle.revokeRole(DEFAULT_ADMIN_ROLE, admin);
+        assertFalse(gasOracle.hasRole(DEFAULT_ADMIN_ROLE, admin));
+
+        // Original admin can no longer grant roles
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, admin, DEFAULT_ADMIN_ROLE)
+        );
+        gasOracle.grantRole(KEEPER_ROLE, makeAddr("someone"));
+
+        // New admin can grant roles
+        vm.prank(newAdmin);
+        gasOracle.grantRole(KEEPER_ROLE, makeAddr("newKeeper"));
+    }
+
+    /// @notice Test that non-admin cannot grant roles
+    function test_GrantRole_RevertsNonAdmin() public {
+        address nonAdmin = makeAddr("nonAdmin");
+        address newKeeper = makeAddr("newKeeper");
+
+        vm.prank(nonAdmin);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonAdmin, DEFAULT_ADMIN_ROLE)
+        );
+        gasOracle.grantRole(KEEPER_ROLE, newKeeper);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -301,37 +471,38 @@ contract SuperformGasOracleTest is Test {
                         INTEGRATION EXAMPLE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test gas cost calculation example
+    /// @notice Test gas cost calculation example for Base L2
     function test_GasCostCalculation_Example() public view {
-        // Simulate calculating upkeep cost in USD
-        // Gas price: 30 Gwei
+        // Simulate calculating upkeep cost in USD on Base
+        // Gas price: 0.001 Gwei (1_000_000 with 9 decimals)
         // Gas used: 135,000 (GAS_PER_ENTRY constant)
         // ETH price: $2,500
 
-        int256 gasPrice = gasOracle.latestAnswer(); // 30 Gwei
+        int256 gasPrice = gasOracle.latestAnswer(); // 1_000_000 = 0.001 Gwei
         uint256 gasUsed = 135_000;
         uint256 ethPriceUsd = 2500e18; // $2,500 with 18 decimals
 
-        // Calculate cost in wei: gasUsed * gasPrice * 1e9 (convert Gwei to Wei)
-        uint256 costInWei = gasUsed * uint256(gasPrice) * 1e9;
+        // Calculate cost in wei: gasUsed * gasPrice * 1e9 / 1e9 (convert from 9 decimals to Gwei to Wei)
+        // gasPrice is in Gwei with 9 decimals, so divide by 1e9 to get actual Gwei, then * 1e9 to get Wei
+        // Simplifies to: gasUsed * gasPrice (since 1e9/1e9 = 1)
+        uint256 costInWei = gasUsed * uint256(gasPrice);
 
         // Calculate cost in USD: (costInWei * ethPriceUsd) / 1e18
         uint256 costInUsd = (costInWei * ethPriceUsd) / 1e18;
 
-        console2.log("=== Gas Cost Calculation Example ===");
-        console2.log("Gas price (Gwei):", uint256(gasPrice));
+        console2.log("=== Gas Cost Calculation Example (Base L2) ===");
+        console2.log("Gas price (9 decimals):", uint256(gasPrice));
+        console2.log("Gas price (Gwei):", uint256(gasPrice), "/ 1e9 = 0.001 Gwei");
         console2.log("Gas used:", gasUsed);
         console2.log("ETH price: $2,500");
         console2.log("");
         console2.log("Cost in Wei:", costInWei);
-        console2.log("Cost in ETH:", costInWei / 1e18, ".", (costInWei % 1e18) / 1e14);
         console2.log("Cost in USD (18 decimals):", costInUsd);
-        console2.log("Cost in USD: $", costInUsd / 1e18, ".", (costInUsd % 1e18) / 1e16);
 
-        // 135,000 * 30 * 1e9 = 4.05e15 wei = 0.00405 ETH
-        // 0.00405 ETH * $2,500 = $10.125
-        assertEq(costInWei, 4.05e15);
-        assertGt(costInUsd, 10e18); // > $10
-        assertLt(costInUsd, 11e18); // < $11
+        // 135,000 * 1_000_000 = 1.35e11 wei
+        // 1.35e11 wei * $2,500 / 1e18 = $0.0003375
+        assertEq(costInWei, 1.35e11);
+        assertGt(costInUsd, 0.0003e18); // > $0.0003
+        assertLt(costInUsd, 0.0004e18); // < $0.0004
     }
 }
