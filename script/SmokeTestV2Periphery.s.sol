@@ -82,6 +82,18 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         // Clear warnings array
         delete warnings;
 
+        // For non-mainnet chains, check if contracts are deployed first
+        // This allows CI to pass when contracts haven't been deployed yet on new chains
+        if (chainId != MAINNET_CHAIN_ID) {
+            address superGovernorAddr = _computeSuperGovernorAddress(env);
+            if (superGovernorAddr.code.length == 0) {
+                console2.log("SuperGovernor not deployed on chain", chainId);
+                console2.log("Skipping smoke tests for this chain (contracts not yet deployed)");
+                console2.log("====== Smoke Tests Skipped ======");
+                return;
+            }
+        }
+
         // Compute deployed contract addresses
         PeripheryContracts memory peripheryContracts = _computePeripheryContractAddresses(env);
 
@@ -122,6 +134,28 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("");
             console2.log("No warnings detected.");
         }
+    }
+
+    /// @notice Compute just the SuperGovernor address (for deployment check)
+    /// @param env Environment
+    /// @return The computed SuperGovernor address
+    function _computeSuperGovernorAddress(uint256 env) internal view returns (address) {
+        return DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(
+                __getBytecode(SUPER_GOVERNOR_KEY, env),
+                abi.encode(
+                    configuration.owner,
+                    configuration.governor,
+                    configuration.bankManager,
+                    configuration.oracleManager,
+                    configuration.gasManager,
+                    configuration.guardian,
+                    configuration.treasury,
+                    env == 0 // upkeepPaymentsEnabled
+                )
+            ),
+            __getSalt(SUPER_GOVERNOR_KEY)
+        );
     }
 
     /// @notice Compute periphery contract addresses from deployment
