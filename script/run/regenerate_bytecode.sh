@@ -89,6 +89,8 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperOracle"
     "SuperOracleL2"
     "SuperBank"
+    "UpOFT"
+    "UpOFTAdapter"
     "SuperformGasOracle"
 )
 

@@ -1,6 +1,12 @@
 {
+  "lib/LayerZero-v2": {
+    "rev": "ab9b083410b9359285a5756807e1b6145d4711a7"
+  },
   "lib/chimera": {
     "rev": "d5cf52bc5bbf75f988f8aada23fd12d0bcf7798a"
+  },
+  "lib/devtools": {
+    "rev": "e149a722de12a8a47bf77c85895f16c3fa82d8bb"
   },
   "lib/erc7540-reusable-properties": {
     "rev": "4e38cf6084ab1a9b906fe20bcbd2ae97bc3d47a5"
@@ -16,6 +22,9 @@
   },
   "lib/setup-helpers": {
     "rev": "0f7abac8f096768817cc7a1d2dcdb01ee8fb278e"
+  },
+  "lib/solidity-bytes-utils": {
+    "rev": "fc502455bb2a7e26a743378df042612dd50d1eb9"
   },
   "lib/v2-core": {
     "rev": "aef83110fac3ada52b46d7e615e780b678774729"

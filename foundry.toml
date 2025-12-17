@@ -49,7 +49,12 @@ remappings = [
   "@rhinestone/erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/",
   "erc4337-validation/=lib/v2-core/lib/modulekit/node_modules/@rhinestone/erc4337-validation/src/",
   "forge-std/=lib/forge-std/src/",
-  "halmos-cheatcodes/=lib/openzeppelin-contracts-upgradeable/lib/halmos-cheatcodes/src/"
+  "halmos-cheatcodes/=lib/openzeppelin-contracts-upgradeable/lib/halmos-cheatcodes/src/",
+  "@layerzerolabs/oft-evm/=lib/devtools/packages/oft-evm/",
+  "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
+  "@layerzerolabs/lz-evm-protocol-v2/=lib/LayerZero-v2/packages/layerzero-v2/evm/protocol/",
+  "@layerzerolabs/lz-evm-messagelib-v2/=lib/LayerZero-v2/packages/layerzero-v2/evm/messagelib/",
+  "solidity-bytes-utils/=lib/solidity-bytes-utils/"
 ]
 dynamic_test_linking = true
 gas_limit = "18446744073709551615"
