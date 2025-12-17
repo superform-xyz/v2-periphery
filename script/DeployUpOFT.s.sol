@@ -16,7 +16,6 @@ import { SetConfigParam } from
 import { UlnConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol";
 import { ExecutorConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
 
-
 import { UpOFT } from "../src/UP/UpOFT.sol";
 import { UpOFTAdapter } from "../src/UP/UpOFTAdapter.sol";
 
