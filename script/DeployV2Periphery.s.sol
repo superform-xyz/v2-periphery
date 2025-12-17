@@ -844,8 +844,28 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Step 1] Setting active PPS oracle...");
         console2.log("  Oracle address:", peripheryContracts.ecdsappsOracle);
         // Configure SuperGovernor with oracle
-        SuperGovernor(peripheryContracts.superGovernor).setActivePPSOracle(peripheryContracts.ecdsappsOracle);
-        console2.log("[Step 1] DONE - Set active PPS oracle");
+        SuperGovernor sg = SuperGovernor(peripheryContracts.superGovernor);
+
+        // Check if oracle is already set (getActivePPSOracle reverts if not set)
+        address currentOracle;
+        try sg.getActivePPSOracle() returns (address oracle) {
+            currentOracle = oracle;
+        } catch {
+            currentOracle = address(0);
+        }
+
+        if (currentOracle == peripheryContracts.ecdsappsOracle) {
+            console2.log("[Step 1] SKIPPED - Oracle already set to correct address");
+        } else if (currentOracle == address(0)) {
+            // First time setting - can use setActivePPSOracle directly
+            sg.setActivePPSOracle(peripheryContracts.ecdsappsOracle);
+            console2.log("[Step 1] DONE - Set active PPS oracle");
+        } else {
+            // Oracle already set to different address - need timelock
+            console2.log("[Step 1] WARNING - Different oracle already set:", currentOracle);
+            console2.log("[Step 1] Use proposeActivePPSOracle + executeActivePPSOracleChange to change it");
+            console2.log("[Step 1] SKIPPED - Requires timelock process");
+        }
 
         console2.log("[Step 2] Setting validator configuration...");
         SuperGovernor(peripheryContracts.superGovernor)

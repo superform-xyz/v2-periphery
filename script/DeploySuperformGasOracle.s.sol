@@ -139,7 +139,7 @@ contract DeploySuperformGasOracle is DeployV2Base {
         string memory json = vm.serializeAddress("SuperformGasOracle", "address", oracleAddr);
         json = vm.serializeAddress("SuperformGasOracle", "owner", owner);
         json = vm.serializeUint("SuperformGasOracle", "chainId", chainId);
-        json = vm.serializeUint("SuperformGasOracle", "decimals", 9);
+        json = vm.serializeUint("SuperformGasOracle", "decimals", 0);
         json = vm.serializeString("SuperformGasOracle", "description", "Superform Fast Gas / Gwei");
 
         // Write to file

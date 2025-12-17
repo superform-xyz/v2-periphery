@@ -202,7 +202,6 @@ main() {
     log "INFO" "Mode: $mode"
     log "INFO" "Current Owner: $CURRENT_OWNER"
     log "INFO" "New Owner (SUPER_GOVERNOR_ADDRESS): $NEW_OWNER"
-    log "INFO" "RPC URL: ${rpc_url:0:50}..."
     log "INFO" "============================================"
 
     # Build forge command
