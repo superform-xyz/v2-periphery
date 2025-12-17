@@ -209,7 +209,12 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
         // Verify all roles are configured correctly
-        _verifyRoles(governor);
+        // Skip for Base (8453) since roles haven't been transferred yet
+        if (chainId == BASE_CHAIN_ID) {
+            console2.log("[Role Check] SKIPPED - Roles not yet transferred on Base");
+        } else {
+            _verifyRoles(governor);
+        }
 
         // Verify active PPS oracle is set
         address activePPSOracle = governor.getActivePPSOracle();

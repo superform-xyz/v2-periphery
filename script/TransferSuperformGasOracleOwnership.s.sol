@@ -45,37 +45,67 @@ contract TransferSuperformGasOracleOwnership is DeployV2Base {
         bytes32 DEFAULT_ADMIN_ROLE = oracle.DEFAULT_ADMIN_ROLE();
         bytes32 KEEPER_ROLE = oracle.KEEPER_ROLE();
 
-        // Verify current admin has admin role
+        // Check current role state
         console2.log("Oracle Address:", oracleAddr);
-        console2.log("Current admin has DEFAULT_ADMIN_ROLE:", oracle.hasRole(DEFAULT_ADMIN_ROLE, currentAdmin));
 
-        require(oracle.hasRole(DEFAULT_ADMIN_ROLE, currentAdmin), "ADMIN_MISMATCH: Current admin does not have role");
-        require(
-            !oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS),
-            "ALREADY_TRANSFERRED: SUPER_GOVERNOR already has admin role"
-        );
+        bool currentAdminHasAdmin = oracle.hasRole(DEFAULT_ADMIN_ROLE, currentAdmin);
+        bool currentAdminHasKeeper = oracle.hasRole(KEEPER_ROLE, currentAdmin);
+        bool newAdminHasAdmin = oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS);
+        bool newAdminHasKeeper = oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS);
 
-        // Transfer roles to SUPER_GOVERNOR_ADDRESS
+        console2.log("Current admin has DEFAULT_ADMIN_ROLE:", currentAdminHasAdmin);
+        console2.log("Current admin has KEEPER_ROLE:", currentAdminHasKeeper);
+        console2.log("SUPER_GOVERNOR has DEFAULT_ADMIN_ROLE:", newAdminHasAdmin);
+        console2.log("SUPER_GOVERNOR has KEEPER_ROLE:", newAdminHasKeeper);
+
+        // Check if transfer is fully complete (skip if so)
+        bool fullyTransferred = newAdminHasAdmin && newAdminHasKeeper && !currentAdminHasAdmin && !currentAdminHasKeeper;
+
+        if (fullyTransferred) {
+            console2.log("");
+            console2.log("=== SKIPPED: Roles Already Fully Transferred ===");
+            console2.log("SUPER_GOVERNOR_ADDRESS already has all roles and current admin has none.");
+            return;
+        }
+
+        // Verify we can proceed (current admin must have admin role to grant/revoke)
+        require(currentAdminHasAdmin, "ADMIN_MISMATCH: Current admin does not have DEFAULT_ADMIN_ROLE");
+
+        // Transfer roles to SUPER_GOVERNOR_ADDRESS (only if not already granted)
         console2.log("");
         console2.log("Granting roles to SUPER_GOVERNOR_ADDRESS...");
 
-        // Grant admin role to new admin
-        oracle.grantRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS);
-        console2.log("  [+] Granted DEFAULT_ADMIN_ROLE");
+        if (!newAdminHasAdmin) {
+            oracle.grantRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS);
+            console2.log("  [+] Granted DEFAULT_ADMIN_ROLE");
+        } else {
+            console2.log("  [=] DEFAULT_ADMIN_ROLE already granted");
+        }
 
-        // Grant keeper role to new admin
-        oracle.grantRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS);
-        console2.log("  [+] Granted KEEPER_ROLE");
+        if (!newAdminHasKeeper) {
+            oracle.grantRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS);
+            console2.log("  [+] Granted KEEPER_ROLE");
+        } else {
+            console2.log("  [=] KEEPER_ROLE already granted");
+        }
 
-        // Revoke roles from current admin
+        // Revoke roles from current admin (only if still has them)
         console2.log("");
         console2.log("Revoking roles from current admin...");
 
-        oracle.revokeRole(KEEPER_ROLE, currentAdmin);
-        console2.log("  [-] Revoked KEEPER_ROLE");
+        if (currentAdminHasKeeper) {
+            oracle.revokeRole(KEEPER_ROLE, currentAdmin);
+            console2.log("  [-] Revoked KEEPER_ROLE");
+        } else {
+            console2.log("  [=] KEEPER_ROLE already revoked");
+        }
 
-        oracle.revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
-        console2.log("  [-] Revoked DEFAULT_ADMIN_ROLE");
+        if (currentAdminHasAdmin) {
+            oracle.revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
+            console2.log("  [-] Revoked DEFAULT_ADMIN_ROLE");
+        } else {
+            console2.log("  [=] DEFAULT_ADMIN_ROLE already revoked");
+        }
 
         // Verify transfer
         require(oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS), "TRANSFER_FAILED: New admin role mismatch");

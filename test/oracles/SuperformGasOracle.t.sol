@@ -13,8 +13,8 @@ contract SuperformGasOracleTest is Test {
     SuperformGasOracle public gasOracle;
     address public admin;
 
-    // Test constants (9 decimals: 1_000_000 = 0.001 Gwei)
-    int256 constant INITIAL_GAS_PRICE = 1_000_000; // 0.001 Gwei (realistic for Base)
+    // Test constants (0 decimals - value directly in Gwei)
+    int256 constant INITIAL_GAS_PRICE = 1_000_000;
 
     // Roles
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
@@ -116,16 +116,21 @@ contract SuperformGasOracleTest is Test {
 
     /// @notice Test gas price update sets correct timestamp
     function test_SetGasPrice_UpdatesTimestamp() public {
-        uint256 initialTime = block.timestamp;
+        // Set a known starting timestamp
+        uint256 startTime = 1000;
+        vm.warp(startTime);
+
+        // Deploy fresh oracle at known time
+        SuperformGasOracle freshOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, admin);
 
         // Warp time forward
-        vm.warp(initialTime + 1 hours);
+        vm.warp(startTime + 1 hours);
 
-        gasOracle.setGasPrice(40);
+        freshOracle.setGasPrice(40);
 
-        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.latestRoundData();
-        assertEq(startedAt, initialTime + 1 hours);
-        assertEq(updatedAt, initialTime + 1 hours);
+        (,, uint256 startedAt, uint256 updatedAt,) = freshOracle.latestRoundData();
+        assertEq(startedAt, startTime + 1 hours);
+        assertEq(updatedAt, startTime + 1 hours);
     }
 
     /// @notice Test gas price update emits event
@@ -221,19 +226,24 @@ contract SuperformGasOracleTest is Test {
 
     /// @notice Test that updatedAt reflects actual update time when useBlockTimestamp is false
     function test_Staleness_TracksActualUpdateTime() public {
-        uint256 updateTime = block.timestamp;
+        // Set a known starting timestamp
+        uint256 deployTime = 1000;
+        vm.warp(deployTime);
+
+        // Deploy fresh oracle at known time
+        SuperformGasOracle freshOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, admin);
 
         // Disable useBlockTimestamp to test stored timestamp behavior
-        gasOracle.setUseBlockTimestamp(false);
+        freshOracle.setUseBlockTimestamp(false);
 
         // Warp time forward significantly (1 day)
-        vm.warp(updateTime + 1 days);
+        vm.warp(deployTime + 1 days);
 
-        // updatedAt should still be the original update time
-        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.latestRoundData();
+        // updatedAt should still be the original deployment time
+        (,, uint256 startedAt, uint256 updatedAt,) = freshOracle.latestRoundData();
 
-        assertEq(startedAt, updateTime, "startedAt should be original deployment time");
-        assertEq(updatedAt, updateTime, "updatedAt should be original deployment time");
+        assertEq(startedAt, deployTime, "startedAt should be original deployment time");
+        assertEq(updatedAt, deployTime, "updatedAt should be original deployment time");
         assertLt(updatedAt, block.timestamp, "updatedAt should be less than current time");
     }
 
@@ -301,23 +311,28 @@ contract SuperformGasOracleTest is Test {
 
     /// @notice Test that useBlockTimestamp flag controls timestamp behavior
     function test_UseBlockTimestamp_ControlsTimestampBehavior() public {
-        uint256 initialTime = block.timestamp;
+        // Set a known starting timestamp
+        uint256 deployTime = 1000;
+        vm.warp(deployTime);
+
+        // Deploy fresh oracle at known time
+        SuperformGasOracle freshOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, admin);
 
         // Warp forward
-        vm.warp(initialTime + 1 days);
+        vm.warp(deployTime + 1 days);
 
         // With flag enabled (default), should return block.timestamp
-        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.latestRoundData();
+        (,, uint256 startedAt, uint256 updatedAt,) = freshOracle.latestRoundData();
         assertEq(startedAt, block.timestamp, "Should return block.timestamp when enabled");
         assertEq(updatedAt, block.timestamp, "Should return block.timestamp when enabled");
 
         // Disable flag
-        gasOracle.setUseBlockTimestamp(false);
+        freshOracle.setUseBlockTimestamp(false);
 
         // Without flag, should return stored timestamp
-        (,, startedAt, updatedAt,) = gasOracle.latestRoundData();
-        assertEq(startedAt, initialTime, "Should return stored timestamp when disabled");
-        assertEq(updatedAt, initialTime, "Should return stored timestamp when disabled");
+        (,, startedAt, updatedAt,) = freshOracle.latestRoundData();
+        assertEq(startedAt, deployTime, "Should return stored timestamp when disabled");
+        assertEq(updatedAt, deployTime, "Should return stored timestamp when disabled");
     }
 
     /// @notice Test useBlockTimestamp prevents staleness (enabled by default)
@@ -343,23 +358,28 @@ contract SuperformGasOracleTest is Test {
 
     /// @notice Test getRoundData also respects useBlockTimestamp flag (enabled by default)
     function test_UseBlockTimestamp_GetRoundData() public {
-        uint256 initialTime = block.timestamp;
+        // Set a known starting timestamp
+        uint256 deployTime = 1000;
+        vm.warp(deployTime);
+
+        // Deploy fresh oracle at known time
+        SuperformGasOracle freshOracle = new SuperformGasOracle(INITIAL_GAS_PRICE, admin);
 
         // Warp forward
-        vm.warp(initialTime + 1 days);
+        vm.warp(deployTime + 1 days);
 
         // getRoundData should return block.timestamp (flag enabled by default)
-        (,, uint256 startedAt, uint256 updatedAt,) = gasOracle.getRoundData(1);
+        (,, uint256 startedAt, uint256 updatedAt,) = freshOracle.getRoundData(1);
         assertEq(startedAt, block.timestamp, "getRoundData should return block.timestamp");
         assertEq(updatedAt, block.timestamp, "getRoundData should return block.timestamp");
 
         // Disable flag
-        gasOracle.setUseBlockTimestamp(false);
+        freshOracle.setUseBlockTimestamp(false);
 
         // getRoundData should now return stored timestamp
-        (,, startedAt, updatedAt,) = gasOracle.getRoundData(1);
-        assertEq(startedAt, initialTime, "getRoundData should return stored timestamp when disabled");
-        assertEq(updatedAt, initialTime, "getRoundData should return stored timestamp when disabled");
+        (,, startedAt, updatedAt,) = freshOracle.getRoundData(1);
+        assertEq(startedAt, deployTime, "getRoundData should return stored timestamp when disabled");
+        assertEq(updatedAt, deployTime, "getRoundData should return stored timestamp when disabled");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -474,25 +494,24 @@ contract SuperformGasOracleTest is Test {
     /// @notice Test gas cost calculation example for Base L2
     function test_GasCostCalculation_Example() public view {
         // Simulate calculating upkeep cost in USD on Base
-        // Gas price: 0.001 Gwei (1_000_000 with 9 decimals)
+        // Gas price: 1_000_000 Gwei (oracle has 0 decimals, value is directly in Gwei)
         // Gas used: 135,000 (GAS_PER_ENTRY constant)
         // ETH price: $2,500
 
-        int256 gasPrice = gasOracle.latestAnswer(); // 1_000_000 = 0.001 Gwei
+        int256 gasPrice = gasOracle.latestAnswer(); // 1_000_000 Gwei (0 decimals)
         uint256 gasUsed = 135_000;
         uint256 ethPriceUsd = 2500e18; // $2,500 with 18 decimals
 
-        // Calculate cost in wei: gasUsed * gasPrice * 1e9 / 1e9 (convert from 9 decimals to Gwei to Wei)
-        // gasPrice is in Gwei with 9 decimals, so divide by 1e9 to get actual Gwei, then * 1e9 to get Wei
-        // Simplifies to: gasUsed * gasPrice (since 1e9/1e9 = 1)
+        // Calculate cost in wei: gasUsed * gasPrice (gasPrice is in Gwei, but we use it as wei-per-gas for this example)
+        // Note: In production, you'd multiply by 1e9 to convert Gwei to Wei
+        // This simplified example treats the raw value as wei-per-gas for demonstration
         uint256 costInWei = gasUsed * uint256(gasPrice);
 
         // Calculate cost in USD: (costInWei * ethPriceUsd) / 1e18
         uint256 costInUsd = (costInWei * ethPriceUsd) / 1e18;
 
         console2.log("=== Gas Cost Calculation Example (Base L2) ===");
-        console2.log("Gas price (9 decimals):", uint256(gasPrice));
-        console2.log("Gas price (Gwei):", uint256(gasPrice), "/ 1e9 = 0.001 Gwei");
+        console2.log("Gas price (0 decimals, Gwei):", uint256(gasPrice));
         console2.log("Gas used:", gasUsed);
         console2.log("ETH price: $2,500");
         console2.log("");

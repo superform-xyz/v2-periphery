@@ -52,8 +52,8 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Default gas price with 9 decimals (1000000 = 0.001 Gwei - realistic for Base)
-# Examples: 0.001 Gwei = 1000000, 0.04 Gwei = 40000000, 1 Gwei = 1000000000
+# Default gas price in Gwei (oracle has 0 decimals - value is directly in Gwei)
+# This value is used for deterministic address computation and must match the deployed oracle.
 readonly DEFAULT_GAS_PRICE=1000000
 
 # Owner address (v2-supervaults keystore - DEPLOYER)
@@ -217,7 +217,7 @@ main() {
     log "INFO" "Chain: $CHAIN_NAME (ID: $CHAIN_ID)"
     log "INFO" "Mode: $mode"
     log "INFO" "Owner (v2-supervaults): $OWNER"
-    log "INFO" "Initial Gas Price: $gas_price (9 decimals, 1000000 = 0.001 Gwei)"
+    log "INFO" "Initial Gas Price: $gas_price (Gwei, 0 decimals)"
     log "INFO" "RPC URL: ${rpc_url:0:50}..."
     log "INFO" "============================================"
 

@@ -17,8 +17,8 @@ contract DeploySuperformGasOracle is DeployV2Base {
     /// @notice Contract key for SuperformGasOracle
     string internal constant SUPERFORM_GAS_ORACLE_KEY = "SuperformGasOracle";
 
-    /// @notice Default initial gas price with 9 decimals (1_000_000 = 0.001 Gwei - realistic for Base)
-    /// @dev Examples: 0.001 Gwei = 1_000_000, 0.04 Gwei = 40_000_000, 1 Gwei = 1_000_000_000
+    /// @notice Default initial gas price in Gwei (oracle has 0 decimals - value is directly in Gwei)
+    /// @dev This value is used for deterministic address computation and must match the deployed oracle.
     int256 internal constant DEFAULT_INITIAL_GAS_PRICE = 1_000_000;
 
     /*//////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ contract DeploySuperformGasOracle is DeployV2Base {
 
             (uint80 roundId, int256 answer,, uint256 updatedAt,) = oracle.latestRoundData();
             console2.log("Round ID:", roundId);
-            console2.log("Gas Price (9 decimals):", uint256(answer));
+            console2.log("Gas Price (Gwei):", uint256(answer));
             console2.log("Last Updated:", updatedAt);
         }
 
