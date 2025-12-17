@@ -5,11 +5,11 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { AggregatorV3Interface } from "../vendor/chainlink/AggregatorV3Interface.sol";
 
 /// @title SuperformGasOracle
-/// @notice A Chainlink-compatible oracle that returns gas price, updated by a keeper
+/// @notice A Chainlink-compatible oracle that returns gas price in Gwei, updated by a keeper
 /// @dev Used as a gas price oracle on L2s where Chainlink's Fast Gas feed is not available.
 ///      Tracks round ID and update timestamp for proper staleness checks.
-///      Uses 9 decimals (same as Chainlink Fast Gas feed) for Gwei precision.
-///      Example: 48780027 = 48.780027 Gwei, 1000000 = 0.001 Gwei (typical for Base L2).
+///      Returns gas price directly in Gwei with 0 decimals.
+///      Example: 1 = 1 Gwei, 1000000 = 1,000,000 Gwei.
 contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -42,7 +42,7 @@ contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
                                  STATE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The gas price with 9 decimals (0.001 Gwei = 1000000)
+    /// @notice The gas price in Gwei (0 decimals)
     int256 private _answer;
 
     /// @notice Timestamp when the price was last updated
@@ -54,8 +54,8 @@ contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     /// @notice If true, return block.timestamp for startedAt/updatedAt instead of stored timestamp
     bool private _useBlockTimestamp = true;
 
-    /// @notice The number of decimals (9 for nano-Gwei precision, same as Chainlink)
-    /// @dev 0.001 Gwei = 1_000_000 with 9 decimals, 1 Gwei = 1_000_000_000 with 9 decimals
+    /// @notice The number of decimals (0 - value is directly in Gwei)
+    /// @dev Gwei already has 9 decimals inherently (1 Gwei = 10^9 wei)
     uint8 private constant DECIMALS = 0;
 
     /// @notice Description of the oracle
@@ -69,8 +69,8 @@ contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the oracle with an initial gas price
-    /// @param initialGasPrice The initial gas price with 9 decimals (must be > 0)
-    /// @dev Example: 0.001 Gwei = 1_000_000, 1 Gwei = 1_000_000_000
+    /// @param initialGasPrice The initial gas price in Gwei (must be > 0)
+    /// @dev Example: 1 = 1 Gwei, 50 = 50 Gwei
     /// @param admin_ The admin who can grant/revoke roles (receives DEFAULT_ADMIN_ROLE)
     constructor(int256 initialGasPrice, address admin_) {
         if (initialGasPrice <= 0) revert INVALID_GAS_PRICE();
@@ -89,8 +89,8 @@ contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Sets the gas price (called by keeper or admin)
-    /// @param newGasPrice The new gas price with 9 decimals (must be > 0)
-    /// @dev Example: 0.001 Gwei = 1_000_000, 1 Gwei = 1_000_000_000
+    /// @param newGasPrice The new gas price in Gwei (must be > 0)
+    /// @dev Example: 1 = 1 Gwei, 50 = 50 Gwei
     function setGasPrice(int256 newGasPrice) external onlyRole(KEEPER_ROLE) {
         if (newGasPrice <= 0) revert INVALID_GAS_PRICE();
         int256 oldGasPrice = _answer;
@@ -162,7 +162,7 @@ contract SuperformGasOracle is AggregatorV3Interface, AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the latest gas price (legacy interface)
-    /// @return The gas price with 9 decimals
+    /// @return The gas price in Gwei
     function latestAnswer() external view returns (int256) {
         return _answer;
     }

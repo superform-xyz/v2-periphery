@@ -84,13 +84,13 @@ abstract contract ConfigBase is Constants {
     //////////////////////////////////////////////////////////////*/
     /// @notice UPKEEP_TOKEN is used for upkeep payments in SuperVaultAggregator
     /// @dev On mainnet: UPKEEP_TOKEN = UP_TOKEN
-    /// @dev On L2s: UPKEEP_TOKEN = WETH (since UP token is only on mainnet)
+    /// @dev On Base: UPKEEP_TOKEN = UP_TOKEN_BASE
 
     /// @notice UPKEEP_TOKEN on Mainnet (same as UP_TOKEN)
     address internal constant UPKEEP_TOKEN_MAINNET = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
 
-    /// @notice UPKEEP_TOKEN on Base (WETH)
-    address internal constant UPKEEP_TOKEN_BASE = 0x4200000000000000000000000000000000000006;
+    /// @notice UPKEEP_TOKEN on Base (UP token)
+    address internal constant UPKEEP_TOKEN_BASE = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
