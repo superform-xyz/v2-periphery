@@ -52,8 +52,11 @@ abstract contract ConfigBase is Constants {
     /*//////////////////////////////////////////////////////////////
                             ORACLE ADDRESSES
     //////////////////////////////////////////////////////////////*/
-    /// @notice Gas to ETH oracle (Fast Gas / Gwei feed) - same on all chains
+    /// @notice Gas to ETH oracle (Fast Gas / Gwei feed) - Mainnet only (Chainlink)
     address internal constant ORACLE_GAS_TO_ETH = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
+
+    /// @notice Gas to WEI oracle on Base (SuperformGasOracle - keeper updated)
+    address internal constant ORACLE_GAS_TO_WEI_BASE = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
 
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
@@ -70,6 +73,7 @@ abstract contract ConfigBase is Constants {
     address internal constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
     address internal constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
     address internal constant UP_TOKEN = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
+    address internal constant UP_TOKEN_BASE = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B ;
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -80,21 +84,20 @@ abstract contract ConfigBase is Constants {
     //////////////////////////////////////////////////////////////*/
     /// @notice UPKEEP_TOKEN is used for upkeep payments in SuperVaultAggregator
     /// @dev On mainnet: UPKEEP_TOKEN = UP_TOKEN
-    /// @dev On L2s: UPKEEP_TOKEN = WETH (since UP token is only on mainnet)
+    /// @dev On Base: UPKEEP_TOKEN = UP_TOKEN_BASE
 
     /// @notice UPKEEP_TOKEN on Mainnet (same as UP_TOKEN)
     address internal constant UPKEEP_TOKEN_MAINNET = 0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33;
 
-    /// @notice UPKEEP_TOKEN on Base (WETH)
-    address internal constant UPKEEP_TOKEN_BASE = 0x4200000000000000000000000000000000000006;
+    /// @notice UPKEEP_TOKEN on Base (UP token)
+    address internal constant UPKEEP_TOKEN_BASE = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Gas increase per entry batch for ECDSAPPSOracle upkeep cost calculation
-    /// @dev Based on gas measurements: updatePPS costs ~62,125 gas per entry (includes ECDSA validation)
-    uint256 internal constant GAS_PER_ENTRY = 65_000;
+    /// @notice Gas per entry for ECDSAPPSOracle upkeep cost calculation
+    uint256 internal constant GAS_PER_ENTRY = 135_000;
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL METHODS
