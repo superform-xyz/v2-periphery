@@ -93,7 +93,7 @@ contract DeployUpOFT is Script {
         require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
 
         if (env == 0) {
-            SALT_NAMESPACE = bytes("PROD1.0.0");
+            SALT_NAMESPACE = bytes("TEST1.0.0");
         } else if (env == 2) {
             SALT_NAMESPACE = bytes("STAGING1.0.0");
         } else {
