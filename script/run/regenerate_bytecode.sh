@@ -91,6 +91,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperBank"
     "UpOFT"
     "UpOFTAdapter"
+    "SuperformGasOracle"
 )
 
 # Function to copy contract artifact

@@ -55,32 +55,76 @@ contract TransferSuperGovernorRole is DeployV2Base {
         console2.log("New GOVERNOR:", GOVERNOR);
         console2.log("New SUPER_GOVERNOR:", SUPER_GOVERNOR_ADDRESS);
 
+        // Check if roles are already transferred and skip if so
+        if (_checkAndSkipIfAlreadyTransferred(superGovernorAddr, chainId, env, saltNamespace)) {
+            return;
+        }
+
+        // Continue with transfer
+        _executeRoleTransfer(superGovernorAddr, chainId, env, saltNamespace);
+    }
+
+    /// @notice Check if roles are already transferred to production addresses
+    /// @return True if already transferred (should skip), false if transfer needed
+    function _checkAndSkipIfAlreadyTransferred(
+        address superGovernorAddr,
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        returns (bool)
+    {
+        SuperGovernor sg = SuperGovernor(superGovernorAddr);
+
+        console2.log("");
+        console2.log("=== Verifying Current State ===");
+
+        // Check deployer roles (should all be false if already transferred)
+        bool deployerHasRoles = sg.hasRole(keccak256("GOVERNOR_ROLE"), DEPLOYER)
+            || sg.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), DEPLOYER) || sg.hasRole(sg.DEFAULT_ADMIN_ROLE(), DEPLOYER);
+
+        // Check new addresses have roles (should all be true if already transferred)
+        bool newAddressesHaveRoles = sg.hasRole(keccak256("GOVERNOR_ROLE"), GOVERNOR)
+            && sg.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), SUPER_GOVERNOR_ADDRESS)
+            && sg.hasRole(sg.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
+
+        console2.log("Deployer still has roles:", deployerHasRoles);
+        console2.log("New addresses have roles:", newAddressesHaveRoles);
+
+        // Already transferred if deployer has no roles and new addresses have all roles
+        if (!deployerHasRoles && newAddressesHaveRoles) {
+            console2.log("");
+            console2.log("=== SKIPPED: Roles Already Transferred ===");
+            console2.log("All roles are already correctly assigned to production addresses.");
+            console2.log("No action needed for this chain.");
+
+            // Still check FixedPriceOracle ownership
+            _transferFixedPriceOracleOwnership(chainId, env, saltNamespace, superGovernorAddr);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// @notice Execute the actual role transfer
+    function _executeRoleTransfer(
+        address superGovernorAddr,
+        uint64 chainId,
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+    {
         SuperGovernor superGovernor = SuperGovernor(superGovernorAddr);
         bytes32 governorRole = keccak256("GOVERNOR_ROLE");
         bytes32 superGovernorRole = keccak256("SUPER_GOVERNOR_ROLE");
         bytes32 defaultAdminRole = superGovernor.DEFAULT_ADMIN_ROLE();
 
-        // Verify initial state
-        console2.log("");
-        console2.log("=== Verifying Initial State ===");
-
-        bool deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
-        bool deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
-        bool deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
-        bool newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
-        bool newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
-        bool newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
-
-        console2.log("Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
-        console2.log("Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
-        console2.log("Deployer has DEFAULT_ADMIN_ROLE:", deployerHasAdminRole);
-        console2.log("New GOVERNOR has GOVERNOR_ROLE:", newGovernorHasRole);
-        console2.log("New address has SUPER_GOVERNOR_ROLE:", newHasSuperGovernorRole);
-        console2.log("New address has DEFAULT_ADMIN_ROLE:", newHasAdminRole);
-
-        require(deployerHasGovernorRole, "Deployer must have GOVERNOR_ROLE");
-        require(deployerHasSuperGovernorRole, "Deployer must have SUPER_GOVERNOR_ROLE");
-        require(deployerHasAdminRole, "Deployer must have DEFAULT_ADMIN_ROLE");
+        // Verify deployer has required roles
+        require(superGovernor.hasRole(governorRole, DEPLOYER), "Deployer must have GOVERNOR_ROLE");
+        require(superGovernor.hasRole(superGovernorRole, DEPLOYER), "Deployer must have SUPER_GOVERNOR_ROLE");
+        require(superGovernor.hasRole(defaultAdminRole, DEPLOYER), "Deployer must have DEFAULT_ADMIN_ROLE");
 
         // Execute transfer
         console2.log("");
@@ -97,8 +141,8 @@ contract TransferSuperGovernorRole is DeployV2Base {
         console2.log("[Step 2] DONE - Revoked GOVERNOR_ROLE from:", DEPLOYER);
 
         // Verify GOVERNOR_ROLE transfer
-        deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
-        newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
+        bool deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
+        bool newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
         console2.log("[Verify] Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
         console2.log("[Verify] New GOVERNOR has GOVERNOR_ROLE:", newGovernorHasRole);
         require(!deployerHasGovernorRole, "Deployer should not have GOVERNOR_ROLE");
@@ -128,15 +172,33 @@ contract TransferSuperGovernorRole is DeployV2Base {
         _transferFixedPriceOracleOwnership(chainId, env, saltNamespace, superGovernorAddr);
 
         // Verify final state
+        _verifyFinalState(superGovernor, governorRole, superGovernorRole, defaultAdminRole);
+
+        console2.log("");
+        console2.log("=== Role Transfer Complete ===");
+        console2.log("GOVERNOR_ROLE transferred to:", GOVERNOR);
+        console2.log("SUPER_GOVERNOR_ROLE transferred to:", SUPER_GOVERNOR_ADDRESS);
+    }
+
+    /// @notice Verify final state after role transfer
+    function _verifyFinalState(
+        SuperGovernor superGovernor,
+        bytes32 governorRole,
+        bytes32 superGovernorRole,
+        bytes32 defaultAdminRole
+    )
+        internal
+        view
+    {
         console2.log("");
         console2.log("=== Verifying Final State ===");
 
-        deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
-        deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
-        deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
-        newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
-        newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
-        newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
+        bool deployerHasGovernorRole = superGovernor.hasRole(governorRole, DEPLOYER);
+        bool deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
+        bool deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
+        bool newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
+        bool newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
+        bool newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
 
         console2.log("Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
         console2.log("Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
@@ -151,11 +213,6 @@ contract TransferSuperGovernorRole is DeployV2Base {
         require(newGovernorHasRole, "New GOVERNOR should have GOVERNOR_ROLE");
         require(newHasSuperGovernorRole, "New address should have SUPER_GOVERNOR_ROLE");
         require(newHasAdminRole, "New address should have DEFAULT_ADMIN_ROLE");
-
-        console2.log("");
-        console2.log("=== Role Transfer Complete ===");
-        console2.log("GOVERNOR_ROLE transferred to:", GOVERNOR);
-        console2.log("SUPER_GOVERNOR_ROLE transferred to:", SUPER_GOVERNOR_ADDRESS);
     }
 
     /// @notice Get SuperGovernor address from deployment files

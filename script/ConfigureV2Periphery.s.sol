@@ -127,7 +127,7 @@ contract ConfigureV2Periphery is DeployV2Base {
 
     /// @notice Set UP and UPKEEP_TOKEN addresses in SuperGovernor
     /// @dev On mainnet: Both UP and UPKEEP_TOKEN are set to UP_TOKEN
-    /// @dev On L2s: UP is set to address(0) (not available), UPKEEP_TOKEN is set to WETH
+    /// @dev On L2s: UP is set to address(0) (not available), UPKEEP_TOKEN is set to UP_TOKEN_BASE
     function _setTokenAddresses(address superGovernor, uint64 chainId) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
 
@@ -139,23 +139,62 @@ contract ConfigureV2Periphery is DeployV2Base {
             console2.log("  UP token:", UP_TOKEN);
             console2.log("  UPKEEP_TOKEN:", UPKEEP_TOKEN_MAINNET);
 
-            governor.setAddress(keccak256("UP"), UP_TOKEN);
-            governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_MAINNET);
+            // Check if already configured
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), UP_TOKEN);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_MAINNET);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (mainnet)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), UP_TOKEN);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_MAINNET);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (mainnet)");
         } else if (chainId == BASE_CHAIN_ID) {
-            // Base: Only UPKEEP_TOKEN is set (UP token doesn't exist on L2s)
+            // Base: Both UP and UPKEEP_TOKEN are set to UP_TOKEN_BASE
             console2.log("  Chain: Base");
-            console2.log("  UP token: NOT SET (only on mainnet)");
+            console2.log("  UP token:", UP_TOKEN_BASE);
             console2.log("  UPKEEP_TOKEN:", UPKEEP_TOKEN_BASE);
 
-            // Note: We don't set UP on L2s - it will remain address(0)
-            // SuperBank.distribute() will revert if called on L2s (by design)
-            governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_BASE);
+            // Check if already configured
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), UP_TOKEN_BASE);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_BASE);
 
-            console2.log("SUCCESS: UPKEEP_TOKEN address set (Base)");
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (Base)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), UP_TOKEN_BASE);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), UPKEEP_TOKEN_BASE);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Base)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
+        }
+    }
+
+    /// @notice Check if an address is already set to the expected value
+    /// @return True if the address is already set to the expected value
+    function _isAddressSet(ISuperGovernor governor, bytes32 key, address expected) internal view returns (bool) {
+        try governor.getAddress(key) returns (address current) {
+            return current == expected;
+        } catch {
+            return false;
         }
     }
 
