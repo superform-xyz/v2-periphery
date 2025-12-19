@@ -54,12 +54,10 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Admin address (SUPER_GOVERNOR_ADDRESS - defined in Solidity script)
+# Admin address (SUPER_GOVERNOR_ADDRESS) - used for --sender in simulate mode
 readonly ADMIN="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
 
-# Operator addresses (defined in Solidity script, shown here for reference)
-readonly PROD_OPERATOR="0x92C0B875501611B91C6aF3D801424E724Ab039DE"
-readonly STAGING_OPERATOR="0x02cbf3dac926743ec757b5A51310f46580e25A04"
+# Operator addresses are read from ConfigBase.sol by the Solidity script
 
 ###################################################################################
 # Helper Functions
@@ -273,21 +271,12 @@ main() {
         fi
     fi
 
-    # Determine operator based on environment
-    local operator
-    if [ "$environment" = "prod" ]; then
-        operator="$PROD_OPERATOR"
-    else
-        operator="$STAGING_OPERATOR"
-    fi
-
     log "INFO" "============================================"
     log "INFO" "Deploy SuperVaultBatchOperator"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Mode: $mode"
-    log "INFO" "Admin (SUPER_GOVERNOR_ADDRESS): $ADMIN"
-    log "INFO" "Operator: $operator"
+    log "INFO" "Note: Admin and Operator addresses are read from ConfigBase.sol"
     if [ -n "$specific_chain" ]; then
         log "INFO" "Target Chain: $specific_chain"
     else

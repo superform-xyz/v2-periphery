@@ -17,12 +17,6 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @notice Contract key for SuperVaultBatchOperator
     string internal constant BATCH_OPERATOR_KEY = "SuperVaultBatchOperator";
 
-    /// @notice Operator address for production environment
-    address internal constant PROD_OPERATOR = 0x92C0B875501611B91C6aF3D801424E724Ab039DE;
-
-    /// @notice Operator address for staging environment
-    address internal constant STAGING_OPERATOR = 0x02cbf3dac926743ec757b5A51310f46580e25A04;
-
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -96,9 +90,9 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @param env Environment (0 = prod, 2 = staging)
     function _getOperatorForEnv(uint256 env) internal pure returns (address) {
         if (env == 0) {
-            return PROD_OPERATOR;
+            return BATCH_OPERATOR_PROD;
         } else {
-            return STAGING_OPERATOR;
+            return BATCH_OPERATOR_STAGING;
         }
     }
 
