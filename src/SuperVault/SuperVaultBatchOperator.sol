@@ -1,85 +1,112 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ISuperVault } from "../interfaces/SuperVault/ISuperVault.sol";
 
 /// @title SuperVaultBatchOperator
 /// @author Superform Labs
 /// @notice Batch operator for SuperVaults allowing batched withdrawals and redeems
-/// @dev Uses delegatecall to preserve msg.sender when calling vault functions
-contract SuperVaultBatchOperator {
+/// @dev Users must approve this contract as an operator via vault.setOperator(address(this), true)
+/// @dev Only addresses with WITHDRAWER_ROLE can call batch methods
+contract SuperVaultBatchOperator is AccessControl {
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Emitted when a batch withdrawal is executed
+    /// @param caller The address that executed the batch withdrawal
+    /// @param requestCount The number of withdrawal requests processed
+    event BatchWithdrawExecuted(address indexed caller, uint256 requestCount);
+
+    /// @notice Emitted when a batch redemption is executed
+    /// @param caller The address that executed the batch redemption
+    /// @param requestCount The number of redemption requests processed
+    event BatchRedeemExecuted(address indexed caller, uint256 requestCount);
+
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+    error EMPTY_REQUESTS();
+    error ZERO_VAULT_ADDRESS();
+    error ZERO_RECEIVER_ADDRESS();
+    error ZERO_CONTROLLER_ADDRESS();
+    error ZERO_AMOUNT();
+
+    /*//////////////////////////////////////////////////////////////
+                                CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+
     /*//////////////////////////////////////////////////////////////
                                 TYPES
     //////////////////////////////////////////////////////////////*/
     struct BatchRequest {
         address vault;
-        address owner;
-        uint256 assets;
+        address receiver; // address that receives the withdrawn assets
+        address controller; // address that controls the shares (must have approved this operator)
+        uint256 amount; // assets for withdraw, shares for redeem
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Initialize the batch operator with admin
+    /// @param admin The address that will have DEFAULT_ADMIN_ROLE
+    constructor(address admin) {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Batch withdraw assets from a vault for multiple owners
-    /// @param vaultRequests The array of batch withdrawal requests
-    /// @dev Uses delegatecall to preserve msg.sender as the original operator
-    function batchWithdraw(BatchRequest[] calldata vaultRequests) external {
-        for (uint256 i = 0; i < vaultRequests.length; ++i) {
-            BatchRequest calldata req = vaultRequests[i];
-            _delegatecallWithdraw(req.vault, req.assets, req.owner, req.owner);
+    /// @notice Batch withdraw assets from multiple vaults for multiple owners
+    /// @param requests The array of batch withdrawal requests
+    /// @dev Requires this contract to be approved as operator for each controller on each vault
+    function batchWithdraw(BatchRequest[] calldata requests) external onlyRole(WITHDRAWER_ROLE) {
+        _validateRequests(requests);
+
+        for (uint256 i = 0; i < requests.length; ++i) {
+            BatchRequest calldata req = requests[i];
+            // Vault signature: withdraw(uint256 assets, address receiver, address controller)
+            ISuperVault(req.vault).withdraw(req.amount, req.receiver, req.controller);
         }
+
+        emit BatchWithdrawExecuted(msg.sender, requests.length);
     }
 
-    /// @notice Batch redeem shares from a vault for multiple owners
-    /// @param vaultRequests The array of batch redemption requests
-    /// @dev Uses delegatecall to preserve msg.sender as the original operator
-    function batchRedeem(BatchRequest[] calldata vaultRequests) external {
-        for (uint256 i = 0; i < vaultRequests.length; ++i) {
-            BatchRequest calldata req = vaultRequests[i];
-            _delegatecallRedeem(req.vault, req.assets, req.owner, req.owner);
+    /// @notice Batch redeem shares from multiple vaults for multiple owners
+    /// @param requests The array of batch redemption requests
+    /// @dev Requires this contract to be approved as operator for each controller on each vault
+    function batchRedeem(BatchRequest[] calldata requests) external onlyRole(WITHDRAWER_ROLE) {
+        _validateRequests(requests);
+
+        for (uint256 i = 0; i < requests.length; ++i) {
+            BatchRequest calldata req = requests[i];
+            // Vault signature: redeem(uint256 shares, address receiver, address controller)
+            ISuperVault(req.vault).redeem(req.amount, req.receiver, req.controller);
         }
+
+        emit BatchRedeemExecuted(msg.sender, requests.length);
     }
 
     /*//////////////////////////////////////////////////////////////
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Perform delegatecall to withdraw function on vault
-    /// @param vault The vault address to call
-    /// @param assets The amount of assets to withdraw
-    /// @param owner The owner address
-    /// @param receiver The receiver address
-    function _delegatecallWithdraw(address vault, uint256 assets, address owner, address receiver) internal {
-        // Encode the withdraw function call
-        bytes memory callData = abi.encodeWithSelector(ISuperVault.withdraw.selector, assets, owner, receiver);
+    /// @notice Validates batch requests
+    /// @param requests The array of batch requests to validate
+    function _validateRequests(BatchRequest[] calldata requests) internal pure {
+        if (requests.length == 0) revert EMPTY_REQUESTS();
 
-        // Perform delegatecall to preserve msg.sender
-        (bool success,) = vault.delegatecall(callData);
-        if (!success) {
-            assembly {
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
-            }
-        }
-    }
+        for (uint256 i = 0; i < requests.length; ++i) {
+            BatchRequest calldata req = requests[i];
 
-    /// @notice Perform delegatecall to redeem function on vault
-    /// @param vault The vault address to call
-    /// @param assets The amount of assets to redeem
-    /// @param owner The owner address
-    /// @param receiver The receiver address
-    function _delegatecallRedeem(address vault, uint256 assets, address owner, address receiver) internal {
-        // Encode the redeem function call
-        bytes memory callData = abi.encodeWithSelector(ISuperVault.redeem.selector, assets, owner, receiver);
-
-        // Perform delegatecall to preserve msg.sender
-        (bool success,) = vault.delegatecall(callData);
-        if (!success) {
-            assembly {
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
-            }
+            if (req.vault == address(0)) revert ZERO_VAULT_ADDRESS();
+            if (req.receiver == address(0)) revert ZERO_RECEIVER_ADDRESS();
+            if (req.controller == address(0)) revert ZERO_CONTROLLER_ADDRESS();
+            if (req.amount == 0) revert ZERO_AMOUNT();
         }
     }
 }
