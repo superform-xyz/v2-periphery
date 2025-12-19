@@ -68,7 +68,7 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         console2.log("Operator:", operator);
         console2.log("");
 
-        address batchOperatorAddr = _computeAddress(admin, operator);
+        address batchOperatorAddr = _computeAddress(env, admin, operator);
         bool isDeployed = batchOperatorAddr.code.length > 0;
 
         console2.log("Computed address:", batchOperatorAddr);
@@ -115,12 +115,16 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         require(admin != address(0), "INVALID_ADMIN");
         require(operator != address(0), "INVALID_OPERATOR");
 
+        // Get bytecode from generated artifacts
+        bytes memory bytecode = __getBytecode(BATCH_OPERATOR_KEY, env);
+        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
+
         // Deploy
         address batchOperatorAddr = __deployContract(
             BATCH_OPERATOR_KEY,
             chainId,
             __getSalt(BATCH_OPERATOR_KEY),
-            abi.encodePacked(type(SuperVaultBatchOperator).creationCode, abi.encode(admin, operator))
+            abi.encodePacked(bytecode, abi.encode(admin, operator))
         );
 
         // Verify deployment
@@ -174,9 +178,14 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     }
 
     /// @notice Compute the deterministic address for SuperVaultBatchOperator
-    function _computeAddress(address admin, address operator) internal returns (address) {
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param admin Admin address
+    /// @param operator Operator address
+    function _computeAddress(uint256 env, address admin, address operator) internal view returns (address) {
+        bytes memory bytecode = __getBytecode(BATCH_OPERATOR_KEY, env);
+        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(type(SuperVaultBatchOperator).creationCode, abi.encode(admin, operator)),
+            abi.encodePacked(bytecode, abi.encode(admin, operator)),
             __getSalt(BATCH_OPERATOR_KEY)
         );
     }

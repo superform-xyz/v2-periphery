@@ -11756,6 +11756,25 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Zero to address validation working correctly");
     }
 
+    function test_BatchOperator_BatchEmergencyWithdraw_RevertZeroTokenAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        address recipient = makeAddr("recipient");
+
+        // Array with zero token address
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(0);
+
+        // Admin tries to withdraw with zero token address - should revert
+        vm.prank(batchOperatorAdmin);
+        vm.expectRevert(SuperVaultBatchOperator.ZERO_TOKEN_ADDRESS.selector);
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        console2.log("Zero token address validation working correctly");
+    }
+
     /// @notice Test that partial batch failures work correctly - some succeed, some fail
     /// @dev This tests the try/catch pattern where individual failures don't revert the batch
     function test_BatchOperator_PartialBatchFailure() public {

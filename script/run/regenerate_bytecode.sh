@@ -84,6 +84,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultAggregator"
     "SuperVaultStrategy"
     "SuperVaultEscrow"
+    "SuperVaultBatchOperator"
     "ECDSAPPSOracle"
     "FixedPriceOracle"
     "SuperOracle"
