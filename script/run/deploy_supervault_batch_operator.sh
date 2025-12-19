@@ -185,10 +185,10 @@ deploy_on_chain() {
         forge_cmd+=" --sig 'runCheck(uint256,uint64)' $env $chain_id"
     else
         # Pass empty string for branchName (only used for vnet env=1)
-        forge_cmd+=" --sig 'run(uint256,uint64,string)' $env $chain_id '\"\"'"
+        forge_cmd+=" --sig 'run(uint256,uint64,string)' $env $chain_id \"\""
     fi
 
-    forge_cmd+=" --rpc-url '$rpc_url'"
+    forge_cmd+=" --rpc-url $rpc_url"
     forge_cmd+=" --chain $chain_id"
     [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
     [ -n "$SENDER_FLAG" ] && forge_cmd+=" $SENDER_FLAG"
@@ -202,9 +202,9 @@ deploy_on_chain() {
     log "INFO" "Executing forge script..."
     log "INFO" ""
 
-    # Execute
-    eval "$forge_cmd"
-    local exit_code=$?
+    # Execute (capture exit code to prevent set -e from exiting)
+    local exit_code=0
+    eval "$forge_cmd" || exit_code=$?
 
     if [ $exit_code -ne 0 ]; then
         log "ERROR" "Deployment failed on chain $chain_id with exit code: $exit_code"
@@ -310,7 +310,7 @@ main() {
         fi
 
         if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url"; then
-            ((success_count++))
+            ((++success_count))
         else
             failed_chains+=("$chain_id")
         fi
