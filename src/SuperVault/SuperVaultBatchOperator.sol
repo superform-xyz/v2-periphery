@@ -54,7 +54,6 @@ contract SuperVaultBatchOperator is AccessControl {
     error ZERO_ADMIN_ADDRESS();
     error ZERO_OPERATOR_ADDRESS();
     error ZERO_VAULT_ADDRESS();
-    error ZERO_RECEIVER_ADDRESS();
     error ZERO_CONTROLLER_ADDRESS();
     error ZERO_TOKEN_ADDRESS();
     error ZERO_TO_ADDRESS();
@@ -70,8 +69,7 @@ contract SuperVaultBatchOperator is AccessControl {
     //////////////////////////////////////////////////////////////*/
     struct BatchRequest {
         address vault;
-        address receiver; // address that receives the withdrawn assets
-        address controller; // address that controls the shares (must have approved this operator)
+        address controller; // address that controls the shares and receives assets (must have approved this operator)
         uint256 amount; // assets for withdraw, shares for redeem
     }
 
@@ -99,13 +97,15 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @dev Requires this contract to be approved as operator for each controller on each vault
     /// @dev Individual request failures do not revert the batch - they are skipped
     function batchWithdraw(BatchRequest[] calldata requests) external onlyRole(OPERATOR_ROLE) {
-        _validateRequests(requests);
+        if (requests.length == 0) revert EMPTY_REQUESTS();
 
         uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
-            // Vault signature: withdraw(uint256 assets, address receiver, address controller)
-            try ISuperVault(req.vault).withdraw(req.amount, req.receiver, req.controller) {
+            _validateRequest(req);
+
+            // receiver == controller is enforced on the vault side
+            try ISuperVault(req.vault).withdraw(req.amount, req.controller, req.controller) {
                 ++successCount;
             } catch {
                 emit WithdrawFailed(i, req.vault, req.controller, req.amount);
@@ -120,13 +120,15 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @dev Requires this contract to be approved as operator for each controller on each vault
     /// @dev Individual request failures do not revert the batch - they are skipped
     function batchRedeem(BatchRequest[] calldata requests) external onlyRole(OPERATOR_ROLE) {
-        _validateRequests(requests);
+        if (requests.length == 0) revert EMPTY_REQUESTS();
 
         uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
-            // Vault signature: redeem(uint256 shares, address receiver, address controller)
-            try ISuperVault(req.vault).redeem(req.amount, req.receiver, req.controller) {
+            _validateRequest(req);
+
+            // receiver == controller is enforced on the vault side
+            try ISuperVault(req.vault).redeem(req.amount, req.controller, req.controller) {
                 ++successCount;
             } catch {
                 emit RedeemFailed(i, req.vault, req.controller, req.amount);
@@ -162,18 +164,11 @@ contract SuperVaultBatchOperator is AccessControl {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Validates batch requests
-    /// @param requests The array of batch requests to validate
-    function _validateRequests(BatchRequest[] calldata requests) internal pure {
-        if (requests.length == 0) revert EMPTY_REQUESTS();
-
-        for (uint256 i = 0; i < requests.length; ++i) {
-            BatchRequest calldata req = requests[i];
-
-            if (req.vault == address(0)) revert ZERO_VAULT_ADDRESS();
-            if (req.receiver == address(0)) revert ZERO_RECEIVER_ADDRESS();
-            if (req.controller == address(0)) revert ZERO_CONTROLLER_ADDRESS();
-            if (req.amount == 0) revert ZERO_AMOUNT();
-        }
+    /// @notice Validates a single batch request
+    /// @param req The batch request to validate
+    function _validateRequest(BatchRequest calldata req) internal pure {
+        if (req.vault == address(0)) revert ZERO_VAULT_ADDRESS();
+        if (req.controller == address(0)) revert ZERO_CONTROLLER_ADDRESS();
+        if (req.amount == 0) revert ZERO_AMOUNT();
     }
 }

@@ -11371,7 +11371,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: maxWithdrawable
         });
@@ -11418,7 +11417,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: maxRedeemable
         });
@@ -11445,7 +11443,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: 100e6
         });
@@ -11497,7 +11494,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(0),
-            receiver: accountEth,
             controller: accountEth,
             amount: 100e6
         });
@@ -11513,34 +11509,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Zero vault address validation working correctly");
     }
 
-    /// @notice Test batch operator reverts on zero receiver address
-    function test_BatchOperator_RevertZeroReceiverAddress() public {
-        // Deploy batch operator
-        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
-        address operator = makeAddr("operator");
-        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
-
-
-        // Request with zero receiver address
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
-            vault: address(vault),
-            receiver: address(0),
-            controller: accountEth,
-            amount: 100e6
-        });
-
-        vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_RECEIVER_ADDRESS.selector);
-        batchOperator.batchWithdraw(requests);
-
-        vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_RECEIVER_ADDRESS.selector);
-        batchOperator.batchRedeem(requests);
-
-        console2.log("Zero receiver address validation working correctly");
-    }
-
     /// @notice Test batch operator reverts on zero controller address
     function test_BatchOperator_RevertZeroControllerAddress() public {
         // Deploy batch operator
@@ -11553,7 +11521,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: address(0),
             amount: 100e6
         });
@@ -11581,7 +11548,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: 0
         });
@@ -11632,13 +11598,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: halfAmount
         });
         requests[1] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: halfAmount
         });
@@ -11688,13 +11652,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: halfAmount
         });
         requests[1] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: halfAmount
         });
@@ -11740,7 +11702,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: 100e6
         });
@@ -11795,73 +11756,6 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Zero to address validation working correctly");
     }
 
-    /// @notice Test that receiver must equal controller when operator calls (vault enforces this)
-    /// @dev This ensures funds cannot be redirected to arbitrary addresses by operators
-    function test_BatchOperator_RevertReceiverNotEqualController() public {
-        // Deploy batch operator
-        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
-        address operator = makeAddr("operator");
-        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
-
-        // Setup: deposit, allocate, request redeem, fulfill
-        uint256 depositAmount = 1000e6;
-        uint256 redeemShares = 200e6;
-
-        _getTokens(address(asset), accountEth, depositAmount);
-        _depositForAccount(instanceOnEth, depositAmount);
-        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
-
-        // Approve batch operator
-        vm.prank(accountEth);
-        vault.setOperator(address(batchOperator), true);
-
-        // Request and execute hooks (which includes fulfillment)
-        _requestRedeem(redeemShares);
-        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
-
-        uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
-
-        // Create request with receiver != controller (attempt to redirect funds)
-        address maliciousReceiver = makeAddr("maliciousReceiver");
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
-            vault: address(vault),
-            receiver: maliciousReceiver, // Different from controller
-            controller: accountEth,
-            amount: maxWithdrawable
-        });
-
-        // With try/catch, the batch doesn't revert but the request fails silently
-        // WithdrawFailed event should be emitted, and BatchWithdrawExecuted with successCount=0
-        vm.prank(operator);
-        vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.WithdrawFailed(0, address(vault), accountEth, maxWithdrawable);
-        vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
-        batchOperator.batchWithdraw(requests);
-
-        // Test same for redeem
-        uint256 maxRedeemable = vault.maxRedeem(accountEth);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
-            vault: address(vault),
-            receiver: maliciousReceiver,
-            controller: accountEth,
-            amount: maxRedeemable
-        });
-
-        vm.prank(operator);
-        vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.RedeemFailed(0, address(vault), accountEth, maxRedeemable);
-        vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
-        batchOperator.batchRedeem(requests);
-
-        // Verify no funds were transferred to malicious receiver
-        assertEq(asset.balanceOf(maliciousReceiver), 0, "Malicious receiver should have no funds");
-
-        console2.log("Receiver != Controller correctly rejected - funds protected");
-    }
-
     /// @notice Test that partial batch failures work correctly - some succeed, some fail
     /// @dev This tests the try/catch pattern where individual failures don't revert the batch
     function test_BatchOperator_PartialBatchFailure() public {
@@ -11901,13 +11795,11 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: accountEth,
             controller: accountEth,
             amount: maxWithdrawable
         });
         requests[1] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
-            receiver: user2,
             controller: user2,
             amount: 100e6 // User 2 has nothing to withdraw
         });
