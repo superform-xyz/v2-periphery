@@ -32,14 +32,13 @@ var (
 // SuperVaultBatchOperatorBatchRequest is an auto generated low-level Go binding around an user-defined struct.
 type SuperVaultBatchOperatorBatchRequest struct {
 	Vault      common.Address
-	Receiver   common.Address
 	Controller common.Address
 	Amount     *big.Int
 }
 
 // SuperVaultBatchOperatorMetaData contains all meta data concerning the SuperVaultBatchOperator contract.
 var SuperVaultBatchOperatorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"admin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"OPERATOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"batchEmergencyWithdraw\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchRedeem\",\"inputs\":[{\"name\":\"requests\",\"type\":\"tuple[]\",\"internalType\":\"structSuperVaultBatchOperator.BatchRequest[]\",\"components\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchWithdraw\",\"inputs\":[{\"name\":\"requests\",\"type\":\"tuple[]\",\"internalType\":\"structSuperVaultBatchOperator.BatchRequest[]\",\"components\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchEmergencyWithdraw\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amounts\",\"type\":\"uint256[]\",\"indexed\":false,\"internalType\":\"uint256[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchRedeemExecuted\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"requestCount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchWithdrawExecuted\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"requestCount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"EMPTY_REQUESTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZERO_AMOUNT\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_CONTROLLER_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_RECEIVER_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VAULT_ADDRESS\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"admin\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"OPERATOR_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"batchEmergencyWithdraw\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchRedeem\",\"inputs\":[{\"name\":\"requests\",\"type\":\"tuple[]\",\"internalType\":\"structSuperVaultBatchOperator.BatchRequest[]\",\"components\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"batchWithdraw\",\"inputs\":[{\"name\":\"requests\",\"type\":\"tuple[]\",\"internalType\":\"structSuperVaultBatchOperator.BatchRequest[]\",\"components\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchEmergencyWithdraw\",\"inputs\":[{\"name\":\"tokens\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amounts\",\"type\":\"uint256[]\",\"indexed\":false,\"internalType\":\"uint256[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchRedeemExecuted\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"requestCount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatchWithdrawExecuted\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"requestCount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RedeemFailed\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RedeemRequestSkipped\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawFailed\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawRequestSkipped\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"controller\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"EMPTY_REQUESTS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SafeERC20FailedOperation\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADMIN_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_OPERATOR_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_TOKEN_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_TO_ADDRESS\",\"inputs\":[]}]",
 }
 
 // SuperVaultBatchOperatorABI is the input ABI used to generate the binding from.
@@ -364,44 +363,44 @@ func (_SuperVaultBatchOperator *SuperVaultBatchOperatorTransactorSession) BatchE
 	return _SuperVaultBatchOperator.Contract.BatchEmergencyWithdraw(&_SuperVaultBatchOperator.TransactOpts, tokens, to)
 }
 
-// BatchRedeem is a paid mutator transaction binding the contract method 0x27a3460c.
+// BatchRedeem is a paid mutator transaction binding the contract method 0x0baf3fae.
 //
-// Solidity: function batchRedeem((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchRedeem((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorTransactor) BatchRedeem(opts *bind.TransactOpts, requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.contract.Transact(opts, "batchRedeem", requests)
 }
 
-// BatchRedeem is a paid mutator transaction binding the contract method 0x27a3460c.
+// BatchRedeem is a paid mutator transaction binding the contract method 0x0baf3fae.
 //
-// Solidity: function batchRedeem((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchRedeem((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorSession) BatchRedeem(requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.Contract.BatchRedeem(&_SuperVaultBatchOperator.TransactOpts, requests)
 }
 
-// BatchRedeem is a paid mutator transaction binding the contract method 0x27a3460c.
+// BatchRedeem is a paid mutator transaction binding the contract method 0x0baf3fae.
 //
-// Solidity: function batchRedeem((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchRedeem((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorTransactorSession) BatchRedeem(requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.Contract.BatchRedeem(&_SuperVaultBatchOperator.TransactOpts, requests)
 }
 
-// BatchWithdraw is a paid mutator transaction binding the contract method 0x5e8546d8.
+// BatchWithdraw is a paid mutator transaction binding the contract method 0x0513d63d.
 //
-// Solidity: function batchWithdraw((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchWithdraw((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorTransactor) BatchWithdraw(opts *bind.TransactOpts, requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.contract.Transact(opts, "batchWithdraw", requests)
 }
 
-// BatchWithdraw is a paid mutator transaction binding the contract method 0x5e8546d8.
+// BatchWithdraw is a paid mutator transaction binding the contract method 0x0513d63d.
 //
-// Solidity: function batchWithdraw((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchWithdraw((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorSession) BatchWithdraw(requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.Contract.BatchWithdraw(&_SuperVaultBatchOperator.TransactOpts, requests)
 }
 
-// BatchWithdraw is a paid mutator transaction binding the contract method 0x5e8546d8.
+// BatchWithdraw is a paid mutator transaction binding the contract method 0x0513d63d.
 //
-// Solidity: function batchWithdraw((address,address,address,uint256)[] requests) returns()
+// Solidity: function batchWithdraw((address,address,uint256)[] requests) returns()
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorTransactorSession) BatchWithdraw(requests []SuperVaultBatchOperatorBatchRequest) (*types.Transaction, error) {
 	return _SuperVaultBatchOperator.Contract.BatchWithdraw(&_SuperVaultBatchOperator.TransactOpts, requests)
 }
@@ -905,6 +904,316 @@ func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseBatchWithd
 	return event, nil
 }
 
+// SuperVaultBatchOperatorRedeemFailedIterator is returned from FilterRedeemFailed and is used to iterate over the raw logs and unpacked data for RedeemFailed events raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorRedeemFailedIterator struct {
+	Event *SuperVaultBatchOperatorRedeemFailed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultBatchOperatorRedeemFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultBatchOperatorRedeemFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultBatchOperatorRedeemFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultBatchOperatorRedeemFailedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultBatchOperatorRedeemFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultBatchOperatorRedeemFailed represents a RedeemFailed event raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorRedeemFailed struct {
+	Index      *big.Int
+	Vault      common.Address
+	Controller common.Address
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterRedeemFailed is a free log retrieval operation binding the contract event 0x53e10e5c1b2fec3b613c6b8c88e69cfc5672696d0092541411737693ff9e4876.
+//
+// Solidity: event RedeemFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) FilterRedeemFailed(opts *bind.FilterOpts, index []*big.Int, vault []common.Address) (*SuperVaultBatchOperatorRedeemFailedIterator, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.FilterLogs(opts, "RedeemFailed", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultBatchOperatorRedeemFailedIterator{contract: _SuperVaultBatchOperator.contract, event: "RedeemFailed", logs: logs, sub: sub}, nil
+}
+
+// WatchRedeemFailed is a free log subscription operation binding the contract event 0x53e10e5c1b2fec3b613c6b8c88e69cfc5672696d0092541411737693ff9e4876.
+//
+// Solidity: event RedeemFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) WatchRedeemFailed(opts *bind.WatchOpts, sink chan<- *SuperVaultBatchOperatorRedeemFailed, index []*big.Int, vault []common.Address) (event.Subscription, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.WatchLogs(opts, "RedeemFailed", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultBatchOperatorRedeemFailed)
+				if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "RedeemFailed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRedeemFailed is a log parse operation binding the contract event 0x53e10e5c1b2fec3b613c6b8c88e69cfc5672696d0092541411737693ff9e4876.
+//
+// Solidity: event RedeemFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseRedeemFailed(log types.Log) (*SuperVaultBatchOperatorRedeemFailed, error) {
+	event := new(SuperVaultBatchOperatorRedeemFailed)
+	if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "RedeemFailed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultBatchOperatorRedeemRequestSkippedIterator is returned from FilterRedeemRequestSkipped and is used to iterate over the raw logs and unpacked data for RedeemRequestSkipped events raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorRedeemRequestSkippedIterator struct {
+	Event *SuperVaultBatchOperatorRedeemRequestSkipped // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultBatchOperatorRedeemRequestSkippedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultBatchOperatorRedeemRequestSkipped)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultBatchOperatorRedeemRequestSkipped)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultBatchOperatorRedeemRequestSkippedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultBatchOperatorRedeemRequestSkippedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultBatchOperatorRedeemRequestSkipped represents a RedeemRequestSkipped event raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorRedeemRequestSkipped struct {
+	Index      *big.Int
+	Vault      common.Address
+	Controller common.Address
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterRedeemRequestSkipped is a free log retrieval operation binding the contract event 0xec45852a920fb023a1d176a20ac66c4de7a9188a6acffd83ffc66368b58299b0.
+//
+// Solidity: event RedeemRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) FilterRedeemRequestSkipped(opts *bind.FilterOpts, index []*big.Int, vault []common.Address) (*SuperVaultBatchOperatorRedeemRequestSkippedIterator, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.FilterLogs(opts, "RedeemRequestSkipped", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultBatchOperatorRedeemRequestSkippedIterator{contract: _SuperVaultBatchOperator.contract, event: "RedeemRequestSkipped", logs: logs, sub: sub}, nil
+}
+
+// WatchRedeemRequestSkipped is a free log subscription operation binding the contract event 0xec45852a920fb023a1d176a20ac66c4de7a9188a6acffd83ffc66368b58299b0.
+//
+// Solidity: event RedeemRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) WatchRedeemRequestSkipped(opts *bind.WatchOpts, sink chan<- *SuperVaultBatchOperatorRedeemRequestSkipped, index []*big.Int, vault []common.Address) (event.Subscription, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.WatchLogs(opts, "RedeemRequestSkipped", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultBatchOperatorRedeemRequestSkipped)
+				if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "RedeemRequestSkipped", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRedeemRequestSkipped is a log parse operation binding the contract event 0xec45852a920fb023a1d176a20ac66c4de7a9188a6acffd83ffc66368b58299b0.
+//
+// Solidity: event RedeemRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseRedeemRequestSkipped(log types.Log) (*SuperVaultBatchOperatorRedeemRequestSkipped, error) {
+	event := new(SuperVaultBatchOperatorRedeemRequestSkipped)
+	if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "RedeemRequestSkipped", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // SuperVaultBatchOperatorRoleAdminChangedIterator is returned from FilterRoleAdminChanged and is used to iterate over the raw logs and unpacked data for RoleAdminChanged events raised by the SuperVaultBatchOperator contract.
 type SuperVaultBatchOperatorRoleAdminChangedIterator struct {
 	Event *SuperVaultBatchOperatorRoleAdminChanged // Event containing the contract specifics and raw log
@@ -1385,6 +1694,316 @@ func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) WatchRoleRevoke
 func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseRoleRevoked(log types.Log) (*SuperVaultBatchOperatorRoleRevoked, error) {
 	event := new(SuperVaultBatchOperatorRoleRevoked)
 	if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultBatchOperatorWithdrawFailedIterator is returned from FilterWithdrawFailed and is used to iterate over the raw logs and unpacked data for WithdrawFailed events raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorWithdrawFailedIterator struct {
+	Event *SuperVaultBatchOperatorWithdrawFailed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultBatchOperatorWithdrawFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultBatchOperatorWithdrawFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultBatchOperatorWithdrawFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultBatchOperatorWithdrawFailedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultBatchOperatorWithdrawFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultBatchOperatorWithdrawFailed represents a WithdrawFailed event raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorWithdrawFailed struct {
+	Index      *big.Int
+	Vault      common.Address
+	Controller common.Address
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawFailed is a free log retrieval operation binding the contract event 0x0e0e09850922e2234c4cec8b1fb49c549130f1e25c268f710d41579eb4826a70.
+//
+// Solidity: event WithdrawFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) FilterWithdrawFailed(opts *bind.FilterOpts, index []*big.Int, vault []common.Address) (*SuperVaultBatchOperatorWithdrawFailedIterator, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.FilterLogs(opts, "WithdrawFailed", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultBatchOperatorWithdrawFailedIterator{contract: _SuperVaultBatchOperator.contract, event: "WithdrawFailed", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawFailed is a free log subscription operation binding the contract event 0x0e0e09850922e2234c4cec8b1fb49c549130f1e25c268f710d41579eb4826a70.
+//
+// Solidity: event WithdrawFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) WatchWithdrawFailed(opts *bind.WatchOpts, sink chan<- *SuperVaultBatchOperatorWithdrawFailed, index []*big.Int, vault []common.Address) (event.Subscription, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.WatchLogs(opts, "WithdrawFailed", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultBatchOperatorWithdrawFailed)
+				if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "WithdrawFailed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawFailed is a log parse operation binding the contract event 0x0e0e09850922e2234c4cec8b1fb49c549130f1e25c268f710d41579eb4826a70.
+//
+// Solidity: event WithdrawFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseWithdrawFailed(log types.Log) (*SuperVaultBatchOperatorWithdrawFailed, error) {
+	event := new(SuperVaultBatchOperatorWithdrawFailed)
+	if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "WithdrawFailed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// SuperVaultBatchOperatorWithdrawRequestSkippedIterator is returned from FilterWithdrawRequestSkipped and is used to iterate over the raw logs and unpacked data for WithdrawRequestSkipped events raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorWithdrawRequestSkippedIterator struct {
+	Event *SuperVaultBatchOperatorWithdrawRequestSkipped // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SuperVaultBatchOperatorWithdrawRequestSkippedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SuperVaultBatchOperatorWithdrawRequestSkipped)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SuperVaultBatchOperatorWithdrawRequestSkipped)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SuperVaultBatchOperatorWithdrawRequestSkippedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SuperVaultBatchOperatorWithdrawRequestSkippedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// SuperVaultBatchOperatorWithdrawRequestSkipped represents a WithdrawRequestSkipped event raised by the SuperVaultBatchOperator contract.
+type SuperVaultBatchOperatorWithdrawRequestSkipped struct {
+	Index      *big.Int
+	Vault      common.Address
+	Controller common.Address
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawRequestSkipped is a free log retrieval operation binding the contract event 0x4996fb0e0cff74859f415ac3f36fe452f5cb8d675b129e903ffa7ec96b01093a.
+//
+// Solidity: event WithdrawRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) FilterWithdrawRequestSkipped(opts *bind.FilterOpts, index []*big.Int, vault []common.Address) (*SuperVaultBatchOperatorWithdrawRequestSkippedIterator, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.FilterLogs(opts, "WithdrawRequestSkipped", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return &SuperVaultBatchOperatorWithdrawRequestSkippedIterator{contract: _SuperVaultBatchOperator.contract, event: "WithdrawRequestSkipped", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawRequestSkipped is a free log subscription operation binding the contract event 0x4996fb0e0cff74859f415ac3f36fe452f5cb8d675b129e903ffa7ec96b01093a.
+//
+// Solidity: event WithdrawRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) WatchWithdrawRequestSkipped(opts *bind.WatchOpts, sink chan<- *SuperVaultBatchOperatorWithdrawRequestSkipped, index []*big.Int, vault []common.Address) (event.Subscription, error) {
+
+	var indexRule []interface{}
+	for _, indexItem := range index {
+		indexRule = append(indexRule, indexItem)
+	}
+	var vaultRule []interface{}
+	for _, vaultItem := range vault {
+		vaultRule = append(vaultRule, vaultItem)
+	}
+
+	logs, sub, err := _SuperVaultBatchOperator.contract.WatchLogs(opts, "WithdrawRequestSkipped", indexRule, vaultRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(SuperVaultBatchOperatorWithdrawRequestSkipped)
+				if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "WithdrawRequestSkipped", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawRequestSkipped is a log parse operation binding the contract event 0x4996fb0e0cff74859f415ac3f36fe452f5cb8d675b129e903ffa7ec96b01093a.
+//
+// Solidity: event WithdrawRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount)
+func (_SuperVaultBatchOperator *SuperVaultBatchOperatorFilterer) ParseWithdrawRequestSkipped(log types.Log) (*SuperVaultBatchOperatorWithdrawRequestSkipped, error) {
+	event := new(SuperVaultBatchOperatorWithdrawRequestSkipped)
+	if err := _SuperVaultBatchOperator.contract.UnpackLog(event, "WithdrawRequestSkipped", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
