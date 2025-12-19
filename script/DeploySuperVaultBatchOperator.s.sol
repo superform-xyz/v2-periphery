@@ -145,36 +145,33 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         console2.log("====== Deployment Complete ======");
     }
 
-    /// @notice Write SuperVaultBatchOperator-latest.json to script/output/{env}/{chainId}/
+    /// @notice Merge SuperVaultBatchOperator address into {ChainName}-latest.json
     function _writeBatchOperatorJson(
         uint256 env,
         uint64 chainId,
         address batchOperatorAddr,
-        address admin,
-        address operator
+        address, /* admin - not needed for merge */
+        address /* operator - not needed for merge */
     )
         internal
     {
         string memory root = vm.projectRoot();
         string memory envFolder = env == 0 ? "prod" : "staging";
+        string memory chainName = chainNames[chainId];
         string memory outputFolder =
             string(abi.encodePacked(root, "/script/output/", envFolder, "/", vm.toString(uint256(chainId)), "/"));
 
         // Create directory if it doesn't exist
         vm.createDir(outputFolder, true);
 
-        // Create JSON content
-        string memory json = vm.serializeAddress("SuperVaultBatchOperator", "address", batchOperatorAddr);
-        json = vm.serializeAddress("SuperVaultBatchOperator", "admin", admin);
-        json = vm.serializeAddress("SuperVaultBatchOperator", "operator", operator);
-        json = vm.serializeUint("SuperVaultBatchOperator", "chainId", chainId);
+        string memory outputPath = string(abi.encodePacked(outputFolder, chainName, "-latest.json"));
 
-        // Write to file
-        string memory outputPath = string(abi.encodePacked(outputFolder, "SuperVaultBatchOperator-latest.json"));
-        vm.writeJson(json, outputPath);
+        // Merge SuperVaultBatchOperator address into existing JSON
+        // vm.writeJson with path selector will create file if it doesn't exist or update existing
+        vm.writeJson(vm.toString(batchOperatorAddr), outputPath, ".SuperVaultBatchOperator");
 
         console2.log("");
-        console2.log("JSON output written to:", outputPath);
+        console2.log("SuperVaultBatchOperator merged into:", outputPath);
     }
 
     /// @notice Compute the deterministic address for SuperVaultBatchOperator

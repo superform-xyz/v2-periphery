@@ -27,14 +27,28 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @param requestCount The number of redemption requests processed
     event BatchRedeemExecuted(address indexed caller, uint256 requestCount);
 
-    /// @notice Emitted when a single withdrawal request fails within a batch
+    /// @notice Emitted when a withdrawal request is skipped due to invalid parameters
+    /// @param index The index of the skipped request in the batch
+    /// @param vault The vault address
+    /// @param controller The controller address
+    /// @param amount The requested amount
+    event WithdrawRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount);
+
+    /// @notice Emitted when a withdrawal request fails during execution
     /// @param index The index of the failed request in the batch
     /// @param vault The vault address
     /// @param controller The controller address
     /// @param amount The requested amount
     event WithdrawFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount);
 
-    /// @notice Emitted when a single redemption request fails within a batch
+    /// @notice Emitted when a redemption request is skipped due to invalid parameters
+    /// @param index The index of the skipped request in the batch
+    /// @param vault The vault address
+    /// @param controller The controller address
+    /// @param amount The requested amount
+    event RedeemRequestSkipped(uint256 indexed index, address indexed vault, address controller, uint256 amount);
+
+    /// @notice Emitted when a redemption request fails during execution
     /// @param index The index of the failed request in the batch
     /// @param vault The vault address
     /// @param controller The controller address
@@ -53,11 +67,8 @@ contract SuperVaultBatchOperator is AccessControl {
     error EMPTY_REQUESTS();
     error ZERO_ADMIN_ADDRESS();
     error ZERO_OPERATOR_ADDRESS();
-    error ZERO_VAULT_ADDRESS();
-    error ZERO_CONTROLLER_ADDRESS();
     error ZERO_TOKEN_ADDRESS();
     error ZERO_TO_ADDRESS();
-    error ZERO_AMOUNT();
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
@@ -102,7 +113,12 @@ contract SuperVaultBatchOperator is AccessControl {
         uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
-            _validateRequest(req);
+
+            // Skip invalid requests without reverting the batch
+            if (!_isValidRequest(req)) {
+                emit WithdrawRequestSkipped(i, req.vault, req.controller, req.amount);
+                continue;
+            }
 
             // receiver == controller is enforced on the vault side
             try ISuperVault(req.vault).withdraw(req.amount, req.controller, req.controller) {
@@ -125,7 +141,12 @@ contract SuperVaultBatchOperator is AccessControl {
         uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
-            _validateRequest(req);
+
+            // Skip invalid requests without reverting the batch
+            if (!_isValidRequest(req)) {
+                emit RedeemRequestSkipped(i, req.vault, req.controller, req.amount);
+                continue;
+            }
 
             // receiver == controller is enforced on the vault side
             try ISuperVault(req.vault).redeem(req.amount, req.controller, req.controller) {
@@ -164,11 +185,10 @@ contract SuperVaultBatchOperator is AccessControl {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Validates a single batch request
+    /// @notice Checks if a batch request is valid
     /// @param req The batch request to validate
-    function _validateRequest(BatchRequest calldata req) internal pure {
-        if (req.vault == address(0)) revert ZERO_VAULT_ADDRESS();
-        if (req.controller == address(0)) revert ZERO_CONTROLLER_ADDRESS();
-        if (req.amount == 0) revert ZERO_AMOUNT();
+    /// @return isValid True if the request has valid parameters
+    function _isValidRequest(BatchRequest calldata req) internal pure returns (bool isValid) {
+        return req.vault != address(0) && req.controller != address(0) && req.amount != 0;
     }
 }

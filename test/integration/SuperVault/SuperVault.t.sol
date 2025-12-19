@@ -11483,14 +11483,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
     }
 
     /// @notice Test batch operator reverts on zero vault address
-    function test_BatchOperator_RevertZeroVaultAddress() public {
+    function test_BatchOperator_SkipsZeroVaultAddress() public {
         // Deploy batch operator
         address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
         address operator = makeAddr("operator");
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
-
-        // Request with zero vault address
+        // Request with zero vault address - should be skipped, not revert
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(0),
@@ -11498,26 +11497,32 @@ contract SuperVaultTest is BaseSuperVaultTest {
             amount: 100e6
         });
 
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_VAULT_ADDRESS.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(0), accountEth, 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_VAULT_ADDRESS.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(0), accountEth, 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
-        console2.log("Zero vault address validation working correctly");
+        console2.log("Zero vault address correctly skipped without reverting batch");
     }
 
-    /// @notice Test batch operator reverts on zero controller address
-    function test_BatchOperator_RevertZeroControllerAddress() public {
+    /// @notice Test batch operator skips zero controller address
+    function test_BatchOperator_SkipsZeroControllerAddress() public {
         // Deploy batch operator
         address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
         address operator = makeAddr("operator");
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
-
-        // Request with zero controller address
+        // Request with zero controller address - should be skipped, not revert
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
@@ -11525,26 +11530,32 @@ contract SuperVaultTest is BaseSuperVaultTest {
             amount: 100e6
         });
 
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_CONTROLLER_ADDRESS.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), address(0), 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_CONTROLLER_ADDRESS.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), address(0), 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
-        console2.log("Zero controller address validation working correctly");
+        console2.log("Zero controller address correctly skipped without reverting batch");
     }
 
-    /// @notice Test batch operator reverts on zero amount
-    function test_BatchOperator_RevertZeroAmount() public {
+    /// @notice Test batch operator skips zero amount
+    function test_BatchOperator_SkipsZeroAmount() public {
         // Deploy batch operator
         address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
         address operator = makeAddr("operator");
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
-
-        // Request with zero amount
+        // Request with zero amount - should be skipped, not revert
         SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
         requests[0] = SuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
@@ -11552,15 +11563,22 @@ contract SuperVaultTest is BaseSuperVaultTest {
             amount: 0
         });
 
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_AMOUNT.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), accountEth, 0);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_AMOUNT.selector);
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), accountEth, 0);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
-        console2.log("Zero amount validation working correctly");
+        console2.log("Zero amount correctly skipped without reverting batch");
     }
 
     /// @notice Test batch operator with multiple requests to cover loop iterations
