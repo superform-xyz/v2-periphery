@@ -37,9 +37,12 @@ contract SuperVaultBatchOperator is AccessControl {
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
     error EMPTY_REQUESTS();
+    error ZERO_ADMIN_ADDRESS();
+    error ZERO_OPERATOR_ADDRESS();
     error ZERO_VAULT_ADDRESS();
     error ZERO_RECEIVER_ADDRESS();
     error ZERO_CONTROLLER_ADDRESS();
+    error ZERO_TO_ADDRESS();
     error ZERO_AMOUNT();
 
     /*//////////////////////////////////////////////////////////////
@@ -65,6 +68,9 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @param admin The address that will have DEFAULT_ADMIN_ROLE
     /// @param operator The address that will have OPERATOR_ROLE
     constructor(address admin, address operator) {
+        if (admin == address(0)) revert ZERO_ADMIN_ADDRESS();
+        if (operator == address(0)) revert ZERO_OPERATOR_ADDRESS();
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(OPERATOR_ROLE, operator);
     }
@@ -108,6 +114,8 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @param to The recipient address
     /// @dev Only callable by admin. Withdraws entire balance of each token.
     function batchEmergencyWithdraw(address[] calldata tokens, address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (to == address(0)) revert ZERO_TO_ADDRESS();
+
         uint256[] memory amounts = new uint256[](tokens.length);
 
         for (uint256 i = 0; i < tokens.length; ++i) {

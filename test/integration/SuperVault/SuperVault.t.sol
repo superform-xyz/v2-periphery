@@ -11754,6 +11754,47 @@ contract SuperVaultTest is BaseSuperVaultTest {
         console2.log("Role management working correctly");
     }
 
+    function test_BatchOperator_RevertZeroAdminAddress() public {
+        address operatorAddr = makeAddr("operator");
+
+        vm.expectRevert(SuperVaultBatchOperator.ZERO_ADMIN_ADDRESS.selector);
+        new SuperVaultBatchOperator(address(0), operatorAddr);
+
+        console2.log("Zero admin address validation working correctly");
+    }
+
+    function test_BatchOperator_RevertZeroOperatorAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+
+        vm.expectRevert(SuperVaultBatchOperator.ZERO_OPERATOR_ADDRESS.selector);
+        new SuperVaultBatchOperator(batchOperatorAdmin, address(0));
+
+        console2.log("Zero operator address validation working correctly");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw_RevertZeroToAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        // Send some tokens to the batch operator
+        uint256 stuckAmount = 500e6;
+        _getTokens(address(asset), address(batchOperator), stuckAmount);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset);
+
+        // Admin tries to withdraw to zero address - should revert
+        vm.prank(batchOperatorAdmin);
+        vm.expectRevert(SuperVaultBatchOperator.ZERO_TO_ADDRESS.selector);
+        batchOperator.batchEmergencyWithdraw(tokens, address(0));
+
+        // Verify tokens are still in contract
+        assertEq(asset.balanceOf(address(batchOperator)), stuckAmount, "Tokens should still be in batch operator");
+
+        console2.log("Zero to address validation working correctly");
+    }
+
     /// @notice Test that receiver must equal controller when operator calls (vault enforces this)
     /// @dev This ensures funds cannot be redirected to arbitrary addresses by operators
     function test_BatchOperator_RevertReceiverNotEqualController() public {
