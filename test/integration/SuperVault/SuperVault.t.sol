@@ -22,6 +22,7 @@ import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultBatchOperator } from "../../../src/SuperVault/SuperVaultBatchOperator.sol";
+import { ISuperVaultBatchOperator } from "../../../src/interfaces/SuperVault/ISuperVaultBatchOperator.sol";
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { SuperBank } from "../../../src/SuperBank.sol";
 import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
@@ -11368,8 +11369,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Create and execute batch withdrawal
         uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: maxWithdrawable
@@ -11377,7 +11378,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.prank(operator);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
         batchOperator.batchWithdraw(requests);
 
         // Verify user received assets
@@ -11414,8 +11415,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Create and execute batch redemption
         uint256 maxRedeemable = vault.maxRedeem(accountEth);
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: maxRedeemable
@@ -11423,7 +11424,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         vm.prank(operator);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 1);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 1);
         batchOperator.batchRedeem(requests);
 
         // Verify user received assets
@@ -11440,8 +11441,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
 
         // Create valid request for access control test
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: 100e6
@@ -11469,14 +11470,14 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
 
         // Empty requests should revert
-        SuperVaultBatchOperator.BatchRequest[] memory emptyRequests = new SuperVaultBatchOperator.BatchRequest[](0);
+        ISuperVaultBatchOperator.BatchRequest[] memory emptyRequests = new ISuperVaultBatchOperator.BatchRequest[](0);
 
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.EMPTY_REQUESTS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.EMPTY_REQUESTS.selector);
         batchOperator.batchWithdraw(emptyRequests);
 
         vm.prank(operator);
-        vm.expectRevert(SuperVaultBatchOperator.EMPTY_REQUESTS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.EMPTY_REQUESTS.selector);
         batchOperator.batchRedeem(emptyRequests);
 
         console2.log("Empty requests validation working correctly");
@@ -11490,8 +11491,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
         // Request with zero vault address - should be skipped, not revert
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(0),
             controller: accountEth,
             amount: 100e6
@@ -11500,16 +11501,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(0), accountEth, 100e6);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(0), accountEth, 100e6);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(0), accountEth, 100e6);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(0), accountEth, 100e6);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
         console2.log("Zero vault address correctly skipped without reverting batch");
@@ -11523,8 +11524,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
         // Request with zero controller address - should be skipped, not revert
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: address(0),
             amount: 100e6
@@ -11533,16 +11534,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), address(0), 100e6);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), address(0), 100e6);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), address(0), 100e6);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), address(0), 100e6);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
         console2.log("Zero controller address correctly skipped without reverting batch");
@@ -11556,8 +11557,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
 
         // Request with zero amount - should be skipped, not revert
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: 0
@@ -11566,16 +11567,16 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Invalid request is skipped with skipped event, batch completes with successCount=0
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), accountEth, 0);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), accountEth, 0);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         vm.prank(operator);
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), accountEth, 0);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), accountEth, 0);
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
         console2.log("Zero amount correctly skipped without reverting batch");
@@ -11613,13 +11614,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 halfAmount = maxWithdrawable / 2;
 
         // Create batch with multiple requests for same user (split withdrawal)
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: halfAmount
         });
-        requests[1] = SuperVaultBatchOperator.BatchRequest({
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: halfAmount
@@ -11667,13 +11668,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         uint256 halfAmount = maxRedeemable / 2;
 
         // Create batch with multiple redeem requests for same user
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: halfAmount
         });
-        requests[1] = SuperVaultBatchOperator.BatchRequest({
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: halfAmount
@@ -11717,8 +11718,8 @@ contract SuperVaultTest is BaseSuperVaultTest {
         assertFalse(batchOperator.hasRole(operatorRole, operator1), "Withdrawer1 should not have role after revoke");
 
         // Withdrawer1 should now fail to call batch methods (access control checked before validation)
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](1);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: 100e6
@@ -11736,7 +11737,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_BatchOperator_RevertZeroAdminAddress() public {
         address operatorAddr = makeAddr("operator");
 
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_ADMIN_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_ADMIN_ADDRESS.selector);
         new SuperVaultBatchOperator(address(0), operatorAddr);
 
         console2.log("Zero admin address validation working correctly");
@@ -11745,7 +11746,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
     function test_BatchOperator_RevertZeroOperatorAddress() public {
         address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
 
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_OPERATOR_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_OPERATOR_ADDRESS.selector);
         new SuperVaultBatchOperator(batchOperatorAdmin, address(0));
 
         console2.log("Zero operator address validation working correctly");
@@ -11765,7 +11766,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Admin tries to withdraw to zero address - should revert
         vm.prank(batchOperatorAdmin);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_TO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_TO_ADDRESS.selector);
         batchOperator.batchEmergencyWithdraw(tokens, address(0));
 
         // Verify tokens are still in contract
@@ -11787,7 +11788,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
 
         // Admin tries to withdraw with zero token address - should revert
         vm.prank(batchOperatorAdmin);
-        vm.expectRevert(SuperVaultBatchOperator.ZERO_TOKEN_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_TOKEN_ADDRESS.selector);
         batchOperator.batchEmergencyWithdraw(tokens, recipient);
 
         console2.log("Zero token address validation working correctly");
@@ -11829,13 +11830,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
         // Create batch with 2 requests:
         // Request 0: User 1 - should SUCCEED (has claimable assets)
         // Request 1: User 2 - should FAIL (no claimable assets)
-        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
-        requests[0] = SuperVaultBatchOperator.BatchRequest({
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: accountEth,
             amount: maxWithdrawable
         });
-        requests[1] = SuperVaultBatchOperator.BatchRequest({
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
             vault: address(vault),
             controller: user2,
             amount: 100e6 // User 2 has nothing to withdraw
@@ -11845,10 +11846,10 @@ contract SuperVaultTest is BaseSuperVaultTest {
         vm.prank(operator);
         // Expect WithdrawFailed for index 1 (user2)
         vm.expectEmit(true, true, false, true);
-        emit SuperVaultBatchOperator.WithdrawFailed(1, address(vault), user2, 100e6);
+        emit ISuperVaultBatchOperator.WithdrawFailed(1, address(vault), user2, 100e6);
         // Expect BatchWithdrawExecuted with successCount=1
         vm.expectEmit(true, false, false, true);
-        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
         batchOperator.batchWithdraw(requests);
 
         // Verify user 1 received their assets (request succeeded)
@@ -11885,7 +11886,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         expectedAmounts[0] = stuckAmount;
 
         vm.expectEmit(true, true, true, true);
-        emit SuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
+        emit ISuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
 
         vm.prank(batchOperatorAdmin);
         batchOperator.batchEmergencyWithdraw(tokens, recipient);
@@ -11960,7 +11961,7 @@ contract SuperVaultTest is BaseSuperVaultTest {
         expectedAmounts[1] = stuckAmount2;
 
         vm.expectEmit(true, true, true, true);
-        emit SuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
+        emit ISuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
 
         vm.prank(batchOperatorAdmin);
         batchOperator.batchEmergencyWithdraw(tokens, recipient);
