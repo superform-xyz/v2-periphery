@@ -21,6 +21,8 @@ import { AcrossV3Helper } from "pigeon/across/AcrossV3Helper.sol";
 import { SuperVault } from "../../../src/SuperVault/SuperVault.sol";
 import { SuperVaultEscrow } from "../../../src/SuperVault/SuperVaultEscrow.sol";
 import { SuperVaultStrategy } from "../../../src/SuperVault/SuperVaultStrategy.sol";
+import { SuperVaultBatchOperator } from "../../../src/SuperVault/SuperVaultBatchOperator.sol";
+import { ISuperVaultBatchOperator } from "../../../src/interfaces/SuperVault/ISuperVaultBatchOperator.sol";
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { SuperBank } from "../../../src/SuperBank.sol";
 import { ISuperBank } from "../../../src/interfaces/ISuperBank.sol";
@@ -11333,6 +11335,644 @@ contract SuperVaultTest is BaseSuperVaultTest {
             abi.encodePacked(operator_),
             abi.encodePacked(approved_ ? uint8(1) : uint8(0))
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    BATCH OPERATOR TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test batchWithdraw with a single user
+    function test_BatchOperator_BatchWithdraw() public {
+        // Deploy batch operator (withdrawer is granted OPERATOR_ROLE in constructor)
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Setup: deposit, allocate, request redeem, fulfill
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 200e6;
+
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Approve batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks (which includes fulfillment)
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Record initial balance
+        uint256 initialBalance = asset.balanceOf(accountEth);
+
+        // Create and execute batch withdrawal
+        uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: maxWithdrawable
+        });
+
+        vm.prank(operator);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
+        batchOperator.batchWithdraw(requests);
+
+        // Verify user received assets
+        assertTrue(asset.balanceOf(accountEth) > initialBalance, "User should receive withdrawal assets");
+        console2.log("Batch withdraw successful. Assets received:", asset.balanceOf(accountEth) - initialBalance);
+    }
+
+    /// @notice Test batchRedeem with a single user
+    function test_BatchOperator_BatchRedeem() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+
+        // Setup: deposit, allocate, request redeem, fulfill
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 200e6;
+
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Approve batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks (which includes fulfillment)
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Record initial state
+        uint256 initialBalance = asset.balanceOf(accountEth);
+
+        // Create and execute batch redemption
+        uint256 maxRedeemable = vault.maxRedeem(accountEth);
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: maxRedeemable
+        });
+
+        vm.prank(operator);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 1);
+        batchOperator.batchRedeem(requests);
+
+        // Verify user received assets
+        assertTrue(asset.balanceOf(accountEth) > initialBalance, "User should receive redemption assets");
+        console2.log("Batch redeem successful. Assets received:", asset.balanceOf(accountEth) - initialBalance);
+    }
+
+    /// @notice Test batch operator access control
+    function test_BatchOperator_AccessControl() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+
+        // Create valid request for access control test
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: 100e6
+        });
+
+        // Unauthorized caller should fail
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        batchOperator.batchWithdraw(requests);
+
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        batchOperator.batchRedeem(requests);
+
+        console2.log("Access control working correctly - unauthorized calls reverted");
+    }
+
+    /// @notice Test batch operator reverts on empty requests
+    function test_BatchOperator_RevertEmptyRequests() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+
+        // Empty requests should revert
+        ISuperVaultBatchOperator.BatchRequest[] memory emptyRequests = new ISuperVaultBatchOperator.BatchRequest[](0);
+
+        vm.prank(operator);
+        vm.expectRevert(ISuperVaultBatchOperator.EMPTY_REQUESTS.selector);
+        batchOperator.batchWithdraw(emptyRequests);
+
+        vm.prank(operator);
+        vm.expectRevert(ISuperVaultBatchOperator.EMPTY_REQUESTS.selector);
+        batchOperator.batchRedeem(emptyRequests);
+
+        console2.log("Empty requests validation working correctly");
+    }
+
+    /// @notice Test batch operator reverts on zero vault address
+    function test_BatchOperator_SkipsZeroVaultAddress() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Request with zero vault address - should be skipped, not revert
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(0),
+            controller: accountEth,
+            amount: 100e6
+        });
+
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(0), accountEth, 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        batchOperator.batchWithdraw(requests);
+
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(0), accountEth, 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        batchOperator.batchRedeem(requests);
+
+        console2.log("Zero vault address correctly skipped without reverting batch");
+    }
+
+    /// @notice Test batch operator skips zero controller address
+    function test_BatchOperator_SkipsZeroControllerAddress() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Request with zero controller address - should be skipped, not revert
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: address(0),
+            amount: 100e6
+        });
+
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), address(0), 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        batchOperator.batchWithdraw(requests);
+
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), address(0), 100e6);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        batchOperator.batchRedeem(requests);
+
+        console2.log("Zero controller address correctly skipped without reverting batch");
+    }
+
+    /// @notice Test batch operator skips zero amount
+    function test_BatchOperator_SkipsZeroAmount() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Request with zero amount - should be skipped, not revert
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: 0
+        });
+
+        // Invalid request is skipped with skipped event, batch completes with successCount=0
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.WithdrawRequestSkipped(0, address(vault), accountEth, 0);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
+        batchOperator.batchWithdraw(requests);
+
+        vm.prank(operator);
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.RedeemRequestSkipped(0, address(vault), accountEth, 0);
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
+        batchOperator.batchRedeem(requests);
+
+        console2.log("Zero amount correctly skipped without reverting batch");
+    }
+
+    /// @notice Test batch operator with multiple requests to cover loop iterations
+    function test_BatchOperator_MultipleRequests() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+
+        // Setup: deposit and prepare redemption
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 400e6;
+
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Approve batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Record initial balance
+        uint256 initialBalance = asset.balanceOf(accountEth);
+
+        // Get max withdrawable and split into multiple requests (to cover loop iterations)
+        uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
+        uint256 halfAmount = maxWithdrawable / 2;
+
+        // Create batch with multiple requests for same user (split withdrawal)
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: halfAmount
+        });
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: halfAmount
+        });
+
+        // Execute batch withdraw with multiple iterations
+        vm.prank(operator);
+        batchOperator.batchWithdraw(requests);
+
+        // Verify user received assets from both withdrawals
+        uint256 assetsReceived = asset.balanceOf(accountEth) - initialBalance;
+        assertTrue(assetsReceived > 0, "User should receive withdrawal assets");
+        console2.log("Multi-request batch withdraw successful. Assets received:", assetsReceived);
+    }
+
+    /// @notice Test batch operator batchRedeem with multiple requests to cover loop iterations
+    function test_BatchOperator_MultipleRedeemRequests() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+
+        // Setup: deposit and prepare redemption
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 400e6;
+
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // Approve batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        // Record initial balance
+        uint256 initialBalance = asset.balanceOf(accountEth);
+
+        // Get max redeemable and split into multiple requests (to cover loop iterations)
+        uint256 maxRedeemable = vault.maxRedeem(accountEth);
+        uint256 halfAmount = maxRedeemable / 2;
+
+        // Create batch with multiple redeem requests for same user
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: halfAmount
+        });
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: halfAmount
+        });
+
+        // Execute batch redeem with multiple iterations
+        vm.prank(operator);
+        batchOperator.batchRedeem(requests);
+
+        // Verify user received assets from both redemptions
+        uint256 assetsReceived = asset.balanceOf(accountEth) - initialBalance;
+        assertTrue(assetsReceived > 0, "User should receive redemption assets");
+        console2.log("Multi-request batch redeem successful. Assets received:", assetsReceived);
+    }
+
+    /// @notice Test batch operator role management (admin can grant/revoke roles)
+    function test_BatchOperator_RoleManagement() public {
+        // Deploy batch operator with operator1 as initial withdrawer
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator1 = makeAddr("operator1");
+        address operator2 = makeAddr("operator2");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator1);
+
+        bytes32 operatorRole = batchOperator.OPERATOR_ROLE();
+        bytes32 adminRole = batchOperator.DEFAULT_ADMIN_ROLE();
+
+        // Verify admin has DEFAULT_ADMIN_ROLE
+        assertTrue(batchOperator.hasRole(adminRole, batchOperatorAdmin), "Admin should have admin role");
+
+        // Verify operator1 has OPERATOR_ROLE (granted in constructor)
+        assertTrue(batchOperator.hasRole(operatorRole, operator1), "Withdrawer1 should have role from constructor");
+
+        // Grant withdrawer role to operator2
+        vm.prank(batchOperatorAdmin);
+        batchOperator.grantRole(operatorRole, operator2);
+        assertTrue(batchOperator.hasRole(operatorRole, operator2), "Withdrawer2 should have role");
+
+        // Revoke withdrawer role from operator1
+        vm.prank(batchOperatorAdmin);
+        batchOperator.revokeRole(operatorRole, operator1);
+        assertFalse(batchOperator.hasRole(operatorRole, operator1), "Withdrawer1 should not have role after revoke");
+
+        // Withdrawer1 should now fail to call batch methods (access control checked before validation)
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](1);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: 100e6
+        });
+        vm.prank(operator1);
+        vm.expectRevert();
+        batchOperator.batchWithdraw(requests);
+
+        // Verify operator2 still has the role after operator1's revocation
+        assertTrue(batchOperator.hasRole(operatorRole, operator2), "Withdrawer2 should still have role");
+
+        console2.log("Role management working correctly");
+    }
+
+    function test_BatchOperator_RevertZeroAdminAddress() public {
+        address operatorAddr = makeAddr("operator");
+
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_ADMIN_ADDRESS.selector);
+        new SuperVaultBatchOperator(address(0), operatorAddr);
+
+        console2.log("Zero admin address validation working correctly");
+    }
+
+    function test_BatchOperator_RevertZeroOperatorAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_OPERATOR_ADDRESS.selector);
+        new SuperVaultBatchOperator(batchOperatorAdmin, address(0));
+
+        console2.log("Zero operator address validation working correctly");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw_RevertZeroToAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        // Send some tokens to the batch operator
+        uint256 stuckAmount = 500e6;
+        _getTokens(address(asset), address(batchOperator), stuckAmount);
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset);
+
+        // Admin tries to withdraw to zero address - should revert
+        vm.prank(batchOperatorAdmin);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_TO_ADDRESS.selector);
+        batchOperator.batchEmergencyWithdraw(tokens, address(0));
+
+        // Verify tokens are still in contract
+        assertEq(asset.balanceOf(address(batchOperator)), stuckAmount, "Tokens should still be in batch operator");
+
+        console2.log("Zero to address validation working correctly");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw_RevertZeroTokenAddress() public {
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        address recipient = makeAddr("recipient");
+
+        // Array with zero token address
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(0);
+
+        // Admin tries to withdraw with zero token address - should revert
+        vm.prank(batchOperatorAdmin);
+        vm.expectRevert(ISuperVaultBatchOperator.ZERO_TOKEN_ADDRESS.selector);
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        console2.log("Zero token address validation working correctly");
+    }
+
+    /// @notice Test that partial batch failures work correctly - some succeed, some fail
+    /// @dev This tests the try/catch pattern where individual failures don't revert the batch
+    function test_BatchOperator_PartialBatchFailure() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Setup: deposit and prepare for two users
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 200e6;
+
+        // User 1 (accountEth) - will have valid claimable assets
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // User 1 approves batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks for user 1
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
+        uint256 user1BalanceBefore = asset.balanceOf(accountEth);
+
+        // User 2 - has NO claimable assets (never deposited/redeemed)
+        address user2 = makeAddr("user2");
+        vm.prank(user2);
+        vault.setOperator(address(batchOperator), true);
+
+        // Create batch with 2 requests:
+        // Request 0: User 1 - should SUCCEED (has claimable assets)
+        // Request 1: User 2 - should FAIL (no claimable assets)
+        ISuperVaultBatchOperator.BatchRequest[] memory requests = new ISuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: accountEth,
+            amount: maxWithdrawable
+        });
+        requests[1] = ISuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            controller: user2,
+            amount: 100e6 // User 2 has nothing to withdraw
+        });
+
+        // Execute batch - should NOT revert despite request 1 failing
+        vm.prank(operator);
+        // Expect WithdrawFailed for index 1 (user2)
+        vm.expectEmit(true, true, false, true);
+        emit ISuperVaultBatchOperator.WithdrawFailed(1, address(vault), user2, 100e6);
+        // Expect BatchWithdrawExecuted with successCount=1
+        vm.expectEmit(true, false, false, true);
+        emit ISuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
+        batchOperator.batchWithdraw(requests);
+
+        // Verify user 1 received their assets (request succeeded)
+        assertEq(
+            asset.balanceOf(accountEth),
+            user1BalanceBefore + maxWithdrawable,
+            "User 1 should have received assets"
+        );
+
+        // Verify user 2 received nothing (request failed)
+        assertEq(asset.balanceOf(user2), 0, "User 2 should have received nothing");
+
+        console2.log("Partial batch failure handled correctly - 1 success, 1 failure");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        // Send some tokens to the batch operator (simulating stuck tokens)
+        uint256 stuckAmount = 500e6;
+        _getTokens(address(asset), address(batchOperator), stuckAmount);
+        assertEq(asset.balanceOf(address(batchOperator)), stuckAmount, "Tokens should be in batch operator");
+
+        // Admin should be able to withdraw stuck tokens
+        address recipient = makeAddr("recipient");
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset);
+
+        uint256[] memory expectedAmounts = new uint256[](1);
+        expectedAmounts[0] = stuckAmount;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
+
+        vm.prank(batchOperatorAdmin);
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        // Verify tokens were transferred
+        assertEq(asset.balanceOf(address(batchOperator)), 0, "Batch operator should have no tokens");
+        assertEq(asset.balanceOf(recipient), stuckAmount, "Recipient should have received tokens");
+
+        console2.log("BatchEmergencyWithdraw executed successfully by admin");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw_AccessControl() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        // Send some tokens to the batch operator
+        uint256 stuckAmount = 500e6;
+        _getTokens(address(asset), address(batchOperator), stuckAmount);
+
+        address recipient = makeAddr("recipient");
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(asset);
+
+        // Non-admin (operator) should not be able to call batchEmergencyWithdraw
+        vm.prank(operatorAddr);
+        vm.expectRevert();
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        // Random address should not be able to call batchEmergencyWithdraw
+        address randomUser = makeAddr("randomUser");
+        vm.prank(randomUser);
+        vm.expectRevert();
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        // Verify tokens are still in the contract
+        assertEq(asset.balanceOf(address(batchOperator)), stuckAmount, "Tokens should still be in batch operator");
+
+        console2.log("BatchEmergencyWithdraw access control working correctly");
+    }
+
+    function test_BatchOperator_BatchEmergencyWithdraw_MultipleTokens() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operatorAddr = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operatorAddr);
+
+        // Send multiple tokens to the batch operator (simulating stuck tokens)
+        uint256 stuckAmount1 = 500e6;
+        uint256 stuckAmount2 = 300e6;
+
+        // Get a second token (use fluidVault's underlying or another token)
+        address token1 = address(asset);
+        address token2 = address(fluidVault); // Using vault shares as second token
+
+        _getTokens(token1, address(batchOperator), stuckAmount1);
+        deal(token2, address(batchOperator), stuckAmount2);
+
+        assertEq(IERC20(token1).balanceOf(address(batchOperator)), stuckAmount1, "Token1 should be in batch operator");
+        assertEq(IERC20(token2).balanceOf(address(batchOperator)), stuckAmount2, "Token2 should be in batch operator");
+
+        // Admin should be able to withdraw multiple stuck tokens at once
+        address recipient = makeAddr("recipient");
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = token1;
+        tokens[1] = token2;
+
+        uint256[] memory expectedAmounts = new uint256[](2);
+        expectedAmounts[0] = stuckAmount1;
+        expectedAmounts[1] = stuckAmount2;
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultBatchOperator.BatchEmergencyWithdraw(tokens, recipient, expectedAmounts);
+
+        vm.prank(batchOperatorAdmin);
+        batchOperator.batchEmergencyWithdraw(tokens, recipient);
+
+        // Verify all tokens were transferred
+        assertEq(IERC20(token1).balanceOf(address(batchOperator)), 0, "Batch operator should have no token1");
+        assertEq(IERC20(token2).balanceOf(address(batchOperator)), 0, "Batch operator should have no token2");
+        assertEq(IERC20(token1).balanceOf(recipient), stuckAmount1, "Recipient should have received token1");
+        assertEq(IERC20(token2).balanceOf(recipient), stuckAmount2, "Recipient should have received token2");
+
+        console2.log("BatchEmergencyWithdraw with multiple tokens executed successfully");
     }
 }
 
