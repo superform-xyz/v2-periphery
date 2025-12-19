@@ -182,7 +182,8 @@ deploy_on_chain() {
     forge_cmd+=" script/DeploySuperVaultBatchOperator.s.sol:DeploySuperVaultBatchOperator"
 
     if [ "$mode" = "check" ]; then
-        forge_cmd+=" --sig 'runCheck(uint256,uint64)' $env $chain_id"
+        # Pass empty string for branchName (only used for vnet env=1)
+        forge_cmd+=" --sig 'runCheck(uint256,uint64,string)' $env $chain_id \"\""
     else
         # Pass empty string for branchName (only used for vnet env=1)
         forge_cmd+=" --sig 'run(uint256,uint64,string)' $env $chain_id \"\""

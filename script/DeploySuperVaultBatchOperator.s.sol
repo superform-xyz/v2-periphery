@@ -62,8 +62,10 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @notice Check if SuperVaultBatchOperator is deployed
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to check
-    function runCheck(uint256 env, uint64 chainId) external broadcast(env) {
-        _setBaseConfiguration(env, "");
+    /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
+    function runCheck(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
+        _validateEnvAndBranchName(env, branchName);
+        _setBaseConfiguration(env, branchName);
 
         address admin = SUPER_GOVERNOR_ADDRESS;
         address operator = _getOperatorForEnv(env);
@@ -71,6 +73,9 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         console2.log("====== SuperVaultBatchOperator Deployment Check ======");
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);
+        if (env == 1) {
+            console2.log("Branch Name:", branchName);
+        }
         console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
         console2.log("Operator:", operator);
         console2.log("");
@@ -125,7 +130,7 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @param operator Operator address
     /// @param branchName Branch name for vnet deployments
     function _deploy(uint256 env, uint64 chainId, address admin, address operator, string calldata branchName) internal {
-        _setBaseConfiguration(env, "");
+        _setBaseConfiguration(env, branchName);
 
         console2.log("====== Deploying SuperVaultBatchOperator ======");
         console2.log("Chain ID:", chainId);
