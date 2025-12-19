@@ -69,7 +69,6 @@
         "SuperVaultAggregator": "0x10AC0b33e1C4501CF3ec1cB1AE51ebfdbd2d4698",
         "SuperVaultStrategy": "0x770abd170404B8ed8182c04f380E567e647b457D",
         "SuperVaultEscrow": "0x8982cf48eaB6616f2892888410afad9b0CD2BC9B",
-        "SuperVaultBatchOperator": "0x3047601ea12565C65b715137799a458971BA070B",
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracle": "0x8943128DbAb4279D561654dEED2930Bb975AA070",
@@ -145,7 +144,6 @@
         "SuperVaultAggregator": "0x10AC0b33e1C4501CF3ec1cB1AE51ebfdbd2d4698",
         "SuperVaultStrategy": "0x770abd170404B8ed8182c04f380E567e647b457D",
         "SuperVaultEscrow": "0x8982cf48eaB6616f2892888410afad9b0CD2BC9B",
-        "SuperVaultBatchOperator": "0x3047601ea12565C65b715137799a458971BA070B",
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracleL2": "0xDd004b9F749014cD7bd73dC0818345c66bc641c8",
@@ -781,5 +779,5 @@
       }
     }
   },
-  "updated_at": "2025-12-19T17:52:40Z"
+  "updated_at": "2025-12-17T10:53:54Z"
 }
