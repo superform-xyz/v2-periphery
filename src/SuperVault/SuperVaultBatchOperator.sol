@@ -27,6 +27,20 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @param requestCount The number of redemption requests processed
     event BatchRedeemExecuted(address indexed caller, uint256 requestCount);
 
+    /// @notice Emitted when a single withdrawal request fails within a batch
+    /// @param index The index of the failed request in the batch
+    /// @param vault The vault address
+    /// @param controller The controller address
+    /// @param amount The requested amount
+    event WithdrawFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount);
+
+    /// @notice Emitted when a single redemption request fails within a batch
+    /// @param index The index of the failed request in the batch
+    /// @param vault The vault address
+    /// @param controller The controller address
+    /// @param amount The requested amount
+    event RedeemFailed(uint256 indexed index, address indexed vault, address controller, uint256 amount);
+
     /// @notice Emitted when tokens are rescued via batch emergency withdraw
     /// @param tokens The token addresses that were withdrawn
     /// @param to The recipient address
@@ -42,6 +56,7 @@ contract SuperVaultBatchOperator is AccessControl {
     error ZERO_VAULT_ADDRESS();
     error ZERO_RECEIVER_ADDRESS();
     error ZERO_CONTROLLER_ADDRESS();
+    error ZERO_TOKEN_ADDRESS();
     error ZERO_TO_ADDRESS();
     error ZERO_AMOUNT();
 
@@ -82,31 +97,43 @@ contract SuperVaultBatchOperator is AccessControl {
     /// @notice Batch withdraw assets from multiple vaults for multiple owners
     /// @param requests The array of batch withdrawal requests
     /// @dev Requires this contract to be approved as operator for each controller on each vault
+    /// @dev Individual request failures do not revert the batch - they are skipped
     function batchWithdraw(BatchRequest[] calldata requests) external onlyRole(OPERATOR_ROLE) {
         _validateRequests(requests);
 
+        uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
             // Vault signature: withdraw(uint256 assets, address receiver, address controller)
-            ISuperVault(req.vault).withdraw(req.amount, req.receiver, req.controller);
+            try ISuperVault(req.vault).withdraw(req.amount, req.receiver, req.controller) {
+                ++successCount;
+            } catch {
+                emit WithdrawFailed(i, req.vault, req.controller, req.amount);
+            }
         }
 
-        emit BatchWithdrawExecuted(msg.sender, requests.length);
+        emit BatchWithdrawExecuted(msg.sender, successCount);
     }
 
     /// @notice Batch redeem shares from multiple vaults for multiple owners
     /// @param requests The array of batch redemption requests
     /// @dev Requires this contract to be approved as operator for each controller on each vault
+    /// @dev Individual request failures do not revert the batch - they are skipped
     function batchRedeem(BatchRequest[] calldata requests) external onlyRole(OPERATOR_ROLE) {
         _validateRequests(requests);
 
+        uint256 successCount;
         for (uint256 i = 0; i < requests.length; ++i) {
             BatchRequest calldata req = requests[i];
             // Vault signature: redeem(uint256 shares, address receiver, address controller)
-            ISuperVault(req.vault).redeem(req.amount, req.receiver, req.controller);
+            try ISuperVault(req.vault).redeem(req.amount, req.receiver, req.controller) {
+                ++successCount;
+            } catch {
+                emit RedeemFailed(i, req.vault, req.controller, req.amount);
+            }
         }
 
-        emit BatchRedeemExecuted(msg.sender, requests.length);
+        emit BatchRedeemExecuted(msg.sender, successCount);
     }
 
     /// @notice Batch emergency withdraw tokens stuck in this contract
@@ -119,10 +146,12 @@ contract SuperVaultBatchOperator is AccessControl {
         uint256[] memory amounts = new uint256[](tokens.length);
 
         for (uint256 i = 0; i < tokens.length; ++i) {
-            uint256 balance = IERC20(tokens[i]).balanceOf(address(this));
+            address token = tokens[i];
+            if (token == address(0)) revert ZERO_TOKEN_ADDRESS();
+            uint256 balance = IERC20(token).balanceOf(address(this));
             amounts[i] = balance;
             if (balance > 0) {
-                IERC20(tokens[i]).safeTransfer(to, balance);
+                IERC20(token).safeTransfer(to, balance);
             }
         }
 

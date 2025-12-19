@@ -11831,9 +11831,13 @@ contract SuperVaultTest is BaseSuperVaultTest {
             amount: maxWithdrawable
         });
 
-        // Should revert because vault requires receiver == controller when operator calls
+        // With try/catch, the batch doesn't revert but the request fails silently
+        // WithdrawFailed event should be emitted, and BatchWithdrawExecuted with successCount=0
         vm.prank(operator);
-        vm.expectRevert();
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.WithdrawFailed(0, address(vault), accountEth, maxWithdrawable);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 0);
         batchOperator.batchWithdraw(requests);
 
         // Test same for redeem
@@ -11846,13 +11850,89 @@ contract SuperVaultTest is BaseSuperVaultTest {
         });
 
         vm.prank(operator);
-        vm.expectRevert();
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.RedeemFailed(0, address(vault), accountEth, maxRedeemable);
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchRedeemExecuted(operator, 0);
         batchOperator.batchRedeem(requests);
 
         // Verify no funds were transferred to malicious receiver
         assertEq(asset.balanceOf(maliciousReceiver), 0, "Malicious receiver should have no funds");
 
         console2.log("Receiver != Controller correctly rejected - funds protected");
+    }
+
+    /// @notice Test that partial batch failures work correctly - some succeed, some fail
+    /// @dev This tests the try/catch pattern where individual failures don't revert the batch
+    function test_BatchOperator_PartialBatchFailure() public {
+        // Deploy batch operator
+        address batchOperatorAdmin = makeAddr("batchOperatorAdmin");
+        address operator = makeAddr("operator");
+        SuperVaultBatchOperator batchOperator = new SuperVaultBatchOperator(batchOperatorAdmin, operator);
+
+        // Setup: deposit and prepare for two users
+        uint256 depositAmount = 1000e6;
+        uint256 redeemShares = 200e6;
+
+        // User 1 (accountEth) - will have valid claimable assets
+        _getTokens(address(asset), accountEth, depositAmount);
+        _depositForAccount(instanceOnEth, depositAmount);
+        _depositFreeAssetsFromSingleAmount(depositAmount, address(fluidVault), address(aaveVault));
+
+        // User 1 approves batch operator
+        vm.prank(accountEth);
+        vault.setOperator(address(batchOperator), true);
+
+        // Request and execute hooks for user 1
+        _requestRedeem(redeemShares);
+        _executeRedeemHooks4626(redeemShares, address(fluidVault), address(aaveVault), new address[](0));
+
+        uint256 maxWithdrawable = vault.maxWithdraw(accountEth);
+        uint256 user1BalanceBefore = asset.balanceOf(accountEth);
+
+        // User 2 - has NO claimable assets (never deposited/redeemed)
+        address user2 = makeAddr("user2");
+        vm.prank(user2);
+        vault.setOperator(address(batchOperator), true);
+
+        // Create batch with 2 requests:
+        // Request 0: User 1 - should SUCCEED (has claimable assets)
+        // Request 1: User 2 - should FAIL (no claimable assets)
+        SuperVaultBatchOperator.BatchRequest[] memory requests = new SuperVaultBatchOperator.BatchRequest[](2);
+        requests[0] = SuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            receiver: accountEth,
+            controller: accountEth,
+            amount: maxWithdrawable
+        });
+        requests[1] = SuperVaultBatchOperator.BatchRequest({
+            vault: address(vault),
+            receiver: user2,
+            controller: user2,
+            amount: 100e6 // User 2 has nothing to withdraw
+        });
+
+        // Execute batch - should NOT revert despite request 1 failing
+        vm.prank(operator);
+        // Expect WithdrawFailed for index 1 (user2)
+        vm.expectEmit(true, true, false, true);
+        emit SuperVaultBatchOperator.WithdrawFailed(1, address(vault), user2, 100e6);
+        // Expect BatchWithdrawExecuted with successCount=1
+        vm.expectEmit(true, false, false, true);
+        emit SuperVaultBatchOperator.BatchWithdrawExecuted(operator, 1);
+        batchOperator.batchWithdraw(requests);
+
+        // Verify user 1 received their assets (request succeeded)
+        assertEq(
+            asset.balanceOf(accountEth),
+            user1BalanceBefore + maxWithdrawable,
+            "User 1 should have received assets"
+        );
+
+        // Verify user 2 received nothing (request failed)
+        assertEq(asset.balanceOf(user2), 0, "User 2 should have received nothing");
+
+        console2.log("Partial batch failure handled correctly - 1 success, 1 failure");
     }
 
     function test_BatchOperator_BatchEmergencyWithdraw() public {
