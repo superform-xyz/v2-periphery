@@ -49,6 +49,11 @@ abstract contract ConfigBase is Constants {
     address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
     address internal constant BANK_MANAGER = 0xBe3B40a05BA6120B73F94c5018Bc90E49A6275E7;
 
+    /// @notice SuperVaultBatchOperator operator address for production environment
+    address internal constant BATCH_OPERATOR_PROD = 0x92C0B875501611B91C6aF3D801424E724Ab039DE;
+    /// @notice SuperVaultBatchOperator operator address for staging environment
+    address internal constant BATCH_OPERATOR_STAGING = 0x02cbf3dac926743ec757b5A51310f46580e25A04;
+
     /*//////////////////////////////////////////////////////////////
                             ORACLE ADDRESSES
     //////////////////////////////////////////////////////////////*/

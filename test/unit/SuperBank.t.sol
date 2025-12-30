@@ -1195,8 +1195,8 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes memory hookArgs1 = abi.encodePacked(address(token), address(odosRouter));
         bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(approveHook), hookArgs1))));
 
-        // SwapOdosV2Hook.inspect() returns: abi.encodePacked(inputToken, inputReceiver, outputToken, executor)
-        bytes memory hookArgs2 = abi.encodePacked(address(token), address(this), address(up), address(0));
+        // SwapOdosV2Hook.inspect() returns: abi.encodePacked(executor)
+        bytes memory hookArgs2 = abi.encodePacked(address(0));
         bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(odosHook), hookArgs2))));
 
         bytes32 merkleRoot1 = hookLeaf1;
