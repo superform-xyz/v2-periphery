@@ -294,10 +294,30 @@ contract PendlePTAmortizedOracle is AccessControl {
         currentBookValue = pos.ptAmount > 0 ? _calculateBookValue(pos) : 0;
     }
 
-    /// @notice Get all markets with positions for a vault
+    /// @notice Get all markets with active positions for a vault
     /// @param vault The SuperVault address
+    /// @dev Filters out closed positions (ptAmount == 0)
     function getVaultMarkets(address vault) external view returns (address[] memory) {
-        return vaultMarkets[vault];
+        address[] storage markets = vaultMarkets[vault];
+        uint256 count;
+
+        // Count active positions
+        for (uint256 i; i < markets.length; ++i) {
+            if (positions[vault][markets[i]].ptAmount > 0) {
+                ++count;
+            }
+        }
+
+        // Build filtered array
+        address[] memory activeMarkets = new address[](count);
+        uint256 idx;
+        for (uint256 i; i < markets.length; ++i) {
+            if (positions[vault][markets[i]].ptAmount > 0) {
+                activeMarkets[idx++] = markets[i];
+            }
+        }
+
+        return activeMarkets;
     }
 
     // ============ Admin Functions ============
@@ -352,6 +372,16 @@ contract PendlePTAmortizedOracle is AccessControl {
         uint256 sySpent,
         uint256 maturity
     ) internal {
+        // Check if market was previously tracked (reopening closed position)
+        bool alreadyTracked;
+        address[] storage markets = vaultMarkets[vault];
+        for (uint256 i; i < markets.length; ++i) {
+            if (markets[i] == market) {
+                alreadyTracked = true;
+                break;
+            }
+        }
+
         positions[vault][market] = Position({
             ptAmount: ptAmount.toUint128(),
             bookValue: sySpent.toUint128(),
@@ -360,7 +390,9 @@ contract PendlePTAmortizedOracle is AccessControl {
             _reserved: 0
         });
 
-        vaultMarkets[vault].push(market);
+        if (!alreadyTracked) {
+            vaultMarkets[vault].push(market);
+        }
 
         emit PositionOpened(vault, market, ptAmount, sySpent, maturity);
     }
