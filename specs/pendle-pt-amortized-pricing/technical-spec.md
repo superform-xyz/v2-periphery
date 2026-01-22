@@ -149,6 +149,8 @@ contract PendlePTAmortizedOracle is AccessControl {
     error ZERO_AMOUNT();
     error NO_POSITION();
     error MARKET_EXPIRED();
+    error INSUFFICIENT_POSITION();
+    error BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
     // ============ Constructor ============
 
@@ -191,6 +193,11 @@ contract PendlePTAmortizedOracle is AccessControl {
             newBookValue = sySpent;
         }
 
+        // Sanity check: book value should not exceed face value (ptAmount)
+        // This catches keeper errors where sySpent is recorded larger than actual
+        uint256 ptAmount = IERC20(pt).balanceOf(strategy);
+        if (newBookValue > ptAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
+
         state.lastUpdateBookValue = newBookValue.toUint128();
         state.lastUpdateTime = block.timestamp.toUint64();
 
@@ -217,6 +224,8 @@ contract PendlePTAmortizedOracle is AccessControl {
 
         // Read current PT amount BEFORE redemption
         uint256 ptAmount = IERC20(pt).balanceOf(strategy);
+        if (ptRedeemed > ptAmount) revert INSUFFICIENT_POSITION();
+
         uint256 currentBookValue = _calculateBookValue(vault, strategy, pt);
 
         // Cost basis accounting
@@ -327,6 +336,8 @@ contract PendlePTAmortizedOracle is AccessControl {
 - [ ] Purchase after maturity: Reverts with `MARKET_EXPIRED`
 - [ ] Zero amounts: Reverts with `ZERO_AMOUNT`
 - [ ] Zero PT balance: Returns 0
+- [ ] Redemption exceeds holdings: Reverts with `INSUFFICIENT_POSITION`
+- [ ] Book value exceeds face value: Reverts with `BOOK_VALUE_EXCEEDS_FACE_VALUE`
 
 ---
 
