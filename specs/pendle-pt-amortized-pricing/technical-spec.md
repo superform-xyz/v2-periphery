@@ -15,11 +15,13 @@ For a hold-to-maturity strategy, this volatility is misleading and unnecessary.
 
 ## Proposed Solution
 
+**Purpose:** Properly price the PT token subset of SuperVault Strategy total assets for PPS calculation.
+
 Implement **Book Value accounting** that:
-1. Tracks positions using (A, t0, B(t0), T) state per vault/market
-2. Calculates amortized value using linear interpolation to maturity
-3. Provides deterministic pricing for validator network consensus
-4. Emits events for Hypernative monitoring
+1. **Stores only 2 variables:** `lastUpdateBookValue` (B(t0)) and `lastUpdateTime` (t0)
+2. **Reads on-demand:** `ptAmount` from `IERC20(pt).balanceOf(strategy)`, `maturityTime` from `IPrincipalToken(pt).expiry()`
+3. Calculates amortized value using linear interpolation to maturity
+4. Emits events for monitoring
 
 ---
 
@@ -49,43 +51,42 @@ Where:
 ### State Structure
 
 ```solidity
-struct Position {
-    uint128 ptAmount;        // A: Total PT held (slot 1)
-    uint128 bookValue;       // B(t0): Book value at last update (slot 1)
-    uint64 lastUpdateTime;   // t0: Last state change timestamp (slot 2)
-    uint64 maturityTime;     // T: PT maturity timestamp (slot 2)
-    uint128 _reserved;       // Future use / padding (slot 2)
+// Minimal storage - only track what can't be read from chain
+struct BookValueState {
+    uint128 lastUpdateBookValue;  // B(t0): Book value at last update
+    uint64 lastUpdateTime;        // t0: Last state change timestamp
 }
-// Total: 2 storage slots
+// Total: 1 storage slot (24 bytes)
+
+// Variables read on-demand from chain:
+// ptAmount (A) = IERC20(pt).balanceOf(strategy)
+// maturityTime (T) = IPrincipalToken(pt).expiry()
 ```
 
 ### Update Rules
 
+Only `lastUpdateBookValue` and `lastUpdateTime` are stored/updated. The keeper calls these functions when purchases/redemptions occur.
+
 **Initialization (First Purchase):**
 ```
-A = ptAmount
-B(t0) = sySpent
-t0 = block.timestamp
-T = IPPrincipalToken(pt).expiry()
+lastUpdateBookValue = sySpent
+lastUpdateTime = block.timestamp
 ```
 
-**Subsequent Purchase:**
+**Subsequent Purchase (Buying ΔA PTs for sySpent):**
 ```
-B_current = calculateBookValue(position)  // B(t) at current time
-A_new = A + additionalPT
-B(t0)_new = B_current + sySpent
-t0_new = block.timestamp
-// T unchanged
+B_current = getBookValue()  // B(t) at current time
+lastUpdateBookValue = B_current + sySpent
+lastUpdateTime = block.timestamp
 ```
 
-**Redemption:**
+**Redemption (Selling ΔA PTs):**
 ```
-B_current = calculateBookValue(position)
-costBasis = B_current / A  // Average cost per PT
-A_new = A - redeemedPT
-B(t0)_new = B_current - (redeemedPT × costBasis)
-t0_new = block.timestamp
-// T unchanged
+A = IERC20(pt).balanceOf(strategy)  // read current amount BEFORE redemption
+B_current = getBookValue()           // B(t) at current time
+costBasis = B_current / A            // Average cost per PT
+lastUpdateBookValue = B_current - (ΔA × costBasis)
+lastUpdateTime = block.timestamp
 ```
 
 ---
@@ -101,73 +102,45 @@ pragma solidity 0.8.30;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {IPMarket} from "@pendle/interfaces/IPMarket.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPPrincipalToken} from "@pendle/interfaces/IPPrincipalToken.sol";
-import {IStandardizedYield} from "@pendle/interfaces/IStandardizedYield.sol";
 
 /// @title PendlePTAmortizedOracle
 /// @author Superform Labs
 /// @notice Provides amortized cost pricing for Pendle PT positions
 /// @dev Uses Book Value accounting with linear pull-to-par amortization
+/// @dev Only stores 2 variables; reads ptAmount and maturity from chain
 contract PendlePTAmortizedOracle is AccessControl {
     using Math for uint256;
     using SafeCast for uint256;
 
     // ============ Constants ============
 
-    uint256 public constant PRECISION = 1e18;
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     // ============ Structs ============
 
-    /// @notice Position state for a vault's PT holdings in a specific market
-    /// @dev Packed into 2 storage slots for gas efficiency
-    struct Position {
-        uint128 ptAmount;        // A: Total PT held
-        uint128 bookValue;       // B(t0): Book value at last update
-        uint64 lastUpdateTime;   // t0: Timestamp of last update
-        uint64 maturityTime;     // T: PT maturity timestamp
-        uint128 _reserved;       // Reserved for future use
+    /// @notice Minimal state - only what can't be read from chain
+    /// @dev Packed into 1 storage slot (24 bytes)
+    struct BookValueState {
+        uint128 lastUpdateBookValue;  // B(t0): Book value at last update
+        uint64 lastUpdateTime;        // t0: Timestamp of last update
     }
 
     // ============ Storage ============
 
-    /// @notice Position state per vault per market
-    mapping(address vault => mapping(address market => Position)) public positions;
-
-    /// @notice List of markets per vault for enumeration
-    mapping(address vault => address[]) public vaultMarkets;
+    /// @notice Book value state per vault per strategy per PT
+    mapping(address vault => mapping(address strategy => mapping(address pt => BookValueState))) public bookValues;
 
     // ============ Events ============
 
-    event PositionOpened(
+    event BookValueUpdated(
         address indexed vault,
-        address indexed market,
-        uint256 ptAmount,
-        uint256 bookValue,
-        uint256 maturityTimestamp
-    );
-
-    event PositionIncreased(
-        address indexed vault,
-        address indexed market,
-        uint256 additionalPt,
-        uint256 newTotalPt,
-        uint256 newBookValue
-    );
-
-    event PositionReduced(
-        address indexed vault,
-        address indexed market,
-        uint256 redeemedPt,
-        uint256 remainingPt,
-        uint256 remainingBookValue
-    );
-
-    event PositionClosed(
-        address indexed vault,
-        address indexed market
+        address indexed strategy,
+        address indexed pt,
+        uint256 newBookValue,
+        uint256 timestamp
     );
 
     // ============ Errors ============
@@ -175,9 +148,7 @@ contract PendlePTAmortizedOracle is AccessControl {
     error ZERO_ADDRESS();
     error ZERO_AMOUNT();
     error NO_POSITION();
-    error INSUFFICIENT_POSITION();
     error MARKET_EXPIRED();
-    error INVALID_BOOK_VALUE();
 
     // ============ Constructor ============
 
@@ -186,150 +157,101 @@ contract PendlePTAmortizedOracle is AccessControl {
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
-
-        // MANAGER can grant/revoke KEEPER_ROLE
         _setRoleAdmin(KEEPER_ROLE, MANAGER_ROLE);
     }
 
     // ============ Keeper Functions ============
 
-    /// @notice Record a PT purchase for a vault
+    /// @notice Record a PT purchase - updates lastUpdateBookValue and lastUpdateTime
     /// @param vault The SuperVault address
-    /// @param market The Pendle Market address
-    /// @param ptAmount Amount of PT purchased
+    /// @param strategy The strategy address holding the PT
+    /// @param pt The PT token address
     /// @param sySpent Amount of SY spent (book value increment)
     function recordPurchase(
         address vault,
-        address market,
-        uint256 ptAmount,
+        address strategy,
+        address pt,
         uint256 sySpent
     ) external onlyRole(KEEPER_ROLE) {
-        if (vault == address(0) || market == address(0)) revert ZERO_ADDRESS();
-        if (ptAmount == 0 || sySpent == 0) revert ZERO_AMOUNT();
-        // Sanity check: PT trades at discount, so sySpent should be <= ptAmount
-        if (sySpent > ptAmount) revert INVALID_BOOK_VALUE();
+        if (vault == address(0) || strategy == address(0) || pt == address(0)) revert ZERO_ADDRESS();
+        if (sySpent == 0) revert ZERO_AMOUNT();
 
-        // Get PT and check maturity
-        (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
-        uint256 maturity = pt.expiry();
+        uint256 maturity = IPPrincipalToken(pt).expiry();
         if (block.timestamp >= maturity) revert MARKET_EXPIRED();
 
-        Position storage pos = positions[vault][market];
-        if (pos.ptAmount > 0) {
-            // Update existing position
-            _increasePosition(vault, market, ptAmount, sySpent);
+        BookValueState storage state = bookValues[vault][strategy][pt];
+
+        // Calculate current book value (if position exists) and add new purchase
+        uint256 newBookValue;
+        if (state.lastUpdateTime > 0) {
+            uint256 currentBookValue = _calculateBookValue(vault, strategy, pt);
+            newBookValue = currentBookValue + sySpent;
         } else {
-            // Initialize new position
-            _openPosition(vault, market, ptAmount, sySpent, maturity);
+            // First purchase
+            newBookValue = sySpent;
         }
+
+        state.lastUpdateBookValue = newBookValue.toUint128();
+        state.lastUpdateTime = block.timestamp.toUint64();
+
+        emit BookValueUpdated(vault, strategy, pt, newBookValue, block.timestamp);
     }
 
-    /// @notice Record a PT redemption/sale for a vault
+    /// @notice Record a PT redemption - updates using cost basis accounting
+    /// @dev Must be called BEFORE the redemption changes balanceOf
     /// @param vault The SuperVault address
-    /// @param market The Pendle Market address
-    /// @param ptAmount Amount of PT redeemed/sold
+    /// @param strategy The strategy address holding the PT
+    /// @param pt The PT token address
+    /// @param ptRedeemed Amount of PT being redeemed
     function recordRedemption(
         address vault,
-        address market,
-        uint256 ptAmount
+        address strategy,
+        address pt,
+        uint256 ptRedeemed
     ) external onlyRole(KEEPER_ROLE) {
-        if (vault == address(0) || market == address(0)) revert ZERO_ADDRESS();
-        if (ptAmount == 0) revert ZERO_AMOUNT();
+        if (vault == address(0) || strategy == address(0) || pt == address(0)) revert ZERO_ADDRESS();
+        if (ptRedeemed == 0) revert ZERO_AMOUNT();
 
-        Position storage pos = positions[vault][market];
-        if (pos.ptAmount == 0) revert NO_POSITION();
-        if (ptAmount > pos.ptAmount) revert INSUFFICIENT_POSITION();
+        BookValueState storage state = bookValues[vault][strategy][pt];
+        if (state.lastUpdateTime == 0) revert NO_POSITION();
 
-        _reducePosition(vault, market, ptAmount);
+        // Read current PT amount BEFORE redemption
+        uint256 ptAmount = IERC20(pt).balanceOf(strategy);
+        uint256 currentBookValue = _calculateBookValue(vault, strategy, pt);
+
+        // Cost basis accounting
+        uint256 costBasis = currentBookValue.mulDiv(ptRedeemed, ptAmount);
+        uint256 newBookValue = currentBookValue - costBasis;
+
+        state.lastUpdateBookValue = newBookValue.toUint128();
+        state.lastUpdateTime = block.timestamp.toUint64();
+
+        emit BookValueUpdated(vault, strategy, pt, newBookValue, block.timestamp);
     }
 
     // ============ View Functions ============
 
     /// @notice Get the current amortized book value for a position
     /// @param vault The SuperVault address
-    /// @param market The Pendle Market address
+    /// @param strategy The strategy address holding the PT
+    /// @param pt The PT token address
     /// @return bookValue Current amortized book value
     function getBookValue(
         address vault,
-        address market
+        address strategy,
+        address pt
     ) external view returns (uint256 bookValue) {
-        Position memory pos = positions[vault][market];
-        if (pos.ptAmount == 0) revert NO_POSITION();
-        return _calculateBookValue(pos);
-    }
-
-    /// @notice Get the current price per PT (book value / amount)
-    /// @param vault The SuperVault address
-    /// @param market The Pendle Market address
-    /// @return pricePerPt Price per PT in SY terms (scaled by PRECISION)
-    function getPricePerPt(
-        address vault,
-        address market
-    ) external view returns (uint256 pricePerPt) {
-        Position memory pos = positions[vault][market];
-        if (pos.ptAmount == 0) revert NO_POSITION();
-
-        uint256 currentBookValue = _calculateBookValue(pos);
-        return currentBookValue.mulDiv(PRECISION, pos.ptAmount);
-    }
-
-    /// @notice Get raw position state
-    /// @param vault The SuperVault address
-    /// @param market The Pendle Market address
-    function getPosition(
-        address vault,
-        address market
-    ) external view returns (
-        uint256 ptAmount,
-        uint256 lastBookValue,
-        uint256 lastUpdateTime,
-        uint256 maturityTime,
-        uint256 currentBookValue
-    ) {
-        Position memory pos = positions[vault][market];
-        ptAmount = pos.ptAmount;
-        lastBookValue = pos.bookValue;
-        lastUpdateTime = pos.lastUpdateTime;
-        maturityTime = pos.maturityTime;
-        currentBookValue = pos.ptAmount > 0 ? _calculateBookValue(pos) : 0;
-    }
-
-    /// @notice Get all markets with active positions for a vault
-    /// @param vault The SuperVault address
-    /// @dev Filters out closed positions (ptAmount == 0)
-    function getVaultMarkets(address vault) external view returns (address[] memory) {
-        address[] storage markets = vaultMarkets[vault];
-        uint256 count;
-
-        // Count active positions
-        for (uint256 i; i < markets.length; ++i) {
-            if (positions[vault][markets[i]].ptAmount > 0) {
-                ++count;
-            }
-        }
-
-        // Build filtered array
-        address[] memory activeMarkets = new address[](count);
-        uint256 idx;
-        for (uint256 i; i < markets.length; ++i) {
-            if (positions[vault][markets[i]].ptAmount > 0) {
-                activeMarkets[idx++] = markets[i];
-            }
-        }
-
-        return activeMarkets;
+        BookValueState memory state = bookValues[vault][strategy][pt];
+        if (state.lastUpdateTime == 0) revert NO_POSITION();
+        return _calculateBookValue(vault, strategy, pt);
     }
 
     // ============ Admin Functions ============
 
-    /// @notice Grant keeper role to an address
-    /// @param keeper Address to grant keeper role
     function addKeeper(address keeper) external onlyRole(MANAGER_ROLE) {
         _grantRole(KEEPER_ROLE, keeper);
     }
 
-    /// @notice Revoke keeper role from an address
-    /// @param keeper Address to revoke keeper role
     function removeKeeper(address keeper) external onlyRole(MANAGER_ROLE) {
         _revokeRole(KEEPER_ROLE, keeper);
     }
@@ -338,11 +260,22 @@ contract PendlePTAmortizedOracle is AccessControl {
 
     /// @notice Calculate current book value using amortization formula
     /// @dev B(t) = A - (A - B(t0)) × (T - t) / (T - t0)
-    function _calculateBookValue(Position memory pos) internal view returns (uint256) {
-        uint256 A = pos.ptAmount;
-        uint256 B_t0 = pos.bookValue;
-        uint256 t0 = pos.lastUpdateTime;
-        uint256 T = pos.maturityTime;
+    /// @dev Reads ptAmount and maturity from chain
+    function _calculateBookValue(
+        address vault,
+        address strategy,
+        address pt
+    ) internal view returns (uint256) {
+        BookValueState memory state = bookValues[vault][strategy][pt];
+
+        // Read from chain
+        uint256 A = IERC20(pt).balanceOf(strategy);           // ptAmount
+        uint256 T = IPPrincipalToken(pt).expiry();            // maturityTime
+        uint256 B_t0 = state.lastUpdateBookValue;
+        uint256 t0 = state.lastUpdateTime;
+
+        // Edge case: no PT held
+        if (A == 0) return 0;
 
         // At or after maturity, book value = face value (A)
         if (block.timestamp >= T) {
@@ -358,96 +291,9 @@ contract PendlePTAmortizedOracle is AccessControl {
         uint256 timeRemaining = T - block.timestamp;
         uint256 totalDuration = T - t0;
 
-        // (A - B(t0)) × (T - t) / (T - t0)
         uint256 unamortizedDiscount = (A - B_t0).mulDiv(timeRemaining, totalDuration);
 
         return A - unamortizedDiscount;
-    }
-
-    /// @notice Open a new position
-    function _openPosition(
-        address vault,
-        address market,
-        uint256 ptAmount,
-        uint256 sySpent,
-        uint256 maturity
-    ) internal {
-        // Check if market was previously tracked (reopening closed position)
-        bool alreadyTracked;
-        address[] storage markets = vaultMarkets[vault];
-        for (uint256 i; i < markets.length; ++i) {
-            if (markets[i] == market) {
-                alreadyTracked = true;
-                break;
-            }
-        }
-
-        positions[vault][market] = Position({
-            ptAmount: ptAmount.toUint128(),
-            bookValue: sySpent.toUint128(),
-            lastUpdateTime: block.timestamp.toUint64(),
-            maturityTime: maturity.toUint64(),
-            _reserved: 0
-        });
-
-        if (!alreadyTracked) {
-            vaultMarkets[vault].push(market);
-        }
-
-        emit PositionOpened(vault, market, ptAmount, sySpent, maturity);
-    }
-
-    /// @notice Increase an existing position
-    function _increasePosition(
-        address vault,
-        address market,
-        uint256 additionalPt,
-        uint256 sySpent
-    ) internal {
-        Position storage pos = positions[vault][market];
-
-        // Calculate current book value before update
-        uint256 currentBookValue = _calculateBookValue(pos);
-
-        // Update state
-        uint256 newTotalPt = uint256(pos.ptAmount) + additionalPt;
-        uint256 newBookValue = currentBookValue + sySpent;
-
-        pos.ptAmount = newTotalPt.toUint128();
-        pos.bookValue = newBookValue.toUint128();
-        pos.lastUpdateTime = block.timestamp.toUint64();
-        // maturityTime unchanged
-
-        emit PositionIncreased(vault, market, additionalPt, newTotalPt, newBookValue);
-    }
-
-    /// @notice Reduce a position (partial or full redemption)
-    function _reducePosition(
-        address vault,
-        address market,
-        uint256 redeemedPt
-    ) internal {
-        Position storage pos = positions[vault][market];
-
-        // Calculate current book value and cost basis
-        uint256 currentBookValue = _calculateBookValue(pos);
-        uint256 costBasis = currentBookValue.mulDiv(redeemedPt, pos.ptAmount);
-
-        // Update state
-        uint256 remainingPt = uint256(pos.ptAmount) - redeemedPt;
-        uint256 remainingBookValue = currentBookValue - costBasis;
-
-        if (remainingPt == 0) {
-            // Full redemption: clean up position
-            delete positions[vault][market];
-            emit PositionReduced(vault, market, redeemedPt, 0, 0);
-            emit PositionClosed(vault, market);
-        } else {
-            pos.ptAmount = remainingPt.toUint128();
-            pos.bookValue = remainingBookValue.toUint128();
-            pos.lastUpdateTime = block.timestamp.toUint64();
-            emit PositionReduced(vault, market, redeemedPt, remainingPt, remainingBookValue);
-        }
     }
 }
 ```
@@ -458,32 +304,29 @@ contract PendlePTAmortizedOracle is AccessControl {
 
 ### Functional Requirements
 
-- [ ] Oracle tracks PT positions per vault/market with (A, t0, B(t0), T) state
-- [ ] `recordPurchase()` initializes or updates position with weighted average
-- [ ] `recordRedemption()` reduces position using cost basis accounting
+- [ ] Oracle stores only 2 variables per vault/strategy/pt: `lastUpdateBookValue` and `lastUpdateTime`
+- [ ] Oracle reads `ptAmount` from `IERC20(pt).balanceOf(strategy)` on-demand
+- [ ] Oracle reads `maturityTime` from `IPPrincipalToken(pt).expiry()` on-demand
+- [ ] `recordPurchase()` updates book value state per update rules
+- [ ] `recordRedemption()` updates book value state using cost basis accounting
 - [ ] `getBookValue()` returns linearly amortized value converging to face value at maturity
-- [ ] `getPricePerPt()` returns B(t)/A for compatibility with existing interfaces
-- [ ] Supports multiple PT markets with different maturities per vault
 - [ ] Access control: KEEPER_ROLE for recording, MANAGER_ROLE for keeper management
 
 ### Non-Functional Requirements
 
 - [ ] **Deterministic**: Same B(t) at same block.timestamp across all validators
-- [ ] **Transparent**: All state changes emit events for Hypernative
-- [ ] **Gas efficient**: View functions < 10k gas, state updates < 50k gas
-- [ ] **Safe math**: Uses OpenZeppelin Math.mulDiv and SafeCast for overflow-safe calculations
-- [ ] **Input validation**: Sanity checks on keeper inputs (sySpent <= ptAmount)
+- [ ] **Transparent**: All state changes emit `BookValueUpdated` event
+- [ ] **Gas efficient**: Minimal storage (1 slot), reads from chain
+- [ ] **Safe math**: Uses OpenZeppelin Math.mulDiv and SafeCast
 
 ### Edge Cases
 
-- [ ] At maturity (t = T): Returns B(T) = A
+- [ ] At maturity (t = T): Returns B(T) = A (face value)
 - [ ] After maturity (t > T): Returns B(T) = A (capped, no extrapolation)
 - [ ] No position exists: Reverts with `NO_POSITION`
 - [ ] Purchase after maturity: Reverts with `MARKET_EXPIRED`
-- [ ] Redemption exceeds holdings: Reverts with `INSUFFICIENT_POSITION`
 - [ ] Zero amounts: Reverts with `ZERO_AMOUNT`
-- [ ] Invalid book value (sySpent > ptAmount): Reverts with `INVALID_BOOK_VALUE`
-- [ ] Full redemption: Deletes position, emits `PositionClosed`
+- [ ] Zero PT balance: Returns 0
 
 ---
 
@@ -492,32 +335,29 @@ contract PendlePTAmortizedOracle is AccessControl {
 ### Unit Tests
 
 - [ ] `_calculateBookValue()` returns correct values at t0, mid-duration, and maturity
-- [ ] Weighted average update on subsequent purchases
-- [ ] Cost basis calculation on partial redemption
+- [ ] Purchase update rule: B(t) + sySpent
+- [ ] Redemption update rule: cost basis accounting
 - [ ] All error conditions revert with correct errors
 - [ ] SafeCast reverts on overflow
-- [ ] Full redemption cleans up position and emits `PositionClosed`
-- [ ] Sanity check rejects sySpent > ptAmount
 
 ### Integration Tests
 
-- [ ] Full lifecycle: open → increase → query → reduce → query
-- [ ] Multi-market: vault with 2+ different PT markets
+- [ ] Full lifecycle: purchase → query → purchase → query → redemption → query
 - [ ] Access control: keeper can record, non-keeper cannot
 - [ ] Event emissions match state changes
 
 ### Fork Tests
 
-- [ ] Against real Pendle markets on Ethereum mainnet
-- [ ] Verify maturity timestamp read from PT contract
-- [ ] Verify integration with actual market addresses
+- [ ] Against real Pendle PT tokens on Ethereum mainnet
+- [ ] Verify `balanceOf()` reads work correctly
+- [ ] Verify `expiry()` reads work correctly
 
 ---
 
 ## Dependencies & Prerequisites
 
-- OpenZeppelin Contracts (AccessControl, Math, SafeCast)
-- Pendle Core V2 interfaces (IPMarket, IPPrincipalToken)
+- OpenZeppelin Contracts (AccessControl, Math, SafeCast, IERC20)
+- Pendle Core V2 interfaces (IPPrincipalToken for `expiry()`)
 - Keeper infrastructure to monitor strategy transactions and call recording functions
 
 ---

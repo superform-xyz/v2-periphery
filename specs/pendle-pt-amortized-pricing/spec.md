@@ -11,16 +11,19 @@
 
 Implement a new `PendlePTAmortizedOracle` contract that provides **amortized cost pricing** for Pendle PT positions in SuperVaults. This replaces volatile mark-to-market pricing with deterministic, linear pull-to-par pricing suitable for the "Boring Strategy" (hold-to-maturity).
 
-The oracle tracks positions using Book Value accounting: `B(t) = A - (A - B(t0)) × (T - t) / (T - t0)`, where the price linearly converges from purchase price to face value at maturity. A keeper records purchases/redemptions, and the pricing service reads the amortized value for PPS calculation.
+**Purpose:** Properly price the PT token subset of SuperVault Strategy total assets. Once priced, this value is added to other assets to get total assets, then divided by shares to get PPS.
+
+The oracle uses Book Value accounting: `B(t) = A - (A - B(t0)) × (T - t) / (T - t0)`, where the price linearly converges from purchase price to face value at maturity.
 
 ## Requirements
 
 ### Functional
-1. Track PT positions per vault/market using state: (A, t0, B(t0), T)
-2. Calculate amortized book value using linear pull-to-par formula
-3. Support multiple PT markets with different maturities per vault
-4. Record purchases and redemptions via authorized keeper role
-5. Return current book value and derived price-per-PT for pricing service integration
+1. **Track only 2 variables per vault/market:** `lastUpdateBookValue` (B(t0)) and `lastUpdateTime` (t0)
+2. **Read on-demand:** `ptAmount` from `IERC20(PT).balanceOf(strategy)`, `maturityTime` from `IPrincipalToken(PT).expiry()`
+3. Calculate amortized book value using linear pull-to-par formula
+4. Support multiple PT markets with different maturities per vault
+5. Record purchases and redemptions via authorized keeper role (updates tracked variables per update rules)
+6. Return current book value for PPS calculation
 
 ### Non-Functional
 - Deterministic: Same result at same block height (validator network consensus)
@@ -37,63 +40,63 @@ The oracle tracks positions using Book Value accounting: `B(t) = A - (A - B(t0))
 ┌─────────────────┐     ┌──────────────────────────┐
 │  SuperVault     │     │  PendlePTAmortizedOracle │
 │  Strategy       │────▶│  ─────────────────────── │
-└─────────────────┘     │  positions[vault][market]│
-        │               │  - ptAmount (A)          │
-        │               │  - bookValue (B(t0))     │
-        ▼               │  - lastUpdateTime (t0)   │
-┌─────────────────┐     │  - maturityTime (T)      │
-│  Keeper         │────▶│                          │
-│  (records txns) │     └──────────────────────────┘
-└─────────────────┘               │
+└─────────────────┘     │  STORED (per vault/pt):  │
+        │               │  - lastUpdateBookValue   │
+        ▼               │  - lastUpdateTime        │
+┌─────────────────┐     │                          │
+│  Keeper         │────▶│  READ ON-DEMAND:         │
+│  (records txns) │     │  - ptAmount from ERC20   │
+└─────────────────┘     │  - maturityTime from PT  │
+                        └──────────────────────────┘
+                                  │
                                   ▼
                     ┌──────────────────────────┐
-                    │  Pricing Service         │
-                    │  - Reads getBookValue()  │
-                    │  - Applies Step 3 conv   │
-                    │  - Pushes PPS            │
+                    │  Strategy.totalAssets()  │
+                    │  - getBookValue() for PT │
+                    │  - + other assets        │
+                    │  - / shares = PPS        │
                     └──────────────────────────┘
 ```
 
 ### Data Model
 
 ```solidity
-struct Position {
-    uint128 ptAmount;        // A: Total PT held
-    uint128 bookValue;       // B(t0): Book value at last update
-    uint64 lastUpdateTime;   // t0: Timestamp of last update
-    uint64 maturityTime;     // T: PT maturity timestamp
-    uint128 _reserved;       // Future use
+// Only 2 variables need tracking - the rest are read on-demand
+struct BookValueState {
+    uint128 lastUpdateBookValue;  // B(t0): Book value at last update
+    uint64 lastUpdateTime;        // t0: Timestamp of last update
 }
 
-mapping(address vault => mapping(address market => Position)) positions;
+mapping(address vault => mapping(address pt => BookValueState)) public bookValues;
+
+// Read on-demand:
+// ptAmount (A) = IERC20(pt).balanceOf(strategy)
+// maturityTime (T) = IPrincipalToken(pt).expiry()
 ```
 
 ### API
 
 ```solidity
-// Keeper functions (KEEPER_ROLE required)
-function recordPurchase(address vault, address market, uint256 ptAmount, uint256 sySpent) external;
-function recordRedemption(address vault, address market, uint256 ptAmount) external;
+// Keeper functions (KEEPER_ROLE required) - update the 2 tracked variables
+function recordPurchase(address vault, address strategy, address pt, uint256 sySpent) external;
+function recordRedemption(address vault, address strategy, address pt, uint256 ptRedeemed) external;
 
 // View functions (public)
-function getBookValue(address vault, address market) external view returns (uint256);
-function getPricePerPt(address vault, address market) external view returns (uint256);
-function getPosition(address vault, address market) external view returns (...);
+function getBookValue(address vault, address strategy, address pt) external view returns (uint256);
 ```
 
 ## Implementation Plan
 
 ### Phase 1: Core Contract
-- [ ] Create `PendlePTAmortizedOracle.sol` with Position struct and storage
-- [ ] Implement `_calculateBookValue()` with amortization formula
-- [ ] Implement `recordPurchase()` with position init/update logic
-- [ ] Implement `recordRedemption()` with cost basis accounting
+- [ ] Create `PendlePTAmortizedOracle.sol` with minimal `BookValueState` storage
+- [ ] Implement `_calculateBookValue()` with amortization formula (reads ptAmount & maturity on-demand)
+- [ ] Implement `recordPurchase()` - updates lastUpdateBookValue and lastUpdateTime per update rules
+- [ ] Implement `recordRedemption()` - updates with cost basis accounting per update rules
 - [ ] Add AccessControl with KEEPER_ROLE and MANAGER_ROLE
 
 ### Phase 2: View Functions & Events
-- [ ] Implement `getBookValue()`, `getPricePerPt()`, `getPosition()`
-- [ ] Add events: PositionOpened, PositionIncreased, PositionReduced
-- [ ] Implement `getVaultMarkets()` for position enumeration
+- [ ] Implement `getBookValue()` - reads ptAmount from balanceOf, maturity from expiry()
+- [ ] Add events: BookValueUpdated
 
 ### Phase 3: Testing
 - [ ] Unit tests for amortization math and edge cases
@@ -101,9 +104,9 @@ function getPosition(address vault, address market) external view returns (...);
 - [ ] Fork tests against real Pendle markets
 
 ## Test Plan
-- [ ] Unit tests for: `_calculateBookValue`, weighted average updates, cost basis
-- [ ] Integration tests for: full lifecycle, multi-market, access control
-- [ ] Fork tests for: real Pendle market integration
+- [ ] Unit tests for: `_calculateBookValue` formula, update rules (buy/sell)
+- [ ] Integration tests for: full lifecycle, access control
+- [ ] Fork tests for: real Pendle PT token integration (balanceOf, expiry)
 
 ## Risks & Mitigations
 | Risk | Likelihood | Impact | Mitigation |
