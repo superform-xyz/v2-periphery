@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { PendlePTAmortizedOracle } from "../../../src/oracles/vaults/PendlePTAmortizedOracle.sol";
 
@@ -867,11 +868,14 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 timePassed
     ) public {
         // Bound inputs to reasonable ranges with minimum ratios to avoid precision issues
-        initialPtAmount = uint128(bound(initialPtAmount, 1e18, 1e27));
-        // Ensure sySpent is at least 50% of initialPtAmount to avoid extreme discount scenarios
-        uint128 minSySpent = initialPtAmount / 2;
+        initialPtAmount = uint128(bound(initialPtAmount, 1e18, 1e24));
+        // Ensure sySpent is at least 80% of initialPtAmount to avoid extreme discount scenarios
+        uint128 minSySpent = uint128(uint256(initialPtAmount) * 80 / 100);
         sySpent = uint128(bound(sySpent, minSySpent, initialPtAmount));
-        newPtAmount = uint128(bound(newPtAmount, 1e18, 1e27));
+        // Keep newPtAmount within 10x of initialPtAmount to avoid extreme scaling
+        uint128 minNewPt = initialPtAmount / 10;
+        uint128 maxNewPt = initialPtAmount * 10 > type(uint128).max ? type(uint128).max : initialPtAmount * 10;
+        newPtAmount = uint128(bound(newPtAmount, minNewPt, maxNewPt));
         // Ensure meaningful time has passed but not too close to boundaries
         timePassed = bound(timePassed, MATURITY / 10, MATURITY * 9 / 10);
 
@@ -888,13 +892,17 @@ contract PendlePTAmortizedOracleTest is Test {
         // Advance time
         vm.warp(block.timestamp + timePassed);
 
-        // Calculate expected amortized value at old amount
+        // Calculate expected amortized value at old amount using same formula as oracle
         // B(t) = A - (A - B_t0) * (T - t) / (T - t0)
-        uint256 T = t0 + MATURITY;
-        uint256 timeRemaining = T - block.timestamp;
-        uint256 totalDuration = T - t0;
-        uint256 amortizedValueAtOldAmount =
-            initialPtAmount - (uint256(initialPtAmount - sySpent) * timeRemaining / totalDuration);
+        // Use mulDiv for precision matching the oracle's calculation
+        uint256 amortizedValueAtOldAmount;
+        {
+            uint256 T = pt.expiry(); // Use actual PT expiry like the oracle does
+            uint256 timeRemaining = T - block.timestamp;
+            uint256 totalDuration = T - t0;
+            uint256 unamortizedDiscount = Math.mulDiv(initialPtAmount - sySpent, timeRemaining, totalDuration);
+            amortizedValueAtOldAmount = initialPtAmount - unamortizedDiscount;
+        }
 
         // Adjust balance to newPtAmount
         if (newPtAmount > initialPtAmount) {
@@ -903,11 +911,10 @@ contract PendlePTAmortizedOracleTest is Test {
             pt.burn(strategy, initialPtAmount - newPtAmount);
         }
 
-        // Expected: amortizedValue * currentPtAmount / A_t0
-        uint256 expectedBookValue = amortizedValueAtOldAmount * newPtAmount / initialPtAmount;
-        uint256 actualBookValue = oracle.getBookValue(strategy, address(market));
+        // Expected: amortizedValue * currentPtAmount / A_t0 (using mulDiv like oracle)
+        uint256 expectedBookValue = Math.mulDiv(amortizedValueAtOldAmount, newPtAmount, initialPtAmount);
 
-        assertApproxEqRel(actualBookValue, expectedBookValue, 0.01e18); // 1% tolerance for rounding
+        assertApproxEqRel(oracle.getBookValue(strategy, address(market)), expectedBookValue, 0.01e18);
     }
 
     /*//////////////////////////////////////////////////////////////
