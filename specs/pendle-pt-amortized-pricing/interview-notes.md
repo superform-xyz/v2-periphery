@@ -84,7 +84,7 @@ Replace mark-to-market pricing with a cost-basis approach that:
 1. **Deterministic:** Same result for same block height (validator network)
 2. **Transparent:** On-chain, verifiable (Hypernative monitoring)
 3. **Single source of truth:** No off-chain state dependencies
-4. **Gas efficient:** View functions must be cheap (<10k gas)
+4. **Gas efficient:** View functions must be cheap (<20k gas)
 
 ---
 

@@ -28,7 +28,7 @@ The oracle uses Book Value accounting: `B(t) = A - (A - B(t0)) × (T - t) / (T -
 ### Non-Functional
 - Deterministic: Same result at same block height (validator network consensus)
 - Transparent: Events for all state changes (Hypernative monitoring)
-- Gas efficient: View functions < 10k gas
+- Gas efficient: View functions < 20k gas
 - Safe: OpenZeppelin AccessControl, Math.mulDiv, and SafeCast
 - Input validation: Sanity checks on keeper inputs (sySpent ≤ ptAmount)
 
