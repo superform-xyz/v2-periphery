@@ -1888,10 +1888,10 @@ contract PendlePTAmortizedOracleTest is Test {
                 ZERO STORED AMOUNT EDGE CASE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Test getBookValue when stored amount is 0 but current balance is non-zero
+    /// @notice Test getBookValue reverts when stored amount is 0 but current balance is non-zero
     /// @dev After full redemption (storedPtAmount = 0), if PT is added without recording,
-    ///      book value should return face value consistently (before and after maturity)
-    function test_GetBookValue_ZeroStoredAmountNonZeroBalance() public {
+    ///      getBookValue should revert to force proper recording
+    function test_GetBookValue_RevertsUnrecordedPTBalance() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -1913,13 +1913,14 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 newPtAmount = 50e18;
         pt.mint(strategy, newPtAmount);
 
-        // Book value should return face value (conservative estimate)
-        uint256 bookValue = oracle.getBookValue(strategy, address(market));
-        assertEq(bookValue, newPtAmount, "Book value should equal face value when stored amount is 0");
+        // getBookValue should revert because PT was added without proper recording
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.getBookValue(strategy, address(market));
     }
 
-    /// @notice Test consistency of book value at maturity when stored amount is 0
-    function test_GetBookValue_ZeroStoredAmountAtMaturity() public {
+    /// @notice Test getBookValue behavior at maturity when stored amount is 0 but balance exists
+    /// @dev At maturity, PT is worth face value regardless of recording status
+    function test_GetBookValue_UnrecordedPTBalanceAtMaturity() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -1937,17 +1938,80 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 newPtAmount = 75e18;
         pt.mint(strategy, newPtAmount);
 
-        // Check book value before maturity
-        uint256 bookValueBeforeMaturity = oracle.getBookValue(strategy, address(market));
+        // Should revert before maturity
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.getBookValue(strategy, address(market));
 
-        // Warp to maturity
+        // At maturity, PT is worth face value regardless - no revert needed
+        // because the book value calculation short-circuits to return currentPtAmount
         vm.warp(block.timestamp + MATURITY);
-        uint256 bookValueAtMaturity = oracle.getBookValue(strategy, address(market));
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, newPtAmount, "At maturity, book value should equal face value");
+    }
 
-        // Both should return face value (consistent behavior)
-        assertEq(bookValueBeforeMaturity, newPtAmount, "Book value before maturity should be face value");
-        assertEq(bookValueAtMaturity, newPtAmount, "Book value at maturity should be face value");
-        assertEq(bookValueBeforeMaturity, bookValueAtMaturity, "Book values should be consistent");
+    /// @notice Test recovery from UNRECORDED_PT_BALANCE via recordPurchase
+    function test_GetBookValue_RecoveryViaRecordPurchase() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Add PT without recording
+        uint256 newPtAmount = 50e18;
+        pt.mint(strategy, newPtAmount);
+
+        // Verify it reverts
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.getBookValue(strategy, address(market));
+
+        // Recovery: record the purchase with actual cost basis
+        uint256 actualCost = 45e18; // 10% discount
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), actualCost, newPtAmount, bytes32("recovery"));
+
+        // Now getBookValue should work
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, actualCost);
+    }
+
+    /// @notice Test recovery from UNRECORDED_PT_BALANCE via correctBookValue
+    function test_GetBookValue_RecoveryViaCorrectBookValue() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Add PT without recording
+        uint256 newPtAmount = 50e18;
+        pt.mint(strategy, newPtAmount);
+
+        // Verify it reverts
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.getBookValue(strategy, address(market));
+
+        // Recovery: manager corrects the book value
+        uint128 correctedBookValue = 45e18;
+        oracle.correctBookValue(strategy, address(market), correctedBookValue, uint128(newPtAmount));
+
+        // Now getBookValue should work
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, correctedBookValue);
     }
 
     /// @notice Test book value returns 0 when both stored and current amounts are 0

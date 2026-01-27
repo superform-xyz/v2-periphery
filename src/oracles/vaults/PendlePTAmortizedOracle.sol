@@ -125,6 +125,9 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @notice Thrown when PT balance doesn't match expected amount after purchase
     error PT_BALANCE_MISMATCH();
 
+    /// @notice Thrown when PT balance exists but no purchase was recorded (data integrity issue)
+    error UNRECORDED_PT_BALANCE();
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -392,12 +395,10 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 B_t0 = state.lastUpdateBookValue;
         uint256 t0 = state.lastUpdateTime;
 
-        // Handle edge case: stored amount is 0 but current amount is non-zero
-        // This means PT was added without recording (e.g., after full redemption)
-        // Return face value as conservative estimate (assumes cost basis = face value)
-        // This provides consistent behavior before and after maturity
+        // If stored amount is 0 but current amount is non-zero, PT was added without recording
+        // This is a data integrity issue - revert to force proper recording via recordPurchase or correctBookValue
         if (A_t0 == 0) {
-            return currentPtAmount;
+            revert UNRECORDED_PT_BALANCE();
         }
 
         // Before any time has passed, book value = B(t0) scaled by current amount
