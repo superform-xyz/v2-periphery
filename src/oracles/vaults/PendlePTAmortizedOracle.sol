@@ -399,12 +399,6 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 B_t0 = state.lastUpdateBookValue;
         uint256 t0 = state.lastUpdateTime;
 
-        // If stored amount is 0 but current amount is non-zero, PT was added without recording
-        // This is a data integrity issue - revert to force proper recording via recordPurchase or correctBookValue
-        if (A_t0 == 0) {
-            revert UNRECORDED_PT_BALANCE();
-        }
-
         // Before any time has passed, book value = B(t0) scaled by current amount
         if (block.timestamp <= t0) {
             // If PT amount changed without recording, scale proportionally

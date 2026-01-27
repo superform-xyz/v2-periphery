@@ -25,10 +25,14 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
     /// @param env Environment (0 = prod, 2 = staging)
     /// @param chainId Chain ID
     function run(uint256 env, uint64 chainId) external broadcast(env) {
+        // Validate env - only prod (0) and staging (2) are supported (vnet env=1 not supported)
+        require(env == 0 || env == 2, "INVALID_ENV: only prod (0) or staging (2) supported");
+
         _setBaseConfiguration(env, "");
 
-        // Validate SUPER_GOVERNOR_ADDRESS is not zero to prevent bricking the oracle
+        // Validate SUPER_GOVERNOR_ADDRESS to prevent bricking the oracle
         require(SUPER_GOVERNOR_ADDRESS != address(0), "SUPER_GOVERNOR_ADDRESS cannot be zero");
+        require(SUPER_GOVERNOR_ADDRESS != DEPLOYER, "SUPER_GOVERNOR_ADDRESS cannot equal DEPLOYER");
 
         console2.log("====== Transfer PendlePTAmortizedOracle Roles ======");
         console2.log("Chain ID:", chainId);
@@ -158,6 +162,9 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
     /// @param env Environment (0 = prod, 2 = staging)
     /// @param chainId Chain ID
     function runCheck(uint256 env, uint64 chainId) external broadcast(env) {
+        // Validate env - only prod (0) and staging (2) are supported (vnet env=1 not supported)
+        require(env == 0 || env == 2, "INVALID_ENV: only prod (0) or staging (2) supported");
+
         _setBaseConfiguration(env, "");
 
         console2.log("====== PendlePTAmortizedOracle Role Check ======");
