@@ -9,6 +9,7 @@ import { console2 } from "forge-std/console2.sol";
 /// @title DeployPendlePTAmortizedOracle
 /// @notice Deployment script for PendlePTAmortizedOracle - amortized cost pricing for Pendle PT positions
 /// @dev Deploys across multiple chains with deterministic addresses
+/// @dev Initially grants all roles to DEPLOYER for operational flexibility, then transfers to SUPER_GOVERNOR later
 contract DeployPendlePTAmortizedOracle is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
                               CONSTANTS
@@ -22,29 +23,33 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deploy PendlePTAmortizedOracle on a single chain
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to DEPLOYER
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to deploy on
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function run(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
-        address admin = SUPER_GOVERNOR_ADDRESS;
+        // Use DEPLOYER as admin - will be transferred to SUPER_GOVERNOR_ADDRESS later
+        address admin = DEPLOYER;
         _deploy(env, chainId, admin, branchName);
     }
 
     /// @notice Deploy PendlePTAmortizedOracle on multiple chains
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to DEPLOYER
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainIds Array of chain IDs to deploy on
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function runMultiChain(uint256 env, uint64[] calldata chainIds, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
-        address admin = SUPER_GOVERNOR_ADDRESS;
+        // Use DEPLOYER as admin - will be transferred to SUPER_GOVERNOR_ADDRESS later
+        address admin = DEPLOYER;
 
         console2.log("====== Deploying PendlePTAmortizedOracle (Multi-Chain) ======");
         console2.log("Environment:", env);
         if (env == 1) {
             console2.log("Branch Name:", branchName);
         }
-        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
+        console2.log("Admin (DEPLOYER):", admin);
         console2.log("Number of chains:", chainIds.length);
         console2.log("");
 
@@ -64,7 +69,8 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        address admin = SUPER_GOVERNOR_ADDRESS;
+        // Check with DEPLOYER as admin (initial deployment)
+        address admin = DEPLOYER;
 
         console2.log("====== PendlePTAmortizedOracle Deployment Check ======");
         console2.log("Chain ID:", chainId);
@@ -72,7 +78,8 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         if (env == 1) {
             console2.log("Branch Name:", branchName);
         }
-        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
+        console2.log("Admin (DEPLOYER):", admin);
+        console2.log("SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
         console2.log("");
 
         address oracleAddr = _computeAddress(env, admin);
@@ -84,9 +91,15 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         if (isDeployed) {
             PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
             console2.log("");
-            console2.log("=== Oracle State ===");
-            console2.log("Has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin));
-            console2.log("Has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), admin));
+            console2.log("=== Oracle Role Status ===");
+            console2.log("DEPLOYER has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin));
+            console2.log("DEPLOYER has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), admin));
+            console2.log("DEPLOYER has KEEPER_ROLE:", oracle.hasRole(oracle.KEEPER_ROLE(), admin));
+            console2.log("");
+            console2.log("SUPER_GOVERNOR has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS));
+            console2.log("SUPER_GOVERNOR has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), SUPER_GOVERNOR_ADDRESS));
+            console2.log("SUPER_GOVERNOR has KEEPER_ROLE:", oracle.hasRole(oracle.KEEPER_ROLE(), SUPER_GOVERNOR_ADDRESS));
+            console2.log("");
             console2.log("Is paused:", oracle.paused());
         }
 
@@ -109,9 +122,10 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Internal deployment function
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to admin
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to deploy on
-    /// @param admin Admin address
+    /// @param admin Admin address (DEPLOYER)
     /// @param branchName Branch name for vnet deployments
     function _deploy(uint256 env, uint64 chainId, address admin, string calldata branchName) internal {
         _setBaseConfiguration(env, branchName);
@@ -122,7 +136,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         if (env == 1) {
             console2.log("Branch Name:", branchName);
         }
-        console2.log("Admin:", admin);
+        console2.log("Admin (DEPLOYER):", admin);
         console2.log("");
 
         // Validate inputs
@@ -132,7 +146,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
         require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
 
-        // Deploy
+        // Deploy - constructor grants DEFAULT_ADMIN_ROLE and MANAGER_ROLE to admin
         address oracleAddr = __deployContract(
             ORACLE_KEY,
             chainId,
@@ -140,15 +154,26 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
             abi.encodePacked(bytecode, abi.encode(admin))
         );
 
-        // Verify deployment
+        // Verify deployment and grant KEEPER_ROLE
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
         require(oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
         require(oracle.hasRole(oracle.MANAGER_ROLE(), admin), "MANAGER_ROLE_MISMATCH");
+
+        // Grant KEEPER_ROLE to admin (constructor only grants DEFAULT_ADMIN_ROLE and MANAGER_ROLE)
+        // Admin has MANAGER_ROLE which is the admin of KEEPER_ROLE, so can grant it
+        if (!oracle.hasRole(oracle.KEEPER_ROLE(), admin)) {
+            oracle.addKeeper(admin);
+            console2.log("Granted KEEPER_ROLE to admin");
+        }
+        require(oracle.hasRole(oracle.KEEPER_ROLE(), admin), "KEEPER_ROLE_MISMATCH");
 
         console2.log("");
         console2.log("=== Deployment Verification ===");
         console2.log("PendlePTAmortizedOracle deployed at:", oracleAddr);
         console2.log("Admin verified:", admin);
+        console2.log("Has DEFAULT_ADMIN_ROLE:", true);
+        console2.log("Has MANAGER_ROLE:", true);
+        console2.log("Has KEEPER_ROLE:", true);
 
         // Write JSON output
         _writeOracleJson(env, chainId, oracleAddr, branchName);
