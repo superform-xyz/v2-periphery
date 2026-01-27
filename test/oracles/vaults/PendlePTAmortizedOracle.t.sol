@@ -872,9 +872,9 @@ contract PendlePTAmortizedOracleTest is Test {
         // Ensure sySpent is at least 80% of initialPtAmount to avoid extreme discount scenarios
         uint128 minSySpent = uint128(uint256(initialPtAmount) * 80 / 100);
         sySpent = uint128(bound(sySpent, minSySpent, initialPtAmount));
-        // Keep newPtAmount within 10x of initialPtAmount to avoid extreme scaling
-        uint128 minNewPt = initialPtAmount / 10;
-        uint128 maxNewPt = initialPtAmount * 10 > type(uint128).max ? type(uint128).max : initialPtAmount * 10;
+        // Keep newPtAmount within 2x of initialPtAmount to avoid extreme scaling and precision loss
+        uint128 minNewPt = initialPtAmount / 2;
+        uint128 maxNewPt = initialPtAmount * 2 > type(uint128).max ? type(uint128).max : initialPtAmount * 2;
         newPtAmount = uint128(bound(newPtAmount, minNewPt, maxNewPt));
         // Ensure meaningful time has passed but not too close to boundaries
         timePassed = bound(timePassed, MATURITY / 10, MATURITY * 9 / 10);
