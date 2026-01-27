@@ -236,7 +236,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         // Record redemption BEFORE actually burning (per spec)
         vm.prank(keeper);
-        oracle.recordRedemption(testStrategy, address(market), ptToRedeem);
+        oracle.recordRedemption(testStrategy, address(market), ptToRedeem, bytes32(0));
 
         // Simulate the actual redemption by burning PT
         vm.prank(testStrategy);
@@ -442,7 +442,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Benchmark recordRedemption
         gasBefore = gasleft();
         vm.prank(keeper);
-        oracle.recordRedemption(testStrategy, address(market), ptAmount / 2);
+        oracle.recordRedemption(testStrategy, address(market), ptAmount / 2, bytes32(0));
         uint256 gasUsedRedemption = gasBefore - gasleft();
         console2.log("Gas used - recordRedemption:", gasUsedRedemption);
 

@@ -286,7 +286,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         uint256 ptToRedeem = 60e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptToRedeem);
+        oracle.recordRedemption(strategy, address(market), ptToRedeem, bytes32(0));
 
         // Burn the PT after recording
         pt.burn(strategy, ptToRedeem);
@@ -313,7 +313,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
 
         // Burn the PT
         pt.burn(strategy, ptAmount);
@@ -338,7 +338,7 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonKeeper, KEEPER_ROLE)
         );
-        oracle.recordRedemption(strategy, address(market), 50e18);
+        oracle.recordRedemption(strategy, address(market), 50e18, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts for zero address
@@ -349,11 +349,11 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.recordRedemption(address(0), address(market), 50e18);
+        oracle.recordRedemption(address(0), address(market), 50e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.recordRedemption(strategy, address(0), 50e18);
+        oracle.recordRedemption(strategy, address(0), 50e18, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts for zero amount
@@ -364,14 +364,14 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_AMOUNT.selector);
-        oracle.recordRedemption(strategy, address(market), 0);
+        oracle.recordRedemption(strategy, address(market), 0, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts when no position exists
     function test_RecordRedemption_RevertsNoPosition() public {
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.NO_POSITION.selector);
-        oracle.recordRedemption(strategy, address(market), 50e18);
+        oracle.recordRedemption(strategy, address(market), 50e18, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts when amount exceeds holdings
@@ -382,7 +382,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.INSUFFICIENT_POSITION.selector);
-        oracle.recordRedemption(strategy, address(market), 101e18);
+        oracle.recordRedemption(strategy, address(market), 101e18, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts when paused
@@ -396,7 +396,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        oracle.recordRedemption(strategy, address(market), 50e18);
+        oracle.recordRedemption(strategy, address(market), 50e18, bytes32(0));
     }
 
     /// @notice Test recordRedemption reverts when there's unrecorded PT balance
@@ -412,7 +412,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption - storedPtAmount becomes 0
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Verify storedPtAmount is 0
@@ -426,7 +426,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // recordRedemption should revert - can't launder unrecorded PT through redemption
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
-        oracle.recordRedemption(strategy, address(market), 25e18);
+        oracle.recordRedemption(strategy, address(market), 25e18, bytes32(0));
     }
 
     /// @notice Test that without the fix, unrecorded PT could be laundered through redemption
@@ -442,7 +442,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Add PT without recording
@@ -453,7 +453,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // After the fix, it reverts with UNRECORDED_PT_BALANCE
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
-        oracle.recordRedemption(strategy, address(market), 25e18);
+        oracle.recordRedemption(strategy, address(market), 25e18, bytes32(0));
 
         // Verify state was NOT updated (still has storedPtAmount == 0)
         (,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
@@ -479,7 +479,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // New book value = 100 - 50 = 50
         uint256 redeemAmount = 50e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // Burn the PT
         pt.burn(strategy, redeemAmount);
@@ -509,7 +509,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // New book value = 100 - 60 = 40
         uint256 redeemAmount = 60e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // Burn the PT
         pt.burn(strategy, redeemAmount);
@@ -550,7 +550,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Redeem 30e18 PT
         uint256 redeemAmount = 30e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // The book value should have been scaled by currentBalance/storedAmount = 150/100 = 1.5
         // Then cost basis calculated and subtracted
@@ -595,7 +595,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Redeem 30e18 PT
         uint256 redeemAmount = 30e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // The book value should have been scaled by currentBalance/storedAmount = 80/100 = 0.8
         // Then cost basis calculated and subtracted
@@ -630,7 +630,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Redeem 50e18 PT
         uint256 redeemAmount = 50e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // Book value at t0: 90 for 100 PT
         // Scaled to 200 PT: 90 * 200 / 100 = 180
@@ -1186,7 +1186,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Selling 60 PT: book value reduction = 60 * 0.97 = 58.2
         // New book value = 169.75 - 58.2 = 111.55
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(shortMarket), 60e18);
+        oracle.recordRedemption(strategy, address(shortMarket), 60e18, bytes32(0));
         shortPt.burn(strategy, 60e18);
 
         uint256 finalBookValue = oracle.getBookValue(strategy, address(shortMarket));
@@ -1252,7 +1252,7 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptRedeemed);
+        oracle.recordRedemption(strategy, address(market), ptRedeemed, bytes32(0));
 
         pt.burn(strategy, ptRedeemed);
 
@@ -1605,7 +1605,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // 4. Redeem half
         uint256 redeemAmount = ptAmount / 2;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
         pt.burn(strategy, redeemAmount);
 
         // Book value should be approximately half
@@ -1722,7 +1722,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        oracle.recordRedemption(strategy, address(market), 50e18);
+        oracle.recordRedemption(strategy, address(market), 50e18, bytes32(0));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1937,7 +1937,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // New book value = 150 - 60 = 90
         uint256 redeemAmount = 40e18;
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), redeemAmount);
+        oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // Verify the new stored values
         (uint128 storedBookValue,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
@@ -1963,7 +1963,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption - storedPtAmount becomes 0
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Verify storedPtAmount is 0
@@ -1993,7 +1993,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Add PT without recording
@@ -2022,7 +2022,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Add PT without recording
@@ -2055,7 +2055,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Add PT without recording
@@ -2087,7 +2087,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Full redemption
         vm.prank(keeper);
-        oracle.recordRedemption(strategy, address(market), ptAmount);
+        oracle.recordRedemption(strategy, address(market), ptAmount, bytes32(0));
         pt.burn(strategy, ptAmount);
 
         // Both stored and current are 0

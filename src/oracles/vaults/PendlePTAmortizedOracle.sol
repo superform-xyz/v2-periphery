@@ -75,6 +75,22 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 timestamp
     );
 
+    /// @notice Emitted when a redemption is recorded
+    /// @param strategy The strategy address holding the PT
+    /// @param market The Pendle market address
+    /// @param sellOrderId External order ID for tracking/reconciliation
+    /// @param ptRedeemed Amount of PT redeemed
+    /// @param newBookValue The new book value after the redemption
+    /// @param timestamp The timestamp of the redemption
+    event RedemptionRecorded(
+        address indexed strategy,
+        address indexed market,
+        bytes32 indexed sellOrderId,
+        uint256 ptRedeemed,
+        uint256 newBookValue,
+        uint256 timestamp
+    );
+
     /// @notice Emitted when a keeper is added
     /// @param keeper The keeper address that was added
     event KeeperAdded(address indexed keeper);
@@ -211,10 +227,12 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
     /// @param ptRedeemed Amount of PT being redeemed
+    /// @param sellOrderId External order ID for tracking/reconciliation (can be bytes32(0) if not needed)
     function recordRedemption(
         address strategy,
         address market,
-        uint256 ptRedeemed
+        uint256 ptRedeemed,
+        bytes32 sellOrderId
     )
         external
         onlyRole(KEEPER_ROLE)
@@ -259,6 +277,7 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         state.lastUpdatePtAmount = newPtAmount.toUint128();
 
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
+        emit RedemptionRecorded(strategy, market, sellOrderId, ptRedeemed, newBookValue, block.timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
