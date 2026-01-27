@@ -27,6 +27,9 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
     function run(uint256 env, uint64 chainId) external broadcast(env) {
         _setBaseConfiguration(env, "");
 
+        // Validate SUPER_GOVERNOR_ADDRESS is not zero to prevent bricking the oracle
+        require(SUPER_GOVERNOR_ADDRESS != address(0), "SUPER_GOVERNOR_ADDRESS cannot be zero");
+
         console2.log("====== Transfer PendlePTAmortizedOracle Roles ======");
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);

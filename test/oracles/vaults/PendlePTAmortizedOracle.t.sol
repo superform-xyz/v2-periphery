@@ -399,6 +399,67 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.recordRedemption(strategy, address(market), 50e18);
     }
 
+    /// @notice Test recordRedemption reverts when there's unrecorded PT balance
+    /// @dev Prevents "laundering" unrecorded purchases through redemption
+    function test_RecordRedemption_RevertsUnrecordedPTBalance() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption - storedPtAmount becomes 0
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Verify storedPtAmount is 0
+        (,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        assertEq(storedPtAmount, 0);
+
+        // Add PT without recording (simulates unrecorded purchase)
+        uint256 newPtAmount = 50e18;
+        pt.mint(strategy, newPtAmount);
+
+        // recordRedemption should revert - can't launder unrecorded PT through redemption
+        vm.prank(keeper);
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.recordRedemption(strategy, address(market), 25e18);
+    }
+
+    /// @notice Test that without the fix, unrecorded PT could be laundered through redemption
+    /// @dev This test documents the vulnerability that was fixed
+    function test_RecordRedemption_PreventsLaunderingUnrecordedPT() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Add PT without recording
+        uint256 newPtAmount = 50e18;
+        pt.mint(strategy, newPtAmount);
+
+        // Before the fix, this would succeed and update state with non-zero lastUpdatePtAmount
+        // After the fix, it reverts with UNRECORDED_PT_BALANCE
+        vm.prank(keeper);
+        vm.expectRevert(PendlePTAmortizedOracle.UNRECORDED_PT_BALANCE.selector);
+        oracle.recordRedemption(strategy, address(market), 25e18);
+
+        // Verify state was NOT updated (still has storedPtAmount == 0)
+        (,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        assertEq(storedPtAmount, 0, "State should not be updated after revert");
+    }
+
     /// @notice Test recordRedemption at maturity uses face value for book value calculation
     /// @dev Tests the path: if (block.timestamp >= maturity) { return A; } in _calculateBookValueWithStoredAmount
     function test_RecordRedemption_AtMaturityUsesFaceValue() public {

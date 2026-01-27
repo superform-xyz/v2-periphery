@@ -234,12 +234,16 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 ptAmount = IERC20(address(pt)).balanceOf(strategy);
         if (ptRedeemed > ptAmount) revert INSUFFICIENT_POSITION();
 
+        // Check for unrecorded PT balance (storedPtAmount == 0 but actual balance > 0)
+        // This prevents "laundering" unrecorded purchases through redemption
+        uint256 storedPtAmount = state.lastUpdatePtAmount;
+        if (storedPtAmount == 0 && ptAmount > 0) revert UNRECORDED_PT_BALANCE();
+
         // Calculate current book value using stored ptAmount
         uint256 currentBookValue = _calculateBookValueWithStoredAmount(state, maturity);
 
         // Handle discrepancy between stored and current balance
         // Scale book value to current balance for accurate cost basis (matches _calculateBookValue behavior)
-        uint256 storedPtAmount = state.lastUpdatePtAmount;
         if (ptAmount != storedPtAmount && storedPtAmount > 0) {
             currentBookValue = currentBookValue.mulDiv(ptAmount, storedPtAmount);
         }
