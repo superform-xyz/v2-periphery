@@ -33,6 +33,14 @@ contract PendlePTAmortizedOracleTest is Test {
 
     // Events
     event BookValueUpdated(address indexed strategy, address indexed market, uint256 newBookValue, uint256 timestamp);
+    event PurchaseRecorded(
+        address indexed strategy,
+        address indexed market,
+        bytes32 indexed buyOrderId,
+        uint256 sySpent,
+        uint256 newBookValue,
+        uint256 timestamp
+    );
     event KeeperAdded(address indexed keeper);
     event KeeperRemoved(address indexed keeper);
     event BookValueCorrected(
@@ -96,7 +104,7 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.prank(keeper);
         vm.expectEmit(true, true, false, true);
         emit BookValueUpdated(strategy, address(market), sySpent, block.timestamp);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Verify state
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
@@ -112,7 +120,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, 0); // 0 = skip verification
+        oracle.recordPurchase(strategy, address(market), sySpent, 0, bytes32(0)); // 0 = skip verification
 
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
         assertEq(bookValue, sySpent);
@@ -126,7 +134,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // First purchase
         pt.mint(strategy, ptAmount1);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent1, ptAmount1);
+        oracle.recordPurchase(strategy, address(market), sySpent1, ptAmount1, bytes32(0));
 
         // Advance time halfway to maturity
         vm.warp(block.timestamp + MATURITY / 2);
@@ -142,7 +150,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount2);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent2, ptAmount1 + ptAmount2);
+        oracle.recordPurchase(strategy, address(market), sySpent2, ptAmount1 + ptAmount2, bytes32(0));
 
         // New book value = current amortized value + sySpent
         uint256 expectedNewBookValue = expectedBookValueBefore + sySpent2;
@@ -160,25 +168,25 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonKeeper, KEEPER_ROLE)
         );
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts for zero address
     function test_RecordPurchase_RevertsZeroAddress() public {
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.recordPurchase(address(0), address(market), 90e18, 100e18);
+        oracle.recordPurchase(address(0), address(market), 90e18, 100e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.recordPurchase(strategy, address(0), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(0), 90e18, 100e18, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts for zero amount
     function test_RecordPurchase_RevertsZeroAmount() public {
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_AMOUNT.selector);
-        oracle.recordPurchase(strategy, address(market), 0, 100e18);
+        oracle.recordPurchase(strategy, address(market), 0, 100e18, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts after market expiry
@@ -190,7 +198,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.MARKET_EXPIRED.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts if book value exceeds face value
@@ -201,7 +209,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Try to record a purchase where sySpent > ptAmount (keeper error)
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.BOOK_VALUE_EXCEEDS_FACE_VALUE.selector);
-        oracle.recordPurchase(strategy, address(market), 101e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 101e18, ptAmount, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts if strategy has no PT balance
@@ -210,7 +218,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.NO_PT_BALANCE.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 0);
+        oracle.recordPurchase(strategy, address(market), 90e18, 0, bytes32(0));
     }
 
     /// @notice Test recordPurchase reverts if PT balance doesn't match expected
@@ -221,7 +229,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Pass wrong expected amount
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.PT_BALANCE_MISMATCH.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 50e18); // Expected 50, actual 100
+        oracle.recordPurchase(strategy, address(market), 90e18, 50e18, bytes32(0)); // Expected 50, actual 100
     }
 
     /// @notice Test recordPurchase reverts when paused
@@ -233,7 +241,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -248,7 +256,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Initial purchase
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Advance time to 20% of duration
         vm.warp(block.timestamp + MATURITY / 5);
@@ -280,7 +288,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Initial purchase
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Advance time
         vm.warp(block.timestamp + MATURITY / 2);
@@ -305,7 +313,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_RecordRedemption_RevertsNonKeeper() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         address nonKeeper = makeAddr("nonKeeper");
         vm.prank(nonKeeper);
@@ -319,7 +327,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_RecordRedemption_RevertsZeroAddress() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
@@ -334,7 +342,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_RecordRedemption_RevertsZeroAmount() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_AMOUNT.selector);
@@ -352,7 +360,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_RecordRedemption_RevertsInsufficientPosition() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.INSUFFICIENT_POSITION.selector);
@@ -363,7 +371,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_RecordRedemption_RevertsWhenPaused() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         // Pause the oracle
         oracle.pause();
@@ -384,7 +392,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // At t0: should equal sySpent
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
@@ -413,7 +421,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Warp well past maturity
         vm.warp(block.timestamp + MATURITY * 2);
@@ -429,7 +437,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Burn all PT (simulate full redemption without calling recordRedemption)
         pt.burn(strategy, ptAmount);
@@ -562,7 +570,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Correct the book value
         uint128 newBookValue = 85e18;
@@ -626,7 +634,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         assertTrue(oracle.hasPosition(strategy, address(market)));
 
@@ -641,7 +649,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function test_DeletePosition_RevertsNonManager() public {
         pt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         address nonManager = makeAddr("nonManager");
 
@@ -681,7 +689,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Trade 1: t=0, Buy 100 PT at P=0.90, A=100, B(t)=90
         shortPt.mint(strategy, 100e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(shortMarket), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(shortMarket), 90e18, 100e18, bytes32(0));
         assertEq(oracle.getBookValue(strategy, address(shortMarket)), 90e18);
 
         // Trade 2: t=20, Buy 50 PT at P=0.92, A=150, B(t)=138
@@ -692,7 +700,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         shortPt.mint(strategy, 50e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(shortMarket), 46e18, 150e18); // 50 * 0.92 = 46
+        oracle.recordPurchase(strategy, address(shortMarket), 46e18, 150e18, bytes32(0)); // 50 * 0.92 = 46
 
         // New book value = 92 + 46 = 138
         assertEq(oracle.getBookValue(strategy, address(shortMarket)), 138e18);
@@ -705,7 +713,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         shortPt.mint(strategy, 25e18);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(shortMarket), 23.75e18, 175e18); // 25 * 0.95 = 23.75
+        oracle.recordPurchase(strategy, address(shortMarket), 23.75e18, 175e18, bytes32(0)); // 25 * 0.95 = 23.75
 
         // New book value = 142.5 + 23.75 = 166.25
         assertEq(oracle.getBookValue(strategy, address(shortMarket)), 166.25e18);
@@ -739,7 +747,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
     }
@@ -753,7 +761,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         vm.warp(block.timestamp + timePassed);
 
@@ -783,7 +791,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         vm.prank(keeper);
         oracle.recordRedemption(strategy, address(market), ptRedeemed);
@@ -818,7 +826,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Verify operations fail when paused
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Unpause
         oracle.unpause();
@@ -826,7 +834,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Verify operations work after unpause
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
     }
@@ -852,7 +860,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Pause the oracle
         oracle.pause();
@@ -870,7 +878,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Pause the oracle
         oracle.pause();
@@ -892,7 +900,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Advance time 25%
         vm.warp(block.timestamp + MATURITY / 4);
@@ -934,7 +942,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         (, uint64 initialTime,) = oracle.bookValues(strategy, address(market));
 
@@ -956,7 +964,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         // Expect both events
         vm.expectEmit(true, true, true, true);
@@ -979,7 +987,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Create position
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         assertTrue(oracle.hasPosition(strategy, address(market)));
 
@@ -989,7 +997,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Recreate position
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         assertTrue(oracle.hasPosition(strategy, address(market)));
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
@@ -1001,7 +1009,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         // Verify state exists
         (uint128 bookValue, uint64 time, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
@@ -1025,7 +1033,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         // Delete position
         oracle.deletePosition(strategy, address(market));
@@ -1046,7 +1054,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Should succeed with exact match
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         assertEq(oracle.getBookValue(strategy, address(market)), 90e18);
     }
@@ -1058,7 +1066,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Expect 50, but actual is 100
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.PT_BALANCE_MISMATCH.selector);
-        oracle.recordPurchase(strategy, address(market), 45e18, 50e18);
+        oracle.recordPurchase(strategy, address(market), 45e18, 50e18, bytes32(0));
     }
 
     /// @notice Test recordPurchase fails with balance lower than expected
@@ -1068,7 +1076,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // Expect 100, but actual is 50
         vm.prank(keeper);
         vm.expectRevert(PendlePTAmortizedOracle.PT_BALANCE_MISMATCH.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
     }
 
     /// @notice Test subsequent purchase with verification
@@ -1079,12 +1087,12 @@ contract PendlePTAmortizedOracleTest is Test {
         // First purchase
         pt.mint(strategy, ptAmount1);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount1);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount1, bytes32(0));
 
         // Second purchase - must specify total expected balance
         pt.mint(strategy, ptAmount2);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 45e18, ptAmount1 + ptAmount2);
+        oracle.recordPurchase(strategy, address(market), 45e18, ptAmount1 + ptAmount2, bytes32(0));
 
         assertEq(oracle.getBookValue(strategy, address(market)), 90e18 + 45e18);
     }
@@ -1123,7 +1131,7 @@ contract PendlePTAmortizedOracleTest is Test {
         // 1. Initial purchase
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
 
         // 2. Advance time and verify amortization
@@ -1155,12 +1163,12 @@ contract PendlePTAmortizedOracleTest is Test {
         // Strategy 1 purchase
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         // Strategy 2 purchase (different price)
         pt.mint(strategy2, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy2, address(market), 85e18, ptAmount);
+        oracle.recordPurchase(strategy2, address(market), 85e18, ptAmount, bytes32(0));
 
         // Verify independent book values
         assertEq(oracle.getBookValue(strategy, address(market)), 90e18);
@@ -1184,12 +1192,12 @@ contract PendlePTAmortizedOracleTest is Test {
         // Purchase in market 1
         pt.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market), 90e18, ptAmount, bytes32(0));
 
         // Purchase in market 2
         pt2.mint(strategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market2), 85e18, ptAmount);
+        oracle.recordPurchase(strategy, address(market2), 85e18, ptAmount, bytes32(0));
 
         // Verify independent book values
         assertEq(oracle.getBookValue(strategy, address(market)), 90e18);
@@ -1216,7 +1224,7 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY - 1);
 
         vm.prank(keeper);
-        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Book value should be very close to face value immediately
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
@@ -1252,10 +1260,186 @@ contract PendlePTAmortizedOracleTest is Test {
 
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        oracle.recordPurchase(strategy, address(market), 90e18, 100e18);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, bytes32(0));
 
         vm.prank(keeper);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         oracle.recordRedemption(strategy, address(market), 50e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        BUY ORDER ID TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test PurchaseRecorded event is emitted with buyOrderId
+    function test_RecordPurchase_EmitsPurchaseRecordedEvent() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+        bytes32 buyOrderId = keccak256("order-123");
+
+        pt.mint(strategy, ptAmount);
+
+        vm.prank(keeper);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), buyOrderId, sySpent, sySpent, block.timestamp);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, buyOrderId);
+    }
+
+    /// @notice Test PurchaseRecorded event with zero buyOrderId
+    function test_RecordPurchase_ZeroBuyOrderId() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+
+        vm.prank(keeper);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), bytes32(0), sySpent, sySpent, block.timestamp);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+    }
+
+    /// @notice Test multiple purchases with different buyOrderIds
+    function test_RecordPurchase_MultipleBuyOrderIds() public {
+        bytes32 orderId1 = keccak256("order-1");
+        bytes32 orderId2 = keccak256("order-2");
+
+        // First purchase
+        pt.mint(strategy, 100e18);
+        vm.prank(keeper);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), orderId1, 90e18, 90e18, block.timestamp);
+        oracle.recordPurchase(strategy, address(market), 90e18, 100e18, orderId1);
+
+        // Advance time
+        vm.warp(block.timestamp + MATURITY / 2);
+
+        // Second purchase with different order ID
+        pt.mint(strategy, 50e18);
+        uint256 expectedBookValue = 95e18 + 45e18; // Amortized from 90 to ~95 + new 45
+
+        vm.prank(keeper);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), orderId2, 45e18, expectedBookValue, block.timestamp);
+        oracle.recordPurchase(strategy, address(market), 45e18, 150e18, orderId2);
+    }
+
+    /// @notice Fuzz test for buyOrderId
+    function testFuzz_RecordPurchase_BuyOrderId(bytes32 buyOrderId) public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+
+        vm.prank(keeper);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), buyOrderId, sySpent, sySpent, block.timestamp);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, buyOrderId);
+
+        // Verify state is correct regardless of buyOrderId
+        assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
+    }
+
+    /// @notice Test both events are emitted on purchase
+    function test_RecordPurchase_EmitsBothEvents() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+        bytes32 buyOrderId = keccak256("test-order");
+
+        pt.mint(strategy, ptAmount);
+
+        // Expect both events
+        vm.expectEmit(true, true, false, true);
+        emit BookValueUpdated(strategy, address(market), sySpent, block.timestamp);
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseRecorded(strategy, address(market), buyOrderId, sySpent, sySpent, block.timestamp);
+
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, buyOrderId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                ZERO STORED AMOUNT EDGE CASE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test getBookValue when stored amount is 0 but current balance is non-zero
+    /// @dev After full redemption (storedPtAmount = 0), if PT is added without recording,
+    ///      book value should return face value consistently (before and after maturity)
+    function test_GetBookValue_ZeroStoredAmountNonZeroBalance() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption - storedPtAmount becomes 0
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Verify storedPtAmount is 0
+        (,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        assertEq(storedPtAmount, 0, "Stored PT amount should be 0 after full redemption");
+
+        // Add PT without recording (simulates transfer in without recordPurchase)
+        uint256 newPtAmount = 50e18;
+        pt.mint(strategy, newPtAmount);
+
+        // Book value should return face value (conservative estimate)
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, newPtAmount, "Book value should equal face value when stored amount is 0");
+    }
+
+    /// @notice Test consistency of book value at maturity when stored amount is 0
+    function test_GetBookValue_ZeroStoredAmountAtMaturity() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Add PT without recording
+        uint256 newPtAmount = 75e18;
+        pt.mint(strategy, newPtAmount);
+
+        // Check book value before maturity
+        uint256 bookValueBeforeMaturity = oracle.getBookValue(strategy, address(market));
+
+        // Warp to maturity
+        vm.warp(block.timestamp + MATURITY);
+        uint256 bookValueAtMaturity = oracle.getBookValue(strategy, address(market));
+
+        // Both should return face value (consistent behavior)
+        assertEq(bookValueBeforeMaturity, newPtAmount, "Book value before maturity should be face value");
+        assertEq(bookValueAtMaturity, newPtAmount, "Book value at maturity should be face value");
+        assertEq(bookValueBeforeMaturity, bookValueAtMaturity, "Book values should be consistent");
+    }
+
+    /// @notice Test book value returns 0 when both stored and current amounts are 0
+    function test_GetBookValue_ZeroStoredAmountZeroBalance() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(keeper);
+        oracle.recordPurchase(strategy, address(market), sySpent, ptAmount, bytes32(0));
+
+        // Full redemption
+        vm.prank(keeper);
+        oracle.recordRedemption(strategy, address(market), ptAmount);
+        pt.burn(strategy, ptAmount);
+
+        // Both stored and current are 0
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, 0, "Book value should be 0 when no PT held");
     }
 }

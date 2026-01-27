@@ -136,7 +136,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         vm.prank(keeper);
         vm.expectEmit(true, true, false, true);
         emit BookValueUpdated(testStrategy, address(market), sySpent, block.timestamp);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Verify book value
         uint256 bookValue = oracle.getBookValue(testStrategy, address(market));
@@ -170,7 +170,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         // Record purchase
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
 
         uint256 initialBookValue = oracle.getBookValue(testStrategy, address(market));
         console2.log("Initial book value:", initialBookValue);
@@ -222,7 +222,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Mint PT and record purchase
         deal(address(pt), testStrategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Warp forward some time
         uint256 timeToMaturity = pt.expiry() - block.timestamp;
@@ -275,7 +275,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         deal(address(pt), testStrategy, ptAmount1);
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent1, ptAmount1);
+        oracle.recordPurchase(testStrategy, address(market), sySpent1, ptAmount1, bytes32(0));
 
         uint256 bookValue1 = oracle.getBookValue(testStrategy, address(market));
         console2.log("After 1st purchase - Book value:", bookValue1);
@@ -293,7 +293,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         deal(address(pt), testStrategy, ptAmount1 + ptAmount2);
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent2, ptAmount1 + ptAmount2);
+        oracle.recordPurchase(testStrategy, address(market), sySpent2, ptAmount1 + ptAmount2, bytes32(0));
 
         uint256 bookValueAfterSecondPurchase = oracle.getBookValue(testStrategy, address(market));
         console2.log("After 2nd purchase - Book value:", bookValueAfterSecondPurchase);
@@ -323,7 +323,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         if (block.timestamp < pt.expiry()) {
             deal(address(pt), testStrategy, ptAmount);
             vm.prank(keeper);
-            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
 
             // Warp well past maturity
             vm.warp(pt.expiry() + 365 days);
@@ -340,7 +340,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
             vm.prank(keeper);
             vm.expectRevert(PendlePTAmortizedOracle.MARKET_EXPIRED.selector);
-            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
         }
     }
 
@@ -361,7 +361,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Record purchase with PT
         deal(address(pt), testStrategy, ptAmount);
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
 
         // Remove all PT (simulate transfer out)
         deal(address(pt), testStrategy, 0);
@@ -429,7 +429,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Benchmark recordPurchase
         uint256 gasBefore = gasleft();
         vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount);
+        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
         uint256 gasUsedPurchase = gasBefore - gasleft();
         console2.log("Gas used - recordPurchase:", gasUsedPurchase);
 

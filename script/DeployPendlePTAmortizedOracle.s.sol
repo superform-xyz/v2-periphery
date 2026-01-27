@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.30;
+
+import { DeployV2Base } from "./DeployV2Base.s.sol";
+import { PendlePTAmortizedOracle } from "../src/oracles/vaults/PendlePTAmortizedOracle.sol";
+import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
+import { console2 } from "forge-std/console2.sol";
+
+/// @title DeployPendlePTAmortizedOracle
+/// @notice Deployment script for PendlePTAmortizedOracle - amortized cost pricing for Pendle PT positions
+/// @dev Deploys across multiple chains with deterministic addresses
+contract DeployPendlePTAmortizedOracle is DeployV2Base {
+    /*//////////////////////////////////////////////////////////////
+                              CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Contract key for PendlePTAmortizedOracle
+    string internal constant ORACLE_KEY = "PendlePTAmortizedOracle";
+
+    /*//////////////////////////////////////////////////////////////
+                            MAIN FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Deploy PendlePTAmortizedOracle on a single chain
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId Chain ID to deploy on
+    /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
+    function run(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
+        _validateEnvAndBranchName(env, branchName);
+        address admin = SUPER_GOVERNOR_ADDRESS;
+        _deploy(env, chainId, admin, branchName);
+    }
+
+    /// @notice Deploy PendlePTAmortizedOracle on multiple chains
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainIds Array of chain IDs to deploy on
+    /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
+    function runMultiChain(uint256 env, uint64[] calldata chainIds, string calldata branchName) external broadcast(env) {
+        _validateEnvAndBranchName(env, branchName);
+        address admin = SUPER_GOVERNOR_ADDRESS;
+
+        console2.log("====== Deploying PendlePTAmortizedOracle (Multi-Chain) ======");
+        console2.log("Environment:", env);
+        if (env == 1) {
+            console2.log("Branch Name:", branchName);
+        }
+        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
+        console2.log("Number of chains:", chainIds.length);
+        console2.log("");
+
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            _deploy(env, chainIds[i], admin, branchName);
+            console2.log("");
+        }
+
+        console2.log("====== Multi-Chain Deployment Complete ======");
+    }
+
+    /// @notice Check if PendlePTAmortizedOracle is deployed
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId Chain ID to check
+    /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
+    function runCheck(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
+        _validateEnvAndBranchName(env, branchName);
+        _setBaseConfiguration(env, branchName);
+
+        address admin = SUPER_GOVERNOR_ADDRESS;
+
+        console2.log("====== PendlePTAmortizedOracle Deployment Check ======");
+        console2.log("Chain ID:", chainId);
+        console2.log("Environment:", env);
+        if (env == 1) {
+            console2.log("Branch Name:", branchName);
+        }
+        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
+        console2.log("");
+
+        address oracleAddr = _computeAddress(env, admin);
+        bool isDeployed = oracleAddr.code.length > 0;
+
+        console2.log("Computed address:", oracleAddr);
+        console2.log("Is deployed:", isDeployed);
+
+        if (isDeployed) {
+            PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
+            console2.log("");
+            console2.log("=== Oracle State ===");
+            console2.log("Has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin));
+            console2.log("Has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), admin));
+            console2.log("Is paused:", oracle.paused());
+        }
+
+        console2.log("");
+        console2.log("====== Check Complete ======");
+    }
+
+    /// @notice Validate environment and branchName combination
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param branchName Branch name (required for vnet)
+    function _validateEnvAndBranchName(uint256 env, string calldata branchName) internal pure {
+        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
+        if (env == 1) {
+            require(bytes(branchName).length > 0, "BRANCH_NAME_REQUIRED_FOR_VNET");
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Internal deployment function
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId Chain ID to deploy on
+    /// @param admin Admin address
+    /// @param branchName Branch name for vnet deployments
+    function _deploy(uint256 env, uint64 chainId, address admin, string calldata branchName) internal {
+        _setBaseConfiguration(env, branchName);
+
+        console2.log("====== Deploying PendlePTAmortizedOracle ======");
+        console2.log("Chain ID:", chainId);
+        console2.log("Environment:", env);
+        if (env == 1) {
+            console2.log("Branch Name:", branchName);
+        }
+        console2.log("Admin:", admin);
+        console2.log("");
+
+        // Validate inputs
+        require(admin != address(0), "INVALID_ADMIN");
+
+        // Get bytecode from generated artifacts
+        bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
+        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
+
+        // Deploy
+        address oracleAddr = __deployContract(
+            ORACLE_KEY,
+            chainId,
+            __getSalt(ORACLE_KEY),
+            abi.encodePacked(bytecode, abi.encode(admin))
+        );
+
+        // Verify deployment
+        PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
+        require(oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
+        require(oracle.hasRole(oracle.MANAGER_ROLE(), admin), "MANAGER_ROLE_MISMATCH");
+
+        console2.log("");
+        console2.log("=== Deployment Verification ===");
+        console2.log("PendlePTAmortizedOracle deployed at:", oracleAddr);
+        console2.log("Admin verified:", admin);
+
+        // Write JSON output
+        _writeOracleJson(env, chainId, oracleAddr, branchName);
+
+        console2.log("");
+        console2.log("====== Deployment Complete ======");
+    }
+
+    /// @notice Merge PendlePTAmortizedOracle address into {ChainName}-latest.json
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId Chain ID
+    /// @param oracleAddr Deployed oracle address
+    /// @param branchName Branch name for vnet deployments
+    function _writeOracleJson(
+        uint256 env,
+        uint64 chainId,
+        address oracleAddr,
+        string calldata branchName
+    )
+        internal
+    {
+        string memory root = vm.projectRoot();
+        string memory envFolder;
+        if (env == 0) {
+            envFolder = "prod";
+        } else if (env == 1) {
+            envFolder = branchName;
+        } else {
+            envFolder = "staging";
+        }
+
+        string memory chainName = chainNames[chainId];
+        string memory outputFolder =
+            string(abi.encodePacked(root, "/script/output/", envFolder, "/", vm.toString(uint256(chainId)), "/"));
+
+        // Create directory if it doesn't exist
+        vm.createDir(outputFolder, true);
+
+        string memory outputPath = string(abi.encodePacked(outputFolder, chainName, "-latest.json"));
+
+        // Merge PendlePTAmortizedOracle address into existing JSON
+        // vm.writeJson with path selector will create file if it doesn't exist or update existing
+        vm.writeJson(vm.toString(oracleAddr), outputPath, ".PendlePTAmortizedOracle");
+
+        console2.log("");
+        console2.log("PendlePTAmortizedOracle merged into:", outputPath);
+    }
+
+    /// @notice Compute the deterministic address for PendlePTAmortizedOracle
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param admin Admin address
+    function _computeAddress(uint256 env, address admin) internal view returns (address) {
+        bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
+        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
+        return DeterministicDeployerLib.computeAddress(
+            abi.encodePacked(bytecode, abi.encode(admin)),
+            __getSalt(ORACLE_KEY)
+        );
+    }
+}

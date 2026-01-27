@@ -59,6 +59,22 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @param timestamp The timestamp of the update
     event BookValueUpdated(address indexed strategy, address indexed market, uint256 newBookValue, uint256 timestamp);
 
+    /// @notice Emitted when a purchase is recorded
+    /// @param strategy The strategy address holding the PT
+    /// @param market The Pendle market address
+    /// @param buyOrderId External order ID for tracking/reconciliation
+    /// @param sySpent Amount of SY spent on the purchase
+    /// @param newBookValue The new book value after the purchase
+    /// @param timestamp The timestamp of the purchase
+    event PurchaseRecorded(
+        address indexed strategy,
+        address indexed market,
+        bytes32 indexed buyOrderId,
+        uint256 sySpent,
+        uint256 newBookValue,
+        uint256 timestamp
+    );
+
     /// @notice Emitted when a keeper is added
     /// @param keeper The keeper address that was added
     event KeeperAdded(address indexed keeper);
@@ -133,11 +149,13 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @param market The Pendle market address
     /// @param sySpent Amount of SY spent (book value increment)
     /// @param expectedPtAmount Expected PT balance after purchase (for verification)
+    /// @param buyOrderId External order ID for tracking/reconciliation (can be bytes32(0) if not needed)
     function recordPurchase(
         address strategy,
         address market,
         uint256 sySpent,
-        uint256 expectedPtAmount
+        uint256 expectedPtAmount,
+        bytes32 buyOrderId
     )
         external
         onlyRole(KEEPER_ROLE)
@@ -182,6 +200,7 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         state.lastUpdatePtAmount = ptAmount.toUint128();
 
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
+        emit PurchaseRecorded(strategy, market, buyOrderId, sySpent, newBookValue, block.timestamp);
     }
 
     /// @notice Record a PT redemption - updates using cost basis accounting
@@ -214,6 +233,13 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
 
         // Calculate current book value using stored ptAmount
         uint256 currentBookValue = _calculateBookValueWithStoredAmount(state, maturity);
+
+        // Handle discrepancy between stored and current balance
+        // Scale book value to current balance for accurate cost basis (matches _calculateBookValue behavior)
+        uint256 storedPtAmount = state.lastUpdatePtAmount;
+        if (ptAmount != storedPtAmount && storedPtAmount > 0) {
+            currentBookValue = currentBookValue.mulDiv(ptAmount, storedPtAmount);
+        }
 
         // Cost basis accounting: proportionally reduce book value
         uint256 costBasis = currentBookValue.mulDiv(ptRedeemed, ptAmount);
@@ -365,6 +391,14 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 A_t0 = state.lastUpdatePtAmount;
         uint256 B_t0 = state.lastUpdateBookValue;
         uint256 t0 = state.lastUpdateTime;
+
+        // Handle edge case: stored amount is 0 but current amount is non-zero
+        // This means PT was added without recording (e.g., after full redemption)
+        // Return face value as conservative estimate (assumes cost basis = face value)
+        // This provides consistent behavior before and after maturity
+        if (A_t0 == 0) {
+            return currentPtAmount;
+        }
 
         // Before any time has passed, book value = B(t0) scaled by current amount
         if (block.timestamp <= t0) {
