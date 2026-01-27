@@ -383,6 +383,7 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         delete bookValues[strategy][market];
 
         emit BookValueCorrected(strategy, market, oldBookValue, 0, msg.sender);
+        emit BookValueUpdated(strategy, market, 0, block.timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -437,8 +438,9 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
             uint256 unamortizedDiscount = (A_t0 - B_t0).mulDiv(timeRemaining, totalDuration);
             amortizedValueAtOldAmount = A_t0 - unamortizedDiscount;
         } else {
-            // Defensive: shouldn't happen, but handle gracefully
-            amortizedValueAtOldAmount = B_t0;
+            // Defensive: shouldn't happen (book value > face value is invalid for zero-coupon bond)
+            // Cap at face value to avoid propagating corrupted data
+            amortizedValueAtOldAmount = A_t0;
         }
 
         // Scale by current PT amount if different (handles partial redemptions not recorded)
@@ -487,8 +489,9 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
             uint256 unamortizedDiscount = (A - B_t0).mulDiv(timeRemaining, totalDuration);
             return A - unamortizedDiscount;
         } else {
-            // Defensive: shouldn't happen
-            return B_t0;
+            // Defensive: shouldn't happen (book value > face value is invalid for zero-coupon bond)
+            // Cap at face value to avoid propagating corrupted data
+            return A;
         }
     }
 }

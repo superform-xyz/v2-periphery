@@ -1820,7 +1820,7 @@ contract PendlePTAmortizedOracleTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Test getBookValue defensive path when book value exceeds face value (invalid state)
-    /// @dev This tests the defensive branch: if (A_t0 >= B_t0) ... else { amortizedValueAtOldAmount = B_t0; }
+    /// @dev This tests the defensive branch: if (A_t0 >= B_t0) ... else { amortizedValueAtOldAmount = A_t0; }
     /// @dev This state shouldn't happen through normal operations, but we test the defensive handling
     function test_GetBookValue_DefensivePathWhenBookValueExceedsFaceValue() public {
         uint256 ptAmount = 100e18;
@@ -1857,14 +1857,14 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Now getBookValue should hit the defensive branch
-        // When A_t0 < B_t0: the else branch sets amortizedValueAtOldAmount = B_t0
+        // When A_t0 < B_t0: defensive branch caps at face value A_t0
         // Since currentPtAmount == A_t0, no scaling is applied
-        // Result should be B_t0 = 150e18
+        // Result should be A_t0 = 100e18 (face value, not corrupted B_t0)
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
-        assertEq(bookValue, invalidBookValue);
+        assertEq(bookValue, ptAmount, "Defensive path should cap at face value");
     }
 
-    /// @notice Test getBookValue defensive path with balance change (scales B_t0)
+    /// @notice Test getBookValue defensive path with balance change (scales face value)
     function test_GetBookValue_DefensivePathWithBalanceChange() public {
         uint256 ptAmount = 100e18;
 
@@ -1894,15 +1894,15 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, 100e18);
 
         // Now getBookValue should:
-        // 1. Hit defensive branch (A_t0 < B_t0), set amortizedValueAtOldAmount = B_t0 = 150e18
+        // 1. Hit defensive branch (A_t0 < B_t0), cap at face value A_t0 = 100e18
         // 2. Scale by currentPtAmount/A_t0 = 200e18/100e18 = 2x
-        // Result: 150e18 * 2 = 300e18
+        // Result: 100e18 * 2 = 200e18 (face value of current balance)
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
-        assertEq(bookValue, 300e18);
+        assertEq(bookValue, 200e18, "Defensive path should cap at face value then scale");
     }
 
     /// @notice Test recordRedemption defensive path in _calculateBookValueWithStoredAmount
-    /// @dev Tests the branch: if (A >= B_t0) { ... } else { return B_t0; }
+    /// @dev Tests the branch: if (A >= B_t0) { ... } else { return A; }
     function test_RecordRedemption_DefensivePathWhenBookValueExceedsFaceValue() public {
         uint256 ptAmount = 100e18;
 
@@ -1931,17 +1931,17 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Call recordRedemption which uses _calculateBookValueWithStoredAmount
-        // The defensive branch returns B_t0 = 150e18 when A < B_t0
+        // The defensive branch caps at face value A = 100e18 when A < B_t0
         // Since current balance (100e18) == stored amount (100e18), no scaling in recordRedemption
-        // Redeem 40 PT: cost basis = 150 * 40 / 100 = 60
-        // New book value = 150 - 60 = 90
+        // Redeem 40 PT: cost basis = 100 * 40 / 100 = 40
+        // New book value = 100 - 40 = 60
         uint256 redeemAmount = 40e18;
         vm.prank(keeper);
         oracle.recordRedemption(strategy, address(market), redeemAmount, bytes32(0));
 
         // Verify the new stored values
         (uint128 storedBookValue,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
-        assertEq(storedBookValue, 90e18);
+        assertEq(storedBookValue, 60e18, "Book value should be capped at face value then reduced");
         assertEq(storedPtAmount, 60e18); // 100 - 40 = 60
     }
 
