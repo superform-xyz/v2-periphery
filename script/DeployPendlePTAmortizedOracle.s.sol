@@ -1,23 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.30;
 
-import { DeployV2Base } from "./DeployV2Base.s.sol";
+import { PendlePTAmortizedOracleScriptBase } from "./PendlePTAmortizedOracleScriptBase.s.sol";
 import { PendlePTAmortizedOracle } from "../src/oracles/vaults/PendlePTAmortizedOracle.sol";
-import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
 import { console2 } from "forge-std/console2.sol";
 
 /// @title DeployPendlePTAmortizedOracle
 /// @notice Deployment script for PendlePTAmortizedOracle - amortized cost pricing for Pendle PT positions
 /// @dev Deploys across multiple chains with deterministic addresses
 /// @dev Initially grants all roles to DEPLOYER for operational flexibility, then transfers to SUPER_GOVERNOR later
-contract DeployPendlePTAmortizedOracle is DeployV2Base {
-    /*//////////////////////////////////////////////////////////////
-                              CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Contract key for PendlePTAmortizedOracle
-    string internal constant ORACLE_KEY = "PendlePTAmortizedOracle";
-
+contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -82,7 +74,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         console2.log("SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
         console2.log("");
 
-        address oracleAddr = _computeAddress(env, admin);
+        address oracleAddr = _computeOracleAddress(env, admin);
         bool isDeployed = oracleAddr.code.length > 0;
 
         console2.log("Computed address:", oracleAddr);
@@ -101,16 +93,6 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
 
         console2.log("");
         console2.log("====== Check Complete ======");
-    }
-
-    /// @notice Validate environment and branchName combination
-    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param branchName Branch name (required for vnet)
-    function _validateEnvAndBranchName(uint256 env, string calldata branchName) internal pure {
-        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
-        if (env == 1) {
-            require(bytes(branchName).length > 0, "BRANCH_NAME_REQUIRED_FOR_VNET");
-        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -207,17 +189,5 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
 
         console2.log("");
         console2.log("PendlePTAmortizedOracle merged into:", outputPath);
-    }
-
-    /// @notice Compute the deterministic address for PendlePTAmortizedOracle
-    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param admin Admin address
-    function _computeAddress(uint256 env, address admin) internal view returns (address) {
-        bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
-        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
-        return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(bytecode, abi.encode(admin)),
-            __getSalt(ORACLE_KEY)
-        );
     }
 }
