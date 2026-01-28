@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,8 +12,15 @@ import { IPPrincipalToken } from "@pendle/interfaces/IPPrincipalToken.sol";
 /// @author Superform Labs
 /// @notice Provides amortized cost pricing for Pendle PT positions held by strategies
 /// @dev Uses Book Value accounting with linear pull-to-par amortization
-/// @dev Stores book value, timestamp, and PT amount at last update; reads maturity from chain
-contract PendlePTAmortizedOracle is AccessControl, Pausable {
+/// @dev Strategies call recordPurchase/recordRedemption directly via hooks
+/// @dev recordPurchase: Called AFTER deposit - ptAmount is PT received from deposit hook
+/// @dev recordRedemption: Called AFTER redeem - ptSold is PT that was sold
+///
+/// @dev TRUST MODEL: This oracle is permissionless - any address can record purchases/redemptions.
+/// @dev Book values are stored per-caller (strategy => market => state), so callers can only
+/// @dev affect their own recorded positions. A malicious caller cannot corrupt data for other strategies.
+/// @dev The oracle simply tracks what each caller reports; it does not validate actual PT holdings.
+contract PendlePTAmortizedOracle is AccessControl {
     using Math for uint256;
     using SafeCast for uint256;
 
@@ -22,10 +28,7 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Role for keepers who can record purchases and redemptions
-    bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
-
-    /// @notice Role for managers who can manage keepers
+    /// @notice Role for managers who can correct book values
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     /*//////////////////////////////////////////////////////////////
@@ -59,46 +62,6 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @param timestamp The timestamp of the update
     event BookValueUpdated(address indexed strategy, address indexed market, uint256 newBookValue, uint256 timestamp);
 
-    /// @notice Emitted when a purchase is recorded
-    /// @param strategy The strategy address holding the PT
-    /// @param market The Pendle market address
-    /// @param buyOrderId External order ID for tracking/reconciliation
-    /// @param sySpent Amount of SY spent on the purchase
-    /// @param newBookValue The new book value after the purchase
-    /// @param timestamp The timestamp of the purchase
-    event PurchaseRecorded(
-        address indexed strategy,
-        address indexed market,
-        bytes32 indexed buyOrderId,
-        uint256 sySpent,
-        uint256 newBookValue,
-        uint256 timestamp
-    );
-
-    /// @notice Emitted when a redemption is recorded
-    /// @param strategy The strategy address holding the PT
-    /// @param market The Pendle market address
-    /// @param sellOrderId External order ID for tracking/reconciliation
-    /// @param ptRedeemed Amount of PT redeemed
-    /// @param newBookValue The new book value after the redemption
-    /// @param timestamp The timestamp of the redemption
-    event RedemptionRecorded(
-        address indexed strategy,
-        address indexed market,
-        bytes32 indexed sellOrderId,
-        uint256 ptRedeemed,
-        uint256 newBookValue,
-        uint256 timestamp
-    );
-
-    /// @notice Emitted when a keeper is added
-    /// @param keeper The keeper address that was added
-    event KeeperAdded(address indexed keeper);
-
-    /// @notice Emitted when a keeper is removed
-    /// @param keeper The keeper address that was removed
-    event KeeperRemoved(address indexed keeper);
-
     /// @notice Emitted when book value is manually corrected by admin
     /// @param strategy The strategy address
     /// @param market The Pendle market address
@@ -111,6 +74,28 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         uint256 oldBookValue,
         uint256 newBookValue,
         address indexed correctedBy
+    );
+
+    /// @notice Emitted when a PT purchase is recorded
+    /// @param strategy The strategy address (msg.sender)
+    /// @param market The Pendle market address
+    /// @param sySpent Amount of SY spent on the purchase
+    /// @param ptAmount Amount of PT received
+    event PurchaseRecorded(
+        address indexed strategy,
+        address indexed market,
+        uint256 sySpent,
+        uint256 ptAmount
+    );
+
+    /// @notice Emitted when a PT redemption is recorded
+    /// @param strategy The strategy address (msg.sender)
+    /// @param market The Pendle market address
+    /// @param ptSold Amount of PT sold/redeemed
+    event RedemptionRecorded(
+        address indexed strategy,
+        address indexed market,
+        uint256 ptSold
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -135,15 +120,6 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
     /// @notice Thrown when book value would exceed face value (sanity check)
     error BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
-    /// @notice Thrown when strategy has no PT balance for the market
-    error NO_PT_BALANCE();
-
-    /// @notice Thrown when PT balance doesn't match expected amount after purchase
-    error PT_BALANCE_MISMATCH();
-
-    /// @notice Thrown when PT balance exists but no purchase was recorded (data integrity issue)
-    error UNRECORDED_PT_BALANCE();
-
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -155,33 +131,28 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
-        _setRoleAdmin(KEEPER_ROLE, MANAGER_ROLE);
     }
 
     /*//////////////////////////////////////////////////////////////
-                            KEEPER FUNCTIONS
+                          STRATEGY FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Record a PT purchase - updates lastUpdateBookValue and lastUpdateTime
-    /// @dev Must be called AFTER the purchase transaction completes (so balanceOf reflects new PT amount)
-    /// @param strategy The strategy address holding the PT
+    /// @notice Record a PT purchase - called by strategy via hooks AFTER deposit
+    /// @dev msg.sender is the strategy being updated
+    /// @dev Called AFTER deposit hook - ptAmount comes from deposit hook output (usePrevHookAmount)
     /// @param market The Pendle market address
-    /// @param sySpent Amount of SY spent (book value increment)
-    /// @param expectedPtAmount Expected PT balance after purchase (for verification)
-    /// @param buyOrderId External order ID for tracking/reconciliation (can be bytes32(0) if not needed)
+    /// @param sySpent Amount of SY spent on the purchase (book value increment)
+    /// @param ptAmount Amount of PT received from the purchase
     function recordPurchase(
-        address strategy,
         address market,
         uint256 sySpent,
-        uint256 expectedPtAmount,
-        bytes32 buyOrderId
+        uint256 ptAmount
     )
         external
-        onlyRole(KEEPER_ROLE)
-        whenNotPaused
     {
-        if (strategy == address(0) || market == address(0)) revert ZERO_ADDRESS();
-        if (sySpent == 0) revert ZERO_AMOUNT();
+        address strategy = msg.sender;
+        if (market == address(0)) revert ZERO_ADDRESS();
+        if (sySpent == 0 || ptAmount == 0) revert ZERO_AMOUNT();
 
         // Get PT address and maturity from market
         (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
@@ -190,56 +161,45 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
 
         BookValueState storage state = bookValues[strategy][market];
 
-        // Get current PT amount (after purchase)
-        uint256 ptAmount = IERC20(address(pt)).balanceOf(strategy);
-
-        // Verify PT balance matches expected amount (prevents timing/ordering errors)
-        if (expectedPtAmount > 0 && ptAmount != expectedPtAmount) revert PT_BALANCE_MISMATCH();
-
-        // Validate strategy actually holds PT
-        if (ptAmount == 0) revert NO_PT_BALANCE();
-
         // Calculate current book value (if position exists) and add new purchase
         uint256 newBookValue;
+        uint256 newPtAmount;
         if (state.lastUpdateTime > 0) {
-            // Use stored ptAmount for amortization calculation (not current balanceOf)
-            uint256 currentBookValue = _calculateBookValueWithStoredAmount(state, maturity);
+            // Existing position: amortize and add
+            uint256 currentBookValue = _calculateAmortizedBookValue(state, maturity);
             newBookValue = currentBookValue + sySpent;
+            newPtAmount = state.lastUpdatePtAmount + ptAmount;
         } else {
             // First purchase
             newBookValue = sySpent;
+            newPtAmount = ptAmount;
         }
 
-        // Sanity check: book value should not exceed face value (ptAmount)
-        // This catches keeper errors where sySpent is recorded larger than actual
-        if (newBookValue > ptAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
+        // Sanity check: book value should not exceed face value
+        if (newBookValue > newPtAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
         state.lastUpdateBookValue = newBookValue.toUint128();
         state.lastUpdateTime = block.timestamp.toUint64();
-        state.lastUpdatePtAmount = ptAmount.toUint128();
+        state.lastUpdatePtAmount = newPtAmount.toUint128();
 
+        emit PurchaseRecorded(strategy, market, sySpent, ptAmount);
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
-        emit PurchaseRecorded(strategy, market, buyOrderId, sySpent, newBookValue, block.timestamp);
     }
 
-    /// @notice Record a PT redemption - updates using cost basis accounting
-    /// @dev Must be called BEFORE the redemption changes balanceOf
-    /// @param strategy The strategy address holding the PT
+    /// @notice Record a PT redemption - called by strategy via hooks AFTER redeem
+    /// @dev msg.sender is the strategy being updated
+    /// @dev Called AFTER redeem hook - ptSold is the PT amount that was sold
     /// @param market The Pendle market address
-    /// @param ptRedeemed Amount of PT being redeemed
-    /// @param sellOrderId External order ID for tracking/reconciliation (can be bytes32(0) if not needed)
+    /// @param ptSold Amount of PT that was sold/redeemed
     function recordRedemption(
-        address strategy,
         address market,
-        uint256 ptRedeemed,
-        bytes32 sellOrderId
+        uint256 ptSold
     )
         external
-        onlyRole(KEEPER_ROLE)
-        whenNotPaused
     {
-        if (strategy == address(0) || market == address(0)) revert ZERO_ADDRESS();
-        if (ptRedeemed == 0) revert ZERO_AMOUNT();
+        address strategy = msg.sender;
+        if (market == address(0)) revert ZERO_ADDRESS();
+        if (ptSold == 0) revert ZERO_AMOUNT();
 
         BookValueState storage state = bookValues[strategy][market];
         if (state.lastUpdateTime == 0) revert NO_POSITION();
@@ -248,36 +208,26 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
         uint256 maturity = pt.expiry();
 
-        // Read current PT amount BEFORE redemption
-        uint256 ptAmount = IERC20(address(pt)).balanceOf(strategy);
-        if (ptRedeemed > ptAmount) revert INSUFFICIENT_POSITION();
-
-        // Check for unrecorded PT balance (storedPtAmount == 0 but actual balance > 0)
-        // This prevents "laundering" unrecorded purchases through redemption
-        uint256 storedPtAmount = state.lastUpdatePtAmount;
-        if (storedPtAmount == 0 && ptAmount > 0) revert UNRECORDED_PT_BALANCE();
+        // Get stored PT amount (this was the amount BEFORE redemption)
+        uint256 oldPtAmount = state.lastUpdatePtAmount;
+        if (ptSold > oldPtAmount) revert INSUFFICIENT_POSITION();
 
         // Calculate current book value using stored ptAmount
-        uint256 currentBookValue = _calculateBookValueWithStoredAmount(state, maturity);
-
-        // Handle discrepancy between stored and current balance
-        // Scale book value to current balance for accurate cost basis (matches _calculateBookValue behavior)
-        if (ptAmount != storedPtAmount && storedPtAmount > 0) {
-            currentBookValue = currentBookValue.mulDiv(ptAmount, storedPtAmount);
-        }
+        uint256 currentBookValue = _calculateAmortizedBookValue(state, maturity);
 
         // Cost basis accounting: proportionally reduce book value
-        uint256 costBasis = currentBookValue.mulDiv(ptRedeemed, ptAmount);
+        uint256 costBasis = currentBookValue.mulDiv(ptSold, oldPtAmount);
         uint256 newBookValue = currentBookValue - costBasis;
 
-        // Update state - ptAmount will be reduced after this call
-        uint256 newPtAmount = ptAmount - ptRedeemed;
+        // Calculate new PT amount after redemption
+        uint256 newPtAmount = oldPtAmount - ptSold;
+
         state.lastUpdateBookValue = newBookValue.toUint128();
         state.lastUpdateTime = block.timestamp.toUint64();
         state.lastUpdatePtAmount = newPtAmount.toUint128();
 
+        emit RedemptionRecorded(strategy, market, ptSold);
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
-        emit RedemptionRecorded(strategy, market, sellOrderId, ptRedeemed, newBookValue, block.timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -306,34 +256,7 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Add a keeper who can record purchases and redemptions
-    /// @param keeper The address to grant KEEPER_ROLE
-    function addKeeper(address keeper) external onlyRole(MANAGER_ROLE) {
-        if (keeper == address(0)) revert ZERO_ADDRESS();
-        _grantRole(KEEPER_ROLE, keeper);
-        emit KeeperAdded(keeper);
-    }
-
-    /// @notice Remove a keeper
-    /// @param keeper The address to revoke KEEPER_ROLE from
-    function removeKeeper(address keeper) external onlyRole(MANAGER_ROLE) {
-        _revokeRole(KEEPER_ROLE, keeper);
-        emit KeeperRemoved(keeper);
-    }
-
-    /// @notice Pause the oracle - prevents new recordings
-    /// @dev Can only be called by admin in emergency situations
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-
-    /// @notice Unpause the oracle - resumes normal operations
-    /// @dev Can only be called by admin
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
-
-    /// @notice Correct book value state in case of keeper errors
+    /// @notice Correct book value state in case of errors
     /// @dev Can only be called by manager. Use with caution - only for error recovery.
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
@@ -354,7 +277,6 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
         IPMarket(market).readTokens();
 
         // Sanity check: corrected book value should not exceed PT amount
-        // Allow correction even if newPtAmount differs from balance (for pre-correction of expected state)
         if (newBookValue > newPtAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
         BookValueState storage state = bookValues[strategy][market];
@@ -390,12 +312,11 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
                           INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Calculate current book value using amortization formula with current balanceOf
-    /// @dev B(t) = A - (A - B(t0)) * (T - t) / (T - t0)
-    /// @dev Used by getBookValue() - reads current ptAmount from balanceOf
+    /// @notice Calculate current book value for external view (reads current balanceOf and scales)
+    /// @dev Used by getBookValue() - handles case where PT balance changed without recording
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
-    /// @return Current amortized book value
+    /// @return Current amortized book value scaled to current PT balance
     function _calculateBookValue(address strategy, address market) internal view returns (uint256) {
         BookValueState memory state = bookValues[strategy][market];
 
@@ -404,59 +325,35 @@ contract PendlePTAmortizedOracle is AccessControl, Pausable {
 
         // Read current PT amount from chain
         uint256 currentPtAmount = IERC20(address(pt)).balanceOf(strategy);
-        uint256 T = pt.expiry();
+        uint256 maturity = pt.expiry();
 
         // Edge case: no PT held
         if (currentPtAmount == 0) return 0;
 
         // At or after maturity, book value = face value (current amount)
-        if (block.timestamp >= T) {
+        if (block.timestamp >= maturity) {
             return currentPtAmount;
         }
 
-        // Use stored ptAmount for amortization calculation
-        uint256 A_t0 = state.lastUpdatePtAmount;
-        uint256 B_t0 = state.lastUpdateBookValue;
-        uint256 t0 = state.lastUpdateTime;
+        // Calculate amortized book value using stored amount
+        uint256 storedPtAmount = state.lastUpdatePtAmount;
+        uint256 amortizedValue = _calculateAmortizedBookValue(state, maturity);
 
-        // Before any time has passed, book value = B(t0) scaled by current amount
-        if (block.timestamp <= t0) {
-            // If PT amount changed without recording, scale proportionally
-            if (currentPtAmount != A_t0 && A_t0 > 0) {
-                return B_t0.mulDiv(currentPtAmount, A_t0);
-            }
-            return B_t0;
+        // Scale by current PT amount if different (handles unrecorded changes)
+        if (currentPtAmount != storedPtAmount && storedPtAmount > 0) {
+            return amortizedValue.mulDiv(currentPtAmount, storedPtAmount);
         }
 
-        // Calculate amortized book value at t0's ptAmount
-        // B(t) = A(t0) - (A(t0) - B(t0)) * (T - t) / (T - t0)
-        uint256 timeRemaining = T - block.timestamp;
-        uint256 totalDuration = T - t0;
-
-        uint256 amortizedValueAtOldAmount;
-        if (A_t0 >= B_t0) {
-            uint256 unamortizedDiscount = (A_t0 - B_t0).mulDiv(timeRemaining, totalDuration);
-            amortizedValueAtOldAmount = A_t0 - unamortizedDiscount;
-        } else {
-            // Defensive: shouldn't happen (book value > face value is invalid for zero-coupon bond)
-            // Cap at face value to avoid propagating corrupted data
-            amortizedValueAtOldAmount = A_t0;
-        }
-
-        // Scale by current PT amount if different (handles partial redemptions not recorded)
-        if (currentPtAmount != A_t0 && A_t0 > 0) {
-            return amortizedValueAtOldAmount.mulDiv(currentPtAmount, A_t0);
-        }
-
-        return amortizedValueAtOldAmount;
+        return amortizedValue;
     }
 
-    /// @notice Calculate book value using stored ptAmount (for keeper updates)
-    /// @dev Used internally by recordPurchase and recordRedemption
+    /// @notice Core amortization formula using stored values
+    /// @dev B(t) = A - (A - B(t0)) * (T - t) / (T - t0)
+    /// @dev Used by both _calculateBookValue and strategy functions
     /// @param state The stored book value state
     /// @param maturity The PT maturity timestamp
     /// @return Amortized book value using stored ptAmount
-    function _calculateBookValueWithStoredAmount(
+    function _calculateAmortizedBookValue(
         BookValueState memory state,
         uint256 maturity
     )
