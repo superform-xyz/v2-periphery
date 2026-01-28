@@ -47,6 +47,20 @@ abstract contract DeployV2Base is Script, ConfigBase {
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                          ENV VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Validate environment and branchName combination
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param branchName Branch name (required for vnet)
+    function _validateEnvAndBranchName(uint256 env, string calldata branchName) internal pure {
+        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
+        if (env == 1) {
+            require(bytes(branchName).length > 0, "BRANCH_NAME_REQUIRED_FOR_VNET");
+        }
+    }
+
     function _getContract(uint64 chainId, string memory contractName) internal view returns (address) {
         return contractAddresses[chainId][contractName];
     }

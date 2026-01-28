@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.30;
 
-import { DeployV2Base } from "./DeployV2Base.s.sol";
+import { PendlePTAmortizedOracleScriptBase } from "./PendlePTAmortizedOracleScriptBase.s.sol";
 import { PendlePTAmortizedOracle } from "../src/oracles/vaults/PendlePTAmortizedOracle.sol";
-import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
 import { console2 } from "forge-std/console2.sol";
 
 /// @title TransferPendlePTAmortizedOracleOwnership
 /// @notice Script to transfer PendlePTAmortizedOracle roles from DEPLOYER to SUPER_GOVERNOR_ADDRESS
 /// @dev Transfers DEFAULT_ADMIN_ROLE and MANAGER_ROLE
-contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
-    /*//////////////////////////////////////////////////////////////
-                              CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Contract key for PendlePTAmortizedOracle
-    string internal constant ORACLE_KEY = "PendlePTAmortizedOracle";
-
+contract TransferPendlePTAmortizedOracleOwnership is PendlePTAmortizedOracleScriptBase {
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -42,7 +34,7 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
         console2.log("");
 
         // Compute oracle address (deployed with DEPLOYER as admin)
-        address oracleAddr = _computeAddress(env, DEPLOYER);
+        address oracleAddr = _computeOracleAddress(env, DEPLOYER);
         require(oracleAddr.code.length > 0, "PendlePTAmortizedOracle not deployed");
 
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
@@ -151,7 +143,7 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
         console2.log("");
 
         // Compute oracle address (deployed with DEPLOYER as admin)
-        address oracleAddr = _computeAddress(env, DEPLOYER);
+        address oracleAddr = _computeOracleAddress(env, DEPLOYER);
 
         if (oracleAddr.code.length == 0) {
             console2.log("Oracle Address (computed):", oracleAddr);
@@ -198,20 +190,5 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
 
         console2.log("");
         console2.log("====== Check Complete ======");
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                          INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Compute the deterministic address for PendlePTAmortizedOracle
-    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param admin Admin address used during deployment
-    function _computeAddress(uint256 env, address admin) internal view returns (address) {
-        bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
-        require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
-        return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(bytecode, abi.encode(admin)), __getSalt(ORACLE_KEY)
-        );
     }
 }
