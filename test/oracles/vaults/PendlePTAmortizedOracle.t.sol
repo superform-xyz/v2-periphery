@@ -20,12 +20,10 @@ contract PendlePTAmortizedOracleHarness is PendlePTAmortizedOracle {
         address strategy,
         address market,
         uint128 bookValue,
-        uint64 time,
-        uint128 ptAmount
+        uint64 time
     ) external {
         bookValues[strategy][market].lastUpdateBookValue = bookValue;
         bookValues[strategy][market].lastUpdateTime = time;
-        bookValues[strategy][market].lastUpdatePtAmount = ptAmount;
     }
 }
 
@@ -211,6 +209,7 @@ contract PendlePTAmortizedOracleTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Test recording a partial redemption
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function test_RecordRedemption_PartialRedemption() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
@@ -229,13 +228,14 @@ contract PendlePTAmortizedOracleTest is Test {
         // New book value: 92 - 55.2 = 36.8
 
         uint256 ptToRedeem = 60e18;
+
+        // Burn the PT BEFORE recording (simulates hook being called after redeem)
+        pt.burn(strategy, ptToRedeem);
+
         vm.prank(strategy);
         vm.expectEmit(true, true, false, true);
         emit RedemptionRecorded(strategy, address(market), ptToRedeem);
         oracle.recordRedemption(address(market), ptToRedeem);
-
-        // Burn the PT after recording
-        pt.burn(strategy, ptToRedeem);
 
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
 
@@ -245,6 +245,7 @@ contract PendlePTAmortizedOracleTest is Test {
     }
 
     /// @notice Test recording a full redemption
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function test_RecordRedemption_FullRedemption() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
@@ -257,22 +258,21 @@ contract PendlePTAmortizedOracleTest is Test {
         // Advance time
         vm.warp(block.timestamp + MATURITY / 2);
 
+        // Burn the PT BEFORE recording (simulates hook being called after redeem)
+        pt.burn(strategy, ptAmount);
+
         // Full redemption
         vm.prank(strategy);
         vm.expectEmit(true, true, false, true);
         emit RedemptionRecorded(strategy, address(market), ptAmount);
         oracle.recordRedemption(address(market), ptAmount);
 
-        // Burn the PT
-        pt.burn(strategy, ptAmount);
-
         // Book value should be 0 after full redemption
         // Note: getBookValue will return 0 since ptAmount is 0, but state was updated
-        (uint128 lastBookValue, uint64 lastTime, uint128 lastPtAmount) =
+        (uint128 lastBookValue, uint64 lastTime) =
             oracle.bookValues(strategy, address(market));
         assertEq(lastBookValue, 0);
         assertGt(lastTime, 0);
-        assertEq(lastPtAmount, 0);
     }
 
     /// @notice Test recordRedemption reverts for zero market address
@@ -304,19 +304,9 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.recordRedemption(address(market), 50e18);
     }
 
-    /// @notice Test recordRedemption reverts when amount exceeds holdings
-    function test_RecordRedemption_RevertsInsufficientPosition() public {
-        pt.mint(strategy, 100e18);
-        vm.prank(strategy);
-        oracle.recordPurchase(address(market), 90e18, 100e18);
-
-        vm.prank(strategy);
-        vm.expectRevert(PendlePTAmortizedOracle.INSUFFICIENT_POSITION.selector);
-        oracle.recordRedemption(address(market), 101e18);
-    }
-
     /// @notice Test recordRedemption at maturity uses face value for book value calculation
     /// @dev Tests the path: if (block.timestamp >= maturity) { return A; } in _calculateAmortizedBookValue
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function test_RecordRedemption_AtMaturityUsesFaceValue() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
@@ -333,22 +323,23 @@ contract PendlePTAmortizedOracleTest is Test {
         // Redeem 50 PT: cost basis = 100 * 50 / 100 = 50
         // New book value = 100 - 50 = 50
         uint256 redeemAmount = 50e18;
+
+        // Burn the PT BEFORE recording (simulates hook being called after redeem)
+        pt.burn(strategy, redeemAmount);
+
         vm.prank(strategy);
         vm.expectEmit(true, true, false, true);
         emit RedemptionRecorded(strategy, address(market), redeemAmount);
         oracle.recordRedemption(address(market), redeemAmount);
 
-        // Burn the PT
-        pt.burn(strategy, redeemAmount);
-
         // After redemption, stored book value should be 50e18 (half of face value)
-        (uint128 storedBookValue,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        (uint128 storedBookValue,) = oracle.bookValues(strategy, address(market));
         assertEq(storedBookValue, 50e18);
-        assertEq(storedPtAmount, 50e18);
     }
 
     /// @notice Test recordRedemption after maturity uses face value for book value calculation
     /// @dev Tests the path: if (block.timestamp >= maturity) { return A; } in _calculateAmortizedBookValue
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function test_RecordRedemption_AfterMaturityUsesFaceValue() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
@@ -365,18 +356,18 @@ contract PendlePTAmortizedOracleTest is Test {
         // Redeem 60 PT: cost basis = 100 * 60 / 100 = 60
         // New book value = 100 - 60 = 40
         uint256 redeemAmount = 60e18;
+
+        // Burn the PT BEFORE recording (simulates hook being called after redeem)
+        pt.burn(strategy, redeemAmount);
+
         vm.prank(strategy);
         vm.expectEmit(true, true, false, true);
         emit RedemptionRecorded(strategy, address(market), redeemAmount);
         oracle.recordRedemption(address(market), redeemAmount);
 
-        // Burn the PT
-        pt.burn(strategy, redeemAmount);
-
         // After redemption, stored book value should be 40e18
-        (uint128 storedBookValue,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        (uint128 storedBookValue,) = oracle.bookValues(strategy, address(market));
         assertEq(storedBookValue, 40e18);
-        assertEq(storedPtAmount, 40e18);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -450,8 +441,9 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.getBookValue(strategy, address(market));
     }
 
-    /// @notice Test getBookValue scales when balance increased in same block (no time passed)
-    function test_GetBookValue_ScalesWhenBalanceIncreasedSameBlock() public {
+    /// @notice Test getBookValue when balance increased without recording (same block)
+    /// @dev With the new implementation, uses current balance in amortization formula
+    function test_GetBookValue_BalanceIncreasedSameBlock() public {
         uint256 initialPtAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -467,15 +459,16 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 additionalPt = 50e18;
         pt.mint(strategy, additionalPt);
 
-        // Current balance is 150e18, stored is 100e18
-        // Book value should scale: 90 * 150 / 100 = 135
-        uint256 expectedBookValue = sySpent * 150 / 100;
-        assertEq(oracle.getBookValue(strategy, address(market)), expectedBookValue);
-        assertEq(oracle.getBookValue(strategy, address(market)), 135e18);
+        // Current balance is 150e18
+        // With new formula: B(t) = A - (A - B_t0) * (T - t) / (T - t0)
+        // At t = t0: B(t) = B_t0 = 90e18 (no time passed)
+        // The formula returns B_t0 when no time has passed
+        assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
     }
 
-    /// @notice Test getBookValue scales when balance decreased in same block (no time passed)
-    function test_GetBookValue_ScalesWhenBalanceDecreasedSameBlock() public {
+    /// @notice Test getBookValue when balance decreased without recording (same block)
+    /// @dev With the new implementation, uses current balance in amortization formula
+    function test_GetBookValue_BalanceDecreasedSameBlock() public {
         uint256 initialPtAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -491,15 +484,13 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 burnAmount = 40e18;
         pt.burn(strategy, burnAmount);
 
-        // Current balance is 60e18, stored is 100e18
-        // Book value should scale: 90 * 60 / 100 = 54
-        uint256 expectedBookValue = sySpent * 60 / 100;
-        assertEq(oracle.getBookValue(strategy, address(market)), expectedBookValue);
-        assertEq(oracle.getBookValue(strategy, address(market)), 54e18);
+        // Current balance is 60e18
+        // At t = t0: B(t) = B_t0 = 90e18 (no time passed)
+        assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
     }
 
-    /// @notice Test getBookValue returns unscaled book value when balance unchanged (same block)
-    function test_GetBookValue_NoScalingWhenBalanceUnchangedSameBlock() public {
+    /// @notice Test getBookValue returns book value when balance unchanged (same block)
+    function test_GetBookValue_BalanceUnchangedSameBlock() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -508,45 +499,12 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.prank(strategy);
         oracle.recordPurchase(address(market), sySpent, ptAmount);
 
-        // Book value should be exactly sySpent (no scaling needed)
+        // Book value should be exactly sySpent
         assertEq(oracle.getBookValue(strategy, address(market)), sySpent);
     }
 
-    /// @notice Test getBookValue scaling uses correct formula (B_t0 * currentPtAmount / A_t0)
-    function testFuzz_GetBookValue_ScalingFormulaSameBlock(
-        uint128 initialPtAmount,
-        uint128 sySpent,
-        uint128 newPtAmount
-    ) public {
-        // Bound inputs to reasonable ranges
-        initialPtAmount = uint128(bound(initialPtAmount, 1e18, 1e30));
-        sySpent = uint128(bound(sySpent, 1e18, initialPtAmount)); // sySpent <= initialPtAmount
-        newPtAmount = uint128(bound(newPtAmount, 1e18, 1e30));
-
-        // Skip if same amount (no scaling path)
-        vm.assume(newPtAmount != initialPtAmount);
-
-        // Record purchase
-        pt.mint(strategy, initialPtAmount);
-        vm.prank(strategy);
-        oracle.recordPurchase(address(market), sySpent, initialPtAmount);
-
-        // Adjust balance to newPtAmount
-        if (newPtAmount > initialPtAmount) {
-            pt.mint(strategy, newPtAmount - initialPtAmount);
-        } else {
-            pt.burn(strategy, initialPtAmount - newPtAmount);
-        }
-
-        // Expected: B_t0 * currentPtAmount / A_t0
-        uint256 expectedBookValue = uint256(sySpent) * newPtAmount / initialPtAmount;
-        uint256 actualBookValue = oracle.getBookValue(strategy, address(market));
-
-        assertEq(actualBookValue, expectedBookValue);
-    }
-
-    /// @notice Test getBookValue scales amortized value when balance increased (time has passed)
-    function test_GetBookValue_ScalesAmortizedValueWhenBalanceIncreased() public {
+    /// @notice Test getBookValue with balance change uses current balance in formula (time has passed)
+    function test_GetBookValue_BalanceIncreasedAfterTimePassed() public {
         uint256 initialPtAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -559,19 +517,20 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Amortized value at 50%: 100 - (100 - 90) * 0.5 = 95
-        uint256 amortizedValueBeforeScaling = oracle.getBookValue(strategy, address(market));
-        assertEq(amortizedValueBeforeScaling, 95e18);
+        uint256 amortizedValue = oracle.getBookValue(strategy, address(market));
+        assertEq(amortizedValue, 95e18);
 
         // Increase balance without recording (direct transfer in)
         pt.mint(strategy, 50e18); // Now 150e18 total
 
-        // Book value should be amortized value (95) scaled by 150/100 = 142.5
+        // With new formula using current balance A=150:
+        // B(t) = 150 - (150 - 90) * 0.5 = 150 - 30 = 120
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
-        assertEq(bookValue, 142.5e18);
+        assertEq(bookValue, 120e18);
     }
 
-    /// @notice Test getBookValue scales amortized value when balance decreased (time has passed)
-    function test_GetBookValue_ScalesAmortizedValueWhenBalanceDecreased() public {
+    /// @notice Test getBookValue with balance decrease uses current balance in formula (time has passed)
+    function test_GetBookValue_BalanceDecreasedAfterTimePassed() public {
         uint256 initialPtAmount = 100e18;
         uint256 sySpent = 90e18;
 
@@ -584,74 +543,17 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Amortized value at 50%: 100 - (100 - 90) * 0.5 = 95
-        uint256 amortizedValueBeforeScaling = oracle.getBookValue(strategy, address(market));
-        assertEq(amortizedValueBeforeScaling, 95e18);
+        uint256 amortizedValue = oracle.getBookValue(strategy, address(market));
+        assertEq(amortizedValue, 95e18);
 
         // Decrease balance without recording (direct transfer out)
         pt.burn(strategy, 40e18); // Now 60e18 total
 
-        // Book value should be amortized value (95) scaled by 60/100 = 57
+        // With new formula using current balance A=60:
+        // B(t) = 60 - (60 - 90) * 0.5 = 60 - (-15) = 60 + 15 = 75
+        // But since A < B_t0, defensive branch caps at A = 60
         uint256 bookValue = oracle.getBookValue(strategy, address(market));
-        assertEq(bookValue, 57e18);
-    }
-
-    /// @notice Fuzz test for getBookValue scaling after amortization
-    function testFuzz_GetBookValue_ScalesAmortizedValue(
-        uint128 initialPtAmount,
-        uint128 sySpent,
-        uint128 newPtAmount,
-        uint256 timePassed
-    ) public {
-        // Bound inputs to reasonable ranges with minimum ratios to avoid precision issues
-        initialPtAmount = uint128(bound(initialPtAmount, 1e18, 1e24));
-        // Ensure sySpent is at least 80% of initialPtAmount to avoid extreme discount scenarios
-        uint128 minSySpent = uint128(uint256(initialPtAmount) * 80 / 100);
-        sySpent = uint128(bound(sySpent, minSySpent, initialPtAmount));
-        // Keep newPtAmount within 2x of initialPtAmount to avoid extreme scaling and precision loss
-        uint128 minNewPt = initialPtAmount / 2;
-        uint128 maxNewPt = initialPtAmount * 2 > type(uint128).max ? type(uint128).max : initialPtAmount * 2;
-        newPtAmount = uint128(bound(newPtAmount, minNewPt, maxNewPt));
-        // Ensure meaningful time has passed but not too close to boundaries
-        timePassed = bound(timePassed, MATURITY / 10, MATURITY * 9 / 10);
-
-        // Skip if same amount (no scaling path)
-        vm.assume(newPtAmount != initialPtAmount);
-
-        // Record purchase
-        pt.mint(strategy, initialPtAmount);
-        vm.prank(strategy);
-        oracle.recordPurchase(address(market), sySpent, initialPtAmount);
-
-        uint256 t0 = block.timestamp;
-
-        // Advance time
-        vm.warp(block.timestamp + timePassed);
-
-        // Calculate expected amortized value at old amount using same formula as oracle
-        // B(t) = A - (A - B_t0) * (T - t) / (T - t0)
-        // Use mulDiv for precision matching the oracle's calculation
-        uint256 amortizedValueAtOldAmount;
-        {
-            uint256 T = pt.expiry(); // Use actual PT expiry like the oracle does
-            uint256 timeRemaining = T - block.timestamp;
-            uint256 totalDuration = T - t0;
-            uint256 unamortizedDiscount = Math.mulDiv(initialPtAmount - sySpent, timeRemaining, totalDuration);
-            amortizedValueAtOldAmount = initialPtAmount - unamortizedDiscount;
-        }
-
-        // Adjust balance to newPtAmount
-        if (newPtAmount > initialPtAmount) {
-            pt.mint(strategy, newPtAmount - initialPtAmount);
-        } else {
-            pt.burn(strategy, initialPtAmount - newPtAmount);
-        }
-
-        // Expected: amortizedValue * currentPtAmount / A_t0 (using mulDiv like oracle)
-        uint256 expectedBookValue = Math.mulDiv(amortizedValueAtOldAmount, newPtAmount, initialPtAmount);
-
-        // Use 25% tolerance to accommodate precision differences in coverage mode (--ir-minimum)
-        // The test still validates the scaling logic works correctly
-        assertApproxEqRel(oracle.getBookValue(strategy, address(market)), expectedBookValue, 0.25e18);
+        assertEq(bookValue, 60e18);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -669,39 +571,42 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // Correct the book value
         uint128 newBookValue = 85e18;
-        uint128 newPtAmount = uint128(ptAmount);
 
         vm.expectEmit(true, true, true, true);
         emit BookValueCorrected(strategy, address(market), sySpent, newBookValue, admin);
-        oracle.correctBookValue(strategy, address(market), newBookValue, newPtAmount);
+        oracle.correctBookValue(strategy, address(market), newBookValue);
 
         assertEq(oracle.getBookValue(strategy, address(market)), newBookValue);
     }
 
     /// @notice Test correctBookValue reverts for non-manager
     function test_CorrectBookValue_RevertsNonManager() public {
+        pt.mint(strategy, 100e18);
+
         address nonManager = makeAddr("nonManager");
 
         vm.prank(nonManager);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonManager, MANAGER_ROLE)
         );
-        oracle.correctBookValue(strategy, address(market), 85e18, 100e18);
+        oracle.correctBookValue(strategy, address(market), 85e18);
     }
 
     /// @notice Test correctBookValue reverts for zero address
     function test_CorrectBookValue_RevertsZeroAddress() public {
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.correctBookValue(address(0), address(market), 85e18, 100e18);
+        oracle.correctBookValue(address(0), address(market), 85e18);
 
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        oracle.correctBookValue(strategy, address(0), 85e18, 100e18);
+        oracle.correctBookValue(strategy, address(0), 85e18);
     }
 
-    /// @notice Test correctBookValue reverts if book value exceeds PT amount
+    /// @notice Test correctBookValue reverts if book value exceeds current PT balance
     function test_CorrectBookValue_RevertsBookValueExceedsFaceValue() public {
+        pt.mint(strategy, 100e18);
+
         vm.expectRevert(PendlePTAmortizedOracle.BOOK_VALUE_EXCEEDS_FACE_VALUE.selector);
-        oracle.correctBookValue(strategy, address(market), 101e18, 100e18);
+        oracle.correctBookValue(strategy, address(market), 101e18);
     }
 
     /// @notice Test correctBookValue can create new position
@@ -712,7 +617,7 @@ contract PendlePTAmortizedOracleTest is Test {
         assertFalse(oracle.hasPosition(strategy, address(market)));
 
         // Create position via correction
-        oracle.correctBookValue(strategy, address(market), 90e18, 100e18);
+        oracle.correctBookValue(strategy, address(market), 90e18);
 
         assertTrue(oracle.hasPosition(strategy, address(market)));
         assertEq(oracle.getBookValue(strategy, address(market)), 90e18);
@@ -731,7 +636,7 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.warp(block.timestamp + MATURITY / 4);
 
         // Correct the book value to a new value (80e18)
-        oracle.correctBookValue(strategy, address(market), 80e18, uint128(ptAmount));
+        oracle.correctBookValue(strategy, address(market), 80e18);
 
         // Immediately after correction, book value should be 80e18
         assertEq(oracle.getBookValue(strategy, address(market)), 80e18);
@@ -750,7 +655,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, 100e18);
 
         // Create position with zero book value (edge case)
-        oracle.correctBookValue(strategy, address(market), 0, 100e18);
+        oracle.correctBookValue(strategy, address(market), 0);
 
         assertTrue(oracle.hasPosition(strategy, address(market)));
         // Book value should be 0 initially, then amortize to face value
@@ -769,15 +674,15 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.prank(strategy);
         oracle.recordPurchase(address(market), 90e18, ptAmount);
 
-        (, uint64 initialTime,) = oracle.bookValues(strategy, address(market));
+        (, uint64 initialTime) = oracle.bookValues(strategy, address(market));
 
         // Advance time
         vm.warp(block.timestamp + 1 days);
 
         // Correct book value
-        oracle.correctBookValue(strategy, address(market), 85e18, uint128(ptAmount));
+        oracle.correctBookValue(strategy, address(market), 85e18);
 
-        (, uint64 newTime,) = oracle.bookValues(strategy, address(market));
+        (, uint64 newTime) = oracle.bookValues(strategy, address(market));
 
         assertGt(newTime, initialTime, "Timestamp should be updated");
         assertEq(newTime, block.timestamp, "Timestamp should be current");
@@ -797,7 +702,7 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.expectEmit(true, true, false, true);
         emit BookValueUpdated(strategy, address(market), 85e18, block.timestamp);
 
-        oracle.correctBookValue(strategy, address(market), 85e18, uint128(ptAmount));
+        oracle.correctBookValue(strategy, address(market), 85e18);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -885,19 +790,17 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.recordPurchase(address(market), 90e18, ptAmount);
 
         // Verify state exists
-        (uint128 bookValue, uint64 time, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        (uint128 bookValue, uint64 time) = oracle.bookValues(strategy, address(market));
         assertGt(bookValue, 0);
         assertGt(time, 0);
-        assertGt(storedPtAmount, 0);
 
         // Delete position
         oracle.deletePosition(strategy, address(market));
 
         // Verify all state is cleared
-        (bookValue, time, storedPtAmount) = oracle.bookValues(strategy, address(market));
+        (bookValue, time) = oracle.bookValues(strategy, address(market));
         assertEq(bookValue, 0);
         assertEq(time, 0);
-        assertEq(storedPtAmount, 0);
     }
 
     /// @notice Test getBookValue reverts after deletion
@@ -968,9 +871,12 @@ contract PendlePTAmortizedOracleTest is Test {
         // Cost basis: c(t) = B(t) / A = 169.75 / 175 = 0.97
         // Selling 60 PT: book value reduction = 60 * 0.97 = 58.2
         // New book value = 169.75 - 58.2 = 111.55
+
+        // Burn PT BEFORE recording (simulates hook being called after redeem)
+        shortPt.burn(strategy, 60e18);
+
         vm.prank(strategy);
         oracle.recordRedemption(address(shortMarket), 60e18);
-        shortPt.burn(strategy, 60e18);
 
         uint256 finalBookValue = oracle.getBookValue(strategy, address(shortMarket));
         assertApproxEqRel(finalBookValue, 111.55e18, 0.01e18); // 1% tolerance for rounding
@@ -1021,6 +927,7 @@ contract PendlePTAmortizedOracleTest is Test {
     }
 
     /// @notice Fuzz test for partial redemptions
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function testFuzz_RecordRedemption_PartialAmounts(uint128 ptAmount, uint128 ptRedeemed) public {
         // Bound inputs to reasonable ranges to avoid integer math edge cases
         // ptAmount: between 1e18 and 1e30 (reasonable token amounts)
@@ -1034,10 +941,11 @@ contract PendlePTAmortizedOracleTest is Test {
         vm.prank(strategy);
         oracle.recordPurchase(address(market), sySpent, ptAmount);
 
+        // Burn PT BEFORE recording (simulates hook being called after redeem)
+        pt.burn(strategy, ptRedeemed);
+
         vm.prank(strategy);
         oracle.recordRedemption(address(market), ptRedeemed);
-
-        pt.burn(strategy, ptRedeemed);
 
         // Verify book value is proportionally reduced
         uint256 remainingPt = ptAmount - ptRedeemed;
@@ -1054,6 +962,7 @@ contract PendlePTAmortizedOracleTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Test full lifecycle: purchase -> amortize -> correct -> redeem
+    /// @dev recordRedemption is called AFTER the PT has been burned (per hook design)
     function test_FullLifecycle_WithCorrection() public {
         uint256 ptAmount = 100e18;
         uint256 sySpent = 90e18;
@@ -1071,14 +980,15 @@ contract PendlePTAmortizedOracleTest is Test {
 
         // 3. Correct book value (simulate fixing an error)
         uint128 correctedValue = 88e18;
-        oracle.correctBookValue(strategy, address(market), correctedValue, uint128(ptAmount));
+        oracle.correctBookValue(strategy, address(market), correctedValue);
         assertEq(oracle.getBookValue(strategy, address(market)), correctedValue);
 
-        // 4. Redeem half
+        // 4. Redeem half - burn PT BEFORE recording
         uint256 redeemAmount = ptAmount / 2;
+        pt.burn(strategy, redeemAmount);
+
         vm.prank(strategy);
         oracle.recordRedemption(address(market), redeemAmount);
-        pt.burn(strategy, redeemAmount);
 
         // Book value should be approximately half
         uint256 finalBookValue = oracle.getBookValue(strategy, address(market));
@@ -1134,7 +1044,7 @@ contract PendlePTAmortizedOracleTest is Test {
         assertEq(oracle.getBookValue(strategy, address(market2)), 85e18);
 
         // Correct market 1, market 2 unaffected
-        oracle.correctBookValue(strategy, address(market), 80e18, uint128(ptAmount));
+        oracle.correctBookValue(strategy, address(market), 80e18);
         assertEq(oracle.getBookValue(strategy, address(market)), 80e18);
         assertEq(oracle.getBookValue(strategy, address(market2)), 85e18);
     }
@@ -1165,18 +1075,19 @@ contract PendlePTAmortizedOracleTest is Test {
         assertEq(oracle.getBookValue(strategy, address(market)), ptAmount);
     }
 
-    /// @notice Test correctBookValue with ptAmount different from actual balance
-    function test_CorrectBookValue_PtAmountDiffersFromBalance() public {
+    /// @notice Test correctBookValue validates against current PT balance
+    function test_CorrectBookValue_ValidatesAgainstCurrentBalance() public {
         pt.mint(strategy, 100e18);
 
-        // Correct with different ptAmount (for pre-correction of expected state)
-        // This allows admin to set state before actual balance change
-        oracle.correctBookValue(strategy, address(market), 45e18, 50e18);
+        // Correct with book value less than current balance
+        oracle.correctBookValue(strategy, address(market), 45e18);
 
-        // Position exists with the specified values
-        (uint128 bookValue,, uint128 storedPtAmount) = oracle.bookValues(strategy, address(market));
+        // Position exists with the specified book value
+        (uint128 bookValue,) = oracle.bookValues(strategy, address(market));
         assertEq(bookValue, 45e18);
-        assertEq(storedPtAmount, 50e18);
+
+        // Book value uses current balance for amortization
+        assertEq(oracle.getBookValue(strategy, address(market)), 45e18);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1192,35 +1103,34 @@ contract PendlePTAmortizedOracleTest is Test {
         // Mint PT to strategy
         pt.mint(strategy, ptAmount);
 
-        // Use harness to directly set invalid state where B_t0 > A_t0
+        // Use harness to directly set invalid state where B_t0 > current balance
         PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
 
-        // Set invalid state: bookValue = 150e18, ptAmount = 100e18 (bookValue > faceValue)
-        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp), 100e18);
+        // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
+        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
 
         // Advance time so we're in the amortization phase (t > t0 but t < maturity)
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Now getBookValue should hit the defensive branch
-        // When A_t0 < B_t0: defensive branch caps at face value A_t0
-        // Since currentPtAmount == A_t0, no scaling is applied
-        // Result should be A_t0 = 100e18 (face value, not corrupted B_t0)
+        // When A (current balance) < B_t0: defensive branch caps at face value A
+        // Result should be A = 100e18 (face value, not corrupted B_t0)
         uint256 bookValue = harness.getBookValue(strategy, address(market));
         assertEq(bookValue, ptAmount, "Defensive path should cap at face value");
     }
 
-    /// @notice Test getBookValue defensive path with balance change (scales face value)
-    function test_GetBookValue_DefensivePathWithBalanceChange() public {
+    /// @notice Test getBookValue defensive path with increased balance
+    function test_GetBookValue_DefensivePathWithBalanceIncrease() public {
         uint256 ptAmount = 100e18;
 
         // Mint PT to strategy
         pt.mint(strategy, ptAmount);
 
-        // Use harness to directly set invalid state where B_t0 > A_t0
+        // Use harness to directly set invalid state where B_t0 > current balance
         PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
 
-        // Set invalid state: bookValue = 150e18, ptAmount = 100e18 (bookValue > faceValue)
-        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp), 100e18);
+        // Set invalid state: bookValue = 150e18, but PT balance = 100e18
+        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
 
         // Advance time so we're in the amortization phase
         vm.warp(block.timestamp + MATURITY / 2);
@@ -1228,12 +1138,11 @@ contract PendlePTAmortizedOracleTest is Test {
         // Change balance to 150e18 (50% increase)
         pt.mint(strategy, 50e18);
 
-        // Now getBookValue should:
-        // 1. Hit defensive branch, capping amortizedValue at A_t0 = 100e18
-        // 2. Scale by current/stored = 150/100 = 1.5
-        // Result should be 150e18
+        // Now getBookValue uses current balance A = 150e18
+        // Since A (150) < B_t0 (150), defensive branch is NOT hit
+        // B(t) = 150 - (150 - 150) * remaining / total = 150
         uint256 bookValue = harness.getBookValue(strategy, address(market));
-        assertEq(bookValue, 150e18, "Defensive path should scale face value");
+        assertEq(bookValue, 150e18);
     }
 
     /// @notice Test _calculateAmortizedBookValue defensive path during redemption
@@ -1243,26 +1152,33 @@ contract PendlePTAmortizedOracleTest is Test {
         // Mint PT to strategy
         pt.mint(strategy, ptAmount);
 
-        // Use harness to directly set invalid state where B_t0 > A_t0
+        // Use harness to directly set invalid state where B_t0 > balance
         PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
 
-        // Set invalid state: bookValue = 150e18, ptAmount = 100e18 (bookValue > faceValue)
-        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp), 100e18);
+        // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
+        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
 
         // Advance time
         vm.warp(block.timestamp + MATURITY / 2);
 
         // Redeem 50 PT
-        // _calculateAmortizedBookValue should cap at A = 100e18 (defensive branch)
+        // Previous balance = 100 + 50 = 150 (derived from current balance 100 - 50 burned, but burn happens after)
+        // Wait, redemption happens before this call, so:
+        // - Current balance after redemption = 50e18 (we need to burn first)
+        pt.burn(strategy, 50e18); // Balance is now 50e18
+
+        // Now record redemption with ptSold = 50e18
+        // Previous balance = 50 + 50 = 100e18
+        // _calculateAmortizedBookValue with A=100, B_t0=150
+        // Since A < B_t0, defensive branch caps at A = 100e18
         // Cost basis = 100 * 50 / 100 = 50
         // New book value = 100 - 50 = 50
         vm.prank(strategy);
         harness.recordRedemption(address(market), 50e18);
 
         // Verify the state was updated correctly
-        (uint128 storedBookValue,, uint128 storedPtAmount) = harness.bookValues(strategy, address(market));
+        (uint128 storedBookValue,) = harness.bookValues(strategy, address(market));
         assertEq(storedBookValue, 50e18);
-        assertEq(storedPtAmount, 50e18);
     }
 
     /// @notice Test using harness to directly set invalid state
@@ -1271,13 +1187,13 @@ contract PendlePTAmortizedOracleTest is Test {
 
         pt.mint(strategy, 100e18);
 
-        // Set invalid state where bookValue > ptAmount
-        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp), 100e18);
+        // Set invalid state where bookValue > ptBalance
+        harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
 
         // Advance time
         vm.warp(block.timestamp + MATURITY / 2);
 
-        // Defensive branch should cap at face value
+        // Defensive branch should cap at face value (current balance)
         uint256 bookValue = harness.getBookValue(strategy, address(market));
         assertEq(bookValue, 100e18);
     }

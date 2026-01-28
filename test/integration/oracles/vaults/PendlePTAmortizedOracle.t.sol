@@ -229,13 +229,14 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Redeem 50% of position
         uint256 ptToRedeem = ptAmount / 2;
 
+        // Simulate the actual redemption by burning PT BEFORE recording
+        // Note: In real scenario, strategy would transfer PT away. We simulate by dealing less.
+        // recordRedemption is called AFTER the PT has been burned (per hook design)
+        deal(address(pt), testStrategy, ptAmount - ptToRedeem);
+
         // Record redemption (strategy calls directly)
         vm.prank(testStrategy);
         oracle.recordRedemption(address(market), ptToRedeem);
-
-        // Simulate the actual redemption by burning PT
-        // Note: In real scenario, strategy would transfer PT away. We simulate by dealing less.
-        deal(address(pt), testStrategy, ptAmount - ptToRedeem);
 
         uint256 bookValueAfterRedemption = oracle.getBookValue(testStrategy, address(market));
         console2.log("Book value after redemption:", bookValueAfterRedemption);

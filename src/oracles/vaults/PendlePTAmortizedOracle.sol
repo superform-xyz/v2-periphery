@@ -36,11 +36,10 @@ contract PendlePTAmortizedOracle is AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice State for tracking book value - stores values at last update
-    /// @dev Packed into 2 storage slots (48 bytes)
+    /// @dev Packed into single storage slot (24 bytes)
     struct BookValueState {
         uint128 lastUpdateBookValue; // B(t0): Book value at last update
         uint64 lastUpdateTime; // t0: Timestamp of last update
-        uint128 lastUpdatePtAmount; // A(t0): PT amount at last update (for amortization calc)
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -159,28 +158,28 @@ contract PendlePTAmortizedOracle is AccessControl {
         uint256 maturity = pt.expiry();
         if (block.timestamp >= maturity) revert MARKET_EXPIRED();
 
+        // Get current PT balance (after purchase) and derive previous balance
+        uint256 currentPtBalance = IERC20(address(pt)).balanceOf(strategy);
+        uint256 previousPtBalance = currentPtBalance - ptAmount;
+
         BookValueState storage state = bookValues[strategy][market];
 
         // Calculate current book value (if position exists) and add new purchase
         uint256 newBookValue;
-        uint256 newPtAmount;
         if (state.lastUpdateTime > 0) {
             // Existing position: amortize and add
-            uint256 currentBookValue = _calculateAmortizedBookValue(state, maturity);
+            uint256 currentBookValue = _calculateAmortizedBookValue(state, previousPtBalance, maturity);
             newBookValue = currentBookValue + sySpent;
-            newPtAmount = state.lastUpdatePtAmount + ptAmount;
         } else {
             // First purchase
             newBookValue = sySpent;
-            newPtAmount = ptAmount;
         }
 
         // Sanity check: book value should not exceed face value
-        if (newBookValue > newPtAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
+        if (newBookValue > currentPtBalance) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
         state.lastUpdateBookValue = newBookValue.toUint128();
         state.lastUpdateTime = block.timestamp.toUint64();
-        state.lastUpdatePtAmount = newPtAmount.toUint128();
 
         emit PurchaseRecorded(strategy, market, sySpent, ptAmount);
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
@@ -208,23 +207,19 @@ contract PendlePTAmortizedOracle is AccessControl {
         (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
         uint256 maturity = pt.expiry();
 
-        // Get stored PT amount (this was the amount BEFORE redemption)
-        uint256 oldPtAmount = state.lastUpdatePtAmount;
-        if (ptSold > oldPtAmount) revert INSUFFICIENT_POSITION();
+        // Get current PT balance (after redemption) and derive previous balance
+        uint256 currentPtBalance = IERC20(address(pt)).balanceOf(strategy);
+        uint256 previousPtBalance = currentPtBalance + ptSold;
 
-        // Calculate current book value using stored ptAmount
-        uint256 currentBookValue = _calculateAmortizedBookValue(state, maturity);
+        // Calculate current book value using previous ptAmount
+        uint256 currentBookValue = _calculateAmortizedBookValue(state, previousPtBalance, maturity);
 
         // Cost basis accounting: proportionally reduce book value
-        uint256 costBasis = currentBookValue.mulDiv(ptSold, oldPtAmount);
+        uint256 costBasis = currentBookValue.mulDiv(ptSold, previousPtBalance);
         uint256 newBookValue = currentBookValue - costBasis;
-
-        // Calculate new PT amount after redemption
-        uint256 newPtAmount = oldPtAmount - ptSold;
 
         state.lastUpdateBookValue = newBookValue.toUint128();
         state.lastUpdateTime = block.timestamp.toUint64();
-        state.lastUpdatePtAmount = newPtAmount.toUint128();
 
         emit RedemptionRecorded(strategy, market, ptSold);
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
@@ -261,30 +256,28 @@ contract PendlePTAmortizedOracle is AccessControl {
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
     /// @param newBookValue The corrected book value
-    /// @param newPtAmount The corrected PT amount (should match current balance or expected state)
     function correctBookValue(
         address strategy,
         address market,
-        uint128 newBookValue,
-        uint128 newPtAmount
+        uint128 newBookValue
     )
         external
         onlyRole(MANAGER_ROLE)
     {
         if (strategy == address(0) || market == address(0)) revert ZERO_ADDRESS();
 
-        // Get PT address to validate (read to ensure market is valid)
-        IPMarket(market).readTokens();
+        // Get PT address and current balance to validate
+        (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
+        uint256 currentPtBalance = IERC20(address(pt)).balanceOf(strategy);
 
-        // Sanity check: corrected book value should not exceed PT amount
-        if (newBookValue > newPtAmount) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
+        // Sanity check: corrected book value should not exceed current PT balance
+        if (newBookValue > currentPtBalance) revert BOOK_VALUE_EXCEEDS_FACE_VALUE();
 
         BookValueState storage state = bookValues[strategy][market];
         uint256 oldBookValue = state.lastUpdateBookValue;
 
         state.lastUpdateBookValue = newBookValue;
         state.lastUpdateTime = block.timestamp.toUint64();
-        state.lastUpdatePtAmount = newPtAmount;
 
         emit BookValueCorrected(strategy, market, oldBookValue, newBookValue, msg.sender);
         emit BookValueUpdated(strategy, market, newBookValue, block.timestamp);
@@ -312,11 +305,11 @@ contract PendlePTAmortizedOracle is AccessControl {
                           INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Calculate current book value for external view (reads current balanceOf and scales)
-    /// @dev Used by getBookValue() - handles case where PT balance changed without recording
+    /// @notice Calculate current book value for external view
+    /// @dev Used by getBookValue() - uses current PT balance for amortization
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
-    /// @return Current amortized book value scaled to current PT balance
+    /// @return Current amortized book value
     function _calculateBookValue(address strategy, address market) internal view returns (uint256) {
         BookValueState memory state = bookValues[strategy][market];
 
@@ -335,37 +328,31 @@ contract PendlePTAmortizedOracle is AccessControl {
             return currentPtAmount;
         }
 
-        // Calculate amortized book value using stored amount
-        uint256 storedPtAmount = state.lastUpdatePtAmount;
-        uint256 amortizedValue = _calculateAmortizedBookValue(state, maturity);
-
-        // Scale by current PT amount if different (handles unrecorded changes)
-        if (currentPtAmount != storedPtAmount && storedPtAmount > 0) {
-            return amortizedValue.mulDiv(currentPtAmount, storedPtAmount);
-        }
-
-        return amortizedValue;
+        // Calculate amortized book value using current balance
+        return _calculateAmortizedBookValue(state, currentPtAmount, maturity);
     }
 
-    /// @notice Core amortization formula using stored values
+    /// @notice Core amortization formula
     /// @dev B(t) = A - (A - B(t0)) * (T - t) / (T - t0)
     /// @dev Used by both _calculateBookValue and strategy functions
     /// @param state The stored book value state
+    /// @param ptAmount The PT amount to use for amortization (face value)
     /// @param maturity The PT maturity timestamp
-    /// @return Amortized book value using stored ptAmount
+    /// @return Amortized book value
     function _calculateAmortizedBookValue(
         BookValueState memory state,
+        uint256 ptAmount,
         uint256 maturity
     )
         internal
         view
         returns (uint256)
     {
-        uint256 A = state.lastUpdatePtAmount;
+        uint256 A = ptAmount;
         uint256 B_t0 = state.lastUpdateBookValue;
         uint256 t0 = state.lastUpdateTime;
 
-        // Edge case: no PT stored
+        // Edge case: no PT
         if (A == 0) return 0;
 
         // At or after maturity, book value = face value
