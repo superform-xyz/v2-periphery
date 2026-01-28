@@ -93,6 +93,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "UpOFT"
     "UpOFTAdapter"
     "SuperformGasOracle"
+    "PendlePTAmortizedOracle"
 )
 
 # Function to copy contract artifact
