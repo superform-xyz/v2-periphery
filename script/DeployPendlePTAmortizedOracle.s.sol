@@ -23,7 +23,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deploy PendlePTAmortizedOracle on a single chain
-    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to DEPLOYER
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE) to DEPLOYER
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to deploy on
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
@@ -35,7 +35,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
     }
 
     /// @notice Deploy PendlePTAmortizedOracle on multiple chains
-    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to DEPLOYER
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE) to DEPLOYER
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainIds Array of chain IDs to deploy on
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
@@ -94,13 +94,9 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
             console2.log("=== Oracle Role Status ===");
             console2.log("DEPLOYER has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin));
             console2.log("DEPLOYER has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), admin));
-            console2.log("DEPLOYER has KEEPER_ROLE:", oracle.hasRole(oracle.KEEPER_ROLE(), admin));
             console2.log("");
             console2.log("SUPER_GOVERNOR has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS));
             console2.log("SUPER_GOVERNOR has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), SUPER_GOVERNOR_ADDRESS));
-            console2.log("SUPER_GOVERNOR has KEEPER_ROLE:", oracle.hasRole(oracle.KEEPER_ROLE(), SUPER_GOVERNOR_ADDRESS));
-            console2.log("");
-            console2.log("Is paused:", oracle.paused());
         }
 
         console2.log("");
@@ -122,7 +118,7 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Internal deployment function
-    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE, KEEPER_ROLE) to admin
+    /// @dev Grants all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE) to admin
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to deploy on
     /// @param admin Admin address (DEPLOYER)
@@ -154,18 +150,10 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
             abi.encodePacked(bytecode, abi.encode(admin))
         );
 
-        // Verify deployment and grant KEEPER_ROLE
+        // Verify deployment
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
         require(oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
         require(oracle.hasRole(oracle.MANAGER_ROLE(), admin), "MANAGER_ROLE_MISMATCH");
-
-        // Grant KEEPER_ROLE to admin (constructor only grants DEFAULT_ADMIN_ROLE and MANAGER_ROLE)
-        // Admin has MANAGER_ROLE which is the admin of KEEPER_ROLE, so can grant it
-        if (!oracle.hasRole(oracle.KEEPER_ROLE(), admin)) {
-            oracle.addKeeper(admin);
-            console2.log("Granted KEEPER_ROLE to admin");
-        }
-        require(oracle.hasRole(oracle.KEEPER_ROLE(), admin), "KEEPER_ROLE_MISMATCH");
 
         console2.log("");
         console2.log("=== Deployment Verification ===");
@@ -173,7 +161,6 @@ contract DeployPendlePTAmortizedOracle is DeployV2Base {
         console2.log("Admin verified:", admin);
         console2.log("Has DEFAULT_ADMIN_ROLE:", true);
         console2.log("Has MANAGER_ROLE:", true);
-        console2.log("Has KEEPER_ROLE:", true);
 
         // Write JSON output
         _writeOracleJson(env, chainId, oracleAddr, branchName);

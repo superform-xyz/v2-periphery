@@ -8,7 +8,7 @@ import { console2 } from "forge-std/console2.sol";
 
 /// @title TransferPendlePTAmortizedOracleOwnership
 /// @notice Script to transfer PendlePTAmortizedOracle roles from DEPLOYER to SUPER_GOVERNOR_ADDRESS
-/// @dev Transfers DEFAULT_ADMIN_ROLE, MANAGER_ROLE, and KEEPER_ROLE
+/// @dev Transfers DEFAULT_ADMIN_ROLE and MANAGER_ROLE
 contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
                               CONSTANTS
@@ -48,32 +48,27 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
         bytes32 DEFAULT_ADMIN_ROLE = oracle.DEFAULT_ADMIN_ROLE();
         bytes32 MANAGER_ROLE = oracle.MANAGER_ROLE();
-        bytes32 KEEPER_ROLE = oracle.KEEPER_ROLE();
 
         // Check current role state
         console2.log("Oracle Address:", oracleAddr);
 
         bool deployerHasAdmin = oracle.hasRole(DEFAULT_ADMIN_ROLE, DEPLOYER);
         bool deployerHasManager = oracle.hasRole(MANAGER_ROLE, DEPLOYER);
-        bool deployerHasKeeper = oracle.hasRole(KEEPER_ROLE, DEPLOYER);
 
         bool governorHasAdmin = oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS);
         bool governorHasManager = oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS);
-        bool governorHasKeeper = oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS);
 
         console2.log("");
         console2.log("=== Current Role Status ===");
         console2.log("DEPLOYER has DEFAULT_ADMIN_ROLE:", deployerHasAdmin);
         console2.log("DEPLOYER has MANAGER_ROLE:", deployerHasManager);
-        console2.log("DEPLOYER has KEEPER_ROLE:", deployerHasKeeper);
         console2.log("");
         console2.log("SUPER_GOVERNOR has DEFAULT_ADMIN_ROLE:", governorHasAdmin);
         console2.log("SUPER_GOVERNOR has MANAGER_ROLE:", governorHasManager);
-        console2.log("SUPER_GOVERNOR has KEEPER_ROLE:", governorHasKeeper);
 
         // Check if transfer is fully complete (skip if so)
-        bool fullyTransferred = governorHasAdmin && governorHasManager && governorHasKeeper
-            && !deployerHasAdmin && !deployerHasManager && !deployerHasKeeper;
+        bool fullyTransferred = governorHasAdmin && governorHasManager
+            && !deployerHasAdmin && !deployerHasManager;
 
         if (fullyTransferred) {
             console2.log("");
@@ -105,27 +100,11 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
             console2.log("  [=] MANAGER_ROLE already granted");
         }
 
-        // Grant KEEPER_ROLE (MANAGER_ROLE can grant this via addKeeper)
-        if (!governorHasKeeper) {
-            oracle.addKeeper(SUPER_GOVERNOR_ADDRESS);
-            console2.log("  [+] Granted KEEPER_ROLE");
-        } else {
-            console2.log("  [=] KEEPER_ROLE already granted");
-        }
-
         // Revoke roles from DEPLOYER
         console2.log("");
         console2.log("Revoking roles from DEPLOYER...");
 
-        // Revoke KEEPER_ROLE first (least privileged)
-        if (deployerHasKeeper) {
-            oracle.removeKeeper(DEPLOYER);
-            console2.log("  [-] Revoked KEEPER_ROLE");
-        } else {
-            console2.log("  [=] KEEPER_ROLE already revoked");
-        }
-
-        // Revoke MANAGER_ROLE
+        // Revoke MANAGER_ROLE first
         if (deployerHasManager) {
             oracle.revokeRole(MANAGER_ROLE, DEPLOYER);
             console2.log("  [-] Revoked MANAGER_ROLE");
@@ -144,17 +123,14 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
         // Verify transfer
         require(oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS), "TRANSFER_FAILED: New admin role mismatch");
         require(oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS), "TRANSFER_FAILED: New manager role mismatch");
-        require(oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS), "TRANSFER_FAILED: New keeper role mismatch");
         require(!oracle.hasRole(DEFAULT_ADMIN_ROLE, DEPLOYER), "TRANSFER_FAILED: Old admin still has admin role");
         require(!oracle.hasRole(MANAGER_ROLE, DEPLOYER), "TRANSFER_FAILED: Old admin still has manager role");
-        require(!oracle.hasRole(KEEPER_ROLE, DEPLOYER), "TRANSFER_FAILED: Old admin still has keeper role");
 
         console2.log("");
         console2.log("=== Transfer Complete ===");
         console2.log("New Admin:", SUPER_GOVERNOR_ADDRESS);
         console2.log("Has DEFAULT_ADMIN_ROLE:", oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS));
         console2.log("Has MANAGER_ROLE:", oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS));
-        console2.log("Has KEEPER_ROLE:", oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS));
         console2.log("====== Role Transfer Complete ======");
     }
 
@@ -186,33 +162,27 @@ contract TransferPendlePTAmortizedOracleOwnership is DeployV2Base {
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
         bytes32 DEFAULT_ADMIN_ROLE = oracle.DEFAULT_ADMIN_ROLE();
         bytes32 MANAGER_ROLE = oracle.MANAGER_ROLE();
-        bytes32 KEEPER_ROLE = oracle.KEEPER_ROLE();
 
         console2.log("Oracle Address:", oracleAddr);
         console2.log("");
         console2.log("=== DEPLOYER Role Status ===");
         console2.log("Has DEFAULT_ADMIN_ROLE:", oracle.hasRole(DEFAULT_ADMIN_ROLE, DEPLOYER));
         console2.log("Has MANAGER_ROLE:", oracle.hasRole(MANAGER_ROLE, DEPLOYER));
-        console2.log("Has KEEPER_ROLE:", oracle.hasRole(KEEPER_ROLE, DEPLOYER));
         console2.log("");
         console2.log("=== SUPER_GOVERNOR Role Status ===");
         console2.log("Has DEFAULT_ADMIN_ROLE:", oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS));
         console2.log("Has MANAGER_ROLE:", oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS));
-        console2.log("Has KEEPER_ROLE:", oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS));
-        console2.log("");
-        console2.log("Is paused:", oracle.paused());
         console2.log("");
 
         // Determine status
         bool deployerHasAll = oracle.hasRole(DEFAULT_ADMIN_ROLE, DEPLOYER)
-            && oracle.hasRole(MANAGER_ROLE, DEPLOYER) && oracle.hasRole(KEEPER_ROLE, DEPLOYER);
+            && oracle.hasRole(MANAGER_ROLE, DEPLOYER);
 
         bool governorHasAll = oracle.hasRole(DEFAULT_ADMIN_ROLE, SUPER_GOVERNOR_ADDRESS)
-            && oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS)
-            && oracle.hasRole(KEEPER_ROLE, SUPER_GOVERNOR_ADDRESS);
+            && oracle.hasRole(MANAGER_ROLE, SUPER_GOVERNOR_ADDRESS);
 
         bool deployerHasNone = !oracle.hasRole(DEFAULT_ADMIN_ROLE, DEPLOYER)
-            && !oracle.hasRole(MANAGER_ROLE, DEPLOYER) && !oracle.hasRole(KEEPER_ROLE, DEPLOYER);
+            && !oracle.hasRole(MANAGER_ROLE, DEPLOYER);
 
         if (governorHasAll && deployerHasNone) {
             console2.log("Status: ROLES FULLY TRANSFERRED TO SUPER_GOVERNOR");

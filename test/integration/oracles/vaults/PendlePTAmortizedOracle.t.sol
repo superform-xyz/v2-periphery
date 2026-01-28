@@ -15,16 +15,13 @@ import { IPYieldToken } from "@pendle/interfaces/IPYieldToken.sol";
 /// @title PendlePTAmortizedOracleForkTest
 /// @notice Integration fork tests for PendlePTAmortizedOracle using real Pendle markets
 /// @dev Uses real SuperVault strategies and Pendle markets from mainnet
+/// @dev Strategies call recordPurchase/recordRedemption directly (msg.sender is the strategy)
 contract PendlePTAmortizedOracleForkTest is Test {
     // RPC URL key from environment
     string constant ETHEREUM_RPC_URL_KEY = "ETHEREUM_RPC_URL";
 
     PendlePTAmortizedOracle public oracle;
     address public admin;
-    address public keeper;
-
-    // Roles
-    bytes32 constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 
     // Production SuperVault Strategies from supervaults.json
     address constant USDC_STRATEGY = 0x41A9Eb398518D2487301c61D2b33E4e966A9F1DD;
@@ -52,13 +49,10 @@ contract PendlePTAmortizedOracleForkTest is Test {
         vm.selectFork(forkId);
 
         admin = makeAddr("admin");
-        keeper = makeAddr("keeper");
 
-        // Deploy oracle and grant keeper role
-        vm.startPrank(admin);
+        // Deploy oracle
+        vm.prank(admin);
         oracle = new PendlePTAmortizedOracle(admin);
-        oracle.addKeeper(keeper);
-        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -131,12 +125,13 @@ contract PendlePTAmortizedOracleForkTest is Test {
         assertEq(strategyPtBalance, ptAmount, "Strategy should have PT");
 
         // Record purchase (10% discount from face value)
+        // Strategy calls recordPurchase directly (msg.sender is strategy)
         uint256 sySpent = ptAmount * 90 / 100; // 900 units spent for 1000 PT
 
-        vm.prank(keeper);
+        vm.prank(testStrategy);
         vm.expectEmit(true, true, false, true);
         emit BookValueUpdated(testStrategy, address(market), sySpent, block.timestamp);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
 
         // Verify book value
         uint256 bookValue = oracle.getBookValue(testStrategy, address(market));
@@ -168,9 +163,9 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Mint PT to strategy
         deal(address(pt), testStrategy, ptAmount);
 
-        // Record purchase
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+        // Record purchase (strategy calls directly)
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
 
         uint256 initialBookValue = oracle.getBookValue(testStrategy, address(market));
         console2.log("Initial book value:", initialBookValue);
@@ -221,8 +216,8 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         // Mint PT and record purchase
         deal(address(pt), testStrategy, ptAmount);
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
 
         // Warp forward some time
         uint256 timeToMaturity = pt.expiry() - block.timestamp;
@@ -234,12 +229,11 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Redeem 50% of position
         uint256 ptToRedeem = ptAmount / 2;
 
-        // Record redemption BEFORE actually burning (per spec)
-        vm.prank(keeper);
-        oracle.recordRedemption(testStrategy, address(market), ptToRedeem, bytes32(0));
+        // Record redemption (strategy calls directly)
+        vm.prank(testStrategy);
+        oracle.recordRedemption(address(market), ptToRedeem);
 
         // Simulate the actual redemption by burning PT
-        vm.prank(testStrategy);
         // Note: In real scenario, strategy would transfer PT away. We simulate by dealing less.
         deal(address(pt), testStrategy, ptAmount - ptToRedeem);
 
@@ -274,8 +268,8 @@ contract PendlePTAmortizedOracleForkTest is Test {
         uint256 sySpent1 = ptAmount1 * 90 / 100;
 
         deal(address(pt), testStrategy, ptAmount1);
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent1, ptAmount1, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent1, ptAmount1);
 
         uint256 bookValue1 = oracle.getBookValue(testStrategy, address(market));
         console2.log("After 1st purchase - Book value:", bookValue1);
@@ -292,8 +286,8 @@ contract PendlePTAmortizedOracleForkTest is Test {
         uint256 sySpent2 = ptAmount2 * 95 / 100;
 
         deal(address(pt), testStrategy, ptAmount1 + ptAmount2);
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent2, ptAmount1 + ptAmount2, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent2, ptAmount2);
 
         uint256 bookValueAfterSecondPurchase = oracle.getBookValue(testStrategy, address(market));
         console2.log("After 2nd purchase - Book value:", bookValueAfterSecondPurchase);
@@ -322,8 +316,8 @@ contract PendlePTAmortizedOracleForkTest is Test {
         // Mint PT and record purchase only if market not yet expired
         if (block.timestamp < pt.expiry()) {
             deal(address(pt), testStrategy, ptAmount);
-            vm.prank(keeper);
-            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+            vm.prank(testStrategy);
+            oracle.recordPurchase(address(market), sySpent, ptAmount);
 
             // Warp well past maturity
             vm.warp(pt.expiry() + 365 days);
@@ -338,9 +332,9 @@ contract PendlePTAmortizedOracleForkTest is Test {
             // Market already expired at fork block - test that recording purchase fails
             deal(address(pt), testStrategy, ptAmount);
 
-            vm.prank(keeper);
+            vm.prank(testStrategy);
             vm.expectRevert(PendlePTAmortizedOracle.MARKET_EXPIRED.selector);
-            oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+            oracle.recordPurchase(address(market), sySpent, ptAmount);
         }
     }
 
@@ -360,8 +354,8 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         // Record purchase with PT
         deal(address(pt), testStrategy, ptAmount);
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
 
         // Remove all PT (simulate transfer out)
         deal(address(pt), testStrategy, 0);
@@ -426,10 +420,10 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
         deal(address(pt), testStrategy, ptAmount);
 
-        // Benchmark recordPurchase
+        // Benchmark recordPurchase (strategy calls directly)
         uint256 gasBefore = gasleft();
-        vm.prank(keeper);
-        oracle.recordPurchase(testStrategy, address(market), sySpent, ptAmount, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
         uint256 gasUsedPurchase = gasBefore - gasleft();
         console2.log("Gas used - recordPurchase:", gasUsedPurchase);
 
@@ -439,10 +433,10 @@ contract PendlePTAmortizedOracleForkTest is Test {
         uint256 gasUsedGetBookValue = gasBefore - gasleft();
         console2.log("Gas used - getBookValue:", gasUsedGetBookValue);
 
-        // Benchmark recordRedemption
+        // Benchmark recordRedemption (strategy calls directly)
         gasBefore = gasleft();
-        vm.prank(keeper);
-        oracle.recordRedemption(testStrategy, address(market), ptAmount / 2, bytes32(0));
+        vm.prank(testStrategy);
+        oracle.recordRedemption(address(market), ptAmount / 2);
         uint256 gasUsedRedemption = gasBefore - gasleft();
         console2.log("Gas used - recordRedemption:", gasUsedRedemption);
 
