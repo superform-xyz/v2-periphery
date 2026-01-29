@@ -62,7 +62,7 @@ contract MockPrincipalToken {
 }
 
 /// @title MockPendleMarket
-/// @notice Minimal mock Pendle Market for testing - only implements readTokens()
+/// @notice Minimal mock Pendle Market for testing - implements readTokens() and getPtToAssetRate()
 contract MockPendleMarket {
     address private immutable _sy;
     address private immutable _pt;
@@ -85,20 +85,60 @@ contract MockPendleMarket {
     function expiry() external view returns (uint256) {
         return MockPrincipalToken(_pt).expiry();
     }
+
+    /// @notice Returns PT to asset TWAP rate - at maturity returns 1e18 (1:1)
+    /// @dev For testing, returns 1e18 at/after maturity, 0.9e18 before
+    function getPtToAssetRate(uint32) external view returns (uint256) {
+        uint256 maturity = MockPrincipalToken(_pt).expiry();
+        if (block.timestamp >= maturity) {
+            return 1e18; // At maturity, 1 PT = 1 underlying
+        }
+        return 0.9e18; // Before maturity, 1 PT = 0.9 underlying (10% discount)
+    }
 }
 
 /// @title MockSY
-/// @notice Minimal mock SY for market.readTokens()
+/// @notice Minimal mock SY for market.readTokens() and getAssetOutput()
 contract MockSY {
     function decimals() external pure returns (uint8) {
         return 18;
     }
+
+    /// @notice Returns asset info for pricing calculations
+    /// @return assetType Always 0 (TOKEN) for this mock
+    /// @return assetAddress Zero address (not used in our calculations)
+    /// @return assetDecimals 18 decimals (matches PT decimals for consistent testing)
+    function assetInfo() external pure returns (uint8 assetType, address assetAddress, uint8 assetDecimals) {
+        return (0, address(0), 18);
+    }
+
+    /// @notice Returns exchange rate - used by Pendle oracle library
+    /// @dev Returns 1e18 (1:1) for simplicity in unit tests
+    function exchangeRate() external pure returns (uint256) {
+        return 1e18;
+    }
 }
 
 /// @title MockYT
-/// @notice Minimal mock YT for market.readTokens()
+/// @notice Minimal mock YT for market.readTokens() and Pendle oracle library
 contract MockYT {
     function decimals() external pure returns (uint8) {
         return 18;
+    }
+
+    /// @notice Returns stored PY index - used by Pendle oracle library
+    /// @dev Returns 1e18 (1:1) for simplicity in unit tests
+    function pyIndexStored() external pure returns (uint256) {
+        return 1e18;
+    }
+
+    /// @notice Whether to cache index in same block - used by Pendle oracle library
+    function doCacheIndexSameBlock() external pure returns (bool) {
+        return false;
+    }
+
+    /// @notice Returns current PY index - used by Pendle oracle library
+    function pyIndexCurrent() external pure returns (uint256) {
+        return 1e18;
     }
 }

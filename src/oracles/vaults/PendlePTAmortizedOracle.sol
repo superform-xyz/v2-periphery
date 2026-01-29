@@ -151,6 +151,7 @@ contract PendlePTAmortizedOracle is AbstractYieldSourceOracle, AccessControl {
         AbstractYieldSourceOracle(superLedgerConfiguration_)
     {
         if (admin == address(0)) revert ZERO_ADDRESS();
+        if (superLedgerConfiguration_ == address(0)) revert ZERO_ADDRESS();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
@@ -333,9 +334,10 @@ contract PendlePTAmortizedOracle is AbstractYieldSourceOracle, AccessControl {
 
     /// @notice Calculate current book value for external view
     /// @dev Used by getBookValue() - uses current PT balance for amortization
+    /// @dev Returns value in underlying asset decimals (same format as getAssetOutput)
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
-    /// @return Current amortized book value
+    /// @return Current amortized book value in underlying asset decimals
     function _calculateBookValue(address strategy, address market) internal view returns (uint256) {
         BookValueState memory state = bookValues[strategy][market];
 
@@ -349,12 +351,14 @@ contract PendlePTAmortizedOracle is AbstractYieldSourceOracle, AccessControl {
         // Edge case: no PT held
         if (currentPtAmount == 0) return 0;
 
-        // At or after maturity, book value = face value (current amount)
+        // At or after maturity, convert PT to asset value using getAssetOutput for consistent decimals
+        // At maturity TWAP rate = 1.0, so this returns face value properly normalized
         if (block.timestamp >= maturity) {
-            return currentPtAmount;
+            return getAssetOutput(market, address(0), currentPtAmount);
         }
 
         // Calculate amortized book value using current balance
+        // Note: Book value is stored in SY terms which has same decimals as underlying asset
         return _calculateAmortizedBookValue(state, currentPtAmount, maturity);
     }
 

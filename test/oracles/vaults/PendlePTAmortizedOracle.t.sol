@@ -102,6 +102,12 @@ contract PendlePTAmortizedOracleTest is Test {
         new PendlePTAmortizedOracle(address(0), superLedgerConfiguration);
     }
 
+    /// @notice Test constructor reverts with zero superLedgerConfiguration address
+    function test_Constructor_RevertsOnZeroSuperLedgerConfiguration() public {
+        vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
+        new PendlePTAmortizedOracle(admin, address(0));
+    }
+
     /*//////////////////////////////////////////////////////////////
                         RECORD PURCHASE TESTS
     //////////////////////////////////////////////////////////////*/
