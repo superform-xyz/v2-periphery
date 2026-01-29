@@ -9,7 +9,7 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { PendlePTAmortizedOracle } from "../../../src/oracles/vaults/PendlePTAmortizedOracle.sol";
 
 // Mock contracts for testing
-import { MockPendleMarket, MockPrincipalToken } from "./mocks/MockPendleContracts.sol";
+import { MockPendleMarket, MockPrincipalToken, MockTwapOracle } from "./mocks/MockPendleContracts.sol";
 
 /// @notice Test harness to expose internal storage for testing defensive code paths
 contract PendlePTAmortizedOracleHarness is PendlePTAmortizedOracle {
@@ -1055,6 +1055,176 @@ contract PendlePTAmortizedOracleTest is Test {
         oracle.correctBookValue(strategy, address(market), 80e18);
         assertEq(oracle.getBookValue(strategy, address(market)), 80e18);
         assertEq(oracle.getBookValue(strategy, address(market2)), 85e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    ORACLE COMPARISON TESTS
+                    (Amortized vs TWAP-based)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Compare amortized oracle vs TWAP-based oracle behavior over time
+    /// @dev Demonstrates: TWAP oracle returns volatile market price, amortized oracle returns linear book value
+    function test_CompareOracles_ValuationOverTime() public {
+        // Setup: Buy 100 PT at 0.90 (10% discount) with 100 days to maturity
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18; // Bought at 10% discount
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        // Create mock TWAP oracle for comparison
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        console2.log("=== Oracle Comparison: Amortized vs TWAP ===");
+        console2.log("PT Amount: 100, Cost Basis: 90 (10%% discount), Maturity: 100 days");
+        console2.log("");
+
+        // Test at various time points
+        uint256[5] memory timePoints = [uint256(0), MATURITY / 4, MATURITY / 2, MATURITY * 3 / 4, MATURITY];
+        uint256[5] memory twapRates = [uint256(0.90e18), 0.92e18, 0.95e18, 0.97e18, 1e18]; // Simulated market rates
+
+        for (uint256 i = 0; i < timePoints.length; i++) {
+            vm.warp(INITIAL_TIME + timePoints[i]);
+
+            // Amortized oracle: linear pull-to-par
+            uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+            // TWAP oracle: market rate (simulated)
+            uint256 twapValue = twapOracle.simulateTVL(ptAmount, twapRates[i]);
+
+            uint256 pctOfMaturity = timePoints[i] * 100 / MATURITY;
+            console2.log("--- Time: %d%% of maturity ---", pctOfMaturity);
+            console2.log("Amortized TVL: %s", amortizedValue);
+            console2.log("TWAP TVL:      %s", twapValue);
+
+            // Verify amortized is predictable linear path
+            // B(t) = A - (A - B_t0) * (T - t) / (T - t0)
+            // At 0%: 90, 25%: 92.5, 50%: 95, 75%: 97.5, 100%: 100
+            uint256 expectedAmortized;
+            if (i == 0) expectedAmortized = 90e18;
+            else if (i == 1) expectedAmortized = 92.5e18;
+            else if (i == 2) expectedAmortized = 95e18;
+            else if (i == 3) expectedAmortized = 97.5e18;
+            else expectedAmortized = 100e18;
+
+            assertApproxEqRel(amortizedValue, expectedAmortized, 0.001e18, "Amortized value mismatch");
+        }
+
+        console2.log("");
+        console2.log("Key differences:");
+        console2.log("- Amortized: Linear, predictable, no market volatility");
+        console2.log("- TWAP: Market-driven, can be volatile");
+    }
+
+    /// @notice Test scenario: Market price spikes but amortized stays linear
+    /// @dev Real-world scenario where market price diverges from book value
+    function test_CompareOracles_MarketVolatility() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Advance to 50% of maturity
+        vm.warp(INITIAL_TIME + MATURITY / 2);
+
+        // Amortized value at 50%: should be 95e18 (linear)
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        assertEq(amortizedValue, 95e18);
+
+        // Simulate various market conditions
+        console2.log("=== Market Volatility Scenario at 50%% Maturity ===");
+        console2.log("Amortized TVL (constant): %s", amortizedValue);
+        console2.log("");
+
+        // Scenario 1: Market is bearish (rate drops to 0.85)
+        uint256 bearishTwap = twapOracle.simulateTVL(ptAmount, 0.85e18);
+        console2.log("Bearish market (rate=0.85): TWAP TVL = %s", bearishTwap);
+        console2.log("  -> Amortized protects against downside");
+
+        // Scenario 2: Market is bullish (rate spikes to 0.98)
+        uint256 bullishTwap = twapOracle.simulateTVL(ptAmount, 0.98e18);
+        console2.log("Bullish market (rate=0.98): TWAP TVL = %s", bullishTwap);
+        console2.log("  -> Amortized provides conservative estimate");
+
+        // Scenario 3: Market matches linear path
+        uint256 matchTwap = twapOracle.simulateTVL(ptAmount, 0.95e18);
+        console2.log("Matched market (rate=0.95): TWAP TVL = %s", matchTwap);
+        console2.log("  -> Both oracles agree");
+
+        // Verify amortized is always 95e18 regardless of market
+        assertEq(amortizedValue, 95e18);
+    }
+
+    /// @notice Test at maturity: both oracles should return face value
+    function test_CompareOracles_AtMaturity() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Warp to maturity
+        vm.warp(INITIAL_TIME + MATURITY);
+
+        // Both should return face value (100e18)
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        uint256 twapValue = twapOracle.simulateTVL(ptAmount, 1e18); // At maturity, rate = 1
+
+        console2.log("=== At Maturity ===");
+        console2.log("Amortized TVL: %s", amortizedValue);
+        console2.log("TWAP TVL:      %s", twapValue);
+
+        assertEq(amortizedValue, ptAmount, "Amortized should equal face value at maturity");
+        assertEq(twapValue, ptAmount, "TWAP should equal face value at maturity");
+        assertEq(amortizedValue, twapValue, "Both oracles should agree at maturity");
+    }
+
+    /// @notice Test P&L calculation differences
+    /// @dev Shows how realized P&L differs between oracles
+    function test_CompareOracles_ProfitAndLoss() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18; // Entry cost
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Advance to 75% of maturity
+        vm.warp(INITIAL_TIME + MATURITY * 3 / 4);
+
+        console2.log("=== P&L at 75%% Maturity ===");
+        console2.log("Entry Cost: %s", costBasis);
+
+        // Amortized: B(75%) = 100 - (100 - 90) * 0.25 = 97.5
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        int256 amortizedPnL = int256(amortizedValue) - int256(costBasis);
+        console2.log("Amortized Value: %s (P&L: +%s)", amortizedValue, uint256(amortizedPnL));
+
+        // TWAP scenarios
+        uint256 bearishRate = 0.93e18;
+        uint256 bullishRate = 0.99e18;
+
+        uint256 bearishValue = twapOracle.simulateTVL(ptAmount, bearishRate);
+        int256 bearishPnL = int256(bearishValue) - int256(costBasis);
+        console2.log("TWAP Bearish (0.93): %s (P&L: +%s)", bearishValue, uint256(bearishPnL));
+
+        uint256 bullishValue = twapOracle.simulateTVL(ptAmount, bullishRate);
+        int256 bullishPnL = int256(bullishValue) - int256(costBasis);
+        console2.log("TWAP Bullish (0.99): %s (P&L: +%s)", bullishValue, uint256(bullishPnL));
+
+        // Verify amortized gives predictable P&L
+        assertEq(amortizedValue, 97.5e18);
+        assertEq(amortizedPnL, 7.5e18); // Guaranteed 7.5 profit at this point
     }
 
     /*//////////////////////////////////////////////////////////////

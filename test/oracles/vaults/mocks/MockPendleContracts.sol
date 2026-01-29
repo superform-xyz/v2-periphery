@@ -142,3 +142,35 @@ contract MockYT {
         return 1e18;
     }
 }
+
+/// @title MockTwapOracle
+/// @notice Simulates old PendlePTYieldSourceOracle behavior (TWAP-based pricing)
+/// @dev Used for comparison tests between TWAP and amortized oracles
+contract MockTwapOracle {
+    /// @notice Simulate getTVLByOwnerOfShares using TWAP rate
+    /// @param ptAmount The PT balance
+    /// @param twapRate The simulated TWAP rate (PT to asset, in 1e18)
+    /// @return tvl The TVL based on market rate
+    function simulateTVL(uint256 ptAmount, uint256 twapRate) external pure returns (uint256 tvl) {
+        // Old oracle: tvl = ptAmount * twapRate / 1e18
+        // This is equivalent to getAssetOutput(market, address(0), ptBalance)
+        // where pricePerShare = twapRate
+        tvl = (ptAmount * twapRate) / 1e18;
+    }
+
+    /// @notice Simulate getAssetOutput using TWAP rate
+    /// @param sharesIn PT amount
+    /// @param twapRate The simulated TWAP rate (PT to asset, in 1e18)
+    /// @return assetsOut Asset value based on market rate
+    function simulateGetAssetOutput(uint256 sharesIn, uint256 twapRate) external pure returns (uint256 assetsOut) {
+        // assetsOut = sharesIn * twapRate / 1e18
+        assetsOut = (sharesIn * twapRate) / 1e18;
+    }
+
+    /// @notice Demonstrate the key difference from amortized oracle
+    /// @dev TWAP oracle: market rate driven (volatile)
+    ///      Amortized oracle: linear pull-to-par (predictable)
+    function oracleDifference() external pure returns (string memory) {
+        return "TWAP: Market-driven | Amortized: Linear pull-to-par";
+    }
+}
