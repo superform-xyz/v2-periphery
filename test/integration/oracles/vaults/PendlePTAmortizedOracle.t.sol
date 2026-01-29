@@ -22,6 +22,7 @@ contract PendlePTAmortizedOracleForkTest is Test {
 
     PendlePTAmortizedOracle public oracle;
     address public admin;
+    address public superLedgerConfiguration;
 
     // Production SuperVault Strategies from supervaults.json
     address constant USDC_STRATEGY = 0x41A9Eb398518D2487301c61D2b33E4e966A9F1DD;
@@ -49,10 +50,11 @@ contract PendlePTAmortizedOracleForkTest is Test {
         vm.selectFork(forkId);
 
         admin = makeAddr("admin");
+        superLedgerConfiguration = makeAddr("superLedgerConfiguration");
 
         // Deploy oracle
         vm.prank(admin);
-        oracle = new PendlePTAmortizedOracle(admin);
+        oracle = new PendlePTAmortizedOracle(admin, superLedgerConfiguration);
     }
 
     /*//////////////////////////////////////////////////////////////

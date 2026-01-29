@@ -5,13 +5,21 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import { IPMarket } from "@pendle/interfaces/IPMarket.sol";
 import { IPPrincipalToken } from "@pendle/interfaces/IPPrincipalToken.sol";
+import { IStandardizedYield } from "@pendle/interfaces/IStandardizedYield.sol";
+import { PendlePYOracleLib } from "@pendle/oracles/PtYtLpOracle/PendlePYOracleLib.sol";
+
+// Superform
+import { AbstractYieldSourceOracle } from "@superform-v2-core/src/accounting/oracles/AbstractYieldSourceOracle.sol";
+import { IYieldSourceOracle } from "@superform-v2-core/src/interfaces/accounting/IYieldSourceOracle.sol";
 
 /// @title PendlePTAmortizedOracle
 /// @author Superform Labs
 /// @notice Provides amortized cost pricing for Pendle PT positions held by strategies
 /// @dev Uses Book Value accounting with linear pull-to-par amortization
+/// @dev Implements IYieldSourceOracle for compatibility with SuperYieldSourceOracle
 /// @dev Strategies call recordPurchase/recordRedemption directly via hooks
 /// @dev recordPurchase: Called AFTER deposit - ptAmount is PT received from deposit hook
 /// @dev recordRedemption: Called AFTER redeem - ptSold is PT that was sold
@@ -20,9 +28,10 @@ import { IPPrincipalToken } from "@pendle/interfaces/IPPrincipalToken.sol";
 /// @dev Book values are stored per-caller (strategy => market => state), so callers can only
 /// @dev affect their own recorded positions. A malicious caller cannot corrupt data for other strategies.
 /// @dev The oracle simply tracks what each caller reports; it does not validate actual PT holdings.
-contract PendlePTAmortizedOracle is AccessControl {
+contract PendlePTAmortizedOracle is AbstractYieldSourceOracle, AccessControl {
     using Math for uint256;
     using SafeCast for uint256;
+    using PendlePYOracleLib for IPMarket;
 
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
@@ -30,6 +39,15 @@ contract PendlePTAmortizedOracle is AccessControl {
 
     /// @notice Role for managers who can correct book values
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
+    /// @notice The Time-Weighted Average Price duration used for Pendle oracle queries
+    uint32 public immutable TWAP_DURATION;
+
+    /// @notice Default TWAP duration set to 15 minutes
+    uint32 private constant DEFAULT_TWAP_DURATION = 900; // 15 * 60
+
+    /// @notice Price decimals for Pendle oracle (1e18)
+    uint256 private constant PRICE_DECIMALS = 18;
 
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -123,13 +141,21 @@ contract PendlePTAmortizedOracle is AccessControl {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Initialize the oracle with an admin
+    /// @notice Initialize the oracle with an admin and SuperLedgerConfiguration
     /// @param admin The admin address who receives DEFAULT_ADMIN_ROLE and MANAGER_ROLE
-    constructor(address admin) {
+    /// @param superLedgerConfiguration_ Address of the SuperLedgerConfiguration contract
+    constructor(
+        address admin,
+        address superLedgerConfiguration_
+    )
+        AbstractYieldSourceOracle(superLedgerConfiguration_)
+    {
         if (admin == address(0)) revert ZERO_ADDRESS();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
+
+        TWAP_DURATION = DEFAULT_TWAP_DURATION;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -377,5 +403,165 @@ contract PendlePTAmortizedOracle is AccessControl {
             // Cap at face value to avoid propagating corrupted data
             return A;
         }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    IYIELDSOURCEORACLE IMPLEMENTATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Returns the PT token decimals for the given market
+    function decimals(address market) external view override returns (uint8) {
+        return IERC20Metadata(_pt(market)).decimals();
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Calculates shares output using Pendle TWAP rate
+    function getShareOutput(
+        address market,
+        address,
+        uint256 assetsIn
+    )
+        external
+        view
+        override
+        returns (uint256 sharesOut)
+    {
+        uint256 pricePerShare = getPricePerShare(market);
+        if (pricePerShare == 0) return 0;
+
+        IStandardizedYield sY = IStandardizedYield(_sy(market));
+        (,, uint8 assetDecimals) = sY.assetInfo();
+        uint8 ptDecimals = IERC20Metadata(_pt(market)).decimals();
+
+        // Scale assetsIn to 1e18 terms
+        uint256 assetsIn18 = assetsIn * (10 ** (PRICE_DECIMALS - assetDecimals));
+
+        // sharesOut = assetsIn18 * 10^ptDecimals / pricePerShare
+        sharesOut = Math.mulDiv(assetsIn18, 10 ** uint256(ptDecimals), pricePerShare);
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Calculates withdrawal shares using Pendle TWAP rate
+    function getWithdrawalShareOutput(
+        address market,
+        address,
+        uint256 assetsIn
+    )
+        external
+        view
+        override
+        returns (uint256)
+    {
+        uint256 pricePerShare = getPricePerShare(market);
+        if (pricePerShare == 0) return 0;
+
+        IStandardizedYield sY = IStandardizedYield(_sy(market));
+        (,, uint8 assetDecimals) = sY.assetInfo();
+        uint8 ptDecimals = IERC20Metadata(_pt(market)).decimals();
+
+        uint256 assetsIn18 = assetsIn * (10 ** (PRICE_DECIMALS - assetDecimals));
+        return Math.mulDiv(assetsIn18, 10 ** uint256(ptDecimals), pricePerShare, Math.Rounding.Ceil);
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Calculates asset output using Pendle TWAP rate
+    function getAssetOutput(
+        address market,
+        address,
+        uint256 sharesIn
+    )
+        public
+        view
+        override
+        returns (uint256 assetsOut)
+    {
+        uint256 pricePerShare = getPricePerShare(market);
+        uint8 ptDecimals = IERC20Metadata(_pt(market)).decimals();
+
+        IStandardizedYield sY = IStandardizedYield(_sy(market));
+        (,, uint8 assetDecimals) = sY.assetInfo();
+
+        // assetsOut18 = sharesIn * pricePerShare / 10^ptDecimals
+        uint256 assetsOut18 = Math.mulDiv(sharesIn, pricePerShare, 10 ** uint256(ptDecimals));
+
+        // Scale from 1e18 to asset decimals
+        assetsOut = Math.mulDiv(assetsOut18, 1, 10 ** (PRICE_DECIMALS - assetDecimals));
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Returns the Pendle TWAP PT-to-Asset rate
+    function getPricePerShare(address market) public view override returns (uint256 price) {
+        price = IPMarket(market).getPtToAssetRate(TWAP_DURATION);
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Returns the PT balance of the owner
+    function getBalanceOfOwner(
+        address market,
+        address ownerOfShares
+    )
+        public
+        view
+        override
+        returns (uint256 balance)
+    {
+        balance = IERC20(address(_pt(market))).balanceOf(ownerOfShares);
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Returns the AMORTIZED book value for the strategy's position
+    /// @dev This is the key method that uses book value accounting instead of market price
+    /// @param market The Pendle market address (yieldSourceAddress)
+    /// @param ownerOfShares The strategy address holding the PT
+    /// @return tvl The amortized book value of the position
+    function getTVLByOwnerOfShares(
+        address market,
+        address ownerOfShares
+    )
+        public
+        view
+        override
+        returns (uint256 tvl)
+    {
+        BookValueState memory state = bookValues[ownerOfShares][market];
+
+        // If no position recorded, fall back to market-based calculation
+        if (state.lastUpdateTime == 0) {
+            uint256 ptBalance = IERC20(address(_pt(market))).balanceOf(ownerOfShares);
+            if (ptBalance == 0) return 0;
+            return getAssetOutput(market, address(0), ptBalance);
+        }
+
+        // Return amortized book value
+        return _calculateBookValue(ownerOfShares, market);
+    }
+
+    /// @inheritdoc IYieldSourceOracle
+    /// @dev Returns total TVL using market price (not book value)
+    /// @dev Book value is strategy-specific, so total TVL uses market rate
+    function getTVL(address market) public view override returns (uint256 tvl) {
+        IERC20Metadata pt = IERC20Metadata(_pt(market));
+        uint256 ptTotalSupply = pt.totalSupply();
+
+        if (ptTotalSupply == 0) return 0;
+
+        tvl = getAssetOutput(market, address(0), ptTotalSupply);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          INTERNAL HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Get PT address from market
+    function _pt(address market) internal view returns (address ptAddress) {
+        (, IPPrincipalToken ptAddressInt,) = IPMarket(market).readTokens();
+        ptAddress = address(ptAddressInt);
+    }
+
+    /// @notice Get SY address from market
+    function _sy(address market) internal view returns (address sYAddress) {
+        (IStandardizedYield sYAddressInt,,) = IPMarket(market).readTokens();
+        sYAddress = address(sYAddressInt);
     }
 }

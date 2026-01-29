@@ -13,7 +13,7 @@ import { MockPendleMarket, MockPrincipalToken } from "./mocks/MockPendleContract
 
 /// @notice Test harness to expose internal storage for testing defensive code paths
 contract PendlePTAmortizedOracleHarness is PendlePTAmortizedOracle {
-    constructor(address admin) PendlePTAmortizedOracle(admin) { }
+    constructor(address admin, address superLedgerConfiguration) PendlePTAmortizedOracle(admin, superLedgerConfiguration) { }
 
     /// @notice Directly set book value state (for testing invalid states)
     function setBookValueState(
@@ -37,6 +37,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
     address public admin;
     address public strategy;
+    address public superLedgerConfiguration;
 
     // Roles
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
@@ -70,6 +71,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function setUp() public {
         admin = address(this);
         strategy = makeAddr("strategy");
+        superLedgerConfiguration = makeAddr("superLedgerConfiguration");
 
         // Set initial timestamp
         vm.warp(INITIAL_TIME);
@@ -81,7 +83,7 @@ contract PendlePTAmortizedOracleTest is Test {
         market = new MockPendleMarket(address(pt));
 
         // Deploy oracle
-        oracle = new PendlePTAmortizedOracle(admin);
+        oracle = new PendlePTAmortizedOracle(admin, superLedgerConfiguration);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -94,10 +96,10 @@ contract PendlePTAmortizedOracleTest is Test {
         assertTrue(oracle.hasRole(MANAGER_ROLE, admin));
     }
 
-    /// @notice Test constructor reverts with zero address
+    /// @notice Test constructor reverts with zero admin address
     function test_Constructor_RevertsOnZeroAddress() public {
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        new PendlePTAmortizedOracle(address(0));
+        new PendlePTAmortizedOracle(address(0), superLedgerConfiguration);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1104,7 +1106,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > current balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1127,7 +1129,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > current balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1153,7 +1155,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1183,7 +1185,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
     /// @notice Test using harness to directly set invalid state
     function test_Harness_SetInvalidState() public {
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         pt.mint(strategy, 100e18);
 
