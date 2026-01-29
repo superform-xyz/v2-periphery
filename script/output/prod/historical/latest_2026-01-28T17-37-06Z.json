@@ -37,7 +37,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -73,8 +73,7 @@
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracle": "0x8943128DbAb4279D561654dEED2930Bb975AA070",
-        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "PendlePTAmortizedOracle": "0x5BDdD529B8ef20406371c3b864e0a78241d1dE0F"
+        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
       }
     },
     "Base": {
@@ -114,7 +113,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -150,8 +149,7 @@
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracleL2": "0xDd004b9F749014cD7bd73dC0818345c66bc641c8",
-        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "PendlePTAmortizedOracle": "0x5BDdD529B8ef20406371c3b864e0a78241d1dE0F"
+        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
       }
     },
     "BNB": {
@@ -191,7 +189,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -257,7 +255,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -323,7 +321,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -573,7 +571,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -635,7 +633,7 @@
         "OfframpTokensHook": "0x08BA6FF01e651B0c0A0D99AC66563097da2789f7",
         "PendlePTYieldSourceOracle": "0xc9Eda6330e1D1F7B91f72e459c85401D96BC48C9",
         "PendleRouterRedeemHook": "0xAae2DB58E2f426b910f518cCbB627545aEdaff2F",
-        "PendleRouterSwapHook": "0x02A0A95C379220E9759960A8Ee923cBbC2d305cd",
+        "PendleRouterSwapHook": "0xcA003b2bbbb2f9724cA71F8D9411B0De2f34D67E",
         "Redeem4626VaultHook": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
         "Redeem5115VaultHook": "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5",
         "Redeem7540VaultHook": "0xE165FBBc89a60756F57Cf0E34c04c35Cc1BbA79D",
@@ -783,5 +781,5 @@
       }
     }
   },
-  "updated_at": "2026-01-28T17:36:54Z"
+  "updated_at": "2025-12-19T17:52:40Z"
 }
