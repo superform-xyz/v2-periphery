@@ -11,6 +11,11 @@ import { PendlePTAmortizedOracle } from "../../../src/oracles/vaults/PendlePTAmo
 // Mock contracts for testing
 import { MockPendleMarket, MockPrincipalToken, MockTwapOracle } from "./mocks/MockPendleContracts.sol";
 
+// Pendle interfaces for mock contracts
+import { IStandardizedYield } from "@pendle/interfaces/IStandardizedYield.sol";
+import { IPPrincipalToken } from "@pendle/interfaces/IPPrincipalToken.sol";
+import { IPYieldToken } from "@pendle/interfaces/IPYieldToken.sol";
+
 /// @notice Test harness to expose internal storage for testing defensive code paths
 contract PendlePTAmortizedOracleHarness is PendlePTAmortizedOracle {
     constructor(address admin, address superLedgerConfiguration) PendlePTAmortizedOracle(admin, superLedgerConfiguration) { }
@@ -1375,4 +1380,274 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 bookValue = harness.getBookValue(strategy, address(market));
         assertEq(bookValue, 100e18);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    IYIELDSOURCEORACLE IMPLEMENTATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test decimals returns PT decimals
+    function test_Decimals_ReturnsPtDecimals() public view {
+        uint8 oracleDecimals = oracle.decimals(address(market));
+        uint8 ptDecimals = pt.decimals();
+        assertEq(oracleDecimals, ptDecimals);
+        assertEq(oracleDecimals, 18); // MockPrincipalToken has 18 decimals
+    }
+
+    /// @notice Test getPricePerShare returns TWAP rate
+    function test_GetPricePerShare_ReturnsTwapRate() public view {
+        uint256 price = oracle.getPricePerShare(address(market));
+        // MockPendleMarket's observe() returns values that produce approximately 0.9e18
+        // Using approximate comparison due to Pendle library's complex math
+        assertApproxEqRel(price, 0.9e18, 0.02e18); // 2% tolerance
+        assertGt(price, 0.85e18); // Sanity check: should be > 0.85
+        assertLt(price, 1e18); // Sanity check: should be < 1.0 before maturity
+    }
+
+    /// @notice Test getPricePerShare at maturity returns 1e18
+    function test_GetPricePerShare_AtMaturity() public {
+        // Warp to maturity
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 price = oracle.getPricePerShare(address(market));
+        // MockPendleMarket returns 1e18 at/after maturity
+        assertEq(price, 1e18);
+    }
+
+    /// @notice Test getBalanceOfOwner returns PT balance
+    function test_GetBalanceOfOwner_ReturnsPtBalance() public {
+        uint256 ptAmount = 100e18;
+        pt.mint(strategy, ptAmount);
+
+        uint256 balance = oracle.getBalanceOfOwner(address(market), strategy);
+        assertEq(balance, ptAmount);
+    }
+
+    /// @notice Test getBalanceOfOwner returns zero for no balance
+    function test_GetBalanceOfOwner_ZeroBalance() public view {
+        uint256 balance = oracle.getBalanceOfOwner(address(market), strategy);
+        assertEq(balance, 0);
+    }
+
+    /// @notice Test getAssetOutput calculates correctly
+    function test_GetAssetOutput_CalculatesCorrectly() public view {
+        uint256 sharesIn = 100e18; // 100 PT
+
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), sharesIn);
+
+        // MockPendleMarket returns ~0.9e18 before maturity (approximate due to Pendle library math)
+        // assetsOut = sharesIn * pricePerShare / 10^ptDecimals
+        // Expected: ~100e18 * 0.9e18 / 1e18 = ~90e18
+        assertApproxEqRel(assetsOut, 90e18, 0.02e18); // 2% tolerance
+        assertGt(assetsOut, 85e18); // Sanity: should be > 85
+        assertLt(assetsOut, 100e18); // Sanity: should be < 100 before maturity
+    }
+
+    /// @notice Test getAssetOutput at maturity returns face value
+    function test_GetAssetOutput_AtMaturity() public {
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 sharesIn = 100e18;
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), sharesIn);
+
+        // At maturity, price = 1e18, so 100 PT = 100 assets
+        assertEq(assetsOut, 100e18);
+    }
+
+    /// @notice Test getAssetOutput with zero shares
+    function test_GetAssetOutput_ZeroShares() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), 0);
+        assertEq(assetsOut, 0);
+    }
+
+    /// @notice Test getShareOutput calculates correctly
+    function test_GetShareOutput_CalculatesCorrectly() public view {
+        uint256 assetsIn = 90e18; // 90 assets
+
+        uint256 sharesOut = oracle.getShareOutput(address(market), address(0), assetsIn);
+
+        // MockPendleMarket returns ~0.9e18 before maturity
+        // sharesOut = assetsIn18 * 10^ptDecimals / pricePerShare
+        // Expected: ~90e18 * 1e18 / 0.9e18 = ~100e18
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18); // 2% tolerance
+        assertGt(sharesOut, 90e18); // Sanity: should be > 90
+        assertLt(sharesOut, 110e18); // Sanity: should be < 110
+    }
+
+    /// @notice Test getShareOutput with zero assets
+    function test_GetShareOutput_ZeroAssets() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 sharesOut = oracle.getShareOutput(address(market), address(0), 0);
+        assertEq(sharesOut, 0);
+    }
+
+    /// @notice Test getWithdrawalShareOutput calculates correctly with ceiling
+    function test_GetWithdrawalShareOutput_CalculatesWithCeiling() public view {
+        uint256 assetsIn = 90e18;
+
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), assetsIn);
+
+        // Similar to getShareOutput but with ceiling rounding
+        // Expected: ~90e18 * 1e18 / 0.9e18 = ~100e18
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18); // 2% tolerance
+    }
+
+    /// @notice Test getWithdrawalShareOutput with non-divisible amount rounds up
+    function test_GetWithdrawalShareOutput_RoundsUp() public view {
+        // Use an amount that doesn't divide evenly
+        uint256 assetsIn = 91e18;
+
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), assetsIn);
+
+        // The important thing is it rounds UP
+        // Get the floor value first using getShareOutput
+        uint256 shareOutput = oracle.getShareOutput(address(market), address(0), assetsIn);
+        // Withdrawal shares should be >= regular share output (ceiling vs floor)
+        assertGe(sharesOut, shareOutput);
+    }
+
+    /// @notice Test getWithdrawalShareOutput with zero assets
+    function test_GetWithdrawalShareOutput_ZeroAssets() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), 0);
+        assertEq(sharesOut, 0);
+    }
+
+    /// @notice Test getTVL returns total market value
+    function test_GetTVL_ReturnsTotalMarketValue() public {
+        // Mint PT to multiple addresses
+        pt.mint(strategy, 100e18);
+        pt.mint(admin, 50e18);
+
+        uint256 tvl = oracle.getTVL(address(market));
+
+        // Total supply = 150e18
+        // TVL = 150e18 * ~0.9e18 / 1e18 = ~135e18 (using TWAP rate)
+        assertApproxEqRel(tvl, 135e18, 0.02e18); // 2% tolerance
+        assertGt(tvl, 130e18); // Sanity check
+        assertLt(tvl, 150e18); // Should be less than total supply before maturity
+    }
+
+    /// @notice Test getTVL returns zero when no PT exists
+    function test_GetTVL_ZeroSupply() public view {
+        uint256 tvl = oracle.getTVL(address(market));
+        assertEq(tvl, 0);
+    }
+
+    /// @notice Test getTVL at maturity returns face value
+    function test_GetTVL_AtMaturity() public {
+        pt.mint(strategy, 100e18);
+
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 tvl = oracle.getTVL(address(market));
+        // At maturity, price = 1e18, so TVL = total supply
+        assertEq(tvl, 100e18);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares falls back to market price when no position recorded
+    function test_GetTVLByOwnerOfShares_FallbackToMarketPrice() public {
+        // Mint PT but don't record purchase
+        pt.mint(strategy, 100e18);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // Falls back to getAssetOutput: ~100e18 * 0.9e18 / 1e18 = ~90e18
+        assertApproxEqRel(tvl, 90e18, 0.02e18); // 2% tolerance
+        assertGt(tvl, 85e18); // Sanity check
+        assertLt(tvl, 100e18); // Should be less than balance before maturity
+    }
+
+    /// @notice Test getTVLByOwnerOfShares returns zero when no balance and no position
+    function test_GetTVLByOwnerOfShares_ZeroBalanceNoPosition() public view {
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        assertEq(tvl, 0);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares returns amortized value when position exists
+    function test_GetTVLByOwnerOfShares_ReturnsAmortizedValue() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
+
+        // Advance to 50% of maturity
+        vm.warp(block.timestamp + MATURITY / 2);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // Amortized value at 50%: 100 - (100 - 90) * 0.5 = 95
+        assertEq(tvl, 95e18);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares at maturity with position
+    function test_GetTVLByOwnerOfShares_AtMaturityWithPosition() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
+
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // At maturity, returns face value via getAssetOutput for consistent decimals
+        assertEq(tvl, 100e18);
+    }
+
+    /// @notice Test inverse relationship between getShareOutput and getAssetOutput
+    function test_ShareAndAssetOutput_InverseRelationship() public view {
+        uint256 originalAssets = 90e18;
+
+        // Convert assets to shares
+        uint256 shares = oracle.getShareOutput(address(market), address(0), originalAssets);
+
+        // Convert shares back to assets
+        uint256 recoveredAssets = oracle.getAssetOutput(address(market), address(0), shares);
+
+        // Should get back approximately the original amount (within rounding)
+        assertApproxEqRel(recoveredAssets, originalAssets, 0.001e18); // 0.1% tolerance for rounding
+    }
+
+    /// @notice Test TWAP_DURATION is set correctly
+    function test_TwapDuration_IsSetCorrectly() public view {
+        uint32 twapDuration = oracle.TWAP_DURATION();
+        assertEq(twapDuration, 900); // 15 minutes = 900 seconds
+    }
+
+    /// @notice Fuzz test for getShareOutput and getAssetOutput consistency
+    function testFuzz_ShareAssetOutput_Consistency(uint128 assetsIn) public view {
+        vm.assume(assetsIn > 1e10 && assetsIn <= 1e30); // Min bound to avoid dust amounts
+
+        uint256 shares = oracle.getShareOutput(address(market), address(0), assetsIn);
+        if (shares > 0) {
+            uint256 recoveredAssets = oracle.getAssetOutput(address(market), address(0), shares);
+            // Due to rounding, recovered should be approximately the original
+            // Use 0.1% tolerance for rounding errors
+            assertApproxEqRel(recoveredAssets, assetsIn, 0.001e18);
+        }
+    }
+
+    /// @notice Fuzz test for getTVL with various supplies
+    function testFuzz_GetTVL_VariousSupplies(uint128 supply) public {
+        vm.assume(supply > 1e10 && supply <= 1e30); // Min bound to avoid dust amounts
+
+        pt.mint(strategy, supply);
+
+        uint256 tvl = oracle.getTVL(address(market));
+
+        // TVL = supply * price / 10^decimals
+        // With price ~0.9e18 (approximate due to Pendle library)
+        // Should be between 0.85 and 1.0 of supply before maturity
+        assertGt(tvl, uint256(supply) * 85 / 100);
+        assertLt(tvl, supply);
+    }
 }
+
