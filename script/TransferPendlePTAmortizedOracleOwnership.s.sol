@@ -35,6 +35,7 @@ contract TransferPendlePTAmortizedOracleOwnership is PendlePTAmortizedOracleScri
 
         // Compute SuperLedgerConfiguration address
         address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
 
         // Compute oracle address (deployed with DEPLOYER as admin)
         address oracleAddr = _computeOracleAddress(env, DEPLOYER, superLedgerConfiguration);
@@ -147,6 +148,7 @@ contract TransferPendlePTAmortizedOracleOwnership is PendlePTAmortizedOracleScri
 
         // Compute SuperLedgerConfiguration address
         address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
 
         // Compute oracle address (deployed with DEPLOYER as admin)
         address oracleAddr = _computeOracleAddress(env, DEPLOYER, superLedgerConfiguration);
