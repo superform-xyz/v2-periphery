@@ -386,10 +386,12 @@ process_periphery_merge() {
         return 1
     fi
 
-    # Show diff of what will change compared to current S3 state
+    # Show diff of what will change compared to current S3 state (only differences)
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}Changes to be applied to core S3 state:${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    local any_changes=false
 
     for network_id in $supported_network_ids; do
         local network_name=$(get_network_name "$network_id")
@@ -402,9 +404,8 @@ process_periphery_merge() {
             continue
         fi
 
-        echo -e "${CYAN}  $network_name:${NC}"
-
-        local has_changes=false
+        # Collect changes for this network first
+        local network_changes=""
 
         for contract in "${ALLOWED_PERIPHERY_CONTRACTS[@]}"; do
             local old_addr=$(echo "$core_content" | jq -r ".networks[\"$network_name\"].contracts.$contract // empty")
@@ -416,21 +417,26 @@ process_periphery_merge() {
 
             if [ -n "$new_addr" ] && [ -z "$old_addr" ]; then
                 # New contract being added
-                echo -e "    ${GREEN}+ $contract: $new_addr${NC}"
-                has_changes=true
+                network_changes+="    ${GREEN}+ $contract: $new_addr${NC}\n"
             elif [ -n "$new_addr" ] && [ "$old_addr" != "$new_addr" ]; then
                 # Contract address changed
-                echo -e "    ${RED}- $contract: $old_addr${NC}"
-                echo -e "    ${GREEN}+ $contract: $new_addr${NC}"
-                has_changes=true
+                network_changes+="    ${RED}- $contract: $old_addr${NC}\n"
+                network_changes+="    ${GREEN}+ $contract: $new_addr${NC}\n"
             fi
         done
 
-        if [ "$has_changes" = false ]; then
-            echo -e "    ${WHITE}  (no changes)${NC}"
+        # Only print network header if there are changes
+        if [ -n "$network_changes" ]; then
+            echo -e "${CYAN}  $network_name:${NC}"
+            echo -e "$network_changes"
+            any_changes=true
         fi
-        echo ""
     done
+
+    if [ "$any_changes" = false ]; then
+        echo -e "${WHITE}  (no changes to apply)${NC}"
+        echo ""
+    fi
 
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 

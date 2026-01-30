@@ -22,12 +22,21 @@ abstract contract PendlePTAmortizedOracleScriptBase is DeployV2Base {
     /// @notice Compute the deterministic address for PendlePTAmortizedOracle
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param admin Admin address used during deployment
+    /// @param superLedgerConfiguration SuperLedgerConfiguration address
     /// @return The computed deterministic address
-    function _computeOracleAddress(uint256 env, address admin) internal view returns (address) {
+    function _computeOracleAddress(
+        uint256 env,
+        address admin,
+        address superLedgerConfiguration
+    )
+        internal
+        view
+        returns (address)
+    {
         bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
         require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(bytecode, abi.encode(admin)),
+            abi.encodePacked(bytecode, abi.encode(admin, superLedgerConfiguration)),
             __getSalt(ORACLE_KEY)
         );
     }

@@ -74,7 +74,7 @@
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracle": "0x8943128DbAb4279D561654dEED2930Bb975AA070",
         "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "PendlePTAmortizedOracle": "0xD64089698f82cbCD91ba5e0422aDFa81D247eB62"
+        "PendlePTAmortizedOracle": "0x5BDdD529B8ef20406371c3b864e0a78241d1dE0F"
       }
     },
     "Base": {
@@ -151,7 +151,7 @@
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracleL2": "0xDd004b9F749014cD7bd73dC0818345c66bc641c8",
         "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "PendlePTAmortizedOracle": "0xD64089698f82cbCD91ba5e0422aDFa81D247eB62"
+        "PendlePTAmortizedOracle": "0x5BDdD529B8ef20406371c3b864e0a78241d1dE0F"
       }
     },
     "BNB": {
@@ -783,5 +783,5 @@
       }
     }
   },
-  "updated_at": "2026-01-29T15:22:53Z"
+  "updated_at": "2026-01-28T17:36:54Z"
 }

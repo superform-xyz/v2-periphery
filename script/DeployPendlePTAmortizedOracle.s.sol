@@ -21,9 +21,16 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function run(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
+        _setBaseConfiguration(env, branchName);
+
         // Use DEPLOYER as admin - will be transferred to SUPER_GOVERNOR_ADDRESS later
         address admin = DEPLOYER;
-        _deploy(env, chainId, admin, branchName);
+        // Compute SuperLedgerConfiguration address from core contracts
+        address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
+        require(superLedgerConfiguration.code.length > 0, "SUPER_LEDGER_CONFIG_NOT_DEPLOYED");
+
+        _deploy(env, chainId, admin, superLedgerConfiguration, branchName);
     }
 
     /// @notice Deploy PendlePTAmortizedOracle on multiple chains
@@ -33,8 +40,14 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function runMultiChain(uint256 env, uint64[] calldata chainIds, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
+        _setBaseConfiguration(env, branchName);
+
         // Use DEPLOYER as admin - will be transferred to SUPER_GOVERNOR_ADDRESS later
         address admin = DEPLOYER;
+        // Compute SuperLedgerConfiguration address from core contracts
+        address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
+        require(superLedgerConfiguration.code.length > 0, "SUPER_LEDGER_CONFIG_NOT_DEPLOYED");
 
         console2.log("====== Deploying PendlePTAmortizedOracle (Multi-Chain) ======");
         console2.log("Environment:", env);
@@ -42,11 +55,12 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
             console2.log("Branch Name:", branchName);
         }
         console2.log("Admin (DEPLOYER):", admin);
+        console2.log("SuperLedgerConfiguration:", superLedgerConfiguration);
         console2.log("Number of chains:", chainIds.length);
         console2.log("");
 
         for (uint256 i = 0; i < chainIds.length; i++) {
-            _deploy(env, chainIds[i], admin, branchName);
+            _deploy(env, chainIds[i], admin, superLedgerConfiguration, branchName);
             console2.log("");
         }
 
@@ -63,6 +77,9 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
 
         // Check with DEPLOYER as admin (initial deployment)
         address admin = DEPLOYER;
+        // Compute SuperLedgerConfiguration address from core contracts
+        address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
 
         console2.log("====== PendlePTAmortizedOracle Deployment Check ======");
         console2.log("Chain ID:", chainId);
@@ -71,10 +88,11 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
             console2.log("Branch Name:", branchName);
         }
         console2.log("Admin (DEPLOYER):", admin);
+        console2.log("SuperLedgerConfiguration:", superLedgerConfiguration);
         console2.log("SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
         console2.log("");
 
-        address oracleAddr = _computeOracleAddress(env, admin);
+        address oracleAddr = _computeOracleAddress(env, admin, superLedgerConfiguration);
         bool isDeployed = oracleAddr.code.length > 0;
 
         console2.log("Computed address:", oracleAddr);
@@ -89,6 +107,8 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
             console2.log("");
             console2.log("SUPER_GOVERNOR has DEFAULT_ADMIN_ROLE:", oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS));
             console2.log("SUPER_GOVERNOR has MANAGER_ROLE:", oracle.hasRole(oracle.MANAGER_ROLE(), SUPER_GOVERNOR_ADDRESS));
+            console2.log("");
+            console2.log("SUPER_LEDGER_CONFIGURATION:", oracle.SUPER_LEDGER_CONFIGURATION());
         }
 
         console2.log("");
@@ -104,10 +124,17 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID to deploy on
     /// @param admin Admin address (DEPLOYER)
+    /// @param superLedgerConfiguration SuperLedgerConfiguration address
     /// @param branchName Branch name for vnet deployments
-    function _deploy(uint256 env, uint64 chainId, address admin, string calldata branchName) internal {
-        _setBaseConfiguration(env, branchName);
-
+    function _deploy(
+        uint256 env,
+        uint64 chainId,
+        address admin,
+        address superLedgerConfiguration,
+        string calldata branchName
+    )
+        internal
+    {
         console2.log("====== Deploying PendlePTAmortizedOracle ======");
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);
@@ -115,10 +142,12 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
             console2.log("Branch Name:", branchName);
         }
         console2.log("Admin (DEPLOYER):", admin);
+        console2.log("SuperLedgerConfiguration:", superLedgerConfiguration);
         console2.log("");
 
         // Validate inputs
         require(admin != address(0), "INVALID_ADMIN");
+        require(superLedgerConfiguration != address(0), "INVALID_SUPER_LEDGER_CONFIG");
 
         // Get bytecode from generated artifacts
         bytes memory bytecode = __getBytecode(ORACLE_KEY, env);
@@ -129,18 +158,20 @@ contract DeployPendlePTAmortizedOracle is PendlePTAmortizedOracleScriptBase {
             ORACLE_KEY,
             chainId,
             __getSalt(ORACLE_KEY),
-            abi.encodePacked(bytecode, abi.encode(admin))
+            abi.encodePacked(bytecode, abi.encode(admin, superLedgerConfiguration))
         );
 
         // Verify deployment
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
         require(oracle.hasRole(oracle.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
         require(oracle.hasRole(oracle.MANAGER_ROLE(), admin), "MANAGER_ROLE_MISMATCH");
+        require(oracle.SUPER_LEDGER_CONFIGURATION() == superLedgerConfiguration, "SUPER_LEDGER_CONFIG_MISMATCH");
 
         console2.log("");
         console2.log("=== Deployment Verification ===");
         console2.log("PendlePTAmortizedOracle deployed at:", oracleAddr);
         console2.log("Admin verified:", admin);
+        console2.log("SuperLedgerConfiguration verified:", superLedgerConfiguration);
         console2.log("Has DEFAULT_ADMIN_ROLE:", true);
         console2.log("Has MANAGER_ROLE:", true);
 

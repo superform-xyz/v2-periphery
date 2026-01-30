@@ -9,11 +9,16 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { PendlePTAmortizedOracle } from "../../../src/oracles/vaults/PendlePTAmortizedOracle.sol";
 
 // Mock contracts for testing
-import { MockPendleMarket, MockPrincipalToken } from "./mocks/MockPendleContracts.sol";
+import { MockPendleMarket, MockPrincipalToken, MockTwapOracle } from "./mocks/MockPendleContracts.sol";
+
+// Pendle interfaces for mock contracts
+import { IStandardizedYield } from "@pendle/interfaces/IStandardizedYield.sol";
+import { IPPrincipalToken } from "@pendle/interfaces/IPPrincipalToken.sol";
+import { IPYieldToken } from "@pendle/interfaces/IPYieldToken.sol";
 
 /// @notice Test harness to expose internal storage for testing defensive code paths
 contract PendlePTAmortizedOracleHarness is PendlePTAmortizedOracle {
-    constructor(address admin) PendlePTAmortizedOracle(admin) { }
+    constructor(address admin, address superLedgerConfiguration) PendlePTAmortizedOracle(admin, superLedgerConfiguration) { }
 
     /// @notice Directly set book value state (for testing invalid states)
     function setBookValueState(
@@ -37,6 +42,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
     address public admin;
     address public strategy;
+    address public superLedgerConfiguration;
 
     // Roles
     bytes32 constant DEFAULT_ADMIN_ROLE = 0x00;
@@ -70,6 +76,7 @@ contract PendlePTAmortizedOracleTest is Test {
     function setUp() public {
         admin = address(this);
         strategy = makeAddr("strategy");
+        superLedgerConfiguration = makeAddr("superLedgerConfiguration");
 
         // Set initial timestamp
         vm.warp(INITIAL_TIME);
@@ -81,7 +88,7 @@ contract PendlePTAmortizedOracleTest is Test {
         market = new MockPendleMarket(address(pt));
 
         // Deploy oracle
-        oracle = new PendlePTAmortizedOracle(admin);
+        oracle = new PendlePTAmortizedOracle(admin, superLedgerConfiguration);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -94,10 +101,16 @@ contract PendlePTAmortizedOracleTest is Test {
         assertTrue(oracle.hasRole(MANAGER_ROLE, admin));
     }
 
-    /// @notice Test constructor reverts with zero address
+    /// @notice Test constructor reverts with zero admin address
     function test_Constructor_RevertsOnZeroAddress() public {
         vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
-        new PendlePTAmortizedOracle(address(0));
+        new PendlePTAmortizedOracle(address(0), superLedgerConfiguration);
+    }
+
+    /// @notice Test constructor reverts with zero superLedgerConfiguration address
+    function test_Constructor_RevertsOnZeroSuperLedgerConfiguration() public {
+        vm.expectRevert(PendlePTAmortizedOracle.ZERO_ADDRESS.selector);
+        new PendlePTAmortizedOracle(admin, address(0));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1050,6 +1063,176 @@ contract PendlePTAmortizedOracleTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    ORACLE COMPARISON TESTS
+                    (Amortized vs TWAP-based)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Compare amortized oracle vs TWAP-based oracle behavior over time
+    /// @dev Demonstrates: TWAP oracle returns volatile market price, amortized oracle returns linear book value
+    function test_CompareOracles_ValuationOverTime() public {
+        // Setup: Buy 100 PT at 0.90 (10% discount) with 100 days to maturity
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18; // Bought at 10% discount
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        // Create mock TWAP oracle for comparison
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        console2.log("=== Oracle Comparison: Amortized vs TWAP ===");
+        console2.log("PT Amount: 100, Cost Basis: 90 (10%% discount), Maturity: 100 days");
+        console2.log("");
+
+        // Test at various time points
+        uint256[5] memory timePoints = [uint256(0), MATURITY / 4, MATURITY / 2, MATURITY * 3 / 4, MATURITY];
+        uint256[5] memory twapRates = [uint256(0.90e18), 0.92e18, 0.95e18, 0.97e18, 1e18]; // Simulated market rates
+
+        for (uint256 i = 0; i < timePoints.length; i++) {
+            vm.warp(INITIAL_TIME + timePoints[i]);
+
+            // Amortized oracle: linear pull-to-par
+            uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+            // TWAP oracle: market rate (simulated)
+            uint256 twapValue = twapOracle.simulateTVL(ptAmount, twapRates[i]);
+
+            uint256 pctOfMaturity = timePoints[i] * 100 / MATURITY;
+            console2.log("--- Time: %d%% of maturity ---", pctOfMaturity);
+            console2.log("Amortized TVL: %s", amortizedValue);
+            console2.log("TWAP TVL:      %s", twapValue);
+
+            // Verify amortized is predictable linear path
+            // B(t) = A - (A - B_t0) * (T - t) / (T - t0)
+            // At 0%: 90, 25%: 92.5, 50%: 95, 75%: 97.5, 100%: 100
+            uint256 expectedAmortized;
+            if (i == 0) expectedAmortized = 90e18;
+            else if (i == 1) expectedAmortized = 92.5e18;
+            else if (i == 2) expectedAmortized = 95e18;
+            else if (i == 3) expectedAmortized = 97.5e18;
+            else expectedAmortized = 100e18;
+
+            assertApproxEqRel(amortizedValue, expectedAmortized, 0.001e18, "Amortized value mismatch");
+        }
+
+        console2.log("");
+        console2.log("Key differences:");
+        console2.log("- Amortized: Linear, predictable, no market volatility");
+        console2.log("- TWAP: Market-driven, can be volatile");
+    }
+
+    /// @notice Test scenario: Market price spikes but amortized stays linear
+    /// @dev Real-world scenario where market price diverges from book value
+    function test_CompareOracles_MarketVolatility() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Advance to 50% of maturity
+        vm.warp(INITIAL_TIME + MATURITY / 2);
+
+        // Amortized value at 50%: should be 95e18 (linear)
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        assertEq(amortizedValue, 95e18);
+
+        // Simulate various market conditions
+        console2.log("=== Market Volatility Scenario at 50%% Maturity ===");
+        console2.log("Amortized TVL (constant): %s", amortizedValue);
+        console2.log("");
+
+        // Scenario 1: Market is bearish (rate drops to 0.85)
+        uint256 bearishTwap = twapOracle.simulateTVL(ptAmount, 0.85e18);
+        console2.log("Bearish market (rate=0.85): TWAP TVL = %s", bearishTwap);
+        console2.log("  -> Amortized protects against downside");
+
+        // Scenario 2: Market is bullish (rate spikes to 0.98)
+        uint256 bullishTwap = twapOracle.simulateTVL(ptAmount, 0.98e18);
+        console2.log("Bullish market (rate=0.98): TWAP TVL = %s", bullishTwap);
+        console2.log("  -> Amortized provides conservative estimate");
+
+        // Scenario 3: Market matches linear path
+        uint256 matchTwap = twapOracle.simulateTVL(ptAmount, 0.95e18);
+        console2.log("Matched market (rate=0.95): TWAP TVL = %s", matchTwap);
+        console2.log("  -> Both oracles agree");
+
+        // Verify amortized is always 95e18 regardless of market
+        assertEq(amortizedValue, 95e18);
+    }
+
+    /// @notice Test at maturity: both oracles should return face value
+    function test_CompareOracles_AtMaturity() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Warp to maturity
+        vm.warp(INITIAL_TIME + MATURITY);
+
+        // Both should return face value (100e18)
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        uint256 twapValue = twapOracle.simulateTVL(ptAmount, 1e18); // At maturity, rate = 1
+
+        console2.log("=== At Maturity ===");
+        console2.log("Amortized TVL: %s", amortizedValue);
+        console2.log("TWAP TVL:      %s", twapValue);
+
+        assertEq(amortizedValue, ptAmount, "Amortized should equal face value at maturity");
+        assertEq(twapValue, ptAmount, "TWAP should equal face value at maturity");
+        assertEq(amortizedValue, twapValue, "Both oracles should agree at maturity");
+    }
+
+    /// @notice Test P&L calculation differences
+    /// @dev Shows how realized P&L differs between oracles
+    function test_CompareOracles_ProfitAndLoss() public {
+        uint256 ptAmount = 100e18;
+        uint256 costBasis = 90e18; // Entry cost
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), costBasis, ptAmount);
+
+        MockTwapOracle twapOracle = new MockTwapOracle();
+
+        // Advance to 75% of maturity
+        vm.warp(INITIAL_TIME + MATURITY * 3 / 4);
+
+        console2.log("=== P&L at 75%% Maturity ===");
+        console2.log("Entry Cost: %s", costBasis);
+
+        // Amortized: B(75%) = 100 - (100 - 90) * 0.25 = 97.5
+        uint256 amortizedValue = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        int256 amortizedPnL = int256(amortizedValue) - int256(costBasis);
+        console2.log("Amortized Value: %s (P&L: +%s)", amortizedValue, uint256(amortizedPnL));
+
+        // TWAP scenarios
+        uint256 bearishRate = 0.93e18;
+        uint256 bullishRate = 0.99e18;
+
+        uint256 bearishValue = twapOracle.simulateTVL(ptAmount, bearishRate);
+        int256 bearishPnL = int256(bearishValue) - int256(costBasis);
+        console2.log("TWAP Bearish (0.93): %s (P&L: +%s)", bearishValue, uint256(bearishPnL));
+
+        uint256 bullishValue = twapOracle.simulateTVL(ptAmount, bullishRate);
+        int256 bullishPnL = int256(bullishValue) - int256(costBasis);
+        console2.log("TWAP Bullish (0.99): %s (P&L: +%s)", bullishValue, uint256(bullishPnL));
+
+        // Verify amortized gives predictable P&L
+        assertEq(amortizedValue, 97.5e18);
+        assertEq(amortizedPnL, 7.5e18); // Guaranteed 7.5 profit at this point
+    }
+
+    /*//////////////////////////////////////////////////////////////
                     EDGE CASE TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -1104,7 +1287,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > current balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1127,7 +1310,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > current balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1153,7 +1336,7 @@ contract PendlePTAmortizedOracleTest is Test {
         pt.mint(strategy, ptAmount);
 
         // Use harness to directly set invalid state where B_t0 > balance
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         // Set invalid state: bookValue = 150e18, but PT balance = 100e18 (bookValue > faceValue)
         harness.setBookValueState(strategy, address(market), 150e18, uint64(block.timestamp));
@@ -1183,7 +1366,7 @@ contract PendlePTAmortizedOracleTest is Test {
 
     /// @notice Test using harness to directly set invalid state
     function test_Harness_SetInvalidState() public {
-        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin);
+        PendlePTAmortizedOracleHarness harness = new PendlePTAmortizedOracleHarness(admin, superLedgerConfiguration);
 
         pt.mint(strategy, 100e18);
 
@@ -1197,4 +1380,274 @@ contract PendlePTAmortizedOracleTest is Test {
         uint256 bookValue = harness.getBookValue(strategy, address(market));
         assertEq(bookValue, 100e18);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    IYIELDSOURCEORACLE IMPLEMENTATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test decimals returns PT decimals
+    function test_Decimals_ReturnsPtDecimals() public view {
+        uint8 oracleDecimals = oracle.decimals(address(market));
+        uint8 ptDecimals = pt.decimals();
+        assertEq(oracleDecimals, ptDecimals);
+        assertEq(oracleDecimals, 18); // MockPrincipalToken has 18 decimals
+    }
+
+    /// @notice Test getPricePerShare returns TWAP rate
+    function test_GetPricePerShare_ReturnsTwapRate() public view {
+        uint256 price = oracle.getPricePerShare(address(market));
+        // MockPendleMarket's observe() returns values that produce approximately 0.9e18
+        // Using approximate comparison due to Pendle library's complex math
+        assertApproxEqRel(price, 0.9e18, 0.02e18); // 2% tolerance
+        assertGt(price, 0.85e18); // Sanity check: should be > 0.85
+        assertLt(price, 1e18); // Sanity check: should be < 1.0 before maturity
+    }
+
+    /// @notice Test getPricePerShare at maturity returns 1e18
+    function test_GetPricePerShare_AtMaturity() public {
+        // Warp to maturity
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 price = oracle.getPricePerShare(address(market));
+        // MockPendleMarket returns 1e18 at/after maturity
+        assertEq(price, 1e18);
+    }
+
+    /// @notice Test getBalanceOfOwner returns PT balance
+    function test_GetBalanceOfOwner_ReturnsPtBalance() public {
+        uint256 ptAmount = 100e18;
+        pt.mint(strategy, ptAmount);
+
+        uint256 balance = oracle.getBalanceOfOwner(address(market), strategy);
+        assertEq(balance, ptAmount);
+    }
+
+    /// @notice Test getBalanceOfOwner returns zero for no balance
+    function test_GetBalanceOfOwner_ZeroBalance() public view {
+        uint256 balance = oracle.getBalanceOfOwner(address(market), strategy);
+        assertEq(balance, 0);
+    }
+
+    /// @notice Test getAssetOutput calculates correctly
+    function test_GetAssetOutput_CalculatesCorrectly() public view {
+        uint256 sharesIn = 100e18; // 100 PT
+
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), sharesIn);
+
+        // MockPendleMarket returns ~0.9e18 before maturity (approximate due to Pendle library math)
+        // assetsOut = sharesIn * pricePerShare / 10^ptDecimals
+        // Expected: ~100e18 * 0.9e18 / 1e18 = ~90e18
+        assertApproxEqRel(assetsOut, 90e18, 0.02e18); // 2% tolerance
+        assertGt(assetsOut, 85e18); // Sanity: should be > 85
+        assertLt(assetsOut, 100e18); // Sanity: should be < 100 before maturity
+    }
+
+    /// @notice Test getAssetOutput at maturity returns face value
+    function test_GetAssetOutput_AtMaturity() public {
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 sharesIn = 100e18;
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), sharesIn);
+
+        // At maturity, price = 1e18, so 100 PT = 100 assets
+        assertEq(assetsOut, 100e18);
+    }
+
+    /// @notice Test getAssetOutput with zero shares
+    function test_GetAssetOutput_ZeroShares() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 assetsOut = oracle.getAssetOutput(address(market), address(0), 0);
+        assertEq(assetsOut, 0);
+    }
+
+    /// @notice Test getShareOutput calculates correctly
+    function test_GetShareOutput_CalculatesCorrectly() public view {
+        uint256 assetsIn = 90e18; // 90 assets
+
+        uint256 sharesOut = oracle.getShareOutput(address(market), address(0), assetsIn);
+
+        // MockPendleMarket returns ~0.9e18 before maturity
+        // sharesOut = assetsIn18 * 10^ptDecimals / pricePerShare
+        // Expected: ~90e18 * 1e18 / 0.9e18 = ~100e18
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18); // 2% tolerance
+        assertGt(sharesOut, 90e18); // Sanity: should be > 90
+        assertLt(sharesOut, 110e18); // Sanity: should be < 110
+    }
+
+    /// @notice Test getShareOutput with zero assets
+    function test_GetShareOutput_ZeroAssets() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 sharesOut = oracle.getShareOutput(address(market), address(0), 0);
+        assertEq(sharesOut, 0);
+    }
+
+    /// @notice Test getWithdrawalShareOutput calculates correctly with ceiling
+    function test_GetWithdrawalShareOutput_CalculatesWithCeiling() public view {
+        uint256 assetsIn = 90e18;
+
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), assetsIn);
+
+        // Similar to getShareOutput but with ceiling rounding
+        // Expected: ~90e18 * 1e18 / 0.9e18 = ~100e18
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18); // 2% tolerance
+    }
+
+    /// @notice Test getWithdrawalShareOutput with non-divisible amount rounds up
+    function test_GetWithdrawalShareOutput_RoundsUp() public view {
+        // Use an amount that doesn't divide evenly
+        uint256 assetsIn = 91e18;
+
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), assetsIn);
+
+        // The important thing is it rounds UP
+        // Get the floor value first using getShareOutput
+        uint256 shareOutput = oracle.getShareOutput(address(market), address(0), assetsIn);
+        // Withdrawal shares should be >= regular share output (ceiling vs floor)
+        assertGe(sharesOut, shareOutput);
+    }
+
+    /// @notice Test getWithdrawalShareOutput with zero assets
+    function test_GetWithdrawalShareOutput_ZeroAssets() public {
+        // Warp to maturity so price = 1e18 (simpler calculation)
+        vm.warp(block.timestamp + MATURITY);
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), 0);
+        assertEq(sharesOut, 0);
+    }
+
+    /// @notice Test getTVL returns total market value
+    function test_GetTVL_ReturnsTotalMarketValue() public {
+        // Mint PT to multiple addresses
+        pt.mint(strategy, 100e18);
+        pt.mint(admin, 50e18);
+
+        uint256 tvl = oracle.getTVL(address(market));
+
+        // Total supply = 150e18
+        // TVL = 150e18 * ~0.9e18 / 1e18 = ~135e18 (using TWAP rate)
+        assertApproxEqRel(tvl, 135e18, 0.02e18); // 2% tolerance
+        assertGt(tvl, 130e18); // Sanity check
+        assertLt(tvl, 150e18); // Should be less than total supply before maturity
+    }
+
+    /// @notice Test getTVL returns zero when no PT exists
+    function test_GetTVL_ZeroSupply() public view {
+        uint256 tvl = oracle.getTVL(address(market));
+        assertEq(tvl, 0);
+    }
+
+    /// @notice Test getTVL at maturity returns face value
+    function test_GetTVL_AtMaturity() public {
+        pt.mint(strategy, 100e18);
+
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 tvl = oracle.getTVL(address(market));
+        // At maturity, price = 1e18, so TVL = total supply
+        assertEq(tvl, 100e18);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares falls back to market price when no position recorded
+    function test_GetTVLByOwnerOfShares_FallbackToMarketPrice() public {
+        // Mint PT but don't record purchase
+        pt.mint(strategy, 100e18);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // Falls back to getAssetOutput: ~100e18 * 0.9e18 / 1e18 = ~90e18
+        assertApproxEqRel(tvl, 90e18, 0.02e18); // 2% tolerance
+        assertGt(tvl, 85e18); // Sanity check
+        assertLt(tvl, 100e18); // Should be less than balance before maturity
+    }
+
+    /// @notice Test getTVLByOwnerOfShares returns zero when no balance and no position
+    function test_GetTVLByOwnerOfShares_ZeroBalanceNoPosition() public view {
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+        assertEq(tvl, 0);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares returns amortized value when position exists
+    function test_GetTVLByOwnerOfShares_ReturnsAmortizedValue() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
+
+        // Advance to 50% of maturity
+        vm.warp(block.timestamp + MATURITY / 2);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // Amortized value at 50%: 100 - (100 - 90) * 0.5 = 95
+        assertEq(tvl, 95e18);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares at maturity with position
+    function test_GetTVLByOwnerOfShares_AtMaturityWithPosition() public {
+        uint256 ptAmount = 100e18;
+        uint256 sySpent = 90e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), sySpent, ptAmount);
+
+        vm.warp(block.timestamp + MATURITY);
+
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), strategy);
+
+        // At maturity, returns face value via getAssetOutput for consistent decimals
+        assertEq(tvl, 100e18);
+    }
+
+    /// @notice Test inverse relationship between getShareOutput and getAssetOutput
+    function test_ShareAndAssetOutput_InverseRelationship() public view {
+        uint256 originalAssets = 90e18;
+
+        // Convert assets to shares
+        uint256 shares = oracle.getShareOutput(address(market), address(0), originalAssets);
+
+        // Convert shares back to assets
+        uint256 recoveredAssets = oracle.getAssetOutput(address(market), address(0), shares);
+
+        // Should get back approximately the original amount (within rounding)
+        assertApproxEqRel(recoveredAssets, originalAssets, 0.001e18); // 0.1% tolerance for rounding
+    }
+
+    /// @notice Test TWAP_DURATION is set correctly
+    function test_TwapDuration_IsSetCorrectly() public view {
+        uint32 twapDuration = oracle.TWAP_DURATION();
+        assertEq(twapDuration, 900); // 15 minutes = 900 seconds
+    }
+
+    /// @notice Fuzz test for getShareOutput and getAssetOutput consistency
+    function testFuzz_ShareAssetOutput_Consistency(uint128 assetsIn) public view {
+        vm.assume(assetsIn > 1e10 && assetsIn <= 1e30); // Min bound to avoid dust amounts
+
+        uint256 shares = oracle.getShareOutput(address(market), address(0), assetsIn);
+        if (shares > 0) {
+            uint256 recoveredAssets = oracle.getAssetOutput(address(market), address(0), shares);
+            // Due to rounding, recovered should be approximately the original
+            // Use 0.1% tolerance for rounding errors
+            assertApproxEqRel(recoveredAssets, assetsIn, 0.001e18);
+        }
+    }
+
+    /// @notice Fuzz test for getTVL with various supplies
+    function testFuzz_GetTVL_VariousSupplies(uint128 supply) public {
+        vm.assume(supply > 1e10 && supply <= 1e30); // Min bound to avoid dust amounts
+
+        pt.mint(strategy, supply);
+
+        uint256 tvl = oracle.getTVL(address(market));
+
+        // TVL = supply * price / 10^decimals
+        // With price ~0.9e18 (approximate due to Pendle library)
+        // Should be between 0.85 and 1.0 of supply before maturity
+        assertGt(tvl, uint256(supply) * 85 / 100);
+        assertLt(tvl, supply);
+    }
 }
+

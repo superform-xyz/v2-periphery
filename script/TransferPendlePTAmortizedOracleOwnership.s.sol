@@ -33,8 +33,12 @@ contract TransferPendlePTAmortizedOracleOwnership is PendlePTAmortizedOracleScri
         console2.log("New Admin (SUPER_GOVERNOR_ADDRESS):", SUPER_GOVERNOR_ADDRESS);
         console2.log("");
 
+        // Compute SuperLedgerConfiguration address
+        address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
+
         // Compute oracle address (deployed with DEPLOYER as admin)
-        address oracleAddr = _computeOracleAddress(env, DEPLOYER);
+        address oracleAddr = _computeOracleAddress(env, DEPLOYER, superLedgerConfiguration);
         require(oracleAddr.code.length > 0, "PendlePTAmortizedOracle not deployed");
 
         PendlePTAmortizedOracle oracle = PendlePTAmortizedOracle(oracleAddr);
@@ -142,8 +146,12 @@ contract TransferPendlePTAmortizedOracleOwnership is PendlePTAmortizedOracleScri
         console2.log("SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
         console2.log("");
 
+        // Compute SuperLedgerConfiguration address
+        address superLedgerConfiguration = __computeCoreContractAddress(SUPER_LEDGER_CONFIGURATION_KEY, "");
+        require(superLedgerConfiguration != address(0), "SUPER_LEDGER_CONFIG_NOT_SET");
+
         // Compute oracle address (deployed with DEPLOYER as admin)
-        address oracleAddr = _computeOracleAddress(env, DEPLOYER);
+        address oracleAddr = _computeOracleAddress(env, DEPLOYER, superLedgerConfiguration);
 
         if (oracleAddr.code.length == 0) {
             console2.log("Oracle Address (computed):", oracleAddr);
