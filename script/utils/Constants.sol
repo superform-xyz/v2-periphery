@@ -8,6 +8,7 @@ abstract contract Constants {
     string internal constant OPTIMISM_KEY = "Optimism";
     string internal constant ARBITRUM_KEY = "Arbitrum";
     string internal constant BNB_KEY = "BNB";
+    string internal constant HYPEREVM_KEY = "HyperEVM";
     string internal constant SEPOLIA_KEY = "Sepolia";
     string internal constant ARB_SEPOLIA_KEY = "Arbitrum_Sepolia";
     string internal constant BASE_SEPOLIA_KEY = "Base_Sepolia";
@@ -19,6 +20,7 @@ abstract contract Constants {
     uint64 internal constant OPTIMISM_CHAIN_ID = 10;
     uint64 internal constant ARBITRUM_CHAIN_ID = 42_161;
     uint64 internal constant BNB_CHAIN_ID = 56;
+    uint64 internal constant HYPEREVM_CHAIN_ID = 999;
     // testnets
     uint64 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
     uint64 internal constant ARB_SEPOLIA_CHAIN_ID = 421_613;
