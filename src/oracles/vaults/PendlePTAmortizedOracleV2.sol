@@ -33,11 +33,16 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Role for managers who can correct book values
+    /// @notice Role for managers who can correct book values and configure markets
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     /// @notice Default TWAP duration used for IYieldSourceOracle functions
     uint32 public constant DEFAULT_TWAP_DURATION = 900; // 15 * 60
+
+    /// @notice Default minimum TWAP duration (used when market not configured)
+    /// @dev Spot price (twapDuration=0) can be manipulated via flash loans
+    /// @dev 300 seconds (5 minutes) provides reasonable manipulation resistance
+    uint32 public constant DEFAULT_MIN_TWAP_DURATION = 300; // 5 * 60
 
     /// @notice Price decimals for Pendle oracle (1e18)
     uint256 private constant PRICE_DECIMALS = 18;
@@ -60,6 +65,10 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
     /// @notice Book value state per strategy per market
     /// @dev strategy => market => BookValueState
     mapping(address strategy => mapping(address market => BookValueState)) public bookValues;
+
+    /// @notice Minimum TWAP duration per market (0 means use DEFAULT_MIN_TWAP_DURATION)
+    /// @dev Configurable by manager to accommodate different market liquidity characteristics
+    mapping(address market => uint32) public marketMinTwapDuration;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -94,6 +103,9 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
     /// @notice Emitted when a PT redemption is recorded
     event RedemptionRecorded(address indexed strategy, address indexed market, uint256 ptSold);
 
+    /// @notice Emitted when minimum TWAP duration is configured for a market
+    event MinTwapDurationSet(address indexed market, uint32 minTwapDuration);
+
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -112,6 +124,10 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
 
     /// @notice Thrown when book value would exceed face value (sanity check)
     error BOOK_VALUE_EXCEEDS_FACE_VALUE();
+
+    /// @notice Thrown when twapDuration is below MIN_TWAP_DURATION
+    /// @dev Prevents spot price manipulation via flash loans
+    error TWAP_DURATION_TOO_SHORT();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -139,17 +155,18 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
 
     /// @notice Record a PT purchase - called by strategy via hooks AFTER deposit
     /// @dev V2: Calculates sySpent from ptBought using on-chain PT-to-SY rate
-    /// @dev twapDuration is passed as parameter (0 for spot price, 900 for 15min TWAP, etc.)
+    /// @dev twapDuration must be >= market's configured minimum (or DEFAULT_MIN_TWAP_DURATION)
     /// @dev IMPORTANT: Uses getPtToSyRate (not getPtToAssetRate) because book value is in SY terms
     ///      At maturity: 1 PT = 1 SY (regardless of SY exchange rate to underlying)
     /// @dev msg.sender is the strategy being updated
     /// @param market The Pendle market address
     /// @param ptBought Amount of PT received from the purchase
-    /// @param twapDuration TWAP duration for rate calculation (0 = spot price)
+    /// @param twapDuration TWAP duration for rate calculation (must be >= market's min TWAP)
     function recordPurchase(address market, uint256 ptBought, uint32 twapDuration) external {
         address strategy = msg.sender;
         if (market == address(0)) revert ZERO_ADDRESS();
         if (ptBought == 0) revert ZERO_AMOUNT();
+        if (twapDuration < getMinTwapDuration(market)) revert TWAP_DURATION_TOO_SHORT();
 
         // Get PT address and maturity from market
         (, IPPrincipalToken pt,) = IPMarket(market).readTokens();
@@ -300,15 +317,38 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
         emit BookValueUpdated(strategy, market, 0, block.timestamp);
     }
 
+    /// @notice Set minimum TWAP duration for a specific market
+    /// @dev Can only be called by manager. Different markets may need different minimums
+    ///      based on their liquidity characteristics.
+    /// @param market The Pendle market address
+    /// @param minTwapDuration Minimum TWAP duration in seconds (0 to use DEFAULT_MIN_TWAP_DURATION)
+    function setMinTwapDuration(address market, uint32 minTwapDuration) external onlyRole(MANAGER_ROLE) {
+        if (market == address(0)) revert ZERO_ADDRESS();
+
+        marketMinTwapDuration[market] = minTwapDuration;
+
+        emit MinTwapDurationSet(market, minTwapDuration);
+    }
+
+    /// @notice Get the effective minimum TWAP duration for a market
+    /// @param market The Pendle market address
+    /// @return The minimum TWAP duration (market-specific or DEFAULT_MIN_TWAP_DURATION)
+    function getMinTwapDuration(address market) public view returns (uint32) {
+        uint32 configured = marketMinTwapDuration[market];
+        return configured > 0 ? configured : DEFAULT_MIN_TWAP_DURATION;
+    }
+
     /*//////////////////////////////////////////////////////////////
                           INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Calculate current book value for external view
-    /// @dev Returns value in underlying asset decimals (same format as getAssetOutput)
+    /// @dev Returns value in SY terms (consistent with recordPurchase which uses getPtToSyRate)
+    /// @dev IMPORTANT: Book value is stored in SY terms, NOT asset terms
+    ///      At maturity: 1 PT = 1 SY (face value), regardless of SY exchange rate to underlying
     /// @param strategy The strategy address holding the PT
     /// @param market The Pendle market address
-    /// @return Current amortized book value in underlying asset decimals
+    /// @return Current amortized book value in SY terms
     function _calculateBookValue(address strategy, address market) internal view returns (uint256) {
         BookValueState memory state = bookValues[strategy][market];
 
@@ -322,9 +362,13 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
         // Edge case: no PT held
         if (currentPtAmount == 0) return 0;
 
-        // At or after maturity, convert PT to asset value using getAssetOutput for consistent decimals
+        // At or after maturity, book value = face value (1 PT = 1 SY)
+        // IMPORTANT: Return ptAmount directly, NOT getAssetOutput
+        // Book value is in SY terms (from recordPurchase using getPtToSyRate)
+        // Using getAssetOutput would convert to asset terms, causing unit mismatch
+        // for yield-bearing SY tokens (e.g., wstETH where SY exchangeRate > 1)
         if (block.timestamp >= maturity) {
-            return getAssetOutput(market, address(0), currentPtAmount);
+            return currentPtAmount;
         }
 
         // Calculate amortized book value using current balance

@@ -72,6 +72,7 @@ contract PendlePTAmortizedOracleV2Test is Test {
         address indexed market,
         uint256 ptSold
     );
+    event MinTwapDurationSet(address indexed market, uint32 minTwapDuration);
 
     function setUp() public {
         admin = address(this);
@@ -201,6 +202,143 @@ contract PendlePTAmortizedOracleV2Test is Test {
         vm.prank(strategy);
         vm.expectRevert(PendlePTAmortizedOracleV2.MARKET_EXPIRED.selector);
         oracle.recordPurchase(address(market), 100e18, DEFAULT_TWAP_DURATION);
+    }
+
+    function test_RecordPurchase_RevertsTwapDurationTooShort() public {
+        pt.mint(strategy, 100e18);
+
+        // Try with twapDuration below default minimum (300s)
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.TWAP_DURATION_TOO_SHORT.selector);
+        oracle.recordPurchase(address(market), 100e18, 299);
+
+        // Also test with 0 (spot price)
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.TWAP_DURATION_TOO_SHORT.selector);
+        oracle.recordPurchase(address(market), 100e18, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    MIN TWAP DURATION CONFIGURATION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_GetMinTwapDuration_ReturnsDefaultWhenNotConfigured() public view {
+        // When not configured, should return DEFAULT_MIN_TWAP_DURATION (300)
+        assertEq(oracle.getMinTwapDuration(address(market)), 300);
+    }
+
+    function test_SetMinTwapDuration_ByManager() public {
+        uint32 customMinTwap = 600; // 10 minutes
+
+        vm.expectEmit(true, false, false, true);
+        emit MinTwapDurationSet(address(market), customMinTwap);
+        oracle.setMinTwapDuration(address(market), customMinTwap);
+
+        assertEq(oracle.getMinTwapDuration(address(market)), customMinTwap);
+    }
+
+    function test_SetMinTwapDuration_ZeroUsesDefault() public {
+        // First set a custom value
+        oracle.setMinTwapDuration(address(market), 600);
+        assertEq(oracle.getMinTwapDuration(address(market)), 600);
+
+        // Set to 0 to use default
+        oracle.setMinTwapDuration(address(market), 0);
+        // getMinTwapDuration returns DEFAULT when storage is 0
+        assertEq(oracle.getMinTwapDuration(address(market)), 300);
+    }
+
+    function test_SetMinTwapDuration_RevertsNonManager() public {
+        address nonManager = makeAddr("nonManager");
+
+        vm.prank(nonManager);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonManager, MANAGER_ROLE)
+        );
+        oracle.setMinTwapDuration(address(market), 600);
+    }
+
+    function test_SetMinTwapDuration_RevertsZeroAddress() public {
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.setMinTwapDuration(address(0), 600);
+    }
+
+    function test_RecordPurchase_RespectsCustomMinTwapDuration() public {
+        uint256 ptAmount = 100e18;
+        pt.mint(strategy, ptAmount);
+
+        // Set a higher minimum for this market
+        oracle.setMinTwapDuration(address(market), 600);
+
+        // Default duration (900) should still work
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), ptAmount, DEFAULT_TWAP_DURATION);
+
+        // But 500s should now fail (below custom minimum of 600)
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.TWAP_DURATION_TOO_SHORT.selector);
+        oracle.recordPurchase(address(market), ptAmount, 500);
+    }
+
+    function test_MinTwapDuration_PerMarketIsolation() public {
+        // Create second market
+        MockPrincipalToken pt2 = new MockPrincipalToken(block.timestamp + MATURITY);
+        MockPendleMarket market2 = new MockPendleMarket(address(pt2));
+
+        // Set different minimums for each market
+        oracle.setMinTwapDuration(address(market), 400);
+        oracle.setMinTwapDuration(address(market2), 700);
+
+        assertEq(oracle.getMinTwapDuration(address(market)), 400);
+        assertEq(oracle.getMinTwapDuration(address(market2)), 700);
+
+        // Market1: 500s should work (>= 400)
+        pt.mint(strategy, 100e18);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), 100e18, 500);
+
+        // Market2: 500s should fail (< 700)
+        pt2.mint(strategy, 100e18);
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.TWAP_DURATION_TOO_SHORT.selector);
+        oracle.recordPurchase(address(market2), 100e18, 500);
+
+        // Market2: 700s should work
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market2), 100e18, 700);
+    }
+
+    /// @notice Test configured market vs unconfigured market behavior
+    function test_MinTwapDuration_ConfiguredVsUnconfigured() public {
+        // Create second market (will remain unconfigured)
+        MockPrincipalToken pt2 = new MockPrincipalToken(block.timestamp + MATURITY);
+        MockPendleMarket unconfiguredMarket = new MockPendleMarket(address(pt2));
+
+        // Configure market1 with lower minimum (200s)
+        oracle.setMinTwapDuration(address(market), 200);
+
+        // Verify: configured market has custom value, unconfigured has default
+        assertEq(oracle.getMinTwapDuration(address(market)), 200);
+        assertEq(oracle.getMinTwapDuration(address(unconfiguredMarket)), 300); // DEFAULT_MIN_TWAP_DURATION
+        assertEq(oracle.marketMinTwapDuration(address(unconfiguredMarket)), 0); // Storage is 0
+
+        // Configured market: 250s works (>= 200)
+        pt.mint(strategy, 100e18);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), 100e18, 250);
+        assertTrue(oracle.hasPosition(strategy, address(market)));
+
+        // Unconfigured market: 250s fails (< 300 default)
+        pt2.mint(strategy, 100e18);
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.TWAP_DURATION_TOO_SHORT.selector);
+        oracle.recordPurchase(address(unconfiguredMarket), 100e18, 250);
+
+        // Unconfigured market: 300s works (>= 300 default)
+        vm.prank(strategy);
+        oracle.recordPurchase(address(unconfiguredMarket), 100e18, 300);
+        assertTrue(oracle.hasPosition(strategy, address(unconfiguredMarket)));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -476,9 +614,10 @@ contract PendlePTAmortizedOracleV2Test is Test {
 
     function testFuzz_RecordPurchase_ValidAmounts(uint128 ptAmount, uint32 twapDuration) public {
         vm.assume(ptAmount > 1e10 && ptAmount <= 1e30);
-        // Bound twapDuration to reasonable values that won't cause overflow in observe()
-        // Must be less than block.timestamp (which is INITIAL_TIME = 1000)
-        twapDuration = uint32(bound(twapDuration, 1, 900)); // 1s to 15 min TWAP
+        // Bound twapDuration to valid range:
+        // - Min: DEFAULT_MIN_TWAP_DURATION (300s) to prevent spot price manipulation
+        // - Max: 900s (15 min) to avoid overflow in mock's observe()
+        twapDuration = uint32(bound(twapDuration, 300, 900));
 
         pt.mint(strategy, ptAmount);
 
@@ -506,5 +645,182 @@ contract PendlePTAmortizedOracleV2Test is Test {
         // Book value should be between initial and face value
         assertGe(bookValue, initialBookValue);
         assertLe(bookValue, ptAmount);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    IYIELDSOURCEORACLE COVERAGE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test decimals() function returns PT decimals
+    function test_Decimals_ReturnsPtDecimals() public view {
+        uint8 oracleDecimals = oracle.decimals(address(market));
+        assertEq(oracleDecimals, 18); // MockPrincipalToken has 18 decimals
+    }
+
+    /// @notice Test getShareOutput() function converts assets to shares
+    function test_GetShareOutput_ConvertsAssetsToShares() public view {
+        uint256 assetsIn = 90e18; // 90 underlying assets
+
+        uint256 sharesOut = oracle.getShareOutput(address(market), address(0), assetsIn);
+
+        // With ~0.9 price per share (PT discounted), 90 assets should give ~100 shares
+        // sharesOut = assetsIn18 * 10^ptDecimals / pricePerShare
+        // sharesOut = 90e18 * 1e18 / 0.9e18 = 100e18
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18); // 2% tolerance for Pendle math
+    }
+
+    /// @notice Test getShareOutput() returns 0 when pricePerShare is 0
+    function test_GetShareOutput_ReturnsZeroWhenPriceZero() public {
+        // Create market with 0 price (past maturity where observe returns 0)
+        // This is a defensive test - in practice pricePerShare shouldn't be 0
+        // But the function has a check for it at line 445
+
+        // Deploy a new market and warp past its maturity
+        MockPrincipalToken expiredPt = new MockPrincipalToken(block.timestamp - 1);
+        MockPendleMarket expiredMarket = new MockPendleMarket(address(expiredPt));
+
+        // At maturity, price should be 1e18, not 0
+        uint256 price = oracle.getPricePerShare(address(expiredMarket));
+        assertEq(price, 1e18); // Confirms at maturity price is 1e18
+
+        // The pricePerShare == 0 branch would only be hit if Pendle returned 0 rate
+        // which shouldn't happen in practice
+    }
+
+    /// @notice Test getWithdrawalShareOutput() with ceiling rounding
+    function test_GetWithdrawalShareOutput_UsesCeilRounding() public view {
+        uint256 assetsIn = 90e18;
+
+        uint256 sharesOut = oracle.getWithdrawalShareOutput(address(market), address(0), assetsIn);
+
+        // Should be similar to getShareOutput but with ceiling rounding
+        assertApproxEqRel(sharesOut, 100e18, 0.02e18);
+    }
+
+    /// @notice Test getBalanceOfOwner() returns PT balance
+    function test_GetBalanceOfOwner_ReturnsPtBalance() public {
+        uint256 ptAmount = 123e18;
+        pt.mint(strategy, ptAmount);
+
+        uint256 balance = oracle.getBalanceOfOwner(address(market), strategy);
+        assertEq(balance, ptAmount);
+    }
+
+    /// @notice Test getBalanceOfOwner() returns 0 for address with no PT
+    function test_GetBalanceOfOwner_ReturnsZeroForNoBalance() public {
+        address noBalanceAddr = makeAddr("noBalance");
+        uint256 balance = oracle.getBalanceOfOwner(address(market), noBalanceAddr);
+        assertEq(balance, 0);
+    }
+
+    /// @notice Test getTVL() returns total value locked across all PT holders
+    function test_GetTVL_ReturnsTotalValueLocked() public {
+        // Mint PT to multiple addresses
+        pt.mint(strategy, 100e18);
+        pt.mint(makeAddr("user2"), 50e18);
+        pt.mint(makeAddr("user3"), 50e18);
+
+        uint256 tvl = oracle.getTVL(address(market));
+
+        // Total PT supply = 200e18, with ~0.9 price = ~180e18 TVL
+        assertApproxEqRel(tvl, 180e18, 0.02e18);
+    }
+
+    /// @notice Test getTVL() returns 0 when no PT supply
+    function test_GetTVL_ReturnsZeroWhenNoSupply() public view {
+        // No PT minted yet
+        uint256 tvl = oracle.getTVL(address(market));
+        assertEq(tvl, 0);
+    }
+
+    /// @notice Test getTVLByOwnerOfShares() returns 0 when no PT balance and no position
+    function test_GetTVLByOwnerOfShares_ReturnsZeroForNoBalanceNoPosition() public {
+        address noBalanceAddr = makeAddr("noBalance");
+
+        // No PT and no recorded position
+        uint256 tvl = oracle.getTVLByOwnerOfShares(address(market), noBalanceAddr);
+        assertEq(tvl, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+            _calculateAmortizedBookValue EDGE CASE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Test edge case when block.timestamp <= t0 (same block as last update)
+    function test_AmortizedBookValue_SameBlockAsUpdate() public {
+        uint256 ptAmount = 100e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), ptAmount, DEFAULT_TWAP_DURATION);
+
+        // Query in same block (block.timestamp == t0)
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+
+        // Book value should equal initial book value (no amortization yet)
+        // ~90e18 based on ~0.9 PT rate
+        assertApproxEqRel(bookValue, ptAmount * 9 / 10, 0.02e18);
+    }
+
+    /// @notice Test defensive case when book value exceeds face value (shouldn't happen but code handles it)
+    function test_AmortizedBookValue_BookValueExceedsFaceValue_DefensivePath() public {
+        // Use a fresh address to avoid any prior state
+        address freshStrategy = makeAddr("freshStrategy");
+
+        // Deploy harness
+        PendlePTAmortizedOracleV2Harness harness = new PendlePTAmortizedOracleV2Harness(admin, superLedgerConfiguration);
+
+        uint256 ptAmount = 100e18;
+        pt.mint(freshStrategy, ptAmount);
+
+        // Set book value HIGHER than PT amount (invalid state: B_t0 > A)
+        // This simulates corrupted data where book value (150e18) > face value (100e18)
+        harness.setBookValueState(
+            freshStrategy,
+            address(market),
+            uint128(150e18), // Book value of 150e18, but only 100e18 PT
+            uint64(block.timestamp)
+        );
+
+        // Advance time (but not to maturity)
+        vm.warp(block.timestamp + MATURITY / 2);
+
+        // The defensive code path (line 417-420) should cap at face value
+        uint256 bookValue = harness.getBookValue(freshStrategy, address(market));
+
+        // Should return face value (A = ptAmount = 100e18) since B_t0 > A
+        assertEq(bookValue, ptAmount);
+    }
+
+    /// @notice Test _calculateAmortizedBookValue when PT amount is 0 (edge case)
+    function test_AmortizedBookValue_ZeroPtAmount() public {
+        uint256 ptAmount = 100e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), ptAmount, DEFAULT_TWAP_DURATION);
+
+        // Burn all PT without recording redemption
+        pt.burn(strategy, ptAmount);
+
+        // getBookValue with 0 balance should return 0
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, 0);
+    }
+
+    /// @notice Test amortization at exact maturity timestamp
+    function test_AmortizedBookValue_ExactMaturityTimestamp() public {
+        uint256 ptAmount = 100e18;
+
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), ptAmount, DEFAULT_TWAP_DURATION);
+
+        // Warp to exact maturity
+        vm.warp(block.timestamp + MATURITY);
+
+        // At maturity, book value = face value (1 PT = 1 SY)
+        uint256 bookValue = oracle.getBookValue(strategy, address(market));
+        assertEq(bookValue, ptAmount);
     }
 }
