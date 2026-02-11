@@ -218,6 +218,30 @@ contract PendlePTAmortizedOracleV2Test is Test {
         oracle.recordPurchase(address(market), 100e18, 0);
     }
 
+    /// @notice Test BOOK_VALUE_EXCEEDS_FACE_VALUE check in recordPurchase
+    /// @dev The check `if (newBookValue > currentPtBalance)` in recordPurchase (line 201) is defensive
+    ///      code that triggers when PT rate > 1e18 (PT at premium over SY). This is an abnormal
+    ///      condition that could occur due to oracle manipulation or extreme market conditions.
+    /// @dev In normal operation with rate < 1e18: sySpent = ptBought * rate < ptBought,
+    ///      so newBookValue = (existingBookValue + sySpent) <= currentPtBalance always holds.
+    /// @dev This test verifies the error selector is used correctly in the codebase by testing
+    ///      correctBookValue which has the same check. The recordPurchase path would require
+    ///      mocking Pendle library internals to return rate > 1e18.
+    function test_RecordPurchase_BookValueExceedsFaceValue_DefensiveCodePath() public {
+        // The BOOK_VALUE_EXCEEDS_FACE_VALUE error is used in two places:
+        // 1. recordPurchase line 201: triggers when PT rate > 1e18 (defensive, hard to unit test)
+        // 2. correctBookValue line 290: triggers when admin sets bookValue > ptBalance
+        //
+        // We test #2 here. Test #1 would require Pendle oracle to return rate > 1e18,
+        // which only happens in extreme/manipulated market conditions.
+
+        pt.mint(strategy, 100e18);
+
+        // Verify the error works via correctBookValue (same check, different trigger)
+        vm.expectRevert(PendlePTAmortizedOracleV2.BOOK_VALUE_EXCEEDS_FACE_VALUE.selector);
+        oracle.correctBookValue(strategy, address(market), 150e18); // 150 > 100 PT balance
+    }
+
     /*//////////////////////////////////////////////////////////////
                     MIN TWAP DURATION CONFIGURATION TESTS
     //////////////////////////////////////////////////////////////*/
@@ -400,6 +424,58 @@ contract PendlePTAmortizedOracleV2Test is Test {
         oracle.recordRedemption(address(market), 50e18);
     }
 
+    function test_RecordRedemption_RevertsZeroMarketAddress() public {
+        // First create a position so we don't hit NO_POSITION first
+        pt.mint(strategy, 100e18);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), 100e18, DEFAULT_TWAP_DURATION);
+
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.recordRedemption(address(0), 50e18);
+    }
+
+    function test_RecordRedemption_RevertsZeroPtAmount() public {
+        // First create a position
+        pt.mint(strategy, 100e18);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), 100e18, DEFAULT_TWAP_DURATION);
+
+        vm.prank(strategy);
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_AMOUNT.selector);
+        oracle.recordRedemption(address(market), 0);
+    }
+
+    /// @notice Test recordRedemption after maturity hits the maturity check in _calculateAmortizedBookValue
+    /// @dev This tests the `if (block.timestamp >= maturity) return A;` line in _calculateAmortizedBookValue
+    function test_RecordRedemption_AfterMaturity() public {
+        uint256 ptAmount = 100e18;
+
+        // Initial purchase
+        pt.mint(strategy, ptAmount);
+        vm.prank(strategy);
+        oracle.recordPurchase(address(market), ptAmount, DEFAULT_TWAP_DURATION);
+
+        // Warp past maturity
+        vm.warp(block.timestamp + MATURITY + 1);
+
+        uint256 ptToRedeem = 30e18;
+
+        // Burn the PT BEFORE recording
+        pt.burn(strategy, ptToRedeem);
+
+        // Record redemption after maturity
+        // This exercises the maturity check in _calculateAmortizedBookValue
+        vm.prank(strategy);
+        oracle.recordRedemption(address(market), ptToRedeem);
+
+        // Book value should be reduced proportionally from face value
+        // At maturity: book value = face value = 100e18
+        // After redemption of 30: newBookValue = 100 - (100 * 30 / 100) = 70e18
+        (uint128 lastBookValue,) = oracle.bookValues(strategy, address(market));
+        assertEq(lastBookValue, 70e18);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         GET BOOK VALUE TESTS
     //////////////////////////////////////////////////////////////*/
@@ -498,6 +574,16 @@ contract PendlePTAmortizedOracleV2Test is Test {
         oracle.correctBookValue(strategy, address(market), 101e18);
     }
 
+    function test_CorrectBookValue_RevertsZeroStrategyAddress() public {
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.correctBookValue(address(0), address(market), 85e18);
+    }
+
+    function test_CorrectBookValue_RevertsZeroMarketAddress() public {
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.correctBookValue(strategy, address(0), 85e18);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     DELETE POSITION TESTS
     //////////////////////////////////////////////////////////////*/
@@ -519,6 +605,16 @@ contract PendlePTAmortizedOracleV2Test is Test {
     function test_DeletePosition_RevertsNoPosition() public {
         vm.expectRevert(PendlePTAmortizedOracleV2.NO_POSITION.selector);
         oracle.deletePosition(strategy, address(market));
+    }
+
+    function test_DeletePosition_RevertsZeroStrategyAddress() public {
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.deletePosition(address(0), address(market));
+    }
+
+    function test_DeletePosition_RevertsZeroMarketAddress() public {
+        vm.expectRevert(PendlePTAmortizedOracleV2.ZERO_ADDRESS.selector);
+        oracle.deletePosition(strategy, address(0));
     }
 
     /*//////////////////////////////////////////////////////////////

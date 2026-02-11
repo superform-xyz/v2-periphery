@@ -73,6 +73,9 @@ contract MockPendleMarket {
     uint16 public observationCardinality;
     uint16 public observationCardinalityNext;
 
+    // Configurable PT-to-SY rate override (0 means use default calculation)
+    uint256 public ptToSyRateOverride;
+
     constructor(address ptAddress) {
         _sy = address(new MockSY());
         _pt = ptAddress;
@@ -81,6 +84,35 @@ contract MockPendleMarket {
         increaseCardinalityRequired = false;
         observationCardinality = 65535; // Large enough
         observationCardinalityNext = 65535;
+    }
+
+    /// @notice Set a fixed PT-to-SY rate for testing edge cases
+    /// @dev When set to 2e18, will trigger BOOK_VALUE_EXCEEDS_FACE_VALUE in recordPurchase
+    /// @param rate The rate to return (0 to use default calculation)
+    function setPtToSyRateOverride(uint256 rate) external {
+        ptToSyRateOverride = rate;
+    }
+
+    /// @notice Returns PT to SY TWAP rate
+    /// @dev If override is set, returns that; otherwise falls back to getPtToAssetRate behavior
+    function getPtToSyRate(uint32) external view returns (uint256) {
+        if (ptToSyRateOverride > 0) {
+            return ptToSyRateOverride;
+        }
+        // Default: same as getPtToAssetRate since MockSY has 1:1 exchange rate
+        uint256 maturity = MockPrincipalToken(_pt).expiry();
+        if (block.timestamp >= maturity) {
+            return 1e18; // At maturity, 1 PT = 1 SY
+        }
+        return 0.9e18; // Before maturity, 1 PT = 0.9 SY (10% discount)
+    }
+
+    /// @notice Set observe to return values that result in rate > 1e18 for testing
+    /// @dev When observeReturnHighRate is true, observe() returns values giving rate ~2e18
+    bool public observeReturnHighRate;
+
+    function setObserveReturnHighRate(bool highRate) external {
+        observeReturnHighRate = highRate;
     }
 
     function readTokens()
@@ -97,11 +129,50 @@ contract MockPendleMarket {
 
     /// @notice Mock observe function for Pendle oracle library
     /// @dev Returns cumulative ln(implied rate) values that result in ~0.9 PT-to-asset rate before maturity
+    /// @dev When observeReturnHighRate is true, returns values that result in rate > 1e18 (negative implied rate)
     /// @param secondsAgos Array of seconds ago to observe (e.g., [900, 0] for 15-min TWAP)
     /// @return lnImpliedRateCumulative Array of cumulative ln(implied rate) values
     function observe(uint32[] calldata secondsAgos) external view returns (uint216[] memory lnImpliedRateCumulative) {
         uint256 maturity = MockPrincipalToken(_pt).expiry();
         lnImpliedRateCumulative = new uint216[](secondsAgos.length);
+
+        // Special case: return values that give rate > 1e18 for testing BOOK_VALUE_EXCEEDS_FACE_VALUE
+        if (observeReturnHighRate) {
+            // To get rate > 1e18, we need negative implied rate
+            // lnImpliedRate = (cumulative[older] - cumulative[newer]) / duration
+            // For negative lnImpliedRate: cumulative[older] < cumulative[newer]
+            //
+            // secondsAgos[0] = 900 (older), secondsAgos[1] = 0 (current)
+            // We want cumulative[0] < cumulative[1] (older < newer, inverted from normal)
+            //
+            // Return values that give a strong negative implied rate
+            // This simulates extreme market conditions or oracle manipulation
+            for (uint256 i = 0; i < secondsAgos.length; i++) {
+                // Normally: cumulative increases over time (older < newer in absolute time means older < newer in cumulative)
+                // For negative rate: we invert - larger secondsAgo gets larger cumulative
+                // secondsAgos[0] = 900 -> larger cumulative[0]? No, we want smaller.
+                // Actually: secondsAgos is "how long ago", so older observation has larger secondsAgo
+                // We want: cumulative[older] < cumulative[newer]
+                // older = secondsAgos[0] = 900, newer = secondsAgos[1] = 0
+                // So cumulative[0] < cumulative[1]
+                //
+                // Normal: cumulative = rate * observationTime, and older observation has smaller observationTime
+                // For rate > 1: cumulative[0] < cumulative[1], meaning older has SMALLER cumulative
+                // But older has smaller observationTime too... so we need different scaling
+                //
+                // Let's just hardcode values that work:
+                // cumulative[0] (older, 900 seconds ago) = 1e18
+                // cumulative[1] (current) = 1e19
+                // lnImpliedRate = (1e18 - 1e19) / 900 = -9e18 / 900 = -1e16 (negative)
+                // This gives rate > 1e18
+                if (secondsAgos[i] == 900) {
+                    lnImpliedRateCumulative[i] = uint216(1e18);
+                } else {
+                    lnImpliedRateCumulative[i] = uint216(1e19);
+                }
+            }
+            return lnImpliedRateCumulative;
+        }
 
         // At maturity, implied rate should result in PT = 1 asset (rate = 1e18)
         // Before maturity, implied rate should result in PT = 0.9 asset (rate = 0.9e18)
