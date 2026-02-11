@@ -138,8 +138,10 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Record a PT purchase - called by strategy via hooks AFTER deposit
-    /// @dev V2: Calculates sySpent from ptBought using on-chain PT rate
+    /// @dev V2: Calculates sySpent from ptBought using on-chain PT-to-SY rate
     /// @dev twapDuration is passed as parameter (0 for spot price, 900 for 15min TWAP, etc.)
+    /// @dev IMPORTANT: Uses getPtToSyRate (not getPtToAssetRate) because book value is in SY terms
+    ///      At maturity: 1 PT = 1 SY (regardless of SY exchange rate to underlying)
     /// @dev msg.sender is the strategy being updated
     /// @param market The Pendle market address
     /// @param ptBought Amount of PT received from the purchase
@@ -154,9 +156,12 @@ contract PendlePTAmortizedOracleV2 is AbstractYieldSourceOracle, AccessControl {
         uint256 maturity = pt.expiry();
         if (block.timestamp >= maturity) revert MARKET_EXPIRED();
 
-        // Calculate sySpent from PT rate (key V2 change)
-        uint256 ptRate = IPMarket(market).getPtToAssetRate(twapDuration);
-        uint256 sySpent = ptBought.mulDiv(ptRate, 1e18);
+        // Calculate sySpent from PT-to-SY rate (key V2 change)
+        // IMPORTANT: Use getPtToSyRate, NOT getPtToAssetRate
+        // Book value is stored in SY terms (1 PT = 1 SY at maturity)
+        // getPtToAssetRate would incorporate the SY exchange rate, causing unit mismatch
+        uint256 ptToSyRate = IPMarket(market).getPtToSyRate(twapDuration);
+        uint256 sySpent = ptBought.mulDiv(ptToSyRate, 1e18);
 
         // Get current PT balance (after purchase) and derive previous balance
         uint256 currentPtBalance = IERC20(address(pt)).balanceOf(strategy);
