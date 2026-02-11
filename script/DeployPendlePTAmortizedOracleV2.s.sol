@@ -113,6 +113,7 @@ contract DeployPendlePTAmortizedOracleV2 is PendlePTAmortizedOracleV2ScriptBase 
             console2.log("");
             console2.log("SUPER_LEDGER_CONFIGURATION:", oracle.SUPER_LEDGER_CONFIGURATION());
             console2.log("DEFAULT_TWAP_DURATION:", oracle.DEFAULT_TWAP_DURATION());
+            console2.log("DEFAULT_MIN_TWAP_DURATION:", oracle.DEFAULT_MIN_TWAP_DURATION());
         }
 
         console2.log("");
@@ -179,6 +180,7 @@ contract DeployPendlePTAmortizedOracleV2 is PendlePTAmortizedOracleV2ScriptBase 
         console2.log("Has DEFAULT_ADMIN_ROLE:", true);
         console2.log("Has MANAGER_ROLE:", true);
         console2.log("DEFAULT_TWAP_DURATION:", oracle.DEFAULT_TWAP_DURATION());
+        console2.log("DEFAULT_MIN_TWAP_DURATION:", oracle.DEFAULT_MIN_TWAP_DURATION());
 
         // Write JSON output
         _writeOracleV2Json(env, chainId, oracleAddr, branchName);

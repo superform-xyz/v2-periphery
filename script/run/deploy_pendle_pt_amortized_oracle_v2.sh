@@ -291,6 +291,7 @@ main() {
     log "INFO" "V2 Features:"
     log "INFO" "  - On-chain PT rate calculation (no off-chain dependency)"
     log "INFO" "  - twapDuration passed per-call via hook"
+    log "INFO" "  - MIN_TWAP_DURATION protection (default 300s, configurable per market)"
     log "INFO" "============================================"
 
     local failed_chains=()

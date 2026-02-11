@@ -35,7 +35,7 @@ contract CorrectBookValueSimulation is Test {
 
     function test_SimulateCorrectBookValue() public {
         // Fork mainnet
-        vm.createSelectFork(vm.envOr("ETH_RPC_URL", string("https://rpc.ankr.com/eth")));
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
 
         IPendlePTAmortizedOracle oracle = IPendlePTAmortizedOracle(ORACLE);
 

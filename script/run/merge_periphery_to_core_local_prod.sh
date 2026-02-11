@@ -48,7 +48,7 @@ OUTPUT_FILE="$OUTPUT_DIR/latest.json"
 HISTORICAL_DIR="$OUTPUT_DIR/historical"
 
 # Allowed periphery contracts to merge
-ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "PendlePTAmortizedOracle")
+ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "PendlePTAmortizedOracle" "PendlePTAmortizedOracleV2")
 
 ###################################################################################
 # Helper Functions
