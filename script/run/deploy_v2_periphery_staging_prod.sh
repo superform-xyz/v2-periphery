@@ -686,10 +686,13 @@ for network_def in "${NETWORKS[@]}"; do
             # Set verification flags (skip etherscan for HyperEVM)
             local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
             local CHAIN_ETHERSCAN_FLAGS=""
+            local CHAIN_SLOW_FLAG=""
             if [ "$network_id" != "999" ]; then
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
             else
                 CHAIN_VERIFY_FLAG=""
+                # HyperEVM needs --slow to avoid nonce issues
+                CHAIN_SLOW_FLAG="--slow"
             fi
 
             # Run deployment script
@@ -698,6 +701,7 @@ for network_def in "${NETWORKS[@]}"; do
                 --rpc-url ${!rpc_var} \
                 --chain $network_id \
                 $CHAIN_ETHERSCAN_FLAGS \
+                $CHAIN_SLOW_FLAG \
                 $ACCOUNT_FLAG \
                 $SENDER_FLAG \
                 $BROADCAST_FLAG \

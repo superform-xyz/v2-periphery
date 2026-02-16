@@ -343,7 +343,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         address fixedPriceOracleAddr = _checkFixedPriceOracle();
 
         // Check SuperOracle (same deployment for all chains with chain-specific addresses)
-        _checkSuperOracle(chainId, superGovernorAddr, fixedPriceOracleAddr);
+        _checkSuperOracle(chainId, superGovernorAddr, fixedPriceOracleAddr, env);
 
         // Check SuperBank
         _checkSuperBank(superGovernorAddr);
@@ -430,7 +430,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
     /// @notice Check SuperOracle (mainnet) or SuperOracleL2 (L2s) with proper oracle feed configuration
     /// @dev Both mainnet and L2s use the same 3 feeds (GAS->WEI, ETH->USD, UP->USD)
-    function _checkSuperOracle(uint64 chainId, address superGovernorAddr, address fixedPriceOracleAddr) internal {
+    function _checkSuperOracle(uint64 chainId, address superGovernorAddr, address fixedPriceOracleAddr, uint256 env) internal {
         address[] memory bases = new address[](3);
         address[] memory quotes = new address[](3);
         bytes32[] memory providers = new bytes32[](3);
@@ -454,12 +454,21 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment");
             }
         } else if (chainId == HYPEREVM_CHAIN_ID) {
-            gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
-            ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
-            upToken = UP_TOKEN_HYPEREVM;
-            if (UP_TOKEN_HYPEREVM.code.length == 0) {
-                console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+            // Use staging addresses when env == 2
+            if (env == 2) {
+                gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM_STAGING;
+                upToken = UP_TOKEN_HYPEREVM_STAGING;
+                if (UP_TOKEN_HYPEREVM_STAGING.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            } else {
+                gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
+                upToken = UP_TOKEN_HYPEREVM;
+                if (UP_TOKEN_HYPEREVM.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+                }
             }
+            ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -719,7 +728,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // L2: ETH->USD only (gas oracle and UP oracle not available)
         if (env != 1) {
             peripheryContracts.superOracle =
-                _deploySuperOracle(chainId, peripheryContracts.superGovernor, peripheryContracts.fixedPriceOracle);
+                _deploySuperOracle(chainId, peripheryContracts.superGovernor, peripheryContracts.fixedPriceOracle, env);
         } else {
             console2.log("[!] Skipping SuperOracle deployment for test environment");
         }
@@ -743,11 +752,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @param chainId The chain ID to deploy on
     /// @param superGovernor The SuperGovernor address
     /// @param fixedPriceOracle The FixedPriceOracle address for UP/USD pricing
+    /// @param env The environment (0=prod, 2=staging)
     /// @return superOracle The deployed SuperOracle/SuperOracleL2 address
     function _deploySuperOracle(
         uint64 chainId,
         address superGovernor,
-        address fixedPriceOracle
+        address fixedPriceOracle,
+        uint256 env
     )
         internal
         returns (address superOracle)
@@ -779,12 +790,21 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment");
             }
         } else if (chainId == HYPEREVM_CHAIN_ID) {
-            gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
-            ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
-            upToken = UP_TOKEN_HYPEREVM;
-            if (UP_TOKEN_HYPEREVM.code.length == 0) {
-                console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+            // Use staging addresses when env == 2
+            if (env == 2) {
+                gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM_STAGING;
+                upToken = UP_TOKEN_HYPEREVM_STAGING;
+                if (UP_TOKEN_HYPEREVM_STAGING.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            } else {
+                gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
+                upToken = UP_TOKEN_HYPEREVM;
+                if (UP_TOKEN_HYPEREVM.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+                }
             }
+            ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -1062,7 +1082,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Verify oracle feeds return valid prices via SuperOracle integration
         // Skip for test environment (env == 1) since oracles may not be available on vnet
         if (env != 1) {
-            _verifyOracleFeeds(peripheryContracts.superOracle, chainId);
+            _verifyOracleFeeds(peripheryContracts.superOracle, chainId, env);
         } else {
             console2.log("[Config Check] Skipping oracle feed verification for test environment");
         }
@@ -1075,7 +1095,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @dev Uses AVERAGE_PROVIDER to test the full oracle pipeline
     /// @param superOracleAddr The SuperOracle address
     /// @param chainId The chain ID for chain-specific UP token selection
-    function _verifyOracleFeeds(address superOracleAddr, uint64 chainId) internal view {
+    /// @param env The environment (0=prod, 2=staging)
+    function _verifyOracleFeeds(address superOracleAddr, uint64 chainId, uint256 env) internal view {
         console2.log("");
         console2.log("=== Verifying Oracle Feeds via SuperOracle ===");
         console2.log("SuperOracle address:", superOracleAddr);
@@ -1090,7 +1111,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         } else if (chainId == BASE_CHAIN_ID) {
             upToken = UP_TOKEN_BASE;
         } else if (chainId == HYPEREVM_CHAIN_ID) {
-            upToken = UP_TOKEN_HYPEREVM;
+            upToken = env == 2 ? UP_TOKEN_HYPEREVM_STAGING : UP_TOKEN_HYPEREVM;
         } else {
             revert("UP token not configured for this chain");
         }
