@@ -3,45 +3,35 @@
 ###################################################################################
 # Deploy SuperformGasOracle Script
 ###################################################################################
-# Description:
-#   Deploys SuperformGasOracle - a keeper-updated gas price oracle for chains
-#   where Chainlink's Fast Gas feed is not available.
+#
+# Deploys SuperformGasOracle on HyperEVM (999).
+#
+# This oracle provides keeper-updated gas prices for chains where Chainlink's
+# Fast Gas feed is not available.
 #
 # Usage:
 #   ./deploy_superform_gas_oracle.sh <environment> <mode> [account] [gas_price]
 #
-#   Parameters:
-#     environment: "prod" or "staging"
-#     mode: "simulate", "execute", or "check"
-#     account: Account name (required for execute mode, e.g., "v2-supervaults")
-#     gas_price: Initial gas price in Gwei (optional, default: 1000000)
+# Parameters:
+#   environment  "prod" or "staging"
+#   mode         "simulate", "execute", or "check"
+#   account      Account name for execute mode (e.g., "v2-supervaults")
+#   gas_price    Initial gas price (optional, default: 1 Gwei)
 #
 # Examples:
-#   # Check deployment status on all chains
 #   ./deploy_superform_gas_oracle.sh staging check
-#
-#   # Simulate deployment on all chains
 #   ./deploy_superform_gas_oracle.sh staging simulate
-#
-#   # Execute deployment on all chains
 #   ./deploy_superform_gas_oracle.sh staging execute v2-supervaults
-#
-#   # Execute deployment on prod
 #   ./deploy_superform_gas_oracle.sh prod execute v2-supervaults
-#
-#   # Execute with custom gas price
-#   ./deploy_superform_gas_oracle.sh staging execute v2-supervaults 50
 #
 # Prerequisites:
 #   - 1Password CLI configured for RPC URL access
 #   - For execute mode: Foundry account (v2-supervaults) configured
 #
-# Note:
-#   - Deploys on Base (8453) and HyperEVM (999)
+# Notes:
 #   - Already-deployed chains are skipped automatically
 #   - Owner is set to v2-supervaults keystore address
 #
-# Author: Superform Team
 ###################################################################################
 
 set -euo pipefail
@@ -55,6 +45,7 @@ readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Default gas price in Gwei (oracle has 0 decimals - value is directly in Gwei)
 # This value is used for deterministic address computation and must match the deployed oracle.
+# 1 GWEI 
 readonly DEFAULT_GAS_PRICE=1000000
 
 # Owner address (v2-supervaults keystore - DEPLOYER)
@@ -62,7 +53,6 @@ readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 # Supported chains: "CHAIN_ID:CHAIN_NAME"
 readonly SUPPORTED_CHAINS=(
-    "8453:Base"
     "999:HyperEVM"
 )
 
@@ -311,11 +301,12 @@ main() {
     log "INFO" "Mode: $mode"
     log "INFO" "Owner (v2-supervaults): $OWNER"
     log "INFO" "Initial Gas Price: $gas_price (Gwei, 0 decimals)"
-    log "INFO" "Target Chains: Base (8453), HyperEVM (999)"
+    log "INFO" "Target Chains: HyperEVM (999)"
     log "INFO" "============================================"
 
+    local successful_chains=()
+    local skipped_chains=()
     local failed_chains=()
-    local success_count=0
 
     # Deploy on each supported chain
     for chain_def in "${SUPPORTED_CHAINS[@]}"; do
@@ -327,34 +318,54 @@ main() {
 
         if [ -z "$rpc_url" ]; then
             log "WARN" "Skipping $chain_name ($chain_id) - RPC URL not available"
-            failed_chains+=("$chain_id")
+            skipped_chains+=("$chain_name ($chain_id)")
             continue
         fi
 
         if deploy_on_chain "$env" "$chain_id" "$chain_name" "$mode" "$account" "$gas_price" "$rpc_url"; then
-            ((++success_count))
+            successful_chains+=("$chain_name ($chain_id)")
         else
-            failed_chains+=("$chain_id")
+            failed_chains+=("$chain_name ($chain_id)")
         fi
 
         log "INFO" ""
     done
 
     # Summary
+    log "INFO" ""
     log "INFO" "============================================"
     log "INFO" "Deployment Summary"
     log "INFO" "============================================"
-    log "INFO" "Successful: $success_count"
-    log "INFO" "Failed: ${#failed_chains[@]}"
+
+    if [ ${#successful_chains[@]} -gt 0 ]; then
+        log "INFO" "Deployed:"
+        for chain in "${successful_chains[@]}"; do
+            log "INFO" "  ✓ $chain"
+        done
+    fi
+
+    if [ ${#skipped_chains[@]} -gt 0 ]; then
+        log "INFO" "Skipped:"
+        for chain in "${skipped_chains[@]}"; do
+            log "INFO" "  - $chain"
+        done
+    fi
 
     if [ ${#failed_chains[@]} -gt 0 ]; then
-        log "WARN" "Failed chains: ${failed_chains[*]}"
-        exit 1
+        log "WARN" "Failed:"
+        for chain in "${failed_chains[@]}"; do
+            log "WARN" "  ✗ $chain"
+        done
     fi
 
     log "INFO" "============================================"
-    log "INFO" "SuperformGasOracle deployment completed successfully!"
-    log "INFO" "============================================"
+
+    if [ ${#failed_chains[@]} -gt 0 ]; then
+        log "ERROR" "Deployment completed with failures"
+        exit 1
+    fi
+
+    log "INFO" "Deployment completed successfully!"
 }
 
 main "$@"
