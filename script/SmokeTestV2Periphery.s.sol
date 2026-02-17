@@ -186,16 +186,73 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Validate SuperGovernor is deployed
         require(peripheryContracts.superGovernor.code.length > 0, "SuperGovernor not deployed");
+        console2.log("SuperGovernor address:", peripheryContracts.superGovernor);
 
-        // Get addresses from SuperGovernor
+        // Get addresses from SuperGovernor with detailed error handling
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
-        peripheryContracts.superVaultAggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
-        peripheryContracts.superOracle = governor.getAddress(governor.SUPER_ORACLE());
-        peripheryContracts.superBank = governor.getAddress(governor.SUPER_BANK());
+        // Get role keys for logging
+        bytes32 aggregatorKey = governor.SUPER_VAULT_AGGREGATOR();
+        bytes32 oracleKey = governor.SUPER_ORACLE();
+        bytes32 bankKey = governor.SUPER_BANK();
+
+        console2.log("Looking up registered addresses in SuperGovernor...");
+        console2.log("  SUPER_VAULT_AGGREGATOR key:", vm.toString(aggregatorKey));
+        console2.log("  SUPER_ORACLE key:", vm.toString(oracleKey));
+        console2.log("  SUPER_BANK key:", vm.toString(bankKey));
+
+        // Try to get each address with detailed error messages
+        peripheryContracts.superVaultAggregator = _safeGetAddress(governor, aggregatorKey, "SUPER_VAULT_AGGREGATOR");
+        peripheryContracts.superOracle = _safeGetAddress(governor, oracleKey, "SUPER_ORACLE");
+        peripheryContracts.superBank = _safeGetAddress(governor, bankKey, "SUPER_BANK");
         peripheryContracts.ecdsappsOracle = governor.getActivePPSOracle();
 
+        console2.log("  Active PPS Oracle:", peripheryContracts.ecdsappsOracle);
+
         return peripheryContracts;
+    }
+
+    /// @notice Safely get an address from SuperGovernor with detailed error logging
+    /// @param governor The SuperGovernor contract
+    /// @param key The address key to lookup
+    /// @param keyName Human-readable name of the key for logging
+    /// @return The address if found
+    function _safeGetAddress(
+        SuperGovernor governor,
+        bytes32 key,
+        string memory keyName
+    )
+        internal
+        view
+        returns (address)
+    {
+        // Use low-level call to check if address exists without reverting
+        (bool success, bytes memory data) = address(governor).staticcall(
+            abi.encodeWithSelector(governor.getAddress.selector, key)
+        );
+
+        if (!success) {
+            console2.log("");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("ERROR: Failed to get address from SuperGovernor");
+            console2.log("  Key name:", keyName);
+            console2.log("  Key hash:", vm.toString(key));
+            console2.log("  SuperGovernor:", address(governor));
+            console2.log("");
+            console2.log("This usually means the address has NOT been registered");
+            console2.log("in SuperGovernor after deployment.");
+            console2.log("");
+            console2.log("To fix this, run the configuration script to register");
+            console2.log("the contract address in SuperGovernor using setAddress()");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("");
+
+            revert(string.concat("CONTRACT_NOT_FOUND: ", keyName, " not registered in SuperGovernor"));
+        }
+
+        address result = abi.decode(data, (address));
+        console2.log(string.concat("  ", keyName, ":"), result);
+        return result;
     }
 
     /// @notice Smoke test to verify roles and configuration are set correctly post-deployment
@@ -209,9 +266,9 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
         // Verify all roles are configured correctly
-        // Skip for Base (8453) since roles haven't been transferred yet
-        if (chainId == BASE_CHAIN_ID) {
-            console2.log("[Role Check] SKIPPED - Roles not yet transferred on Base");
+        // Skip for HyperEVM (999) since roles haven't been transferred yet
+        if (chainId == HYPEREVM_CHAIN_ID) {
+            console2.log("[Role Check] SKIPPED - Roles not yet transferred on HyperEVM");
         } else {
             _verifyRoles(governor);
         }

@@ -208,11 +208,13 @@ contract ConfigureV2Periphery is DeployV2Base {
         }
 
         // If not found locally, read from periphery deployment JSON files
-        string memory peripheryJson =
-            _readPeripheryContractsFromOutput(params.chainId, params.env, params.saltNamespace);
+        PeripheryJsonData memory data =
+            _readPeripheryContractsFromOutputWithChainName(params.chainId, params.env, params.saltNamespace);
 
-        if (bytes(peripheryJson).length > 0) {
-            address governorAddr = _safeParseJsonAddress(peripheryJson, ".SuperGovernor");
+        if (bytes(data.json).length > 0 && bytes(data.chainName).length > 0) {
+            // Parse using the latest.json structure: .networks.{ChainName}.contracts.{ContractName}
+            string memory key = string(abi.encodePacked(".networks.", data.chainName, ".contracts.SuperGovernor"));
+            address governorAddr = _safeParseJsonAddress(data.json, key);
             if (governorAddr != address(0)) {
                 console2.log("Found SuperGovernor from periphery deployment file:", governorAddr);
                 return governorAddr;
@@ -332,7 +334,13 @@ contract ConfigureV2Periphery is DeployV2Base {
         }
     }
 
-    /// @notice Read periphery contracts from output files
+    /// @notice Struct to hold periphery JSON data and chain name for parsing
+    struct PeripheryJsonData {
+        string json;
+        string chainName;
+    }
+
+    /// @notice Read periphery contracts from latest.json
     function _readPeripheryContractsFromOutput(
         uint64 chainId,
         uint256 env,
@@ -342,11 +350,22 @@ contract ConfigureV2Periphery is DeployV2Base {
         view
         returns (string memory)
     {
+        PeripheryJsonData memory data = _readPeripheryContractsFromOutputWithChainName(chainId, env, branchName);
+        return data.json;
+    }
+
+    /// @notice Read periphery contracts from latest.json with chain name
+    function _readPeripheryContractsFromOutputWithChainName(
+        uint64 chainId,
+        uint256 env,
+        string memory branchName
+    )
+        internal
+        view
+        returns (PeripheryJsonData memory data)
+    {
         // Use the current project root for periphery deployment files
         string memory peripheryRoot = vm.projectRoot();
-
-        // Map chain ID to chain name
-        string memory chainName = _getChainName(chainId);
 
         string memory envName;
         if (env == 0) {
@@ -358,37 +377,68 @@ contract ConfigureV2Periphery is DeployV2Base {
             envName = "staging"; // env=2
         }
 
-        // Construct path: script/output/{env}/{chainId}/{ChainName}-latest.json
-        string memory outputPath = string(
-            abi.encodePacked(
-                peripheryRoot,
-                "/script/output/",
-                envName,
-                "/",
-                vm.toString(uint256(chainId)),
-                "/",
-                chainName,
-                "-latest.json"
-            )
+        // Read from latest.json which contains all networks
+        string memory latestPath = string(
+            abi.encodePacked(peripheryRoot, "/script/output/", envName, "/latest.json")
         );
 
-        console2.log("Reading periphery contracts from:", outputPath);
+        console2.log("Reading periphery contracts from:", latestPath);
 
-        try vm.readFile(outputPath) returns (string memory fileContent) {
-            console2.log("Successfully read periphery deployment file");
-            return fileContent;
+        try vm.readFile(latestPath) returns (string memory fileContent) {
+            console2.log("Successfully read latest.json");
+
+            // Extract the contracts for this specific chain
+            string memory chainName = _getChainNameFromLatestJson(fileContent, chainId);
+            if (bytes(chainName).length == 0) {
+                console2.log("Chain ID not found in latest.json:", chainId);
+                return data; // Return empty data
+            }
+
+            console2.log("Found network:", chainName);
+
+            // Verify the contracts section exists for this network
+            string memory contractsKey = string(abi.encodePacked(".networks.", chainName, ".contracts"));
+            try vm.parseJson(fileContent, contractsKey) returns (bytes memory) {
+                data.json = fileContent;
+                data.chainName = chainName;
+                return data;
+            } catch {
+                console2.log("Failed to parse contracts for network:", chainName);
+                return data; // Return empty data
+            }
         } catch {
-            console2.log("Failed to read periphery deployment file:", outputPath);
-            return "";
+            console2.log("Failed to read latest.json:", latestPath);
+            return data; // Return empty data
         }
     }
 
-    /// @notice Get chain name from chain ID
+    /// @notice Get chain name from chain ID (for file paths)
     function _getChainName(uint64 chainId) internal pure returns (string memory) {
         if (chainId == 1) return "Ethereum";
         if (chainId == 8453) return "Base";
         if (chainId == 10) return "Optimism";
+        if (chainId == 42161) return "Arbitrum";
+        if (chainId == 137) return "Polygon";
+        if (chainId == 43114) return "Avalanche";
+        if (chainId == 56) return "BNB";
+        if (chainId == 80094) return "Berachain";
+        if (chainId == 146) return "Sonic";
+        if (chainId == 100) return "Gnosis";
+        if (chainId == 130) return "Unichain";
+        if (chainId == 480) return "Worldchain";
+        if (chainId == 999) return "HyperEVM";
         return "Unknown";
+    }
+
+    /// @notice Get chain name from latest.json by searching for chain ID
+    /// @dev Returns empty string for unknown chains (so caller can handle gracefully)
+    function _getChainNameFromLatestJson(string memory, uint64 chainId) internal pure returns (string memory) {
+        string memory name = _getChainName(chainId);
+        // Return empty for "Unknown" so caller handles missing chains gracefully
+        if (keccak256(bytes(name)) == keccak256(bytes("Unknown"))) {
+            return "";
+        }
+        return name;
     }
 
     /// @notice Hook registration result codes
