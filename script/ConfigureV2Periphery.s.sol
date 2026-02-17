@@ -37,6 +37,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         address merklClaimRewardHook;
         address pendleRouterRedeemHook;
         address pendleRouterSwapHook;
+        address pendleUnifiedHook;
         address acrossSendFundsAndExecuteOnDstHook;
     }
 
@@ -277,6 +278,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         hooks.merklClaimRewardHook = _safeParseJsonAddress(coreJson, ".MerklClaimRewardHook");
         hooks.pendleRouterRedeemHook = _safeParseJsonAddress(coreJson, ".PendleRouterRedeemHook");
         hooks.pendleRouterSwapHook = _safeParseJsonAddress(coreJson, ".PendleRouterSwapHook");
+        hooks.pendleUnifiedHook = _safeParseJsonAddress(coreJson, ".PendleUnifiedHook");
         hooks.acrossSendFundsAndExecuteOnDstHook =
             _safeParseJsonAddress(coreJson, ".AcrossSendFundsAndExecuteOnDstHook");
     }
@@ -450,7 +452,7 @@ contract ConfigureV2Periphery is DeployV2Base {
     /// @notice Register all hooks with SuperGovernor
     function _registerAllHooks(address superGovernor, HookAddresses memory hooks) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
-        uint256 totalHooks = 26; // Total number of hooks in HookAddresses struct
+        uint256 totalHooks = 27; // Total number of hooks in HookAddresses struct
         uint256 newlyRegistered = 0;
         uint256 alreadyRegistered = 0;
         uint256 notDeployed = 0;
@@ -569,6 +571,10 @@ contract ConfigureV2Periphery is DeployV2Base {
             _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
 
         result = _registerHook(governor, hooks.pendleRouterSwapHook, "pendleRouterSwapHook");
+        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
+            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
+
+        result = _registerHook(governor, hooks.pendleUnifiedHook, "pendleUnifiedHook");
         (newlyRegistered, alreadyRegistered, notDeployed, failed) =
             _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
 
