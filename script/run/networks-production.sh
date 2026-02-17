@@ -372,9 +372,12 @@ load_rpc_urls() {
     # fi
 
     echo "  • Loading HyperEVM RPC..."
-    if ! export HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null); then
+    HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$HYPEREVM_MAINNET" ]; then
         echo "  • HYPEREVM_RPC_URL not in 1Password, using default RPC"
         export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
+    else
+        export HYPEREVM_MAINNET
     fi
 
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then

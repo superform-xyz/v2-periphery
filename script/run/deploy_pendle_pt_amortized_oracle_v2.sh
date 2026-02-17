@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 
 ###################################################################################
-# Deploy PendlePTAmortizedOracle Script
+# Deploy PendlePTAmortizedOracleV2 Script
 ###################################################################################
 # Description:
-#   Deploys PendlePTAmortizedOracle - an amortized cost pricing oracle for
-#   Pendle PT positions held by strategies.
+#   Deploys PendlePTAmortizedOracleV2 - an amortized cost pricing oracle for
+#   Pendle PT positions with on-chain PT rate calculation.
+#
+#   V2 Key Differences from V1:
+#   - recordPurchase calculates sySpent from on-chain PT rate (no off-chain dependency)
+#   - twapDuration passed per-call via hook (no market config storage)
 #
 # Usage:
-#   ./deploy_pendle_pt_amortized_oracle.sh <environment> <mode> [account] [chain_id]
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh <environment> <mode> [account] [chain_id]
 #
 #   Parameters:
 #     environment: "prod" or "staging"
@@ -18,25 +22,25 @@
 #
 # Examples:
 #   # Check deployment status on all staging chains
-#   ./deploy_pendle_pt_amortized_oracle.sh staging check
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging check
 #
 #   # Check deployment status on specific chain
-#   ./deploy_pendle_pt_amortized_oracle.sh staging check "" 1
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging check "" 1
 #
 #   # Simulate deployment on all staging chains
-#   ./deploy_pendle_pt_amortized_oracle.sh staging simulate
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging simulate
 #
 #   # Simulate deployment on specific chain
-#   ./deploy_pendle_pt_amortized_oracle.sh staging simulate "" 8453
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging simulate "" 8453
 #
 #   # Execute deployment on all staging chains
-#   ./deploy_pendle_pt_amortized_oracle.sh staging execute v2-supervaults
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging execute v2-supervaults
 #
 #   # Execute deployment on specific chain
-#   ./deploy_pendle_pt_amortized_oracle.sh staging execute v2-supervaults 1
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging execute v2-supervaults 1
 #
 #   # Execute deployment on all prod chains
-#   ./deploy_pendle_pt_amortized_oracle.sh prod execute v2-supervaults
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh prod execute v2-supervaults
 #
 # Prerequisites:
 #   - 1Password CLI configured for RPC URL access
@@ -193,7 +197,7 @@ update_json_output() {
         # Update existing file - check if it's valid JSON first
         if jq empty "$output_file" 2>/dev/null; then
             local tmp_file=$(mktemp)
-            if jq --arg addr "$address" '.PendlePTAmortizedOracle = $addr' "$output_file" > "$tmp_file" 2>/dev/null; then
+            if jq --arg addr "$address" '.PendlePTAmortizedOracleV2 = $addr' "$output_file" > "$tmp_file" 2>/dev/null; then
                 mv "$tmp_file" "$output_file"
                 log "INFO" "Updated existing JSON: $output_file"
             else
@@ -203,12 +207,12 @@ update_json_output() {
             fi
         else
             log "WARN" "Existing file is not valid JSON, creating new file"
-            echo "{\"PendlePTAmortizedOracle\": \"$address\"}" > "$output_file"
+            echo "{\"PendlePTAmortizedOracleV2\": \"$address\"}" > "$output_file"
             log "INFO" "Created new JSON: $output_file"
         fi
     else
         # Create new file
-        echo "{\"PendlePTAmortizedOracle\": \"$address\"}" > "$output_file"
+        echo "{\"PendlePTAmortizedOracleV2\": \"$address\"}" > "$output_file"
         log "INFO" "Created new JSON: $output_file"
     fi
 }
@@ -246,9 +250,9 @@ deploy_on_chain() {
         log "INFO" "Mode: Check (read-only)"
     fi
 
-    # Build forge command
+    # Build forge command - V2 script
     local forge_cmd="forge script"
-    forge_cmd+=" script/DeployPendlePTAmortizedOracle.s.sol:DeployPendlePTAmortizedOracle"
+    forge_cmd+=" script/DeployPendlePTAmortizedOracleV2.s.sol:DeployPendlePTAmortizedOracleV2"
 
     if [ "$mode" = "check" ]; then
         # Pass empty string for branchName (only used for vnet env=1)
@@ -288,9 +292,9 @@ deploy_on_chain() {
     # Extract deployed address from output and update JSON (for simulate and execute modes)
     if [ "$mode" != "check" ]; then
         local deployed_address
-        # Extract the 0x address that appears after "PendlePTAmortizedOracle deployed at:"
+        # Extract the 0x address that appears after "PendlePTAmortizedOracleV2 deployed at:"
         # Use grep to find the line, then grep again to extract just the address
-        deployed_address=$(echo "$output" | grep 'PendlePTAmortizedOracle deployed at:' | grep -o '0x[a-fA-F0-9]\{40\}' | head -1)
+        deployed_address=$(echo "$output" | grep 'PendlePTAmortizedOracleV2 deployed at:' | grep -o '0x[a-fA-F0-9]\{40\}' | head -1)
 
         if [ -n "$deployed_address" ] && [[ "$deployed_address" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
             log "INFO" "Extracted deployed address: $deployed_address"
@@ -362,7 +366,7 @@ main() {
     fi
 
     log "INFO" "============================================"
-    log "INFO" "Deploy PendlePTAmortizedOracle"
+    log "INFO" "Deploy PendlePTAmortizedOracleV2"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Mode: $mode"
@@ -372,6 +376,11 @@ main() {
     else
         log "INFO" "Target Chains: All supported chains"
     fi
+    log "INFO" "============================================"
+    log "INFO" "V2 Features:"
+    log "INFO" "  - On-chain PT rate calculation (no off-chain dependency)"
+    log "INFO" "  - twapDuration passed per-call via hook"
+    log "INFO" "  - MIN_TWAP_DURATION protection (default 300s, configurable per market)"
     log "INFO" "============================================"
 
     local failed_chains=()
@@ -420,7 +429,7 @@ main() {
     fi
 
     log "INFO" "============================================"
-    log "INFO" "PendlePTAmortizedOracle deployment completed successfully!"
+    log "INFO" "PendlePTAmortizedOracleV2 deployment completed successfully!"
     log "INFO" "============================================"
 }
 
