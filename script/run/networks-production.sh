@@ -18,7 +18,7 @@ NETWORKS=(
     # "146:Sonic:SONIC_MAINNET"
     # "100:Gnosis:GNOSIS_MAINNET"
     # "480:Worldchain:WORLDCHAIN_MAINNET"
-    # "999:HyperEVM:HYPEREVM_MAINNET"
+    "999:HyperEVM:HYPEREVM_MAINNET"
 )
 
 # Network name mapping function
@@ -61,9 +61,9 @@ get_network_name() {
         # 480)
         #     echo "Worldchain"
         #     ;;
-        # 999)
-        #     echo "HyperEVM"
-        #     ;;
+        999)
+            echo "HyperEVM"
+            ;;
         *)
             echo "ERROR: Unknown production network ID: $network_id" >&2
             return 1
@@ -111,9 +111,9 @@ get_rpc_var() {
         # 480)
         #     echo "WORLDCHAIN_MAINNET"
         #     ;;
-        # 999)
-        #     echo "HYPEREVM_MAINNET"
-        #     ;;
+        999)
+            echo "HYPEREVM_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
             return 1
@@ -161,9 +161,9 @@ get_rpc_url() {
         # 480)
         #     echo "$WORLDCHAIN_MAINNET"
         #     ;;
-        # 999)
-        #     echo "$HYPEREVM_MAINNET"
-        #     ;;
+        999)
+            echo "$HYPEREVM_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
             return 1
@@ -283,12 +283,13 @@ load_rpc_urls_ci() {
     #     failed_rpcs+=("WORLDCHAIN_RPC_URL")
     # fi
 
-    # echo "  • Loading HyperEVM RPC..."
-    # if [[ -n "${HYPEREVM_RPC_URL:-}" ]]; then
-    #     export HYPEREVM_MAINNET="$HYPEREVM_RPC_URL"
-    # else
-    #     failed_rpcs+=("HYPEREVM_RPC_URL")
-    # fi
+    echo "  • Loading HyperEVM RPC..."
+    if [[ -n "${HYPEREVM_RPC_URL:-}" ]]; then
+        export HYPEREVM_MAINNET="$HYPEREVM_RPC_URL"
+    else
+        echo "  • HYPEREVM_RPC_URL not set, using default RPC"
+        export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
+    fi
 
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from environment:"
@@ -299,7 +300,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, HyperEVM)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -370,10 +371,14 @@ load_rpc_urls() {
     #     failed_rpcs+=("WORLDCHAIN_RPC_URL")
     # fi
 
-    # echo "  • Loading HyperEVM RPC..."
-    # if ! export HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("HYPEREVM_RPC_URL")
-    # fi
+    echo "  • Loading HyperEVM RPC..."
+    HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$HYPEREVM_MAINNET" ]; then
+        echo "  • HYPEREVM_RPC_URL not in 1Password, using default RPC"
+        export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
+    else
+        export HYPEREVM_MAINNET
+    fi
 
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
@@ -384,7 +389,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, HyperEVM)"
 }
 
 # Load Etherscan V2 API key for verification

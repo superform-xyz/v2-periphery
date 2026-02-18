@@ -27,9 +27,11 @@ contract DeployUpOFT is Script {
 
     uint32 internal constant ETH_EID = 30101;
     uint32 internal constant BASE_EID = 30184;
+    uint32 internal constant HYPEREVM_EID = 30367;
 
     uint64 internal constant MAINNET_CHAIN_ID = 1;
     uint64 internal constant BASE_CHAIN_ID = 8453;
+    uint64 internal constant HYPEREVM_CHAIN_ID = 999;
 
     uint16 internal constant SEND = 1;
     uint16 internal constant SEND_AND_CALL = 2;
@@ -56,6 +58,13 @@ contract DeployUpOFT is Script {
     address internal constant EXECUTOR_ETH = 0x173272739Bd7Aa6e4e214714048a9fE699453059;
     address internal constant EXECUTOR_BASE = 0x2CCA08ae69E0C44b18a57Ab2A87644234dAebaE4;
 
+    // HyperEVM LayerZero V2 contracts
+    address internal constant LZ_ENDPOINT_HYPEREVM = 0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9;
+    address internal constant DVN_LZ_HYPEREVM = 0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f; // DVN LZ HyperEVM
+    address internal constant SEND_LIB_HYPEREVM = 0xfd76d9CB0Bac839725aB79127E7411fe71b1e3CA;
+    address internal constant RECEIVE_LIB_HYPEREVM = 0x7cacBe439EaD55fa1c22790330b12835c6884a91;
+    address internal constant EXECUTOR_HYPEREVM = 0x41Bdb4aa4A63a5b2Efc531858d3118392B1A1C3d;
+
     uint32 internal constant GRACE_PERIOD = 0;
 
     string internal constant MNEMONIC = "test test test test test test test test test test test junk";
@@ -64,13 +73,22 @@ contract DeployUpOFT is Script {
 
     UlnConfig ulnEthToBase;
     UlnConfig ulnBaseToEth;
+    UlnConfig ulnEthToHyperEVM;
+    UlnConfig ulnHyperEVMToEth;
+    UlnConfig ulnBaseToHyperEVM;
+    UlnConfig ulnHyperEVMToBase;
 
     ExecutorConfig execEthToBase;
     ExecutorConfig execBaseToEth;
+    ExecutorConfig execEthToHyperEVM;
+    ExecutorConfig execHyperEVMToEth;
+    ExecutorConfig execBaseToHyperEVM;
+    ExecutorConfig execHyperEVMToBase;
 
     struct OFTContracts {
         address adapter;
         address oft;
+        address oftHyperEVM;
     }
 
     modifier broadcast(uint256 env) {
@@ -132,6 +150,71 @@ contract DeployUpOFT is Script {
         execBaseToEth = ExecutorConfig({
             maxMessageSize: 10_000,
             executor: EXECUTOR_BASE
+        });
+
+        // HyperEVM pathway configs (single DVN - LayerZero Labs only)
+        address[] memory dvnsHyperEVM = new address[](1);
+        dvnsHyperEVM[0] = DVN_LZ_HYPEREVM;
+        ulnHyperEVMToEth = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        // ETH to HyperEVM uses ETH DVNs
+        address[] memory dvnsEthForHyperEVM = new address[](1);
+        dvnsEthForHyperEVM[0] = DVN1_ETH; // Only LZ Labs DVN for HyperEVM pathway
+        ulnEthToHyperEVM = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsEthForHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        execEthToHyperEVM = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_ETH
+        });
+
+        execHyperEVMToEth = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_HYPEREVM
+        });
+
+        // Base to HyperEVM uses Base DVNs (only LZ Labs for HyperEVM pathway)
+        address[] memory dvnsBaseForHyperEVM = new address[](1);
+        dvnsBaseForHyperEVM[0] = DVN1_BASE; // Only LZ Labs DVN for HyperEVM pathway
+        ulnBaseToHyperEVM = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsBaseForHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        ulnHyperEVMToBase = UlnConfig({
+            confirmations: 15,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsHyperEVM, // Already defined above
+            optionalDVNs: new address[](0)
+        });
+
+        execBaseToHyperEVM = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_BASE
+        });
+
+        execHyperEVMToBase = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_HYPEREVM
         });
     }
 
@@ -425,6 +508,573 @@ contract DeployUpOFT is Script {
         console2.log("============================================");
     }
 
+    // ============ HyperEVM Functions ============
+
+    function deployOFTOnHyperEVM(uint256 env) public {
+        _deployOFTOnHyperEVMWithBroadcast(env, "");
+    }
+
+    function deployOFTOnHyperEVM(uint256 env, string memory saltNamespace) public {
+        _deployOFTOnHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _deployOFTOnHyperEVMWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        address owner;
+        if (env == 1) {
+            (owner,) = deriveRememberKey(MNEMONIC, 0);
+        } else {
+            owner = msg.sender;
+        }
+
+        console2.log("");
+        console2.log("====== Deploying UpOFT on HyperEVM ======");
+        console2.log("Chain ID:", block.chainid);
+        console2.log("Owner:", owner);
+
+        address deployed = _deployOFTHyperEVM(owner);
+
+        console2.log("");
+        console2.log("UpOFT deployed:", deployed);
+        console2.log("=========================================");
+    }
+
+    function configurePeerOnHyperEVM(uint256 env) public {
+        _configurePeerOnHyperEVMWithBroadcast(env, "");
+    }
+
+    function configurePeerOnHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnHyperEVMWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on HyperEVM ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("Peer (Ethereum UpOFTAdapter):", contracts.adapter);
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oftHyperEVM, ETH_EID, contracts.adapter);
+        console2.log("[+] Peer configured successfully");
+        console2.log("==========================================");
+    }
+
+    function configurePeerOnEthereumForHyperEVM(uint256 env) public {
+        _configurePeerOnEthereumForHyperEVMWithBroadcast(env, "", address(0));
+    }
+
+    function configurePeerOnEthereumForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnEthereumForHyperEVMWithBroadcast(env, saltNamespace, address(0));
+    }
+
+    /// @param hyperEvmOft Explicit HyperEVM UpOFT address (use when caller is not the HyperEVM deployer)
+    function configurePeerOnEthereumForHyperEVM(uint256 env, address hyperEvmOft) public {
+        _configurePeerOnEthereumForHyperEVMWithBroadcast(env, "", hyperEvmOft);
+    }
+
+    function _configurePeerOnEthereumForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace,
+        address hyperEvmOftOverride
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+        address hyperEvmOft = hyperEvmOftOverride != address(0) ? hyperEvmOftOverride : contracts.oftHyperEVM;
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Ethereum for HyperEVM ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Peer (HyperEVM UpOFT):", hyperEvmOft);
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.adapter, HYPEREVM_EID, hyperEvmOft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("========================================================");
+    }
+
+    function setEnforcedOptionsOnHyperEVM(uint256 env) public {
+        _setEnforcedOptionsOnHyperEVMWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnHyperEVM(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on HyperEVM ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("Destination: Ethereum (EID:", ETH_EID, ")");
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oftHyperEVM, ETH_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("==================================================");
+    }
+
+    function setEnforcedOptionsOnEthereumForHyperEVM(uint256 env) public {
+        _setEnforcedOptionsOnEthereumForHyperEVMWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnEthereumForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnEthereumForHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnEthereumForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Ethereum for HyperEVM ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Destination: HyperEVM (EID:", HYPEREVM_EID, ")");
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.adapter, HYPEREVM_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("================================================================");
+    }
+
+    function configureLibrariesOnHyperEVM(uint256 env) public {
+        _configureLibrariesOnHyperEVMWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on HyperEVM ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("SendLib:", SEND_LIB_HYPEREVM);
+        console2.log("ReceiveLib:", RECEIVE_LIB_HYPEREVM);
+        console2.log("DVN (LZ Labs):", DVN_LZ_HYPEREVM);
+        console2.log("Executor:", EXECUTOR_HYPEREVM);
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibrariesHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            dstEid: ETH_EID,
+            srcEid: ETH_EID,
+            sendLib: SEND_LIB_HYPEREVM,
+            receiveLib: RECEIVE_LIB_HYPEREVM,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfigHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            remoteEid: ETH_EID,
+            sendLib: SEND_LIB_HYPEREVM,
+            uln: ulnHyperEVMToEth,
+            exec: execHyperEVMToEth
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfigHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            remoteEid: ETH_EID,
+            receiveLib: RECEIVE_LIB_HYPEREVM,
+            uln: ulnHyperEVMToEth
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("================================================");
+    }
+
+    function configureLibrariesOnEthereumForHyperEVM(uint256 env) public {
+        _configureLibrariesOnEthereumForHyperEVMWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnEthereumForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnEthereumForHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnEthereumForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Ethereum for HyperEVM ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("SendLib:", SEND_LIB_ETH);
+        console2.log("ReceiveLib:", RECEIVE_LIB_ETH);
+        console2.log("DVN (LZ Labs):", DVN1_ETH);
+        console2.log("Executor:", EXECUTOR_ETH);
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.adapter,
+            dstEid: HYPEREVM_EID,
+            srcEid: HYPEREVM_EID,
+            sendLib: SEND_LIB_ETH,
+            receiveLib: RECEIVE_LIB_ETH,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.adapter,
+            remoteEid: HYPEREVM_EID,
+            sendLib: SEND_LIB_ETH,
+            uln: ulnEthToHyperEVM,
+            exec: execEthToHyperEVM
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.adapter,
+            remoteEid: HYPEREVM_EID,
+            receiveLib: RECEIVE_LIB_ETH,
+            uln: ulnEthToHyperEVM
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("============================================================");
+    }
+
+    // ============ HyperEVM <-> Base Functions ============
+
+    function configurePeerOnHyperEVMForBase(uint256 env) public {
+        _configurePeerOnHyperEVMForBaseWithBroadcast(env, "");
+    }
+
+    function configurePeerOnHyperEVMForBase(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnHyperEVMForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnHyperEVMForBaseWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on HyperEVM for Base ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("Peer (Base UpOFT):", contracts.oft);
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oftHyperEVM, BASE_EID, contracts.oft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("==================================================");
+    }
+
+    function configurePeerOnBaseForHyperEVM(uint256 env) public {
+        _configurePeerOnBaseForHyperEVMWithBroadcast(env, "", address(0));
+    }
+
+    function configurePeerOnBaseForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnBaseForHyperEVMWithBroadcast(env, saltNamespace, address(0));
+    }
+
+    /// @param hyperEvmOft Explicit HyperEVM UpOFT address (use when caller is not the HyperEVM deployer)
+    function configurePeerOnBaseForHyperEVM(uint256 env, address hyperEvmOft) public {
+        _configurePeerOnBaseForHyperEVMWithBroadcast(env, "", hyperEvmOft);
+    }
+
+    function _configurePeerOnBaseForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace,
+        address hyperEvmOftOverride
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+        address hyperEvmOft = hyperEvmOftOverride != address(0) ? hyperEvmOftOverride : contracts.oftHyperEVM;
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Base for HyperEVM ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Peer (HyperEVM UpOFT):", hyperEvmOft);
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oft, HYPEREVM_EID, hyperEvmOft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("==================================================");
+    }
+
+    function setEnforcedOptionsOnHyperEVMForBase(uint256 env) public {
+        _setEnforcedOptionsOnHyperEVMForBaseWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnHyperEVMForBase(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnHyperEVMForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnHyperEVMForBaseWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on HyperEVM for Base ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("Destination: Base (EID:", BASE_EID, ")");
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oftHyperEVM, BASE_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("==========================================================");
+    }
+
+    function setEnforcedOptionsOnBaseForHyperEVM(uint256 env) public {
+        _setEnforcedOptionsOnBaseForHyperEVMWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnBaseForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnBaseForHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnBaseForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Base for HyperEVM ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Destination: HyperEVM (EID:", HYPEREVM_EID, ")");
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oft, HYPEREVM_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("==========================================================");
+    }
+
+    function configureLibrariesOnHyperEVMForBase(uint256 env) public {
+        _configureLibrariesOnHyperEVMForBaseWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnHyperEVMForBase(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnHyperEVMForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnHyperEVMForBaseWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == HYPEREVM_CHAIN_ID, "Must run on HyperEVM");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on HyperEVM for Base ======");
+        console2.log("UpOFT:", contracts.oftHyperEVM);
+        console2.log("SendLib:", SEND_LIB_HYPEREVM);
+        console2.log("ReceiveLib:", RECEIVE_LIB_HYPEREVM);
+        console2.log("DVN (LZ Labs):", DVN_LZ_HYPEREVM);
+        console2.log("Executor:", EXECUTOR_HYPEREVM);
+
+        if (contracts.oftHyperEVM.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibrariesHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            dstEid: BASE_EID,
+            srcEid: BASE_EID,
+            sendLib: SEND_LIB_HYPEREVM,
+            receiveLib: RECEIVE_LIB_HYPEREVM,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfigHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            remoteEid: BASE_EID,
+            sendLib: SEND_LIB_HYPEREVM,
+            uln: ulnHyperEVMToBase,
+            exec: execHyperEVMToBase
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfigHyperEVM({
+            oapp: contracts.oftHyperEVM,
+            remoteEid: BASE_EID,
+            receiveLib: RECEIVE_LIB_HYPEREVM,
+            uln: ulnHyperEVMToBase
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("========================================================");
+    }
+
+    function configureLibrariesOnBaseForHyperEVM(uint256 env) public {
+        _configureLibrariesOnBaseForHyperEVMWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnBaseForHyperEVM(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnBaseForHyperEVMWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnBaseForHyperEVMWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Base for HyperEVM ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("SendLib:", SEND_LIB_BASE);
+        console2.log("ReceiveLib:", RECEIVE_LIB_BASE);
+        console2.log("DVN (LZ Labs):", DVN1_BASE);
+        console2.log("Executor:", EXECUTOR_BASE);
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.oft,
+            dstEid: HYPEREVM_EID,
+            srcEid: HYPEREVM_EID,
+            sendLib: SEND_LIB_BASE,
+            receiveLib: RECEIVE_LIB_BASE,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.oft,
+            remoteEid: HYPEREVM_EID,
+            sendLib: SEND_LIB_BASE,
+            uln: ulnBaseToHyperEVM,
+            exec: execBaseToHyperEVM
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.oft,
+            remoteEid: HYPEREVM_EID,
+            receiveLib: RECEIVE_LIB_BASE,
+            uln: ulnBaseToHyperEVM
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("========================================================");
+    }
+
     function _computeAddresses() internal returns (OFTContracts memory contracts) {
         return _computeAddresses(msg.sender);
     }
@@ -436,6 +1086,10 @@ contract DeployUpOFT is Script {
 
         bytes memory oftBytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, owner));
         contracts.oft = DeterministicDeployerLib.computeAddress(oftBytecode, _getSalt("UpOFT"));
+
+        bytes memory oftHyperEVMBytecode =
+            abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT_HYPEREVM, owner));
+        contracts.oftHyperEVM = DeterministicDeployerLib.computeAddress(oftHyperEVMBytecode, _getSalt("UpOFT"));
     }
 
     function _deployAdapter(address owner) internal returns (address) {
@@ -465,6 +1119,24 @@ contract DeployUpOFT is Script {
 
         if (predicted.code.length > 0) {
             console2.log("[!] UpOFT already deployed, skipping...");
+            return predicted;
+        }
+
+        address deployed = DeterministicDeployerLib.deploy(bytecode, salt);
+        require(deployed == predicted, "Address mismatch");
+        require(deployed.code.length > 0, "Deployment failed");
+
+        return deployed;
+    }
+
+    function _deployOFTHyperEVM(address owner) internal returns (address) {
+        bytes32 salt = _getSalt("UpOFT");
+        bytes memory bytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT_HYPEREVM, owner));
+
+        address predicted = DeterministicDeployerLib.computeAddress(bytecode, salt);
+
+        if (predicted.code.length > 0) {
+            console2.log("[!] UpOFT HyperEVM already deployed, skipping...");
             return predicted;
         }
 
@@ -543,6 +1215,48 @@ contract DeployUpOFT is Script {
         ILayerZeroEndpointV2(LZ_ENDPOINT).setConfig(oapp, receiveLib, params);
     }
 
+    // HyperEVM-specific library functions (use LZ_ENDPOINT_HYPEREVM)
+    function _setLibrariesHyperEVM(
+        address oapp,
+        uint32 dstEid,
+        uint32 srcEid,
+        address sendLib,
+        address receiveLib,
+        uint32 gracePeriod
+    ) internal {
+        // outbound messages to dstEid use sendLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT_HYPEREVM).setSendLibrary(oapp, dstEid, sendLib);
+
+        // inbound messages from srcEid use receiveLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT_HYPEREVM).setReceiveLibrary(oapp, srcEid, receiveLib, gracePeriod);
+    }
+
+    function _setSendConfigHyperEVM(
+        address oapp,
+        uint32 remoteEid,
+        address sendLib,
+        UlnConfig memory uln,
+        ExecutorConfig memory exec
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](2);
+        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(exec));
+        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT_HYPEREVM).setConfig(oapp, sendLib, params);
+    }
+
+    function _setReceiveConfigHyperEVM(
+        address oapp,
+        uint32 remoteEid,
+        address receiveLib,
+        UlnConfig memory uln
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](1);
+        params[0] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT_HYPEREVM).setConfig(oapp, receiveLib, params);
+    }
+
     function _getSalt(string memory name) internal view returns (bytes32) {
         return keccak256(abi.encodePacked("SuperformV2", SALT_NAMESPACE, name, "v2.0"));
     }
@@ -619,9 +1333,17 @@ contract DeployUpOFT is Script {
         _exportContract("UpOFT", contracts.oft, BASE_CHAIN_ID);
         _writeExportedContracts(BASE_CHAIN_ID, envName);
 
+        // Reset for HyperEVM
+        contractCount[BASE_CHAIN_ID] = 0;
+
+        // Export HyperEVM contracts
+        _exportContract("UpOFT", contracts.oftHyperEVM, HYPEREVM_CHAIN_ID);
+        _writeExportedContracts(HYPEREVM_CHAIN_ID, envName);
+
         console2.log("");
         console2.log("====== Export Complete ======");
         console2.log("UpOFTAdapter (Ethereum):", contracts.adapter);
         console2.log("UpOFT (Base):", contracts.oft);
+        console2.log("UpOFT (HyperEVM):", contracts.oftHyperEVM);
     }
 }

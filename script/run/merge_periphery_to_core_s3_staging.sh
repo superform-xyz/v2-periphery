@@ -51,7 +51,7 @@ ENVIRONMENT=""
 # Network configuration will be sourced after environment is determined
 
 # Allowed periphery contracts to merge
-ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "PendlePTAmortizedOracle")
+ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "PendlePTAmortizedOracle" "PendlePTAmortizedOracleV2")
 
 ###################################################################################
 # Helper Functions
@@ -458,12 +458,23 @@ process_periphery_merge() {
     if aws s3 cp "$latest_file_path" "s3://$BUCKET/$environment/latest.json" --quiet; then
         log "SUCCESS" "Successfully uploaded merged state to S3 for $environment"
         echo -e "${GREEN}✅ Successfully uploaded merged state to S3${NC}"
-        return 0
     else
         log "ERROR" "Failed to upload merged state to S3"
         echo -e "${RED}❌ Failed to upload merged state to S3${NC}"
         return 1
     fi
+
+    # Also save locally so other scripts can use it
+    local local_latest_path="$SCRIPT_DIR/../output/$environment/latest.json"
+    if echo "$updated_content" | jq '.' > "$local_latest_path"; then
+        log "SUCCESS" "Successfully saved merged state locally to: $local_latest_path"
+        echo -e "${GREEN}✅ Successfully saved merged state locally${NC}"
+    else
+        log "WARN" "Failed to save merged state locally"
+        echo -e "${YELLOW}⚠️ Failed to save merged state locally (S3 upload succeeded)${NC}"
+    fi
+
+    return 0
 }
 
 ###################################################################################

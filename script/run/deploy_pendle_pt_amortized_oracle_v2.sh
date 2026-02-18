@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 
 ###################################################################################
-# Deploy SuperVaultBatchOperator Script
+# Deploy PendlePTAmortizedOracleV2 Script
 ###################################################################################
 # Description:
-#   Deploys SuperVaultBatchOperator - a batch withdrawal/redeem operator for
-#   SuperVaults that allows authorized addresses to execute batch operations.
+#   Deploys PendlePTAmortizedOracleV2 - an amortized cost pricing oracle for
+#   Pendle PT positions with on-chain PT rate calculation.
+#
+#   V2 Key Differences from V1:
+#   - recordPurchase calculates sySpent from on-chain PT rate (no off-chain dependency)
+#   - twapDuration passed per-call via hook (no market config storage)
 #
 # Usage:
-#   ./deploy_supervault_batch_operator.sh <environment> <mode> [account] [chain_id]
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh <environment> <mode> [account] [chain_id]
 #
 #   Parameters:
 #     environment: "prod" or "staging"
@@ -18,25 +22,25 @@
 #
 # Examples:
 #   # Check deployment status on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging check
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging check
 #
 #   # Check deployment status on specific chain
-#   ./deploy_supervault_batch_operator.sh staging check "" 1
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging check "" 1
 #
 #   # Simulate deployment on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging simulate
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging simulate
 #
 #   # Simulate deployment on specific chain
-#   ./deploy_supervault_batch_operator.sh staging simulate "" 8453
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging simulate "" 8453
 #
 #   # Execute deployment on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging execute v2-supervaults
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging execute v2-supervaults
 #
 #   # Execute deployment on specific chain
-#   ./deploy_supervault_batch_operator.sh staging execute v2-supervaults 1
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh staging execute v2-supervaults 1
 #
 #   # Execute deployment on all prod chains
-#   ./deploy_supervault_batch_operator.sh prod execute v2-supervaults
+#   ./deploy_pendle_pt_amortized_oracle_v2.sh prod execute v2-supervaults
 #
 # Prerequisites:
 #   - 1Password CLI configured for RPC URL access
@@ -54,10 +58,9 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Admin address (SUPER_GOVERNOR_ADDRESS) - used for --sender in simulate mode
-readonly ADMIN="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
-
-# Operator addresses are read from ConfigBase.sol by the Solidity script
+# Admin address (DEPLOYER) - used for --sender in simulate mode
+# Roles will be transferred to SUPER_GOVERNOR_ADDRESS later using transfer script
+readonly ADMIN="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 ###################################################################################
 # Helper Functions
@@ -145,6 +148,75 @@ validate_mode() {
     fi
 }
 
+# Get chain name from chain ID
+get_chain_name() {
+    local chain_id=$1
+    case "$chain_id" in
+        1) echo "Ethereum" ;;
+        8453) echo "Base" ;;
+        10) echo "Optimism" ;;
+        42161) echo "Arbitrum" ;;
+        56) echo "BNB" ;;
+        999) echo "HyperEVM" ;;
+        137) echo "Polygon" ;;
+        43114) echo "Avalanche" ;;
+        80094) echo "Berachain" ;;
+        146) echo "Sonic" ;;
+        100) echo "Gnosis" ;;
+        130) echo "Unichain" ;;
+        480) echo "Worldchain" ;;
+        *) echo "Unknown" ;;
+    esac
+}
+
+# Update JSON file with deployed address
+update_json_output() {
+    local env=$1
+    local chain_id=$2
+    local address=$3
+    local environment=$4
+
+    local chain_name
+    chain_name=$(get_chain_name "$chain_id")
+
+    local env_folder
+    if [ "$environment" = "prod" ]; then
+        env_folder="prod"
+    else
+        env_folder="staging"
+    fi
+
+    local output_dir="$PROJECT_ROOT/script/output/$env_folder/$chain_id"
+    local output_file="$output_dir/${chain_name}-latest.json"
+
+    # Create directory if it doesn't exist
+    mkdir -p "$output_dir"
+
+    # Create or update JSON file
+    if [ -f "$output_file" ] && [ -s "$output_file" ]; then
+        # Update existing file - check if it's valid JSON first
+        if jq empty "$output_file" 2>/dev/null; then
+            local tmp_file=$(mktemp)
+            if jq --arg addr "$address" '.PendlePTAmortizedOracleV2 = $addr' "$output_file" > "$tmp_file" 2>/dev/null; then
+                mv "$tmp_file" "$output_file"
+                log "INFO" "Updated existing JSON: $output_file"
+            else
+                rm -f "$tmp_file"
+                log "ERROR" "Failed to update JSON file"
+                return 1
+            fi
+        else
+            log "WARN" "Existing file is not valid JSON, creating new file"
+            echo "{\"PendlePTAmortizedOracleV2\": \"$address\"}" > "$output_file"
+            log "INFO" "Created new JSON: $output_file"
+        fi
+    else
+        # Create new file
+        echo "{\"PendlePTAmortizedOracleV2\": \"$address\"}" > "$output_file"
+        log "INFO" "Created new JSON: $output_file"
+    fi
+}
+
 # Deploy on a single chain
 deploy_on_chain() {
     local env=$1
@@ -152,6 +224,7 @@ deploy_on_chain() {
     local mode=$3
     local account=$4
     local rpc_url=$5
+    local environment=$6
 
     log "INFO" "--------------------------------------------"
     log "INFO" "Deploying on chain: $chain_id"
@@ -166,13 +239,10 @@ deploy_on_chain() {
 
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
+        VERIFY_FLAG="--verify"
         ACCOUNT_FLAG="--account $account"
-        # Skip etherscan verification for HyperEVM (no etherscan support)
-        if [ "$chain_id" != "999" ]; then
-            VERIFY_FLAG="--verify"
-            ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
-        fi
-        log "INFO" "Mode: Execute (will broadcast using account: $account)"
+        ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+        log "INFO" "Mode: Execute (will broadcast and verify using account: $account)"
     elif [ "$mode" = "simulate" ]; then
         SENDER_FLAG="--sender $ADMIN"
         log "INFO" "Mode: Simulate (no broadcast, using sender: $ADMIN)"
@@ -180,9 +250,9 @@ deploy_on_chain() {
         log "INFO" "Mode: Check (read-only)"
     fi
 
-    # Build forge command
+    # Build forge command - V2 script
     local forge_cmd="forge script"
-    forge_cmd+=" script/DeploySuperVaultBatchOperator.s.sol:DeploySuperVaultBatchOperator"
+    forge_cmd+=" script/DeployPendlePTAmortizedOracleV2.s.sol:DeployPendlePTAmortizedOracleV2"
 
     if [ "$mode" = "check" ]; then
         # Pass empty string for branchName (only used for vnet env=1)
@@ -206,13 +276,32 @@ deploy_on_chain() {
     log "INFO" "Executing forge script..."
     log "INFO" ""
 
-    # Execute (capture exit code to prevent set -e from exiting)
+    # Execute and capture output (capture exit code to prevent set -e from exiting)
     local exit_code=0
-    eval "$forge_cmd" || exit_code=$?
+    local output
+    output=$(eval "$forge_cmd" 2>&1) || exit_code=$?
+
+    # Print output
+    echo "$output"
 
     if [ $exit_code -ne 0 ]; then
         log "ERROR" "Deployment failed on chain $chain_id with exit code: $exit_code"
         return $exit_code
+    fi
+
+    # Extract deployed address from output and update JSON (for simulate and execute modes)
+    if [ "$mode" != "check" ]; then
+        local deployed_address
+        # Extract the 0x address that appears after "PendlePTAmortizedOracleV2 deployed at:"
+        # Use grep to find the line, then grep again to extract just the address
+        deployed_address=$(echo "$output" | grep 'PendlePTAmortizedOracleV2 deployed at:' | grep -o '0x[a-fA-F0-9]\{40\}' | head -1)
+
+        if [ -n "$deployed_address" ] && [[ "$deployed_address" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+            log "INFO" "Extracted deployed address: $deployed_address"
+            update_json_output "$env" "$chain_id" "$deployed_address" "$environment"
+        else
+            log "WARN" "Could not extract deployed address from output"
+        fi
     fi
 
     log "INFO" "Chain $chain_id deployment successful"
@@ -267,9 +356,6 @@ main() {
     log "INFO" "Loading RPC URLs..."
     load_rpc_urls
 
-    # Satisfy foundry.toml [etherscan] env var references
-    export ETHERSCANV2_API_KEY_TEST="${ETHERSCANV2_API_KEY_TEST:-}"
-
     # Load Etherscan API key for verification
     if [ "$mode" = "execute" ]; then
         log "INFO" "Loading Etherscan API credentials..."
@@ -280,16 +366,21 @@ main() {
     fi
 
     log "INFO" "============================================"
-    log "INFO" "Deploy SuperVaultBatchOperator"
+    log "INFO" "Deploy PendlePTAmortizedOracleV2"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Mode: $mode"
-    log "INFO" "Note: Admin and Operator addresses are read from ConfigBase.sol"
+    log "INFO" "Admin (DEPLOYER): $ADMIN"
     if [ -n "$specific_chain" ]; then
         log "INFO" "Target Chain: $specific_chain"
     else
         log "INFO" "Target Chains: All supported chains"
     fi
+    log "INFO" "============================================"
+    log "INFO" "V2 Features:"
+    log "INFO" "  - On-chain PT rate calculation (no off-chain dependency)"
+    log "INFO" "  - twapDuration passed per-call via hook"
+    log "INFO" "  - MIN_TWAP_DURATION protection (default 300s, configurable per market)"
     log "INFO" "============================================"
 
     local failed_chains=()
@@ -316,7 +407,7 @@ main() {
             continue
         fi
 
-        if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url"; then
+        if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url" "$environment"; then
             ((++success_count))
         else
             failed_chains+=("$chain_id")
@@ -338,7 +429,7 @@ main() {
     fi
 
     log "INFO" "============================================"
-    log "INFO" "SuperVaultBatchOperator deployment completed successfully!"
+    log "INFO" "PendlePTAmortizedOracleV2 deployment completed successfully!"
     log "INFO" "============================================"
 }
 

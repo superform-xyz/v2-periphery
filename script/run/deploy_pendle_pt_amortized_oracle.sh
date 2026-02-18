@@ -144,6 +144,75 @@ validate_mode() {
     fi
 }
 
+# Get chain name from chain ID
+get_chain_name() {
+    local chain_id=$1
+    case "$chain_id" in
+        1) echo "Ethereum" ;;
+        8453) echo "Base" ;;
+        10) echo "Optimism" ;;
+        42161) echo "Arbitrum" ;;
+        56) echo "BNB" ;;
+        999) echo "HyperEVM" ;;
+        137) echo "Polygon" ;;
+        43114) echo "Avalanche" ;;
+        80094) echo "Berachain" ;;
+        146) echo "Sonic" ;;
+        100) echo "Gnosis" ;;
+        130) echo "Unichain" ;;
+        480) echo "Worldchain" ;;
+        *) echo "Unknown" ;;
+    esac
+}
+
+# Update JSON file with deployed address
+update_json_output() {
+    local env=$1
+    local chain_id=$2
+    local address=$3
+    local environment=$4
+
+    local chain_name
+    chain_name=$(get_chain_name "$chain_id")
+
+    local env_folder
+    if [ "$environment" = "prod" ]; then
+        env_folder="prod"
+    else
+        env_folder="staging"
+    fi
+
+    local output_dir="$PROJECT_ROOT/script/output/$env_folder/$chain_id"
+    local output_file="$output_dir/${chain_name}-latest.json"
+
+    # Create directory if it doesn't exist
+    mkdir -p "$output_dir"
+
+    # Create or update JSON file
+    if [ -f "$output_file" ] && [ -s "$output_file" ]; then
+        # Update existing file - check if it's valid JSON first
+        if jq empty "$output_file" 2>/dev/null; then
+            local tmp_file=$(mktemp)
+            if jq --arg addr "$address" '.PendlePTAmortizedOracle = $addr' "$output_file" > "$tmp_file" 2>/dev/null; then
+                mv "$tmp_file" "$output_file"
+                log "INFO" "Updated existing JSON: $output_file"
+            else
+                rm -f "$tmp_file"
+                log "ERROR" "Failed to update JSON file"
+                return 1
+            fi
+        else
+            log "WARN" "Existing file is not valid JSON, creating new file"
+            echo "{\"PendlePTAmortizedOracle\": \"$address\"}" > "$output_file"
+            log "INFO" "Created new JSON: $output_file"
+        fi
+    else
+        # Create new file
+        echo "{\"PendlePTAmortizedOracle\": \"$address\"}" > "$output_file"
+        log "INFO" "Created new JSON: $output_file"
+    fi
+}
+
 # Deploy on a single chain
 deploy_on_chain() {
     local env=$1
@@ -151,6 +220,7 @@ deploy_on_chain() {
     local mode=$3
     local account=$4
     local rpc_url=$5
+    local environment=$6
 
     log "INFO" "--------------------------------------------"
     log "INFO" "Deploying on chain: $chain_id"
@@ -202,13 +272,32 @@ deploy_on_chain() {
     log "INFO" "Executing forge script..."
     log "INFO" ""
 
-    # Execute (capture exit code to prevent set -e from exiting)
+    # Execute and capture output (capture exit code to prevent set -e from exiting)
     local exit_code=0
-    eval "$forge_cmd" || exit_code=$?
+    local output
+    output=$(eval "$forge_cmd" 2>&1) || exit_code=$?
+
+    # Print output
+    echo "$output"
 
     if [ $exit_code -ne 0 ]; then
         log "ERROR" "Deployment failed on chain $chain_id with exit code: $exit_code"
         return $exit_code
+    fi
+
+    # Extract deployed address from output and update JSON (for simulate and execute modes)
+    if [ "$mode" != "check" ]; then
+        local deployed_address
+        # Extract the 0x address that appears after "PendlePTAmortizedOracle deployed at:"
+        # Use grep to find the line, then grep again to extract just the address
+        deployed_address=$(echo "$output" | grep 'PendlePTAmortizedOracle deployed at:' | grep -o '0x[a-fA-F0-9]\{40\}' | head -1)
+
+        if [ -n "$deployed_address" ] && [[ "$deployed_address" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+            log "INFO" "Extracted deployed address: $deployed_address"
+            update_json_output "$env" "$chain_id" "$deployed_address" "$environment"
+        else
+            log "WARN" "Could not extract deployed address from output"
+        fi
     fi
 
     log "INFO" "Chain $chain_id deployment successful"
@@ -309,7 +398,7 @@ main() {
             continue
         fi
 
-        if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url"; then
+        if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url" "$environment"; then
             ((++success_count))
         else
             failed_chains+=("$chain_id")

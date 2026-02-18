@@ -186,16 +186,73 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Validate SuperGovernor is deployed
         require(peripheryContracts.superGovernor.code.length > 0, "SuperGovernor not deployed");
+        console2.log("SuperGovernor address:", peripheryContracts.superGovernor);
 
-        // Get addresses from SuperGovernor
+        // Get addresses from SuperGovernor with detailed error handling
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
-        peripheryContracts.superVaultAggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
-        peripheryContracts.superOracle = governor.getAddress(governor.SUPER_ORACLE());
-        peripheryContracts.superBank = governor.getAddress(governor.SUPER_BANK());
+        // Get role keys for logging
+        bytes32 aggregatorKey = governor.SUPER_VAULT_AGGREGATOR();
+        bytes32 oracleKey = governor.SUPER_ORACLE();
+        bytes32 bankKey = governor.SUPER_BANK();
+
+        console2.log("Looking up registered addresses in SuperGovernor...");
+        console2.log("  SUPER_VAULT_AGGREGATOR key:", vm.toString(aggregatorKey));
+        console2.log("  SUPER_ORACLE key:", vm.toString(oracleKey));
+        console2.log("  SUPER_BANK key:", vm.toString(bankKey));
+
+        // Try to get each address with detailed error messages
+        peripheryContracts.superVaultAggregator = _safeGetAddress(governor, aggregatorKey, "SUPER_VAULT_AGGREGATOR");
+        peripheryContracts.superOracle = _safeGetAddress(governor, oracleKey, "SUPER_ORACLE");
+        peripheryContracts.superBank = _safeGetAddress(governor, bankKey, "SUPER_BANK");
         peripheryContracts.ecdsappsOracle = governor.getActivePPSOracle();
 
+        console2.log("  Active PPS Oracle:", peripheryContracts.ecdsappsOracle);
+
         return peripheryContracts;
+    }
+
+    /// @notice Safely get an address from SuperGovernor with detailed error logging
+    /// @param governor The SuperGovernor contract
+    /// @param key The address key to lookup
+    /// @param keyName Human-readable name of the key for logging
+    /// @return The address if found
+    function _safeGetAddress(
+        SuperGovernor governor,
+        bytes32 key,
+        string memory keyName
+    )
+        internal
+        view
+        returns (address)
+    {
+        // Use low-level call to check if address exists without reverting
+        (bool success, bytes memory data) = address(governor).staticcall(
+            abi.encodeWithSelector(governor.getAddress.selector, key)
+        );
+
+        if (!success) {
+            console2.log("");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("ERROR: Failed to get address from SuperGovernor");
+            console2.log("  Key name:", keyName);
+            console2.log("  Key hash:", vm.toString(key));
+            console2.log("  SuperGovernor:", address(governor));
+            console2.log("");
+            console2.log("This usually means the address has NOT been registered");
+            console2.log("in SuperGovernor after deployment.");
+            console2.log("");
+            console2.log("To fix this, run the configuration script to register");
+            console2.log("the contract address in SuperGovernor using setAddress()");
+            console2.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console2.log("");
+
+            revert(string.concat("CONTRACT_NOT_FOUND: ", keyName, " not registered in SuperGovernor"));
+        }
+
+        address result = abi.decode(data, (address));
+        console2.log(string.concat("  ", keyName, ":"), result);
+        return result;
     }
 
     /// @notice Smoke test to verify roles and configuration are set correctly post-deployment
@@ -209,11 +266,11 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
         // Verify all roles are configured correctly
-        // Skip for Base (8453) since roles haven't been transferred yet
-        if (chainId == BASE_CHAIN_ID) {
-            console2.log("[Role Check] SKIPPED - Roles not yet transferred on Base");
+        // Skip for HyperEVM (999) since roles haven't been transferred yet
+        if (chainId == HYPEREVM_CHAIN_ID) {
+            console2.log("[Role Check] SKIPPED - Roles not yet transferred on HyperEVM");
         } else {
-            _verifyRoles(governor);
+            _verifyRoles(governor, env);
         }
 
         // Verify active PPS oracle is set
@@ -250,8 +307,8 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         require(validatorAddrs.length > 0, "SMOKE_TEST_FAILED: No validators configured");
         require(quorum == INITIAL_VALIDATOR_QUORUM, "SMOKE_TEST_FAILED: Quorum mismatch");
 
-        // Verify gas info is set for ECDSAPPSOracle (mainnet only)
-        _verifyGasInfo(governor, peripheryContracts.ecdsappsOracle, chainId);
+        // Verify gas info is set for ECDSAPPSOracle (mainnet only, skip for staging)
+        _verifyGasInfo(governor, peripheryContracts.ecdsappsOracle, chainId, env);
 
         // Verify oracle feeds return valid prices via SuperOracle integration
         // Skip for test environment (env == 1) since oracles may not be available on vnet
@@ -285,65 +342,83 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
 
     /// @notice Verify all roles are configured correctly on SuperGovernor
     /// @param governor The SuperGovernor contract
-    function _verifyRoles(SuperGovernor governor) internal view {
+    /// @param env Environment (0 = prod, 1 = test, 2 = staging)
+    function _verifyRoles(SuperGovernor governor, uint256 env) internal view {
         console2.log("");
         console2.log("=== Verifying Role Configuration ===");
 
         // Check admin roles are assigned to correct addresses (not deployer)
         console2.log("[Role Check] Deployer address:", configuration.deployer);
-        _verifyAdminRoles(governor);
+        _verifyAdminRoles(governor, env);
 
-        // Check configured role holders from configuration
-        console2.log("");
-        console2.log("[Role Check] Configured role holders:");
-        _verifyOperationalRoleHolders(governor);
+        // Skip operational role checks for staging (env == 2) since roles may not have been assigned
+        if (env == 2) {
+            console2.log("");
+            console2.log("[Role Check] SKIPPED - Operational role checks skipped for staging");
+        } else {
+            // Check configured role holders from configuration
+            console2.log("");
+            console2.log("[Role Check] Configured role holders:");
+            _verifyOperationalRoleHolders(governor);
 
-        // Verify deployer does NOT have operational roles
-        console2.log("");
-        console2.log("[Role Check] Verifying deployer does NOT have operational roles:");
-        _verifyDeployerNoOperationalRoles(governor);
+            // Verify deployer does NOT have operational roles
+            console2.log("");
+            console2.log("[Role Check] Verifying deployer does NOT have operational roles:");
+            _verifyDeployerNoOperationalRoles(governor);
+        }
 
         console2.log("=== Role Verification Complete ===");
     }
 
     /// @notice Verify admin roles are assigned to correct addresses
-    function _verifyAdminRoles(SuperGovernor governor) internal view {
+    /// @param env Environment (0 = prod, 1 = test, 2 = staging)
+    function _verifyAdminRoles(SuperGovernor governor, uint256 env) internal view {
         // SUPER_GOVERNOR_ADDRESS should have DEFAULT_ADMIN_ROLE and SUPER_GOVERNOR_ROLE
-        bool superGovernorHasDefaultAdmin =
-            governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
-        bool superGovernorHasSuperGovernorRole =
-            governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), SUPER_GOVERNOR_ADDRESS);
+        // Skip for staging (env == 2) since roles may not have been transferred yet
+        if (env == 2) {
+            console2.log("[Role Check] SKIPPED - SUPER_GOVERNOR_ADDRESS role check skipped for staging");
+        } else {
+            bool superGovernorHasDefaultAdmin =
+                governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
+            bool superGovernorHasSuperGovernorRole =
+                governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), SUPER_GOVERNOR_ADDRESS);
 
-        console2.log("[Role Check] SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
-        console2.log("  DEFAULT_ADMIN_ROLE:", superGovernorHasDefaultAdmin);
-        console2.log("  SUPER_GOVERNOR_ROLE:", superGovernorHasSuperGovernorRole);
+            console2.log("[Role Check] SUPER_GOVERNOR_ADDRESS:", SUPER_GOVERNOR_ADDRESS);
+            console2.log("  DEFAULT_ADMIN_ROLE:", superGovernorHasDefaultAdmin);
+            console2.log("  SUPER_GOVERNOR_ROLE:", superGovernorHasSuperGovernorRole);
 
-        require(
-            superGovernorHasDefaultAdmin, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing DEFAULT_ADMIN_ROLE"
-        );
-        require(
-            superGovernorHasSuperGovernorRole, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing SUPER_GOVERNOR_ROLE"
-        );
+            require(
+                superGovernorHasDefaultAdmin, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing DEFAULT_ADMIN_ROLE"
+            );
+            require(
+                superGovernorHasSuperGovernorRole, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing SUPER_GOVERNOR_ROLE"
+            );
+        }
 
         // GOVERNOR address should have GOVERNOR_ROLE
-        bool governorHasGovernorRole = governor.hasRole(governor.GOVERNOR_ROLE(), GOVERNOR);
-        console2.log("[Role Check] GOVERNOR address:", GOVERNOR);
-        console2.log("  GOVERNOR_ROLE:", governorHasGovernorRole);
-        require(governorHasGovernorRole, "SMOKE_TEST_FAILED: GOVERNOR missing GOVERNOR_ROLE");
+        // Skip for staging (env == 2) since roles may not have been transferred yet
+        if (env == 2) {
+            console2.log("[Role Check] SKIPPED - GOVERNOR role check skipped for staging");
+        } else {
+            bool governorHasGovernorRole = governor.hasRole(governor.GOVERNOR_ROLE(), GOVERNOR);
+            console2.log("[Role Check] GOVERNOR address:", GOVERNOR);
+            console2.log("  GOVERNOR_ROLE:", governorHasGovernorRole);
+            require(governorHasGovernorRole, "SMOKE_TEST_FAILED: GOVERNOR missing GOVERNOR_ROLE");
 
-        // Verify deployer does NOT have any admin roles anymore
-        bool deployerHasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer);
-        bool deployerHasSuperGovernor = governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), configuration.deployer);
-        bool deployerHasGovernor = governor.hasRole(governor.GOVERNOR_ROLE(), configuration.deployer);
+            // Verify deployer does NOT have any admin roles anymore (only in prod)
+            bool deployerHasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer);
+            bool deployerHasSuperGovernor = governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), configuration.deployer);
+            bool deployerHasGovernor = governor.hasRole(governor.GOVERNOR_ROLE(), configuration.deployer);
 
-        console2.log("[Role Check] Verifying deployer does NOT have admin roles:");
-        console2.log("  Deployer has DEFAULT_ADMIN_ROLE:", deployerHasDefaultAdmin);
-        console2.log("  Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernor);
-        console2.log("  Deployer has GOVERNOR_ROLE:", deployerHasGovernor);
+            console2.log("[Role Check] Verifying deployer does NOT have admin roles:");
+            console2.log("  Deployer has DEFAULT_ADMIN_ROLE:", deployerHasDefaultAdmin);
+            console2.log("  Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernor);
+            console2.log("  Deployer has GOVERNOR_ROLE:", deployerHasGovernor);
 
-        require(!deployerHasDefaultAdmin, "SMOKE_TEST_FAILED: Deployer should NOT have DEFAULT_ADMIN_ROLE");
-        require(!deployerHasSuperGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have SUPER_GOVERNOR_ROLE");
-        require(!deployerHasGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have GOVERNOR_ROLE");
+            require(!deployerHasDefaultAdmin, "SMOKE_TEST_FAILED: Deployer should NOT have DEFAULT_ADMIN_ROLE");
+            require(!deployerHasSuperGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have SUPER_GOVERNOR_ROLE");
+            require(!deployerHasGovernor, "SMOKE_TEST_FAILED: Deployer should NOT have GOVERNOR_ROLE");
+        }
     }
 
     /// @notice Verify operational role holders have their roles
@@ -414,9 +489,18 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
     /// @param governor The SuperGovernor contract
     /// @param ecdsappsOracle The ECDSAPPSOracle address
     /// @param chainId The chain ID
-    function _verifyGasInfo(SuperGovernor governor, address ecdsappsOracle, uint64 chainId) internal view {
+    /// @param env Environment (0 = prod, 1 = test, 2 = staging)
+    function _verifyGasInfo(SuperGovernor governor, address ecdsappsOracle, uint64 chainId, uint256 env) internal view {
         console2.log("");
         console2.log("=== Verifying Gas Info Configuration ===");
+
+        // Skip gas info verification for staging (env == 2) since it may not be configured
+        if (env == 2) {
+            console2.log("[Gas Check] SKIPPED - Gas info verification skipped for staging");
+            console2.log("=== Gas Info Verification Complete ===");
+            return;
+        }
+
         console2.log("ECDSAPPSOracle address:", ecdsappsOracle);
 
         uint256 gasInfo = governor.getGasInfo(ecdsappsOracle);

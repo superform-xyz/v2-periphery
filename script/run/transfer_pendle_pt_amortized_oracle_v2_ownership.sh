@@ -1,46 +1,38 @@
 #!/usr/bin/env bash
 
 ###################################################################################
-# Deploy SuperVaultBatchOperator Script
+# Transfer PendlePTAmortizedOracleV2 Ownership Script
 ###################################################################################
 # Description:
-#   Deploys SuperVaultBatchOperator - a batch withdrawal/redeem operator for
-#   SuperVaults that allows authorized addresses to execute batch operations.
+#   Transfers all roles (DEFAULT_ADMIN_ROLE, MANAGER_ROLE) from DEPLOYER to
+#   SUPER_GOVERNOR_ADDRESS for PendlePTAmortizedOracleV2.
 #
 # Usage:
-#   ./deploy_supervault_batch_operator.sh <environment> <mode> [account] [chain_id]
+#   ./transfer_pendle_pt_amortized_oracle_v2_ownership.sh <environment> <mode> [account] [chain_id]
 #
 #   Parameters:
 #     environment: "prod" or "staging"
 #     mode: "simulate", "execute", or "check"
 #     account: Account name (required for execute mode, e.g., "v2-supervaults")
-#     chain_id: Optional chain ID (default: deploys on all supported chains)
+#     chain_id: Optional chain ID (default: transfers on all supported chains)
 #
 # Examples:
-#   # Check deployment status on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging check
+#   # Check role status on all staging chains
+#   ./transfer_pendle_pt_amortized_oracle_v2_ownership.sh staging check
 #
-#   # Check deployment status on specific chain
-#   ./deploy_supervault_batch_operator.sh staging check "" 1
+#   # Check role status on specific chain
+#   ./transfer_pendle_pt_amortized_oracle_v2_ownership.sh staging check "" 1
 #
-#   # Simulate deployment on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging simulate
+#   # Simulate transfer on all staging chains
+#   ./transfer_pendle_pt_amortized_oracle_v2_ownership.sh staging simulate
 #
-#   # Simulate deployment on specific chain
-#   ./deploy_supervault_batch_operator.sh staging simulate "" 8453
-#
-#   # Execute deployment on all staging chains
-#   ./deploy_supervault_batch_operator.sh staging execute v2-supervaults
-#
-#   # Execute deployment on specific chain
-#   ./deploy_supervault_batch_operator.sh staging execute v2-supervaults 1
-#
-#   # Execute deployment on all prod chains
-#   ./deploy_supervault_batch_operator.sh prod execute v2-supervaults
+#   # Execute transfer on specific chain
+#   ./transfer_pendle_pt_amortized_oracle_v2_ownership.sh staging execute v2-supervaults 1
 #
 # Prerequisites:
 #   - 1Password CLI configured for RPC URL access
 #   - For execute mode: Foundry account (v2-supervaults) configured
+#   - Oracle V2 must be deployed first using deploy_pendle_pt_amortized_oracle_v2.sh
 #
 # Author: Superform Team
 ###################################################################################
@@ -54,10 +46,11 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Admin address (SUPER_GOVERNOR_ADDRESS) - used for --sender in simulate mode
-readonly ADMIN="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
+# DEPLOYER address - used for --sender in simulate mode
+readonly DEPLOYER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
-# Operator addresses are read from ConfigBase.sol by the Solidity script
+# SUPER_GOVERNOR_ADDRESS - target for role transfer
+readonly SUPER_GOVERNOR="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
 
 ###################################################################################
 # Helper Functions
@@ -77,29 +70,20 @@ Arguments:
     environment  Environment: "prod" or "staging" (required)
     mode         Mode: "simulate", "execute", or "check" (required)
     account      Account name (required for execute mode, e.g., "v2-supervaults")
-    chain_id     Optional chain ID to deploy on a specific chain
+    chain_id     Optional chain ID to transfer on a specific chain
 
 Examples:
-    # Check deployment status on all staging chains
+    # Check role status on all staging chains
     $0 staging check
 
-    # Check deployment status on specific chain
+    # Check role status on specific chain
     $0 staging check "" 1
 
-    # Simulate deployment on all staging chains
+    # Simulate transfer on all staging chains
     $0 staging simulate
 
-    # Simulate deployment on specific chain
-    $0 staging simulate "" 8453
-
-    # Execute deployment on all staging chains
-    $0 staging execute v2-supervaults
-
-    # Execute deployment on specific chain
+    # Execute transfer on specific chain
     $0 staging execute v2-supervaults 1
-
-    # Execute deployment on all prod chains
-    $0 prod execute v2-supervaults
 
 EOF
     exit 1
@@ -145,8 +129,8 @@ validate_mode() {
     fi
 }
 
-# Deploy on a single chain
-deploy_on_chain() {
+# Transfer on a single chain
+transfer_on_chain() {
     local env=$1
     local chain_id=$2
     local mode=$3
@@ -154,42 +138,33 @@ deploy_on_chain() {
     local rpc_url=$5
 
     log "INFO" "--------------------------------------------"
-    log "INFO" "Deploying on chain: $chain_id"
+    log "INFO" "Transferring on chain: $chain_id"
     log "INFO" "--------------------------------------------"
 
     # Set flags based on mode
     local BROADCAST_FLAG=""
-    local VERIFY_FLAG=""
     local SENDER_FLAG=""
     local ACCOUNT_FLAG=""
-    local ETHERSCAN_FLAGS=""
 
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
         ACCOUNT_FLAG="--account $account"
-        # Skip etherscan verification for HyperEVM (no etherscan support)
-        if [ "$chain_id" != "999" ]; then
-            VERIFY_FLAG="--verify"
-            ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
-        fi
         log "INFO" "Mode: Execute (will broadcast using account: $account)"
     elif [ "$mode" = "simulate" ]; then
-        SENDER_FLAG="--sender $ADMIN"
-        log "INFO" "Mode: Simulate (no broadcast, using sender: $ADMIN)"
+        SENDER_FLAG="--sender $DEPLOYER"
+        log "INFO" "Mode: Simulate (no broadcast, using sender: $DEPLOYER)"
     else
         log "INFO" "Mode: Check (read-only)"
     fi
 
-    # Build forge command
+    # Build forge command - V2 script
     local forge_cmd="forge script"
-    forge_cmd+=" script/DeploySuperVaultBatchOperator.s.sol:DeploySuperVaultBatchOperator"
+    forge_cmd+=" script/TransferPendlePTAmortizedOracleV2Ownership.s.sol:TransferPendlePTAmortizedOracleV2Ownership"
 
     if [ "$mode" = "check" ]; then
-        # Pass empty string for branchName (only used for vnet env=1)
-        forge_cmd+=" --sig 'runCheck(uint256,uint64,string)' $env $chain_id \"\""
+        forge_cmd+=" --sig 'runCheck(uint256,uint64)' $env $chain_id"
     else
-        # Pass empty string for branchName (only used for vnet env=1)
-        forge_cmd+=" --sig 'run(uint256,uint64,string)' $env $chain_id \"\""
+        forge_cmd+=" --sig 'run(uint256,uint64)' $env $chain_id"
     fi
 
     forge_cmd+=" --rpc-url $rpc_url"
@@ -197,8 +172,6 @@ deploy_on_chain() {
     [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
     [ -n "$SENDER_FLAG" ] && forge_cmd+=" $SENDER_FLAG"
     [ -n "$BROADCAST_FLAG" ] && forge_cmd+=" $BROADCAST_FLAG"
-    [ -n "$VERIFY_FLAG" ] && forge_cmd+=" $VERIFY_FLAG"
-    [ -n "$ETHERSCAN_FLAGS" ] && forge_cmd+=" $ETHERSCAN_FLAGS"
 
     # Add verbosity
     forge_cmd+=" -vvvv"
@@ -211,11 +184,11 @@ deploy_on_chain() {
     eval "$forge_cmd" || exit_code=$?
 
     if [ $exit_code -ne 0 ]; then
-        log "ERROR" "Deployment failed on chain $chain_id with exit code: $exit_code"
+        log "ERROR" "Transfer failed on chain $chain_id with exit code: $exit_code"
         return $exit_code
     fi
 
-    log "INFO" "Chain $chain_id deployment successful"
+    log "INFO" "Chain $chain_id transfer successful"
     return 0
 }
 
@@ -267,24 +240,13 @@ main() {
     log "INFO" "Loading RPC URLs..."
     load_rpc_urls
 
-    # Satisfy foundry.toml [etherscan] env var references
-    export ETHERSCANV2_API_KEY_TEST="${ETHERSCANV2_API_KEY_TEST:-}"
-
-    # Load Etherscan API key for verification
-    if [ "$mode" = "execute" ]; then
-        log "INFO" "Loading Etherscan API credentials..."
-        if ! load_etherscan_api_key; then
-            log "ERROR" "Failed to load Etherscan API key. Verification will not work."
-            exit 1
-        fi
-    fi
-
     log "INFO" "============================================"
-    log "INFO" "Deploy SuperVaultBatchOperator"
+    log "INFO" "Transfer PendlePTAmortizedOracleV2 Ownership"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Mode: $mode"
-    log "INFO" "Note: Admin and Operator addresses are read from ConfigBase.sol"
+    log "INFO" "From (DEPLOYER): $DEPLOYER"
+    log "INFO" "To (SUPER_GOVERNOR): $SUPER_GOVERNOR"
     if [ -n "$specific_chain" ]; then
         log "INFO" "Target Chain: $specific_chain"
     else
@@ -295,17 +257,17 @@ main() {
     local failed_chains=()
     local success_count=0
 
-    # Get chains to deploy on
-    local chains_to_deploy
+    # Get chains to transfer on
+    local chains_to_transfer
     if [ -n "$specific_chain" ]; then
-        chains_to_deploy=("$specific_chain")
+        chains_to_transfer=("$specific_chain")
     else
         # Get all supported networks from the config
-        mapfile -t chains_to_deploy < <(get_supported_networks)
+        mapfile -t chains_to_transfer < <(get_supported_networks)
     fi
 
-    # Deploy on each chain
-    for chain_id in "${chains_to_deploy[@]}"; do
+    # Transfer on each chain
+    for chain_id in "${chains_to_transfer[@]}"; do
         # Get RPC URL for this chain
         local rpc_url
         rpc_url=$(get_rpc_url "$chain_id")
@@ -316,7 +278,7 @@ main() {
             continue
         fi
 
-        if deploy_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url"; then
+        if transfer_on_chain "$env" "$chain_id" "$mode" "$account" "$rpc_url"; then
             ((++success_count))
         else
             failed_chains+=("$chain_id")
@@ -327,7 +289,7 @@ main() {
 
     # Summary
     log "INFO" "============================================"
-    log "INFO" "Deployment Summary"
+    log "INFO" "Transfer Summary"
     log "INFO" "============================================"
     log "INFO" "Successful: $success_count"
     log "INFO" "Failed: ${#failed_chains[@]}"
@@ -338,7 +300,7 @@ main() {
     fi
 
     log "INFO" "============================================"
-    log "INFO" "SuperVaultBatchOperator deployment completed successfully!"
+    log "INFO" "PendlePTAmortizedOracleV2 ownership transfer completed successfully!"
     log "INFO" "============================================"
 }
 
