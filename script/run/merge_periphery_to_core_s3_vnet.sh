@@ -99,7 +99,7 @@ PERIPHERY_BUCKET="periphery-deployments"
 CORE_BUCKET="vnet-state"
 
 # Allowed periphery contracts to merge
-ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "PendlePTAmortizedOracle" "PendlePTAmortizedOracleV2")
+ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank")
 
 # Validation
 if [ -z "$ENVIRONMENT_FOLDER" ]; then

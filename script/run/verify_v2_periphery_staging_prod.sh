@@ -152,7 +152,6 @@ get_contract_source() {
         "SuperformGasOracle") echo "src/oracles/SuperformGasOracle.sol" ;;
         "FixedPriceOracle") echo "src/oracles/FixedPriceOracle.sol" ;;
         "ECDSAPPSOracle") echo "src/oracles/ECDSAPPSOracle.sol" ;;
-        "PendlePTAmortizedOracle") echo "src/oracles/vaults/PendlePTAmortizedOracle.sol" ;;
 
         # SuperVault
         "SuperVault") echo "src/SuperVault/SuperVault.sol" ;;
@@ -183,7 +182,7 @@ generate_constructor_args() {
     # Generate constructor arguments based on contract type
     case $contract_name in
         # Contracts with no constructor args
-        "FixedPriceOracle"|"ECDSAPPSOracle"|"PendlePTAmortizedOracle"|"SuperOracle"|"SuperOracleL2")
+        "FixedPriceOracle"|"ECDSAPPSOracle"|"SuperOracle"|"SuperOracleL2")
             echo ""
             ;;
 
