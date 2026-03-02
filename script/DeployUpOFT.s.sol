@@ -77,6 +77,11 @@ contract DeployUpOFT is Script {
     UlnConfig ulnHyperEVMToEth;
     UlnConfig ulnBaseToHyperEVM;
     UlnConfig ulnHyperEVMToBase;
+    // Receive configs (different confirmations than send for HyperEVM pathways)
+    UlnConfig ulnHyperEVMReceiveFromEth;
+    UlnConfig ulnHyperEVMReceiveFromBase;
+    UlnConfig ulnEthReceiveFromHyperEVM;
+    UlnConfig ulnBaseReceiveFromHyperEVM;
 
     ExecutorConfig execEthToBase;
     ExecutorConfig execBaseToEth;
@@ -153,9 +158,27 @@ contract DeployUpOFT is Script {
         });
 
         // HyperEVM pathway configs (single DVN - LayerZero Labs only)
+        // NOTE: LZ requires send config confirmations to match receive config confirmations on the other side.
+        //   HL→ETH: HL send=1, ETH receive=1 (1 HL block)
+        //   ETH→HL: ETH send=15, HL receive=15 (15 ETH blocks)
+        //   HL→Base: HL send=1, Base receive=1 (1 HL block)
+        //   Base→HL: Base send=10, HL receive=10 (10 Base blocks)
+
         address[] memory dvnsHyperEVM = new address[](1);
         dvnsHyperEVM[0] = DVN_LZ_HYPEREVM;
+
+        // HL→ETH send config (1 HL block, matches ETH receive)
         ulnHyperEVMToEth = UlnConfig({
+            confirmations: 1,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        // HL receive from ETH config (15 ETH blocks, matches ETH send)
+        ulnHyperEVMReceiveFromEth = UlnConfig({
             confirmations: 15,
             requiredDVNCount: 1,
             optionalDVNCount: type(uint8).max,
@@ -164,11 +187,21 @@ contract DeployUpOFT is Script {
             optionalDVNs: new address[](0)
         });
 
-        // ETH to HyperEVM uses ETH DVNs
+        // ETH→HL send config (15 ETH blocks)
         address[] memory dvnsEthForHyperEVM = new address[](1);
         dvnsEthForHyperEVM[0] = DVN1_ETH; // Only LZ Labs DVN for HyperEVM pathway
         ulnEthToHyperEVM = UlnConfig({
             confirmations: 15,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsEthForHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        // ETH receive from HL config (1 HL block, matches HL send)
+        ulnEthReceiveFromHyperEVM = UlnConfig({
+            confirmations: 1,
             requiredDVNCount: 1,
             optionalDVNCount: type(uint8).max,
             optionalDVNThreshold: 0,
@@ -186,11 +219,11 @@ contract DeployUpOFT is Script {
             executor: EXECUTOR_HYPEREVM
         });
 
-        // Base to HyperEVM uses Base DVNs (only LZ Labs for HyperEVM pathway)
+        // Base→HL send config (10 Base blocks)
         address[] memory dvnsBaseForHyperEVM = new address[](1);
         dvnsBaseForHyperEVM[0] = DVN1_BASE; // Only LZ Labs DVN for HyperEVM pathway
         ulnBaseToHyperEVM = UlnConfig({
-            confirmations: 15,
+            confirmations: 10,
             requiredDVNCount: 1,
             optionalDVNCount: type(uint8).max,
             optionalDVNThreshold: 0,
@@ -198,12 +231,33 @@ contract DeployUpOFT is Script {
             optionalDVNs: new address[](0)
         });
 
-        ulnHyperEVMToBase = UlnConfig({
-            confirmations: 15,
+        // Base receive from HL config (1 HL block, matches HL send)
+        ulnBaseReceiveFromHyperEVM = UlnConfig({
+            confirmations: 1,
             requiredDVNCount: 1,
             optionalDVNCount: type(uint8).max,
             optionalDVNThreshold: 0,
-            requiredDVNs: dvnsHyperEVM, // Already defined above
+            requiredDVNs: dvnsBaseForHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        // HL→Base send config (1 HL block, matches Base receive)
+        ulnHyperEVMToBase = UlnConfig({
+            confirmations: 1,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsHyperEVM,
+            optionalDVNs: new address[](0)
+        });
+
+        // HL receive from Base config (10 Base blocks, matches Base send)
+        ulnHyperEVMReceiveFromBase = UlnConfig({
+            confirmations: 10,
+            requiredDVNCount: 1,
+            optionalDVNCount: type(uint8).max,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsHyperEVM,
             optionalDVNs: new address[](0)
         });
 
@@ -734,7 +788,7 @@ contract DeployUpOFT is Script {
             oapp: contracts.oftHyperEVM,
             remoteEid: ETH_EID,
             receiveLib: RECEIVE_LIB_HYPEREVM,
-            uln: ulnHyperEVMToEth
+            uln: ulnHyperEVMReceiveFromEth
         });
         console2.log("[+] Receive config (ULN) set");
 
@@ -797,7 +851,7 @@ contract DeployUpOFT is Script {
             oapp: contracts.adapter,
             remoteEid: HYPEREVM_EID,
             receiveLib: RECEIVE_LIB_ETH,
-            uln: ulnEthToHyperEVM
+            uln: ulnEthReceiveFromHyperEVM
         });
         console2.log("[+] Receive config (ULN) set");
 
@@ -1005,7 +1059,7 @@ contract DeployUpOFT is Script {
             oapp: contracts.oftHyperEVM,
             remoteEid: BASE_EID,
             receiveLib: RECEIVE_LIB_HYPEREVM,
-            uln: ulnHyperEVMToBase
+            uln: ulnHyperEVMReceiveFromBase
         });
         console2.log("[+] Receive config (ULN) set");
 
@@ -1068,7 +1122,7 @@ contract DeployUpOFT is Script {
             oapp: contracts.oft,
             remoteEid: HYPEREVM_EID,
             receiveLib: RECEIVE_LIB_BASE,
-            uln: ulnBaseToHyperEVM
+            uln: ulnBaseReceiveFromHyperEVM
         });
         console2.log("[+] Receive config (ULN) set");
 
