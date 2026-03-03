@@ -37,7 +37,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     // v2-core prod hooks
     address constant APPROVE_ERC20_HOOK = 0x8b789980dc6cC7d88E30C442D704646ff7F6d306;
     address constant SWAP_ODOS_V2_HOOK = 0x074F9973EBfB050D7abc75a5cB03491d675DA843;
-    address constant APPROVE_AND_SWAP_ODOS_V2_HOOK = 0x8211082177F01eEd24B73491f8eD79eE535BD980;
+
 
     // Tokens
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
@@ -88,7 +88,6 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         // Register hooks (idempotent — no-op if already registered)
         superGovernor.registerHook(APPROVE_ERC20_HOOK);
         superGovernor.registerHook(SWAP_ODOS_V2_HOOK);
-        superGovernor.registerHook(APPROVE_AND_SWAP_ODOS_V2_HOOK);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -183,12 +182,11 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     // ═══════════════════════════════════════════════════════════════════
 
     /// @notice Same USDC->UP swap flow but using production-generated merkle trees.
-    /// @dev Uses ApproveAndSwapOdosV2Hook (single hook that handles approve + swap).
-    ///      Production root from superman/deployments/superbank/generated/prod/8453/
-    ///      hook_0x8211082177f01eed24b73491f8ed79ee535bd980.json
+    /// @dev Uses ApproveERC20Hook + SwapOdosV2Hook with production roots from
+    ///      superman/deployments/superbank/generated/prod/8453/
     ///
-    ///      The deployed ApproveAndSwapOdosV2Hook.inspect() returns abi.encodePacked(inputToken, outputToken).
-    ///      Leaf 116 in the production tree authorizes USDC->UP swaps.
+    ///      ApproveERC20Hook (0x8b789980...): root 0x4babad82..., leaf 32 (USDC, spender=Odos Router)
+    ///      SwapOdosV2Hook  (0x074F9973...): root 0x1f04c759..., leaf 0  (executor=Odos Router)
     function test_executeHooks_swapUSDCtoUP_withProductionMerkleTree() public {
         uint256 swapAmount = 100e6; // 100 USDC
 
@@ -210,8 +208,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
         console2.log("Odos executor:", decoded.executor);
 
-        // 3. Encode hook data for ApproveAndSwapOdosV2Hook (same data layout as SwapOdosV2Hook)
-        bytes memory hookData = _encodeSwapOdosHookData(
+        // 3. Encode hook data
+        bytes memory approveData = _encodeApproveHookData(USDC, ODOS_ROUTER, swapAmount, false);
+        bytes memory swapData = _encodeSwapOdosHookData(
             decoded.tokenInfo.inputToken,
             decoded.tokenInfo.inputAmount,
             decoded.tokenInfo.inputReceiver,
@@ -224,19 +223,24 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.referralCode
         );
 
-        // 4. Set the production merkle root (from generated JSON)
-        //    Root: 0xa33ca8e8c90d7d1ffacc6bd26ae53fa67a01cf26af75fd6ce2dcbae63dac6b62
-        //    This tree has 169 leaves covering all authorized token pairs.
-        bytes32 productionRoot = 0xa33ca8e8c90d7d1ffacc6bd26ae53fa67a01cf26af75fd6ce2dcbae63dac6b62;
-        _setMerkleRoot(APPROVE_AND_SWAP_ODOS_V2_HOOK, productionRoot);
+        // 4. Set production merkle roots
+        //    ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        //    SwapOdosV2Hook: hook_0x074f9973...json (4 leaves)
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
 
-        // 5. Build execution data with the production proof for USDC->UP (leaf index 116)
-        bytes32[] memory proof = _getUsdcToUpProof();
-
+        // 5. Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
 
         superBank.executeHooks(
-            _buildSingleHookExecutionData(APPROVE_AND_SWAP_ODOS_V2_HOOK, hookData, proof)
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                SWAP_ODOS_V2_HOOK,
+                approveData,
+                swapData,
+                _getBaseApproveUsdcForOdosRouterProof(),
+                _getBaseSwapOdosExecutorProof(decoded.executor)
+            )
         );
 
         uint256 upAfter = IERC20(UP).balanceOf(SUPER_BANK);
@@ -257,12 +261,13 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     /// @dev Multi-fork test using Pigeon (AcrossV3Helper) to simulate the cross-chain relay.
     ///      Phase 1: ETH fork — approve USDC for SpokePool + bridge via AcrossSendFundsAndExecuteOnDstHook
     ///      Phase 2: Pigeon relay — AcrossV3Helper fills the relay on Base fork
-    ///      Phase 3: Base fork — swap received USDC→UP via ApproveAndSwapOdosV2Hook with production merkle tree
+    ///      Phase 3: Base fork — approve USDC for Odos Router + swap via SwapOdosV2Hook
     ///
     ///      All hooks use production merkle trees:
-    ///        ETH ApproveERC20Hook:    root 0x30325d34..., leaf 20  (USDC, spender=SpokePool)
-    ///        ETH AcrossHook:          root 0x3f45dfd6..., leaf 366 (USDC ETH→USDC Base)
-    ///        Base ApproveAndSwapHook: root 0xa33ca8e8..., leaf 116 (USDC→UP)
+    ///        ETH ApproveERC20Hook:     root 0x30325d34..., leaf 20  (USDC, spender=SpokePool)
+    ///        ETH AcrossHook:           root 0x3f45dfd6..., leaf 366 (USDC ETH→USDC Base)
+    ///        Base ApproveERC20Hook:    root 0x4babad82..., leaf 32  (USDC, spender=Odos Router)
+    ///        Base SwapOdosV2Hook:      root 0x1f04c759..., leaf 0   (executor=Odos Router)
     function test_executeHooks_bridgeAndSwapUSDCtoUP() public {
         uint256 baseForkId = vm.activeFork();
 
@@ -282,7 +287,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     ///        Approve: root 0x30325d34..., leaf 20 (USDC, spender=SpokePool ETH)
     ///        Across:  root 0x3f45dfd6..., leaf 366 (USDC ETH→USDC Base, SuperBank recipient)
     function _bridgeUsdcFromEthToBase(uint256 bridgeAmount) internal returns (Vm.Log[] memory logs) {
-        uint256 ethForkId = vm.createFork(vm.envString("ETH_RPC_URL"));
+        uint256 ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
         vm.selectFork(ethForkId);
 
         // Grant roles on ETH fork (same SuperGovernor address, different chain state)
@@ -314,8 +319,13 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         // Execute hooks: approve (leaf 20) + bridge (leaf 366) with production proofs
         vm.recordLogs();
         superBank.executeHooks(
-            _buildBridgeExecutionData(
-                approveData, acrossData, _getApproveUsdcForSpokePoolProof(), _getUsdcEthToBaseAcrossProof()
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                ACROSS_SEND_FUNDS_HOOK_ETH,
+                approveData,
+                acrossData,
+                _getApproveUsdcForSpokePoolProof(),
+                _getUsdcEthToBaseAcrossProof()
             )
         );
         logs = vm.getRecordedLogs();
@@ -339,7 +349,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         console2.log("Phase 2: Pigeon relayed Across bridge to Base fork");
     }
 
-    /// @dev Phase 3: On Base fork, swap USDC→UP using production merkle tree.
+    /// @dev Phase 3: On Base fork, approve USDC for Odos Router + swap USDC→UP using production merkle trees.
     function _swapUsdcToUpOnBase() internal {
         // Verify USDC arrived on Base SuperBank
         uint256 usdcOnBase = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -359,8 +369,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
         console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
 
-        // Encode swap hook data
-        bytes memory hookData = _encodeSwapOdosHookData(
+        // Encode hook data
+        bytes memory approveData = _encodeApproveHookData(USDC, ODOS_ROUTER, usdcOnBase, false);
+        bytes memory swapData = _encodeSwapOdosHookData(
             decoded.tokenInfo.inputToken,
             decoded.tokenInfo.inputAmount,
             decoded.tokenInfo.inputReceiver,
@@ -373,15 +384,24 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.referralCode
         );
 
-        // Set production merkle root for ApproveAndSwapOdosV2Hook
-        bytes32 productionRoot = 0xa33ca8e8c90d7d1ffacc6bd26ae53fa67a01cf26af75fd6ce2dcbae63dac6b62;
-        _setMerkleRoot(APPROVE_AND_SWAP_ODOS_V2_HOOK, productionRoot);
+        // Set production merkle roots
+        //   ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        //   SwapOdosV2Hook: hook_0x074f9973...json (4 leaves)
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
 
-        // Execute swap with production proof
+        // Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
 
         superBank.executeHooks(
-            _buildSingleHookExecutionData(APPROVE_AND_SWAP_ODOS_V2_HOOK, hookData, _getUsdcToUpProof())
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                SWAP_ODOS_V2_HOOK,
+                approveData,
+                swapData,
+                _getBaseApproveUsdcForOdosRouterProof(),
+                _getBaseSwapOdosExecutorProof(decoded.executor)
+            )
         );
 
         uint256 upAfter = IERC20(UP).balanceOf(SUPER_BANK);
@@ -395,19 +415,45 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     //                     PRODUCTION MERKLE PROOFS
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @dev Returns the production merkle proof for USDC->UP leaf (index 116) in the
-    ///      ApproveAndSwapOdosV2Hook tree on Base.
-    ///      Source: hook_0x8211082177f01eed24b73491f8ed79ee535bd980.json
-    function _getUsdcToUpProof() internal pure returns (bytes32[] memory proof) {
-        proof = new bytes32[](8);
-        proof[0] = 0xb76a8a01049bb4121c4fcf4767c5d41cd4e4941bc06966b03d65d97a49cfb277;
-        proof[1] = 0x4a6455aa361f98a6709f8441547be96267597d5497e1b848a98ddf5241017edb;
-        proof[2] = 0x22ce631279f11f4108aaefabd993710c53516680cfee6b9986b97dcea5f06c17;
-        proof[3] = 0xd8cf10919fa80878e66062ea54ec6657a0ff770e115d8c2154e23701c4395207;
-        proof[4] = 0xc91978b7e3950f2928dc089d77c25790a2e2ee78e165bf67b9afc44847880ec1;
-        proof[5] = 0xc31223840f116643b8466eedbfba0313396e188d2c41f9a88d57bdb090b358da;
-        proof[6] = 0x7db62eca735facb0392ec0be1a6f317af7ab8b2ca6f279b046c39d1885791614;
-        proof[7] = 0x43971906c23fce4588cba2f7114e819330a8d1ded220e87c04bda1e96eee7d69;
+    /// @dev Returns the production merkle proof for USDC + Odos Router leaf (index 32) in the
+    ///      ApproveERC20Hook tree on Base.
+    ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453)
+    ///      Args: token=USDC (0x833589fC...), spender=Odos Router V2 (0x19cEeAd7...)
+    function _getBaseApproveUsdcForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](7);
+        proof[0] = 0x92c51b1be8863998aa297cf694f46e298a96694f9abc79a9ffb57d527181f2ba;
+        proof[1] = 0x62f88cfd69237b7406c0b73a65f8356be4e4e342a40c4ca89c3642e1cbc99a5c;
+        proof[2] = 0x153c4ac519759d33b5eea18953fa859a628ebf0ff7565333ee875aeb6c77ae86;
+        proof[3] = 0x9f156bc9eaafd618e89fd31b1f0a86f5b6631ac5d60dad794d393d9ca737861c;
+        proof[4] = 0xffcf13b1670a12ef50a6e9daaa3358799d9a05e9f51c57e1f27c85e4df2a4d9d;
+        proof[5] = 0xd6b2acbc681dd6407a4fe10298e1534bf1c728c151d379c13b13eb7415f53167;
+        proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
+    }
+
+    /// @dev Returns the production merkle proof for the given executor in the SwapOdosV2Hook tree on Base.
+    ///      Source: hook_0x074f9973ebfb050d7abc75a5cb03491d675da843.json (chain 8453, 4 leaves)
+    ///      Odos can return different executors per quote, so the proof is selected dynamically.
+    function _getBaseSwapOdosExecutorProof(address executor) internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](2);
+        if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
+            // Leaf 0: Odos Router V2
+            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
+            proof[1] = 0xcf02465c440da38fcfe07b2cc94a632c3b04471f14a2452450f3e7e3c4c58f84;
+        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
+            // Leaf 1
+            proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
+            proof[1] = 0xcf02465c440da38fcfe07b2cc94a632c3b04471f14a2452450f3e7e3c4c58f84;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Leaf 2
+            proof[0] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            proof[1] = 0x287f9b6b4fe1b8c920bbe63eb8bf732f5b2dbe9e00d381dcf0d0675d5f23ebaa;
+        } else if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
+            // Leaf 3
+            proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
+            proof[1] = 0x287f9b6b4fe1b8c920bbe63eb8bf732f5b2dbe9e00d381dcf0d0675d5f23ebaa;
+        } else {
+            revert("Unknown Odos executor - not in SwapOdosV2Hook tree");
+        }
     }
 
     /// @dev Returns the production merkle proof for approve USDC for SpokePool ETH (leaf index 20)
@@ -450,35 +496,6 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook), root, "Merkle root mismatch");
-    }
-
-    /// @dev Builds execution data for a single hook with a merkle proof.
-    function _buildSingleHookExecutionData(
-        address hook,
-        bytes memory data,
-        bytes32[] memory proof
-    )
-        internal
-        pure
-        returns (IHookExecutionData.HookExecutionData memory)
-    {
-        address[] memory hooks = new address[](1);
-        hooks[0] = hook;
-
-        bytes[] memory dataArr = new bytes[](1);
-        dataArr[0] = data;
-
-        bytes32[][] memory proofs = new bytes32[][](1);
-        proofs[0] = proof;
-
-        uint256[] memory expectedOut = new uint256[](1);
-
-        return IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: dataArr,
-            merkleProofs: proofs,
-            expectedAssetsOrSharesOut: expectedOut
-        });
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -623,34 +640,36 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         });
     }
 
-    /// @dev Builds execution data for approve + across, both with production merkle proofs.
-    function _buildBridgeExecutionData(
-        bytes memory approveData,
-        bytes memory acrossData,
-        bytes32[] memory approveProof,
-        bytes32[] memory acrossProof
+    /// @dev Builds execution data for two hooks with production merkle proofs.
+    function _buildExecutionDataWithProofs(
+        address hook1,
+        address hook2,
+        bytes memory data1,
+        bytes memory data2,
+        bytes32[] memory proof1,
+        bytes32[] memory proof2
     )
         internal
         pure
         returns (IHookExecutionData.HookExecutionData memory)
     {
         address[] memory hooks = new address[](2);
-        hooks[0] = APPROVE_ERC20_HOOK;
-        hooks[1] = ACROSS_SEND_FUNDS_HOOK_ETH;
+        hooks[0] = hook1;
+        hooks[1] = hook2;
 
-        bytes[] memory data = new bytes[](2);
-        data[0] = approveData;
-        data[1] = acrossData;
+        bytes[] memory dataArr = new bytes[](2);
+        dataArr[0] = data1;
+        dataArr[1] = data2;
 
         bytes32[][] memory proofs = new bytes32[][](2);
-        proofs[0] = approveProof;
-        proofs[1] = acrossProof;
+        proofs[0] = proof1;
+        proofs[1] = proof2;
 
         uint256[] memory expectedOut = new uint256[](2);
 
         return IHookExecutionData.HookExecutionData({
             hooks: hooks,
-            data: data,
+            data: dataArr,
             merkleProofs: proofs,
             expectedAssetsOrSharesOut: expectedOut
         });
