@@ -42,6 +42,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     // Tokens
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant UP = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
+    address constant BASE_WETH = 0x4200000000000000000000000000000000000006;
+    address constant BASE_CBBTC = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf;
 
     // Odos router (DEX aggregator — routes through Aerodrome, Uniswap v4, PancakeSwap, etc.)
     address constant ODOS_ROUTER = 0x19cEeAd7105607Cd444F5ad10dd51356436095a1;
@@ -66,6 +68,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     address constant ETH_WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
     address constant APPROVE_AND_SWAP_ODOS_V2_HOOK = 0xe138e0750a1311580A2c842FF10a9824Fc2C5217;
     address constant ETH_ODOS_ROUTER = 0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559;
+
+    // Base ApproveAndSwapOdosV2Hook (single hook: approve + swap in one call)
+    address constant BASE_APPROVE_AND_SWAP_ODOS_V2_HOOK = 0x8211082177F01eEd24B73491f8eD79eE535BD980;
 
     // Contracts
     SuperBank superBank;
@@ -541,6 +546,209 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         console2.log("Swap result: %d WBTC -> %d USDC", swapAmount, usdcAfter - usdcBefore);
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    //              BASE: APPROVE + SWAP (SEPARATE HOOKS) WETH/cbBTC→USDC
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Swaps WETH→USDC on Base using ApproveERC20Hook + SwapOdosV2Hook (two separate hooks).
+    /// @dev Uses production merkle trees from superman/deployments/superbank/generated/prod/8453/
+    ///      ApproveERC20Hook (0x8b789980...): root 0x4babad82..., 65 leaves
+    ///      SwapOdosV2Hook  (0x074F9973...): root 0xa5317c91..., 4 leaves
+    function test_executeHooks_swapWETHtoUSDC_onBase() public {
+        uint256 swapAmount = 0.05 ether; // 0.05 WETH
+
+        // 1. Fund SuperBank with WETH
+        deal(BASE_WETH, SUPER_BANK, swapAmount);
+        assertEq(IERC20(BASE_WETH).balanceOf(SUPER_BANK), swapAmount);
+
+        // 2. Fetch live Odos quote
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: BASE_WETH, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        // 3. Encode hook data
+        bytes memory approveData = _encodeApproveHookData(BASE_WETH, ODOS_ROUTER, swapAmount, false);
+        bytes memory swapData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        // 4. Set production merkle roots
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+
+        // 5. Execute with production proofs
+        uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                SWAP_ODOS_V2_HOOK,
+                approveData,
+                swapData,
+                _getBaseApproveWethForOdosRouterProof(),
+                _getBaseSwapOdosExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+        uint256 wethAfter = IERC20(BASE_WETH).balanceOf(SUPER_BANK);
+
+        assertEq(wethAfter, 0, "All WETH should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d WETH -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @notice Swaps cbBTC→USDC on Base using ApproveERC20Hook + SwapOdosV2Hook (two separate hooks).
+    /// @dev Same as WETH test but with cbBTC (8 decimals).
+    function test_executeHooks_swapCBBTCtoUSDC_onBase() public {
+        uint256 swapAmount = 1e6; // 0.01 cbBTC (8 decimals)
+
+        // 1. Fund SuperBank with cbBTC
+        deal(BASE_CBBTC, SUPER_BANK, swapAmount);
+        assertEq(IERC20(BASE_CBBTC).balanceOf(SUPER_BANK), swapAmount);
+
+        // 2. Fetch live Odos quote
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: BASE_CBBTC, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        // 3. Encode hook data
+        bytes memory approveData = _encodeApproveHookData(BASE_CBBTC, ODOS_ROUTER, swapAmount, false);
+        bytes memory swapData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        // 4. Set production merkle roots
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+
+        // 5. Execute with production proofs
+        uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                SWAP_ODOS_V2_HOOK,
+                approveData,
+                swapData,
+                _getBaseApproveCbbtcForOdosRouterProof(),
+                _getBaseSwapOdosExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+        uint256 cbbtcAfter = IERC20(BASE_CBBTC).balanceOf(SUPER_BANK);
+
+        assertEq(cbbtcAfter, 0, "All cbBTC should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d cbBTC -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @notice Swaps USDC→UP on Base using ApproveERC20Hook + SwapOdosV2Hook (two separate hooks).
+    /// @dev Uses production merkle trees from superman/deployments/superbank/generated/prod/8453/
+    ///      ApproveERC20Hook (0x8b789980...): root 0x4babad82..., 65 leaves
+    ///      SwapOdosV2Hook  (0x074F9973...): root 0xa5317c91..., 4 leaves
+    function test_executeHooks_swapUSDCtoUP_onBase() public {
+        uint256 swapAmount = 100e6; // 100 USDC
+
+        // 1. Fund SuperBank with USDC
+        deal(USDC, SUPER_BANK, swapAmount);
+        assertEq(IERC20(USDC).balanceOf(SUPER_BANK), swapAmount);
+
+        // 2. Fetch live Odos quote
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: USDC, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        // 3. Encode hook data
+        bytes memory approveData = _encodeApproveHookData(USDC, ODOS_ROUTER, swapAmount, false);
+        bytes memory swapData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        // 4. Set production merkle roots
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+
+        // 5. Execute with production proofs
+        uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildExecutionDataWithProofs(
+                APPROVE_ERC20_HOOK,
+                SWAP_ODOS_V2_HOOK,
+                approveData,
+                swapData,
+                _getBaseApproveUsdcForOdosRouterProof(),
+                _getBaseSwapOdosExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 upAfter = IERC20(UP).balanceOf(SUPER_BANK);
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        assertEq(usdcAfter, 0, "All USDC should be consumed by the swap");
+        assertGt(upAfter - upBefore, 0, "SuperBank should have received UP tokens");
+
+        console2.log("Swap result: %d USDC -> %d UP", swapAmount, upAfter - upBefore);
+    }
+
     /// @dev Sets up ETH mainnet fork for ApproveAndSwapOdosV2Hook tests.
     function _setupEthForkForApproveAndSwap() internal {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
@@ -571,6 +779,34 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         proof[1] = 0x62f88cfd69237b7406c0b73a65f8356be4e4e342a40c4ca89c3642e1cbc99a5c;
         proof[2] = 0x153c4ac519759d33b5eea18953fa859a628ebf0ff7565333ee875aeb6c77ae86;
         proof[3] = 0x9f156bc9eaafd618e89fd31b1f0a86f5b6631ac5d60dad794d393d9ca737861c;
+        proof[4] = 0xffcf13b1670a12ef50a6e9daaa3358799d9a05e9f51c57e1f27c85e4df2a4d9d;
+        proof[5] = 0xd6b2acbc681dd6407a4fe10298e1534bf1c728c151d379c13b13eb7415f53167;
+        proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
+    }
+
+    /// @dev Returns the production merkle proof for approve WETH for OdosRouter (leaf index 26)
+    ///      in the ApproveERC20Hook tree on Base.
+    ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453, 65 leaves)
+    function _getBaseApproveWethForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](7);
+        proof[0] = 0x7b815452bf048e2fbdd34eeb13d661432bb4ac64b308fa6fe5bac9c34eaaf145;
+        proof[1] = 0x0d37c4172d9b71d1192032c463630598f589be77835d9efef6fd31f69b970571;
+        proof[2] = 0x6541b3a08d6be51d54a50878a3c044632ba98b7a75f19946b5df4aa3a346fd82;
+        proof[3] = 0x5d3629c389c8746ffdf9e78921bcaf835c7e2435e0500aee5ca2c9cbc1f5958e;
+        proof[4] = 0x446acd76b4ea527e766fb70fa895c4be34ffb8de3df96380dc605767a6077852;
+        proof[5] = 0xc3ac3e3eebc59e0e29e51f50471d06514b624e2b6d4b8d5081fd72c3804679c8;
+        proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
+    }
+
+    /// @dev Returns the production merkle proof for approve cbBTC for OdosRouter (leaf index 44)
+    ///      in the ApproveERC20Hook tree on Base.
+    ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453, 65 leaves)
+    function _getBaseApproveCbbtcForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](7);
+        proof[0] = 0xce5a4c188b0ab4bc573ef075f435b49419a6f69e94fc96e284005f7171c9afb9;
+        proof[1] = 0xd8076ffd7e8aadce532de47381a44874a6dcc967026f85eeb56832e35ea7847e;
+        proof[2] = 0x6cd9dc6a91dd7f272b0ff72d282d56ecf4edc126960f51d02c071545fbfb973a;
+        proof[3] = 0x859baa3c337fd909c7d18569085818f0eab25a2db02b56d35036c4ad9e4c543e;
         proof[4] = 0xffcf13b1670a12ef50a6e9daaa3358799d9a05e9f51c57e1f27c85e4df2a4d9d;
         proof[5] = 0xd6b2acbc681dd6407a4fe10298e1534bf1c728c151d379c13b13eb7415f53167;
         proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
