@@ -32,7 +32,7 @@ on:
       - dev
 jobs:
   build:
-    runs-on: "SuperformCore3"
+    runs-on: "SuperformBackend20"
     steps:
       - name: Mask Secrets
         run: |
@@ -99,7 +99,7 @@ jobs:
 
   test:
     needs: ["build"]
-    runs-on: "SuperformCore3"
+    runs-on: "SuperformBackend20"
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -155,7 +155,7 @@ jobs:
 
   smoke-test:
     needs: ["build"]
-    runs-on: "SuperformCore3"
+    runs-on: "SuperformBackend20"
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -197,7 +197,7 @@ jobs:
     needs: ["test"]
     if:
       github.event_name == 'workflow_dispatch'
-    runs-on: "SuperformCore3"
+    runs-on: "SuperformBackend20"
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
       base_mainnet_addresses: ${{ steps.get-addresses-base.outputs.addresses }}
@@ -302,7 +302,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    runs-on: SuperformCore3
+    runs-on: SuperformBackend20
     needs: ["test"]
     steps:
       - name: "Check out the repo"

@@ -1448,6 +1448,381 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    //          V2 HOOKS: ApproveAndSwapOdosV2Hook (NEW DEPLOYMENT)
+    // ═══════════════════════════════════════════════════════════════════
+    //
+    // Tests for the V2 redeployment of ApproveAndSwapOdosV2Hook.
+    // The new hook's inspect() returns only abi.encodePacked(executor),
+    // unlike the old hook which returned (tokenIn, inputReceiver, tokenOut, odosRouter, executor).
+    //
+    // New hook addresses:
+    //   ETH:  0x067696e1EfBD25cAfD3B55648ED253C20A7d9671
+    //   Base: 0x3E10d4105F826dFc8929845C94c019CDAF4d93cD
+
+    address constant V2_APPROVE_AND_SWAP_ODOS_V2_HOOK = 0x067696e1EfBD25cAfD3B55648ED253C20A7d9671;
+    address constant BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK = 0x3E10d4105F826dFc8929845C94c019CDAF4d93cD;
+
+    /// @notice Swaps WETH→USDC on ETH mainnet using V2 ApproveAndSwapOdosV2Hook.
+    /// @dev New hook inspect() returns only executor. Merkle tree has 4 leaves.
+    function test_executeHooks_swapWETHtoUSDC_withV2ApproveAndSwap() public {
+        _setupEthForkForV2ApproveAndSwap();
+
+        uint256 swapAmount = 0.1 ether;
+        deal(ETH_WETH, SUPER_BANK, swapAmount);
+        assertEq(IERC20(ETH_WETH).balanceOf(SUPER_BANK), swapAmount);
+
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: ETH_WETH, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        bytes memory hookData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        uint256 usdcBefore = IERC20(ETH_USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+                hookData,
+                _getV2ApproveAndSwapExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(ETH_USDC).balanceOf(SUPER_BANK);
+        uint256 wethAfter = IERC20(ETH_WETH).balanceOf(SUPER_BANK);
+
+        assertEq(wethAfter, 0, "All WETH should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d WETH -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @notice Swaps WBTC→USDC on ETH mainnet using V2 ApproveAndSwapOdosV2Hook.
+    function test_executeHooks_swapWBTCtoUSDC_withV2ApproveAndSwap() public {
+        _setupEthForkForV2ApproveAndSwap();
+
+        uint256 swapAmount = 1e6; // 0.01 WBTC (8 decimals)
+        deal(ETH_WBTC, SUPER_BANK, swapAmount);
+        assertEq(IERC20(ETH_WBTC).balanceOf(SUPER_BANK), swapAmount);
+
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: ETH_WBTC, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        bytes memory hookData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        uint256 usdcBefore = IERC20(ETH_USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+                hookData,
+                _getV2ApproveAndSwapExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(ETH_USDC).balanceOf(SUPER_BANK);
+        uint256 wbtcAfter = IERC20(ETH_WBTC).balanceOf(SUPER_BANK);
+
+        assertEq(wbtcAfter, 0, "All WBTC should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d WBTC -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @notice Swaps USDC→UP on Base using V2 ApproveAndSwapOdosV2Hook.
+    function test_executeHooks_swapUSDCtoUP_withBaseV2ApproveAndSwap() public {
+        _setupBaseForkForV2ApproveAndSwap();
+
+        uint256 swapAmount = 100e6; // 100 USDC
+        deal(USDC, SUPER_BANK, swapAmount);
+        assertEq(IERC20(USDC).balanceOf(SUPER_BANK), swapAmount);
+
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: USDC, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        bytes memory hookData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+                hookData,
+                _getBaseV2ApproveAndSwapExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 upAfter = IERC20(UP).balanceOf(SUPER_BANK);
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        assertEq(usdcAfter, 0, "All USDC should be consumed by the swap");
+        assertGt(upAfter - upBefore, 0, "SuperBank should have received UP tokens");
+
+        console2.log("Swap result: %d USDC -> %d UP", swapAmount, upAfter - upBefore);
+    }
+
+    /// @notice Swaps WETH→USDC on Base using V2 ApproveAndSwapOdosV2Hook.
+    function test_executeHooks_swapWETHtoUSDC_withBaseV2ApproveAndSwap() public {
+        _setupBaseForkForV2ApproveAndSwap();
+
+        uint256 swapAmount = 0.05 ether;
+        deal(BASE_WETH, SUPER_BANK, swapAmount);
+        assertEq(IERC20(BASE_WETH).balanceOf(SUPER_BANK), swapAmount);
+
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: BASE_WETH, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        bytes memory hookData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+                hookData,
+                _getBaseV2ApproveAndSwapExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+        uint256 wethAfter = IERC20(BASE_WETH).balanceOf(SUPER_BANK);
+
+        assertEq(wethAfter, 0, "All WETH should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d WETH -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @notice Swaps cbBTC→USDC on Base using V2 ApproveAndSwapOdosV2Hook.
+    function test_executeHooks_swapCBBTCtoUSDC_withBaseV2ApproveAndSwap() public {
+        _setupBaseForkForV2ApproveAndSwap();
+
+        uint256 swapAmount = 1e6; // 0.01 cbBTC (8 decimals)
+        deal(BASE_CBBTC, SUPER_BANK, swapAmount);
+        assertEq(IERC20(BASE_CBBTC).balanceOf(SUPER_BANK), swapAmount);
+
+        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
+        inputTokens[0] = QuoteInputToken({ tokenAddress: BASE_CBBTC, amount: swapAmount });
+
+        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
+        outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
+
+        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
+
+        OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
+        console2.log("Odos outputQuote:", decoded.tokenInfo.outputQuote);
+        console2.log("Odos executor:", decoded.executor);
+
+        bytes memory hookData = _encodeSwapOdosHookData(
+            decoded.tokenInfo.inputToken,
+            decoded.tokenInfo.inputAmount,
+            decoded.tokenInfo.inputReceiver,
+            decoded.tokenInfo.outputToken,
+            decoded.tokenInfo.outputQuote,
+            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            false,
+            decoded.pathDefinition,
+            decoded.executor,
+            decoded.referralCode
+        );
+
+        uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
+
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+                hookData,
+                _getBaseV2ApproveAndSwapExecutorProof(decoded.executor)
+            )
+        );
+
+        uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
+        uint256 cbbtcAfter = IERC20(BASE_CBBTC).balanceOf(SUPER_BANK);
+
+        assertEq(cbbtcAfter, 0, "All cbBTC should be consumed by the swap");
+        assertGt(usdcAfter - usdcBefore, 0, "SuperBank should have received USDC");
+
+        console2.log("Swap result: %d cbBTC -> %d USDC", swapAmount, usdcAfter - usdcBefore);
+    }
+
+    /// @dev Sets up ETH mainnet fork for V2 ApproveAndSwapOdosV2Hook tests.
+    function _setupEthForkForV2ApproveAndSwap() internal {
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+
+        _forceGrantRole(superGovernor.GOVERNOR_ROLE(), address(this));
+        _forceGrantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+
+        superGovernor.registerHook(V2_APPROVE_AND_SWAP_ODOS_V2_HOOK);
+
+        // V2 ApproveAndSwapOdosV2Hook: production merkle root (4 leaves, executor-only)
+        _setMerkleRoot(
+            V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+            0x3b38bac8a7da233539606418ffab73025f954d02d70bcef5387342b97e0f849f
+        );
+    }
+
+    /// @dev Sets up Base fork for V2 ApproveAndSwapOdosV2Hook tests.
+    function _setupBaseForkForV2ApproveAndSwap() internal {
+        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+
+        _forceGrantRole(superGovernor.GOVERNOR_ROLE(), address(this));
+        _forceGrantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+
+        superGovernor.registerHook(BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK);
+
+        // V2 ApproveAndSwapOdosV2Hook on Base: production merkle root (4 leaves, executor-only)
+        _setMerkleRoot(
+            BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
+            0x7159f32ea8549986f4a43a8b238d70397bfdac4c810b20535a967bd40c4a5887
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //           V2 HOOKS: PRODUCTION MERKLE PROOFS (EXECUTOR-ONLY)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on ETH (4 leaves, executor-only).
+    ///      Source: hook_0x067696e1efbd25cafd3b55648ed253c20a7d9671.json (chain 1)
+    function _getV2ApproveAndSwapExecutorProof(address executor)
+        internal
+        pure
+        returns (bytes32[] memory proof)
+    {
+        proof = new bytes32[](2);
+        if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
+            // Leaf 0
+            proof[0] = 0xa7687b9b43eb4738c858400b8524f2083e219dfa9759b2c316adc7c4e66ce603;
+            proof[1] = 0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1;
+        } else if (executor == 0x365084B05Fa7d5028346bD21D842eD0601bAB5b8) {
+            // Leaf 1
+            proof[0] = 0x8e6cd2496aa08c0f882305bdb3ba4a3029bfdd2223402186e296b2a9f6534325;
+            proof[1] = 0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1;
+        } else if (executor == 0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559) {
+            // Leaf 2
+            proof[0] = 0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742;
+            proof[1] = 0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Leaf 3
+            proof[0] = 0xb9833ecee0050ea0ef8a640aa9376adc68bf099a3be77c3e61b3170f3b627986;
+            proof[1] = 0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918;
+        } else {
+            revert("Unknown executor - not in V2 ApproveAndSwapOdosV2Hook tree (ETH)");
+        }
+    }
+
+    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on Base (4 leaves, executor-only).
+    ///      Source: hook_0x3e10d4105f826dfc8929845c94c019cdaf4d93cd.json (chain 8453)
+    function _getBaseV2ApproveAndSwapExecutorProof(address executor)
+        internal
+        pure
+        returns (bytes32[] memory proof)
+    {
+        proof = new bytes32[](2);
+        if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
+            // Leaf 0
+            proof[0] = 0x8a2bf8eafa210db554fd3bf97d0d8097de1dce2f44f351120910959da8e6460c;
+            proof[1] = 0xc95c65272b4d449293fd608632c4a9b52079bbd0773471cc2e2f27fa39a4a4de;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Leaf 1
+            proof[0] = 0x24682b1e256fb5c659e2165b0dddede5c0f82820824646b0cc5d13784f9dcf4c;
+            proof[1] = 0xc95c65272b4d449293fd608632c4a9b52079bbd0773471cc2e2f27fa39a4a4de;
+        } else if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
+            // Leaf 2
+            proof[0] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            proof[1] = 0xcdf1bb1c5bc5dbe047fa34b89aef6cb72b6ff0845f0dab3986a26e76cd17cb82;
+        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
+            // Leaf 3
+            proof[0] = 0xa42e6d141602dcb0d20cfd29650d65a6efee507b7b204bed042670632015714f;
+            proof[1] = 0xcdf1bb1c5bc5dbe047fa34b89aef6cb72b6ff0845f0dab3986a26e76cd17cb82;
+        } else {
+            revert("Unknown executor - not in V2 ApproveAndSwapOdosV2Hook tree (Base)");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     //                     MERKLE TREE REGISTRATION
     // ═══════════════════════════════════════════════════════════════════
 
