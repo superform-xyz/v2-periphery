@@ -32,7 +32,8 @@ on:
       - dev
 jobs:
   build:
-    runs-on: "SuperformBackend20"
+    # Target the shared CI runner pool by labels, not by one runner's display name.
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: Mask Secrets
         run: |
@@ -99,7 +100,7 @@ jobs:
 
   test:
     needs: ["build"]
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -155,7 +156,7 @@ jobs:
 
   smoke-test:
     needs: ["build"]
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -197,7 +198,7 @@ jobs:
     needs: ["test"]
     if:
       github.event_name == 'workflow_dispatch'
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
       base_mainnet_addresses: ${{ steps.get-addresses-base.outputs.addresses }}
@@ -302,7 +303,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    runs-on: SuperformBackend20
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     needs: ["test"]
     steps:
       - name: "Check out the repo"
