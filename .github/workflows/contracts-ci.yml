@@ -32,6 +32,7 @@ on:
       - dev
 jobs:
   build:
+    # Target the shared CI runner pool by labels, not by one runner's display name.
     runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: Mask Secrets
