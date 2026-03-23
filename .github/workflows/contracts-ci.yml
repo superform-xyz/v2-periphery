@@ -32,7 +32,7 @@ on:
       - dev
 jobs:
   build:
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: Mask Secrets
         run: |
@@ -53,6 +53,9 @@ jobs:
         uses: "actions/setup-node@v3"
         with:
           node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -99,7 +102,7 @@ jobs:
 
   test:
     needs: ["build"]
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -108,6 +111,9 @@ jobs:
         uses: "actions/setup-node@v3"
         with:
           node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -155,10 +161,18 @@ jobs:
 
   smoke-test:
     needs: ["build"]
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -197,7 +211,7 @@ jobs:
     needs: ["test"]
     if:
       github.event_name == 'workflow_dispatch'
-    runs-on: "SuperformBackend20"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
       base_mainnet_addresses: ${{ steps.get-addresses-base.outputs.addresses }}
@@ -221,6 +235,14 @@ jobs:
 
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -302,13 +324,21 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    runs-on: SuperformBackend20
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     needs: ["test"]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
         with:
           submodules: "recursive"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
