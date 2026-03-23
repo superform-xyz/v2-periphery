@@ -9,6 +9,16 @@ import { ISuperVaultStrategy } from "./ISuperVaultStrategy.sol";
 /// @notice Interface for SuperVaultManager - time-bounded delegation of secondary manager functions
 interface ISuperVaultManager {
     /*//////////////////////////////////////////////////////////////
+                                STRUCTS
+    //////////////////////////////////////////////////////////////*/
+
+    struct SessionKeyData {
+        uint256 expiry; // 0 = not authorized
+        address grantedByManager; // primary manager at grant time
+        uint256 generation; // strategy generation at grant time
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 

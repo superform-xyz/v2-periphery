@@ -14,16 +14,6 @@ import { ISuperVaultManager } from "../interfaces/SuperVault/ISuperVaultManager.
 /// @dev Deployed as a non-upgradeable contract, added as secondary manager on strategies
 contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
-                                STRUCTS
-    //////////////////////////////////////////////////////////////*/
-
-    struct SessionKeyData {
-        uint256 expiry; // 0 = not authorized
-        address grantedByManager; // primary manager at grant time
-        uint256 generation; // strategy generation at grant time
-    }
-
-    /*//////////////////////////////////////////////////////////////
                               CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
