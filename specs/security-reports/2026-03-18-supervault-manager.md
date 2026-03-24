@@ -1,7 +1,7 @@
 # Security Analysis Report
 
 ## Metadata
-- **Target:** `src/SuperVault/SuperVaultManager.sol`, `src/interfaces/SuperVault/ISuperVaultManager.sol`
+- **Target:** `src/SuperVault/SuperVaultExecutor.sol`, `src/interfaces/SuperVault/ISuperVaultExecutor.sol`
 - **Mode:** review
 - **Date:** 2026-03-18
 - **Contract Types Detected:** Session key delegation / forwarding proxy for vault operations
@@ -18,7 +18,7 @@
 ## Verdict
 **PASS** - No P0 or P1 findings. Safe to proceed with recommended improvements.
 
-> **Note on P1 findings from external research:** The research agent flagged registry poisoning (SuperGovernor compromise), parameter forwarding trust, and session key credential compromise as P1. These are **architectural trust assumptions** shared across the entire Superform system, not vulnerabilities specific to SuperVaultManager. SuperVaultManager correctly inherits the same trust model as all other contracts in the system. These are noted in the Attack Surface Summary below but do not block merge.
+> **Note on P1 findings from external research:** The research agent flagged registry poisoning (SuperGovernor compromise), parameter forwarding trust, and session key credential compromise as P1. These are **architectural trust assumptions** shared across the entire Superform system, not vulnerabilities specific to SuperVaultExecutor. SuperVaultExecutor correctly inherits the same trust model as all other contracts in the system. These are noted in the Attack Surface Summary below but do not block merge.
 
 ---
 
@@ -34,7 +34,7 @@ None found.
 
 ### 1. ETH Refund Sends Entire Contract Balance, Not Caller's Overpayment
 
-- **File:** `SuperVaultManager.sol:107`
+- **File:** `SuperVaultExecutor.sol:107`
 - **SWC:** SWC-107
 - **Category:** Reentrancy / ETH Handling
 - **Description:** `executeHooks` refunds `address(this).balance` after the strategy call. Since `receive()` accepts ETH from anyone, stray ETH in the contract (accidental sends, self-destructs) would be claimed by the next `executeHooks` caller. Combined with the lack of a reentrancy guard, a malicious session key contract could re-enter during the refund callback.
@@ -59,7 +59,7 @@ None found.
 
 ### 2. Missing Reentrancy Guard on `executeHooks`
 
-- **File:** `SuperVaultManager.sol:102`
+- **File:** `SuperVaultExecutor.sol:102`
 - **SWC:** SWC-107
 - **Category:** Reentrancy
 - **Description:** `executeHooks` makes an external call to the strategy, then sends ETH to `msg.sender`. No `nonReentrant` modifier protects against callback re-entry. While the strategy's own `nonReentrant` prevents re-entering the same strategy, a malicious session key could re-enter targeting a different strategy.
@@ -67,7 +67,7 @@ None found.
 
 ### 3. Return Bomb Attack on ETH Refund
 
-- **File:** `SuperVaultManager.sol:109`
+- **File:** `SuperVaultExecutor.sol:109`
 - **SWC:** N/A
 - **Category:** DoS / Gas
 - **Description:** The low-level `.call{value: remaining}("")` to `msg.sender` copies all returndata into memory. A malicious session key contract could return enormous data in its `receive()`, causing memory expansion to consume all gas. The strategy call would have already succeeded, but the ETH refund would fail, leaving ETH stuck in the contract.
@@ -81,7 +81,7 @@ None found.
 
 ### 4. Stale Session Keys Reactivate if Manager is Re-instated
 
-- **File:** `SuperVaultManager.sol:193-200`
+- **File:** `SuperVaultExecutor.sol:193-200`
 - **SWC:** N/A
 - **Category:** Logic
 - **Description:** When a primary manager changes (A -> B), session keys granted by A are logically invalidated because `isMainManager(A, strategy)` returns false. However, the key data remains in storage. If governance later re-instates A as primary manager (A -> B -> A), all previously granted session keys by A become valid again, even ones that were intended to be invalidated by the manager change.
@@ -93,50 +93,50 @@ None found.
 
 ### 5. Open `receive()` Allows Unrecoverable ETH Accumulation
 
-- **File:** `SuperVaultManager.sol:175`
+- **File:** `SuperVaultExecutor.sol:175`
 - **Category:** ETH Handling
 - **Description:** `receive()` accepts ETH from anyone. ETH sent outside `executeHooks` context has no recovery mechanism. Combined with Finding 1, this ETH is claimable by the next `executeHooks` caller.
 
 ### 6. Session Key Overwrite Without Existence Check
 
-- **File:** `SuperVaultManager.sol:203-211`
+- **File:** `SuperVaultExecutor.sol:203-211`
 - **Category:** Logic
 - **Description:** `_grantSessionKey` silently overwrites existing keys. No maximum expiry cap exists -- a manager could set `expiry = type(uint256).max`. The `grantedByManager` invalidation provides a safety net, but a long expiry is still risky if the manager stays unchanged.
 
 ### 7. Revoking Non-existent Keys Emits Misleading Events
 
-- **File:** `SuperVaultManager.sol:214-217`
+- **File:** `SuperVaultExecutor.sol:214-217`
 - **Category:** Logic
 - **Description:** `_revokeSessionKey` emits `SessionKeyRevoked` even for keys that were never granted, confusing off-chain monitoring.
 
 ### 8. Missing ETH Refund Event
 
-- **File:** `SuperVaultManager.sol:107-111`
+- **File:** `SuperVaultExecutor.sol:107-111`
 - **Category:** Best Practices
 - **Description:** ETH refund transfer emits no event, making it untrackable off-chain.
 
 ### 9. `memory` Instead of `calldata` for `controllers` Parameter
 
-- **File:** `SuperVaultManager.sol:115`, `ISuperVaultManager.sol:86`
+- **File:** `SuperVaultExecutor.sol:115`, `ISuperVaultExecutor.sol:86`
 - **Category:** Gas
 - **Description:** `fulfillCancelRedeemRequests` uses `memory` for `controllers`. Using `calldata` saves gas on ABI decode.
 
 ### 10. Redundant `_getAggregator()` Calls in Batch Loops
 
-- **File:** `SuperVaultManager.sol:73-76, 91-94`
+- **File:** `SuperVaultExecutor.sol:73-76, 91-94`
 - **Category:** Gas
 - **Description:** `_validatePrimaryManager` calls `_getAggregator()` on every iteration (2 external calls per loop). Caching the aggregator before the loop saves `2*(n-1)` external calls.
 
 ### 11. Unbounded Batch Array Size
 
-- **File:** `SuperVaultManager.sol:62-77, 86-95`
+- **File:** `SuperVaultExecutor.sol:62-77, 86-95`
 - **SWC:** SWC-128
 - **Category:** DoS / Gas
 - **Description:** No upper bound on batch size. Large arrays with external calls per iteration could exceed block gas limit.
 
 ### 12. `DEFAULT_ADMIN_ROLE` is Unused Post-Construction
 
-- **File:** `SuperVaultManager.sol:48`
+- **File:** `SuperVaultExecutor.sol:48`
 - **Category:** Access Control
 - **Description:** `DEFAULT_ADMIN_ROLE` is granted but never checked in any function. Consider renouncing it or documenting its intended purpose.
 

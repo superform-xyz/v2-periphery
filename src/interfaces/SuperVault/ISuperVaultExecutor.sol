@@ -4,10 +4,10 @@ pragma solidity 0.8.30;
 import { ISuperGovernor } from "../ISuperGovernor.sol";
 import { ISuperVaultStrategy } from "./ISuperVaultStrategy.sol";
 
-/// @title ISuperVaultManager
+/// @title ISuperVaultExecutor
 /// @author Superform Labs
-/// @notice Interface for SuperVaultManager - time-bounded delegation of secondary manager functions
-interface ISuperVaultManager {
+/// @notice Interface for SuperVaultExecutor - time-bounded delegation of secondary manager functions
+interface ISuperVaultExecutor {
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/

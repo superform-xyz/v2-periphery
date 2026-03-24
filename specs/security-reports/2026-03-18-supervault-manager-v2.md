@@ -1,7 +1,7 @@
 # Security Analysis Report (v2 — Post-Fix Re-Analysis)
 
 ## Metadata
-- **Target:** `src/SuperVault/SuperVaultManager.sol`, `src/interfaces/SuperVault/ISuperVaultManager.sol`
+- **Target:** `src/SuperVault/SuperVaultExecutor.sol`, `src/interfaces/SuperVault/ISuperVaultExecutor.sol`
 - **Mode:** threat-model
 - **Date:** 2026-03-18
 - **Contract Types Detected:** Session key delegation / forwarding proxy for vault operations
@@ -49,7 +49,7 @@ None found.
 
 ### 1. Session Key Revival After Manager Rotation (Documented Design Decision)
 
-- **File:** `SuperVaultManager.sol:237-240`
+- **File:** `SuperVaultExecutor.sol:237-240`
 - **SWC:** N/A
 - **Category:** Logic
 - **Description:** When a primary manager changes (A → B), session keys granted by A are logically invalidated because `isMainManager(A, strategy)` returns false. However, the key data persists in storage. If governance later re-instates A (A → B → A), all previously granted session keys by A silently reactivate — including ones the manager intended to revoke before the transition.
@@ -58,12 +58,12 @@ None found.
 
 ### 2. Cross-Function Reentrancy on Unguarded Forwarding Functions
 
-- **File:** `SuperVaultManager.sol:143-176`
+- **File:** `SuperVaultExecutor.sol:143-176`
 - **SWC:** SWC-107
 - **Category:** Reentrancy
 - **Description:** Only `executeHooks` has `nonReentrant`. The other forwarding functions (`fulfillCancelRedeemRequests`, `fulfillRedeemRequests`, `skimPerformanceFee`, `pauseStrategy`, `unpauseStrategy`) make external calls without reentrancy protection. If a malicious strategy callback re-enters one of these functions targeting a different strategy, it could execute unintended operations.
 - **Mitigating Factors:**
-  - These functions do not handle ETH or modify SuperVaultManager state
+  - These functions do not handle ETH or modify SuperVaultExecutor state
   - Each strategy has its own `nonReentrant` guard
   - Session key validation includes an external call to the aggregator, adding cost/complexity to re-entry
   - Exploitable only if a malicious session key holder controls a strategy contract (they already have privileged access)
@@ -72,7 +72,7 @@ None found.
 
 ### 3. Forced ETH Injection via `selfdestruct` During Strategy Call
 
-- **File:** `SuperVaultManager.sol:127-129`
+- **File:** `SuperVaultExecutor.sol:127-129`
 - **SWC:** N/A
 - **Category:** ETH Handling
 - **Description:** The balance-delta pattern (`address(this).balance - balanceBefore`) assumes the only ETH inflow during the strategy call is from the strategy itself. If a third party uses `selfdestruct` to force ETH into the manager during the strategy call, the inflated balance delta causes an over-refund to the caller.
@@ -90,49 +90,49 @@ None found.
 
 ### 4. Forwarding All Remaining Gas to ETH Refund Recipient
 
-- **File:** `SuperVaultManager.sol:134-135`
+- **File:** `SuperVaultExecutor.sol:134-135`
 - **Category:** Gas
 - **Description:** The assembly `call(gas(), ...)` forwards all remaining gas to the refund recipient. A malicious session key contract could use this gas for expensive operations in its `receive()`. However, this is self-griefing only — the session key holder pays for their own gas.
 - **Source:** Vulnerability Scanner
 
 ### 5. Uncached Aggregator in Single-Item Functions
 
-- **File:** `SuperVaultManager.sol:167-176`
+- **File:** `SuperVaultExecutor.sol:167-176`
 - **Category:** Gas
 - **Description:** `pauseStrategy` and `unpauseStrategy` call both `_validateSessionKey` (which calls `_getAggregator()`) and then `_getAggregator()` again directly. This results in 2 external calls to SuperGovernor per invocation. Could be optimized by caching, but the gas savings are minimal for single-item operations.
 - **Source:** Vulnerability Scanner
 
 ### 6. No Upper Bound on Session Key Expiry
 
-- **File:** `SuperVaultManager.sol:241-249`
+- **File:** `SuperVaultExecutor.sol:241-249`
 - **Category:** Logic
 - **Description:** A primary manager can set `expiry = type(uint256).max`, creating a session key that never expires. The `grantedByManager` check provides a safety net (key is invalidated if the manager changes), but a long expiry is still risky if the manager remains unchanged. Consider adding a `MAX_EXPIRY_DURATION` constant.
 - **Source:** Vulnerability Scanner
 
 ### 7. Interface Missing Public Getter Declarations
 
-- **File:** `ISuperVaultManager.sol`
+- **File:** `ISuperVaultExecutor.sol`
 - **Category:** Best Practices
 - **Description:** The interface does not declare `SUPER_GOVERNOR()` or `MAX_BATCH_SIZE()` public getters, even though these are publicly accessible on the implementation. Adding these to the interface improves discoverability and allows typed access from other contracts.
 - **Source:** Best Practices Agent
 
 ### 8. `receive()` Placement in Source File
 
-- **File:** `SuperVaultManager.sol:203`
+- **File:** `SuperVaultExecutor.sol:203`
 - **Category:** Style
 - **Description:** `receive()` is placed between the VIEW FUNCTIONS section and INTERNAL FUNCTIONS section. Solidity style guides typically place `receive()`/`fallback()` near the top of the contract or in a dedicated section.
 - **Source:** Best Practices Agent
 
 ### 9. Missing NatSpec on Internal Functions
 
-- **File:** `SuperVaultManager.sol:212-261`
+- **File:** `SuperVaultExecutor.sol:212-261`
 - **Category:** Documentation
 - **Description:** Internal functions have `@dev` comments but lack `@param` and `@return` tags. While internal functions don't appear in the ABI, consistent NatSpec aids code review and maintenance.
 - **Source:** Best Practices Agent
 
 ### 10. No ETH Sweep / Recovery Mechanism
 
-- **File:** `SuperVaultManager.sol:203`
+- **File:** `SuperVaultExecutor.sol:203`
 - **Category:** ETH Handling
 - **Description:** ETH sent directly to the contract (outside `executeHooks`) via `receive()` is permanently stuck. The balance-delta pattern correctly prevents this ETH from being claimed by `executeHooks` callers, but there is no admin function to recover it. Consider adding a `sweepETH()` function restricted to `DEFAULT_ADMIN_ROLE`.
 - **Source:** EVM Security Researcher
@@ -156,7 +156,7 @@ None found.
 | `unpauseStrategy` | Session key | No | `aggregator.unpauseStrategy()` | No |
 | `receive` | Anyone | Yes | None | No |
 
-**Architectural Trust Assumptions (System-Wide, Not SuperVaultManager-Specific):**
+**Architectural Trust Assumptions (System-Wide, Not SuperVaultExecutor-Specific):**
 - SuperGovernor integrity (registry resolution)
 - Aggregator `isMainManager()` correctness
 - Strategy-level parameter validation for all forwarded calls
@@ -198,7 +198,7 @@ None found.
 1. **Consider `nonReentrant` on all forwarding functions** — Defense in depth (Finding 2). Low risk but trivial to add.
 2. **Add `sweepETH()` admin function** — Recovers accidentally sent ETH (Finding 10). Low priority.
 3. **Add `MAX_EXPIRY_DURATION` constant** — Prevents near-infinite session keys (Finding 6). Optional.
-4. **Add interface getters** — `SUPER_GOVERNOR()` and `MAX_BATCH_SIZE()` in ISuperVaultManager (Finding 7).
+4. **Add interface getters** — `SUPER_GOVERNOR()` and `MAX_BATCH_SIZE()` in ISuperVaultExecutor (Finding 7).
 5. **Move `receive()` placement** — Style improvement (Finding 8).
 
 ---

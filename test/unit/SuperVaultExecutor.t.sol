@@ -12,21 +12,21 @@ import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { SuperVaultManager } from "../../src/SuperVault/SuperVaultManager.sol";
-import { ISuperVaultManager } from "../../src/interfaces/SuperVault/ISuperVaultManager.sol";
+import { SuperVaultExecutor } from "../../src/SuperVault/SuperVaultExecutor.sol";
+import { ISuperVaultExecutor } from "../../src/interfaces/SuperVault/ISuperVaultExecutor.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockUp } from "../mocks/MockUp.sol";
 import { MockSuperOracle } from "../mocks/MockSuperOracle.sol";
 
-/// @title SuperVaultManagerTest
-/// @notice Unit tests for SuperVaultManager contract
-contract SuperVaultManagerTest is PeripheryHelpers {
+/// @title SuperVaultExecutorTest
+/// @notice Unit tests for SuperVaultExecutor contract
+contract SuperVaultExecutorTest is PeripheryHelpers {
     SuperGovernor internal superGovernor;
     SuperVaultAggregator internal superVaultAggregator;
     SuperVault internal vault;
     SuperVaultStrategy internal strategy;
-    SuperVaultManager internal superVaultManager;
+    SuperVaultExecutor internal superVaultManager;
     MockERC20 internal asset;
 
     address internal sGovernor;
@@ -89,10 +89,10 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         vault = SuperVault(vaultAddress);
         strategy = SuperVaultStrategy(payable(strategyAddress));
 
-        // Deploy SuperVaultManager
-        superVaultManager = new SuperVaultManager(address(superGovernor), admin);
+        // Deploy SuperVaultExecutor
+        superVaultManager = new SuperVaultExecutor(address(superGovernor), admin);
 
-        // Add SuperVaultManager as secondary manager
+        // Add SuperVaultExecutor as secondary manager
         vm.prank(manager);
         superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
     }
@@ -107,13 +107,13 @@ contract SuperVaultManagerTest is PeripheryHelpers {
     }
 
     function test_Constructor_RevertsOnZeroSuperGovernor() public {
-        vm.expectRevert(ISuperVaultManager.ZERO_ADDRESS.selector);
-        new SuperVaultManager(address(0), admin);
+        vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
+        new SuperVaultExecutor(address(0), admin);
     }
 
     function test_Constructor_RevertsOnZeroAdmin() public {
-        vm.expectRevert(ISuperVaultManager.ZERO_ADDRESS.selector);
-        new SuperVaultManager(address(superGovernor), address(0));
+        vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
+        new SuperVaultExecutor(address(superGovernor), address(0));
     }
 
     function test_MaxBatchSize() public view {
@@ -129,7 +129,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         vm.prank(manager);
         vm.expectEmit(true, true, true, true);
-        emit ISuperVaultManager.SessionKeyGranted(address(strategy), sessionKey, expiry, manager, 0);
+        emit ISuperVaultExecutor.SessionKeyGranted(address(strategy), sessionKey, expiry, manager, 0);
         superVaultManager.grantSessionKey(address(strategy), sessionKey, expiry);
 
         (uint256 storedExpiry, address grantedBy, uint256 gen) =
@@ -141,25 +141,25 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
     function test_GrantSessionKey_RevertsNotPrimaryManager() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
     }
 
     function test_GrantSessionKey_RevertsZeroSessionKey() public {
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
         superVaultManager.grantSessionKey(address(strategy), address(0), block.timestamp + 1 days);
     }
 
     function test_GrantSessionKey_RevertsZeroExpiry() public {
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.ZERO_EXPIRY.selector);
+        vm.expectRevert(ISuperVaultExecutor.ZERO_EXPIRY.selector);
         superVaultManager.grantSessionKey(address(strategy), sessionKey, 0);
     }
 
     function test_GrantSessionKey_RevertsExpiryInPast() public {
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.EXPIRY_IN_PAST.selector);
+        vm.expectRevert(ISuperVaultExecutor.EXPIRY_IN_PAST.selector);
         superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp);
     }
 
@@ -194,7 +194,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         uint256[] memory expiries = new uint256[](0);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.EMPTY_ARRAY.selector);
+        vm.expectRevert(ISuperVaultExecutor.EMPTY_ARRAY.selector);
         superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
     }
 
@@ -205,7 +205,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         uint256[] memory expiries = new uint256[](size);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.BATCH_SIZE_EXCEEDED.selector);
+        vm.expectRevert(ISuperVaultExecutor.BATCH_SIZE_EXCEEDED.selector);
         superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
     }
 
@@ -215,7 +215,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         uint256[] memory expiries = new uint256[](2);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.ARRAY_LENGTH_MISMATCH.selector);
+        vm.expectRevert(ISuperVaultExecutor.ARRAY_LENGTH_MISMATCH.selector);
         superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
     }
 
@@ -228,7 +228,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         expiries[0] = block.timestamp + 1 days;
 
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
     }
 
@@ -243,7 +243,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         superVaultManager.grantSessionKey(address(strategy), sessionKey, expiry);
 
         vm.expectEmit(true, true, false, false);
-        emit ISuperVaultManager.SessionKeyRevoked(address(strategy), sessionKey);
+        emit ISuperVaultExecutor.SessionKeyRevoked(address(strategy), sessionKey);
         superVaultManager.revokeSessionKey(address(strategy), sessionKey);
         vm.stopPrank();
 
@@ -264,7 +264,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         for (uint256 i; i < entries.length; ++i) {
             assertTrue(
-                entries[i].topics[0] != ISuperVaultManager.SessionKeyRevoked.selector,
+                entries[i].topics[0] != ISuperVaultExecutor.SessionKeyRevoked.selector,
                 "Should not emit SessionKeyRevoked for non-existent key"
             );
         }
@@ -272,7 +272,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
     function test_RevokeSessionKey_RevertsNotPrimaryManager() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.revokeSessionKey(address(strategy), sessionKey);
     }
 
@@ -308,7 +308,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         address[] memory keys = new address[](0);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.EMPTY_ARRAY.selector);
+        vm.expectRevert(ISuperVaultExecutor.EMPTY_ARRAY.selector);
         superVaultManager.revokeSessionKeysBatch(strategies, keys);
     }
 
@@ -318,7 +318,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         address[] memory keys = new address[](size);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.BATCH_SIZE_EXCEEDED.selector);
+        vm.expectRevert(ISuperVaultExecutor.BATCH_SIZE_EXCEEDED.selector);
         superVaultManager.revokeSessionKeysBatch(strategies, keys);
     }
 
@@ -327,7 +327,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         address[] memory keys = new address[](1);
 
         vm.prank(manager);
-        vm.expectRevert(ISuperVaultManager.ARRAY_LENGTH_MISMATCH.selector);
+        vm.expectRevert(ISuperVaultExecutor.ARRAY_LENGTH_MISMATCH.selector);
         superVaultManager.revokeSessionKeysBatch(strategies, keys);
     }
 
@@ -338,7 +338,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         keys[0] = sessionKey;
 
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.revokeSessionKeysBatch(strategies, keys);
     }
 
@@ -351,7 +351,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         vm.prank(manager);
         vm.expectEmit(true, false, false, true);
-        emit ISuperVaultManager.AllSessionKeysInvalidated(address(strategy), 1);
+        emit ISuperVaultExecutor.AllSessionKeysInvalidated(address(strategy), 1);
         superVaultManager.invalidateAllSessionKeys(address(strategy));
 
         assertEq(superVaultManager.getStrategyGeneration(address(strategy)), 1);
@@ -373,7 +373,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         // Forwarding function reverts with generation mismatch
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_GENERATION_MISMATCH.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_GENERATION_MISMATCH.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
@@ -400,7 +400,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
     function test_InvalidateAllSessionKeys_RevertsNotPrimaryManager() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.invalidateAllSessionKeys(address(strategy));
     }
 
@@ -470,7 +470,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
     function test_SweepETH_RevertsZeroAddress() public {
         vm.deal(address(superVaultManager), 1 ether);
         vm.prank(admin);
-        vm.expectRevert(ISuperVaultManager.ZERO_ADDRESS.selector);
+        vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
         superVaultManager.sweepETH(address(0));
     }
 
@@ -479,7 +479,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         ETHRejecter rejecter = new ETHRejecter();
 
         vm.prank(admin);
-        vm.expectRevert(ISuperVaultManager.ETH_REFUND_FAILED.selector);
+        vm.expectRevert(ISuperVaultExecutor.ETH_REFUND_FAILED.selector);
         superVaultManager.sweepETH(address(rejecter));
     }
 
@@ -544,7 +544,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         ISuperVaultStrategy.ExecuteArgs memory args;
 
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
@@ -558,7 +558,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_EXPIRED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
@@ -570,7 +570,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_GENERATION_MISMATCH.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_GENERATION_MISMATCH.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
@@ -587,14 +587,14 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.PRIMARY_MANAGER_CHANGED.selector);
+        vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
     function test_FulfillCancelRedeemRequests_RevertsSessionKeyNotAuthorized() public {
         address[] memory controllers = new address[](0);
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.fulfillCancelRedeemRequests(address(strategy), controllers);
     }
 
@@ -602,25 +602,25 @@ contract SuperVaultManagerTest is PeripheryHelpers {
         address[] memory controllers = new address[](0);
         uint256[] memory amounts = new uint256[](0);
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.fulfillRedeemRequests(address(strategy), controllers, amounts);
     }
 
     function test_SkimPerformanceFee_RevertsSessionKeyNotAuthorized() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.skimPerformanceFee(address(strategy));
     }
 
     function test_PauseStrategy_RevertsSessionKeyNotAuthorized() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.pauseStrategy(address(strategy));
     }
 
     function test_UnpauseStrategy_RevertsSessionKeyNotAuthorized() public {
         vm.prank(user);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.unpauseStrategy(address(strategy));
     }
 
@@ -701,7 +701,7 @@ contract SuperVaultManagerTest is PeripheryHelpers {
 
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_EXPIRED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 

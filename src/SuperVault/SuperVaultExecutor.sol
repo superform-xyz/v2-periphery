@@ -6,13 +6,13 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { ISuperVaultManager } from "../interfaces/SuperVault/ISuperVaultManager.sol";
+import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecutor.sol";
 
-/// @title SuperVaultManager
+/// @title SuperVaultExecutor
 /// @author Superform Labs
 /// @notice Secondary manager contract that allows session key holders to call strategy functions
 /// @dev Deployed as a non-upgradeable contract, added as secondary manager on strategies
-contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard {
+contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                               CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -65,13 +65,13 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
                         SESSION KEY MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function grantSessionKey(address strategy, address sessionKey, uint256 expiry) external {
         _validatePrimaryManager(strategy);
         _grantSessionKey(strategy, sessionKey, expiry);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function grantSessionKeysBatch(
         address[] calldata strategies,
         address[] calldata sessionKeys,
@@ -91,13 +91,13 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         }
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function revokeSessionKey(address strategy, address sessionKey) external {
         _validatePrimaryManager(strategy);
         _revokeSessionKey(strategy, sessionKey);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function revokeSessionKeysBatch(address[] calldata strategies, address[] calldata sessionKeys) external {
         uint256 len = strategies.length;
         if (len == 0) revert EMPTY_ARRAY();
@@ -111,7 +111,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         }
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function invalidateAllSessionKeys(address strategy) external {
         _validatePrimaryManager(strategy);
         uint256 newGeneration = ++_strategyGeneration[strategy];
@@ -122,7 +122,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
                         FORWARDING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function executeHooks(
         address strategy,
         ISuperVaultStrategy.ExecuteArgs calldata args
@@ -149,13 +149,13 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         }
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function fulfillCancelRedeemRequests(address strategy, address[] calldata controllers) external {
         _validateSessionKey(strategy);
         ISuperVaultStrategy(strategy).fulfillCancelRedeemRequests(controllers);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function fulfillRedeemRequests(
         address strategy,
         address[] calldata controllers,
@@ -167,20 +167,20 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         ISuperVaultStrategy(strategy).fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function skimPerformanceFee(address strategy) external {
         _validateSessionKey(strategy);
         ISuperVaultStrategy(strategy).skimPerformanceFee();
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function pauseStrategy(address strategy) external {
         ISuperVaultAggregator aggregator = _getAggregator();
         _validateSessionKey(strategy, aggregator);
         aggregator.pauseStrategy(strategy);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function unpauseStrategy(address strategy) external {
         ISuperVaultAggregator aggregator = _getAggregator();
         _validateSessionKey(strategy, aggregator);
@@ -191,7 +191,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
                           ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function sweepETH(address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (to == address(0)) revert ZERO_ADDRESS();
         uint256 bal = address(this).balance;
@@ -209,7 +209,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function isSessionKeyValid(address strategy, address sessionKey) external view returns (bool) {
         SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
         if (data.expiry == 0 || block.timestamp > data.expiry) return false;
@@ -217,7 +217,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         return _getAggregator().isMainManager(data.grantedByManager, strategy);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function getSessionKeyData(
         address strategy,
         address sessionKey
@@ -230,7 +230,7 @@ contract SuperVaultManager is ISuperVaultManager, AccessControl, ReentrancyGuard
         return (data.expiry, data.grantedByManager, data.generation);
     }
 
-    /// @inheritdoc ISuperVaultManager
+    /// @inheritdoc ISuperVaultExecutor
     function getStrategyGeneration(address strategy) external view returns (uint256) {
         return _strategyGeneration[strategy];
     }

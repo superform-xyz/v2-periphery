@@ -4,16 +4,16 @@ pragma solidity 0.8.30;
 import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 
-import { SuperVaultManager } from "../../../src/SuperVault/SuperVaultManager.sol";
-import { ISuperVaultManager } from "../../../src/interfaces/SuperVault/ISuperVaultManager.sol";
+import { SuperVaultExecutor } from "../../../src/SuperVault/SuperVaultExecutor.sol";
+import { ISuperVaultExecutor } from "../../../src/interfaces/SuperVault/ISuperVaultExecutor.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperGovernor } from "../../../src/interfaces/ISuperGovernor.sol";
 
-/// @title SuperVaultManagerForkTest
+/// @title SuperVaultExecutorForkTest
 /// @notice Fork tests against real Base mainnet deployed vaults
 /// @dev Uses production SuperGovernor, Aggregator, and strategy addresses from Base mainnet
-contract SuperVaultManagerForkTest is Test {
+contract SuperVaultExecutorForkTest is Test {
     /*//////////////////////////////////////////////////////////////
                         PRODUCTION ADDRESSES (BASE)
     //////////////////////////////////////////////////////////////*/
@@ -40,7 +40,7 @@ contract SuperVaultManagerForkTest is Test {
                             TEST STATE
     //////////////////////////////////////////////////////////////*/
 
-    SuperVaultManager public superVaultManager;
+    SuperVaultExecutor public superVaultManager;
     ISuperVaultAggregator public aggregator;
     ISuperGovernor public superGovernor;
 
@@ -62,10 +62,10 @@ contract SuperVaultManagerForkTest is Test {
         superGovernor = ISuperGovernor(SUPER_GOVERNOR);
         aggregator = ISuperVaultAggregator(AGGREGATOR);
 
-        // Deploy SuperVaultManager against real SuperGovernor
-        superVaultManager = new SuperVaultManager(SUPER_GOVERNOR, admin);
+        // Deploy SuperVaultExecutor against real SuperGovernor
+        superVaultManager = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
 
-        // Add SuperVaultManager as secondary manager on USDC strategy
+        // Add SuperVaultExecutor as secondary manager on USDC strategy
         // (impersonate the real production primary manager)
         vm.prank(MAIN_MANAGER);
         aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultManager));
@@ -80,7 +80,7 @@ contract SuperVaultManagerForkTest is Test {
         assertTrue(superVaultManager.hasRole(superVaultManager.DEFAULT_ADMIN_ROLE(), admin));
     }
 
-    function test_Fork_SuperVaultManagerIsSecondaryManager() public view {
+    function test_Fork_SuperVaultExecutorIsSecondaryManager() public view {
         assertTrue(aggregator.isSecondaryManager(address(superVaultManager), USDC_STRATEGY));
     }
 
@@ -111,7 +111,7 @@ contract SuperVaultManagerForkTest is Test {
         address imposter = makeAddr("imposter");
 
         vm.prank(imposter);
-        vm.expectRevert(ISuperVaultManager.CALLER_NOT_PRIMARY_MANAGER.selector);
+        vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
         superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, block.timestamp + 1 days);
     }
 
@@ -160,7 +160,7 @@ contract SuperVaultManagerForkTest is Test {
         vm.warp(expiry + 1);
 
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_EXPIRED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
         superVaultManager.pauseStrategy(USDC_STRATEGY);
     }
 
@@ -168,7 +168,7 @@ contract SuperVaultManagerForkTest is Test {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.pauseStrategy(USDC_STRATEGY);
     }
 
@@ -177,7 +177,7 @@ contract SuperVaultManagerForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_SessionKeyIsolation_AcrossRealStrategies() public {
-        // Add SuperVaultManager as secondary manager on WETH strategy too
+        // Add SuperVaultExecutor as secondary manager on WETH strategy too
         vm.prank(MAIN_MANAGER);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
 
@@ -194,7 +194,7 @@ contract SuperVaultManagerForkTest is Test {
 
         // Session key cannot pause WETH strategy (not authorized for it)
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.pauseStrategy(WETH_STRATEGY);
 
         // Unpause USDC for cleanup
@@ -203,7 +203,7 @@ contract SuperVaultManagerForkTest is Test {
     }
 
     function test_Fork_PerStrategySessionKeys() public {
-        // Add SuperVaultManager on WETH strategy
+        // Add SuperVaultExecutor on WETH strategy
         vm.prank(MAIN_MANAGER);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
 
@@ -295,7 +295,7 @@ contract SuperVaultManagerForkTest is Test {
         assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
         // proposeChangePrimaryManager can only be called by a secondary manager
-        // SuperVaultManager itself is a secondary manager, so we use it (via prank)
+        // SuperVaultExecutor itself is a secondary manager, so we use it (via prank)
         address newManager = makeAddr("newManager");
         address feeRecipient = makeAddr("feeRecipient");
         vm.prank(address(superVaultManager));
@@ -316,7 +316,7 @@ contract SuperVaultManagerForkTest is Test {
 
         // Session key forwarding should revert
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.PRIMARY_MANAGER_CHANGED.selector);
+        vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
         superVaultManager.pauseStrategy(USDC_STRATEGY);
 
         // Restore the original manager: a secondary manager proposes, original manager accepts
@@ -335,8 +335,8 @@ contract SuperVaultManagerForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_NotSecondaryManager_RevertsOnPause() public {
-        // Deploy a second SuperVaultManager that is NOT added as secondary manager
-        SuperVaultManager svm2 = new SuperVaultManager(SUPER_GOVERNOR, admin);
+        // Deploy a second SuperVaultExecutor that is NOT added as secondary manager
+        SuperVaultExecutor svm2 = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
 
         uint256 expiry = block.timestamp + 1 days;
         vm.prank(MAIN_MANAGER);

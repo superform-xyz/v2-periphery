@@ -11,8 +11,8 @@ import { SuperVault } from "../../src/SuperVault/SuperVault.sol";
 import { SuperVaultStrategy } from "../../src/SuperVault/SuperVaultStrategy.sol";
 import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
 import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
-import { SuperVaultManager } from "../../src/SuperVault/SuperVaultManager.sol";
-import { ISuperVaultManager } from "../../src/interfaces/SuperVault/ISuperVaultManager.sol";
+import { SuperVaultExecutor } from "../../src/SuperVault/SuperVaultExecutor.sol";
+import { ISuperVaultExecutor } from "../../src/interfaces/SuperVault/ISuperVaultExecutor.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 import { PeripheryHelpers } from "../utils/PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
@@ -21,14 +21,14 @@ import { MockSuperOracle } from "../mocks/MockSuperOracle.sol";
 import { MockSuperHook } from "../mocks/MockSuperHook.sol";
 import { MockHookTarget } from "../mocks/MockHookTarget.sol";
 
-/// @title SuperVaultManagerE2ETest
-/// @notice End-to-end tests for SuperVaultManager
-contract SuperVaultManagerE2ETest is PeripheryHelpers {
+/// @title SuperVaultExecutorE2ETest
+/// @notice End-to-end tests for SuperVaultExecutor
+contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     SuperGovernor internal superGovernor;
     SuperVaultAggregator internal superVaultAggregator;
     SuperVault internal vault;
     SuperVaultStrategy internal strategy;
-    SuperVaultManager internal superVaultManager;
+    SuperVaultExecutor internal superVaultManager;
     MockERC20 internal asset;
     MockSuperHook internal mockHook;
     MockHookTarget internal mockTarget;
@@ -100,10 +100,10 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         vault = SuperVault(vaultAddress);
         strategy = SuperVaultStrategy(payable(strategyAddress));
 
-        // Deploy SuperVaultManager
-        superVaultManager = new SuperVaultManager(address(superGovernor), admin);
+        // Deploy SuperVaultExecutor
+        superVaultManager = new SuperVaultExecutor(address(superGovernor), admin);
 
-        // Add SuperVaultManager as secondary manager
+        // Add SuperVaultExecutor as secondary manager
         vm.prank(manager);
         superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
 
@@ -180,7 +180,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         });
 
         // Execute through session key — this is the full path:
-        // sessionKey -> SuperVaultManager.executeHooks -> strategy.executeHooks
+        // sessionKey -> SuperVaultExecutor.executeHooks -> strategy.executeHooks
         vm.prank(sessionKey);
         superVaultManager.executeHooks(address(strategy), args);
     }
@@ -271,15 +271,15 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         // All forwarding functions revert with PRIMARY_MANAGER_CHANGED
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.PRIMARY_MANAGER_CHANGED.selector);
+        vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
         superVaultManager.executeHooks(address(strategy), args);
 
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.PRIMARY_MANAGER_CHANGED.selector);
+        vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
         superVaultManager.pauseStrategy(address(strategy));
 
         // New manager can grant new session keys
-        // First add SuperVaultManager as secondary manager under new manager
+        // First add SuperVaultExecutor as secondary manager under new manager
         vm.prank(newManager);
         superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
 
@@ -360,7 +360,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
 
         // key2 cannot
         vm.prank(key2);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.unpauseStrategy(address(strategy));
 
         // key3 can unpause
@@ -391,7 +391,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         vm.warp(expiry + 1);
 
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_EXPIRED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
         superVaultManager.pauseStrategy(address(strategy));
 
         // Manager can re-grant with new expiry
@@ -427,7 +427,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
             })
         );
 
-        // Add SuperVaultManager as secondary to both
+        // Add SuperVaultExecutor as secondary to both
         vm.startPrank(manager);
         superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultManager));
 
@@ -444,7 +444,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         // Cannot operate on strategy2
         assertFalse(superVaultManager.isSessionKeyValid(strategy2Address, sessionKey));
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_NOT_AUTHORIZED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
         superVaultManager.pauseStrategy(strategy2Address);
     }
 
@@ -471,7 +471,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
             })
         );
 
-        // Add SuperVaultManager as secondary to both
+        // Add SuperVaultExecutor as secondary to both
         vm.startPrank(manager);
         superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultManager));
 
@@ -599,12 +599,12 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         });
     }
 
-    /// @dev Sets up a refunding hook that sends ETH back to the SuperVaultManager when executed
+    /// @dev Sets up a refunding hook that sends ETH back to the SuperVaultExecutor when executed
     function _setupRefundingHook()
         internal
         returns (MockSuperHook refundHook, bytes memory refundHookCalldata)
     {
-        // Deploy a target that sends its ETH balance to the SuperVaultManager when called
+        // Deploy a target that sends its ETH balance to the SuperVaultExecutor when called
         ETHRefunderTarget refunderTarget = new ETHRefunderTarget(address(superVaultManager));
         vm.deal(address(refunderTarget), 1 ether);
 
@@ -633,7 +633,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
 
         vm.prank(sessionKey);
         vm.expectEmit(true, false, false, true);
-        emit ISuperVaultManager.ETHRefunded(sessionKey, 1 ether);
+        emit ISuperVaultExecutor.ETHRefunded(sessionKey, 1 ether);
         superVaultManager.executeHooks(address(strategy), args);
 
         // Refunder's ETH was sent to manager during hook execution, then refunded to caller
@@ -652,7 +652,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         ISuperVaultStrategy.ExecuteArgs memory args = _buildExecuteArgsFor(address(refundHook), refundHookCalldata);
 
         vm.prank(address(rejecter));
-        vm.expectRevert(ISuperVaultManager.ETH_REFUND_FAILED.selector);
+        vm.expectRevert(ISuperVaultExecutor.ETH_REFUND_FAILED.selector);
         superVaultManager.executeHooks(address(strategy), args);
     }
 
@@ -660,9 +660,9 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         E2E: SESSION KEY MANAGER NOT SECONDARY MANAGER
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice SuperVaultManager reverts at strategy level when not added as secondary manager
+    /// @notice SuperVaultExecutor reverts at strategy level when not added as secondary manager
     function test_E2E_NotSecondaryManager_RevertsAtStrategy() public {
-        // Create new strategy without adding SuperVaultManager as secondary
+        // Create new strategy without adding SuperVaultExecutor as secondary
         vm.prank(manager);
         (, address freshStrategy,) = superVaultAggregator.createVault(
             ISuperVaultAggregator.VaultCreationParams({
@@ -686,7 +686,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         // Session key validation passes (key is valid)
         assertTrue(superVaultManager.isSessionKeyValid(freshStrategy, sessionKey));
 
-        // But actual forwarding reverts because SuperVaultManager is not a secondary manager on the strategy
+        // But actual forwarding reverts because SuperVaultExecutor is not a secondary manager on the strategy
         // pauseStrategy goes through the aggregator which checks UNAUTHORIZED_UPDATE_AUTHORITY
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
@@ -710,7 +710,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
         // Key is invalid (PRIMARY_MANAGER_CHANGED)
         assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
 
-        // New manager B adds SuperVaultManager as secondary and bumps generation
+        // New manager B adds SuperVaultExecutor as secondary and bumps generation
         vm.startPrank(newManager);
         superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
         superVaultManager.invalidateAllSessionKeys(address(strategy));
@@ -771,7 +771,7 @@ contract SuperVaultManagerE2ETest is PeripheryHelpers {
 
         // Can't use it
         vm.prank(sessionKey);
-        vm.expectRevert(ISuperVaultManager.SESSION_KEY_EXPIRED.selector);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
         superVaultManager.pauseStrategy(address(strategy));
 
         // Re-grant
@@ -794,7 +794,7 @@ contract ETHRejecter {
 }
 
 /// @dev Helper contract that sends its ETH balance to a recipient when any function is called
-///      Used to simulate a hook target refunding ETH back to the SuperVaultManager during executeHooks
+///      Used to simulate a hook target refunding ETH back to the SuperVaultExecutor during executeHooks
 contract ETHRefunderTarget {
     address public refundRecipient;
 
