@@ -166,6 +166,7 @@ get_contract_source() {
         "SuperVaultEscrow") echo "src/SuperVault/SuperVaultEscrow.sol" ;;
         "SuperVaultStrategy") echo "src/SuperVault/SuperVaultStrategy.sol" ;;
         "SuperVaultBatchOperator") echo "src/SuperVault/SuperVaultBatchOperator.sol" ;;
+        "SuperVaultExecutor") echo "src/SuperVault/SuperVaultExecutor.sol" ;;
 
         # Core
         "SuperBank") echo "src/SuperBank.sol" ;;
@@ -366,6 +367,16 @@ generate_constructor_args() {
             if [ -n "$owner" ]; then
                 echo "$(cast abi-encode "constructor(int256,address)" 1000000 "$owner")"
             fi
+            ;;
+
+        "SuperVaultExecutor")
+            # DeploySuperVaultExecutor.s.sol: abi.encode(superGovernor, admin)
+            local sg=$(jq -r '.SuperGovernor // empty' "$json_file")
+            if [ -z "$sg" ]; then
+                # Fallback: compute SuperGovernor address from locked bytecode
+                sg="$SUPER_GOVERNOR_ADDR"
+            fi
+            echo "$(cast abi-encode "constructor(address,address)" "$sg" "$SUPER_GOVERNOR_ADDR")"
             ;;
 
         "SuperVaultBatchOperator")

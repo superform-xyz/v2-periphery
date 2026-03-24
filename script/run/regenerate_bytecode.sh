@@ -85,6 +85,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultStrategy"
     "SuperVaultEscrow"
     "SuperVaultBatchOperator"
+    "SuperVaultExecutor"
     "ECDSAPPSOracle"
     "FixedPriceOracle"
     "SuperOracle"
@@ -109,6 +110,7 @@ get_contract_source() {
         "SuperVaultEscrow") echo "src/SuperVault/SuperVaultEscrow.sol" ;;
         "SuperVaultStrategy") echo "src/SuperVault/SuperVaultStrategy.sol" ;;
         "SuperVaultBatchOperator") echo "src/SuperVault/SuperVaultBatchOperator.sol" ;;
+        "SuperVaultExecutor") echo "src/SuperVault/SuperVaultExecutor.sol" ;;
         "SuperBank") echo "src/SuperBank.sol" ;;
         "SuperGovernor") echo "src/SuperGovernor.sol" ;;
         "UpOFT") echo "src/UP/UpOFT.sol" ;;
