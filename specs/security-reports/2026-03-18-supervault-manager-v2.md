@@ -14,7 +14,7 @@
 | P0 Critical | 0 | Yes |
 | P1 High | 0 | Yes |
 | P2 Medium | 3 | No |
-| P3 Low | 7 | No |
+| P3 Low | 6 (+1 resolved) | No |
 
 ## Verdict
 **PASS** — No P0 or P1 findings. All 4 P2 and 8 P3 findings from v1 report have been addressed. Remaining findings are architectural design decisions and minor style items.
@@ -95,12 +95,9 @@ None found.
 - **Description:** The assembly `call(gas(), ...)` forwards all remaining gas to the refund recipient. A malicious session key contract could use this gas for expensive operations in its `receive()`. However, this is self-griefing only — the session key holder pays for their own gas.
 - **Source:** Vulnerability Scanner
 
-### 5. Uncached Aggregator in Single-Item Functions
+### 5. ~~Uncached Aggregator in Single-Item Functions~~ — **RESOLVED**
 
-- **File:** `SuperVaultExecutor.sol:167-176`
-- **Category:** Gas
-- **Description:** `pauseStrategy` and `unpauseStrategy` call both `_validateSessionKey` (which calls `_getAggregator()`) and then `_getAggregator()` again directly. This results in 2 external calls to SuperGovernor per invocation. Could be optimized by caching, but the gas savings are minimal for single-item operations.
-- **Source:** Vulnerability Scanner
+- **Status:** **Fixed.** `pauseStrategy` and `unpauseStrategy` cache the aggregator locally and pass it to the overloaded `_validateSessionKey(strategy, aggregator)`, resulting in only 1 SuperGovernor call per invocation. This finding was raised against an intermediate version before the caching was added.
 
 ### 6. No Upper Bound on Session Key Expiry
 
@@ -130,12 +127,9 @@ None found.
 - **Description:** Internal functions have `@dev` comments but lack `@param` and `@return` tags. While internal functions don't appear in the ABI, consistent NatSpec aids code review and maintenance.
 - **Source:** Best Practices Agent
 
-### 10. No ETH Sweep / Recovery Mechanism
+### 10. ~~No ETH Sweep / Recovery Mechanism~~ — **RESOLVED**
 
-- **File:** `SuperVaultExecutor.sol:203`
-- **Category:** ETH Handling
-- **Description:** ETH sent directly to the contract (outside `executeHooks`) via `receive()` is permanently stuck. The balance-delta pattern correctly prevents this ETH from being claimed by `executeHooks` callers, but there is no admin function to recover it. Consider adding a `sweepETH()` function restricted to `DEFAULT_ADMIN_ROLE`.
-- **Source:** EVM Security Researcher
+- **Status:** **Fixed.** `sweepETH(address to)` is implemented at `SuperVaultExecutor.sol:195`, restricted to `DEFAULT_ADMIN_ROLE`, with assembly-based return bomb prevention and `ETHSwept` event emission. This finding was raised against an intermediate version before the function was added.
 
 ---
 
@@ -196,7 +190,7 @@ None found.
 ## Recommended Actions (Prioritized)
 
 1. **Consider `nonReentrant` on all forwarding functions** — Defense in depth (Finding 2). Low risk but trivial to add.
-2. **Add `sweepETH()` admin function** — Recovers accidentally sent ETH (Finding 10). Low priority.
+2. ~~**Add `sweepETH()` admin function**~~ — **Already implemented** (Finding 10). No action needed.
 3. **Add `MAX_EXPIRY_DURATION` constant** — Prevents near-infinite session keys (Finding 6). Optional.
 4. **Add interface getters** — `SUPER_GOVERNOR()` and `MAX_BATCH_SIZE()` in ISuperVaultExecutor (Finding 7).
 5. **Move `receive()` placement** — Style improvement (Finding 8).

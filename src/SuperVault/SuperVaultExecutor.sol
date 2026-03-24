@@ -27,6 +27,9 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /// @notice The SuperGovernor contract used to resolve the aggregator
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
+    /// @notice Cached registry key for the SuperVaultAggregator (avoids extra external call)
+    bytes32 public immutable SUPER_VAULT_AGGREGATOR_KEY;
+
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -35,7 +38,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     mapping(address => mapping(address => SessionKeyData)) private _sessionKeys;
 
     /// @dev strategy => generation counter (incremented to invalidate all session keys)
-    mapping(address => uint256) private _strategyGeneration;
+    mapping(address => uint96) private _strategyGeneration;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -49,6 +52,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (superGovernor_ == address(0) || admin_ == address(0)) revert ZERO_ADDRESS();
 
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
+        SUPER_VAULT_AGGREGATOR_KEY = ISuperGovernor(superGovernor_).SUPER_VAULT_AGGREGATOR();
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
@@ -64,6 +68,12 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         SESSION KEY MANAGEMENT
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev WARNING: Session key validity depends on the granting manager remaining the primary manager.
+    ///      If a primary manager is removed (A→B) and later reinstated (B→A), session keys previously
+    ///      granted by A will silently reactivate. The generation counter does NOT automatically protect
+    ///      against this — invalidateAllSessionKeys() must be proactively called during the interim period
+    ///      to prevent stale key revival.
 
     /// @inheritdoc ISuperVaultExecutor
     function grantSessionKey(address strategy, address sessionKey, uint256 expiry) external {
@@ -114,7 +124,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /// @inheritdoc ISuperVaultExecutor
     function invalidateAllSessionKeys(address strategy) external {
         _validatePrimaryManager(strategy);
-        uint256 newGeneration = ++_strategyGeneration[strategy];
+        uint96 newGeneration = ++_strategyGeneration[strategy];
         emit AllSessionKeysInvalidated(strategy, newGeneration);
     }
 
@@ -144,13 +154,13 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
             assembly {
                 success := call(gas(), caller(), refund, 0, 0, 0, 0)
             }
-            if (!success) revert ETH_REFUND_FAILED();
+            if (!success) revert ETH_TRANSFER_FAILED();
             emit ETHRefunded(msg.sender, refund);
         }
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function fulfillCancelRedeemRequests(address strategy, address[] calldata controllers) external {
+    function fulfillCancelRedeemRequests(address strategy, address[] calldata controllers) external nonReentrant {
         _validateSessionKey(strategy);
         ISuperVaultStrategy(strategy).fulfillCancelRedeemRequests(controllers);
     }
@@ -162,26 +172,27 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         uint256[] calldata totalAssetsOut
     )
         external
+        nonReentrant
     {
         _validateSessionKey(strategy);
         ISuperVaultStrategy(strategy).fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function skimPerformanceFee(address strategy) external {
+    function skimPerformanceFee(address strategy) external nonReentrant {
         _validateSessionKey(strategy);
         ISuperVaultStrategy(strategy).skimPerformanceFee();
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function pauseStrategy(address strategy) external {
+    function pauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
         _validateSessionKey(strategy, aggregator);
         aggregator.pauseStrategy(strategy);
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function unpauseStrategy(address strategy) external {
+    function unpauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
         _validateSessionKey(strategy, aggregator);
         aggregator.unpauseStrategy(strategy);
@@ -196,12 +207,13 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (to == address(0)) revert ZERO_ADDRESS();
         uint256 bal = address(this).balance;
         if (bal > 0) {
-            // Use assembly to prevent return bomb attack
+            // Use assembly to prevent return bomb attack; cap gas to prevent griefing via fallback
             bool success;
             assembly {
-                success := call(gas(), to, bal, 0, 0, 0, 0)
+                success := call(50000, to, bal, 0, 0, 0, 0)
             }
-            if (!success) revert ETH_REFUND_FAILED();
+            if (!success) revert ETH_TRANSFER_FAILED();
+            emit ETHSwept(to, bal);
         }
     }
 
@@ -224,14 +236,14 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     )
         external
         view
-        returns (uint256 expiry, address grantedByManager, uint256 generation)
+        returns (uint256 expiry, address grantedByManager, uint96 generation)
     {
         SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
         return (data.expiry, data.grantedByManager, data.generation);
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function getStrategyGeneration(address strategy) external view returns (uint256) {
+    function getStrategyGeneration(address strategy) external view returns (uint96) {
         return _strategyGeneration[strategy];
     }
 
@@ -282,31 +294,31 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /// @dev Grants a session key for a strategy at the current generation
     /// @param strategy The strategy address
     /// @param sessionKey The session key address to authorize
-    /// @param expiry The expiry timestamp for the session key
+    /// @param expiry The expiry timestamp for the session key. Can be type(uint256).max for a key that never expires.
     function _grantSessionKey(address strategy, address sessionKey, uint256 expiry) internal {
         if (sessionKey == address(0)) revert ZERO_ADDRESS();
         if (expiry == 0) revert ZERO_EXPIRY();
         if (expiry <= block.timestamp) revert EXPIRY_IN_PAST();
 
-        uint256 generation = _strategyGeneration[strategy];
+        uint96 generation = _strategyGeneration[strategy];
         _sessionKeys[strategy][sessionKey] =
             SessionKeyData({ expiry: expiry, grantedByManager: msg.sender, generation: generation });
 
         emit SessionKeyGranted(strategy, sessionKey, expiry, msg.sender, generation);
     }
 
-    /// @dev Revokes a session key for a strategy (no-op if key was never granted)
+    /// @dev Revokes a session key for a strategy (reverts if key was never granted)
     /// @param strategy The strategy address
     /// @param sessionKey The session key address to revoke
     function _revokeSessionKey(address strategy, address sessionKey) internal {
-        if (_sessionKeys[strategy][sessionKey].expiry == 0) return;
+        if (_sessionKeys[strategy][sessionKey].expiry == 0) revert SESSION_KEY_NOT_AUTHORIZED();
         delete _sessionKeys[strategy][sessionKey];
         emit SessionKeyRevoked(strategy, sessionKey);
     }
 
-    /// @dev Resolves the aggregator dynamically via SuperGovernor
+    /// @dev Resolves the aggregator dynamically via SuperGovernor using cached registry key
     /// @return The ISuperVaultAggregator instance resolved from the registry
     function _getAggregator() internal view returns (ISuperVaultAggregator) {
-        return ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_GOVERNOR.SUPER_VAULT_AGGREGATOR()));
+        return ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR_KEY));
     }
 }

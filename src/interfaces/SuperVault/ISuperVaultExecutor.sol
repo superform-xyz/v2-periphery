@@ -15,7 +15,7 @@ interface ISuperVaultExecutor {
     struct SessionKeyData {
         uint256 expiry; // 0 = not authorized
         address grantedByManager; // primary manager at grant time
-        uint256 generation; // strategy generation at grant time
+        uint96 generation; // strategy generation at grant time (packed with grantedByManager)
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -31,7 +31,7 @@ interface ISuperVaultExecutor {
     error SESSION_KEY_EXPIRED();
     error SESSION_KEY_GENERATION_MISMATCH();
     error PRIMARY_MANAGER_CHANGED();
-    error ETH_REFUND_FAILED();
+    error ETH_TRANSFER_FAILED();
     error EMPTY_ARRAY();
     error BATCH_SIZE_EXCEEDED();
 
@@ -68,6 +68,11 @@ interface ISuperVaultExecutor {
     /// @param amount The amount of ETH refunded
     event ETHRefunded(address indexed recipient, uint256 amount);
 
+    /// @notice Emitted when stuck ETH is swept from the contract by an admin
+    /// @param to The address receiving the swept ETH
+    /// @param amount The amount of ETH swept
+    event ETHSwept(address indexed to, uint256 amount);
+
     /*//////////////////////////////////////////////////////////////
                         SESSION KEY MANAGEMENT
     //////////////////////////////////////////////////////////////*/
@@ -75,7 +80,7 @@ interface ISuperVaultExecutor {
     /// @notice Grants a session key for a strategy
     /// @param strategy The strategy address
     /// @param sessionKey The session key address to authorize
-    /// @param expiry The expiry timestamp for the session key
+    /// @param expiry The expiry timestamp for the session key. Can be type(uint256).max for a key that never expires.
     function grantSessionKey(address strategy, address sessionKey, uint256 expiry) external;
 
     /// @notice Batch grants session keys for multiple strategies
@@ -108,6 +113,7 @@ interface ISuperVaultExecutor {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Forwards executeHooks to a strategy
+    /// @dev Any ETH overpayment (msg.value minus what the strategy consumes) is refunded to msg.sender.
     /// @param strategy The strategy to forward to
     /// @param args The execution arguments
     function executeHooks(address strategy, ISuperVaultStrategy.ExecuteArgs calldata args) external payable;
@@ -146,6 +152,7 @@ interface ISuperVaultExecutor {
 
     /// @notice Sweeps stuck ETH from the contract to a recipient
     /// @dev Only callable by DEFAULT_ADMIN_ROLE. Uses assembly to prevent return bomb.
+    ///      No-op (no event emitted) if the contract balance is zero.
     /// @param to The address to send ETH to
     function sweepETH(address to) external;
 
@@ -155,6 +162,9 @@ interface ISuperVaultExecutor {
 
     /// @notice The SuperGovernor contract used to resolve the aggregator
     function SUPER_GOVERNOR() external view returns (ISuperGovernor);
+
+    /// @notice Cached registry key for the SuperVaultAggregator (avoids extra external call)
+    function SUPER_VAULT_AGGREGATOR_KEY() external view returns (bytes32);
 
     /// @notice Maximum number of items in a batch operation
     function MAX_BATCH_SIZE() external view returns (uint256);
@@ -177,10 +187,10 @@ interface ISuperVaultExecutor {
     )
         external
         view
-        returns (uint256 expiry, address grantedByManager, uint256 generation);
+        returns (uint256 expiry, address grantedByManager, uint96 generation);
 
     /// @notice Gets the current generation counter for a strategy
     /// @param strategy The strategy address
     /// @return The current generation counter
-    function getStrategyGeneration(address strategy) external view returns (uint256);
+    function getStrategyGeneration(address strategy) external view returns (uint96);
 }

@@ -40,7 +40,7 @@ contract SuperVaultExecutorForkTest is Test {
                             TEST STATE
     //////////////////////////////////////////////////////////////*/
 
-    SuperVaultExecutor public superVaultManager;
+    SuperVaultExecutor public superVaultExecutor;
     ISuperVaultAggregator public aggregator;
     ISuperGovernor public superGovernor;
 
@@ -63,12 +63,12 @@ contract SuperVaultExecutorForkTest is Test {
         aggregator = ISuperVaultAggregator(AGGREGATOR);
 
         // Deploy SuperVaultExecutor against real SuperGovernor
-        superVaultManager = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
+        superVaultExecutor = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
 
         // Add SuperVaultExecutor as secondary manager on USDC strategy
         // (impersonate the real production primary manager)
         vm.prank(MAIN_MANAGER);
-        aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultManager));
+        aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultExecutor));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -76,12 +76,12 @@ contract SuperVaultExecutorForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_DeploymentAgainstRealGovernor() public view {
-        assertEq(address(superVaultManager.SUPER_GOVERNOR()), SUPER_GOVERNOR);
-        assertTrue(superVaultManager.hasRole(superVaultManager.DEFAULT_ADMIN_ROLE(), admin));
+        assertEq(address(superVaultExecutor.SUPER_GOVERNOR()), SUPER_GOVERNOR);
+        assertTrue(superVaultExecutor.hasRole(superVaultExecutor.DEFAULT_ADMIN_ROLE(), admin));
     }
 
     function test_Fork_SuperVaultExecutorIsSecondaryManager() public view {
-        assertTrue(aggregator.isSecondaryManager(address(superVaultManager), USDC_STRATEGY));
+        assertTrue(aggregator.isSecondaryManager(address(superVaultExecutor), USDC_STRATEGY));
     }
 
     function test_Fork_AggregatorResolvesCorrectly() public view {
@@ -98,11 +98,11 @@ contract SuperVaultExecutorForkTest is Test {
         uint256 expiry = block.timestamp + 1 days;
 
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
-        (uint256 storedExpiry, address grantedBy,) = superVaultManager.getSessionKeyData(USDC_STRATEGY, sessionKey);
+        (uint256 storedExpiry, address grantedBy,) = superVaultExecutor.getSessionKeyData(USDC_STRATEGY, sessionKey);
         assertEq(storedExpiry, expiry);
         assertEq(grantedBy, MAIN_MANAGER);
     }
@@ -112,20 +112,20 @@ contract SuperVaultExecutorForkTest is Test {
 
         vm.prank(imposter);
         vm.expectRevert(ISuperVaultExecutor.CALLER_NOT_PRIMARY_MANAGER.selector);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, block.timestamp + 1 days);
     }
 
     function test_Fork_RevokeSessionKey_ByRealPrimaryManager() public {
         uint256 expiry = block.timestamp + 1 days;
 
         vm.startPrank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
-        superVaultManager.revokeSessionKey(USDC_STRATEGY, sessionKey);
+        superVaultExecutor.revokeSessionKey(USDC_STRATEGY, sessionKey);
         vm.stopPrank();
 
-        assertFalse(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -137,16 +137,16 @@ contract SuperVaultExecutorForkTest is Test {
 
         // Grant session key
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
         // Session key pauses the strategy
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.pauseStrategy(USDC_STRATEGY);
         assertTrue(aggregator.isStrategyPaused(USDC_STRATEGY));
 
         // Session key unpauses the strategy
         vm.prank(sessionKey);
-        superVaultManager.unpauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.unpauseStrategy(USDC_STRATEGY);
         assertFalse(aggregator.isStrategyPaused(USDC_STRATEGY));
     }
 
@@ -154,14 +154,14 @@ contract SuperVaultExecutorForkTest is Test {
         uint256 expiry = block.timestamp + 1 hours;
 
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
         // Warp past expiry
         vm.warp(expiry + 1);
 
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
-        superVaultManager.pauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.pauseStrategy(USDC_STRATEGY);
     }
 
     function test_Fork_PauseStrategy_RevertsUnauthorizedSessionKey() public {
@@ -169,7 +169,7 @@ contract SuperVaultExecutorForkTest is Test {
 
         vm.prank(unauthorized);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
-        superVaultManager.pauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.pauseStrategy(USDC_STRATEGY);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -179,49 +179,49 @@ contract SuperVaultExecutorForkTest is Test {
     function test_Fork_SessionKeyIsolation_AcrossRealStrategies() public {
         // Add SuperVaultExecutor as secondary manager on WETH strategy too
         vm.prank(MAIN_MANAGER);
-        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
+        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
 
         uint256 expiry = block.timestamp + 1 days;
 
         // Grant session key only for USDC strategy
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
         // Session key can pause USDC strategy
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.pauseStrategy(USDC_STRATEGY);
         assertTrue(aggregator.isStrategyPaused(USDC_STRATEGY));
 
         // Session key cannot pause WETH strategy (not authorized for it)
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
-        superVaultManager.pauseStrategy(WETH_STRATEGY);
+        superVaultExecutor.pauseStrategy(WETH_STRATEGY);
 
         // Unpause USDC for cleanup
         vm.prank(sessionKey);
-        superVaultManager.unpauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.unpauseStrategy(USDC_STRATEGY);
     }
 
     function test_Fork_PerStrategySessionKeys() public {
         // Add SuperVaultExecutor on WETH strategy
         vm.prank(MAIN_MANAGER);
-        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
+        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
 
         uint256 expiry = block.timestamp + 1 days;
 
         // Grant different session keys per strategy
         vm.startPrank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
-        superVaultManager.grantSessionKey(WETH_STRATEGY, sessionKey2, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(WETH_STRATEGY, sessionKey2, expiry);
         vm.stopPrank();
 
         // sessionKey works on USDC but not WETH
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
-        assertFalse(superVaultManager.isSessionKeyValid(WETH_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(WETH_STRATEGY, sessionKey));
 
         // sessionKey2 works on WETH but not USDC
-        assertTrue(superVaultManager.isSessionKeyValid(WETH_STRATEGY, sessionKey2));
-        assertFalse(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey2));
+        assertTrue(superVaultExecutor.isSessionKeyValid(WETH_STRATEGY, sessionKey2));
+        assertFalse(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey2));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -231,8 +231,8 @@ contract SuperVaultExecutorForkTest is Test {
     function test_Fork_BatchGrant_MultipleRealStrategies() public {
         // Add to WETH and CBBTC strategies too
         vm.startPrank(MAIN_MANAGER);
-        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
-        aggregator.addSecondaryManager(CBBTC_STRATEGY, address(superVaultManager));
+        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
+        aggregator.addSecondaryManager(CBBTC_STRATEGY, address(superVaultExecutor));
         vm.stopPrank();
 
         address[] memory strategies = new address[](3);
@@ -251,21 +251,21 @@ contract SuperVaultExecutorForkTest is Test {
         expiries[2] = block.timestamp + 3 days;
 
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
+        superVaultExecutor.grantSessionKeysBatch(strategies, keys, expiries);
 
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
-        assertTrue(superVaultManager.isSessionKeyValid(WETH_STRATEGY, sessionKey));
-        assertTrue(superVaultManager.isSessionKeyValid(CBBTC_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(WETH_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(CBBTC_STRATEGY, sessionKey));
     }
 
     function test_Fork_BatchRevoke_MultipleRealStrategies() public {
         // Add to WETH strategy
         vm.startPrank(MAIN_MANAGER);
-        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultManager));
+        aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
 
         // Grant on both
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, block.timestamp + 1 days);
-        superVaultManager.grantSessionKey(WETH_STRATEGY, sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(WETH_STRATEGY, sessionKey, block.timestamp + 1 days);
 
         // Batch revoke
         address[] memory strategies = new address[](2);
@@ -275,11 +275,11 @@ contract SuperVaultExecutorForkTest is Test {
         keys[0] = sessionKey;
         keys[1] = sessionKey;
 
-        superVaultManager.revokeSessionKeysBatch(strategies, keys);
+        superVaultExecutor.revokeSessionKeysBatch(strategies, keys);
         vm.stopPrank();
 
-        assertFalse(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
-        assertFalse(superVaultManager.isSessionKeyValid(WETH_STRATEGY, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(WETH_STRATEGY, sessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -290,19 +290,19 @@ contract SuperVaultExecutorForkTest is Test {
         uint256 expiry = block.timestamp + 30 days;
 
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
         // proposeChangePrimaryManager can only be called by a secondary manager
         // SuperVaultExecutor itself is a secondary manager, so we use it (via prank)
         address newManager = makeAddr("newManager");
         address feeRecipient = makeAddr("feeRecipient");
-        vm.prank(address(superVaultManager));
+        vm.prank(address(superVaultExecutor));
         aggregator.proposeChangePrimaryManager(USDC_STRATEGY, newManager, feeRecipient);
 
         // Session key should still be valid during proposal period
-        assertTrue(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
         // Warp past 7-day timelock
         vm.warp(block.timestamp + 7 days + 1);
@@ -312,18 +312,18 @@ contract SuperVaultExecutorForkTest is Test {
         aggregator.executeChangePrimaryManager(USDC_STRATEGY);
 
         // Session key should now be invalid (grantedByManager no longer primary)
-        assertFalse(superVaultManager.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
 
         // Session key forwarding should revert
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
-        superVaultManager.pauseStrategy(USDC_STRATEGY);
+        superVaultExecutor.pauseStrategy(USDC_STRATEGY);
 
         // Restore the original manager: a secondary manager proposes, original manager accepts
-        // First add superVaultManager as secondary on the now-newManager-owned strategy
+        // First add superVaultExecutor as secondary on the now-newManager-owned strategy
         vm.prank(newManager);
-        aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultManager));
-        vm.prank(address(superVaultManager));
+        aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultExecutor));
+        vm.prank(address(superVaultExecutor));
         aggregator.proposeChangePrimaryManager(USDC_STRATEGY, MAIN_MANAGER, feeRecipient);
         vm.warp(block.timestamp + 7 days + 1);
         vm.prank(MAIN_MANAGER);
@@ -356,10 +356,10 @@ contract SuperVaultExecutorForkTest is Test {
         uint256 expiry = block.timestamp + 1 days;
 
         vm.prank(MAIN_MANAGER);
-        superVaultManager.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(USDC_STRATEGY, sessionKey, expiry);
 
         // skimPerformanceFee should not revert (even if there's nothing to skim)
         vm.prank(sessionKey);
-        superVaultManager.skimPerformanceFee(USDC_STRATEGY);
+        superVaultExecutor.skimPerformanceFee(USDC_STRATEGY);
     }
 }

@@ -28,7 +28,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     SuperVaultAggregator internal superVaultAggregator;
     SuperVault internal vault;
     SuperVaultStrategy internal strategy;
-    SuperVaultExecutor internal superVaultManager;
+    SuperVaultExecutor internal superVaultExecutor;
     MockERC20 internal asset;
     MockSuperHook internal mockHook;
     MockHookTarget internal mockTarget;
@@ -101,11 +101,11 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         strategy = SuperVaultStrategy(payable(strategyAddress));
 
         // Deploy SuperVaultExecutor
-        superVaultManager = new SuperVaultExecutor(address(superGovernor), admin);
+        superVaultExecutor = new SuperVaultExecutor(address(superGovernor), admin);
 
         // Add SuperVaultExecutor as secondary manager
         vm.prank(manager);
-        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
+        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultExecutor));
 
         // Deploy mock hook infrastructure
         mockTarget = new MockHookTarget();
@@ -139,7 +139,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     /// @dev Grants a session key for the strategy
     function _grantKey(address key, uint256 duration) internal {
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), key, block.timestamp + duration);
+        superVaultExecutor.grantSessionKey(address(strategy), key, block.timestamp + duration);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -182,7 +182,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         // Execute through session key — this is the full path:
         // sessionKey -> SuperVaultExecutor.executeHooks -> strategy.executeHooks
         vm.prank(sessionKey);
-        superVaultManager.executeHooks(address(strategy), args);
+        superVaultExecutor.executeHooks(address(strategy), args);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -213,7 +213,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         controllers[0] = user;
 
         vm.prank(sessionKey);
-        superVaultManager.fulfillCancelRedeemRequests(address(strategy), controllers);
+        superVaultExecutor.fulfillCancelRedeemRequests(address(strategy), controllers);
 
         // Verify the cancel request was fulfilled
         assertTrue(strategy.pendingCancelRedeemRequest(user));
@@ -231,12 +231,12 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Pause through session key
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
 
         // Unpause through session key
         vm.prank(sessionKey);
-        superVaultManager.unpauseStrategy(address(strategy));
+        superVaultExecutor.unpauseStrategy(address(strategy));
         assertFalse(superVaultAggregator.isStrategyPaused(address(strategy)));
     }
 
@@ -249,16 +249,16 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         _grantKey(sessionKey, 1 days);
 
         // Session key works initially
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Pause through session key to prove it works
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
 
         // Unpause first to reset state
         vm.prank(sessionKey);
-        superVaultManager.unpauseStrategy(address(strategy));
+        superVaultExecutor.unpauseStrategy(address(strategy));
 
         // SuperGovernor changes primary manager
         address newManager = makeAddr("newManager");
@@ -266,28 +266,28 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superGovernor.changePrimaryManager(address(strategy), newManager, newManager);
 
         // Session key is now invalidated
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // All forwarding functions revert with PRIMARY_MANAGER_CHANGED
         ISuperVaultStrategy.ExecuteArgs memory args;
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
-        superVaultManager.executeHooks(address(strategy), args);
+        superVaultExecutor.executeHooks(address(strategy), args);
 
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.PRIMARY_MANAGER_CHANGED.selector);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
 
         // New manager can grant new session keys
         // First add SuperVaultExecutor as secondary manager under new manager
         vm.prank(newManager);
-        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
+        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultExecutor));
 
         address newSessionKey = makeAddr("newSessionKey");
         vm.prank(newManager);
-        superVaultManager.grantSessionKey(address(strategy), newSessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), newSessionKey, block.timestamp + 1 days);
 
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), newSessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), newSessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -303,7 +303,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Grant session key
         _grantKey(sessionKey, 7 days);
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Secondary manager proposes primary change
         address newManager = makeAddr("proposedNewManager");
@@ -311,7 +311,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superVaultAggregator.proposeChangePrimaryManager(address(strategy), newManager, newManager);
 
         // Session key still valid during proposal period
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Fast forward past timelock (7 days for manager change)
         vm.warp(block.timestamp + 7 days + 1);
@@ -320,7 +320,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superVaultAggregator.executeChangePrimaryManager(address(strategy));
 
         // Now session key is invalidated
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -334,38 +334,38 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         address key3 = makeAddr("key3");
 
         vm.startPrank(manager);
-        superVaultManager.grantSessionKey(address(strategy), key1, block.timestamp + 1 days);
-        superVaultManager.grantSessionKey(address(strategy), key2, block.timestamp + 1 days);
-        superVaultManager.grantSessionKey(address(strategy), key3, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), key1, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), key2, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), key3, block.timestamp + 1 days);
         vm.stopPrank();
 
         // All three are valid
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), key1));
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), key2));
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), key3));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), key1));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), key2));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), key3));
 
         // Revoke key2 only
         vm.prank(manager);
-        superVaultManager.revokeSessionKey(address(strategy), key2);
+        superVaultExecutor.revokeSessionKey(address(strategy), key2);
 
         // key1 and key3 still valid, key2 is not
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), key1));
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), key2));
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), key3));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), key1));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), key2));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), key3));
 
         // key1 can still pause
         vm.prank(key1);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
 
         // key2 cannot
         vm.prank(key2);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
-        superVaultManager.unpauseStrategy(address(strategy));
+        superVaultExecutor.unpauseStrategy(address(strategy));
 
         // key3 can unpause
         vm.prank(key3);
-        superVaultManager.unpauseStrategy(address(strategy));
+        superVaultExecutor.unpauseStrategy(address(strategy));
         assertFalse(superVaultAggregator.isStrategyPaused(address(strategy)));
     }
 
@@ -377,30 +377,30 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     function test_E2E_SessionKeyExpiry_DuringActiveUse() public {
         uint256 expiry = block.timestamp + 1 hours;
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, expiry);
 
         // Works before expiry
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
 
         vm.prank(sessionKey);
-        superVaultManager.unpauseStrategy(address(strategy));
+        superVaultExecutor.unpauseStrategy(address(strategy));
 
         // Warp to exactly at expiry — should still revert (> check in _validateSessionKey)
         vm.warp(expiry + 1);
 
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
 
         // Manager can re-grant with new expiry
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
 
         // Works again
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
     }
 
@@ -429,23 +429,23 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Add SuperVaultExecutor as secondary to both
         vm.startPrank(manager);
-        superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultManager));
+        superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultExecutor));
 
         // Grant session key ONLY for strategy1
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
         vm.stopPrank();
 
         // Can operate on strategy1
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
 
         // Cannot operate on strategy2
-        assertFalse(superVaultManager.isSessionKeyValid(strategy2Address, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(strategy2Address, sessionKey));
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_NOT_AUTHORIZED.selector);
-        superVaultManager.pauseStrategy(strategy2Address);
+        superVaultExecutor.pauseStrategy(strategy2Address);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -473,7 +473,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Add SuperVaultExecutor as secondary to both
         vm.startPrank(manager);
-        superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultManager));
+        superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultExecutor));
 
         // Batch grant: same key for both strategies
         address[] memory strategies = new address[](2);
@@ -486,29 +486,29 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         expiries[0] = block.timestamp + 1 days;
         expiries[1] = block.timestamp + 1 days;
 
-        superVaultManager.grantSessionKeysBatch(strategies, keys, expiries);
+        superVaultExecutor.grantSessionKeysBatch(strategies, keys, expiries);
         vm.stopPrank();
 
         // Both valid
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
-        assertTrue(superVaultManager.isSessionKeyValid(strategy2Address, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(strategy2Address, sessionKey));
 
         // Can operate on both
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(strategy2Address);
+        superVaultExecutor.pauseStrategy(strategy2Address);
 
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
         assertTrue(superVaultAggregator.isStrategyPaused(strategy2Address));
 
         // Batch revoke
         vm.prank(manager);
-        superVaultManager.revokeSessionKeysBatch(strategies, keys);
+        superVaultExecutor.revokeSessionKeysBatch(strategies, keys);
 
         // Both invalidated
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
-        assertFalse(superVaultManager.isSessionKeyValid(strategy2Address, sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(strategy2Address, sessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -547,7 +547,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         vm.deal(sessionKey, 1 ether);
         vm.prank(sessionKey);
-        superVaultManager.executeHooks{ value: 0.5 ether }(address(strategy), args);
+        superVaultExecutor.executeHooks{ value: 0.5 ether }(address(strategy), args);
 
         assertEq(address(strategy).balance, 0.5 ether);
     }
@@ -560,14 +560,14 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         ISuperVaultStrategy.ExecuteArgs memory args = _buildExecuteArgs();
 
         // Simulate stray ETH in the manager
-        vm.deal(address(superVaultManager), 1 ether);
+        vm.deal(address(superVaultExecutor), 1 ether);
 
         uint256 balanceBefore = sessionKey.balance;
         vm.prank(sessionKey);
-        superVaultManager.executeHooks(address(strategy), args);
+        superVaultExecutor.executeHooks(address(strategy), args);
 
         // Stray ETH should remain in the manager (balance-delta tracking)
-        assertEq(address(superVaultManager).balance, 1 ether);
+        assertEq(address(superVaultExecutor).balance, 1 ether);
         assertEq(sessionKey.balance, balanceBefore);
     }
 
@@ -605,7 +605,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         returns (MockSuperHook refundHook, bytes memory refundHookCalldata)
     {
         // Deploy a target that sends its ETH balance to the SuperVaultExecutor when called
-        ETHRefunderTarget refunderTarget = new ETHRefunderTarget(address(superVaultManager));
+        ETHRefunderTarget refunderTarget = new ETHRefunderTarget(address(superVaultExecutor));
         vm.deal(address(refunderTarget), 1 ether);
 
         // Deploy a hook pointing to the refunder target
@@ -634,7 +634,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         vm.prank(sessionKey);
         vm.expectEmit(true, false, false, true);
         emit ISuperVaultExecutor.ETHRefunded(sessionKey, 1 ether);
-        superVaultManager.executeHooks(address(strategy), args);
+        superVaultExecutor.executeHooks(address(strategy), args);
 
         // Refunder's ETH was sent to manager during hook execution, then refunded to caller
         assertEq(sessionKey.balance, callerBalanceBefore + 1 ether);
@@ -647,13 +647,13 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         // Use a contract that rejects ETH as the session key
         ETHRejecter rejecter = new ETHRejecter();
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), address(rejecter), block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), address(rejecter), block.timestamp + 1 days);
 
         ISuperVaultStrategy.ExecuteArgs memory args = _buildExecuteArgsFor(address(refundHook), refundHookCalldata);
 
         vm.prank(address(rejecter));
-        vm.expectRevert(ISuperVaultExecutor.ETH_REFUND_FAILED.selector);
-        superVaultManager.executeHooks(address(strategy), args);
+        vm.expectRevert(ISuperVaultExecutor.ETH_TRANSFER_FAILED.selector);
+        superVaultExecutor.executeHooks(address(strategy), args);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -681,16 +681,16 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Grant session key for the fresh strategy
         vm.prank(manager);
-        superVaultManager.grantSessionKey(freshStrategy, sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(freshStrategy, sessionKey, block.timestamp + 1 days);
 
         // Session key validation passes (key is valid)
-        assertTrue(superVaultManager.isSessionKeyValid(freshStrategy, sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(freshStrategy, sessionKey));
 
         // But actual forwarding reverts because SuperVaultExecutor is not a secondary manager on the strategy
         // pauseStrategy goes through the aggregator which checks UNAUTHORIZED_UPDATE_AUTHORITY
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
-        superVaultManager.pauseStrategy(freshStrategy);
+        superVaultExecutor.pauseStrategy(freshStrategy);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -700,7 +700,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     /// @notice Full e2e: grant key -> manager changes A->B -> B invalidates all -> B->A -> old key stays dead
     function test_E2E_GenerationCounter_PreventsZombieKeys() public {
         _grantKey(sessionKey, 7 days);
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Manager changes A -> B
         address newManager = makeAddr("newManager");
@@ -708,12 +708,12 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superGovernor.changePrimaryManager(address(strategy), newManager, newManager);
 
         // Key is invalid (PRIMARY_MANAGER_CHANGED)
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // New manager B adds SuperVaultExecutor as secondary and bumps generation
         vm.startPrank(newManager);
-        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
-        superVaultManager.invalidateAllSessionKeys(address(strategy));
+        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultExecutor));
+        superVaultExecutor.invalidateAllSessionKeys(address(strategy));
         vm.stopPrank();
 
         // Manager reverts B -> A
@@ -722,15 +722,15 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Without generation counter, old key would reactivate here.
         // With generation counter, it stays dead.
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Manager A must re-add secondary and explicitly re-grant
         vm.startPrank(manager);
-        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultManager));
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultExecutor));
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
         vm.stopPrank();
 
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -740,16 +740,16 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     /// @notice Full e2e: ETH gets stuck -> admin sweeps it to treasury
     function test_E2E_SweepETH_RecoversStuckFunds() public {
         // Simulate stuck ETH from accidental sends
-        vm.deal(address(superVaultManager), 3 ether);
-        assertEq(address(superVaultManager).balance, 3 ether);
+        vm.deal(address(superVaultExecutor), 3 ether);
+        assertEq(address(superVaultExecutor).balance, 3 ether);
 
         uint256 treasuryBefore = treasury.balance;
 
         // Admin sweeps to treasury
         vm.prank(admin);
-        superVaultManager.sweepETH(treasury);
+        superVaultExecutor.sweepETH(treasury);
 
-        assertEq(address(superVaultManager).balance, 0);
+        assertEq(address(superVaultExecutor).balance, 0);
         assertEq(treasury.balance, treasuryBefore + 3 ether);
     }
 
@@ -761,27 +761,27 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     function test_E2E_ReGrantAfterExpiry() public {
         // Grant with short expiry
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
 
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Expire the key
         vm.warp(block.timestamp + 1 hours + 1);
-        assertFalse(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        assertFalse(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Can't use it
         vm.prank(sessionKey);
         vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_EXPIRED.selector);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
 
         // Re-grant
         vm.prank(manager);
-        superVaultManager.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
-        assertTrue(superVaultManager.isSessionKeyValid(address(strategy), sessionKey));
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Works again
         vm.prank(sessionKey);
-        superVaultManager.pauseStrategy(address(strategy));
+        superVaultExecutor.pauseStrategy(address(strategy));
         assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
     }
 }
