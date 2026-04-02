@@ -51,7 +51,7 @@ ENVIRONMENT=""
 # Network configuration will be sourced after environment is determined
 
 # Allowed periphery contracts to merge
-ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank")
+ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "MorphoBorrowCostOracle" "MorphoLendYieldSourceOracle")
 
 ###################################################################################
 # Helper Functions

@@ -60,8 +60,13 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
     address public ytNew;
 
     function setUp() public override {
-        // Fork mainnet at current block
-        blockNumber = 0;
+        // Fork mainnet BEFORE the old market expiry (Jan 29, 2026) but AFTER the new market deployment.
+        // Block 24320000 = Jan 26, 2026 — 3 days before old expiry, both markets exist.
+        // Required because:
+        //   1. deal() on YT tokens doesn't initialize Pendle's internal interest tracking (causes panic 0x11)
+        //   2. mintPyFromToken reverts with YCExpired() after maturity
+        // So we fork pre-expiry, mint PT+YT properly, then vm.warp past expiry for the test.
+        blockNumber = 24_320_000;
         super.setUp();
 
         // Deploy PendleUnifiedHook with real Pendle Router
@@ -84,14 +89,39 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
 
     /// @notice Test step 1 of migration: Redeem from expired market to get DETH directly
     /// @dev This demonstrates that DETH (not WETH) is received from post-maturity redemption
+    /// @dev NOTE: We mint PT+YT via the Pendle Router instead of using deal() because deal()
+    ///      doesn't initialize Pendle's internal interest tracking state on YT tokens, causing
+    ///      arithmetic underflow during redemption.
     function test_RedeemFromExpiredMarket_GetsDETH() public {
-        // Setup: Deal PT and YT from OLD market to account
-        uint256 redeemAmount = 10e18; // 10 PT+YT
-        deal(ptOld, accountEth, redeemAmount);
-        deal(ytOld, accountEth, redeemAmount);
+        // Setup: Properly mint PT+YT by depositing DETH via Pendle Router
+        // (deal() on YT tokens causes panic(0x11) because internal interest indices are uninitialized)
+        uint256 dethAmount = 10e18;
+        deal(DETH, accountEth, dethAmount);
 
-        assertEq(IERC20(ptOld).balanceOf(accountEth), redeemAmount, "PT not dealt");
-        assertEq(IERC20(ytOld).balanceOf(accountEth), redeemAmount, "YT not dealt");
+        vm.startPrank(accountEth);
+        IERC20(DETH).approve(CHAIN_1_PENDLE_ROUTER, dethAmount);
+
+        TokenInput memory input = TokenInput({
+            tokenIn: DETH,
+            netTokenIn: dethAmount,
+            tokenMintSy: DETH,
+            pendleSwap: address(0),
+            swapData: SwapData({ swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false })
+        });
+
+        (uint256 netPyOut,) = IPendleRouterV4(CHAIN_1_PENDLE_ROUTER).mintPyFromToken(
+            accountEth, // receiver
+            ytOld, // YT address
+            0, // minPyOut
+            input
+        );
+        vm.stopPrank();
+
+        uint256 redeemAmount = netPyOut;
+        assertGt(redeemAmount, 0, "Should have minted PT+YT");
+        assertEq(IERC20(ptOld).balanceOf(accountEth), redeemAmount, "PT balance mismatch");
+        assertEq(IERC20(ytOld).balanceOf(accountEth), redeemAmount, "YT balance mismatch");
+        console2.log("Minted PT+YT amount:", redeemAmount);
 
         // Record initial balances
         uint256 dethBalanceBefore = IERC20(DETH).balanceOf(accountEth);
