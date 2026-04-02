@@ -58,6 +58,9 @@ jobs:
       - name: "Install yarn"
         run: npm install -g yarn
 
+      - name: "Clean yarn cache"
+        run: yarn cache clean
+
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
@@ -115,6 +118,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: yarn cache clean
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -174,6 +180,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: yarn cache clean
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -244,6 +253,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: yarn cache clean
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -340,6 +352,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: yarn cache clean
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
