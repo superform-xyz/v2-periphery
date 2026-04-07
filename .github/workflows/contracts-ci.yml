@@ -69,6 +69,9 @@ jobs:
       - name: Print ulimits
         run: ulimit -Sa && ulimit -Ha
 
+      - name: "Clean yarn cache"
+        run: yarn cache clean
+
       - name: Install Dependencies
         run: yarn install
 
