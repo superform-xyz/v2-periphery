@@ -9,13 +9,27 @@ import { ISuperVaultStrategy } from "./ISuperVaultStrategy.sol";
 /// @notice Interface for SuperVaultExecutor - time-bounded delegation of secondary manager functions
 interface ISuperVaultExecutor {
     /*//////////////////////////////////////////////////////////////
+                                ENUMS
+    //////////////////////////////////////////////////////////////*/
+
+    enum Permission {
+        ExecuteHooks, // 0
+        FulfillCancelRedeem, // 1
+        FulfillRedeem, // 2
+        SkimFee, // 3
+        Pause, // 4
+        Unpause // 5
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
     struct SessionKeyData {
-        uint256 expiry; // 0 = not authorized
-        address grantedByManager; // primary manager at grant time
-        uint96 generation; // strategy generation at grant time (packed with grantedByManager)
+        uint256 expiry; // slot 0 (32 bytes)
+        address grantedByManager; // slot 1 (20 bytes)
+        uint88 generation; // slot 1 (11 bytes) — was uint96
+        uint8 permissions; // slot 1 (1 byte) — bitmask of allowed functions
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -30,10 +44,12 @@ interface ISuperVaultExecutor {
     error SESSION_KEY_NOT_AUTHORIZED();
     error SESSION_KEY_EXPIRED();
     error SESSION_KEY_GENERATION_MISMATCH();
+    error SESSION_KEY_PERMISSION_DENIED();
     error PRIMARY_MANAGER_CHANGED();
     error ETH_TRANSFER_FAILED();
     error EMPTY_ARRAY();
     error BATCH_SIZE_EXCEEDED();
+    error ZERO_PERMISSIONS();
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -45,12 +61,14 @@ interface ISuperVaultExecutor {
     /// @param expiry The expiry timestamp
     /// @param grantedByManager The primary manager who granted the key
     /// @param generation The strategy generation at grant time
+    /// @param permissions The bitmask of allowed permissions
     event SessionKeyGranted(
         address indexed strategy,
         address indexed sessionKey,
         uint256 expiry,
         address indexed grantedByManager,
-        uint256 generation
+        uint256 generation,
+        uint8 permissions
     );
 
     /// @notice Emitted when a session key is revoked for a strategy
@@ -77,20 +95,29 @@ interface ISuperVaultExecutor {
                         SESSION KEY MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Grants a session key for a strategy
+    /// @notice Grants a session key for a strategy with specific permissions
     /// @param strategy The strategy address
     /// @param sessionKey The session key address to authorize
     /// @param expiry The expiry timestamp for the session key. Can be type(uint256).max for a key that never expires.
-    function grantSessionKey(address strategy, address sessionKey, uint256 expiry) external;
+    /// @param permissions The permissions to grant to the session key
+    function grantSessionKey(
+        address strategy,
+        address sessionKey,
+        uint256 expiry,
+        Permission[] calldata permissions
+    )
+        external;
 
-    /// @notice Batch grants session keys for multiple strategies
+    /// @notice Batch grants session keys for multiple strategies with specific permissions
     /// @param strategies The strategy addresses
     /// @param sessionKeys The session key addresses to authorize
     /// @param expiries The expiry timestamps for each session key
+    /// @param permissions The permissions to grant to each session key
     function grantSessionKeysBatch(
         address[] calldata strategies,
         address[] calldata sessionKeys,
-        uint256[] calldata expiries
+        uint256[] calldata expiries,
+        Permission[][] calldata permissions
     )
         external;
 
@@ -175,22 +202,43 @@ interface ISuperVaultExecutor {
     /// @return True if the session key is valid (not expired, correct generation, granting manager is still primary)
     function isSessionKeyValid(address strategy, address sessionKey) external view returns (bool);
 
+    /// @notice Checks if a session key is valid and has a specific permission
+    /// @param strategy The strategy address
+    /// @param sessionKey The session key address
+    /// @param permission The permission to check
+    /// @return True if the session key is valid and has the specified permission
+    function isSessionKeyValidForPermission(
+        address strategy,
+        address sessionKey,
+        Permission permission
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Gets the permission bitmask for a session key
+    /// @param strategy The strategy address
+    /// @param sessionKey The session key address
+    /// @return The permission bitmask
+    function getSessionKeyPermissions(address strategy, address sessionKey) external view returns (uint8);
+
     /// @notice Gets the session key data for a strategy
     /// @param strategy The strategy address
     /// @param sessionKey The session key address
     /// @return expiry The expiry timestamp
     /// @return grantedByManager The primary manager who granted the key
     /// @return generation The strategy generation at grant time
+    /// @return permissions The permission bitmask
     function getSessionKeyData(
         address strategy,
         address sessionKey
     )
         external
         view
-        returns (uint256 expiry, address grantedByManager, uint96 generation);
+        returns (uint256 expiry, address grantedByManager, uint88 generation, uint8 permissions);
 
     /// @notice Gets the current generation counter for a strategy
     /// @param strategy The strategy address
     /// @return The current generation counter
-    function getStrategyGeneration(address strategy) external view returns (uint96);
+    function getStrategyGeneration(address strategy) external view returns (uint88);
 }

@@ -38,7 +38,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     mapping(address => mapping(address => SessionKeyData)) private _sessionKeys;
 
     /// @dev strategy => generation counter (incremented to invalidate all session keys)
-    mapping(address => uint96) private _strategyGeneration;
+    mapping(address => uint88) private _strategyGeneration;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -76,28 +76,38 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     ///      to prevent stale key revival.
 
     /// @inheritdoc ISuperVaultExecutor
-    function grantSessionKey(address strategy, address sessionKey, uint256 expiry) external {
+    function grantSessionKey(
+        address strategy,
+        address sessionKey,
+        uint256 expiry,
+        Permission[] calldata permissions
+    )
+        external
+    {
         _validatePrimaryManager(strategy);
-        _grantSessionKey(strategy, sessionKey, expiry);
+        _grantSessionKey(strategy, sessionKey, expiry, _permissionsToMask(permissions));
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function grantSessionKeysBatch(
         address[] calldata strategies,
         address[] calldata sessionKeys,
-        uint256[] calldata expiries
+        uint256[] calldata expiries,
+        Permission[][] calldata permissions
     )
         external
     {
         uint256 len = strategies.length;
         if (len == 0) revert EMPTY_ARRAY();
         if (len > MAX_BATCH_SIZE) revert BATCH_SIZE_EXCEEDED();
-        if (len != sessionKeys.length || len != expiries.length) revert ARRAY_LENGTH_MISMATCH();
+        if (len != sessionKeys.length || len != expiries.length || len != permissions.length) {
+            revert ARRAY_LENGTH_MISMATCH();
+        }
 
         ISuperVaultAggregator aggregator = _getAggregator();
         for (uint256 i; i < len; ++i) {
             _validatePrimaryManager(strategies[i], aggregator);
-            _grantSessionKey(strategies[i], sessionKeys[i], expiries[i]);
+            _grantSessionKey(strategies[i], sessionKeys[i], expiries[i], _permissionsToMask(permissions[i]));
         }
     }
 
@@ -124,7 +134,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /// @inheritdoc ISuperVaultExecutor
     function invalidateAllSessionKeys(address strategy) external {
         _validatePrimaryManager(strategy);
-        uint96 newGeneration = ++_strategyGeneration[strategy];
+        uint88 newGeneration = ++_strategyGeneration[strategy];
         emit AllSessionKeysInvalidated(strategy, newGeneration);
     }
 
@@ -141,7 +151,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         payable
         nonReentrant
     {
-        _validateSessionKey(strategy);
+        _validateSessionKey(strategy, uint8(1 << uint8(Permission.ExecuteHooks)));
 
         // Track only the caller's overpayment, not stray ETH from other sources
         uint256 balanceBefore = address(this).balance - msg.value;
@@ -161,7 +171,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
 
     /// @inheritdoc ISuperVaultExecutor
     function fulfillCancelRedeemRequests(address strategy, address[] calldata controllers) external nonReentrant {
-        _validateSessionKey(strategy);
+        _validateSessionKey(strategy, uint8(1 << uint8(Permission.FulfillCancelRedeem)));
         ISuperVaultStrategy(strategy).fulfillCancelRedeemRequests(controllers);
     }
 
@@ -174,27 +184,27 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         external
         nonReentrant
     {
-        _validateSessionKey(strategy);
+        _validateSessionKey(strategy, uint8(1 << uint8(Permission.FulfillRedeem)));
         ISuperVaultStrategy(strategy).fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function skimPerformanceFee(address strategy) external nonReentrant {
-        _validateSessionKey(strategy);
+        _validateSessionKey(strategy, uint8(1 << uint8(Permission.SkimFee)));
         ISuperVaultStrategy(strategy).skimPerformanceFee();
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function pauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
-        _validateSessionKey(strategy, aggregator);
+        _validateSessionKey(strategy, aggregator, uint8(1 << uint8(Permission.Pause)));
         aggregator.pauseStrategy(strategy);
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function unpauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
-        _validateSessionKey(strategy, aggregator);
+        _validateSessionKey(strategy, aggregator, uint8(1 << uint8(Permission.Unpause)));
         aggregator.unpauseStrategy(strategy);
     }
 
@@ -207,10 +217,10 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (to == address(0)) revert ZERO_ADDRESS();
         uint256 bal = address(this).balance;
         if (bal > 0) {
-            // Use assembly to prevent return bomb attack; cap gas to prevent griefing via fallback
+            // Use assembly to prevent return bomb attack; cap gas to accommodate multisig wallets
             bool success;
             assembly {
-                success := call(50000, to, bal, 0, 0, 0, 0)
+                success := call(100000, to, bal, 0, 0, 0, 0)
             }
             if (!success) revert ETH_TRANSFER_FAILED();
             emit ETHSwept(to, bal);
@@ -230,26 +240,59 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     }
 
     /// @inheritdoc ISuperVaultExecutor
+    function isSessionKeyValidForPermission(
+        address strategy,
+        address sessionKey,
+        Permission permission
+    )
+        external
+        view
+        returns (bool)
+    {
+        SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
+        if (data.expiry == 0 || block.timestamp > data.expiry) return false;
+        if (data.generation != _strategyGeneration[strategy]) return false;
+        if ((data.permissions & uint8(1 << uint8(permission))) == 0) return false;
+        return _getAggregator().isMainManager(data.grantedByManager, strategy);
+    }
+
+    /// @inheritdoc ISuperVaultExecutor
+    function getSessionKeyPermissions(address strategy, address sessionKey) external view returns (uint8) {
+        return _sessionKeys[strategy][sessionKey].permissions;
+    }
+
+    /// @inheritdoc ISuperVaultExecutor
     function getSessionKeyData(
         address strategy,
         address sessionKey
     )
         external
         view
-        returns (uint256 expiry, address grantedByManager, uint96 generation)
+        returns (uint256 expiry, address grantedByManager, uint88 generation, uint8 permissions)
     {
         SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
-        return (data.expiry, data.grantedByManager, data.generation);
+        return (data.expiry, data.grantedByManager, data.generation, data.permissions);
     }
 
     /// @inheritdoc ISuperVaultExecutor
-    function getStrategyGeneration(address strategy) external view returns (uint96) {
+    function getStrategyGeneration(address strategy) external view returns (uint88) {
         return _strategyGeneration[strategy];
     }
 
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev Converts a Permission[] array to a uint8 bitmask
+    /// @param permissions The permissions to convert
+    /// @return mask The resulting bitmask
+    function _permissionsToMask(Permission[] calldata permissions) internal pure returns (uint8 mask) {
+        uint256 len = permissions.length;
+        if (len == 0) revert ZERO_PERMISSIONS();
+        for (uint256 i; i < len; ++i) {
+            mask |= uint8(1 << uint8(permissions[i]));
+        }
+    }
 
     /// @dev Validates that msg.sender is the primary manager of the given strategy
     /// @dev Note: this implicitly validates that `strategy` is a known strategy address —
@@ -270,18 +313,27 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         }
     }
 
-    /// @dev Validates that msg.sender holds a valid session key for the given strategy
+    /// @dev Validates that msg.sender holds a valid session key with the required permission
     /// @dev Note: this implicitly validates strategy validity — a session key can only exist for a strategy
     ///      if a primary manager previously granted it via _validatePrimaryManager.
     /// @param strategy The strategy address to validate against
-    function _validateSessionKey(address strategy) internal view {
-        _validateSessionKey(strategy, _getAggregator());
+    /// @param requiredPermission The permission bit required for this function
+    function _validateSessionKey(address strategy, uint8 requiredPermission) internal view {
+        _validateSessionKey(strategy, _getAggregator(), requiredPermission);
     }
 
     /// @dev Overload with pre-cached aggregator for gas-efficient single-item operations
     /// @param strategy The strategy address to validate against
     /// @param aggregator The pre-cached aggregator instance
-    function _validateSessionKey(address strategy, ISuperVaultAggregator aggregator) internal view {
+    /// @param requiredPermission The permission bit required for this function
+    function _validateSessionKey(
+        address strategy,
+        ISuperVaultAggregator aggregator,
+        uint8 requiredPermission
+    )
+        internal
+        view
+    {
         SessionKeyData storage data = _sessionKeys[strategy][msg.sender];
         if (data.expiry == 0) revert SESSION_KEY_NOT_AUTHORIZED();
         if (block.timestamp > data.expiry) revert SESSION_KEY_EXPIRED();
@@ -289,22 +341,28 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (!aggregator.isMainManager(data.grantedByManager, strategy)) {
             revert PRIMARY_MANAGER_CHANGED();
         }
+        if ((data.permissions & requiredPermission) == 0) revert SESSION_KEY_PERMISSION_DENIED();
     }
 
-    /// @dev Grants a session key for a strategy at the current generation
+    /// @dev Grants a session key for a strategy at the current generation with specified permissions
     /// @param strategy The strategy address
     /// @param sessionKey The session key address to authorize
     /// @param expiry The expiry timestamp for the session key. Can be type(uint256).max for a key that never expires.
-    function _grantSessionKey(address strategy, address sessionKey, uint256 expiry) internal {
+    /// @param permissions The permission bitmask
+    function _grantSessionKey(address strategy, address sessionKey, uint256 expiry, uint8 permissions) internal {
         if (sessionKey == address(0)) revert ZERO_ADDRESS();
         if (expiry == 0) revert ZERO_EXPIRY();
         if (expiry <= block.timestamp) revert EXPIRY_IN_PAST();
 
-        uint96 generation = _strategyGeneration[strategy];
-        _sessionKeys[strategy][sessionKey] =
-            SessionKeyData({ expiry: expiry, grantedByManager: msg.sender, generation: generation });
+        uint88 generation = _strategyGeneration[strategy];
+        _sessionKeys[strategy][sessionKey] = SessionKeyData({
+            expiry: expiry,
+            grantedByManager: msg.sender,
+            generation: generation,
+            permissions: permissions
+        });
 
-        emit SessionKeyGranted(strategy, sessionKey, expiry, msg.sender, generation);
+        emit SessionKeyGranted(strategy, sessionKey, expiry, msg.sender, generation, permissions);
     }
 
     /// @dev Revokes a session key for a strategy (reverts if key was never granted)
