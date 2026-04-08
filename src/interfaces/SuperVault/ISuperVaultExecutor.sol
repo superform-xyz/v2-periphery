@@ -79,7 +79,7 @@ interface ISuperVaultExecutor {
     /// @notice Emitted when all session keys for a strategy are invalidated via generation bump
     /// @param strategy The strategy address
     /// @param newGeneration The new generation counter value
-    event AllSessionKeysInvalidated(address indexed strategy, uint256 newGeneration);
+    event AllSessionKeysInvalidated(address indexed strategy, uint88 newGeneration);
 
     /// @notice Emitted when leftover ETH is refunded to the caller after executeHooks
     /// @param recipient The address receiving the refund
@@ -216,7 +216,9 @@ interface ISuperVaultExecutor {
         view
         returns (bool);
 
-    /// @notice Gets the permission bitmask for a session key
+    /// @notice Returns the raw permission bitmask from storage without validity checks.
+    /// @dev This does NOT check expiry, generation, or whether the key was ever granted.
+    /// Do not use for access-control decisions; use isSessionKeyValidForPermission instead.
     /// @param strategy The strategy address
     /// @param sessionKey The session key address
     /// @return The permission bitmask

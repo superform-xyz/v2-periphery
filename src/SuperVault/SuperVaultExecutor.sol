@@ -338,10 +338,10 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (data.expiry == 0) revert SESSION_KEY_NOT_AUTHORIZED();
         if (block.timestamp > data.expiry) revert SESSION_KEY_EXPIRED();
         if (data.generation != _strategyGeneration[strategy]) revert SESSION_KEY_GENERATION_MISMATCH();
+        if ((data.permissions & requiredPermission) == 0) revert SESSION_KEY_PERMISSION_DENIED();
         if (!aggregator.isMainManager(data.grantedByManager, strategy)) {
             revert PRIMARY_MANAGER_CHANGED();
         }
-        if ((data.permissions & requiredPermission) == 0) revert SESSION_KEY_PERMISSION_DENIED();
     }
 
     /// @dev Grants a session key for a strategy at the current generation with specified permissions

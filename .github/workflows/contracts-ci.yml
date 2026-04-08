@@ -70,7 +70,7 @@ jobs:
         run: ulimit -Sa && ulimit -Ha
 
       - name: "Clean yarn cache"
-        run: rm -rf $(yarn cache dir)
+        run: rm -rf "$(yarn cache dir)"
 
       - name: Install Dependencies
         run: yarn install
@@ -120,7 +120,7 @@ jobs:
         run: npm install -g yarn
 
       - name: "Clean yarn cache"
-        run: rm -rf $(yarn cache dir)
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -182,7 +182,7 @@ jobs:
         run: npm install -g yarn
 
       - name: "Clean yarn cache"
-        run: rm -rf $(yarn cache dir)
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -255,7 +255,7 @@ jobs:
         run: npm install -g yarn
 
       - name: "Clean yarn cache"
-        run: rm -rf $(yarn cache dir)
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -354,7 +354,7 @@ jobs:
         run: npm install -g yarn
 
       - name: "Clean yarn cache"
-        run: rm -rf $(yarn cache dir)
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
