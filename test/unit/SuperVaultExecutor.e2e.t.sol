@@ -46,6 +46,17 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
     uint256 internal constant HOOKS_ROOT_TIMELOCK = 15 minutes;
 
+    /// @dev All 6 permissions
+    function _permAll() internal pure returns (ISuperVaultExecutor.Permission[] memory perms) {
+        perms = new ISuperVaultExecutor.Permission[](6);
+        perms[0] = ISuperVaultExecutor.Permission.ExecuteHooks;
+        perms[1] = ISuperVaultExecutor.Permission.FulfillCancelRedeem;
+        perms[2] = ISuperVaultExecutor.Permission.FulfillRedeem;
+        perms[3] = ISuperVaultExecutor.Permission.SkimFee;
+        perms[4] = ISuperVaultExecutor.Permission.Pause;
+        perms[5] = ISuperVaultExecutor.Permission.Unpause;
+    }
+
     /// @dev Builds hookCalldata with 32-byte oracle ID + 20-byte yield source (minimum for HookDataDecoder)
     function _buildHookCalldata() internal view returns (bytes memory) {
         return abi.encodePacked(bytes32(0), address(mockTarget));
@@ -136,10 +147,21 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superVaultAggregator.executeStrategyHooksRootUpdate(address(strategy));
     }
 
-    /// @dev Grants a session key for the strategy
-    function _grantKey(address key, uint256 duration) internal {
+    /// @dev Grants a session key for the strategy with specified permissions
+    function _grantKey(
+        address key,
+        uint256 duration,
+        ISuperVaultExecutor.Permission[] memory permissions
+    )
+        internal
+    {
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), key, block.timestamp + duration);
+        superVaultExecutor.grantSessionKey(address(strategy), key, block.timestamp + duration, permissions);
+    }
+
+    /// @dev Grants a session key with all permissions (convenience overload)
+    function _grantKey(address key, uint256 duration) internal {
+        _grantKey(key, duration, _permAll());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -285,7 +307,9 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         address newSessionKey = makeAddr("newSessionKey");
         vm.prank(newManager);
-        superVaultExecutor.grantSessionKey(address(strategy), newSessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(
+            address(strategy), newSessionKey, block.timestamp + 1 days, _permAll()
+        );
 
         assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), newSessionKey));
     }
@@ -334,9 +358,9 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         address key3 = makeAddr("key3");
 
         vm.startPrank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), key1, block.timestamp + 1 days);
-        superVaultExecutor.grantSessionKey(address(strategy), key2, block.timestamp + 1 days);
-        superVaultExecutor.grantSessionKey(address(strategy), key3, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), key1, block.timestamp + 1 days, _permAll());
+        superVaultExecutor.grantSessionKey(address(strategy), key2, block.timestamp + 1 days, _permAll());
+        superVaultExecutor.grantSessionKey(address(strategy), key3, block.timestamp + 1 days, _permAll());
         vm.stopPrank();
 
         // All three are valid
@@ -377,7 +401,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     function test_E2E_SessionKeyExpiry_DuringActiveUse() public {
         uint256 expiry = block.timestamp + 1 hours;
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, expiry);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, expiry, _permAll());
 
         // Works before expiry
         vm.prank(sessionKey);
@@ -396,7 +420,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Manager can re-grant with new expiry
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours, _permAll());
 
         // Works again
         vm.prank(sessionKey);
@@ -432,7 +456,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         superVaultAggregator.addSecondaryManager(strategy2Address, address(superVaultExecutor));
 
         // Grant session key ONLY for strategy1
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days, _permAll());
         vm.stopPrank();
 
         // Can operate on strategy1
@@ -485,8 +509,11 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         uint256[] memory expiries = new uint256[](2);
         expiries[0] = block.timestamp + 1 days;
         expiries[1] = block.timestamp + 1 days;
+        ISuperVaultExecutor.Permission[][] memory perms = new ISuperVaultExecutor.Permission[][](2);
+        perms[0] = _permAll();
+        perms[1] = _permAll();
 
-        superVaultExecutor.grantSessionKeysBatch(strategies, keys, expiries);
+        superVaultExecutor.grantSessionKeysBatch(strategies, keys, expiries, perms);
         vm.stopPrank();
 
         // Both valid
@@ -647,7 +674,9 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         // Use a contract that rejects ETH as the session key
         ETHRejecter rejecter = new ETHRejecter();
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), address(rejecter), block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(
+            address(strategy), address(rejecter), block.timestamp + 1 days, _permAll()
+        );
 
         ISuperVaultStrategy.ExecuteArgs memory args = _buildExecuteArgsFor(address(refundHook), refundHookCalldata);
 
@@ -681,7 +710,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Grant session key for the fresh strategy
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(freshStrategy, sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(freshStrategy, sessionKey, block.timestamp + 1 days, _permAll());
 
         // Session key validation passes (key is valid)
         assertTrue(superVaultExecutor.isSessionKeyValid(freshStrategy, sessionKey));
@@ -727,7 +756,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         // Manager A must re-add secondary and explicitly re-grant
         vm.startPrank(manager);
         superVaultAggregator.addSecondaryManager(address(strategy), address(superVaultExecutor));
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days, _permAll());
         vm.stopPrank();
 
         assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
@@ -757,11 +786,170 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         E2E: RE-GRANT AFTER EXPIRY
     //////////////////////////////////////////////////////////////*/
 
+    /*//////////////////////////////////////////////////////////////
+        E2E: PERMISSION-RESTRICTED SESSION KEYS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice E2E: session key with only Pause permission cannot executeHooks or skimFee
+    function test_E2E_PauseOnlySessionKey_CannotDoOtherActions() public {
+        ISuperVaultExecutor.Permission[] memory pauseOnly = new ISuperVaultExecutor.Permission[](1);
+        pauseOnly[0] = ISuperVaultExecutor.Permission.Pause;
+        _grantKey(sessionKey, 1 days, pauseOnly);
+
+        // Can pause
+        vm.prank(sessionKey);
+        superVaultExecutor.pauseStrategy(address(strategy));
+        assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
+
+        // Cannot unpause
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.unpauseStrategy(address(strategy));
+
+        // Cannot executeHooks
+        ISuperVaultStrategy.ExecuteArgs memory args;
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.executeHooks(address(strategy), args);
+
+        // Cannot skimFee
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.skimPerformanceFee(address(strategy));
+    }
+
+    /// @notice E2E: two session keys with different permissions operate independently
+    function test_E2E_TwoKeysWithDifferentPerms() public {
+        address pauseKey = makeAddr("pauseKey");
+        address skimKey = makeAddr("skimKey");
+
+        ISuperVaultExecutor.Permission[] memory pausePerms = new ISuperVaultExecutor.Permission[](2);
+        pausePerms[0] = ISuperVaultExecutor.Permission.Pause;
+        pausePerms[1] = ISuperVaultExecutor.Permission.Unpause;
+
+        ISuperVaultExecutor.Permission[] memory skimPerms = new ISuperVaultExecutor.Permission[](1);
+        skimPerms[0] = ISuperVaultExecutor.Permission.SkimFee;
+
+        vm.startPrank(manager);
+        superVaultExecutor.grantSessionKey(address(strategy), pauseKey, block.timestamp + 1 days, pausePerms);
+        superVaultExecutor.grantSessionKey(address(strategy), skimKey, block.timestamp + 1 days, skimPerms);
+        vm.stopPrank();
+
+        // pauseKey pauses
+        vm.prank(pauseKey);
+        superVaultExecutor.pauseStrategy(address(strategy));
+        assertTrue(superVaultAggregator.isStrategyPaused(address(strategy)));
+
+        // skimKey cannot unpause
+        vm.prank(skimKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.unpauseStrategy(address(strategy));
+
+        // pauseKey unpauses
+        vm.prank(pauseKey);
+        superVaultExecutor.unpauseStrategy(address(strategy));
+        assertFalse(superVaultAggregator.isStrategyPaused(address(strategy)));
+
+        // skimKey has SkimFee permission (verified via view since strategy-level skim has timelocks)
+        assertTrue(
+            superVaultExecutor.isSessionKeyValidForPermission(
+                address(strategy), skimKey, ISuperVaultExecutor.Permission.SkimFee
+            )
+        );
+
+        // pauseKey cannot skim
+        vm.prank(pauseKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.skimPerformanceFee(address(strategy));
+    }
+
+    /// @notice E2E: manager downgrades key's permissions, old permissions stop working immediately
+    function test_E2E_PermissionDowngrade_ImmediateEffect() public {
+        // Grant Pause + Unpause
+        ISuperVaultExecutor.Permission[] memory pausePerms = new ISuperVaultExecutor.Permission[](2);
+        pausePerms[0] = ISuperVaultExecutor.Permission.Pause;
+        pausePerms[1] = ISuperVaultExecutor.Permission.Unpause;
+        _grantKey(sessionKey, 1 days, pausePerms);
+
+        // Can pause and unpause
+        vm.prank(sessionKey);
+        superVaultExecutor.pauseStrategy(address(strategy));
+        vm.prank(sessionKey);
+        superVaultExecutor.unpauseStrategy(address(strategy));
+
+        // Downgrade to Pause only
+        ISuperVaultExecutor.Permission[] memory pauseOnly = new ISuperVaultExecutor.Permission[](1);
+        pauseOnly[0] = ISuperVaultExecutor.Permission.Pause;
+        _grantKey(sessionKey, 1 days, pauseOnly);
+
+        // Unpause no longer works
+        vm.prank(sessionKey);
+        superVaultExecutor.pauseStrategy(address(strategy));
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.unpauseStrategy(address(strategy));
+    }
+
+    /// @notice E2E: executeHooks with only ExecuteHooks permission
+    function test_E2E_ExecuteHooks_WithRestrictedPermission() public {
+        bytes memory hookCalldata = _buildHookCalldata();
+        _setupHookRoot(address(mockHook), hookCalldata);
+
+        // Grant only ExecuteHooks permission
+        ISuperVaultExecutor.Permission[] memory execOnly = new ISuperVaultExecutor.Permission[](1);
+        execOnly[0] = ISuperVaultExecutor.Permission.ExecuteHooks;
+        _grantKey(sessionKey, 1 days, execOnly);
+
+        ISuperVaultStrategy.ExecuteArgs memory args = _buildExecuteArgs();
+
+        // Can executeHooks
+        vm.prank(sessionKey);
+        superVaultExecutor.executeHooks(address(strategy), args);
+
+        // Cannot pause
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.pauseStrategy(address(strategy));
+    }
+
+    /// @notice E2E: fulfillCancelRedeem with only FulfillCancelRedeem permission
+    function test_E2E_FulfillCancelRedeem_WithRestrictedPermission() public {
+        // User deposits and creates a cancel redeem request
+        deal(address(asset), user, 10_000e18);
+        vm.startPrank(user);
+        asset.approve(address(vault), 10_000e18);
+        vault.deposit(1_000e18, user);
+        uint256 shares = vault.balanceOf(user) / 2;
+        vault.requestRedeem(shares, user, user);
+        vault.cancelRedeemRequest(0, user);
+        vm.stopPrank();
+
+        // Grant only FulfillCancelRedeem permission
+        ISuperVaultExecutor.Permission[] memory fcr = new ISuperVaultExecutor.Permission[](1);
+        fcr[0] = ISuperVaultExecutor.Permission.FulfillCancelRedeem;
+        _grantKey(sessionKey, 1 days, fcr);
+
+        // Can fulfill cancel redeem
+        address[] memory controllers = new address[](1);
+        controllers[0] = user;
+        vm.prank(sessionKey);
+        superVaultExecutor.fulfillCancelRedeemRequests(address(strategy), controllers);
+
+        // Cannot pause
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_PERMISSION_DENIED.selector);
+        superVaultExecutor.pauseStrategy(address(strategy));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+        E2E: RE-GRANT AFTER EXPIRY
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice Session key expires -> manager re-grants -> session key works again
     function test_E2E_ReGrantAfterExpiry() public {
         // Grant with short expiry
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 hours, _permAll());
 
         assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
@@ -776,7 +964,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
 
         // Re-grant
         vm.prank(manager);
-        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days);
+        superVaultExecutor.grantSessionKey(address(strategy), sessionKey, block.timestamp + 1 days, _permAll());
         assertTrue(superVaultExecutor.isSessionKeyValid(address(strategy), sessionKey));
 
         // Works again

@@ -69,8 +69,11 @@ jobs:
       - name: Print ulimits
         run: ulimit -Sa && ulimit -Ha
 
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
+
       - name: Install Dependencies
-        run: yarn install
+        run: yarn install --ignore-scripts
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -115,6 +118,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -174,6 +180,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -244,6 +253,9 @@ jobs:
 
       - name: "Install yarn"
         run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -341,6 +353,9 @@ jobs:
       - name: "Install yarn"
         run: npm install -g yarn
 
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
+
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
@@ -355,7 +370,7 @@ jobs:
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
-        
+
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
         run: yarn
