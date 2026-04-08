@@ -73,7 +73,7 @@ jobs:
         run: rm -rf "$(yarn cache dir)"
 
       - name: Install Dependencies
-        run: yarn install
+        run: yarn install --ignore-scripts
 
       - name: "Install Foundry dependencies"
         run: forge install
