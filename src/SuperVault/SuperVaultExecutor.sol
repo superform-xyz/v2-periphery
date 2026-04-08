@@ -151,7 +151,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         payable
         nonReentrant
     {
-        _validateSessionKey(strategy, uint8(1 << uint8(Permission.ExecuteHooks)));
+        _validateSessionKey(strategy, _toBit(Permission.ExecuteHooks));
 
         // Track only the caller's overpayment, not stray ETH from other sources
         uint256 balanceBefore = address(this).balance - msg.value;
@@ -171,7 +171,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
 
     /// @inheritdoc ISuperVaultExecutor
     function fulfillCancelRedeemRequests(address strategy, address[] calldata controllers) external nonReentrant {
-        _validateSessionKey(strategy, uint8(1 << uint8(Permission.FulfillCancelRedeem)));
+        _validateSessionKey(strategy, _toBit(Permission.FulfillCancelRedeem));
         ISuperVaultStrategy(strategy).fulfillCancelRedeemRequests(controllers);
     }
 
@@ -184,27 +184,27 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         external
         nonReentrant
     {
-        _validateSessionKey(strategy, uint8(1 << uint8(Permission.FulfillRedeem)));
+        _validateSessionKey(strategy, _toBit(Permission.FulfillRedeem));
         ISuperVaultStrategy(strategy).fulfillRedeemRequests(controllers, totalAssetsOut);
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function skimPerformanceFee(address strategy) external nonReentrant {
-        _validateSessionKey(strategy, uint8(1 << uint8(Permission.SkimFee)));
+        _validateSessionKey(strategy, _toBit(Permission.SkimFee));
         ISuperVaultStrategy(strategy).skimPerformanceFee();
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function pauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
-        _validateSessionKey(strategy, aggregator, uint8(1 << uint8(Permission.Pause)));
+        _validateSessionKey(strategy, aggregator, _toBit(Permission.Pause));
         aggregator.pauseStrategy(strategy);
     }
 
     /// @inheritdoc ISuperVaultExecutor
     function unpauseStrategy(address strategy) external nonReentrant {
         ISuperVaultAggregator aggregator = _getAggregator();
-        _validateSessionKey(strategy, aggregator, uint8(1 << uint8(Permission.Unpause)));
+        _validateSessionKey(strategy, aggregator, _toBit(Permission.Unpause));
         aggregator.unpauseStrategy(strategy);
     }
 
@@ -252,7 +252,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
         if (data.expiry == 0 || block.timestamp > data.expiry) return false;
         if (data.generation != _strategyGeneration[strategy]) return false;
-        if ((data.permissions & uint8(1 << uint8(permission))) == 0) return false;
+        if ((data.permissions & _toBit(permission)) == 0) return false;
         return _getAggregator().isMainManager(data.grantedByManager, strategy);
     }
 
@@ -283,6 +283,11 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Converts a single Permission enum value to its bitmask bit
+    function _toBit(Permission p) internal pure returns (uint8) {
+        return uint8(1 << uint8(p));
+    }
+
     /// @dev Converts a Permission[] array to a uint8 bitmask
     /// @param permissions The permissions to convert
     /// @return mask The resulting bitmask
@@ -290,7 +295,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         uint256 len = permissions.length;
         if (len == 0) revert ZERO_PERMISSIONS();
         for (uint256 i; i < len; ++i) {
-            mask |= uint8(1 << uint8(permissions[i]));
+            mask |= _toBit(permissions[i]);
         }
     }
 

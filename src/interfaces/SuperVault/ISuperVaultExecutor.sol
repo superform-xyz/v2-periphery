@@ -12,6 +12,8 @@ interface ISuperVaultExecutor {
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Stored as a uint8 bitmask (1 << enum value). Max 8 permissions (indices 0-7).
+    /// Adding a 9th value requires widening the bitmask type in SessionKeyData and _permissionsToMask.
     enum Permission {
         ExecuteHooks, // 0
         FulfillCancelRedeem, // 1
@@ -79,7 +81,7 @@ interface ISuperVaultExecutor {
     /// @notice Emitted when all session keys for a strategy are invalidated via generation bump
     /// @param strategy The strategy address
     /// @param newGeneration The new generation counter value
-    event AllSessionKeysInvalidated(address indexed strategy, uint88 newGeneration);
+    event AllSessionKeysInvalidated(address indexed strategy, uint256 newGeneration);
 
     /// @notice Emitted when leftover ETH is refunded to the caller after executeHooks
     /// @param recipient The address receiving the refund
