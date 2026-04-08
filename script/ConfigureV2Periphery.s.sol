@@ -429,6 +429,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 130) return "Unichain";
         if (chainId == 480) return "Worldchain";
         if (chainId == 999) return "HyperEVM";
+        if (chainId == 14) return "Flare";
         return "Unknown";
     }
 

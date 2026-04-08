@@ -227,6 +227,7 @@ contract ConfigureGovernorAddresses is DeployV2Base {
         if (chainId == 1) return "Ethereum";
         if (chainId == 8453) return "Base";
         if (chainId == 999) return "HyperEVM";
+        if (chainId == 14) return "Flare";
         if (chainId == 10) return "Optimism";
         if (chainId == 42161) return "Arbitrum";
         return "Unknown";

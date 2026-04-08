@@ -19,6 +19,7 @@ NETWORKS=(
     # "100:Gnosis:GNOSIS_MAINNET"
     # "480:Worldchain:WORLDCHAIN_MAINNET"
     "999:HyperEVM:HYPEREVM_MAINNET"
+    "14:Flare:FLARE_MAINNET"
 )
 
 # Network name mapping function
@@ -63,6 +64,9 @@ get_network_name() {
         #     ;;
         999)
             echo "HyperEVM"
+            ;;
+        14)
+            echo "Flare"
             ;;
         *)
             echo "ERROR: Unknown production network ID: $network_id" >&2
@@ -114,6 +118,9 @@ get_rpc_var() {
         999)
             echo "HYPEREVM_MAINNET"
             ;;
+        14)
+            echo "FLARE_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
             return 1
@@ -163,6 +170,9 @@ get_rpc_url() {
         #     ;;
         999)
             echo "$HYPEREVM_MAINNET"
+            ;;
+        14)
+            echo "$FLARE_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
@@ -291,6 +301,14 @@ load_rpc_urls_ci() {
         export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
     fi
 
+    echo "  • Loading Flare RPC..."
+    if [[ -n "${FLARE_RPC_URL:-}" ]]; then
+        export FLARE_MAINNET="$FLARE_RPC_URL"
+    else
+        echo "  • FLARE_RPC_URL not set, using default RPC"
+        export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from environment:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -300,7 +318,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, HyperEVM)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, HyperEVM, Flare)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -380,6 +398,15 @@ load_rpc_urls() {
         export HYPEREVM_MAINNET
     fi
 
+    echo "  • Loading Flare RPC..."
+    FLARE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/FLARE_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$FLARE_MAINNET" ]; then
+        echo "  • FLARE_RPC_URL not in 1Password, using default RPC"
+        export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
+    else
+        export FLARE_MAINNET
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -389,7 +416,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, HyperEVM)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, HyperEVM, Flare)"
 }
 
 # Load Etherscan V2 API key for verification
