@@ -86,7 +86,13 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
     /// @dev This demonstrates that DETH (not WETH) is received from post-maturity redemption
     function test_RedeemFromExpiredMarket_GetsDETH() public {
         // Setup: Deal PT and YT from OLD market to account
-        uint256 redeemAmount = 10e18; // 10 PT+YT
+        // Note: Pendle PT packs a flag byte with totalSupply in slot 2, so deal(adjust=true)
+        // breaks the storage layout. Use plain deal with an amount <= existing totalSupply
+        // to avoid underflow in PT.burnByYT.
+        uint256 ptSupply = IERC20(ptOld).totalSupply();
+        uint256 ytSupply = IERC20(ytOld).totalSupply();
+        uint256 redeemAmount = ptSupply < ytSupply ? ptSupply / 2 : ytSupply / 2;
+        require(redeemAmount > 0, "No PT/YT supply remaining on expired market");
         deal(ptOld, accountEth, redeemAmount);
         deal(ytOld, accountEth, redeemAmount);
 
@@ -99,10 +105,12 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
         console2.log("Initial DETH balance:", dethBalanceBefore);
         console2.log("Initial WETH balance:", wethBalanceBefore);
 
-        // Warp to AFTER the OLD market expiry
+        // Ensure we are AFTER the OLD market expiry (don't warp backwards if fork is already past expiry)
         uint256 expiryOld = IPYieldToken(ytOld).expiry();
-        vm.warp(expiryOld + 1 days);
-        console2.log("Warped to timestamp (after expiry):", block.timestamp);
+        if (block.timestamp <= expiryOld) {
+            vm.warp(expiryOld + 1 days);
+        }
+        console2.log("Current timestamp (after expiry):", block.timestamp);
 
         // Redeem from OLD market to get DETH (not WETH!)
         bytes memory redeemHookData = _createPendleUnifiedRedeemHookData(

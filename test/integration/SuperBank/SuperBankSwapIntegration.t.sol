@@ -145,7 +145,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5, // extra slippage buffer
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -227,7 +227,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5, // extra slippage buffer
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -237,8 +237,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         // 4. Set production merkle roots
         //    ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
         _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        //    SwapOdosV2Hook: hook_0x074f9973...json (4 leaves)
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+        //    SwapOdosV2Hook: hook_0x074f9973...json (5 leaves)
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
 
         // 5. Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -281,15 +281,17 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     ///        Base SwapOdosV2Hook:      root 0x1f04c759..., leaf 0   (executor=Odos Router)
     function test_executeHooks_bridgeAndSwapUSDCtoUP() public {
         uint256 baseForkId = vm.activeFork();
+        uint256 baseOriginalTimestamp = block.timestamp;
 
         // Phase 1: Bridge USDC from ETH to Base
         Vm.Log[] memory logs = _bridgeUsdcFromEthToBase(100e6);
 
-        // Phase 2: Pigeon relay
+        // Phase 2: Pigeon relay (may advance Base fork timestamp)
         _relayAcrossBridge(logs, baseForkId);
 
         // Phase 3: Swap USDC→UP on Base
         vm.selectFork(baseForkId);
+        vm.warp(baseOriginalTimestamp); // Restore to avoid stale oracle prices
         _swapUsdcToUpOnBase();
     }
 
@@ -388,7 +390,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5, // extra slippage buffer
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -398,8 +400,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         // Set production merkle roots
         //   ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
         _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        //   SwapOdosV2Hook: hook_0x074f9973...json (4 leaves)
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+        //   SwapOdosV2Hook: hook_0x074f9973...json (5 leaves)
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
 
         // Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -459,7 +461,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -519,7 +521,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -553,7 +555,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     /// @notice Swaps WETH→USDC on Base using ApproveERC20Hook + SwapOdosV2Hook (two separate hooks).
     /// @dev Uses production merkle trees from superman/deployments/superbank/generated/prod/8453/
     ///      ApproveERC20Hook (0x8b789980...): root 0x4babad82..., 65 leaves
-    ///      SwapOdosV2Hook  (0x074F9973...): root 0xa5317c91..., 4 leaves
+    ///      SwapOdosV2Hook  (0x074F9973...): root 0xe86028e4..., 5 leaves
     function test_executeHooks_swapWETHtoUSDC_onBase() public {
         uint256 swapAmount = 0.05 ether; // 0.05 WETH
 
@@ -583,7 +585,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -592,7 +594,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         // 4. Set production merkle roots
         _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
 
         // 5. Execute with production proofs
         uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -648,7 +650,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -657,7 +659,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         // 4. Set production merkle roots
         _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
 
         // 5. Execute with production proofs
         uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -685,7 +687,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     /// @notice Swaps USDC→UP on Base using ApproveERC20Hook + SwapOdosV2Hook (two separate hooks).
     /// @dev Uses production merkle trees from superman/deployments/superbank/generated/prod/8453/
     ///      ApproveERC20Hook (0x8b789980...): root 0x4babad82..., 65 leaves
-    ///      SwapOdosV2Hook  (0x074F9973...): root 0xa5317c91..., 4 leaves
+    ///      SwapOdosV2Hook  (0x074F9973...): root 0xe86028e4..., 5 leaves
     function test_executeHooks_swapUSDCtoUP_onBase() public {
         uint256 swapAmount = 100e6; // 100 USDC
 
@@ -715,7 +717,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -724,7 +726,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         // 4. Set production merkle roots
         _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xa5317c914c8c430ea5f6864653286b1563ca2730c223e22be9fe98bb7c6a0719);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
 
         // 5. Execute with production proofs
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -813,26 +815,36 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     }
 
     /// @dev Returns the production merkle proof for the given executor in the SwapOdosV2Hook tree on Base.
-    ///      Source: hook_0x074f9973ebfb050d7abc75a5cb03491d675da843.json (chain 8453, 4 leaves)
+    ///      Source: hook_0x074f9973ebfb050d7abc75a5cb03491d675da843.json (chain 8453, 5 leaves)
     ///      Odos can return different executors per quote, so the proof is selected dynamically.
     function _getBaseSwapOdosExecutorProof(address executor) internal pure returns (bytes32[] memory proof) {
-        proof = new bytes32[](2);
         if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
-            // Leaf 0: Odos Router V2
-            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
-            proof[1] = 0xcf02465c440da38fcfe07b2cc94a632c3b04471f14a2452450f3e7e3c4c58f84;
+            // Idx 0: Odos Router V2 (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
+            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            proof[2] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
         } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
-            // Leaf 1
-            proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
-            proof[1] = 0xcf02465c440da38fcfe07b2cc94a632c3b04471f14a2452450f3e7e3c4c58f84;
-        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
-            // Leaf 2
-            proof[0] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
-            proof[1] = 0x287f9b6b4fe1b8c920bbe63eb8bf732f5b2dbe9e00d381dcf0d0675d5f23ebaa;
-        } else if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
-            // Leaf 3
+            // Idx 1 (2-element proof)
+            proof = new bytes32[](2);
             proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-            proof[1] = 0x287f9b6b4fe1b8c920bbe63eb8bf732f5b2dbe9e00d381dcf0d0675d5f23ebaa;
+            proof[1] = 0x1571308f3b28a3d390ebf0b27e72a4143c692bf997501128010b7377c0fd5cbf;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Idx 2 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
+            proof[1] = 0x1571308f3b28a3d390ebf0b27e72a4143c692bf997501128010b7377c0fd5cbf;
+        } else if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
+            // Idx 3 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
+            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+        } else if (executor == 0xe6151691FF20684426d5DC017c0a3C4E1e533dee) {
+            // Idx 4: NEW executor (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
+            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            proof[2] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
         } else {
             revert("Unknown Odos executor - not in SwapOdosV2Hook tree");
         }
@@ -1440,9 +1452,11 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
     /// @dev Sets a pre-computed merkle root directly (no leaf computation, just propose+timelock+execute).
     function _setMerkleRoot(address hook, bytes32 root) internal {
+        uint256 savedTimestamp = block.timestamp;
         superGovernor.proposeSuperBankHookMerkleRoot(hook, root);
         vm.warp(block.timestamp + 7 days + 1);
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook);
+        vm.warp(savedTimestamp);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook), root, "Merkle root mismatch");
     }
@@ -1463,7 +1477,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     address constant BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK = 0x3E10d4105F826dFc8929845C94c019CDAF4d93cD;
 
     /// @notice Swaps WETH→USDC on ETH mainnet using V2 ApproveAndSwapOdosV2Hook.
-    /// @dev New hook inspect() returns only executor. Merkle tree has 4 leaves.
+    /// @dev New hook inspect() returns only executor. Merkle tree has 5 leaves.
     function test_executeHooks_swapWETHtoUSDC_withV2ApproveAndSwap() public {
         _setupEthForkForV2ApproveAndSwap();
 
@@ -1490,7 +1504,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -1543,7 +1557,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -1596,7 +1610,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -1649,7 +1663,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -1702,7 +1716,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
             decoded.tokenInfo.inputReceiver,
             decoded.tokenInfo.outputToken,
             decoded.tokenInfo.outputQuote,
-            decoded.tokenInfo.outputMin - decoded.tokenInfo.outputMin * 1e4 / 1e5,
+            decoded.tokenInfo.outputMin / 2, // 50% slippage buffer for fork divergence
             false,
             decoded.pathDefinition,
             decoded.executor,
@@ -1737,10 +1751,10 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         superGovernor.registerHook(V2_APPROVE_AND_SWAP_ODOS_V2_HOOK);
 
-        // V2 ApproveAndSwapOdosV2Hook: production merkle root (4 leaves, executor-only)
+        // V2 ApproveAndSwapOdosV2Hook: production merkle root (5 leaves, executor-only)
         _setMerkleRoot(
             V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
-            0x3b38bac8a7da233539606418ffab73025f954d02d70bcef5387342b97e0f849f
+            0x579c8819a0f647d283f6a92b93393ed6631a712db533afb79e9c33f3f3980037
         );
     }
 
@@ -1753,10 +1767,10 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         superGovernor.registerHook(BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK);
 
-        // V2 ApproveAndSwapOdosV2Hook on Base: production merkle root (4 leaves, executor-only)
+        // V2 ApproveAndSwapOdosV2Hook on Base: production merkle root (5 leaves, executor-only)
         _setMerkleRoot(
             BASE_V2_APPROVE_AND_SWAP_ODOS_V2_HOOK,
-            0x7159f32ea8549986f4a43a8b238d70397bfdac4c810b20535a967bd40c4a5887
+            0xbab28f43f0565fd6de23f3824b68d3fd4aa88520832985ea5f2a0641450d7bc6
         );
     }
 
@@ -1764,59 +1778,79 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     //           V2 HOOKS: PRODUCTION MERKLE PROOFS (EXECUTOR-ONLY)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on ETH (4 leaves, executor-only).
+    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on ETH (5 leaves, executor-only).
     ///      Source: hook_0x067696e1efbd25cafd3b55648ed253c20a7d9671.json (chain 1)
     function _getV2ApproveAndSwapExecutorProof(address executor)
         internal
         pure
         returns (bytes32[] memory proof)
     {
-        proof = new bytes32[](2);
         if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
-            // Leaf 0
-            proof[0] = 0xa7687b9b43eb4738c858400b8524f2083e219dfa9759b2c316adc7c4e66ce603;
-            proof[1] = 0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1;
+            // Idx 0 (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x76ad50eff882f9dc85043fe6f99813ba2d036be51f0fe3fc7c327b4cff9ba738;
+            proof[1] = 0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742;
+            proof[2] = 0x4612af144f6dce7e49f599df2ea4fe8558cf5045ae58a96ed8fa259b1ad196e2;
         } else if (executor == 0x365084B05Fa7d5028346bD21D842eD0601bAB5b8) {
-            // Leaf 1
-            proof[0] = 0x8e6cd2496aa08c0f882305bdb3ba4a3029bfdd2223402186e296b2a9f6534325;
-            proof[1] = 0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1;
-        } else if (executor == 0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559) {
-            // Leaf 2
-            proof[0] = 0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742;
-            proof[1] = 0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918;
-        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
-            // Leaf 3
+            // Idx 1 (2-element proof)
+            proof = new bytes32[](2);
             proof[0] = 0xb9833ecee0050ea0ef8a640aa9376adc68bf099a3be77c3e61b3170f3b627986;
-            proof[1] = 0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918;
+            proof[1] = 0x594220211ee2ee1806cc3f1d494f77f5709643c771b3500c38b0943d55b6f8f4;
+        } else if (executor == 0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559) {
+            // Idx 2 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0xa7687b9b43eb4738c858400b8524f2083e219dfa9759b2c316adc7c4e66ce603;
+            proof[1] = 0x594220211ee2ee1806cc3f1d494f77f5709643c771b3500c38b0943d55b6f8f4;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Idx 3 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0x67674a965fc0cf90a36143e6b7a5ff63cfc5f015218fb53a87612450bb41612b;
+            proof[1] = 0x4612af144f6dce7e49f599df2ea4fe8558cf5045ae58a96ed8fa259b1ad196e2;
+        } else if (executor == 0xe6151691FF20684426d5DC017c0a3C4E1e533dee) {
+            // Idx 4: NEW executor (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x8e6cd2496aa08c0f882305bdb3ba4a3029bfdd2223402186e296b2a9f6534325;
+            proof[1] = 0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742;
+            proof[2] = 0x4612af144f6dce7e49f599df2ea4fe8558cf5045ae58a96ed8fa259b1ad196e2;
         } else {
             revert("Unknown executor - not in V2 ApproveAndSwapOdosV2Hook tree (ETH)");
         }
     }
 
-    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on Base (4 leaves, executor-only).
+    /// @dev Returns merkle proof for V2 ApproveAndSwapOdosV2Hook on Base (5 leaves, executor-only).
     ///      Source: hook_0x3e10d4105f826dfc8929845c94c019cdaf4d93cd.json (chain 8453)
     function _getBaseV2ApproveAndSwapExecutorProof(address executor)
         internal
         pure
         returns (bytes32[] memory proof)
     {
-        proof = new bytes32[](2);
         if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
-            // Leaf 0
-            proof[0] = 0x8a2bf8eafa210db554fd3bf97d0d8097de1dce2f44f351120910959da8e6460c;
-            proof[1] = 0xc95c65272b4d449293fd608632c4a9b52079bbd0773471cc2e2f27fa39a4a4de;
+            // Idx 0 (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x1b0e02d3a3de4fd618846b528cf01fe3f510e1a2187f329c9ee1f9005c95664e;
+            proof[1] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            proof[2] = 0x4b4c40612905ca397f3ff95f9e54c3e10de4942ba0c7182db1e14e6d41aa5d9c;
         } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
-            // Leaf 1
-            proof[0] = 0x24682b1e256fb5c659e2165b0dddede5c0f82820824646b0cc5d13784f9dcf4c;
-            proof[1] = 0xc95c65272b4d449293fd608632c4a9b52079bbd0773471cc2e2f27fa39a4a4de;
-        } else if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
-            // Leaf 2
-            proof[0] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
-            proof[1] = 0xcdf1bb1c5bc5dbe047fa34b89aef6cb72b6ff0845f0dab3986a26e76cd17cb82;
-        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
-            // Leaf 3
+            // Idx 1 (2-element proof)
+            proof = new bytes32[](2);
             proof[0] = 0xa42e6d141602dcb0d20cfd29650d65a6efee507b7b204bed042670632015714f;
-            proof[1] = 0xcdf1bb1c5bc5dbe047fa34b89aef6cb72b6ff0845f0dab3986a26e76cd17cb82;
+            proof[1] = 0xf8eb626494bb351cadea72a2b257015baf5526f0f89bb3e57573bad8b71cabcd;
+        } else if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
+            // Idx 2 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0x8a2bf8eafa210db554fd3bf97d0d8097de1dce2f44f351120910959da8e6460c;
+            proof[1] = 0xf8eb626494bb351cadea72a2b257015baf5526f0f89bb3e57573bad8b71cabcd;
+        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
+            // Idx 3 (2-element proof)
+            proof = new bytes32[](2);
+            proof[0] = 0x9df0753515d9110e6ea11d8d7b5772ef479621919a6cc8a995843ac2197e4a4a;
+            proof[1] = 0x4b4c40612905ca397f3ff95f9e54c3e10de4942ba0c7182db1e14e6d41aa5d9c;
+        } else if (executor == 0xe6151691FF20684426d5DC017c0a3C4E1e533dee) {
+            // Idx 4: NEW executor (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x24682b1e256fb5c659e2165b0dddede5c0f82820824646b0cc5d13784f9dcf4c;
+            proof[1] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            proof[2] = 0x4b4c40612905ca397f3ff95f9e54c3e10de4942ba0c7182db1e14e6d41aa5d9c;
         } else {
             revert("Unknown executor - not in V2 ApproveAndSwapOdosV2Hook tree (Base)");
         }
@@ -1835,9 +1869,11 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         bytes memory hookArgs = ISuperHookInspector(hook).inspect(hookData);
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hook, hookArgs))));
 
+        uint256 savedTimestamp = block.timestamp;
         superGovernor.proposeSuperBankHookMerkleRoot(hook, leaf);
         vm.warp(block.timestamp + 7 days + 1);
         superGovernor.executeSuperBankHookMerkleRootUpdate(hook);
+        vm.warp(savedTimestamp);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook), leaf, "Merkle root mismatch");
     }
