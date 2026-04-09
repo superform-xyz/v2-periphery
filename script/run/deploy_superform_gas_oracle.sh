@@ -53,7 +53,8 @@ readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 # Supported chains: "CHAIN_ID:CHAIN_NAME"
 readonly SUPPORTED_CHAINS=(
-    "999:HyperEVM"
+    # "999:HyperEVM"
+    "14:Flare"
 )
 
 ###################################################################################
@@ -147,6 +148,9 @@ get_chain_rpc_url() {
             ;;
         999)
             echo "${HYPEREVM_MAINNET:-}"
+            ;;
+        14)
+            echo "${FLARE_MAINNET:-}"
             ;;
         *)
             echo ""

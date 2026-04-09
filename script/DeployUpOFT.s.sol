@@ -71,7 +71,7 @@ contract DeployUpOFT is Script {
     address internal constant DVN_LZ_FLARE = 0x9C061c9A4782294eeF65ef28Cb88233A987F4bdD; // DVN LZ Flare
     address internal constant SEND_LIB_FLARE = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
     address internal constant RECEIVE_LIB_FLARE = 0x2367325334447C5E1E0f1b3a6fB947b262F58312;
-    address internal constant EXECUTOR_FLARE = 0xa20DB4Ffe74A31D17fc24BD32a7DD7555441058e;
+    address internal constant EXECUTOR_FLARE = 0xcCE466a522984415bC91338c232d98869193D46e;
 
     uint32 internal constant GRACE_PERIOD = 0;
 

@@ -10,6 +10,10 @@ CHAINS_TO_VERIFY=()
 # Leave empty array to verify all contracts found in deployment JSON
 CONTRACTS_TO_VERIFY=()
 
+# ===== RATE LIMIT CONFIGURATION =====
+# Delay in seconds between verification requests (prevents Cloudflare rate limiting)
+VERIFY_DELAY=5
+
 # Colors for better visual output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -580,6 +584,11 @@ verify_json_file() {
                 local source_file=$(get_contract_source "$contract_name")
 
                 verify_contract "$chain_id" "$contract_name" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                # Rate limit protection: wait between verification requests
+                if [ "$VERIFY_DELAY" -gt 0 ]; then
+                    sleep "$VERIFY_DELAY"
+                fi
             done
             ;;
 
@@ -603,6 +612,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "SuperformGasOracle")
                     local constructor_args=$(generate_constructor_args "SuperformGasOracle" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "SuperformGasOracle" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
@@ -627,6 +641,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "UpOFT")
                     local constructor_args=$(generate_constructor_args "UpOFT" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "UpOFT" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
@@ -651,6 +670,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "SuperVaultBatchOperator")
                     local constructor_args=$(generate_constructor_args "SuperVaultBatchOperator" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "SuperVaultBatchOperator" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
