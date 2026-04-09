@@ -442,6 +442,135 @@ contract MorphoBorrowCostOracleTest is Test {
         assertGt(assetsAfter, assetsBefore, "8-dec: borrow cost should increase with interest");
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            FUZZ TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Debt never shrinks through round-trip: shares → assetsUp → withdrawalSharesUp >= original
+    /// Both conversions round UP, so the round-trip conserves or inflates debt.
+    function test_fuzz_roundTrip_debtNeverShrinks(
+        uint128 totalBorrowAssets_,
+        uint128 totalBorrowShares_,
+        uint128 sharesIn
+    )
+        public
+    {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 0, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 1, type(uint128).max));
+        sharesIn = uint128(bound(sharesIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        uint256 assets = oracle.getAssetOutput(yieldSourceId, address(0), sharesIn);
+        uint256 sharesBack = oracle.getWithdrawalShareOutput(yieldSourceId, address(0), assets);
+
+        assertGe(sharesBack, sharesIn, "Debt shares should never shrink through round-trip");
+    }
+
+    /// @notice Borrow PPS (roundUp) >= lend equivalent (roundDown) for all market states
+    function test_fuzz_borrowPpsGeqLendEquivalent(
+        uint128 totalBorrowAssets_,
+        uint128 totalBorrowShares_
+    )
+        public
+    {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 1, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        uint256 borrowPps = oracle.getPricePerShare(yieldSourceId);
+        uint256 lendEquivalent = uint256(10 ** 18).toAssetsDown(totalBorrowAssets_, totalBorrowShares_);
+
+        assertGe(borrowPps, lendEquivalent, "Borrow PPS (roundUp) should >= lend equivalent (roundDown)");
+    }
+
+    /// @notice Borrow getAssetOutput (roundUp) >= lend equivalent (roundDown)
+    function test_fuzz_borrowAssetOutputGeqLendEquivalent(
+        uint128 totalBorrowAssets_,
+        uint128 totalBorrowShares_,
+        uint128 sharesIn
+    )
+        public
+    {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 0, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 0, type(uint128).max));
+        sharesIn = uint128(bound(sharesIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        uint256 assetsUp = oracle.getAssetOutput(yieldSourceId, address(0), sharesIn);
+        uint256 assetsDown = uint256(sharesIn).toAssetsDown(totalBorrowAssets_, totalBorrowShares_);
+
+        assertGe(assetsUp, assetsDown, "Borrow asset output (roundUp) should >= lend equivalent (roundDown)");
+    }
+
+    /// @notice withdrawalShares >= depositShares for same assets
+    function test_fuzz_withdrawalSharesGeqDepositShares(
+        uint128 totalBorrowAssets_,
+        uint128 totalBorrowShares_,
+        uint128 assetsIn
+    )
+        public
+    {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 0, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 0, type(uint128).max));
+        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        uint256 depositShares = oracle.getShareOutput(yieldSourceId, address(0), assetsIn);
+        uint256 withdrawalShares = oracle.getWithdrawalShareOutput(yieldSourceId, address(0), assetsIn);
+
+        assertGe(withdrawalShares, depositShares, "Withdrawal shares should >= deposit shares");
+    }
+
+    /// @notice PPS always positive for non-trivial borrow markets
+    function test_fuzz_ppsAlwaysPositive(uint128 totalBorrowAssets_, uint128 totalBorrowShares_) public {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 1, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        uint256 pps = oracle.getPricePerShare(yieldSourceId);
+        assertGt(pps, 0, "Borrow PPS should always be positive");
+    }
+
+    /// @notice Zero input returns zero output
+    function test_fuzz_zeroSharesInput_returnsZero(uint128 totalBorrowAssets_, uint128 totalBorrowShares_) public {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 0, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        assertEq(oracle.getAssetOutput(yieldSourceId, address(0), 0), 0, "0 shares should return 0 assets");
+        assertEq(oracle.getShareOutput(yieldSourceId, address(0), 0), 0, "0 assets should return 0 shares");
+    }
+
+    /// @notice Virtual offset handles empty market without revert
+    function test_fuzz_emptyMarket_noRevert(uint128 sharesIn) public {
+        sharesIn = uint128(bound(sharesIn, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, 0, 0, uint128(block.timestamp), 0);
+
+        oracle.getAssetOutput(yieldSourceId, address(0), sharesIn);
+        oracle.getShareOutput(yieldSourceId, address(0), sharesIn);
+        oracle.getPricePerShare(yieldSourceId);
+        oracle.getWithdrawalShareOutput(yieldSourceId, address(0), sharesIn);
+    }
+
+    /// @notice Minimum input (1 share) never reverts
+    function test_fuzz_minimumInput_noRevert(uint128 totalBorrowAssets_, uint128 totalBorrowShares_) public {
+        totalBorrowAssets_ = uint128(bound(totalBorrowAssets_, 0, type(uint128).max));
+        totalBorrowShares_ = uint128(bound(totalBorrowShares_, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, totalBorrowAssets_, totalBorrowShares_, uint128(block.timestamp), 0);
+
+        oracle.getAssetOutput(yieldSourceId, address(0), 1);
+        oracle.getShareOutput(yieldSourceId, address(0), 1);
+        oracle.getWithdrawalShareOutput(yieldSourceId, address(0), 1);
+    }
+
     // --- Cross-decimal consistency ---
 
     function test_crossDecimal_sameOracleTracksMultipleDecimals() public {

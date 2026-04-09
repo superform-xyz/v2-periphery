@@ -507,6 +507,126 @@ contract MorphoLendYieldSourceOracleTest is Test {
         assertEq(oracle.getTVL(yieldSourceId), TOTAL_SUPPLY_ASSETS);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            FUZZ TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice shares → assets → shares never creates value (lend rounds DOWN both ways)
+    function test_fuzz_roundTrip_neverCreatesValue(
+        uint128 totalSupplyAssets_,
+        uint128 totalSupplyShares_,
+        uint128 sharesIn
+    )
+        public
+    {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
+        sharesIn = uint128(bound(sharesIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        uint256 assets = oracle.getAssetOutput(yieldSourceId, address(0), sharesIn);
+        uint256 sharesBack = oracle.getShareOutput(yieldSourceId, address(0), assets);
+
+        assertLe(sharesBack, sharesIn, "Round-trip should not create shares");
+    }
+
+    /// @notice assets → shares → assets never creates value (lend rounds DOWN both ways)
+    function test_fuzz_roundTrip_assetsNeverGrow(
+        uint128 totalSupplyAssets_,
+        uint128 totalSupplyShares_,
+        uint128 assetsIn
+    )
+        public
+    {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
+        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        uint256 shares = oracle.getShareOutput(yieldSourceId, address(0), assetsIn);
+        uint256 assetsBack = oracle.getAssetOutput(yieldSourceId, address(0), shares);
+
+        assertLe(assetsBack, assetsIn, "Round-trip should not create assets");
+    }
+
+    /// @notice withdrawalShares >= depositShares for same assets (roundUp vs roundDown)
+    function test_fuzz_withdrawalSharesGeqDepositShares(
+        uint128 totalSupplyAssets_,
+        uint128 totalSupplyShares_,
+        uint128 assetsIn
+    )
+        public
+    {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
+        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        uint256 depositShares = oracle.getShareOutput(yieldSourceId, address(0), assetsIn);
+        uint256 withdrawalShares = oracle.getWithdrawalShareOutput(yieldSourceId, address(0), assetsIn);
+
+        assertGe(withdrawalShares, depositShares, "Withdrawal shares should >= deposit shares");
+    }
+
+    /// @notice PPS is always positive for realistic Morpho market ratios
+    /// @dev Morpho shares have a 1e6 virtual offset, so shares ≈ assets * 1e6 initially.
+    ///      Extreme deflation (totalAssets << totalShares) can cause PPS to round to 0,
+    ///      but this doesn't occur in real Morpho markets.
+    function test_fuzz_ppsAlwaysPositive(uint128 totalSupplyAssets_, uint128 totalSupplyShares_) public {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 1, type(uint128).max));
+        // Cap shares/assets ratio to 1e12 (far beyond any realistic Morpho market)
+        uint256 maxShares = uint256(totalSupplyAssets_) * 1e12;
+        if (maxShares > type(uint128).max) maxShares = type(uint128).max;
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 1, maxShares));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        uint256 pps = oracle.getPricePerShare(yieldSourceId);
+        assertGt(pps, 0, "PPS should always be positive");
+    }
+
+    /// @notice Zero input returns zero output
+    function test_fuzz_zeroSharesInput_returnsZero(uint128 totalSupplyAssets_, uint128 totalSupplyShares_) public {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        assertEq(oracle.getAssetOutput(yieldSourceId, address(0), 0), 0, "0 shares should return 0 assets");
+        assertEq(oracle.getShareOutput(yieldSourceId, address(0), 0), 0, "0 assets should return 0 shares");
+    }
+
+    /// @notice Virtual offset handles empty market (totalAssets=0, totalShares=0) without revert
+    function test_fuzz_emptyMarket_noRevert(uint128 sharesIn) public {
+        sharesIn = uint128(bound(sharesIn, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, 0, 0, 0, 0, uint128(block.timestamp), 0);
+
+        // Should not revert — virtual offset (VIRTUAL_ASSETS=1, VIRTUAL_SHARES=1e6) prevents division by zero
+        oracle.getAssetOutput(yieldSourceId, address(0), sharesIn);
+        oracle.getShareOutput(yieldSourceId, address(0), sharesIn);
+        oracle.getPricePerShare(yieldSourceId);
+        oracle.getWithdrawalShareOutput(yieldSourceId, address(0), sharesIn);
+    }
+
+    /// @notice Minimum input (1 share) never reverts and returns reasonable value
+    function test_fuzz_minimumInput_noRevert(uint128 totalSupplyAssets_, uint128 totalSupplyShares_) public {
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
+
+        morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
+
+        // 1 share and 1 asset should never revert
+        oracle.getAssetOutput(yieldSourceId, address(0), 1);
+        oracle.getShareOutput(yieldSourceId, address(0), 1);
+        oracle.getWithdrawalShareOutput(yieldSourceId, address(0), 1);
+    }
+
+    // --- Cross-decimal consistency ---
+
     function test_interestIncreasesAssetOutput_allDecimals() public {
         // 6 decimals
         (address src6,,) = _setupDecimalMarket(6, 1_000_000e6, 1_000_000e12, 500_000e6, 500_000e12);
