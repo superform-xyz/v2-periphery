@@ -198,22 +198,22 @@ contract SuperBankMerkleTreeValidation is Test {
     ///      inspect() returns: abi.encodePacked(recipient, inputToken, outputToken, exclusiveRelayer)
     function test_base_acrossHook_merkleTree() public pure {
         address hook = 0xd724315eEebefe346985E028A7382158390cB892;
-        bytes32 root = 0x0df66f44a6812a034f6446da10b256486d32efdd62c72490039ae6bd08f2cb0f;
+        bytes32 root = 0x3f11d44e5b1c17e64a9b5ba9e7f8e74edc188492a176335829dfd5acedb97d7d;
 
         // Leaf 0: first leaf
         {
             bytes memory encodedArgs =
-                hex"6fcc6a6a825fc14e6e56fd14978fc6b97acb5d150177055f7429d3bd6b19f2dd591127db871a510e0000000f0adfc34d90f04f98e4a409e8b5b2c72f0000000000000000000000000000000000000000";
-            bytes32 expectedLeaf = 0x018db2e53ea7f29131bdd41243a3b4e2f4247104f3d35208da8331b4277afb9b;
+                hex"6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15236aa50979d5f3de3bd1eeb40e81137f22ab794b1a5c5ea50717a2ea0e4f7036fb289349deaab58b0000000000000000000000000000000000000000";
+            bytes32 expectedLeaf = 0x019bd803ee4bc241da2387032db40c05fd085f206e642dd7d8e4c14d77421607;
             bytes32[] memory proof = new bytes32[](8);
-            proof[0] = 0x019bd803ee4bc241da2387032db40c05fd085f206e642dd7d8e4c14d77421607;
-            proof[1] = 0x0049c656f94c5594661750448ebba557bb848ceb98b98fb0d20a27017211aabb;
-            proof[2] = 0x0d711b55f03b08d0a3a95451a478df714a429327b4257d6476773939c0ba25d8;
-            proof[3] = 0x6d7b9d08123a3d43509dab9081b6b8f4272e483fc756906baa375189a634fbc8;
-            proof[4] = 0x64ca1a19ff3c412ab9dc929ca84645388964d32de8a5d3f5ee93d0cc25a45190;
-            proof[5] = 0xe5dbf9cadcc90938536032dfc52b36a26b9c94f084363078b0812c56b0e31fe1;
-            proof[6] = 0x48b90f6f08e05288962a5a17c242cae1d12290863e98d2ab14a574e83fa939a1;
-            proof[7] = 0x336b7045a0ba9fc9975d6305486e7ab57de70ea75cf42d24ade4968eb019f7f0;
+            proof[0] = 0x05d4d70ea0a920c81644003cd9f647aee67be9e733e8ba72a43c712bf529e5d1;
+            proof[1] = 0xcf103f454a631cb0f506a033028abb681944438c42cd9c48d1174b60e88d2320;
+            proof[2] = 0x15e34ed72315beb8114a6c14a367637278fd689329d1b89bca5665b85c5c7448;
+            proof[3] = 0xd107663014e3eb5749894d7533221ac55f48401b660929a0a76f9012f4694250;
+            proof[4] = 0x74ea592d89df7f15aff56e6d557032d9cd08bfe69a888c7257b0a31e96dcd347;
+            proof[5] = 0x203260634f279d0bb8358b5d02adc93feeec96ec6fba7c4c1e304be257e915cb;
+            proof[6] = 0x332a1fe3b4d346b5bbdfc0c47959bf2aceacdf234b25263f7f453253f51ec2ff;
+            proof[7] = 0x68c4bbe4d45041a43fd99a66d2c1e2457d18b614400e9ce7f2cd70215cdeea97;
             _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
         }
 
@@ -223,9 +223,9 @@ contract SuperBankMerkleTreeValidation is Test {
                 hex"6fcc6a6a825fc14e6e56fd14978fc6b97acb5d151a5c5ea50717a2ea0e4f7036fb289349deaab58b1a5c5ea50717a2ea0e4f7036fb289349deaab58b0000000000000000000000000000000000000000";
             bytes32 expectedLeaf = 0xfff6ee3c98f1bc572d00cf8125e62fa4aa6d99adf02acd5f6521209a346a4c55;
             bytes32[] memory proof = new bytes32[](3);
-            proof[0] = 0xdad8bc5b6aa5022bdddda474bc89a3e9ead2053dd024e46b50e1955f6e611182;
-            proof[1] = 0x134522f3d98001c3bc1ffe53f9d6c4af77de0561b668806724f0bd26c77256bd;
-            proof[2] = 0x630117c0a6c95583c08805e67c407a4a6c3764d7e675201af07ca5b6d2946629;
+            proof[0] = 0x2b7a06c00bd6e7616a93bb68a4ffe04e48ea3d3c9b368535c0902a3936c06863;
+            proof[1] = 0x12c48e6973a62287c782b0d4a07d933368ad1311a725c1e95b38f65701f3878e;
+            proof[2] = 0x1bbb5957e5febd93c8b65ee2c3f628cf73d6217f41211c4b5422a228e9f3cbe8;
             _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
         }
     }
@@ -234,48 +234,137 @@ contract SuperBankMerkleTreeValidation is Test {
     //                BASE (CHAIN 8453) — SWAP ODOS V2 HOOK
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Validates SwapOdosV2Hook tree on Base (3 leaves — all tested)
+    /// @notice Validates SwapOdosV2Hook tree on Base (5 leaves — all tested)
     /// @dev Hook: 0x074F9973EBfB050D7abc75a5cB03491d675DA843
     ///      inspect() returns: abi.encodePacked(executor)
     function test_base_swapOdosV2Hook_merkleTree() public pure {
         address hook = 0x074F9973EBfB050D7abc75a5cB03491d675DA843;
-        bytes32 root = 0x1f04c75993810db3ebe4c55b80fd88fd535b93bb1e412a1ca18bb9e870147798;
+        bytes32 root = 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698;
 
-        // Leaf 0: executor 0x19cEeAd7105607Cd444F5ad10dd51356436095a1 (Odos Router)
+        // Leaf 0: executor 0xe6151691FF20684426d5DC017c0a3C4E1e533dee (new Odos executor)
+        {
+            bytes memory encodedArgs = hex"e6151691ff20684426d5dc017c0a3c4e1e533dee";
+            bytes32 expectedLeaf = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
+            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 1: executor 0x19cEeAd7105607Cd444F5ad10dd51356436095a1 (Odos Router V2)
         {
             bytes memory encodedArgs = hex"19ceead7105607cd444f5ad10dd51356436095a1";
             bytes32 expectedLeaf = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
-            bytes32[] memory proof = new bytes32[](2);
-            proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
+            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
             _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
         }
 
-        // Leaf 1: executor 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5
+        // Leaf 2: executor 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09
+        {
+            bytes memory encodedArgs = hex"bf44de8fc9eeeed8615b0b3bc095cb0ddef35e09";
+            bytes32 expectedLeaf = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
+            proof[1] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 3: executor 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5 (KyberSwap)
         {
             bytes memory encodedArgs = hex"6131b5fae19ea4f9d964eac0408e4408b66337b5";
             bytes32 expectedLeaf = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-            bytes32[] memory proof = new bytes32[](2);
-            proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
-            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
+            proof[1] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
             _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
         }
 
-        // Leaf 2: executor 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D
+        // Leaf 4: executor 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D (Pendle)
         {
             bytes memory encodedArgs = hex"d4f480965d2347d421f1bec7f545682e5ec2151d";
             bytes32 expectedLeaf = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
             bytes32[] memory proof = new bytes32[](1);
-            proof[0] = 0x6d5b0562af4a30566cc8dd88d48c48b8a4e0d14db3d7d91f4a26b7588ead8fee;
+            proof[0] = 0x073f89ad109be8c177fc3f6449435002143e9219cc7832ca0aea6495e9541fe5;
             _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
         }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    //          BASE (CHAIN 8453) — APPROVE AND SWAP ODOS V2 HOOK
+    //     BASE (CHAIN 8453) — APPROVE AND SWAP ODOS V2 HOOK (executor-only)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @notice Validates ApproveAndSwapOdosV2Hook tree on Base (169 leaves)
+    /// @notice Validates ApproveAndSwapOdosV2Hook tree on Base (5 leaves — all tested)
+    /// @dev Hook: 0x3E10d4105F826dFc8929845C94c019CDAF4d93cD
+    ///      inspect() returns: abi.encodePacked(executor)
+    function test_base_approveAndSwapOdosV2Hook_executorOnly_merkleTree() public pure {
+        address hook = 0x3E10d4105F826dFc8929845C94c019CDAF4d93cD;
+        bytes32 root = 0xbcd0d55543bd09819e78d186612fafc93fded69baf9594fa1f608d961cb5d85e;
+
+        // Leaf 0: executor 0xe6151691FF20684426d5DC017c0a3C4E1e533dee (new Odos executor)
+        {
+            bytes memory encodedArgs = hex"e6151691ff20684426d5dc017c0a3c4e1e533dee";
+            bytes32 expectedLeaf = 0x1b0e02d3a3de4fd618846b528cf01fe3f510e1a2187f329c9ee1f9005c95664e;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x24682b1e256fb5c659e2165b0dddede5c0f82820824646b0cc5d13784f9dcf4c;
+            proof[1] = 0x4b4c40612905ca397f3ff95f9e54c3e10de4942ba0c7182db1e14e6d41aa5d9c;
+            proof[2] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 1: executor 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D (Pendle)
+        {
+            bytes memory encodedArgs = hex"d4f480965d2347d421f1bec7f545682e5ec2151d";
+            bytes32 expectedLeaf = 0x24682b1e256fb5c659e2165b0dddede5c0f82820824646b0cc5d13784f9dcf4c;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x1b0e02d3a3de4fd618846b528cf01fe3f510e1a2187f329c9ee1f9005c95664e;
+            proof[1] = 0x4b4c40612905ca397f3ff95f9e54c3e10de4942ba0c7182db1e14e6d41aa5d9c;
+            proof[2] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 2: executor 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5 (KyberSwap)
+        {
+            bytes memory encodedArgs = hex"6131b5fae19ea4f9d964eac0408e4408b66337b5";
+            bytes32 expectedLeaf = 0x8a2bf8eafa210db554fd3bf97d0d8097de1dce2f44f351120910959da8e6460c;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0xa42e6d141602dcb0d20cfd29650d65a6efee507b7b204bed042670632015714f;
+            proof[1] = 0x9df0753515d9110e6ea11d8d7b5772ef479621919a6cc8a995843ac2197e4a4a;
+            proof[2] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 3: executor 0x19cEeAd7105607Cd444F5ad10dd51356436095a1 (Odos Router V2)
+        {
+            bytes memory encodedArgs = hex"19ceead7105607cd444f5ad10dd51356436095a1";
+            bytes32 expectedLeaf = 0xa42e6d141602dcb0d20cfd29650d65a6efee507b7b204bed042670632015714f;
+            bytes32[] memory proof = new bytes32[](3);
+            proof[0] = 0x8a2bf8eafa210db554fd3bf97d0d8097de1dce2f44f351120910959da8e6460c;
+            proof[1] = 0x9df0753515d9110e6ea11d8d7b5772ef479621919a6cc8a995843ac2197e4a4a;
+            proof[2] = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+
+        // Leaf 4: executor 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09
+        {
+            bytes memory encodedArgs = hex"bf44de8fc9eeeed8615b0b3bc095cb0ddef35e09";
+            bytes32 expectedLeaf = 0xebd0159addcdb0b8d49c51e6e6ed044a94e332e17992f53cf58beb0b68f14931;
+            bytes32[] memory proof = new bytes32[](1);
+            proof[0] = 0xe7022f2f4d1b2eb4fbd13e723cf7d4c962ce3b4f238797d0d41acf62ce3841c7;
+            _verifyLeaf(hook, encodedArgs, expectedLeaf, proof, root);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //     BASE (CHAIN 8453) — APPROVE AND SWAP ODOS V2 HOOK (legacy 0x8211)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Validates legacy ApproveAndSwapOdosV2Hook tree on Base (169 leaves)
     /// @dev Hook: 0x8211082177F01eEd24B73491f8eD79eE535BD980
     ///      inspect() returns: abi.encodePacked(tokenIn, tokenOut)
     function test_base_approveAndSwapOdosV2Hook_merkleTree() public pure {
@@ -319,16 +408,17 @@ contract SuperBankMerkleTreeValidation is Test {
     /// @notice Verifies that a tampered leaf fails merkle proof verification
     function test_invalidLeaf_failsMerkleProof() public pure {
         // Use Base SwapOdosV2 tree
-        bytes32 root = 0x1f04c75993810db3ebe4c55b80fd88fd535b93bb1e412a1ca18bb9e870147798;
+        bytes32 root = 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698;
         address hook = 0x074F9973EBfB050D7abc75a5cB03491d675DA843;
 
         // Valid proof for leaf 0 but with a wrong executor address
         bytes memory wrongArgs = hex"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
         bytes32 wrongLeaf = _createHookLeaf(hook, wrongArgs);
 
-        bytes32[] memory proof = new bytes32[](2);
-        proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-        proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        bytes32[] memory proof = new bytes32[](3);
+        proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
+        proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+        proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
 
         assert(!MerkleProof.verify(proof, root, wrongLeaf));
     }
@@ -341,9 +431,10 @@ contract SuperBankMerkleTreeValidation is Test {
         bytes memory encodedArgs = hex"19ceead7105607cd444f5ad10dd51356436095a1";
         bytes32 leaf = _createHookLeaf(hook, encodedArgs);
 
-        bytes32[] memory proof = new bytes32[](2);
-        proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-        proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        bytes32[] memory proof = new bytes32[](3);
+        proof[0] = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
+        proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+        proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
 
         assert(!MerkleProof.verify(proof, wrongRoot, leaf));
     }
