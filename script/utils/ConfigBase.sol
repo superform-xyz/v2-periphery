@@ -68,6 +68,11 @@ abstract contract ConfigBase is Constants {
     /// @notice Gas to WEI oracle on HyperEVM - STAGING
     address internal constant ORACLE_GAS_TO_WEI_HYPEREVM_STAGING = 0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3;
 
+    /// @notice Gas to WEI oracle on Flare (SuperformGasOracle - keeper updated)
+    address internal constant ORACLE_GAS_TO_WEI_FLARE = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
+    /// @notice Gas to WEI oracle on Flare - STAGING
+    address internal constant ORACLE_GAS_TO_WEI_FLARE_STAGING = 0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3;
+
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
@@ -76,6 +81,9 @@ abstract contract ConfigBase is Constants {
 
     /// @notice ETH/USD oracle on HyperEVM
     address internal constant ORACLE_ETH_USD_HYPEREVM = 0x017151e74fB3a393673B5B5149F53578c0Fa55B0;
+
+    /// @notice FLR/USD oracle on Flare (FTSOv2 Chainlink adapter - 18 decimals)
+    address internal constant ORACLE_FLR_USD_FLARE = 0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697;
 
     /// @notice Base Sequencer Uptime Feed (required for SuperOracleL2)
     address internal constant ORACLE_SEQUENCER_UPTIME_BASE = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
@@ -89,6 +97,8 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_BASE = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
     address internal constant UP_TOKEN_HYPEREVM = 0x642fFC3496AcA19106BAB7A42F1F221a329654fe;
     address internal constant UP_TOKEN_HYPEREVM_STAGING = 0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f;
+    address internal constant UP_TOKEN_FLARE = 0xe030A89fd2b7f858c8aA47725679CA25D467dFD1;
+    address internal constant UP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -111,6 +121,11 @@ abstract contract ConfigBase is Constants {
     address internal constant UPKEEP_TOKEN_HYPEREVM = 0x642fFC3496AcA19106BAB7A42F1F221a329654fe;
     /// @notice UPKEEP_TOKEN on HyperEVM - STAGING
     address internal constant UPKEEP_TOKEN_HYPEREVM_STAGING = 0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f;
+
+    /// @notice UPKEEP_TOKEN on Flare (UpOFT)
+    address internal constant UPKEEP_TOKEN_FLARE = 0xe030A89fd2b7f858c8aA47725679CA25D467dFD1;
+    /// @notice UPKEEP_TOKEN on Flare - STAGING
+    address internal constant UPKEEP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION

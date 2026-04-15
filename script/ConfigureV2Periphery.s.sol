@@ -119,7 +119,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         _registerAllHooks(params.superGovernor, hooks);
 
         // Set UP and UPKEEP_TOKEN addresses in SuperGovernor
-        _setTokenAddresses(params.superGovernor, params.chainId);
+        _setTokenAddresses(params.superGovernor, params.chainId, params.env);
 
         // NOTE: Gas info for ECDSAPPSOracle is now set during deployment in DeployV2Periphery.s.sol
 
@@ -129,7 +129,7 @@ contract ConfigureV2Periphery is DeployV2Base {
     /// @notice Set UP and UPKEEP_TOKEN addresses in SuperGovernor
     /// @dev On mainnet: Both UP and UPKEEP_TOKEN are set to UP_TOKEN
     /// @dev On L2s: UP is set to address(0) (not available), UPKEEP_TOKEN is set to UP_TOKEN_BASE
-    function _setTokenAddresses(address superGovernor, uint64 chainId) internal {
+    function _setTokenAddresses(address superGovernor, uint64 chainId, uint256 env) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
 
         console2.log("Setting token addresses in SuperGovernor...");
@@ -184,6 +184,58 @@ contract ConfigureV2Periphery is DeployV2Base {
             }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Base)");
+        } else if (chainId == HYPEREVM_CHAIN_ID) {
+            // HyperEVM: Both UP and UPKEEP_TOKEN are the UpOFT token
+            address upToken = env == 2 ? UP_TOKEN_HYPEREVM_STAGING : UP_TOKEN_HYPEREVM;
+            address upkeepToken = env == 2 ? UPKEEP_TOKEN_HYPEREVM_STAGING : UPKEEP_TOKEN_HYPEREVM;
+            console2.log("  Chain: HyperEVM");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (HyperEVM)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (HyperEVM)");
+        } else if (chainId == FLARE_CHAIN_ID) {
+            // Flare: Both UP and UPKEEP_TOKEN are the UpOFT token
+            address upToken = env == 2 ? UP_TOKEN_FLARE_STAGING : UP_TOKEN_FLARE;
+            address upkeepToken = env == 2 ? UPKEEP_TOKEN_FLARE_STAGING : UPKEEP_TOKEN_FLARE;
+            console2.log("  Chain: Flare");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (Flare)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Flare)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
         }

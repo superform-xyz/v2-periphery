@@ -218,15 +218,20 @@ generate_constructor_args() {
     local ORACLE_GAS_TO_WEI_BASE="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
     local ORACLE_GAS_TO_WEI_HYPEREVM="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
     local ORACLE_GAS_TO_WEI_HYPEREVM_STAGING="0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3"
+    local ORACLE_GAS_TO_WEI_FLARE="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
+    local ORACLE_GAS_TO_WEI_FLARE_STAGING="0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3"
     local ORACLE_ETH_USD_MAINNET="0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
     local ORACLE_ETH_USD_BASE="0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"
     local ORACLE_ETH_USD_HYPEREVM="0x017151e74fB3a393673B5B5149F53578c0Fa55B0"
+    local ORACLE_FLR_USD_FLARE="0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697"
 
     # UP Token addresses per chain
     local UP_TOKEN="0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
     local UP_TOKEN_BASE="0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B"
     local UP_TOKEN_HYPEREVM="0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
     local UP_TOKEN_HYPEREVM_STAGING="0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f"
+    local UP_TOKEN_FLARE="0xe030A89fd2b7f858c8aA47725679CA25D467dFD1"
+    local UP_TOKEN_FLARE_STAGING="0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5"
 
     # LayerZero V2 endpoints
     local LZ_ENDPOINT="0x1a44076050125825900e736c501f859c50fE728c"
@@ -311,6 +316,16 @@ generate_constructor_args() {
                         up_token="$UP_TOKEN_HYPEREVM"
                     fi
                     eth_usd_oracle="$ORACLE_ETH_USD_HYPEREVM"
+                    ;;
+                "14")
+                    if [ "$ENVIRONMENT" = "staging" ]; then
+                        gas_oracle="$ORACLE_GAS_TO_WEI_FLARE_STAGING"
+                        up_token="$UP_TOKEN_FLARE_STAGING"
+                    else
+                        gas_oracle="$ORACLE_GAS_TO_WEI_FLARE"
+                        up_token="$UP_TOKEN_FLARE"
+                    fi
+                    eth_usd_oracle="$ORACLE_FLR_USD_FLARE"
                     ;;
                 *)
                     echo ""
