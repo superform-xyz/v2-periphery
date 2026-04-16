@@ -10,6 +10,8 @@ import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 import { OdosAPIParser } from "@superform-v2-core/test/utils/parsers/OdosAPIParser.sol";
+import { Surl } from "@surl/Surl.sol";
+import { strings } from "@stringutils/strings.sol";
 import { AcrossV3Helper } from "@pigeon/across/AcrossV3Helper.sol";
 
 /// @title SuperBankSwapIntegration
@@ -26,6 +28,9 @@ import { AcrossV3Helper } from "@pigeon/across/AcrossV3Helper.sol";
 /// Run:
 ///   forge test --match-contract SuperBankSwapIntegration -vvv
 contract SuperBankSwapIntegration is Test, OdosAPIParser {
+    using Surl for *;
+    using strings for *;
+
     // ═══════════════════════════════════════════════════════════════════
     //                    PRODUCTION ADDRESSES (BASE MAINNET)
     // ═══════════════════════════════════════════════════════════════════
@@ -60,6 +65,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     // ETH mainnet addresses (for cross-chain bridge test)
     address constant ETH_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant ACROSS_SEND_FUNDS_HOOK_ETH = 0x39962bE24192d0d6B6e3a19f332e3c825604d16A;
+    address constant APPROVE_AND_ACROSS_HOOK_ETH = 0x72422aB917e4a698369767F7AcE667a769E0F3f2;
     address constant ETH_SPOKE_POOL = 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5;
     address constant BASE_SPOKE_POOL = 0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64;
 
@@ -123,7 +129,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -212,7 +220,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -376,7 +386,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -422,6 +434,79 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         assertGt(upAfter - upBefore, 0, "SuperBank should have received UP tokens");
 
         console2.log("Swap result: %d USDC -> %d UP", usdcOnBase, upAfter - upBefore);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //      BRIDGE VIA ApproveAndAcrossSendFundsAndExecuteOnDstHook
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Bridges USDC from ETH to Base using ApproveAndAcross (single combined hook) then swaps USDC→UP.
+    /// @dev Same flow as test_executeHooks_bridgeAndSwapUSDCtoUP() but uses ApproveAndAcross (1 hook)
+    ///      instead of ApproveERC20Hook + AcrossSendFundsHook (2 hooks).
+    ///
+    ///      Phase 1: ETH fork — bridge via ApproveAndAcrossSendFundsAndExecuteOnDstHook
+    ///      Phase 2: Pigeon relay — AcrossV3Helper fills the relay on Base fork
+    ///      Phase 3: Base fork — approve USDC for Odos Router + swap via SwapOdosV2Hook
+    ///
+    ///      ETH ApproveAndAcrossHook (0x72422aB9...): root 0x9878e749..., 1122 leaves
+    ///      Leaf 139: USDC ETH→USDC Base (SuperBank recipient)
+    function test_executeHooks_bridgeAndSwapUSDCtoUP_withApproveAndAcross() public {
+        uint256 baseForkId = vm.activeFork();
+        uint256 baseOriginalTimestamp = block.timestamp;
+
+        // Phase 1: Bridge USDC from ETH to Base using combined ApproveAndAcross hook
+        Vm.Log[] memory logs = _bridgeUsdcFromEthToBase_withApproveAndAcross(100e6);
+
+        // Phase 2: Pigeon relay
+        _relayAcrossBridge(logs, baseForkId);
+
+        // Phase 3: Swap USDC→UP on Base (same as existing test)
+        vm.selectFork(baseForkId);
+        vm.warp(baseOriginalTimestamp);
+        _swapUsdcToUpOnBase();
+    }
+
+    /// @dev Phase 1: On ETH fork, bridge USDC to SuperBank on Base via ApproveAndAcross (single hook).
+    ///      Uses production merkle tree:
+    ///        ApproveAndAcross: root 0x9878e749..., leaf 139 (USDC ETH→USDC Base, SuperBank recipient)
+    function _bridgeUsdcFromEthToBase_withApproveAndAcross(uint256 bridgeAmount)
+        internal
+        returns (Vm.Log[] memory logs)
+    {
+        uint256 ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
+        vm.selectFork(ethForkId);
+
+        // Grant roles on ETH fork
+        _forceGrantRole(superGovernor.GOVERNOR_ROLE(), address(this));
+        _forceGrantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+
+        // Register the combined hook
+        superGovernor.registerHook(APPROVE_AND_ACROSS_HOOK_ETH);
+
+        // Fund SuperBank on ETH with USDC
+        deal(ETH_USDC, SUPER_BANK, bridgeAmount);
+        assertEq(IERC20(ETH_USDC).balanceOf(SUPER_BANK), bridgeAmount, "ETH USDC not dealt");
+
+        // Encode hook data (same layout as AcrossSendFundsHook — the hook handles approval internally)
+        bytes memory acrossData = _encodeAcrossHookData(
+            SUPER_BANK, ETH_USDC, USDC, bridgeAmount, bridgeAmount * 99 / 100, BASE_CHAIN_ID, false, bytes("")
+        );
+
+        // ApproveAndAcross: production merkle root (1122 leaves)
+        bytes32 approveAndAcrossRoot = 0x9878e7490ce4be12530b2e7bc670855c1b4c9c044a593c47c2c9b0abbfe37877;
+        _setMerkleRoot(APPROVE_AND_ACROSS_HOOK_ETH, approveAndAcrossRoot);
+
+        // Execute: single hook with production proof (leaf 139: USDC ETH→USDC Base)
+        vm.recordLogs();
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                APPROVE_AND_ACROSS_HOOK_ETH, acrossData, _getApproveAndAcrossUsdcEthToBaseProof()
+            )
+        );
+        logs = vm.getRecordedLogs();
+
+        assertEq(IERC20(ETH_USDC).balanceOf(SUPER_BANK), 0, "All ETH USDC should be consumed by the bridge");
+        console2.log("Phase 1 (ApproveAndAcross): Bridged %d USDC from ETH to Base", bridgeAmount);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -570,7 +655,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -635,7 +722,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -702,7 +791,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -882,6 +973,25 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         proof[7] = 0xc4a9ad9cd18708394cf1435a50d14821086838040f058b661202961b223d1a4e;
         proof[8] = 0x1025aeaa46830ad674cf0d34ed425bfd481113edfeb36dd33cbccb2ced327736;
         proof[9] = 0x9e2e9e759cb239f75211c1dca8325051fa7a2dcef4c77803170bb0aea301c269;
+    }
+
+    /// @dev Returns the production merkle proof for USDC ETH→USDC Base leaf (index 139) in the
+    ///      ApproveAndAcrossSendFundsAndExecuteOnDstHook tree on ETH.
+    ///      Source: hook_0x72422ab917e4a698369767f7ace667a769e0f3f2.json (chain 1, 1122 leaves)
+    ///      Args: recipient=SuperBank, inputToken=ETH USDC, outputToken=Base USDC, exclusiveRelayer=0x0
+    function _getApproveAndAcrossUsdcEthToBaseProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](11);
+        proof[0] = 0x2209c0bb75cc3e5a47907d425217d4a60cc51c72da91efc14f5d9dbe60dbfacc;
+        proof[1] = 0xb8f5d3e0d0f914d4c1f493683e779baaa75d0a44accc18c6af8735fdbb11d123;
+        proof[2] = 0xc9ce4d27884f156978ca86f8ceac9fe9d38b54e21d53bbc7818bd2a6fbf66ce7;
+        proof[3] = 0x30ac81180d703037cd6f8053420e4283faf72124ab019fe8cdb0411067e51c72;
+        proof[4] = 0xb2d31e87b205d38b964fab7deff187483f5d91fcc4b82b488b1dd9571abe45b5;
+        proof[5] = 0x79a1721bb48097a4d6fb423a3c7d430787fd267f5a78b84396ec04d8eed23858;
+        proof[6] = 0xa5bab8e07df6c9d5770adc64b58b77ffc68e2db2dbce83b5c169f5ec7266354b;
+        proof[7] = 0xd01782b5c95f7ca1f952e2b2cc011c2a305b192cc50a34ab231b7aa2dc0e5a4f;
+        proof[8] = 0xf4bf1a9800ee392588f13e1eb9f8ea049f3127b8ea4c3a4e21b9ea30b22a267e;
+        proof[9] = 0x19a6ca198114d31cd0a622f608ff5d8109d20632a4a0de45cd8a10237a9cfe60;
+        proof[10] = 0xfaae5afb421149c014a7deb594cf48523b31b9dd06e55cb770ed8811bb72d044;
     }
 
     /// @dev Returns the production merkle proof for WETH→USDC swap via ApproveAndSwapOdosV2Hook on ETH.
@@ -1598,7 +1708,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1651,7 +1763,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1704,7 +1818,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1877,6 +1993,48 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         vm.warp(savedTimestamp);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook), leaf, "Merkle root mismatch");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //                     ODOS API HELPERS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @dev Calls Odos quote v2 with a sourceBlacklist to avoid broken pools on the fork.
+    ///      Builds the base JSON via buildQuoteV2RequestBody, strips trailing "}", appends the blacklist.
+    function _surlCallQuoteV2WithBlacklist(
+        QuoteInputToken[] memory _inputTokens,
+        QuoteOutputToken[] memory _outputTokens,
+        address _account,
+        uint256 _chainId,
+        bool _compact,
+        string memory _blacklist
+    )
+        internal
+        returns (string memory)
+    {
+        string memory body = buildQuoteV2RequestBody(_inputTokens, _outputTokens, _account, _chainId, _compact);
+        // Remove trailing "}" and append sourceBlacklist
+        bytes memory bodyBytes = bytes(body);
+        assembly {
+            mstore(bodyBytes, sub(mload(bodyBytes), 1))
+        }
+        body = string(abi.encodePacked(bodyBytes, ',"sourceBlacklist":', _blacklist, "}"));
+
+        string[] memory headers = new string[](1);
+        headers[0] = "Content-Type: application/json";
+
+        (uint256 status, bytes memory data) = API_QUOTE_URL.post(headers, body);
+        if (status != 200) {
+            revert("surlCallQuoteV2WithBlacklist failed");
+        }
+        string memory json = string(data);
+
+        strings.slice memory jsonSlice = json.toSlice();
+        strings.slice memory key = '"pathId":"'.toSlice();
+        strings.slice memory afterKey = jsonSlice.find(key).beyond(key);
+        strings.slice memory pathId = afterKey.split('"'.toSlice());
+
+        return pathId.toString();
     }
 
     // ═══════════════════════════════════════════════════════════════════
