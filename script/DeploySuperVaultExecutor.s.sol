@@ -17,6 +17,9 @@ contract DeploySuperVaultExecutor is DeployV2Base {
     /// @notice Contract key for SuperVaultExecutor
     string internal constant EXECUTOR_KEY = "SuperVaultExecutor";
 
+    /// @notice Canonical ERC-4337 v0.7 EntryPoint address (same on all EVM chains)
+    address internal constant ENTRY_POINT = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
+
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -93,6 +96,7 @@ contract DeploySuperVaultExecutor is DeployV2Base {
             console2.log("=== Executor State ===");
             console2.log("Has DEFAULT_ADMIN_ROLE:", executor.hasRole(executor.DEFAULT_ADMIN_ROLE(), admin));
             console2.log("SUPER_GOVERNOR:", address(executor.SUPER_GOVERNOR()));
+            console2.log("ENTRY_POINT:", executor.ENTRY_POINT());
             console2.log("SUPER_VAULT_AGGREGATOR_KEY:", vm.toString(executor.SUPER_VAULT_AGGREGATOR_KEY()));
             console2.log("MAX_BATCH_SIZE:", executor.MAX_BATCH_SIZE());
         }
@@ -186,19 +190,21 @@ contract DeploySuperVaultExecutor is DeployV2Base {
             EXECUTOR_KEY,
             chainId,
             __getSalt(EXECUTOR_KEY),
-            abi.encodePacked(bytecode, abi.encode(superGovernor, admin))
+            abi.encodePacked(bytecode, abi.encode(superGovernor, admin, ENTRY_POINT))
         );
 
         // Verify deployment
         SuperVaultExecutor executor = SuperVaultExecutor(payable(executorAddr));
         require(executor.hasRole(executor.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
         require(address(executor.SUPER_GOVERNOR()) == superGovernor, "SUPER_GOVERNOR_MISMATCH");
+        require(executor.ENTRY_POINT() == ENTRY_POINT, "ENTRY_POINT_MISMATCH");
 
         console2.log("");
         console2.log("=== Deployment Verification ===");
         console2.log("SuperVaultExecutor deployed at:", executorAddr);
         console2.log("Admin verified:", admin);
         console2.log("SuperGovernor verified:", superGovernor);
+        console2.log("EntryPoint verified:", ENTRY_POINT);
         console2.log("SUPER_VAULT_AGGREGATOR_KEY:", vm.toString(executor.SUPER_VAULT_AGGREGATOR_KEY()));
 
         // Write JSON output
@@ -255,7 +261,7 @@ contract DeploySuperVaultExecutor is DeployV2Base {
         bytes memory bytecode = __getBytecode(EXECUTOR_KEY, env);
         require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(bytecode, abi.encode(superGovernor, admin)), __getSalt(EXECUTOR_KEY)
+            abi.encodePacked(bytecode, abi.encode(superGovernor, admin, ENTRY_POINT)), __getSalt(EXECUTOR_KEY)
         );
     }
 }

@@ -39,6 +39,7 @@ contract SuperVaultExecutorTest is PeripheryHelpers {
     address internal superBank;
     address internal superOracle;
     address internal upToken;
+    address internal entryPoint;
 
     /// @dev All 6 permissions — used by existing tests to preserve pre-permission behavior
     function _permAll() internal pure returns (ISuperVaultExecutor.Permission[] memory perms) {
@@ -79,6 +80,7 @@ contract SuperVaultExecutorTest is PeripheryHelpers {
         manager = _deployAccount(0x5, "Manager");
         admin = _deployAccount(0x6, "Admin");
         sessionKey = _deployAccount(0x7, "SessionKey");
+        entryPoint = makeAddr("entryPoint");
         superOracle = address(new MockSuperOracle(1e18));
 
         asset = new MockERC20("Asset", "ASSET", 18);
@@ -121,7 +123,7 @@ contract SuperVaultExecutorTest is PeripheryHelpers {
         strategy = SuperVaultStrategy(payable(strategyAddress));
 
         // Deploy SuperVaultExecutor
-        superVaultExecutor = new SuperVaultExecutor(address(superGovernor), admin);
+        superVaultExecutor = new SuperVaultExecutor(address(superGovernor), admin, entryPoint);
 
         // Add SuperVaultExecutor as secondary manager
         vm.prank(manager);
@@ -139,12 +141,21 @@ contract SuperVaultExecutorTest is PeripheryHelpers {
 
     function test_Constructor_RevertsOnZeroSuperGovernor() public {
         vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
-        new SuperVaultExecutor(address(0), admin);
+        new SuperVaultExecutor(address(0), admin, entryPoint);
     }
 
     function test_Constructor_RevertsOnZeroAdmin() public {
         vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
-        new SuperVaultExecutor(address(superGovernor), address(0));
+        new SuperVaultExecutor(address(superGovernor), address(0), entryPoint);
+    }
+
+    function test_Constructor_RevertsOnZeroEntryPoint() public {
+        vm.expectRevert(ISuperVaultExecutor.ZERO_ADDRESS.selector);
+        new SuperVaultExecutor(address(superGovernor), admin, address(0));
+    }
+
+    function test_Constructor_SetsEntryPoint() public view {
+        assertEq(superVaultExecutor.ENTRY_POINT(), entryPoint);
     }
 
     function test_Constructor_CachesAggregatorKey() public view {

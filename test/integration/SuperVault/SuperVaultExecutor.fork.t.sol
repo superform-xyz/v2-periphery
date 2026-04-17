@@ -78,7 +78,8 @@ contract SuperVaultExecutorForkTest is Test {
         aggregator = ISuperVaultAggregator(AGGREGATOR);
 
         // Deploy SuperVaultExecutor against real SuperGovernor
-        superVaultExecutor = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
+        // Using canonical v0.7 EntryPoint address
+        superVaultExecutor = new SuperVaultExecutor(SUPER_GOVERNOR, admin, 0x0000000071727De22E5E9d8BAf0edAc6f37da032);
 
         // Add SuperVaultExecutor as secondary manager on USDC strategy
         // (impersonate the real production primary manager)
@@ -356,7 +357,7 @@ contract SuperVaultExecutorForkTest is Test {
 
     function test_Fork_NotSecondaryManager_RevertsOnPause() public {
         // Deploy a second SuperVaultExecutor that is NOT added as secondary manager
-        SuperVaultExecutor svm2 = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
+        SuperVaultExecutor svm2 = new SuperVaultExecutor(SUPER_GOVERNOR, admin, 0x0000000071727De22E5E9d8BAf0edAc6f37da032);
 
         uint256 expiry = block.timestamp + 1 days;
         vm.prank(MAIN_MANAGER);
