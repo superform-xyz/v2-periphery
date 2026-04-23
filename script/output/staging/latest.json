@@ -93,7 +93,9 @@
         "MorphoRepayHook": "0x922F4A8Cb183c7589590F3F2c5341C4271B27e0F",
         "MorphoSupplyAndBorrowHook": "0x2ABB3EEd59AeebcAad63ac1DD4e5f4316a5BD5Dc",
         "MorphoSupplyHook": "0xcab4F708D249B36C02C092e5C76aDaEFA9c741fF",
-        "MorphoWithdrawHook": "0xF23dE24Da35a54429861cb96ADB05d364F5B6a4a"
+        "MorphoWithdrawHook": "0xF23dE24Da35a54429861cb96ADB05d364F5B6a4a",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9",
+        "MetaMorphoReallocateHook": "0xc25BeF46a12d0fDf66F4e4d8F1E846601f1f55e3"
       }
     },
     "Base": {
@@ -193,7 +195,9 @@
         "MorphoRepayHook": "0x922F4A8Cb183c7589590F3F2c5341C4271B27e0F",
         "MorphoSupplyAndBorrowHook": "0x2ABB3EEd59AeebcAad63ac1DD4e5f4316a5BD5Dc",
         "MorphoSupplyHook": "0xcab4F708D249B36C02C092e5C76aDaEFA9c741fF",
-        "MorphoWithdrawHook": "0xF23dE24Da35a54429861cb96ADB05d364F5B6a4a"
+        "MorphoWithdrawHook": "0xF23dE24Da35a54429861cb96ADB05d364F5B6a4a",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9",
+        "MetaMorphoReallocateHook": "0xc25BeF46a12d0fDf66F4e4d8F1E846601f1f55e3"
       }
     },
     "BNB": {
@@ -277,7 +281,9 @@
         "MorphoRepayHook": "0xDC8160355A5b65f70b46eaB72332c689568AADcD",
         "MorphoSupplyAndBorrowHook": "0xbcfEeC4B4414B525F601b5B43A0615DCFe9b283e",
         "MorphoSupplyHook": "0x43f23D81559BE18b96BEFc2529896b8d2a339faa",
-        "MorphoWithdrawHook": "0xa6270787f4a7eF9826469069529075cC4057CAFb"
+        "MorphoWithdrawHook": "0xa6270787f4a7eF9826469069529075cC4057CAFb",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9",
+        "MetaMorphoReallocateHook": "0xc25BeF46a12d0fDf66F4e4d8F1E846601f1f55e3"
       }
     },
     "Arbitrum": {
@@ -362,7 +368,9 @@
         "MorphoRepayHook": "0xFA308da8737831044eDE2bFE938689DDfAB74056",
         "MorphoSupplyAndBorrowHook": "0x42C0D0e0B6F3D19Ecf97eE736A2A79CA1FF7997e",
         "MorphoSupplyHook": "0xA89fb27c43E5Bc7f1747bB7Bce780881453B34b0",
-        "MorphoWithdrawHook": "0xc94bFEB35E6c43929f08b54a3eCFc31dd8FE518e"
+        "MorphoWithdrawHook": "0xc94bFEB35E6c43929f08b54a3eCFc31dd8FE518e",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9",
+        "MetaMorphoReallocateHook": "0xc25BeF46a12d0fDf66F4e4d8F1E846601f1f55e3"
       }
     },
     "Avalanche": {
@@ -434,7 +442,8 @@
         "RecordRedemptionPendlePTAmortizedOracleHookV2": "0x65133147a37b2d1171f1c164c4C697db34419809",
         "YoYieldSourceOracle": "0x509223CE467365432C5211f51AdF71831B253d7F",
         "ApproveAndSwapKyberSwapHook": "0x77Cb96800742dF3732314837E7a4D822eE77fCC1",
-        "SwapKyberSwapHook": "0xCad8Fd276dAf036c8b02136969a37B663b2fEaDd"
+        "SwapKyberSwapHook": "0xCad8Fd276dAf036c8b02136969a37B663b2fEaDd",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9"
       }
     },
     "HyperEVM": {
@@ -521,7 +530,8 @@
         "YoYieldSourceOracle": "0x509223CE467365432C5211f51AdF71831B253d7F",
         "ApproveAndSwapKyberSwapHook": "0x77Cb96800742dF3732314837E7a4D822eE77fCC1",
         "SwapKyberSwapHook": "0xCad8Fd276dAf036c8b02136969a37B663b2fEaDd",
-        "SuperVaultExecutor": "0x7AC580B336F6c656Cb030291A70dF0bfC9D25f4b"
+        "SuperVaultExecutor": "0x7AC580B336F6c656Cb030291A70dF0bfC9D25f4b",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9"
       }
     },
     "Flare": {
@@ -538,7 +548,7 @@
         "SuperOracle": "0x6df15CF908dcA5Aa78Ef069c88cc703C87aBDFE5",
         "SuperBank": "0x69d53e376264EEb567213f07d8136050f99eeeC0",
         "SuperVaultBatchOperator": "0x3D0e34316f3deF7bce5fDEBC7083E6eE4E088AC6",
-        "SuperVaultExecutor": "0xea41473E5e7F9384AdCb3B3B9F75FfF809864C35",
+        "SuperVaultExecutor": "0x7AC580B336F6c656Cb030291A70dF0bfC9D25f4b",
         "ApproveAndDeposit4626VaultHook": "0xdcAfC76B2f777bBA2d1e6C535F73AcA3dBe558F4",
         "ApproveAndDeposit5115VaultHook": "0xDc997F44693d865C68d2321E41716Bdc098016ee",
         "ApproveAndRequestDeposit7540VaultHook": "0xef56121Af8553C0a534052b6305301E414E79c41",
@@ -593,9 +603,14 @@
         "SwapUniswapV2Hook": "0x744D5164e5a206F456B49e276592116BA90199C4",
         "TransferERC20Hook": "0x9379C1cfaA3B660855231387F4F3167fee2cE6b2",
         "TransferHook": "0xDDBde23fE91FCFd9E6856B17c4A7eE8F444f74Ea",
-        "YoYieldSourceOracle": "0x509223CE467365432C5211f51AdF71831B253d7F"
+        "YoYieldSourceOracle": "0x509223CE467365432C5211f51AdF71831B253d7F",
+        "SuperSponsorshipPaymaster": "0x64d0d14EA97FEf90A7fa9ef32b19e84BC86451C9",
+        "ApproveAndSwapAlgebraIntegralHook": "0x9ce8A0eB6B2E44b87f05361a112852D76029042D",
+        "ClaimWithdrawFirelightVaultHook": "0x4e371E2c950ADf9D4c7830438A51bBD703dB7f36",
+        "RedeemFirelightVaultHook": "0xc36Cd531554a5Fa8579Cf6Cd5f845c837fa24c79",
+        "SwapAlgebraIntegralHook": "0xf556ddF8B1fEf149Ae8A4DF9615cE863ABff3BEC"
       }
     }
   },
-  "updated_at": "2026-04-22T07:43:51Z"
+  "updated_at": "2026-04-23T21:04:38Z"
 }

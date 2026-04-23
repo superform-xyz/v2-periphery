@@ -142,7 +142,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         totalGasEstimate += _estimateContractGas(ECDSAPPS_ORACLE_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(FIXED_PRICE_ORACLE_KEY, chainId, env);
         // SuperOracle (mainnet/HyperEVM) or SuperOracleL2 (L2 chains with sequencer uptime feed)
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID) {
+        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID) {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_KEY, chainId, env);
         } else {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_L2_KEY, chainId, env);
@@ -469,6 +469,22 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 }
             }
             ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
+        } else if (chainId == FLARE_CHAIN_ID) {
+            // Flare uses FTSOv2 Chainlink adapters (18 decimals) and SuperformGasOracle
+            if (env == 2) {
+                gasOracle = ORACLE_GAS_TO_WEI_FLARE_STAGING;
+                upToken = UP_TOKEN_FLARE_STAGING;
+                if (UP_TOKEN_FLARE_STAGING.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            } else {
+                gasOracle = ORACLE_GAS_TO_WEI_FLARE;
+                upToken = UP_TOKEN_FLARE;
+                if (UP_TOKEN_FLARE.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            }
+            ethUsdOracle = ORACLE_FLR_USD_FLARE;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -479,7 +495,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         providers[0] = PROVIDER_CHAINLINK;
         feeds[0] = gasOracle;
 
-        // Feed 2: ETH -> USD
+        // Feed 2: NATIVE -> USD
         bases[1] = NATIVE_TOKEN;
         quotes[1] = USD_TOKEN;
         providers[1] = PROVIDER_CHAINLINK;
@@ -493,7 +509,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         bytes memory superOracleArgs = abi.encode(superGovernorAddr, bases, quotes, providers, feeds);
 
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID) {
+        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID) {
             __checkContractWithBytecode(
                 SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
             );
@@ -805,6 +821,22 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 }
             }
             ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
+        } else if (chainId == FLARE_CHAIN_ID) {
+            // Flare uses FTSOv2 Chainlink adapters (18 decimals) and SuperformGasOracle
+            if (env == 2) {
+                gasOracle = ORACLE_GAS_TO_WEI_FLARE_STAGING;
+                upToken = UP_TOKEN_FLARE_STAGING;
+                if (UP_TOKEN_FLARE_STAGING.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            } else {
+                gasOracle = ORACLE_GAS_TO_WEI_FLARE;
+                upToken = UP_TOKEN_FLARE;
+                if (UP_TOKEN_FLARE.code.length == 0) {
+                    console2.log("[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment");
+                }
+            }
+            ethUsdOracle = ORACLE_FLR_USD_FLARE;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -815,7 +847,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         providers[0] = PROVIDER_CHAINLINK;
         feeds[0] = gasOracle;
 
-        // Feed 2: ETH -> USD
+        // Feed 2: NATIVE -> USD
         bases[1] = NATIVE_TOKEN;
         quotes[1] = USD_TOKEN;
         providers[1] = PROVIDER_CHAINLINK;
@@ -827,7 +859,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         providers[2] = PROVIDER_SUPERFORM;
         feeds[2] = fixedPriceOracle;
 
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID) {
+        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID) {
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
                 chainId,
@@ -949,7 +981,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Step 6: Configure uptime feed for L2 chains (Chainlink oracles may be stale during sequencer downtime)
         // Skip for test environment (env == 1) since oracles not deployed
         // Skip for HyperEVM (no sequencer uptime feed)
-        if (env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID) {
+        if (env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
             SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
@@ -996,8 +1028,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             }
 
             console2.log("[Step 6] DONE - Configured uptime feeds for ETH/USD, GAS/WEI, and UP/USD oracles");
-        } else if (chainId == HYPEREVM_CHAIN_ID) {
-            console2.log("[Step 6] SKIPPED - HyperEVM has no sequencer uptime feed");
+        } else if (chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID) {
+            console2.log("[Step 6] SKIPPED - L1 chain has no sequencer uptime feed");
         }
 
         // NOTE: Governor roles are granted to the deployer initially via configuration.governor
@@ -1112,6 +1144,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_BASE;
         } else if (chainId == HYPEREVM_CHAIN_ID) {
             upToken = env == 2 ? UP_TOKEN_HYPEREVM_STAGING : UP_TOKEN_HYPEREVM;
+        } else if (chainId == FLARE_CHAIN_ID) {
+            upToken = env == 2 ? UP_TOKEN_FLARE_STAGING : UP_TOKEN_FLARE;
         } else {
             revert("UP token not configured for this chain");
         }
