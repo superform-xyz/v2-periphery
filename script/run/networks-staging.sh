@@ -6,12 +6,13 @@
 # Define staging networks
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
-    "1:Ethereum:ETH_MAINNET"
-    "8453:Base:BASE_MAINNET"
+    # "1:Ethereum:ETH_MAINNET"
+    # "8453:Base:BASE_MAINNET"
     # "56:BNB:BSC_MAINNET"
     # "42161:Arbitrum:ARBITRUM_MAINNET"
     # "43114:Avalanche:AVALANCHE_MAINNET"
-    "999:HyperEVM:HYPEREVM_MAINNET"
+    # "999:HyperEVM:HYPEREVM_MAINNET"
+    "14:Flare:FLARE_MAINNET"
 )
 
 # Network name mapping function
@@ -35,6 +36,9 @@ get_network_name() {
         #     ;;
         999)
             echo "HyperEVM"
+            ;;
+        14)
+            echo "Flare"
             ;;
         *)
             echo "ERROR: Unknown staging network ID: $network_id" >&2
@@ -65,6 +69,9 @@ get_rpc_var() {
         999)
             echo "HYPEREVM_MAINNET"
             ;;
+        14)
+            echo "FLARE_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -93,6 +100,9 @@ get_rpc_url() {
         #     ;;
         999)
             echo "$HYPEREVM_MAINNET"
+            ;;
+        14)
+            echo "$FLARE_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
@@ -158,6 +168,12 @@ load_rpc_urls() {
         export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
     fi
 
+    echo "  • Loading Flare RPC..."
+    if ! export FLARE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/FLARE_RPC_URL/credential 2>/dev/null); then
+        echo "  • FLARE_RPC_URL not in 1Password, using default RPC"
+        export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -167,7 +183,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Staging RPC URLs loaded successfully (Ethereum, Base, HyperEVM)"
+    echo "✅ Staging RPC URLs loaded successfully (Ethereum, Base, HyperEVM, Flare)"
 }
 
 # Load Etherscan V2 API key for verification

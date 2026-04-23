@@ -53,7 +53,8 @@ readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 # Supported chains: "CHAIN_ID:CHAIN_NAME"
 readonly SUPPORTED_CHAINS=(
-    "999:HyperEVM"
+    # "999:HyperEVM"
+    "14:Flare"
 )
 
 ###################################################################################
@@ -148,6 +149,9 @@ get_chain_rpc_url() {
         999)
             echo "${HYPEREVM_MAINNET:-}"
             ;;
+        14)
+            echo "${FLARE_MAINNET:-}"
+            ;;
         *)
             echo ""
             ;;
@@ -178,8 +182,8 @@ deploy_on_chain() {
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
         ACCOUNT_FLAG="--account $account"
-        # Only enable etherscan verification for chains that support it (not HyperEVM)
-        if [ "$chain_id" != "999" ]; then
+        # Only enable etherscan verification for chains that support it (not HyperEVM/Flare)
+        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
             VERIFY_FLAG="--verify"
             ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
         fi

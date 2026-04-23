@@ -173,8 +173,8 @@ deploy_on_chain() {
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
         ACCOUNT_FLAG="--account $account"
-        # Skip etherscan verification for HyperEVM (no etherscan support)
-        if [ "$chain_id" != "999" ]; then
+        # Skip etherscan verification for HyperEVM and Flare (no etherscan support)
+        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
             VERIFY_FLAG="--verify"
             ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
         fi
