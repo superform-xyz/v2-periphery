@@ -3,22 +3,31 @@ pragma solidity 0.8.30;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecutor.sol";
+import { PackedUserOperation } from "../vendor/erc4337/PackedUserOperation.sol";
+import { IAccount } from "../vendor/erc4337/IAccount.sol";
 
 /// @title SuperVaultExecutor
 /// @author Superform Labs
 /// @notice Secondary manager contract that allows session key holders to call strategy functions
 /// @dev Deployed as a non-upgradeable contract, added as secondary manager on strategies
-contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGuard {
+contract SuperVaultExecutor is ISuperVaultExecutor, IAccount, AccessControl, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                               CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Maximum number of items in a batch operation to prevent block gas limit issues
     uint256 public constant MAX_BATCH_SIZE = 50;
+
+    /// @notice Gas limit for ETH transfers via assembly call.
+    ///         Caps gas forwarded to the recipient to prevent gas-griefing via expensive receive()
+    ///         functions while still accommodating multisig wallets (Safe ~65k gas on receive).
+    uint256 internal constant ETH_TRANSFER_GAS_LIMIT = 100_000;
 
     /*//////////////////////////////////////////////////////////////
                               IMMUTABLES
@@ -29,6 +38,9 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
 
     /// @notice Cached registry key for the SuperVaultAggregator (avoids extra external call)
     bytes32 public immutable SUPER_VAULT_AGGREGATOR_KEY;
+
+    /// @notice The canonical ERC-4337 v0.7 EntryPoint address
+    address public immutable ENTRY_POINT;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -46,13 +58,17 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
 
     /// @param superGovernor_ The SuperGovernor address
     /// @param admin_ The admin address (receives DEFAULT_ADMIN_ROLE)
+    /// @param entryPoint_ The canonical ERC-4337 v0.7 EntryPoint address
     /// @dev DEFAULT_ADMIN_ROLE is granted for admin functions (e.g., sweepETH) and future role-based extensions.
     ///      It is also the AccessControl role admin for all roles.
-    constructor(address superGovernor_, address admin_) {
-        if (superGovernor_ == address(0) || admin_ == address(0)) revert ZERO_ADDRESS();
+    constructor(address superGovernor_, address admin_, address entryPoint_) {
+        if (superGovernor_ == address(0) || admin_ == address(0) || entryPoint_ == address(0)) {
+            revert ZERO_ADDRESS();
+        }
 
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
         SUPER_VAULT_AGGREGATOR_KEY = ISuperGovernor(superGovernor_).SUPER_VAULT_AGGREGATOR();
+        ENTRY_POINT = entryPoint_;
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
@@ -64,6 +80,16 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /// @dev Required for the balance-delta refund pattern in executeHooks. ETH sent outside
     ///      executeHooks context is recoverable via sweepETH (DEFAULT_ADMIN_ROLE).
     receive() external payable { }
+
+    /*//////////////////////////////////////////////////////////////
+                              MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Restricts access to the canonical ERC-4337 EntryPoint
+    modifier onlyEntryPoint() {
+        if (msg.sender != ENTRY_POINT) revert ONLY_ENTRY_POINT();
+        _;
+    }
 
     /*//////////////////////////////////////////////////////////////
                         SESSION KEY MANAGEMENT
@@ -152,21 +178,7 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         nonReentrant
     {
         _validateSessionKey(strategy, _toBit(Permission.ExecuteHooks));
-
-        // Track only the caller's overpayment, not stray ETH from other sources
-        uint256 balanceBefore = address(this).balance - msg.value;
-        ISuperVaultStrategy(strategy).executeHooks{ value: msg.value }(args);
-        uint256 refund = address(this).balance - balanceBefore;
-
-        if (refund > 0) {
-            // Use assembly to prevent return bomb attack (avoids copying returndata)
-            bool success;
-            assembly {
-                success := call(gas(), caller(), refund, 0, 0, 0, 0)
-            }
-            if (!success) revert ETH_TRANSFER_FAILED();
-            emit ETHRefunded(msg.sender, refund);
-        }
+        _executeHooksInternal(strategy, args, msg.sender);
     }
 
     /// @inheritdoc ISuperVaultExecutor
@@ -209,6 +221,70 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     }
 
     /*//////////////////////////////////////////////////////////////
+                      ERC-4337 COMPATIBILITY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IAccount
+    function validateUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32 userOpHash,
+        uint256 missingAccountFunds
+    )
+        external
+        override(IAccount, ISuperVaultExecutor)
+        onlyEntryPoint
+        returns (uint256 validationData)
+    {
+        // 1. Assert callData targets executeFromEntryPoint
+        if (userOp.callData.length < 36) revert INVALID_CALLDATA_SELECTOR();
+        bytes4 selector = bytes4(userOp.callData[:4]);
+        if (selector != this.executeFromEntryPoint.selector) revert INVALID_CALLDATA_SELECTOR();
+
+        // 2. Extract strategy address (first ABI-encoded parameter after selector)
+        address strategy = abi.decode(userOp.callData[4:36], (address));
+
+        // 3. Recover session key from EIP-191 prefixed signature
+        address sessionKey = ECDSA.recover(MessageHashUtils.toEthSignedMessageHash(userOpHash), userOp.signature);
+
+        // 4. Validate session key has ExecuteHooks permission
+        (bool valid, uint256 expiry) =
+            _isSessionKeyValidForPermission(strategy, sessionKey, _toBit(Permission.ExecuteHooks));
+
+        if (!valid) {
+            return 1; // SIG_VALIDATION_FAILED
+        }
+
+        // 5. Pre-fund EntryPoint if required (non-zero when no paymaster is used).
+        //    Per ERC-4337: the account SHOULD pay missingAccountFunds to the EntryPoint (msg.sender).
+        //    Ignore failure — the EntryPoint will verify the deposit independently.
+        if (missingAccountFunds > 0) {
+            assembly {
+                pop(call(gas(), caller(), missingAccountFunds, 0, 0, 0, 0))
+            }
+        }
+
+        // 6. Pack validationData: sigAuthorizer(0) | validUntil << 160 | validAfter(0) << 208
+        //    validUntil = 0 means indefinite per ERC-4337
+        uint48 validUntil = expiry >= type(uint48).max ? uint48(0) : uint48(expiry);
+        return uint256(validUntil) << 160;
+    }
+
+    /// @inheritdoc ISuperVaultExecutor
+    function executeFromEntryPoint(
+        address strategy,
+        ISuperVaultStrategy.ExecuteArgs calldata args
+    )
+        external
+        payable
+        onlyEntryPoint
+        nonReentrant
+    {
+        // Session key was already validated in validateUserOp; refund to self (admin-sweepable)
+        _executeHooksInternal(strategy, args, address(this));
+        emit ExecutedFromEntryPoint(strategy);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                           ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -219,8 +295,9 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
         if (bal > 0) {
             // Use assembly to prevent return bomb attack; cap gas to accommodate multisig wallets
             bool success;
+            uint256 gasLimit = ETH_TRANSFER_GAS_LIMIT;
             assembly {
-                success := call(100000, to, bal, 0, 0, 0, 0)
+                success := call(gasLimit, to, bal, 0, 0, 0, 0)
             }
             if (!success) revert ETH_TRANSFER_FAILED();
             emit ETHSwept(to, bal);
@@ -282,6 +359,59 @@ contract SuperVaultExecutor is ISuperVaultExecutor, AccessControl, ReentrancyGua
     /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev Shared logic for executeHooks: tracks ETH balance, calls strategy, refunds overpayment
+    /// @param strategy The strategy to execute hooks on
+    /// @param args The execution arguments
+    /// @param refundRecipient The address to refund excess ETH to
+    function _executeHooksInternal(
+        address strategy,
+        ISuperVaultStrategy.ExecuteArgs calldata args,
+        address refundRecipient
+    )
+        internal
+    {
+        // Track only the caller's overpayment, not stray ETH from other sources
+        uint256 balanceBefore = address(this).balance - msg.value;
+        ISuperVaultStrategy(strategy).executeHooks{ value: msg.value }(args);
+        uint256 refund = address(this).balance - balanceBefore;
+
+        if (refund > 0) {
+            // Use assembly to prevent return bomb attack (avoids copying returndata);
+            // cap gas to prevent gas-griefing via expensive receive() functions.
+            bool success;
+            uint256 gasLimit = ETH_TRANSFER_GAS_LIMIT;
+            assembly {
+                success := call(gasLimit, refundRecipient, refund, 0, 0, 0, 0)
+            }
+            if (!success) revert ETH_TRANSFER_FAILED();
+            emit ETHRefunded(refundRecipient, refund);
+        }
+    }
+
+    /// @dev Checks session key validity and returns expiry for ERC-4337 time-bound validation
+    /// @param strategy The strategy address
+    /// @param sessionKey The session key address to validate
+    /// @param requiredPermission The permission bit required
+    /// @return valid True if the session key is valid with the required permission
+    /// @return expiry The session key's expiry timestamp (0 if invalid)
+    function _isSessionKeyValidForPermission(
+        address strategy,
+        address sessionKey,
+        uint8 requiredPermission
+    )
+        internal
+        view
+        returns (bool valid, uint256 expiry)
+    {
+        SessionKeyData storage data = _sessionKeys[strategy][sessionKey];
+        if (data.expiry == 0) return (false, 0);
+        if (block.timestamp > data.expiry) return (false, 0);
+        if (data.generation != _strategyGeneration[strategy]) return (false, 0);
+        if ((data.permissions & requiredPermission) == 0) return (false, 0);
+        if (!_getAggregator().isMainManager(data.grantedByManager, strategy)) return (false, 0);
+        return (true, data.expiry);
+    }
 
     /// @dev Converts a single Permission enum value to its bitmask bit
     function _toBit(Permission p) internal pure returns (uint8) {

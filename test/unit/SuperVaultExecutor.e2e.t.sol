@@ -43,6 +43,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
     address internal superBank;
     address internal superOracle;
     address internal upToken;
+    address internal entryPoint;
 
     uint256 internal constant HOOKS_ROOT_TIMELOCK = 15 minutes;
 
@@ -70,6 +71,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         manager = _deployAccount(0x5, "Manager");
         admin = _deployAccount(0x6, "Admin");
         sessionKey = _deployAccount(0x7, "SessionKey");
+        entryPoint = makeAddr("entryPoint");
         superOracle = address(new MockSuperOracle(1e18));
 
         asset = new MockERC20("Asset", "ASSET", 18);
@@ -112,7 +114,7 @@ contract SuperVaultExecutorE2ETest is PeripheryHelpers {
         strategy = SuperVaultStrategy(payable(strategyAddress));
 
         // Deploy SuperVaultExecutor
-        superVaultExecutor = new SuperVaultExecutor(address(superGovernor), admin);
+        superVaultExecutor = new SuperVaultExecutor(address(superGovernor), admin, entryPoint);
 
         // Add SuperVaultExecutor as secondary manager
         vm.prank(manager);
