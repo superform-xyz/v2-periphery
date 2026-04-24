@@ -9,9 +9,8 @@ import { ILayerZeroEndpointV2 } from
 import { SetConfigParam } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
 import { UlnConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/UlnBase.sol";
 
-/// @notice Update DVN configs on HyperEVM OFT — upgrade from 1 DVN (LZ Labs) to 3 DVNs
-/// DVNs: LayerZero Labs, Nethermind, Deutsche Telekom (sorted ascending)
-/// A 4th DVN (Superform) will be added later after deployment
+/// @notice Update DVN configs on HyperEVM OFT — 4 DVNs, 15 confirmations everywhere
+/// DVNs: Canary, Nethermind, Horizen, LayerZero Labs (sorted ascending)
 contract UpdateDVNsHyperEVM is Script {
     // ============ OFT ============
 
@@ -35,13 +34,11 @@ contract UpdateDVNsHyperEVM is Script {
     uint32 internal constant ULN_CONFIG_TYPE = 2;
 
     // ============ DVN Addresses on HyperEVM (sorted ascending) ============
-    // Deutsche Telekom: 0x32fFd21260172518A8844feC76A88C8F239C384b
-    // LayerZero Labs:   0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f
-    // Nethermind:       0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A
 
-    address internal constant DVN_DEUTSCHE_TELEKOM_HYPEREVM = 0x32fFd21260172518A8844feC76A88C8F239C384b;
-    address internal constant DVN_LZ_HYPEREVM = 0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f;
+    address internal constant DVN_CANARY_HYPEREVM = 0x83342EC538dF0460e730a8F543Fe63063e2D44C4;
     address internal constant DVN_NETHERMIND_HYPEREVM = 0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A;
+    address internal constant DVN_HORIZEN_HYPEREVM = 0xBB83Ecf372CbB6daa629ea9A9A53BEC6d601F229;
+    address internal constant DVN_LZ_HYPEREVM = 0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f;
 
     function run() public {
         require(block.chainid == 999, "Must run on HyperEVM");
@@ -50,74 +47,26 @@ contract UpdateDVNsHyperEVM is Script {
         console2.log("OFT:", HYPEREVM_OFT);
         console2.log("");
         console2.log("DVNs (sorted ascending):");
-        console2.log("  1. Deutsche Telekom:", DVN_DEUTSCHE_TELEKOM_HYPEREVM);
-        console2.log("  2. LayerZero Labs:", DVN_LZ_HYPEREVM);
-        console2.log("  3. Nethermind:", DVN_NETHERMIND_HYPEREVM);
+        console2.log("  1. Canary:", DVN_CANARY_HYPEREVM);
+        console2.log("  2. Nethermind:", DVN_NETHERMIND_HYPEREVM);
+        console2.log("  3. Horizen:", DVN_HORIZEN_HYPEREVM);
+        console2.log("  4. LayerZero Labs:", DVN_LZ_HYPEREVM);
         console2.log("");
 
         // Sanity check: DVNs must be sorted ascending
-        require(DVN_DEUTSCHE_TELEKOM_HYPEREVM < DVN_LZ_HYPEREVM, "DVNs not sorted");
-        require(DVN_LZ_HYPEREVM < DVN_NETHERMIND_HYPEREVM, "DVNs not sorted");
+        require(DVN_CANARY_HYPEREVM < DVN_NETHERMIND_HYPEREVM, "DVNs not sorted");
+        require(DVN_NETHERMIND_HYPEREVM < DVN_HORIZEN_HYPEREVM, "DVNs not sorted");
+        require(DVN_HORIZEN_HYPEREVM < DVN_LZ_HYPEREVM, "DVNs not sorted");
 
-        address[] memory dvns = new address[](3);
-        dvns[0] = DVN_DEUTSCHE_TELEKOM_HYPEREVM;
-        dvns[1] = DVN_LZ_HYPEREVM;
-        dvns[2] = DVN_NETHERMIND_HYPEREVM;
+        address[] memory dvns = new address[](4);
+        dvns[0] = DVN_CANARY_HYPEREVM;
+        dvns[1] = DVN_NETHERMIND_HYPEREVM;
+        dvns[2] = DVN_HORIZEN_HYPEREVM;
+        dvns[3] = DVN_LZ_HYPEREVM;
 
-        // HL→ETH: 1 HL block confirmation
-        UlnConfig memory ulnSendToEth = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // HL receive from ETH: 15 ETH block confirmations
-        UlnConfig memory ulnReceiveFromEth = UlnConfig({
-            confirmations: 15,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // HL→Base: 1 HL block confirmation
-        UlnConfig memory ulnSendToBase = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // HL receive from Base: 10 Base block confirmations
-        UlnConfig memory ulnReceiveFromBase = UlnConfig({
-            confirmations: 10,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // HL→Flare: 1 HL block confirmation
-        UlnConfig memory ulnSendToFlare = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // HL receive from Flare: 1 Flare block confirmation
-        UlnConfig memory ulnReceiveFromFlare = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
+        UlnConfig memory ulnConfig = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
             optionalDVNCount: 0,
             optionalDVNThreshold: 0,
             requiredDVNs: dvns,
@@ -130,21 +79,21 @@ contract UpdateDVNsHyperEVM is Script {
 
         // --- ETH pathway ---
         console2.log("Setting send config for ETH pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, ETH_EID, ulnSendToEth);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, ETH_EID, ulnConfig);
         console2.log("Setting receive config for ETH pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, ETH_EID, ulnReceiveFromEth);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, ETH_EID, ulnConfig);
 
         // --- Base pathway ---
         console2.log("Setting send config for Base pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, BASE_EID, ulnSendToBase);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, BASE_EID, ulnConfig);
         console2.log("Setting receive config for Base pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, BASE_EID, ulnReceiveFromBase);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, BASE_EID, ulnConfig);
 
         // --- Flare pathway ---
         console2.log("Setting send config for Flare pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, FLARE_EID, ulnSendToFlare);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, SEND_LIB_HYPEREVM, FLARE_EID, ulnConfig);
         console2.log("Setting receive config for Flare pathway...");
-        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, FLARE_EID, ulnReceiveFromFlare);
+        _setUlnConfig(endpoint, HYPEREVM_OFT, RECEIVE_LIB_HYPEREVM, FLARE_EID, ulnConfig);
 
         vm.stopBroadcast();
 
@@ -165,9 +114,8 @@ contract UpdateDVNsHyperEVM is Script {
     }
 }
 
-/// @notice Update DVN configs on Flare OFT — upgrade from 1 DVN (LZ Labs) to 3 DVNs
-/// DVNs: Polyhedra zkBridge, Nethermind, LayerZero Labs (sorted ascending)
-/// A 4th DVN (Superform) will be added later after deployment
+/// @notice Update DVN configs on Flare OFT — 4 DVNs, 15 confirmations everywhere
+/// DVNs: Nethermind, LayerZero Labs, Canary, Horizen (sorted ascending)
 contract UpdateDVNsFlare is Script {
     // ============ OFT ============
 
@@ -191,13 +139,11 @@ contract UpdateDVNsFlare is Script {
     uint32 internal constant ULN_CONFIG_TYPE = 2;
 
     // ============ DVN Addresses on Flare (sorted ascending) ============
-    // Polyhedra zkBridge: 0x8ddF05F9A5c488b4973897E278B58895bF87Cb24
-    // Nethermind:         0x9bCd17A654bffAa6f8fEa38D19661a7210e22196
-    // LayerZero Labs:     0x9C061c9A4782294eeF65ef28Cb88233A987F4bdD
 
-    address internal constant DVN_POLYHEDRA_FLARE = 0x8ddF05F9A5c488b4973897E278B58895bF87Cb24;
     address internal constant DVN_NETHERMIND_FLARE = 0x9bCd17A654bffAa6f8fEa38D19661a7210e22196;
     address internal constant DVN_LZ_FLARE = 0x9C061c9A4782294eeF65ef28Cb88233A987F4bdD;
+    address internal constant DVN_CANARY_FLARE = 0xD791948db16AB4373FA394B74C727DDb7FB02520;
+    address internal constant DVN_HORIZEN_FLARE = 0xeAA5a170d2588F84773f965281F8611D61312832;
 
     function run() public {
         require(block.chainid == 14, "Must run on Flare");
@@ -206,74 +152,26 @@ contract UpdateDVNsFlare is Script {
         console2.log("OFT:", FLARE_OFT);
         console2.log("");
         console2.log("DVNs (sorted ascending):");
-        console2.log("  1. Polyhedra zkBridge:", DVN_POLYHEDRA_FLARE);
-        console2.log("  2. Nethermind:", DVN_NETHERMIND_FLARE);
-        console2.log("  3. LayerZero Labs:", DVN_LZ_FLARE);
+        console2.log("  1. Nethermind:", DVN_NETHERMIND_FLARE);
+        console2.log("  2. LayerZero Labs:", DVN_LZ_FLARE);
+        console2.log("  3. Canary:", DVN_CANARY_FLARE);
+        console2.log("  4. Horizen:", DVN_HORIZEN_FLARE);
         console2.log("");
 
         // Sanity check: DVNs must be sorted ascending
-        require(DVN_POLYHEDRA_FLARE < DVN_NETHERMIND_FLARE, "DVNs not sorted");
         require(DVN_NETHERMIND_FLARE < DVN_LZ_FLARE, "DVNs not sorted");
+        require(DVN_LZ_FLARE < DVN_CANARY_FLARE, "DVNs not sorted");
+        require(DVN_CANARY_FLARE < DVN_HORIZEN_FLARE, "DVNs not sorted");
 
-        address[] memory dvns = new address[](3);
-        dvns[0] = DVN_POLYHEDRA_FLARE;
-        dvns[1] = DVN_NETHERMIND_FLARE;
-        dvns[2] = DVN_LZ_FLARE;
+        address[] memory dvns = new address[](4);
+        dvns[0] = DVN_NETHERMIND_FLARE;
+        dvns[1] = DVN_LZ_FLARE;
+        dvns[2] = DVN_CANARY_FLARE;
+        dvns[3] = DVN_HORIZEN_FLARE;
 
-        // Flare→ETH: 1 Flare block confirmation
-        UlnConfig memory ulnSendToEth = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // Flare receive from ETH: 15 ETH block confirmations
-        UlnConfig memory ulnReceiveFromEth = UlnConfig({
-            confirmations: 15,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // Flare→Base: 1 Flare block confirmation
-        UlnConfig memory ulnSendToBase = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // Flare receive from Base: 10 Base block confirmations
-        UlnConfig memory ulnReceiveFromBase = UlnConfig({
-            confirmations: 10,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // Flare→HyperEVM: 1 Flare block confirmation
-        UlnConfig memory ulnSendToHyperEVM = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
-            optionalDVNCount: 0,
-            optionalDVNThreshold: 0,
-            requiredDVNs: dvns,
-            optionalDVNs: new address[](0)
-        });
-
-        // Flare receive from HyperEVM: 1 HL block confirmation
-        UlnConfig memory ulnReceiveFromHyperEVM = UlnConfig({
-            confirmations: 1,
-            requiredDVNCount: 3,
+        UlnConfig memory ulnConfig = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
             optionalDVNCount: 0,
             optionalDVNThreshold: 0,
             requiredDVNs: dvns,
@@ -286,21 +184,21 @@ contract UpdateDVNsFlare is Script {
 
         // --- ETH pathway ---
         console2.log("Setting send config for ETH pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, ETH_EID, ulnSendToEth);
+        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, ETH_EID, ulnConfig);
         console2.log("Setting receive config for ETH pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, ETH_EID, ulnReceiveFromEth);
+        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, ETH_EID, ulnConfig);
 
         // --- Base pathway ---
         console2.log("Setting send config for Base pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, BASE_EID, ulnSendToBase);
+        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, BASE_EID, ulnConfig);
         console2.log("Setting receive config for Base pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, BASE_EID, ulnReceiveFromBase);
+        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, BASE_EID, ulnConfig);
 
         // --- HyperEVM pathway ---
         console2.log("Setting send config for HyperEVM pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, HYPEREVM_EID, ulnSendToHyperEVM);
+        _setUlnConfig(endpoint, FLARE_OFT, SEND_LIB_FLARE, HYPEREVM_EID, ulnConfig);
         console2.log("Setting receive config for HyperEVM pathway...");
-        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, HYPEREVM_EID, ulnReceiveFromHyperEVM);
+        _setUlnConfig(endpoint, FLARE_OFT, RECEIVE_LIB_FLARE, HYPEREVM_EID, ulnConfig);
 
         vm.stopBroadcast();
 

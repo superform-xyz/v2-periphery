@@ -10,7 +10,7 @@ NC='\033[0m'
 
 print_header() {
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${WHITE}                  Update DVNs (HyperEVM + Flare) — 1 to 3 DVNs                        ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}          Update DVNs (Base + HyperEVM + Flare) — 4 DVNs, 20 confirmations            ${CYAN}║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════════════════╝${NC}"
 }
 
@@ -80,6 +80,16 @@ fi
 print_separator
 echo -e "${BLUE}Loading RPC URLs from 1Password...${NC}"
 
+if [ -z "$BASE_MAINNET" ]; then
+    BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null) || true
+fi
+if [ -z "$BASE_MAINNET" ]; then
+    echo -e "${RED}Failed to load BASE_RPC_URL. Set BASE_MAINNET env var or add to 1Password.${NC}"
+    exit 1
+fi
+export BASE_MAINNET
+echo -e "${GREEN}   Base RPC loaded${NC}"
+
 HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null) || true
 if [ -z "$HYPEREVM_MAINNET" ]; then
     echo -e "${RED}Failed to load HYPEREVM_RPC_URL from 1Password${NC}"
@@ -105,19 +115,25 @@ cd "$PROJECT_ROOT"
 # ============ Show DVN info ============
 
 print_separator
-echo -e "${CYAN}DVN Configuration:${NC}"
+echo -e "${CYAN}DVN Configuration (20 confirmations, send + receive):${NC}"
 echo ""
-echo -e "${WHITE}  HyperEVM (3 required DVNs):${NC}"
-echo -e "${CYAN}    1. Deutsche Telekom: 0x32fFd21260172518A8844feC76A88C8F239C384b${NC}"
-echo -e "${CYAN}    2. LayerZero Labs:   0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f${NC}"
-echo -e "${CYAN}    3. Nethermind:       0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A${NC}"
+echo -e "${WHITE}  Base (4 required DVNs):${NC}"
+echo -e "${CYAN}    1. Canary:         0x554833698Ae0FB22ECC90B01222903fD62CA4B47${NC}"
+echo -e "${CYAN}    2. LayerZero Labs: 0x9e059a54699a285714207b43B055483E78FAac25${NC}"
+echo -e "${CYAN}    3. Nethermind:     0xcd37CA043f8479064e10635020c65FfC005d36f6${NC}"
+echo -e "${CYAN}    4. Superform:      0xEb62f578497Bdc351dD650853a751135212fAF49${NC}"
 echo ""
-echo -e "${WHITE}  Flare (3 required DVNs):${NC}"
-echo -e "${CYAN}    1. Polyhedra zkBridge: 0x8ddF05F9A5c488b4973897E278B58895bF87Cb24${NC}"
-echo -e "${CYAN}    2. Nethermind:         0x9bCd17A654bffAa6f8fEa38D19661a7210e22196${NC}"
-echo -e "${CYAN}    3. LayerZero Labs:     0x9C061c9A4782294eeF65ef28Cb88233A987F4bdD${NC}"
+echo -e "${WHITE}  HyperEVM (4 required DVNs):${NC}"
+echo -e "${CYAN}    1. Canary:         0x83342EC538dF0460e730a8F543Fe63063e2D44C4${NC}"
+echo -e "${CYAN}    2. Nethermind:     0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A${NC}"
+echo -e "${CYAN}    3. Horizen:        0xBB83Ecf372CbB6daa629ea9A9A53BEC6d601F229${NC}"
+echo -e "${CYAN}    4. LayerZero Labs: 0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f${NC}"
 echo ""
-echo -e "${YELLOW}  Note: 4th DVN (Superform) will be added after deployment${NC}"
+echo -e "${WHITE}  Flare (4 required DVNs):${NC}"
+echo -e "${CYAN}    1. Nethermind:     0x9bCd17A654bffAa6f8fEa38D19661a7210e22196${NC}"
+echo -e "${CYAN}    2. LayerZero Labs: 0x9C061c9A4782294eeF65ef28Cb88233A987F4bdD${NC}"
+echo -e "${CYAN}    3. Canary:         0xD791948db16AB4373FA394B74C727DDb7FB02520${NC}"
+echo -e "${CYAN}    4. Horizen:        0xeAA5a170d2588F84773f965281F8611D61312832${NC}"
 
 # ============ Execution confirmation ============
 
@@ -125,8 +141,10 @@ if [ "$MODE" = "execute" ]; then
     print_separator
     echo -e "${YELLOW}  DVN UPDATE CONFIRMATION REQUIRED${NC}"
     echo -e "${CYAN}You are about to update DVN configs on:${NC}"
-    echo -e "${CYAN}  1. HyperEVM (chain 999) - 3 DVNs x 3 pathways (ETH, Base, Flare)${NC}"
-    echo -e "${CYAN}  2. Flare (chain 14) - 3 DVNs x 3 pathways (ETH, Base, HyperEVM)${NC}"
+    echo -e "${CYAN}  1. Base (chain 8453) - 4 DVNs x 3 pathways (ETH, HyperEVM, Flare) x send+receive${NC}"
+    echo -e "${CYAN}  2. HyperEVM (chain 999) - 4 DVNs x 3 pathways (ETH, Base, Flare) x send+receive${NC}"
+    echo -e "${CYAN}  3. Flare (chain 14) - 4 DVNs x 3 pathways (ETH, Base, HyperEVM) x send+receive${NC}"
+    echo -e "${CYAN}  All confirmations set to 20${NC}"
     echo ""
     echo -e "${RED}  WARNING: This will change DVN security config!${NC}"
     echo -e "${RED}  Ensure the corresponding DVN configs on ETH/Base sides match.${NC}"
@@ -139,7 +157,26 @@ if [ "$MODE" = "execute" ]; then
     echo -e "${GREEN}Update confirmed${NC}"
 fi
 
-# ============ Step 1: Update DVNs on HyperEVM ============
+# ============ Step 1: Update DVNs on Base ============
+
+print_separator
+echo -e "${BLUE}Updating DVN configs on Base (chain 8453)...${NC}"
+
+forge script script/UpdateDVNsETHBase.s.sol:UpdateDVNsBase \
+    --rpc-url "$BASE_MAINNET" \
+    --chain 8453 \
+    $ACCOUNT_FLAG \
+    $SENDER_FLAG \
+    $BROADCAST_FLAG \
+    -vvv
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to update DVN configs on Base${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Base DVN update complete${NC}"
+
+# ============ Step 2: Update DVNs on HyperEVM ============
 
 print_separator
 echo -e "${BLUE}Updating DVN configs on HyperEVM (chain 999)...${NC}"
@@ -158,7 +195,7 @@ if [ $? -ne 0 ]; then
 fi
 echo -e "${GREEN}HyperEVM DVN update complete${NC}"
 
-# ============ Step 2: Update DVNs on Flare ============
+# ============ Step 3: Update DVNs on Flare ============
 
 print_separator
 echo -e "${BLUE}Updating DVN configs on Flare (chain 14)...${NC}"
@@ -181,10 +218,10 @@ echo -e "${GREEN}Flare DVN update complete${NC}"
 
 print_separator
 echo -e "${GREEN}DVN Update Complete!${NC}"
-echo -e "${CYAN}   HyperEVM: 3 DVNs (Deutsche Telekom, LZ Labs, Nethermind) x 3 pathways${NC}"
-echo -e "${CYAN}   Flare: 3 DVNs (Polyhedra zkBridge, Nethermind, LZ Labs) x 3 pathways${NC}"
+echo -e "${CYAN}   Base: 4 DVNs (Canary, LZ Labs, Nethermind, Superform) x 3 pathways x send+receive${NC}"
+echo -e "${CYAN}   HyperEVM: 4 DVNs (Canary, Nethermind, Horizen, LZ Labs) x 3 pathways x send+receive${NC}"
+echo -e "${CYAN}   Flare: 4 DVNs (Nethermind, LZ Labs, Canary, Horizen) x 3 pathways x send+receive${NC}"
+echo -e "${CYAN}   All confirmations: 20${NC}"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo -e "${CYAN}   1. Update DVN configs on ETH/Base sides to match (3-of-3)${NC}"
-echo -e "${CYAN}   2. Deploy Superform DVN on HyperEVM and Flare${NC}"
-echo -e "${CYAN}   3. Add Superform DVN as 4th required DVN on all chains${NC}"
+echo -e "${CYAN}   1. Update DVN configs on ETH side to match (4 DVNs, 20 confirmations) via multisig${NC}"

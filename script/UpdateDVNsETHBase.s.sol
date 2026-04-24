@@ -95,12 +95,13 @@ contract UpdateDVNsETH is Script {
     }
 }
 
-/// @notice Update DVN send configs on Base - Base->ETH, Base->HyperEVM, Base->Flare
-/// DVNs: LayerZero Labs, Nethermind, Google Cloud, Superform (4 required, sorted ascending)
+/// @notice Update DVN send + receive configs on Base - 3 pathways (ETH, HyperEVM, Flare)
+/// DVNs: Canary, LayerZero Labs, Nethermind, Superform (4 required, sorted ascending)
 contract UpdateDVNsBase is Script {
     address internal constant LZ_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
     address internal constant UP_OFT = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
     address internal constant SEND_LIB = 0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2;
+    address internal constant RECEIVE_LIB = 0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf;
 
     uint32 internal constant ETH_EID = 30101;
     uint32 internal constant HYPEREVM_EID = 30367;
@@ -108,53 +109,61 @@ contract UpdateDVNsBase is Script {
     uint32 internal constant ULN_CONFIG_TYPE = 2;
 
     // DVNs on Base (sorted ascending)
+    address internal constant DVN_CANARY = 0x554833698Ae0FB22ECC90B01222903fD62CA4B47;
     address internal constant DVN_LZ = 0x9e059a54699a285714207b43B055483E78FAac25;
     address internal constant DVN_NETHERMIND = 0xcd37CA043f8479064e10635020c65FfC005d36f6;
-    address internal constant DVN_GOOGLE = 0xD56e4eAb23cb81f43168F9F45211Eb027b9aC7cc;
     address internal constant DVN_SUPERFORM = 0xEb62f578497Bdc351dD650853a751135212fAF49;
 
     function run() public {
         require(block.chainid == 8453, "Must run on Base");
-        require(DVN_LZ < DVN_NETHERMIND && DVN_NETHERMIND < DVN_GOOGLE && DVN_GOOGLE < DVN_SUPERFORM, "DVNs not sorted");
+        require(DVN_CANARY < DVN_LZ && DVN_LZ < DVN_NETHERMIND && DVN_NETHERMIND < DVN_SUPERFORM, "DVNs not sorted");
 
-        console2.log("====== Update DVN Send Configs on Base ======");
+        console2.log("====== Update DVN Send + Receive Configs on Base ======");
         console2.log("OApp:", UP_OFT);
         console2.log("Send Library:", SEND_LIB);
+        console2.log("Receive Library:", RECEIVE_LIB);
         console2.log("");
         console2.log("DVNs (sorted ascending):");
-        console2.log("  1. LayerZero Labs:", DVN_LZ);
-        console2.log("  2. Nethermind:", DVN_NETHERMIND);
-        console2.log("  3. Google Cloud:", DVN_GOOGLE);
+        console2.log("  1. Canary:", DVN_CANARY);
+        console2.log("  2. LayerZero Labs:", DVN_LZ);
+        console2.log("  3. Nethermind:", DVN_NETHERMIND);
         console2.log("  4. Superform:", DVN_SUPERFORM);
         console2.log("");
 
         address[] memory dvns = new address[](4);
-        dvns[0] = DVN_LZ;
-        dvns[1] = DVN_NETHERMIND;
-        dvns[2] = DVN_GOOGLE;
+        dvns[0] = DVN_CANARY;
+        dvns[1] = DVN_LZ;
+        dvns[2] = DVN_NETHERMIND;
         dvns[3] = DVN_SUPERFORM;
 
-        UlnConfig memory ulnSendToEth = _makeUlnConfig(10, dvns);
-        UlnConfig memory ulnSendToHyperEVM = _makeUlnConfig(10, dvns);
-        UlnConfig memory ulnSendToFlare = _makeUlnConfig(10, dvns);
+        UlnConfig memory ulnConfig = _makeUlnConfig(20, dvns);
 
         vm.startBroadcast();
 
         ILayerZeroEndpointV2 endpoint = ILayerZeroEndpointV2(LZ_ENDPOINT);
 
+        // --- ETH pathway ---
         console2.log("Setting send config for Base -> ETH...");
-        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, ETH_EID, ulnSendToEth);
+        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, ETH_EID, ulnConfig);
+        console2.log("Setting receive config for ETH -> Base...");
+        _setUlnConfig(endpoint, UP_OFT, RECEIVE_LIB, ETH_EID, ulnConfig);
 
+        // --- HyperEVM pathway ---
         console2.log("Setting send config for Base -> HyperEVM...");
-        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, HYPEREVM_EID, ulnSendToHyperEVM);
+        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, HYPEREVM_EID, ulnConfig);
+        console2.log("Setting receive config for HyperEVM -> Base...");
+        _setUlnConfig(endpoint, UP_OFT, RECEIVE_LIB, HYPEREVM_EID, ulnConfig);
 
+        // --- Flare pathway ---
         console2.log("Setting send config for Base -> Flare...");
-        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, FLARE_EID, ulnSendToFlare);
+        _setUlnConfig(endpoint, UP_OFT, SEND_LIB, FLARE_EID, ulnConfig);
+        console2.log("Setting receive config for Flare -> Base...");
+        _setUlnConfig(endpoint, UP_OFT, RECEIVE_LIB, FLARE_EID, ulnConfig);
 
         vm.stopBroadcast();
 
         console2.log("");
-        console2.log("DVN send configs updated successfully on Base!");
+        console2.log("DVN send + receive configs updated successfully on Base!");
     }
 
     function _setUlnConfig(
