@@ -98,16 +98,6 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         console2.log("====== Check Complete ======");
     }
 
-    /// @notice Validate environment and branchName combination
-    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param branchName Branch name (required for vnet)
-    function _validateEnvAndBranchName(uint256 env, string calldata branchName) internal pure {
-        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
-        if (env == 1) {
-            require(bytes(branchName).length > 0, "BRANCH_NAME_REQUIRED_FOR_VNET");
-        }
-    }
-
     /// @notice Get operator address based on environment
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     function _getOperatorForEnv(uint256 env) internal pure returns (address) {

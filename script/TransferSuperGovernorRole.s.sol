@@ -286,34 +286,34 @@ contract TransferSuperGovernorRole is DeployV2Base {
         }
     }
 
-    /// @notice Transfer FixedPriceOracle ownership to SuperGovernor
+    /// @notice Transfer FixedPriceOracle ownership to SUPER_GOVERNOR_ADDRESS
     function _transferFixedPriceOracleOwnership(
         uint64 chainId,
         uint256 env,
         string memory saltNamespace,
-        address superGovernorAddr
+        address /* superGovernorAddr */
     )
         internal
     {
-        console2.log("[Step 7] Transferring FixedPriceOracle ownership to SuperGovernor...");
+        console2.log("[Step 7] Transferring FixedPriceOracle ownership to SUPER_GOVERNOR_ADDRESS...");
         address fixedPriceOracleAddr = _getFixedPriceOracleAddress(chainId, env, saltNamespace);
         if (fixedPriceOracleAddr != address(0)) {
             FixedPriceOracle oracle = FixedPriceOracle(fixedPriceOracleAddr);
             address currentOwner = oracle.owner();
             console2.log("  FixedPriceOracle address:", fixedPriceOracleAddr);
             console2.log("  Current owner:", currentOwner);
-            console2.log("  New owner (SuperGovernor):", superGovernorAddr);
+            console2.log("  New owner (SUPER_GOVERNOR_ADDRESS):", SUPER_GOVERNOR_ADDRESS);
 
             if (currentOwner == DEPLOYER) {
-                oracle.transferOwnership(superGovernorAddr);
-                console2.log("[Step 7] DONE - Transferred FixedPriceOracle ownership to SuperGovernor");
+                oracle.transferOwnership(SUPER_GOVERNOR_ADDRESS);
+                console2.log("[Step 7] DONE - Transferred FixedPriceOracle ownership to SUPER_GOVERNOR_ADDRESS");
 
                 // Verify ownership transfer
                 address newOwner = oracle.owner();
-                require(newOwner == superGovernorAddr, "FixedPriceOracle ownership transfer failed");
+                require(newOwner == SUPER_GOVERNOR_ADDRESS, "FixedPriceOracle ownership transfer failed");
                 console2.log("[Verify] FixedPriceOracle new owner:", newOwner);
-            } else if (currentOwner == superGovernorAddr) {
-                console2.log("[Step 7] SKIPPED - FixedPriceOracle already owned by SuperGovernor");
+            } else if (currentOwner == SUPER_GOVERNOR_ADDRESS) {
+                console2.log("[Step 7] SKIPPED - FixedPriceOracle already owned by SUPER_GOVERNOR_ADDRESS");
             } else {
                 console2.log("[Step 7] WARNING - FixedPriceOracle owned by unexpected address:", currentOwner);
             }
@@ -355,6 +355,8 @@ contract TransferSuperGovernorRole is DeployV2Base {
         if (chainId == 1) return "Ethereum";
         if (chainId == 8453) return "Base";
         if (chainId == 10) return "Optimism";
+        if (chainId == 999) return "HyperEVM";
+        if (chainId == 14) return "Flare";
         return "Unknown";
     }
 

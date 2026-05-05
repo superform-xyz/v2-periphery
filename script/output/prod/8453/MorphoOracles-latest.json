@@ -1,0 +1,6 @@
+{
+  "MorphoBorrowCostOracle": "0x59A4D5edefff0eD20f71FaCC0D7C5569142054Df",
+  "MorphoLendYieldSourceOracle": "0x792c23150df9673c67498680c744DAC2a38AAF8a",
+  "admin": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+  "chainId": 8453
+}

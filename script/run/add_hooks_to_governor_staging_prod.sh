@@ -36,6 +36,28 @@
 set -euo pipefail  # Exit on error, undefined var, pipe failure
 
 ###################################################################################
+# Network Filter Configuration
+###################################################################################
+
+# Networks to SKIP (these are already configured)
+# Comment out networks you want to configure
+SKIP_NETWORKS=(
+    "1"      # Ethereum - already configured
+    "8453"   # Base - already configured
+)
+
+# Function to check if a network should be skipped
+should_skip_network() {
+    local network_id=$1
+    for skip_id in "${SKIP_NETWORKS[@]}"; do
+        if [ "$network_id" = "$skip_id" ]; then
+            return 0  # Should skip
+        fi
+    done
+    return 1  # Should not skip
+}
+
+###################################################################################
 # Script Configuration
 ###################################################################################
 
@@ -220,16 +242,31 @@ read_merged_state_from_local() {
 check_supergovernor_exists() {
     local merged_state_file=$1
     local network_name=$2
+    local network_id=$3
+    local environment=$4
 
     local governor_addr
+
+    # First, try to get from merged state file
     governor_addr=$(jq -r ".networks[\"$network_name\"].contracts.SuperGovernor // empty" "$merged_state_file" 2>/dev/null)
 
     if [ -n "$governor_addr" ] && [ "$governor_addr" != "null" ]; then
         echo "$governor_addr"
         return 0
-    else
-        return 1
     fi
+
+    # Fallback: try to read from individual chain output file
+    local individual_file="$SCRIPT_DIR/../output/$environment/$network_id/$network_name-latest.json"
+    if [ -f "$individual_file" ]; then
+        governor_addr=$(jq -r '.SuperGovernor // empty' "$individual_file" 2>/dev/null)
+        if [ -n "$governor_addr" ] && [ "$governor_addr" != "null" ]; then
+            log "INFO" "Found SuperGovernor in individual output file: $individual_file"
+            echo "$governor_addr"
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 # Load RPC URLs from credential manager
@@ -351,9 +388,23 @@ configure_all_networks() {
         return 1
     fi
 
+    # Display skip list
+    if [ ${#SKIP_NETWORKS[@]} -gt 0 ]; then
+        log "INFO" "Networks to skip: ${SKIP_NETWORKS[*]}"
+        log "INFO" "(Edit SKIP_NETWORKS in script to change)"
+    fi
+
     # Process each network
     for network_id in $supported_network_ids; do
         total_count=$((total_count + 1))
+
+        # Check if network should be skipped
+        if should_skip_network "$network_id"; then
+            local skip_network_name=$(get_network_name "$network_id" 2>/dev/null || echo "Unknown")
+            log "INFO" "SKIP: $skip_network_name (Chain ID: $network_id) - in SKIP_NETWORKS list"
+            skipped_count=$((skipped_count + 1))
+            continue
+        fi
 
         # Get network name
         local network_name=$(get_network_name "$network_id")
@@ -370,7 +421,7 @@ configure_all_networks() {
 
         # Check if SuperGovernor exists for this network
         local governor_addr
-        if ! governor_addr=$(check_supergovernor_exists "$merged_state_file" "$network_name"); then
+        if ! governor_addr=$(check_supergovernor_exists "$merged_state_file" "$network_name" "$network_id" "$environment"); then
             log "WARNING" "SuperGovernor not found for $network_name - skipping"
             log "WARNING" "Make sure periphery contracts have been deployed and merged"
             skipped_count=$((skipped_count + 1))

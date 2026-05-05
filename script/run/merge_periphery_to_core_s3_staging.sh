@@ -51,7 +51,7 @@ ENVIRONMENT=""
 # Network configuration will be sourced after environment is determined
 
 # Allowed periphery contracts to merge
-ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank")
+ALLOWED_PERIPHERY_CONTRACTS=("SuperGovernor" "SuperVault" "SuperVaultAggregator" "SuperVaultStrategy" "SuperVaultEscrow" "SuperVaultBatchOperator" "SuperVaultExecutor" "ECDSAPPSOracle" "FixedPriceOracle" "SuperOracle" "SuperOracleL2" "SuperBank" "MorphoBorrowCostOracle" "MorphoLendYieldSourceOracle")
 
 ###################################################################################
 # Helper Functions
@@ -386,39 +386,57 @@ process_periphery_merge() {
         return 1
     fi
 
-    # Show periphery contracts that will be merged
+    # Show diff of what will change compared to current S3 state (only differences)
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}Periphery contracts that will be merged into core S3:${NC}"
+    echo -e "${CYAN}Changes to be applied to core S3 state:${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-    # Show updated networks with periphery contracts
+    local any_changes=false
+
     for network_id in $supported_network_ids; do
         local network_name=$(get_network_name "$network_id")
         if [ $? -ne 0 ]; then
             continue
         fi
 
-        local network_exists=$(echo "$updated_content" | jq -r ".networks[\"$network_name\"] // empty")
-        if [ -n "$network_exists" ] && [ "$network_exists" != "null" ]; then
-            echo -e "${CYAN}📍 $network_name:${NC}"
+        local new_network=$(echo "$updated_content" | jq -r ".networks[\"$network_name\"] // empty")
+        if [ -z "$new_network" ] || [ "$new_network" = "null" ]; then
+            continue
+        fi
 
-            # Show only periphery contracts that were merged
-            local periphery_contracts_display="{}"
-            for contract in "${ALLOWED_PERIPHERY_CONTRACTS[@]}"; do
-                local contract_addr=$(echo "$updated_content" | jq -r ".networks[\"$network_name\"].contracts.$contract // empty")
-                if [ -n "$contract_addr" ] && [ "$contract_addr" != "empty" ] && [ "$contract_addr" != "null" ]; then
-                    periphery_contracts_display=$(echo "$periphery_contracts_display" | jq --arg contract "$contract" --arg addr "$contract_addr" '.[$contract] = $addr')
-                fi
-            done
+        # Collect changes for this network first
+        local network_changes=""
 
-            if [ "$(echo "$periphery_contracts_display" | jq 'length')" -gt 0 ]; then
-                echo "$periphery_contracts_display" | jq '.'
-            else
-                echo -e "${YELLOW}   No periphery contracts found${NC}"
+        for contract in "${ALLOWED_PERIPHERY_CONTRACTS[@]}"; do
+            local old_addr=$(echo "$core_content" | jq -r ".networks[\"$network_name\"].contracts.$contract // empty")
+            local new_addr=$(echo "$updated_content" | jq -r ".networks[\"$network_name\"].contracts.$contract // empty")
+
+            # Normalize empties
+            [ "$old_addr" = "null" ] && old_addr=""
+            [ "$new_addr" = "null" ] && new_addr=""
+
+            if [ -n "$new_addr" ] && [ -z "$old_addr" ]; then
+                # New contract being added
+                network_changes+="    ${GREEN}+ $contract: $new_addr${NC}\n"
+            elif [ -n "$new_addr" ] && [ "$old_addr" != "$new_addr" ]; then
+                # Contract address changed
+                network_changes+="    ${RED}- $contract: $old_addr${NC}\n"
+                network_changes+="    ${GREEN}+ $contract: $new_addr${NC}\n"
             fi
-            echo ""
+        done
+
+        # Only print network header if there are changes
+        if [ -n "$network_changes" ]; then
+            echo -e "${CYAN}  $network_name:${NC}"
+            echo -e "$network_changes"
+            any_changes=true
         fi
     done
+
+    if [ "$any_changes" = false ]; then
+        echo -e "${WHITE}  (no changes to apply)${NC}"
+        echo ""
+    fi
 
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
@@ -440,12 +458,23 @@ process_periphery_merge() {
     if aws s3 cp "$latest_file_path" "s3://$BUCKET/$environment/latest.json" --quiet; then
         log "SUCCESS" "Successfully uploaded merged state to S3 for $environment"
         echo -e "${GREEN}✅ Successfully uploaded merged state to S3${NC}"
-        return 0
     else
         log "ERROR" "Failed to upload merged state to S3"
         echo -e "${RED}❌ Failed to upload merged state to S3${NC}"
         return 1
     fi
+
+    # Also save locally so other scripts can use it
+    local local_latest_path="$SCRIPT_DIR/../output/$environment/latest.json"
+    if echo "$updated_content" | jq '.' > "$local_latest_path"; then
+        log "SUCCESS" "Successfully saved merged state locally to: $local_latest_path"
+        echo -e "${GREEN}✅ Successfully saved merged state locally${NC}"
+    else
+        log "WARN" "Failed to save merged state locally"
+        echo -e "${YELLOW}⚠️ Failed to save merged state locally (S3 upload succeeded)${NC}"
+    fi
+
+    return 0
 }
 
 ###################################################################################

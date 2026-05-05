@@ -47,6 +47,20 @@ abstract contract DeployV2Base is Script, ConfigBase {
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                          ENV VALIDATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Validate environment and branchName combination
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param branchName Branch name (required for vnet)
+    function _validateEnvAndBranchName(uint256 env, string calldata branchName) internal pure {
+        require(env == 0 || env == 1 || env == 2, "INVALID_ENV");
+        if (env == 1) {
+            require(bytes(branchName).length > 0, "BRANCH_NAME_REQUIRED_FOR_VNET");
+        }
+    }
+
     function _getContract(uint64 chainId, string memory contractName) internal view returns (address) {
         return contractAddresses[chainId][contractName];
     }
@@ -66,18 +80,19 @@ abstract contract DeployV2Base is Script, ConfigBase {
         internal
         returns (address deployedAddr)
     {
-        console2.log("[!] Deploying %s...", contractName);
-
         // Predict address first
         address predictedAddr = DeterministicDeployerLib.computeAddress(creationCode, salt);
 
+        // Check if already deployed BEFORE logging "Deploying"
         if (predictedAddr.code.length > 0) {
-            console2.log("[!] %s already deployed at:", contractName, predictedAddr);
+            console2.log("[=] %s already deployed at:", contractName, predictedAddr);
             console2.log("      skipping...");
             contractAddresses[chainId][contractName] = predictedAddr;
             _exportContract(contractName, predictedAddr, chainId);
             return predictedAddr;
         }
+
+        console2.log("[!] Deploying %s...", contractName);
 
         // Deploy using DeterministicDeployerLib
         deployedAddr = DeterministicDeployerLib.deploy(creationCode, salt);
@@ -460,8 +475,62 @@ abstract contract DeployV2Base is Script, ConfigBase {
 
         // Write to {ChainName}-latest.json
         string memory outputPath = string(abi.encodePacked(root, chainOutputFolder, chainName, "-latest.json"));
-        vm.writeJson(exportedContracts[chainId], outputPath);
+
+        // Merge with existing file if it exists
+        string memory finalJson = _mergeWithExistingJson(outputPath, chainId);
+
+        vm.writeJson(finalJson, outputPath);
 
         console2.log("Exported", contractCount[chainId], "contracts to:", outputPath);
+    }
+
+    /// @notice Merge new exports with existing JSON file content
+    /// @param filePath Path to the existing JSON file
+    /// @param chainId Chain ID for the exports
+    /// @return Merged JSON string
+    function _mergeWithExistingJson(string memory filePath, uint64 chainId) internal returns (string memory) {
+        string memory objectKey = string(abi.encodePacked("MERGED_", vm.toString(uint256(chainId))));
+        string memory result;
+
+        // Try to read existing file
+        try vm.readFile(filePath) returns (string memory existingContent) {
+            if (bytes(existingContent).length > 0) {
+                // Parse existing keys and re-serialize them first
+                string[] memory keys = vm.parseJsonKeys(existingContent, "$");
+
+                for (uint256 i = 0; i < keys.length; i++) {
+                    // Get the address for this key
+                    string memory jsonPath = string(abi.encodePacked(".", keys[i]));
+                    address existingAddr = vm.parseJsonAddress(existingContent, jsonPath);
+
+                    // Re-serialize existing contract (this adds to the object)
+                    result = vm.serializeAddress(objectKey, keys[i], existingAddr);
+                }
+            }
+        } catch {
+            // File doesn't exist or can't be read, that's fine
+        }
+
+        // Now add all new exports (this may overwrite existing keys with same name)
+        // Parse new exports and add them
+        string memory newExports = exportedContracts[chainId];
+        if (bytes(newExports).length > 0) {
+            string[] memory newKeys = vm.parseJsonKeys(newExports, "$");
+
+            for (uint256 i = 0; i < newKeys.length; i++) {
+                string memory jsonPath = string(abi.encodePacked(".", newKeys[i]));
+                address newAddr = vm.parseJsonAddress(newExports, jsonPath);
+
+                // Serialize (this overwrites any existing entry with same key)
+                result = vm.serializeAddress(objectKey, newKeys[i], newAddr);
+            }
+        }
+
+        // Return the final merged JSON
+        // If nothing was serialized, return the original exports
+        if (bytes(result).length == 0) {
+            return exportedContracts[chainId];
+        }
+        return result;
     }
 }

@@ -3,44 +3,35 @@
 ###################################################################################
 # Deploy SuperformGasOracle Script
 ###################################################################################
-# Description:
-#   Deploys SuperformGasOracle - a keeper-updated gas price oracle for Base chain
-#   where Chainlink's Fast Gas feed is not available.
+#
+# Deploys SuperformGasOracle on HyperEVM (999).
+#
+# This oracle provides keeper-updated gas prices for chains where Chainlink's
+# Fast Gas feed is not available.
 #
 # Usage:
 #   ./deploy_superform_gas_oracle.sh <environment> <mode> [account] [gas_price]
 #
-#   Parameters:
-#     environment: "prod" or "staging"
-#     mode: "simulate", "execute", or "check"
-#     account: Account name (required for execute mode, e.g., "v2-supervaults")
-#     gas_price: Initial gas price in Gwei (optional, default: 30)
+# Parameters:
+#   environment  "prod" or "staging"
+#   mode         "simulate", "execute", or "check"
+#   account      Account name for execute mode (e.g., "v2-supervaults")
+#   gas_price    Initial gas price (optional, default: 1 Gwei)
 #
 # Examples:
-#   # Check deployment status on Base staging
 #   ./deploy_superform_gas_oracle.sh staging check
-#
-#   # Simulate deployment on Base staging
 #   ./deploy_superform_gas_oracle.sh staging simulate
-#
-#   # Execute deployment on Base staging
 #   ./deploy_superform_gas_oracle.sh staging execute v2-supervaults
-#
-#   # Execute deployment on Base prod
 #   ./deploy_superform_gas_oracle.sh prod execute v2-supervaults
-#
-#   # Execute with custom gas price (50 Gwei)
-#   ./deploy_superform_gas_oracle.sh staging execute v2-supervaults 50
 #
 # Prerequisites:
 #   - 1Password CLI configured for RPC URL access
 #   - For execute mode: Foundry account (v2-supervaults) configured
 #
-# Note:
-#   - This script only deploys on Base chain (ID: 8453)
+# Notes:
+#   - Already-deployed chains are skipped automatically
 #   - Owner is set to v2-supervaults keystore address
 #
-# Author: Superform Team
 ###################################################################################
 
 set -euo pipefail
@@ -54,14 +45,17 @@ readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Default gas price in Gwei (oracle has 0 decimals - value is directly in Gwei)
 # This value is used for deterministic address computation and must match the deployed oracle.
+# 1 GWEI 
 readonly DEFAULT_GAS_PRICE=1000000
 
 # Owner address (v2-supervaults keystore - DEPLOYER)
 readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
-# Base chain only
-readonly CHAIN_ID=8453
-readonly CHAIN_NAME="base"
+# Supported chains: "CHAIN_ID:CHAIN_NAME"
+readonly SUPPORTED_CHAINS=(
+    # "999:HyperEVM"
+    "14:Flare"
+)
 
 ###################################################################################
 # Helper Functions
@@ -84,22 +78,22 @@ Arguments:
     gas_price    Initial gas price in Gwei (optional, default: $DEFAULT_GAS_PRICE)
 
 Examples:
-    # Check deployment status on Base staging
+    # Check deployment status on all chains
     $0 staging check
 
-    # Simulate deployment on Base staging
+    # Simulate deployment on all chains
     $0 staging simulate
 
-    # Execute deployment on Base staging
+    # Execute deployment on all chains
     $0 staging execute v2-supervaults
 
-    # Execute deployment on Base prod
+    # Execute deployment on prod
     $0 prod execute v2-supervaults
 
-    # Execute with custom gas price (50 Gwei)
+    # Execute with custom gas price
     $0 staging execute v2-supervaults 50
 
-Note: This script deploys only on Base chain (ID: 8453)
+Note: Deploys on Base (8453) and HyperEVM (999). Already-deployed chains are skipped.
 
 EOF
     exit 1
@@ -145,6 +139,98 @@ validate_mode() {
     fi
 }
 
+# Get RPC URL for a given chain ID
+get_chain_rpc_url() {
+    local chain_id=$1
+    case "$chain_id" in
+        8453)
+            echo "${BASE_MAINNET:-}"
+            ;;
+        999)
+            echo "${HYPEREVM_MAINNET:-}"
+            ;;
+        14)
+            echo "${FLARE_MAINNET:-}"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+# Deploy on a single chain
+deploy_on_chain() {
+    local env=$1
+    local chain_id=$2
+    local chain_name=$3
+    local mode=$4
+    local account=$5
+    local gas_price=$6
+    local rpc_url=$7
+
+    log "INFO" "--------------------------------------------"
+    log "INFO" "Deploying on chain: $chain_name (ID: $chain_id)"
+    log "INFO" "--------------------------------------------"
+
+    # Set flags based on mode
+    local BROADCAST_FLAG=""
+    local VERIFY_FLAG=""
+    local SENDER_FLAG=""
+    local ACCOUNT_FLAG=""
+    local ETHERSCAN_FLAGS=""
+
+    if [ "$mode" = "execute" ]; then
+        BROADCAST_FLAG="--broadcast"
+        ACCOUNT_FLAG="--account $account"
+        # Only enable etherscan verification for chains that support it (not HyperEVM/Flare)
+        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
+            VERIFY_FLAG="--verify"
+            ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+        fi
+        log "INFO" "Mode: Execute (will broadcast using account: $account)"
+    elif [ "$mode" = "simulate" ]; then
+        SENDER_FLAG="--sender $OWNER"
+        log "INFO" "Mode: Simulate (no broadcast, using sender: $OWNER)"
+    else
+        log "INFO" "Mode: Check (read-only)"
+    fi
+
+    # Build forge command
+    local forge_cmd="forge script"
+    forge_cmd+=" script/DeploySuperformGasOracle.s.sol:DeploySuperformGasOracle"
+
+    if [ "$mode" = "check" ]; then
+        forge_cmd+=" --sig 'runCheck(uint256,uint64,address)' $env $chain_id $OWNER"
+    else
+        forge_cmd+=" --sig 'run(uint256,uint64,int256,address)' $env $chain_id $gas_price $OWNER"
+    fi
+
+    forge_cmd+=" --rpc-url '$rpc_url'"
+    forge_cmd+=" --chain $chain_id"
+    [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
+    [ -n "$SENDER_FLAG" ] && forge_cmd+=" $SENDER_FLAG"
+    [ -n "$BROADCAST_FLAG" ] && forge_cmd+=" $BROADCAST_FLAG"
+    [ -n "$VERIFY_FLAG" ] && forge_cmd+=" $VERIFY_FLAG"
+    [ -n "$ETHERSCAN_FLAGS" ] && forge_cmd+=" $ETHERSCAN_FLAGS"
+
+    # Add verbosity
+    forge_cmd+=" -vvvv"
+
+    log "INFO" "Executing forge script..."
+    log "INFO" ""
+
+    # Execute (capture exit code to prevent set -e from exiting)
+    local exit_code=0
+    eval "$forge_cmd" || exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        log "ERROR" "Deployment failed on $chain_name ($chain_id) with exit code: $exit_code"
+        return $exit_code
+    fi
+
+    log "INFO" "$chain_name ($chain_id) deployment successful"
+    return 0
+}
 
 ###################################################################################
 # Main
@@ -166,7 +252,7 @@ main() {
     validate_environment "$environment"
     validate_mode "$mode"
 
-    # Source network configuration
+    # Source network configuration (for Base RPC via load_rpc_urls)
     source_network_config "$environment"
 
     # Validate account for execute mode
@@ -190,23 +276,25 @@ main() {
             ;;
     esac
 
-    # Load RPC URLs from 1Password
+    # Load RPC URLs from 1Password (loads BASE_MAINNET etc.)
     log "INFO" "Loading RPC URLs..."
     load_rpc_urls
 
-    # Get RPC URL for Base (use BASE_MAINNET directly after load_rpc_urls)
-    local rpc_url="${BASE_MAINNET:-}"
-    if [ -z "$rpc_url" ]; then
-        log "ERROR" "BASE_MAINNET RPC URL not loaded. Check 1Password configuration."
-        exit 1
+    # Load HyperEVM RPC separately (not in network config)
+    log "INFO" "Loading HyperEVM RPC URL..."
+    if ! export HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null); then
+        log "WARN" "HYPEREVM_RPC_URL not in 1Password, using default RPC"
+        export HYPEREVM_MAINNET="https://rpc.hyperliquid.xyz/evm"
     fi
 
-    # Load Etherscan API key for verification
+    # Satisfy foundry.toml [etherscan] env var references
+    export ETHERSCANV2_API_KEY_TEST="${ETHERSCANV2_API_KEY_TEST:-}"
+
+    # Load Etherscan API key for verification (needed for Base)
     if [ "$mode" = "execute" ]; then
         log "INFO" "Loading Etherscan API credentials..."
         if ! load_etherscan_api_key; then
-            log "ERROR" "Failed to load Etherscan API key. Verification will not work."
-            exit 1
+            log "WARN" "Failed to load Etherscan API key. Base verification will not work."
         fi
     fi
 
@@ -214,75 +302,74 @@ main() {
     log "INFO" "Deploy SuperformGasOracle"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
-    log "INFO" "Chain: $CHAIN_NAME (ID: $CHAIN_ID)"
     log "INFO" "Mode: $mode"
     log "INFO" "Owner (v2-supervaults): $OWNER"
     log "INFO" "Initial Gas Price: $gas_price (Gwei, 0 decimals)"
-    log "INFO" "RPC URL: ${rpc_url:0:50}..."
+    log "INFO" "Target Chains: HyperEVM (999)"
     log "INFO" "============================================"
 
-    # Set flags based on mode
-    local BROADCAST_FLAG=""
-    local VERIFY_FLAG=""
-    local SENDER_FLAG=""
-    local ACCOUNT_FLAG=""
-    local ETHERSCAN_FLAGS=""
+    local successful_chains=()
+    local skipped_chains=()
+    local failed_chains=()
 
-    if [ "$mode" = "execute" ]; then
-        BROADCAST_FLAG="--broadcast"
-        VERIFY_FLAG="--verify"
-        ACCOUNT_FLAG="--account $account"
-        ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
-        log "INFO" "Mode: Execute (will broadcast and verify using account: $account)"
-    elif [ "$mode" = "simulate" ]; then
-        SENDER_FLAG="--sender $OWNER"
-        log "INFO" "Mode: Simulate (no broadcast, using sender: $OWNER)"
-    else
-        # Check mode
-        log "INFO" "Mode: Check (read-only)"
-    fi
+    # Deploy on each supported chain
+    for chain_def in "${SUPPORTED_CHAINS[@]}"; do
+        IFS=':' read -r chain_id chain_name <<< "$chain_def"
 
-    # Build forge command
-    local forge_cmd="forge script"
-    forge_cmd+=" script/DeploySuperformGasOracle.s.sol:DeploySuperformGasOracle"
+        # Get RPC URL for this chain
+        local rpc_url
+        rpc_url=$(get_chain_rpc_url "$chain_id")
 
-    if [ "$mode" = "check" ]; then
-        # Check mode - just verify deployment status
-        forge_cmd+=" --sig 'runCheck(uint256,uint64,address)' $env $CHAIN_ID $OWNER"
-    else
-        # Deploy mode (simulate or execute)
-        forge_cmd+=" --sig 'run(uint256,uint64,int256,address)' $env $CHAIN_ID $gas_price $OWNER"
-    fi
+        if [ -z "$rpc_url" ]; then
+            log "WARN" "Skipping $chain_name ($chain_id) - RPC URL not available"
+            skipped_chains+=("$chain_name ($chain_id)")
+            continue
+        fi
 
-    forge_cmd+=" --rpc-url '$rpc_url'"
-    forge_cmd+=" --chain $CHAIN_ID"
-    [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
-    [ -n "$SENDER_FLAG" ] && forge_cmd+=" $SENDER_FLAG"
-    [ -n "$BROADCAST_FLAG" ] && forge_cmd+=" $BROADCAST_FLAG"
-    [ -n "$VERIFY_FLAG" ] && forge_cmd+=" $VERIFY_FLAG"
-    [ -n "$ETHERSCAN_FLAGS" ] && forge_cmd+=" $ETHERSCAN_FLAGS"
+        if deploy_on_chain "$env" "$chain_id" "$chain_name" "$mode" "$account" "$gas_price" "$rpc_url"; then
+            successful_chains+=("$chain_name ($chain_id)")
+        else
+            failed_chains+=("$chain_name ($chain_id)")
+        fi
 
-    # Add verbosity
-    forge_cmd+=" -vvvv"
+        log "INFO" ""
+    done
 
-    log "INFO" "Executing forge script..."
+    # Summary
     log "INFO" ""
+    log "INFO" "============================================"
+    log "INFO" "Deployment Summary"
+    log "INFO" "============================================"
 
-    # Execute
-    eval "$forge_cmd"
-    local exit_code=$?
-
-    log "INFO" ""
-    if [ $exit_code -eq 0 ]; then
-        log "INFO" "============================================"
-        log "INFO" "SuperformGasOracle deployment completed successfully!"
-        log "INFO" "============================================"
-    else
-        log "ERROR" "============================================"
-        log "ERROR" "SuperformGasOracle deployment FAILED with exit code: $exit_code"
-        log "ERROR" "============================================"
-        exit $exit_code
+    if [ ${#successful_chains[@]} -gt 0 ]; then
+        log "INFO" "Deployed:"
+        for chain in "${successful_chains[@]}"; do
+            log "INFO" "  ✓ $chain"
+        done
     fi
+
+    if [ ${#skipped_chains[@]} -gt 0 ]; then
+        log "INFO" "Skipped:"
+        for chain in "${skipped_chains[@]}"; do
+            log "INFO" "  - $chain"
+        done
+    fi
+
+    if [ ${#failed_chains[@]} -gt 0 ]; then
+        log "WARN" "Failed:"
+        for chain in "${failed_chains[@]}"; do
+            log "WARN" "  ✗ $chain"
+        done
+    fi
+
+    log "INFO" "============================================"
+
+    if [ ${#failed_chains[@]} -gt 0 ]; then
+        log "ERROR" "Deployment completed with failures"
+        exit 1
+    fi
+
+    log "INFO" "Deployment completed successfully!"
 }
 
 main "$@"

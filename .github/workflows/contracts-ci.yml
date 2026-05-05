@@ -10,7 +10,9 @@ concurrency:
 
 env:
   OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
+  FLARE_RPC_URL: ${{ secrets.FLARE_RPC_URL }}
   ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+  HYPEREVM_RPC_URL: ${{ secrets.HYPEREVM_RPC_URL }}
   BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
   TENDERLY_ACCESS_KEY: ${{ secrets.TENDERLY_ACCESS_KEY }}
   TENDERLY_PROJECT_SLUG: "v2"
@@ -32,7 +34,8 @@ on:
       - dev
 jobs:
   build:
-    runs-on: "SuperformCore3"
+    # Target the shared CI runner pool by labels, not by one runner's display name.
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: Mask Secrets
         run: |
@@ -54,6 +57,9 @@ jobs:
         with:
           node-version: "latest"
 
+      - name: "Install yarn"
+        run: npm install -g yarn
+
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
@@ -65,8 +71,11 @@ jobs:
       - name: Print ulimits
         run: ulimit -Sa && ulimit -Ha
 
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
+
       - name: Install Dependencies
-        run: yarn install
+        run: yarn install --ignore-scripts
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -99,7 +108,7 @@ jobs:
 
   test:
     needs: ["build"]
-    runs-on: "SuperformCore3"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -108,6 +117,12 @@ jobs:
         uses: "actions/setup-node@v3"
         with:
           node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -155,10 +170,21 @@ jobs:
 
   smoke-test:
     needs: ["build"]
-    runs-on: "SuperformCore3"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -197,7 +223,7 @@ jobs:
     needs: ["test"]
     if:
       github.event_name == 'workflow_dispatch'
-    runs-on: "SuperformCore3"
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
       base_mainnet_addresses: ${{ steps.get-addresses-base.outputs.addresses }}
@@ -221,6 +247,17 @@ jobs:
 
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -302,13 +339,24 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   coverage:
-    runs-on: SuperformCore3
+    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
     needs: ["test"]
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
         with:
           submodules: "recursive"
+
+      - name: "Install node"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "latest"
+
+      - name: "Install yarn"
+        run: npm install -g yarn
+
+      - name: "Clean yarn cache"
+        run: rm -rf "$(yarn cache dir)"
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
@@ -324,7 +372,7 @@ jobs:
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
         run: pnpm install
-        
+
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
         run: yarn

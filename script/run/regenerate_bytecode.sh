@@ -85,6 +85,7 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultStrategy"
     "SuperVaultEscrow"
     "SuperVaultBatchOperator"
+    "SuperVaultExecutor"
     "ECDSAPPSOracle"
     "FixedPriceOracle"
     "SuperOracle"
@@ -93,7 +94,65 @@ CORE_PERIPHERY_CONTRACTS=(
     "UpOFT"
     "UpOFTAdapter"
     "SuperformGasOracle"
+    "MorphoLendYieldSourceOracle"
+    "MorphoBorrowCostOracle"
 )
+
+# Function to map contract name to source file path (for Standard JSON Input generation)
+get_contract_source() {
+    local contract_name=$1
+    case $contract_name in
+        "SuperOracle") echo "src/oracles/SuperOracle.sol" ;;
+        "SuperOracleL2") echo "src/oracles/SuperOracleL2.sol" ;;
+        "SuperformGasOracle") echo "src/oracles/SuperformGasOracle.sol" ;;
+        "FixedPriceOracle") echo "src/oracles/FixedPriceOracle.sol" ;;
+        "ECDSAPPSOracle") echo "src/oracles/ECDSAPPSOracle.sol" ;;
+        "SuperVault") echo "src/SuperVault/SuperVault.sol" ;;
+        "SuperVaultAggregator") echo "src/SuperVault/SuperVaultAggregator.sol" ;;
+        "SuperVaultEscrow") echo "src/SuperVault/SuperVaultEscrow.sol" ;;
+        "SuperVaultStrategy") echo "src/SuperVault/SuperVaultStrategy.sol" ;;
+        "SuperVaultBatchOperator") echo "src/SuperVault/SuperVaultBatchOperator.sol" ;;
+        "SuperVaultExecutor") echo "src/SuperVault/SuperVaultExecutor.sol" ;;
+        "SuperBank") echo "src/SuperBank.sol" ;;
+        "SuperGovernor") echo "src/SuperGovernor.sol" ;;
+        "UpOFT") echo "src/UP/UpOFT.sol" ;;
+        "UpOFTAdapter") echo "src/UP/UpOFTAdapter.sol" ;;
+        "Up") echo "src/UP/Up.sol" ;;
+        "MorphoLendYieldSourceOracle") echo "src/oracles/MorphoLendYieldSourceOracle.sol" ;;
+        "MorphoBorrowCostOracle") echo "src/oracles/MorphoBorrowCostOracle.sol" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Function to generate Standard JSON Input for Etherscan verification
+# This captures the exact source files and compiler settings used in the build,
+# enabling direct Etherscan API verification without recompilation.
+generate_standard_json_input() {
+    local contract_name=$1
+    local source_file=$(get_contract_source "$contract_name")
+    local dest_path="script/generated-bytecode/${contract_name}.standard-json-input.json"
+
+    if [ -z "$source_file" ]; then
+        log "WARN" "${YELLOW}   ⚠️  Unknown source path for ${contract_name}, skipping standard JSON input${NC}"
+        return 1
+    fi
+
+    log "INFO" "${BLUE}   Generating standard JSON input for ${contract_name}...${NC}"
+
+    if forge verify-contract \
+        0x0000000000000000000000000000000000000000 \
+        "${source_file}:${contract_name}" \
+        --chain 1 \
+        --etherscan-api-key "dummy" \
+        --show-standard-json-input > "$dest_path" 2>/dev/null; then
+        log "INFO" "${GREEN}   ✅ Standard JSON input saved for ${contract_name}${NC}"
+        return 0
+    else
+        log "ERROR" "${RED}   ❌ Failed to generate standard JSON input for ${contract_name}${NC}"
+        rm -f "$dest_path"
+        return 1
+    fi
+}
 
 # Function to copy contract artifact
 copy_contract() {
@@ -121,6 +180,7 @@ if [ -n "$CONTRACT_NAME" ]; then
     # Single contract mode
     log "INFO" "${BLUE}📦 Copying specific contract: ${CONTRACT_NAME}...${NC}"
     if copy_contract "$CONTRACT_NAME"; then
+        generate_standard_json_input "$CONTRACT_NAME"
         log "INFO" "${GREEN}🎉 Contract ${CONTRACT_NAME} successfully updated in generated-bytecode!${NC}"
         exit 0
     else
@@ -133,7 +193,9 @@ else
     log "INFO" "${BLUE}📦 Copying core periphery contracts...${NC}"
     failed_core=0
     for contract in "${CORE_PERIPHERY_CONTRACTS[@]}"; do
-        if ! copy_contract "$contract"; then
+        if copy_contract "$contract"; then
+            generate_standard_json_input "$contract"
+        else
             failed_core=$((failed_core + 1))
         fi
     done

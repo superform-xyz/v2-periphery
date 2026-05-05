@@ -166,10 +166,13 @@ deploy_on_chain() {
 
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
-        VERIFY_FLAG="--verify"
         ACCOUNT_FLAG="--account $account"
-        ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
-        log "INFO" "Mode: Execute (will broadcast and verify using account: $account)"
+        # Skip etherscan verification for HyperEVM and Flare (no etherscan support)
+        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
+            VERIFY_FLAG="--verify"
+            ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+        fi
+        log "INFO" "Mode: Execute (will broadcast using account: $account)"
     elif [ "$mode" = "simulate" ]; then
         SENDER_FLAG="--sender $ADMIN"
         log "INFO" "Mode: Simulate (no broadcast, using sender: $ADMIN)"
@@ -263,6 +266,9 @@ main() {
     # Load RPC URLs from 1Password
     log "INFO" "Loading RPC URLs..."
     load_rpc_urls
+
+    # Satisfy foundry.toml [etherscan] env var references
+    export ETHERSCANV2_API_KEY_TEST="${ETHERSCANV2_API_KEY_TEST:-}"
 
     # Load Etherscan API key for verification
     if [ "$mode" = "execute" ]; then

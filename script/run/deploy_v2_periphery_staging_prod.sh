@@ -483,6 +483,9 @@ fi
 print_separator
 echo -e "${BLUE}🔧 Loading Configuration...${NC}"
 
+# Satisfy foundry.toml [etherscan] env var references
+export ETHERSCANV2_API_KEY_TEST="${ETHERSCANV2_API_KEY_TEST:-}"
+
 # Load RPC URLs using network-specific function
 echo -e "${CYAN}   • Loading RPC URLs...${NC}"
 if ! load_rpc_urls; then
@@ -680,17 +683,29 @@ for network_def in "${NETWORKS[@]}"; do
             echo -e "${CYAN}  • Status: $deployed/$total contracts already deployed${NC}"
             echo ""
 
+            # Set verification flags (skip etherscan for HyperEVM)
+            local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
+            local CHAIN_ETHERSCAN_FLAGS=""
+            local CHAIN_SLOW_FLAG=""
+            if [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
+                CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+            else
+                CHAIN_VERIFY_FLAG=""
+                # HyperEVM/Flare needs --slow to avoid nonce issues
+                CHAIN_SLOW_FLAG="--slow"
+            fi
+
             # Run deployment script
             if forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
                 --sig 'run(uint256,uint64)' $FORGE_ENV $network_id \
                 --rpc-url ${!rpc_var} \
                 --chain $network_id \
-                --etherscan-api-key $ETHERSCANV2_API_KEY \
-                --verifier etherscan \
+                $CHAIN_ETHERSCAN_FLAGS \
+                $CHAIN_SLOW_FLAG \
                 $ACCOUNT_FLAG \
                 $SENDER_FLAG \
                 $BROADCAST_FLAG \
-                $VERIFY_FLAG \
+                $CHAIN_VERIFY_FLAG \
                 -vvv; then
 
                 echo -e "${GREEN}✅ Successfully deployed to $network_name${NC}"
