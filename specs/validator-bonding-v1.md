@@ -1,5 +1,7 @@
 # ValidatorBonding Contract Design (Launch v1)
 
+This is the simplified launch version of the validator bonding system. For the full future design (automated disputes, dual-layer staking, multi-chain), see `validator-staking.md`.
+
 ## Context
 
 Superform is onboarding external validators for PPS oracle updates. Validators must bond sUP tokens as economic commitment. This is a **simple launch version** — Base-only, admin-slashable, no automated disputes.
@@ -33,11 +35,15 @@ The bonding module's purpose is:
 
 ValidatorBonding itself has no on-chain integration with ECDSAPPSOracle. The atomic guarantee comes from SuperGovernor's multicall, not from contract-to-contract coupling.
 
+**Off-chain safety net:** Before calling `setValidatorConfig()`, tooling should cross-reference `ValidatorBonding.getOperators()` with `SuperGovernor.getValidators()` to verify every validator in the oracle set is bonded.
+
 ---
 
 ## Contract: `ValidatorBonding.sol`
 
 Non-upgradeable. Deployed on Base only. Uses OZ `AccessControl`.
+
+**Token assumption:** sUP is a standard ERC20 (no transfer hooks, no ERC777 callbacks). All transfer-then-update-state patterns rely on this. If sUP ever gains hooks, this contract must be reaudited.
 
 ### Storage
 
@@ -53,19 +59,23 @@ enum ValidatorStatus {
 }
 
 struct BondRecord {
-    uint256 amount;              // Total sUP bonded
-    address beneficiary;         // Who receives sUP on unbond (validator or Foundation)
+    uint256 amount;              // Total sUP bonded (includes unbondingAmount until executeUnbond)
+    address beneficiary;         // Who receives sUP on unbond (validator or Foundation). Immutable after first bond.
     address delegateKey;         // Validator's signing key (for off-chain coordination)
-    uint256 unbondingStartTime;  // 0 = no pending unbond
-    uint256 unbondingAmount;     // Amount being unbonded
+    uint256 unbondingDeadline;   // Timestamp after which executeUnbond succeeds. 0 = no pending unbond.
+    uint256 unbondingAmount;     // Amount being unbonded (locked portion of `amount`)
+    address unbondingInitiator;  // Who called requestUnbond (only they can cancelUnbond)
     ValidatorStatus status;
 }
 
 mapping(address operator => BondRecord) public bonds;
 
-// Registry for enumeration
+// Registry for enumeration — contains Bonded and Unbonding operators.
+// Operators are added on bond(), removed on executeUnbond() (full) or slash to zero.
 EnumerableSet.AddressSet private _operators;
 ```
+
+**`amount` semantics:** `bond.amount` is the total sUP held by the contract for this operator, including the `unbondingAmount` portion. The "effective" (non-unbonding) balance is `amount - unbondingAmount`. This means `amount` is only reduced at `executeUnbond()` or `slash()`, never at `requestUnbond()`.
 
 ### Owner vs. Beneficiary Separation
 
@@ -84,6 +94,12 @@ Two scenarios at bond time:
 
 The `beneficiary` is immutable once set (cannot be changed after bonding). This prevents an operator with a Foundation loan from redirecting tokens to themselves.
 
+### Input Validation
+
+All external functions must validate:
+- `operator`, `beneficiary`, `delegateKey`, `recipient` (in `slash`) != `address(0)`
+- `delegateKey` uniqueness is NOT enforced on-chain (two operators could register the same key). Off-chain tooling must detect this before adding validators to `setValidatorConfig()`. This is a known limitation — enforcing uniqueness on-chain would require a reverse mapping and adds complexity disproportionate to the risk at launch scale (5-10 validators).
+
 ### External Functions
 
 #### Bonding
@@ -92,37 +108,66 @@ The `beneficiary` is immutable once set (cannot be changed after bonding). This 
 |----------|--------|-------------|
 | `bond(uint256 amount, address beneficiary, address delegateKey)` | Anyone | Bond sUP. Sugar for `bondFor(msg.sender, ...)`. |
 | `bondFor(address operator, uint256 amount, address beneficiary, address delegateKey)` | Anyone | Bond sUP on behalf of an operator. Allows Foundation to bond in a single tx. |
-| `addBond(uint256 amount)` | Bonded operator | Add more sUP to existing bond. |
-| `updateDelegateKey(address newKey)` | Bonded operator | Change the signing key. |
+| `addBond(uint256 amount)` | Bonded or Unbonding operator | Add more sUP to existing bond. |
+| `updateDelegateKey(address newKey)` | Operator OR beneficiary | Change the signing key. |
 
 **`bondFor()` logic:**
-1. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller (could be operator or Foundation)
-2. `amount >= minimumBond` required
-3. Sets `beneficiary`, `delegateKey`, status = `Bonded`
-4. Adds to `_operators` registry
+1. Reverts if `bonds[operator].status != Unbonded` — **cannot re-bond an existing operator**. This protects beneficiary immutability. An operator must fully unbond (or be slashed to zero) before re-bonding.
+2. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller
+3. `amount >= minimumBond` required
+4. Sets `beneficiary`, `delegateKey`, status = `Bonded`
+5. Adds to `_operators` registry
+6. Emits `Bonded(operator, beneficiary, delegateKey, amount)`
+
+**`addBond()` logic:**
+1. Allowed in both `Bonded` and `Unbonding` status — an operator mid-unbond can top up their bond (e.g., after a partial slash reduced them below minimum)
+2. `transferFrom(msg.sender, address(this), amount)` — caller must have sUP
+3. `bond.amount += amount`
+4. Does NOT cancel a pending unbond or change status
+5. Emits `BondAdded(operator, amount, bond.amount)`
+
+**`updateDelegateKey()` logic:**
+1. Callable by operator OR beneficiary — Foundation can rotate the signing key if an operator's key is compromised, without needing to slash or unbond
+2. Emits `DelegateKeyUpdated(operator, oldKey, newKey)`
 
 #### Unbonding
 
 | Function | Access | Description |
 |----------|--------|-------------|
-| `requestUnbond(uint256 amount)` | Operator OR beneficiary | Start unbonding. Partial (remaining >= minimumBond) or full. |
-| `executeUnbond()` | Operator OR beneficiary | After `unbondingPeriod`, sends sUP to `beneficiary`. |
-| `cancelUnbond()` | Operator OR beneficiary | Cancel pending unbond, re-bond tokens. |
+| `requestUnbond(uint256 amount)` | Operator OR beneficiary | Start unbonding. Partial or full. |
+| `executeUnbond()` | Operator OR beneficiary | After unbonding deadline, sends sUP to `beneficiary`. |
+| `cancelUnbond()` | Unbond initiator only | Cancel pending unbond, re-bond tokens. |
 
-Both the operator and beneficiary can initiate/execute/cancel unbonding. This ensures the Foundation (as beneficiary) can pull back a loan without needing the operator's cooperation.
+Both the operator and beneficiary can initiate unbonding and execute it. This ensures the Foundation (as beneficiary) can pull back a loan without needing the operator's cooperation. The Foundation should notify the operator off-chain as a courtesy, but the contract does not enforce this.
+
+**`cancelUnbond()` is restricted to the initiator** (whoever called `requestUnbond`). This prevents a griefing vector where one party repeatedly cancels the other's unbond to reset the cooldown.
 
 **`requestUnbond()` logic:**
 1. `msg.sender == operator || msg.sender == beneficiary`
-2. If partial: `bond.amount - amount >= minimumBond` required
-3. If full (`amount == bond.amount`): status = `Unbonding`
-4. Sets `unbondingStartTime = block.timestamp`, `unbondingAmount = amount`
-5. Only one pending unbond at a time (simplicity)
+2. Reverts if there is already a pending unbond (`unbondingAmount > 0`) — one pending unbond at a time
+3. If partial: `bond.amount - amount >= minimumBond` required (checked against total `amount`, not effective balance)
+4. If full (`amount == bond.amount`): status = `Unbonding`
+5. If partial: status stays `Bonded`
+6. Sets `unbondingDeadline = block.timestamp + unbondingPeriod` (captures current period at request time)
+7. Sets `unbondingAmount = amount`, `unbondingInitiator = msg.sender`
+8. `bond.amount` is NOT reduced — the unbonding portion remains in the total until execution
+9. Emits `UnbondRequested(operator, amount, unbondingDeadline)`
 
 **`executeUnbond()` logic:**
-1. `block.timestamp >= unbondingStartTime + unbondingPeriod` required
+1. `block.timestamp >= unbondingDeadline` required
 2. Transfers `unbondingAmount` of sUP to `beneficiary` (NOT to operator)
-3. If full unbond: status = `Unbonded`, removed from `_operators`
-4. If partial: status stays `Bonded`, `amount -= unbondingAmount`
+3. `bond.amount -= unbondingAmount`
+4. Resets `unbondingAmount = 0`, `unbondingDeadline = 0`, `unbondingInitiator = address(0)`
+5. If `bond.amount == 0`: status = `Unbonded`, removed from `_operators`
+6. If `bond.amount > 0`: status = `Bonded`
+7. **No re-check against `minimumBond` at execution time.** If governance raised `minimumBond` after the request, the unbond still executes. The operator may end up below the new minimum — off-chain tooling flags this.
+8. Emits `UnbondExecuted(operator, beneficiary, unbondingAmount)`
+
+**`cancelUnbond()` logic:**
+1. `msg.sender == bond.unbondingInitiator` — only the party who requested can cancel
+2. Resets `unbondingAmount = 0`, `unbondingDeadline = 0`, `unbondingInitiator = address(0)`
+3. If status was `Unbonding` (full unbond): status = `Bonded`
+4. Emits `UnbondCancelled(operator, amount)`
 
 #### Slashing
 
@@ -130,14 +175,31 @@ Both the operator and beneficiary can initiate/execute/cancel unbonding. This en
 |----------|--------|-------------|
 | `slash(address operator, uint256 amount, address recipient)` | `GOVERNOR_ROLE` | Slash operator's bond. Sends slashed sUP to `recipient`. |
 
+**`recipient` is caller-specified** — this is intentional. `GOVERNOR_ROLE` (SuperGovernor) directs slashed funds to treasury, remediation pool, or any address governance decides. This flexibility is by design given the admin-governed trust model.
+
 **`slash()` logic:**
-1. Reduces `bond.amount` by `amount` (capped to available balance)
-2. If operator has pending unbond, unbonding amount is reduced proportionally
-3. Transfers slashed sUP to `recipient` (treasury, remediation pool, etc.)
-4. If remaining bond == 0: status = `Unbonded`, removed from `_operators`
+
+1. `amount` is capped to `bond.amount` (cannot slash more than exists)
+2. Slash is applied proportionally across bonded and unbonding portions:
+   ```
+   slashFromUnbonding = amount * bond.unbondingAmount / bond.amount
+   slashFromBonded    = amount - slashFromUnbonding
+
+   bond.unbondingAmount -= slashFromUnbonding
+   bond.amount -= amount
+   ```
+   Example: `amount = 1.5M`, `unbondingAmount = 0.5M`, slash of `300k`:
+   - `slashFromUnbonding = 300k * 0.5M / 1.5M = 100k`
+   - `slashFromBonded = 200k`
+   - Result: `amount = 1.2M`, `unbondingAmount = 0.4M`
+3. Transfer slashed sUP to `recipient`
+4. Post-slash state transitions:
+   - If `bond.amount == 0`: status = `Unbonded`, removed from `_operators`, reset all fields
+   - If `bond.amount > 0 && bond.amount < minimumBond`: status = `Unbonded`, removed from `_operators`. Operator retains remaining bond but is no longer in the active set. They can call `addBond()` to re-meet the minimum, then must be re-added to `setValidatorConfig()` separately.
+   - If `bond.amount >= minimumBond`: status unchanged
 5. Emits `Slashed(operator, amount, recipient)`
 
-**No permanent exclusion status.** Slashing just reduces the bond. Whether the operator can re-bond later is a governance decision — they'd need to `bond()` again AND be re-added to `setValidatorConfig()`. The real gatekeeping is the permissioned validator set in SuperGovernor.
+**No permanent exclusion status.** Slashing reduces the bond and may remove from `_operators`. Whether the operator can re-bond later is a governance decision — they'd need to `addBond()` (or `bond()` if fully slashed) AND be re-added to `setValidatorConfig()`. The real gatekeeping is the permissioned validator set in SuperGovernor.
 
 **Atomic slash + removal flow (via SuperGovernor multicall):**
 1. SuperGovernor batches two calls in one tx:
@@ -153,25 +215,33 @@ Both the operator and beneficiary can initiate/execute/cancel unbonding. This en
 | Function | Access | Description |
 |----------|--------|-------------|
 | `setMinimumBond(uint256 newMinimum)` | `GOVERNOR_ROLE` | Update minimum bond. Existing validators below new minimum are NOT auto-ejected. |
-| `setUnbondingPeriod(uint256 newPeriod)` | `GOVERNOR_ROLE` | Update unbonding period. Existing pending unbonds use their original period. |
+| `setUnbondingPeriod(uint256 newPeriod)` | `GOVERNOR_ROLE` | Update unbonding period. In-flight unbonds are unaffected (they store `unbondingDeadline`). |
+
+**`minimumBond` enforcement points:** Checked at `bondFor()` and `requestUnbond()` (partial) time only. NOT re-checked at `executeUnbond()`. If governance raises the minimum while an unbond is in flight, the unbond executes and the operator may end up below the new minimum. Off-chain tooling detects this and can trigger removal from `setValidatorConfig()`.
+
+**`unbondingPeriod` and in-flight unbonds:** `BondRecord` stores `unbondingDeadline` (absolute timestamp), not `unbondingStartTime`. Changing `unbondingPeriod` only affects future `requestUnbond()` calls — existing unbonds execute at their original deadline.
 
 ### View Functions
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `isBonded(address operator)` | `bool` | Status == Bonded AND amount >= minimumBond |
+| `isBonded(address operator)` | `bool` | Status == `Bonded` AND `amount - unbondingAmount >= minimumBond`. Returns `false` during full unbonding or if effective balance is below minimum. |
 | `getBond(address operator)` | `BondRecord` | Full bond details |
-| `getBondedOperators()` | `address[]` | All currently bonded operators |
-| `getBondedOperatorCount()` | `uint256` | Count of bonded operators |
+| `getOperators()` | `address[]` | All operators in registry (`Bonded` + `Unbonding`). NOT filtered by `isBonded()`. |
+| `getOperatorCount()` | `uint256` | Count of operators in registry |
 | `getDelegateKey(address operator)` | `address` | Operator's signing key |
 | `getBeneficiary(address operator)` | `address` | Who receives sUP on unbond |
+
+**`isBonded()` semantics:** Uses `amount - unbondingAmount` (effective balance) so that a partial unbond in flight correctly reflects the committed capital. An operator with 1.5M bonded and 600k unbonding has an effective balance of 900k — below 1M minimum, so `isBonded()` returns `false`. Off-chain tooling uses this to flag validators that should be removed from `setValidatorConfig()`.
+
+**`getOperators()` semantics:** Returns the full `_operators` set, which includes both `Bonded` and `Unbonding` operators. Use `isBonded()` to filter for operators with sufficient committed capital.
 
 ### Events
 
 ```solidity
 event Bonded(address indexed operator, address indexed beneficiary, address delegateKey, uint256 amount);
 event BondAdded(address indexed operator, uint256 amount, uint256 newTotal);
-event UnbondRequested(address indexed operator, uint256 amount, uint256 executeAfter);
+event UnbondRequested(address indexed operator, uint256 amount, uint256 unbondingDeadline);
 event UnbondCancelled(address indexed operator, uint256 amount);
 event UnbondExecuted(address indexed operator, address indexed beneficiary, uint256 amount);
 event Slashed(address indexed operator, uint256 amount, address indexed recipient);
@@ -179,6 +249,8 @@ event DelegateKeyUpdated(address indexed operator, address oldKey, address newKe
 event MinimumBondUpdated(uint256 oldMinimum, uint256 newMinimum);
 event UnbondingPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
 ```
+
+**Re-bonding after full exit:** If an operator fully unbonds and later re-bonds, `bondFor()` emits `Bonded` (not `BondAdded`). `BondAdded` is only for topping up an existing bond.
 
 ---
 
@@ -239,4 +311,4 @@ Can be built as a separate contract on top of ValidatorBonding without changes t
 
 3. Self-funding validators call `bond()` directly
 
-4. Off-chain tooling verifies every address in `SuperGovernor.setValidatorConfig()` is also bonded in ValidatorBonding
+4. Off-chain tooling verifies every address in `SuperGovernor.setValidatorConfig()` is also bonded in ValidatorBonding (can use `getOperators()` + `isBonded()` cross-referenced with `SuperGovernor.getValidators()`)
