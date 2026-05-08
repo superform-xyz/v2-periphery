@@ -299,7 +299,7 @@ contract SuperVaultExecutorForkTest is Test {
     }
 
     function test_Fork_BatchRevoke_MultipleRealStrategies() public {
-        // Add to WETH strategy
+        // Remove an existing secondary manager to free up a slot (max is 5)
         vm.startPrank(MAIN_MANAGER);
         _makeRoomForSecondaryManager(WETH_STRATEGY);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
