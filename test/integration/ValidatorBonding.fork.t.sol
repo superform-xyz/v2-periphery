@@ -340,13 +340,21 @@ contract ValidatorBondingForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Helper: grant a role on the real SuperGovernor using vm.store
-    /// @dev OZ 5.x AccessControl stores _roles at slot 0:
+    /// @dev OZ 5.x (non-upgradeable) AccessControl stores _roles mapping at slot 0.
+    ///      Layout: _roles[role].hasRole[account] where _roles is at slot 0.
     ///      roleSlot = keccak256(abi.encode(role, 0))
     ///      hasRoleSlot = keccak256(abi.encode(account, roleSlot))
+    ///      If OZ upgrades change the storage layout, hasRole will return false below and this test will fail,
+    ///      making the hardcoded slot self-verifying.
     function _grantRoleOnGovernor(bytes32 role, address account) internal {
         bytes32 roleSlot = keccak256(abi.encode(role, uint256(0)));
         bytes32 hasRoleSlot = keccak256(abi.encode(account, roleSlot));
         vm.store(SUPER_GOVERNOR, hasRoleSlot, bytes32(uint256(1)));
+        // Verify the vm.store actually worked (guards against OZ storage layout changes)
+        assertTrue(
+            ISuperGovernor(SUPER_GOVERNOR).hasRole(role, account),
+            "vm.store role grant failed - OZ storage layout may have changed"
+        );
     }
 
     function test_fork_bondThenAddToValidatorConfig() public {

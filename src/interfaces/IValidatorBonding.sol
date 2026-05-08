@@ -25,9 +25,13 @@ interface IValidatorBonding is IAccessControl {
 
     /// @notice Record of a validator's bond (packed: 5 storage slots)
     /// @param amount Total sUP held (includes unbondingAmount until executeUnbond)
-    /// @param beneficiary Who receives sUP on unbond (immutable during active bond)
+    /// @param beneficiary Who receives sUP on unbond. Immutable for the lifetime of the bond — the only
+    ///        way to change beneficiary is a full unbond → wait unbondingPeriod → executeUnbond → re-bond cycle.
+    ///        If the beneficiary key is compromised, the operator cannot fast-path redirect exit tokens.
     /// @param unbondingDeadline Timestamp after which executeUnbond succeeds (0 = no pending unbond)
-    /// @param status Current validator status
+    /// @param status Current validator status. WARNING: status == Bonded does NOT guarantee isBonded() == true.
+    ///        After a slash during unbonding followed by executeUnbond, an operator may have status == Bonded
+    ///        but amount < minimumBond. Always use isBonded() for active-bond checks.
     /// @param delegateKey Validator's signing key for off-chain coordination
     /// @param unbondingAmount Portion of amount being unbonded
     /// @param unbondingInitiator Who called requestUnbond (only they can cancelUnbond)
@@ -199,6 +203,9 @@ interface IValidatorBonding is IAccessControl {
 
     /// @notice Add more sUP to an existing bond
     /// @dev Allowed in Bonded, Unbonding, or Unbonded-with-residual status. Only operator or beneficiary.
+    ///      NOTE: Adding bond while in Unbonding status does NOT cancel the pending unbond. The added tokens
+    ///      increase the total amount but the unbondingAmount stays unchanged. After executeUnbond(), the
+    ///      newly added tokens remain in the bond.
     /// @param operator The operator to add bond for
     /// @param amount Amount of sUP to add
     function addBond(address operator, uint256 amount) external;
@@ -283,6 +290,7 @@ interface IValidatorBonding is IAccessControl {
     function isBonded(address operator) external view returns (bool);
 
     /// @notice Get the full bond record for an operator
+    /// @dev WARNING: Do not use record.status alone to determine active-bond status. Use isBonded() instead.
     /// @param operator The operator to query
     /// @return The operator's BondRecord
     function getBond(address operator) external view returns (BondRecord memory);

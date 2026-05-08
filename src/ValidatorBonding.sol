@@ -22,7 +22,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    bytes32 private constant _GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
+    /// @inheritdoc IValidatorBonding
+    bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
 
     /// @inheritdoc IValidatorBonding
     uint256 public constant MAX_MINIMUM_BOND = 100_000_000e18;
@@ -100,16 +101,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         parameterTimelock = DEFAULT_PARAMETER_TIMELOCK;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
-        _grantRole(_GOVERNOR_ROLE, governor_);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                             ROLE GETTERS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IValidatorBonding
-    function GOVERNOR_ROLE() external pure returns (bytes32) {
-        return _GOVERNOR_ROLE;
+        _grantRole(GOVERNOR_ROLE, governor_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -255,8 +247,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     /// @inheritdoc IValidatorBonding
     function cancelUnbond(address operator) external nonReentrant {
         BondRecord storage bond_ = _bonds[operator];
-        if (msg.sender != bond_.unbondingInitiator) revert NOT_UNBOND_INITIATOR();
         if (bond_.unbondingAmount == 0) revert NO_PENDING_UNBOND();
+        if (msg.sender != bond_.unbondingInitiator) revert NOT_UNBOND_INITIATOR();
 
         uint256 amount = bond_.unbondingAmount;
 
@@ -283,7 +275,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         address recipient
     )
         external
-        onlyRole(_GOVERNOR_ROLE)
+        onlyRole(GOVERNOR_ROLE)
         nonReentrant
     {
         if (recipient == address(0)) revert INVALID_ADDRESS();
@@ -334,9 +326,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IValidatorBonding
-    function proposeMinimumBond(uint256 newMinimum) external onlyRole(_GOVERNOR_ROLE) {
+    function proposeMinimumBond(uint256 newMinimum) external onlyRole(GOVERNOR_ROLE) {
         if (newMinimum < MIN_MINIMUM_BOND || newMinimum > MAX_MINIMUM_BOND) {
             revert INVALID_MINIMUM_BOND();
+        }
+        if (_pendingEffectiveTimes[MINIMUM_BOND_KEY] != 0) {
+            emit ParameterChangeCancelled(MINIMUM_BOND_KEY);
         }
         uint256 effectiveTime = block.timestamp + parameterTimelock;
         _pendingValues[MINIMUM_BOND_KEY] = newMinimum;
@@ -360,9 +355,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function proposeUnbondingPeriod(uint256 newPeriod) external onlyRole(_GOVERNOR_ROLE) {
+    function proposeUnbondingPeriod(uint256 newPeriod) external onlyRole(GOVERNOR_ROLE) {
         if (newPeriod < MIN_UNBONDING_PERIOD || newPeriod > MAX_UNBONDING_PERIOD) {
             revert INVALID_UNBONDING_PERIOD();
+        }
+        if (_pendingEffectiveTimes[UNBONDING_PERIOD_KEY] != 0) {
+            emit ParameterChangeCancelled(UNBONDING_PERIOD_KEY);
         }
         uint256 effectiveTime = block.timestamp + parameterTimelock;
         _pendingValues[UNBONDING_PERIOD_KEY] = newPeriod;
@@ -386,7 +384,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function cancelProposedChange(bytes32 paramKey) external onlyRole(_GOVERNOR_ROLE) {
+    function cancelProposedChange(bytes32 paramKey) external onlyRole(GOVERNOR_ROLE) {
         if (_pendingEffectiveTimes[paramKey] == 0) revert NO_PENDING_CHANGE();
 
         delete _pendingValues[paramKey];

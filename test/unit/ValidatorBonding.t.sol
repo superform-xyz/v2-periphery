@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, Vm } from "forge-std/Test.sol";
 import { ValidatorBonding } from "../../src/ValidatorBonding.sol";
 import { IValidatorBonding } from "../../src/interfaces/IValidatorBonding.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
@@ -672,7 +672,7 @@ contract ValidatorBondingTest is Test {
         _bondOperator(operator1, operator1, delegateKey1, MINIMUM_BOND);
 
         vm.prank(operator1);
-        vm.expectRevert(IValidatorBonding.NOT_UNBOND_INITIATOR.selector);
+        vm.expectRevert(IValidatorBonding.NO_PENDING_UNBOND.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -918,7 +918,10 @@ contract ValidatorBondingTest is Test {
         vm.prank(governor);
         bonding.proposeMinimumBond(2_000_000e18);
 
-        // Overwrite with different value
+        // Overwrite with different value — should emit ParameterChangeCancelled for the first
+        bytes32 minBondKey = bonding.MINIMUM_BOND_KEY();
+        vm.expectEmit(true, false, false, true, address(bonding));
+        emit IValidatorBonding.ParameterChangeCancelled(minBondKey);
         vm.prank(governor);
         bonding.proposeMinimumBond(3_000_000e18);
 
@@ -1766,6 +1769,129 @@ contract ValidatorBondingTest is Test {
 
         assertEq(supToken.balanceOf(beneficiary2), bondAmount);
         assertEq(bonding.getBond(operator2).amount, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    PR REVIEW FIX REGRESSION TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice M-1: cancelUnbond with no pending unbond reverts NO_PENDING_UNBOND (not NOT_UNBOND_INITIATOR)
+    function test_cancelUnbond_noPending_thirdPartyGetsCorrectError() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, MINIMUM_BOND);
+
+        // Random third party tries to cancel — should get NO_PENDING_UNBOND, not NOT_UNBOND_INITIATOR
+        address randomCaller = makeAddr("random");
+        vm.prank(randomCaller);
+        vm.expectRevert(IValidatorBonding.NO_PENDING_UNBOND.selector);
+        bonding.cancelUnbond(operator1);
+    }
+
+    /// @notice M-1: cancelUnbond with pending unbond by wrong caller reverts NOT_UNBOND_INITIATOR
+    function test_cancelUnbond_wrongInitiator_revertsNotUnbondInitiator() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        // Operator initiates unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        // Beneficiary tries to cancel — should get NOT_UNBOND_INITIATOR (not NO_PENDING_UNBOND)
+        vm.prank(beneficiary1);
+        vm.expectRevert(IValidatorBonding.NOT_UNBOND_INITIATOR.selector);
+        bonding.cancelUnbond(operator1);
+    }
+
+    /// @notice M-1: unbonded operator (no bond at all) — cancelUnbond reverts NO_PENDING_UNBOND
+    function test_cancelUnbond_unbondedOperator_revertsNoPending() public {
+        // operator1 never bonded
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.NO_PENDING_UNBOND.selector);
+        bonding.cancelUnbond(operator1);
+    }
+
+    /// @notice L-1: first proposal does NOT emit ParameterChangeCancelled
+    function test_proposeMinimumBond_firstProposal_noCancel() public {
+        vm.prank(governor);
+        vm.recordLogs();
+        bonding.proposeMinimumBond(2_000_000e18);
+
+        // Check no ParameterChangeCancelled was emitted
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 cancelSig = keccak256("ParameterChangeCancelled(bytes32)");
+        for (uint256 i; i < entries.length; i++) {
+            assertTrue(entries[i].topics[0] != cancelSig, "Should not emit ParameterChangeCancelled on first proposal");
+        }
+    }
+
+    /// @notice L-1: overwriting unbonding period proposal also emits ParameterChangeCancelled
+    function test_proposeUnbondingPeriod_overwriteEmitsCancel() public {
+        // First proposal
+        vm.prank(governor);
+        bonding.proposeUnbondingPeriod(14 days);
+
+        // Overwrite — should emit ParameterChangeCancelled
+        bytes32 unbondKey = bonding.UNBONDING_PERIOD_KEY();
+        vm.expectEmit(true, false, false, true, address(bonding));
+        emit IValidatorBonding.ParameterChangeCancelled(unbondKey);
+        vm.prank(governor);
+        bonding.proposeUnbondingPeriod(21 days);
+
+        // Execute applies the second
+        vm.warp(block.timestamp + bonding.parameterTimelock() + 1);
+        bonding.executeUnbondingPeriodUpdate();
+        assertEq(bonding.unbondingPeriod(), 21 days);
+    }
+
+    /// @notice I-1: GOVERNOR_ROLE public constant returns the correct role hash
+    function test_governorRole_publicConstant() public view {
+        assertEq(bonding.GOVERNOR_ROLE(), keccak256("GOVERNOR_ROLE"));
+        assertTrue(bonding.hasRole(bonding.GOVERNOR_ROLE(), governor));
+    }
+
+    /// @notice L-2: status == Bonded but isBonded() == false after slash during unbonding + executeUnbond
+    function test_statusBondedButNotIsBonded_afterSlashAndExecute() public {
+        uint256 bondAmount = 2_000_000e18;
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        // Request partial unbond (1M out of 2M)
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+
+        // Slash 1.5M (crosses minimum for remaining bonded portion)
+        vm.prank(governor);
+        bonding.slash(operator1, 1_500_000e18, treasury);
+
+        // After heavy slash, status is Unbonded (below minimum)
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+        assertFalse(bonding.isBonded(operator1));
+    }
+
+    /// @notice I-3: addBond during Unbonding does NOT cancel the pending unbond
+    function test_addBondDuringUnbonding_doesNotCancelPendingUnbond() public {
+        uint256 bondAmount = 2_000_000e18;
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        // Request partial unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+
+        IValidatorBonding.BondRecord memory before = bonding.getBond(operator1);
+        uint256 unbondingBefore = before.unbondingAmount;
+        uint48 deadlineBefore = before.unbondingDeadline;
+        assertEq(unbondingBefore, 1_000_000e18);
+
+        // Beneficiary adds 500k bond
+        supToken.mint(beneficiary1, 500_000e18);
+        vm.startPrank(beneficiary1);
+        supToken.approve(address(bonding), 500_000e18);
+        bonding.addBond(operator1, 500_000e18);
+        vm.stopPrank();
+
+        // Unbonding state unchanged
+        IValidatorBonding.BondRecord memory after_ = bonding.getBond(operator1);
+        assertEq(after_.unbondingAmount, unbondingBefore, "unbondingAmount should be unchanged");
+        assertEq(after_.unbondingDeadline, deadlineBefore, "deadline should be unchanged");
+        assertEq(after_.amount, bondAmount + 500_000e18, "total should increase");
     }
 
     /*//////////////////////////////////////////////////////////////
