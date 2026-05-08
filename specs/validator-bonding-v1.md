@@ -43,7 +43,7 @@ ValidatorBonding itself has no on-chain integration with ECDSAPPSOracle. The ato
 
 Non-upgradeable. Deployed on Base only. Uses OZ `AccessControl`.
 
-**Token assumption:** sUP is a standard ERC20 (no transfer hooks, no ERC777 callbacks). All transfer-then-update-state patterns rely on this. If sUP ever gains hooks, this contract must be reaudited.
+**Token assumption:** sUP is the share token of a SuperVault whose asset is UP. It behaves as a standard ERC20 for transfer purposes. ReentrancyGuard is used as defense-in-depth.
 
 ### Storage
 

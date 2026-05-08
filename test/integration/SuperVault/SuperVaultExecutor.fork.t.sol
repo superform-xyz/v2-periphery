@@ -63,6 +63,15 @@ contract SuperVaultExecutorForkTest is Test {
         perms[5] = ISuperVaultExecutor.Permission.Unpause;
     }
 
+    /// @dev Remove a secondary manager if the strategy is at MAX_SECONDARY_MANAGERS (5)
+    ///      Must be called while pranking as MAIN_MANAGER
+    function _makeRoomForSecondaryManager(address strategy) internal {
+        address[] memory managers = aggregator.getSecondaryManagers(strategy);
+        if (managers.length >= 5) {
+            aggregator.removeSecondaryManager(strategy, managers[0]);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                               SETUP
     //////////////////////////////////////////////////////////////*/
@@ -83,8 +92,11 @@ contract SuperVaultExecutorForkTest is Test {
 
         // Add SuperVaultExecutor as secondary manager on USDC strategy
         // (impersonate the real production primary manager)
-        vm.prank(MAIN_MANAGER);
+        // Production strategies may be at MAX_SECONDARY_MANAGERS (5), so make room first
+        vm.startPrank(MAIN_MANAGER);
+        _makeRoomForSecondaryManager(USDC_STRATEGY);
         aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultExecutor));
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -194,8 +206,10 @@ contract SuperVaultExecutorForkTest is Test {
 
     function test_Fork_SessionKeyIsolation_AcrossRealStrategies() public {
         // Add SuperVaultExecutor as secondary manager on WETH strategy too
-        vm.prank(MAIN_MANAGER);
+        vm.startPrank(MAIN_MANAGER);
+        _makeRoomForSecondaryManager(WETH_STRATEGY);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
+        vm.stopPrank();
 
         uint256 expiry = block.timestamp + 1 days;
 
@@ -220,8 +234,10 @@ contract SuperVaultExecutorForkTest is Test {
 
     function test_Fork_PerStrategySessionKeys() public {
         // Add SuperVaultExecutor on WETH strategy
-        vm.prank(MAIN_MANAGER);
+        vm.startPrank(MAIN_MANAGER);
+        _makeRoomForSecondaryManager(WETH_STRATEGY);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
+        vm.stopPrank();
 
         uint256 expiry = block.timestamp + 1 days;
 
@@ -246,8 +262,11 @@ contract SuperVaultExecutorForkTest is Test {
 
     function test_Fork_BatchGrant_MultipleRealStrategies() public {
         // Add to WETH and CBBTC strategies too
+        // Production strategies may be at MAX_SECONDARY_MANAGERS (5), so make room first
         vm.startPrank(MAIN_MANAGER);
+        _makeRoomForSecondaryManager(WETH_STRATEGY);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
+        _makeRoomForSecondaryManager(CBBTC_STRATEGY);
         aggregator.addSecondaryManager(CBBTC_STRATEGY, address(superVaultExecutor));
         vm.stopPrank();
 
@@ -282,6 +301,7 @@ contract SuperVaultExecutorForkTest is Test {
     function test_Fork_BatchRevoke_MultipleRealStrategies() public {
         // Add to WETH strategy
         vm.startPrank(MAIN_MANAGER);
+        _makeRoomForSecondaryManager(WETH_STRATEGY);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
 
         // Grant on both
@@ -342,8 +362,10 @@ contract SuperVaultExecutorForkTest is Test {
 
         // Restore the original manager: a secondary manager proposes, original manager accepts
         // First add superVaultExecutor as secondary on the now-newManager-owned strategy
-        vm.prank(newManager);
+        vm.startPrank(newManager);
+        _makeRoomForSecondaryManager(USDC_STRATEGY);
         aggregator.addSecondaryManager(USDC_STRATEGY, address(superVaultExecutor));
+        vm.stopPrank();
         vm.prank(address(superVaultExecutor));
         aggregator.proposeChangePrimaryManager(USDC_STRATEGY, MAIN_MANAGER, feeRecipient);
         vm.warp(block.timestamp + 7 days + 1);
