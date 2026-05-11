@@ -120,12 +120,12 @@ contract ValidatorBondingForkTest is Test {
 
         // Operator approves foundation to bond on their behalf
         vm.prank(operator1);
-        bonding.approveBondFor(foundation);
+        bonding.approveBondFor(foundation, foundation, delegateKey1);
 
         // Foundation bonds sUP on behalf of operator
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
+        bonding.bondFor(operator1, supShares);
         vm.stopPrank();
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
@@ -226,12 +226,12 @@ contract ValidatorBondingForkTest is Test {
 
         // Operator 2 approves foundation, then foundation bonds for operator 2
         vm.prank(operator2);
-        bonding.approveBondFor(foundation);
+        bonding.approveBondFor(foundation, foundation, delegateKey2);
 
         uint256 supShares2 = _depositUpForSup(foundation, 3_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares2);
-        bonding.bondFor(operator2, supShares2, foundation, delegateKey2);
+        bonding.bondFor(operator2, supShares2);
         vm.stopPrank();
 
         // Both bonded
@@ -249,13 +249,13 @@ contract ValidatorBondingForkTest is Test {
     function test_fork_foundationUnbondsLoan() public {
         // Operator approves foundation
         vm.prank(operator1);
-        bonding.approveBondFor(foundation);
+        bonding.approveBondFor(foundation, foundation, delegateKey1);
 
         // Foundation bonds for operator
         uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
+        bonding.bondFor(operator1, supShares);
         vm.stopPrank();
 
         // Foundation pulls back the loan (beneficiary initiates unbond)
@@ -454,6 +454,467 @@ contract ValidatorBondingForkTest is Test {
         // Treasury received slashed sUP
         assertEq(sup.balanceOf(treasury), supShares1);
     }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK EDGE CASES — P2-1: executeUnbond minimumBond check
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice P2-1: addBond real sUP during unbonding → residual below minimum → Unbonded
+    function test_fork_P2_1_addBondDuringUnbonding_residualBelowMinimum() public {
+        // Operator bonds 2M UP worth of sUP
+        uint256 supShares = _depositUpForSup(operator1, 2_000_000e18);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), supShares);
+        bonding.bond(supShares, operator1, delegateKey1);
+        vm.stopPrank();
+
+        assertTrue(bonding.isBonded(operator1));
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Request full unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondedAmount);
+
+        // Foundation adds a small amount during unbonding (< minimumBond)
+        uint256 smallUpAmount = 500_000e18;
+        uint256 smallSupShares = _depositUpForSup(foundation, smallUpAmount);
+        assertTrue(smallSupShares < MINIMUM_BOND, "addBond amount should be below minimum for this test");
+
+        // Foundation needs to be the beneficiary to call addBond — operator is beneficiary here
+        // operator1 is the beneficiary so they can addBond
+        vm.startPrank(operator1);
+        // Get sUP from foundation to operator1 (simulating operator adding more)
+        vm.stopPrank();
+
+        // Actually operator1 should add from their own balance — let's give them more sUP
+        uint256 operatorSmallShares = _depositUpForSup(operator1, smallUpAmount);
+        assertTrue(operatorSmallShares < MINIMUM_BOND);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), operatorSmallShares);
+        bonding.addBond(operator1, operatorSmallShares);
+        vm.stopPrank();
+
+        // Total = bondedAmount + operatorSmallShares, unbonding = bondedAmount
+        assertEq(bonding.getBond(operator1).amount, bondedAmount + operatorSmallShares);
+
+        // Execute unbond after deadline
+        vm.warp(block.timestamp + UNBONDING_PERIOD + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        // Residual = operatorSmallShares < MINIMUM_BOND → Unbonded, removed from operators
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.amount, operatorSmallShares);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+        assertFalse(bonding.isBonded(operator1));
+        assertEq(bonding.getOperatorCount(), 0);
+    }
+
+    /// @notice P2-1: addBond real sUP during unbonding → residual >= minimum → Bonded
+    function test_fork_P2_1_addBondDuringUnbonding_residualAboveMinimum() public {
+        uint256 supShares = _depositUpForSup(operator1, 2_000_000e18);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), supShares);
+        bonding.bond(supShares, operator1, delegateKey1);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Full unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondedAmount);
+
+        // Add enough to be >= minimumBond after executeUnbond
+        uint256 largeUpAmount = 2_000_000e18;
+        uint256 largeSupShares = _depositUpForSup(operator1, largeUpAmount);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), largeSupShares);
+        bonding.addBond(operator1, largeSupShares);
+        vm.stopPrank();
+
+        // Execute unbond
+        vm.warp(block.timestamp + UNBONDING_PERIOD + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        // Residual = largeSupShares >= MINIMUM_BOND → Bonded
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.amount, largeSupShares);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertTrue(bonding.isBonded(operator1));
+        assertEq(bonding.getOperatorCount(), 1);
+    }
+
+    /// @notice P2-1: slash during unbonding → remaining after executeUnbond < min → Unbonded + recovery
+    function test_fork_P2_1_slashDuringUnbonding_residualRecovery() public {
+        uint256 supShares = _depositUpForSup(operator1, 3_000_000e18);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), supShares);
+        bonding.bond(supShares, operator1, delegateKey1);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Partial unbond (half)
+        uint256 unbondAmount = bondedAmount / 2;
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, unbondAmount);
+
+        // Slash ~80% — pushes below minimum, resets unbonding state
+        uint256 slashAmount = (bondedAmount * 80) / 100;
+        vm.prank(governor);
+        bonding.slash(operator1, slashAmount, treasury);
+
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+        assertEq(record.unbondingAmount, 0); // reset
+        assertEq(bonding.getOperatorCount(), 0);
+        assertEq(sup.balanceOf(treasury), slashAmount);
+
+        // Recovery: deposit more UP → sUP → addBond
+        uint256 recoveryShares = _depositUpForSup(operator1, 2_000_000e18);
+
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), recoveryShares);
+        bonding.addBond(operator1, recoveryShares);
+        vm.stopPrank();
+
+        record = bonding.getBond(operator1);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertTrue(bonding.isBonded(operator1));
+        assertEq(bonding.getOperatorCount(), 1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK EDGE CASES — P3-2: Pre-committed bondFor
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice P3-2: Foundation bonds with pre-committed beneficiary/delegateKey — real sUP
+    function test_fork_P3_2_bondForPrecommittedValues() public {
+        address customBeneficiary = makeAddr("customBen");
+        address customDelegate = makeAddr("customDelegate");
+
+        // Operator pre-commits beneficiary and delegateKey
+        vm.prank(operator1);
+        bonding.approveBondFor(foundation, customBeneficiary, customDelegate);
+
+        // Verify approval struct
+        IValidatorBonding.BondForApproval memory approval = bonding.getBondForApproval(operator1);
+        assertEq(approval.bonder, foundation);
+        assertEq(approval.beneficiary, customBeneficiary);
+        assertEq(approval.delegateKey, customDelegate);
+
+        // Foundation deposits UP → sUP → bondFor
+        uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
+
+        vm.startPrank(foundation);
+        sup.approve(address(bonding), supShares);
+        bonding.bondFor(operator1, supShares);
+        vm.stopPrank();
+
+        // Bond uses pre-committed values
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.beneficiary, customBeneficiary);
+        assertEq(record.delegateKey, customDelegate);
+        assertTrue(bonding.isBonded(operator1));
+
+        // Unbond → tokens go to customBeneficiary, not foundation or operator
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, supShares);
+
+        vm.warp(block.timestamp + UNBONDING_PERIOD + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        assertEq(sup.balanceOf(customBeneficiary), supShares);
+        assertEq(sup.balanceOf(foundation), 0);
+        assertEq(sup.balanceOf(operator1), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK EDGE CASES — P3-4: cancelUnbond by beneficiary
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice P3-4: Foundation (beneficiary) cancels operator-initiated unbond — real sUP
+    function test_fork_P3_4_foundationCancelsOperatorUnbond() public {
+        // Foundation bonds for operator (foundation is beneficiary)
+        vm.prank(operator1);
+        bonding.approveBondFor(foundation, foundation, delegateKey1);
+
+        uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
+        vm.startPrank(foundation);
+        sup.approve(address(bonding), supShares);
+        bonding.bondFor(operator1, supShares);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+        assertTrue(bonding.isBonded(operator1));
+
+        // Operator initiates full unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondedAmount);
+
+        assertEq(
+            uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonding)
+        );
+        assertEq(bonding.getBond(operator1).unbondingInitiator, operator1);
+
+        // Foundation (beneficiary) cancels the unbond — P3-4 fix allows this
+        vm.prank(foundation);
+        bonding.cancelUnbond(operator1);
+
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.unbondingAmount, 0);
+        assertEq(record.unbondingDeadline, 0);
+        assertEq(record.unbondingInitiator, address(0));
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertTrue(bonding.isBonded(operator1));
+
+        // sUP still in bonding contract
+        assertEq(sup.balanceOf(address(bonding)), bondedAmount);
+    }
+
+    /// @notice P3-4: Operator cancels foundation-initiated unbond — real sUP
+    function test_fork_P3_4_operatorCancelsFoundationUnbond() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(foundation, foundation, delegateKey1);
+
+        uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
+        vm.startPrank(foundation);
+        sup.approve(address(bonding), supShares);
+        bonding.bondFor(operator1, supShares);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Foundation initiates unbond
+        vm.prank(foundation);
+        bonding.requestUnbond(operator1, bondedAmount);
+
+        assertEq(bonding.getBond(operator1).unbondingInitiator, foundation);
+
+        // Operator cancels the foundation-initiated unbond
+        vm.prank(operator1);
+        bonding.cancelUnbond(operator1);
+
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.unbondingAmount, 0);
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertTrue(bonding.isBonded(operator1));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK EDGE CASES — P2-4: Timelocked parameterTimelock
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice P2-4: Full timelocked parameter change lifecycle with real sUP
+    function test_fork_P2_4_parameterTimelockLifecycle() public {
+        // Bond operator1
+        uint256 supShares = _depositUpForSup(operator1, 2_000_000e18);
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), supShares);
+        bonding.bond(supShares, operator1, delegateKey1);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Current parameterTimelock = 2 days (default)
+        assertEq(bonding.parameterTimelock(), 2 days);
+
+        // Admin proposes changing timelock to 10 days
+        vm.prank(admin);
+        bonding.proposeParameterTimelock(10 days);
+
+        // Verify via getPendingChange
+        (uint256 pendingValue, uint256 effectiveTime) = bonding.getPendingChange(bonding.PARAMETER_TIMELOCK_KEY());
+        assertEq(pendingValue, 10 days);
+        assertTrue(effectiveTime > block.timestamp);
+
+        // Cannot execute yet
+        vm.expectRevert(IValidatorBonding.TIMELOCK_NOT_EXPIRED.selector);
+        bonding.executeParameterTimelockUpdate();
+
+        // Wait for current 2-day timelock
+        vm.warp(effectiveTime + 1);
+        bonding.executeParameterTimelockUpdate();
+        assertEq(bonding.parameterTimelock(), 10 days);
+
+        // Now propose minimumBond change — must wait 10 days
+        vm.prank(governor);
+        bonding.proposeMinimumBond(2_000_000e18);
+
+        // 2 days not enough
+        vm.warp(block.timestamp + 2 days + 1);
+        vm.expectRevert(IValidatorBonding.TIMELOCK_NOT_EXPIRED.selector);
+        bonding.executeMinimumBondUpdate();
+
+        // 10 days is enough
+        vm.warp(block.timestamp + 8 days);
+        bonding.executeMinimumBondUpdate();
+        assertEq(bonding.minimumBond(), 2_000_000e18);
+
+        // Operator was bonded with original supShares — check if still bonded under new minimum
+        if (bondedAmount >= 2_000_000e18) {
+            assertTrue(bonding.isBonded(operator1));
+        } else {
+            assertFalse(bonding.isBonded(operator1));
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK EDGE CASES — P3-5: getPendingChange view
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice P3-5: getPendingChange tracks all three parameter keys independently
+    function test_fork_P3_5_getPendingChangeAllKeys() public {
+        // Propose all three
+        vm.prank(governor);
+        bonding.proposeMinimumBond(2_000_000e18);
+
+        vm.prank(governor);
+        bonding.proposeUnbondingPeriod(14 days);
+
+        vm.prank(admin);
+        bonding.proposeParameterTimelock(5 days);
+
+        // Verify all pending
+        (uint256 minVal,) = bonding.getPendingChange(bonding.MINIMUM_BOND_KEY());
+        (uint256 unbondVal,) = bonding.getPendingChange(bonding.UNBONDING_PERIOD_KEY());
+        (uint256 tlVal,) = bonding.getPendingChange(bonding.PARAMETER_TIMELOCK_KEY());
+
+        assertEq(minVal, 2_000_000e18);
+        assertEq(unbondVal, 14 days);
+        assertEq(tlVal, 5 days);
+
+        // Execute one — others unchanged
+        vm.warp(block.timestamp + bonding.parameterTimelock() + 1);
+        bonding.executeMinimumBondUpdate();
+
+        (minVal,) = bonding.getPendingChange(bonding.MINIMUM_BOND_KEY());
+        (unbondVal,) = bonding.getPendingChange(bonding.UNBONDING_PERIOD_KEY());
+        (tlVal,) = bonding.getPendingChange(bonding.PARAMETER_TIMELOCK_KEY());
+
+        assertEq(minVal, 0); // executed
+        assertEq(unbondVal, 14 days); // still pending
+        assertEq(tlVal, 5 days); // still pending
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              FORK COMBINED SCENARIOS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Combined: slash + addBond + executeUnbond with real sUP → verify residual status and getActiveOperators
+    function test_fork_combined_slashAddBondExecuteResidual() public {
+        // Bond two operators
+        uint256 supShares1 = _depositUpForSup(operator1, 3_000_000e18);
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), supShares1);
+        bonding.bond(supShares1, operator1, delegateKey1);
+        vm.stopPrank();
+
+        uint256 supShares2 = _depositUpForSup(operator2, 2_000_000e18);
+        vm.startPrank(operator2);
+        sup.approve(address(bonding), supShares2);
+        bonding.bond(supShares2, operator2, delegateKey2);
+        vm.stopPrank();
+
+        uint256 bonded1 = bonding.getBond(operator1).amount;
+
+        // Operator1: partial unbond (half)
+        uint256 unbondAmount = bonded1 / 2;
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, unbondAmount);
+
+        // Slash operator1 30%
+        uint256 slashAmount = (bonded1 * 30) / 100;
+        vm.prank(governor);
+        bonding.slash(operator1, slashAmount, treasury);
+
+        // Operator1 addBond a small amount
+        uint256 smallAdd = _depositUpForSup(operator1, 100_000e18);
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), smallAdd);
+        bonding.addBond(operator1, smallAdd);
+        vm.stopPrank();
+
+        // Execute unbond
+        vm.warp(block.timestamp + UNBONDING_PERIOD + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        IValidatorBonding.BondRecord memory record1 = bonding.getBond(operator1);
+        IValidatorBonding.BondRecord memory record2 = bonding.getBond(operator2);
+
+        // Operator2 completely unaffected
+        assertEq(record2.amount, supShares2);
+        assertTrue(bonding.isBonded(operator2));
+
+        // Operator1 status depends on residual
+        if (record1.amount >= MINIMUM_BOND) {
+            assertEq(uint8(record1.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+            assertEq(bonding.getActiveOperators().length, 2);
+        } else {
+            assertEq(uint8(record1.status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+            assertEq(bonding.getActiveOperators().length, 1);
+        }
+    }
+
+    /// @notice Combined: bondFor pre-committed → cancel by beneficiary → re-unbond → slash → recovery
+    function test_fork_combined_bondForCancelSlashRecovery() public {
+        address customBen = makeAddr("customBen");
+
+        // Operator pre-commits
+        vm.prank(operator1);
+        bonding.approveBondFor(foundation, customBen, delegateKey1);
+
+        // Foundation bonds
+        uint256 supShares = _depositUpForSup(foundation, 3_000_000e18);
+        vm.startPrank(foundation);
+        sup.approve(address(bonding), supShares);
+        bonding.bondFor(operator1, supShares);
+        vm.stopPrank();
+
+        uint256 bondedAmount = bonding.getBond(operator1).amount;
+
+        // Operator requests full unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondedAmount);
+
+        // customBen (beneficiary) cancels — P3-4
+        vm.prank(customBen);
+        bonding.cancelUnbond(operator1);
+
+        assertTrue(bonding.isBonded(operator1));
+
+        // Governor slashes enough to go below minimum
+        // bondedAmount is ~2.77M sUP, need remaining < 1M minimum, so slash ~65%
+        uint256 slashAmt = bondedAmount - (MINIMUM_BOND / 2); // leave only 500k sUP < 1M minimum
+        vm.prank(governor);
+        bonding.slash(operator1, slashAmt, treasury);
+
+        // Below minimum → Unbonded
+        assertFalse(bonding.isBonded(operator1));
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+
+        // Recovery: operator adds bond
+        uint256 recoveryShares = _depositUpForSup(operator1, 2_000_000e18);
+        vm.startPrank(operator1);
+        sup.approve(address(bonding), recoveryShares);
+        bonding.addBond(operator1, recoveryShares);
+        vm.stopPrank();
+
+        assertTrue(bonding.isBonded(operator1));
+        assertEq(bonding.getBond(operator1).beneficiary, customBen); // beneficiary unchanged
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                GOVERNANCE INTEGRATION: BOND → VALIDATOR CONFIG
+    //////////////////////////////////////////////////////////////*/
 
     function test_fork_crossReferenceBondedAndValidatorSets() public {
         ISuperGovernor superGovernor = ISuperGovernor(SUPER_GOVERNOR);

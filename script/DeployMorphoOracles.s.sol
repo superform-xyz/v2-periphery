@@ -233,7 +233,6 @@ contract DeployMorphoOracles is DeployV2Base {
         address admin
     )
         internal
-        view
         returns (address)
     {
         return DeterministicDeployerLib.computeAddress(
@@ -252,7 +251,6 @@ contract DeployMorphoOracles is DeployV2Base {
         address admin
     )
         internal
-        view
         returns (address)
     {
         return DeterministicDeployerLib.computeAddress(

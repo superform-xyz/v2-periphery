@@ -7,6 +7,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IValidatorBonding } from "./interfaces/IValidatorBonding.sol";
 
 /// @title ValidatorBonding
@@ -14,6 +15,23 @@ import { IValidatorBonding } from "./interfaces/IValidatorBonding.sol";
 /// @notice Standalone sUP bonding module for Superform validators (Base only)
 /// @dev Non-upgradeable. Operator/beneficiary separation supports Foundation loans.
 ///      sUP is the share token of a SuperVault whose asset is UP. ReentrancyGuard is defense-in-depth.
+///
+///      ROLE ARCHITECTURE:
+///        - DEFAULT_ADMIN_ROLE: Expected to be a multisig (SUPER_GOVERNOR_ADDRESS). Controls role grants
+///          and proposeParameterTimelock(). parameterTimelock changes are subject to the current timelock
+///          duration before taking effect.
+///        - GOVERNOR_ROLE: Held by the governance address. Has authority over both slashing (slash())
+///          and parameter proposals (proposeMinimumBond, proposeUnbondingPeriod). slash() accepts any
+///          non-zero recipient by design to allow flexible slashing destinations (treasury, insurance
+///          fund, burn address). If role separation is desired in the future, GOVERNOR_ROLE can be
+///          split into SLASHER_ROLE and PROPOSER_ROLE without contract redeployment via admin role grants.
+///
+///      OPERATIONAL COUPLING:
+///        ValidatorBonding and SuperGovernor are deliberately decoupled on-chain. An operator can be
+///        bonded here but not in the SuperGovernor validator set, and vice versa. Slashing should be
+///        a multi-step Safe multicall: (1) slash in ValidatorBonding, (2) remove from SuperGovernor
+///        validator config via setValidatorConfig(). Off-chain tooling monitors for mismatches between
+///        the bonded set (getActiveOperators()) and the validator config.
 contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -45,6 +63,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     bytes32 public constant MINIMUM_BOND_KEY = keccak256("minimumBond");
     /// @inheritdoc IValidatorBonding
     bytes32 public constant UNBONDING_PERIOD_KEY = keccak256("unbondingPeriod");
+    /// @inheritdoc IValidatorBonding
+    bytes32 public constant PARAMETER_TIMELOCK_KEY = keccak256("parameterTimelock");
 
     /*//////////////////////////////////////////////////////////////
                                IMMUTABLES
@@ -67,8 +87,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     mapping(address operator => BondRecord) private _bonds;
     EnumerableSet.AddressSet private _operators;
 
-    /// @dev Approved bonder for each operator (for bondFor)
-    mapping(address operator => address approvedBonder) private _bondForApprovals;
+    /// @dev Pre-committed approval for each operator (for bondFor)
+    mapping(address operator => BondForApproval) private _bondForApprovals;
 
     /// @dev Pending parameter changes: key => (value, effectiveTime)
     mapping(bytes32 key => uint256 value) private _pendingValues;
@@ -114,16 +134,19 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function bondFor(address operator, uint256 amount, address beneficiary, address delegateKey) external {
-        if (_bondForApprovals[operator] != msg.sender) revert NOT_APPROVED_BONDER();
-        _bondFor(operator, amount, beneficiary, delegateKey);
+    function bondFor(address operator, uint256 amount) external {
+        BondForApproval memory approval = _bondForApprovals[operator];
+        if (approval.bonder != msg.sender) revert NOT_APPROVED_BONDER();
+        _bondFor(operator, amount, approval.beneficiary, approval.delegateKey);
     }
 
     /// @inheritdoc IValidatorBonding
-    function approveBondFor(address bonder) external {
-        if (bonder == address(0)) revert INVALID_ADDRESS();
-        _bondForApprovals[msg.sender] = bonder;
-        emit BondForApproved(msg.sender, bonder);
+    function approveBondFor(address bonder, address beneficiary, address delegateKey) external {
+        if (bonder == address(0) || beneficiary == address(0) || delegateKey == address(0)) {
+            revert INVALID_ADDRESS();
+        }
+        _bondForApprovals[msg.sender] = BondForApproval(bonder, beneficiary, delegateKey);
+        emit BondForApproved(msg.sender, bonder, beneficiary, delegateKey);
     }
 
     /// @inheritdoc IValidatorBonding
@@ -131,6 +154,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         delete _bondForApprovals[msg.sender];
         emit BondForApprovalRevoked(msg.sender);
     }
+
 
     /// @inheritdoc IValidatorBonding
     function addBond(address operator, uint256 amount) external nonReentrant {
@@ -161,7 +185,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function updateDelegateKey(address operator, address newKey) external nonReentrant {
+    function updateDelegateKey(address operator, address newKey) external {
         if (newKey == address(0)) revert INVALID_ADDRESS();
 
         BondRecord storage bond_ = _bonds[operator];
@@ -204,7 +228,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         // Effects
         uint256 deadline = block.timestamp + unbondingPeriod;
         bond_.unbondingAmount = amount;
-        bond_.unbondingDeadline = uint48(deadline);
+        bond_.unbondingDeadline = SafeCast.toUint48(deadline);
         bond_.unbondingInitiator = msg.sender;
 
         if (amount == bond_.amount) {
@@ -234,21 +258,25 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bond_.amount == 0) {
             bond_.status = ValidatorStatus.Unbonded;
             _operators.remove(operator);
-        } else {
+        } else if (bond_.amount >= minimumBond) {
             bond_.status = ValidatorStatus.Bonded;
+        } else {
+            // Residual below minimum (e.g. addBond during unbonding added < minimumBond)
+            bond_.status = ValidatorStatus.Unbonded;
+            _operators.remove(operator);
         }
+
+        emit UnbondExecuted(operator, beneficiary, amount);
 
         // Interactions
         SUP_TOKEN.safeTransfer(beneficiary, amount);
-
-        emit UnbondExecuted(operator, beneficiary, amount);
     }
 
     /// @inheritdoc IValidatorBonding
     function cancelUnbond(address operator) external nonReentrant {
         BondRecord storage bond_ = _bonds[operator];
         if (bond_.unbondingAmount == 0) revert NO_PENDING_UNBOND();
-        if (msg.sender != bond_.unbondingInitiator) revert NOT_UNBOND_INITIATOR();
+        _onlyOperatorOrBeneficiary(bond_, operator);
 
         uint256 amount = bond_.unbondingAmount;
 
@@ -315,10 +343,10 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             }
         }
 
+        emit Slashed(operator, amount, recipient, bond_.amount);
+
         // Interactions
         SUP_TOKEN.safeTransfer(recipient, amount);
-
-        emit Slashed(operator, amount, recipient, bond_.amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -394,13 +422,32 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function setParameterTimelock(uint256 newTimelock) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function proposeParameterTimelock(uint256 newTimelock) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newTimelock < MIN_PARAMETER_TIMELOCK || newTimelock > MAX_PARAMETER_TIMELOCK) {
             revert INVALID_PARAMETER_TIMELOCK();
         }
+        if (_pendingEffectiveTimes[PARAMETER_TIMELOCK_KEY] != 0) {
+            emit ParameterChangeCancelled(PARAMETER_TIMELOCK_KEY);
+        }
+        uint256 effectiveTime = block.timestamp + parameterTimelock;
+        _pendingValues[PARAMETER_TIMELOCK_KEY] = newTimelock;
+        _pendingEffectiveTimes[PARAMETER_TIMELOCK_KEY] = effectiveTime;
+        emit ParameterTimelockProposed(parameterTimelock, newTimelock, effectiveTime);
+    }
+
+    /// @inheritdoc IValidatorBonding
+    function executeParameterTimelockUpdate() external {
+        uint256 effectiveTime = _pendingEffectiveTimes[PARAMETER_TIMELOCK_KEY];
+        if (effectiveTime == 0) revert NO_PENDING_CHANGE();
+        if (block.timestamp < effectiveTime) revert TIMELOCK_NOT_EXPIRED();
+
         uint256 oldTimelock = parameterTimelock;
-        parameterTimelock = newTimelock;
-        emit ParameterTimelockUpdated(oldTimelock, newTimelock);
+        parameterTimelock = _pendingValues[PARAMETER_TIMELOCK_KEY];
+
+        delete _pendingValues[PARAMETER_TIMELOCK_KEY];
+        delete _pendingEffectiveTimes[PARAMETER_TIMELOCK_KEY];
+
+        emit ParameterTimelockUpdated(oldTimelock, parameterTimelock);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -427,6 +474,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     /// @inheritdoc IValidatorBonding
     function getActiveOperators() external view returns (address[] memory) {
         uint256 len = _operators.length();
+        uint256 _minimumBond = minimumBond;
         address[] memory active = new address[](len);
         uint256 count;
         for (uint256 i; i < len; ++i) {
@@ -434,7 +482,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             BondRecord storage bond_ = _bonds[op];
             if (
                 bond_.status == ValidatorStatus.Bonded && bond_.unbondingAmount <= bond_.amount
-                    && (bond_.amount - bond_.unbondingAmount) >= minimumBond
+                    && (bond_.amount - bond_.unbondingAmount) >= _minimumBond
             ) {
                 active[count++] = op;
             }
@@ -451,8 +499,13 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function getBondForApproval(address operator) external view returns (address) {
+    function getBondForApproval(address operator) external view returns (BondForApproval memory) {
         return _bondForApprovals[operator];
+    }
+
+    /// @inheritdoc IValidatorBonding
+    function getPendingChange(bytes32 key) external view returns (uint256 value, uint256 effectiveTime) {
+        return (_pendingValues[key], _pendingEffectiveTimes[key]);
     }
 
     /*//////////////////////////////////////////////////////////////

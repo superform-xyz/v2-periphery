@@ -34,7 +34,7 @@ interface IValidatorBonding is IAccessControl {
     ///        but amount < minimumBond. Always use isBonded() for active-bond checks.
     /// @param delegateKey Validator's signing key for off-chain coordination
     /// @param unbondingAmount Portion of amount being unbonded
-    /// @param unbondingInitiator Who called requestUnbond (only they can cancelUnbond)
+    /// @param unbondingInitiator Who called requestUnbond (tracked for audit trail)
     struct BondRecord {
         uint256 amount; // slot 0
         address beneficiary; // slot 1: 20 bytes
@@ -43,6 +43,16 @@ interface IValidatorBonding is IAccessControl {
         address delegateKey; // slot 2: 20 bytes
         uint256 unbondingAmount; // slot 3
         address unbondingInitiator; // slot 4
+    }
+
+    /// @notice Pre-committed approval for bondFor()
+    /// @param bonder Address approved to call bondFor
+    /// @param beneficiary Pre-committed beneficiary address
+    /// @param delegateKey Pre-committed delegate key
+    struct BondForApproval {
+        address bonder;
+        address beneficiary;
+        address delegateKey;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -163,7 +173,13 @@ interface IValidatorBonding is IAccessControl {
     /// @param paramKey The parameter key that was cancelled
     event ParameterChangeCancelled(bytes32 indexed paramKey);
 
-    /// @notice Emitted when the parameter timelock is updated
+    /// @notice Emitted when a parameter timelock update is proposed
+    /// @param currentTimelock The current timelock duration
+    /// @param proposedTimelock The proposed new timelock duration
+    /// @param effectiveTime The timestamp when the change can be executed
+    event ParameterTimelockProposed(uint256 currentTimelock, uint256 proposedTimelock, uint256 effectiveTime);
+
+    /// @notice Emitted when the parameter timelock is updated (after timelock)
     /// @param oldTimelock The previous timelock duration
     /// @param newTimelock The new timelock duration
     event ParameterTimelockUpdated(uint256 oldTimelock, uint256 newTimelock);
@@ -171,7 +187,11 @@ interface IValidatorBonding is IAccessControl {
     /// @notice Emitted when an operator approves a bonder for bondFor()
     /// @param operator The operator granting approval
     /// @param bonder The approved bonder address
-    event BondForApproved(address indexed operator, address indexed bonder);
+    /// @param beneficiary The pre-committed beneficiary address
+    /// @param delegateKey The pre-committed delegate key
+    event BondForApproved(
+        address indexed operator, address indexed bonder, address beneficiary, address delegateKey
+    );
 
     /// @notice Emitted when an operator revokes bondFor approval
     /// @param operator The operator revoking approval
@@ -188,15 +208,16 @@ interface IValidatorBonding is IAccessControl {
     function bond(uint256 amount, address beneficiary, address delegateKey) external;
 
     /// @notice Bond sUP on behalf of an operator (requires prior approval via approveBondFor)
+    /// @dev beneficiary and delegateKey are read from the pre-committed approval
     /// @param operator The operator address
     /// @param amount Amount of sUP to bond (must be >= minimumBond)
-    /// @param beneficiary Address that receives sUP on unbond (immutable during active bond)
-    /// @param delegateKey Validator's signing key for off-chain coordination
-    function bondFor(address operator, uint256 amount, address beneficiary, address delegateKey) external;
+    function bondFor(address operator, uint256 amount) external;
 
-    /// @notice Approve an address to call bondFor on behalf of msg.sender
+    /// @notice Approve an address to call bondFor on behalf of msg.sender, pre-committing beneficiary and delegateKey
     /// @param bonder The address to approve as a bonder
-    function approveBondFor(address bonder) external;
+    /// @param beneficiary The pre-committed beneficiary address (locked at approval time)
+    /// @param delegateKey The pre-committed delegate key (locked at approval time)
+    function approveBondFor(address bonder, address beneficiary, address delegateKey) external;
 
     /// @notice Revoke bondFor approval for msg.sender
     function revokeBondForApproval() external;
@@ -232,7 +253,7 @@ interface IValidatorBonding is IAccessControl {
     function executeUnbond(address operator) external;
 
     /// @notice Cancel a pending unbond
-    /// @dev Only callable by the address that initiated the unbond
+    /// @dev Callable by operator or beneficiary
     /// @param operator The operator whose unbond to cancel
     function cancelUnbond(address operator) external;
 
@@ -274,10 +295,14 @@ interface IValidatorBonding is IAccessControl {
     /// @param paramKey The parameter key to cancel (MINIMUM_BOND_KEY or UNBONDING_PERIOD_KEY)
     function cancelProposedChange(bytes32 paramKey) external;
 
-    /// @notice Update the parameter timelock duration
+    /// @notice Propose a new parameter timelock duration (subject to current timelock)
     /// @dev Only callable by DEFAULT_ADMIN_ROLE
-    /// @param newTimelock The new timelock duration
-    function setParameterTimelock(uint256 newTimelock) external;
+    /// @param newTimelock The proposed timelock duration (bounded by MIN/MAX_PARAMETER_TIMELOCK)
+    function proposeParameterTimelock(uint256 newTimelock) external;
+
+    /// @notice Execute a pending parameter timelock update after timelock expires
+    /// @dev Permissionless after timelock
+    function executeParameterTimelockUpdate() external;
 
     /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
@@ -309,8 +334,14 @@ interface IValidatorBonding is IAccessControl {
 
     /// @notice Get the approved bonder for an operator
     /// @param operator The operator to query
-    /// @return The approved bonder address (address(0) if none)
-    function getBondForApproval(address operator) external view returns (address);
+    /// @return The full BondForApproval struct (bonder, beneficiary, delegateKey)
+    function getBondForApproval(address operator) external view returns (BondForApproval memory);
+
+    /// @notice Get a pending parameter change
+    /// @param key The parameter key (MINIMUM_BOND_KEY, UNBONDING_PERIOD_KEY, or PARAMETER_TIMELOCK_KEY)
+    /// @return value The proposed value (0 if no pending change)
+    /// @return effectiveTime The timestamp when the change can be executed (0 if no pending change)
+    function getPendingChange(bytes32 key) external view returns (uint256 value, uint256 effectiveTime);
 
     /// @notice The identifier of the role that grants access to slashing and parameter updates
     function GOVERNOR_ROLE() external pure returns (bytes32);
@@ -353,4 +384,7 @@ interface IValidatorBonding is IAccessControl {
 
     /// @notice Key for unbonding period parameter changes
     function UNBONDING_PERIOD_KEY() external pure returns (bytes32);
+
+    /// @notice Key for parameter timelock changes
+    function PARAMETER_TIMELOCK_KEY() external pure returns (bytes32);
 }

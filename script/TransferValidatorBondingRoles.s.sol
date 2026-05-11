@@ -56,6 +56,21 @@ contract TransferValidatorBondingRoles is DeployV2Base {
             return;
         }
 
+        // Detect partial transfer state: roles were granted but admin wasn't revoked yet, or
+        // admin was already revoked but some grants are missing (unrecoverable without new admin action)
+        if (!currentAdminHasAdmin && !fullyTransferred) {
+            console2.log("=== ERROR: Partial Transfer State Detected ===");
+            console2.log("  Current admin lost DEFAULT_ADMIN_ROLE but transfer is incomplete.");
+            console2.log("  SUPER_GOVERNOR_ADDRESS has admin:", superGovernorHasAdmin);
+            console2.log("  GOVERNOR has governor:", governorHasGovernor);
+            if (superGovernorHasAdmin) {
+                console2.log("  Recovery: SUPER_GOVERNOR_ADDRESS must complete the remaining grants.");
+            } else {
+                console2.log("  Recovery: No admin remains. Contract admin is permanently locked.");
+            }
+            revert("PARTIAL_TRANSFER: current admin lost role before transfer completed. See logs above.");
+        }
+
         require(currentAdminHasAdmin, "ADMIN_MISMATCH: Current admin does not have DEFAULT_ADMIN_ROLE");
 
         // ===== Step 1: Grant GOVERNOR_ROLE to GOVERNOR =====

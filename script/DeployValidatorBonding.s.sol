@@ -37,11 +37,11 @@ contract DeployValidatorBonding is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        address superGovernor = _getSuperGovernorForEnv(env, BASE_CHAIN_ID, branchName);
+        address governor_ = GOVERNOR;
         address admin = SUPER_GOVERNOR_ADDRESS;
         address supToken = _getSupTokenForEnv(env);
 
-        _deploy(env, superGovernor, admin, supToken, branchName);
+        _deploy(env, governor_, admin, supToken, branchName);
     }
 
     /// @notice Check if ValidatorBonding is deployed on Base
@@ -51,7 +51,7 @@ contract DeployValidatorBonding is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        address superGovernor = _getSuperGovernorForEnv(env, BASE_CHAIN_ID, branchName);
+        address governor_ = GOVERNOR;
         address admin = SUPER_GOVERNOR_ADDRESS;
         address supToken = _getSupTokenForEnv(env);
 
@@ -63,12 +63,12 @@ contract DeployValidatorBonding is DeployV2Base {
         }
         console2.log("sUP Token:", supToken);
         console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
-        console2.log("Governor (SuperGovernor):", superGovernor);
+        console2.log("Governor:", governor_);
         console2.log("Minimum Bond:", MINIMUM_BOND);
         console2.log("Unbonding Period:", UNBONDING_PERIOD);
         console2.log("");
 
-        address bondingAddr = _computeAddress(env, supToken, admin, superGovernor);
+        address bondingAddr = _computeAddress(env, supToken, admin, governor_);
         bool isDeployed = bondingAddr.code.length > 0;
 
         console2.log("Computed address:", bondingAddr);
@@ -85,7 +85,7 @@ contract DeployValidatorBonding is DeployV2Base {
                 "Has DEFAULT_ADMIN_ROLE:", bondingContract.hasRole(bondingContract.DEFAULT_ADMIN_ROLE(), admin)
             );
             console2.log(
-                "Has GOVERNOR_ROLE:", bondingContract.hasRole(bondingContract.GOVERNOR_ROLE(), superGovernor)
+                "Has GOVERNOR_ROLE:", bondingContract.hasRole(bondingContract.GOVERNOR_ROLE(), governor_)
             );
             console2.log("Operator count:", bondingContract.getOperatorCount());
         }
@@ -106,69 +106,19 @@ contract DeployValidatorBonding is DeployV2Base {
             // Production: known sUP SuperVault on Base
             supToken = SUP_VAULT_BASE;
         } else {
-            // Staging/vnet: use the same address for now (update when staging sUP exists)
-            supToken = SUP_VAULT_BASE;
-        }
-    }
-
-    /// @notice Get SuperGovernor address for the given environment on Base
-    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param chainId Chain ID
-    /// @param branchName Branch name for vnet deployments
-    /// @return superGovernor The SuperGovernor address
-    function _getSuperGovernorForEnv(
-        uint256 env,
-        uint64 chainId,
-        string calldata branchName
-    )
-        internal
-        view
-        returns (address superGovernor)
-    {
-        string memory root = vm.projectRoot();
-        string memory envFolder;
-        if (env == 0) {
-            envFolder = "prod";
-        } else if (env == 1) {
-            envFolder = branchName;
-        } else {
-            envFolder = "staging";
-        }
-
-        string memory chainName = chainNames[chainId];
-        string memory jsonPath = string(
-            abi.encodePacked(
-                root,
-                "/script/output/",
-                envFolder,
-                "/",
-                vm.toString(uint256(chainId)),
-                "/",
-                chainName,
-                "-latest.json"
-            )
-        );
-
-        string memory json = vm.readFile(jsonPath);
-        superGovernor = vm.parseJsonAddress(json, ".SuperGovernor");
-
-        require(superGovernor != address(0), "SUPER_GOVERNOR_NOT_FOUND_IN_OUTPUT");
-
-        if (superGovernor.code.length == 0) {
-            console2.log("WARNING: SuperGovernor not deployed on chain", chainId);
-            console2.log("Address from output JSON:", superGovernor);
+            revert("STAGING_SUP_NOT_CONFIGURED: set a staging sUP address before deploying to non-prod");
         }
     }
 
     /// @notice Internal deployment function
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    /// @param superGovernor SuperGovernor address (receives GOVERNOR_ROLE)
+    /// @param governor_ Governor address (receives GOVERNOR_ROLE — for slash, parameter proposals)
     /// @param admin Admin address (receives DEFAULT_ADMIN_ROLE)
     /// @param supToken sUP token address
     /// @param branchName Branch name for vnet deployments
     function _deploy(
         uint256 env,
-        address superGovernor,
+        address governor_,
         address admin,
         address supToken,
         string calldata branchName
@@ -185,7 +135,7 @@ contract DeployValidatorBonding is DeployV2Base {
         }
         console2.log("sUP Token:", supToken);
         console2.log("Admin:", admin);
-        console2.log("Governor:", superGovernor);
+        console2.log("Governor:", governor_);
         console2.log("Minimum Bond:", MINIMUM_BOND);
         console2.log("Unbonding Period:", UNBONDING_PERIOD);
         console2.log("");
@@ -193,7 +143,7 @@ contract DeployValidatorBonding is DeployV2Base {
         // Validate inputs
         require(supToken != address(0), "INVALID_SUP_TOKEN");
         require(admin != address(0), "INVALID_ADMIN");
-        require(superGovernor != address(0), "INVALID_GOVERNOR");
+        require(governor_ != address(0), "INVALID_GOVERNOR");
 
         // Get bytecode from generated artifacts
         bytes memory bytecode = __getBytecode(VALIDATOR_BONDING_KEY, env);
@@ -204,7 +154,7 @@ contract DeployValidatorBonding is DeployV2Base {
             VALIDATOR_BONDING_KEY,
             BASE_CHAIN_ID,
             __getSalt(VALIDATOR_BONDING_KEY),
-            abi.encodePacked(bytecode, abi.encode(supToken, MINIMUM_BOND, UNBONDING_PERIOD, admin, superGovernor))
+            abi.encodePacked(bytecode, abi.encode(supToken, MINIMUM_BOND, UNBONDING_PERIOD, admin, governor_))
         );
 
         // Verify deployment
@@ -213,14 +163,14 @@ contract DeployValidatorBonding is DeployV2Base {
         require(bondingContract.minimumBond() == MINIMUM_BOND, "MINIMUM_BOND_MISMATCH");
         require(bondingContract.unbondingPeriod() == UNBONDING_PERIOD, "UNBONDING_PERIOD_MISMATCH");
         require(bondingContract.hasRole(bondingContract.DEFAULT_ADMIN_ROLE(), admin), "ADMIN_ROLE_MISMATCH");
-        require(bondingContract.hasRole(bondingContract.GOVERNOR_ROLE(), superGovernor), "GOVERNOR_ROLE_MISMATCH");
+        require(bondingContract.hasRole(bondingContract.GOVERNOR_ROLE(), governor_), "GOVERNOR_ROLE_MISMATCH");
 
         console2.log("");
         console2.log("=== Deployment Verification ===");
         console2.log("ValidatorBonding deployed at:", bondingAddr);
         console2.log("sUP Token verified:", supToken);
         console2.log("Admin verified:", admin);
-        console2.log("Governor verified:", superGovernor);
+        console2.log("Governor verified:", governor_);
         console2.log("Minimum Bond verified:", MINIMUM_BOND);
         console2.log("Unbonding Period verified:", UNBONDING_PERIOD);
 
@@ -267,12 +217,12 @@ contract DeployValidatorBonding is DeployV2Base {
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param supToken sUP token address
     /// @param admin Admin address
-    /// @param superGovernor SuperGovernor address
+    /// @param governor_ Governor address
     function _computeAddress(
         uint256 env,
         address supToken,
         address admin,
-        address superGovernor
+        address governor_
     )
         internal
         view
@@ -281,7 +231,7 @@ contract DeployValidatorBonding is DeployV2Base {
         bytes memory bytecode = __getBytecode(VALIDATOR_BONDING_KEY, env);
         require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(bytecode, abi.encode(supToken, MINIMUM_BOND, UNBONDING_PERIOD, admin, superGovernor)),
+            abi.encodePacked(bytecode, abi.encode(supToken, MINIMUM_BOND, UNBONDING_PERIOD, admin, governor_)),
             __getSalt(VALIDATOR_BONDING_KEY)
         );
     }
