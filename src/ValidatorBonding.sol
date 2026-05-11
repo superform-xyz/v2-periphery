@@ -137,6 +137,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     function bondFor(address operator, uint256 amount) external {
         BondForApproval memory approval = _bondForApprovals[operator];
         if (approval.bonder != msg.sender) revert NOT_APPROVED_BONDER();
+        delete _bondForApprovals[operator];
         _bondFor(operator, amount, approval.beneficiary, approval.delegateKey);
     }
 
@@ -185,7 +186,7 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function updateDelegateKey(address operator, address newKey) external {
+    function updateDelegateKey(address operator, address newKey) external nonReentrant {
         if (newKey == address(0)) revert INVALID_ADDRESS();
 
         BondRecord storage bond_ = _bonds[operator];
@@ -297,6 +298,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IValidatorBonding
+    /// @dev Operates on any non-zero bond.amount regardless of status. An Unbonded operator with residual
+    ///      tokens (e.g. from a prior partial slash) can still be slashed since those tokens are real capital.
     function slash(
         address operator,
         uint256 amount,
@@ -354,6 +357,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IValidatorBonding
+    /// @dev Re-proposing while a previous proposal is pending silently replaces it and resets the
+    ///      timelock clock. This is accepted under the trusted multisig governance model.
     function proposeMinimumBond(uint256 newMinimum) external onlyRole(GOVERNOR_ROLE) {
         if (newMinimum < MIN_MINIMUM_BOND || newMinimum > MAX_MINIMUM_BOND) {
             revert INVALID_MINIMUM_BOND();
@@ -383,6 +388,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
+    /// @dev Re-proposing while a previous proposal is pending silently replaces it and resets the
+    ///      timelock clock. This is accepted under the trusted multisig governance model.
     function proposeUnbondingPeriod(uint256 newPeriod) external onlyRole(GOVERNOR_ROLE) {
         if (newPeriod < MIN_UNBONDING_PERIOD || newPeriod > MAX_UNBONDING_PERIOD) {
             revert INVALID_UNBONDING_PERIOD();
@@ -412,7 +419,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function cancelProposedChange(bytes32 paramKey) external onlyRole(GOVERNOR_ROLE) {
+    function cancelProposedChange(bytes32 paramKey) external {
+        if (paramKey == PARAMETER_TIMELOCK_KEY) {
+            _checkRole(DEFAULT_ADMIN_ROLE);
+        } else {
+            _checkRole(GOVERNOR_ROLE);
+        }
         if (_pendingEffectiveTimes[paramKey] == 0) revert NO_PENDING_CHANGE();
 
         delete _pendingValues[paramKey];
@@ -422,6 +434,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
+    /// @dev Re-proposing while a previous proposal is pending silently replaces it and resets the
+    ///      timelock clock. This is accepted under the trusted multisig governance model.
     function proposeParameterTimelock(uint256 newTimelock) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newTimelock < MIN_PARAMETER_TIMELOCK || newTimelock > MAX_PARAMETER_TIMELOCK) {
             revert INVALID_PARAMETER_TIMELOCK();

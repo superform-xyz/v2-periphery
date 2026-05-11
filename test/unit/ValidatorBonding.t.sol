@@ -2198,8 +2198,9 @@ contract ValidatorBondingTest is Test {
         vm.prank(admin);
         bonding.proposeParameterTimelock(7 days);
 
+        // Admin (DEFAULT_ADMIN_ROLE) cancels their own timelock proposal
         bytes32 timelockKey = bonding.PARAMETER_TIMELOCK_KEY();
-        vm.prank(governor);
+        vm.prank(admin);
         bonding.cancelProposedChange(timelockKey);
 
         // Cannot execute after cancel
@@ -2893,13 +2894,13 @@ contract ValidatorBondingTest is Test {
     }
 
     /// @notice cancelProposedChange for PARAMETER_TIMELOCK_KEY by governor
-    function test_combined_cancelParameterTimelockByGovernor() public {
+    function test_combined_cancelParameterTimelockByAdmin() public {
         vm.prank(admin);
         bonding.proposeParameterTimelock(7 days);
 
-        // Governor (not admin) cancels — governor has GOVERNOR_ROLE which can call cancelProposedChange
+        // Admin cancels their own timelock proposal (M-1 fix: governor can no longer cancel admin proposals)
         bytes32 timelockKey = bonding.PARAMETER_TIMELOCK_KEY();
-        vm.prank(governor);
+        vm.prank(admin);
         bonding.cancelProposedChange(timelockKey);
 
         (uint256 v, uint256 t) = bonding.getPendingChange(timelockKey);
@@ -2983,6 +2984,332 @@ contract ValidatorBondingTest is Test {
         // beneficiary1 receives the residual
         assertEq(supToken.balanceOf(beneficiary1), benBalBefore + smallAdd);
         assertEq(bonding.getBond(operator1).amount, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                     AUDIT ROUND 2 TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    // ────────────────────────────── M-1 FIX: cancelProposedChange role split ──────────────────────────────
+
+    /// @notice Governor cannot cancel admin's PARAMETER_TIMELOCK_KEY proposal (M-1 fix)
+    function test_M1_governorCannotCancelTimelockProposal() public {
+        vm.prank(admin);
+        bonding.proposeParameterTimelock(7 days);
+
+        bytes32 timelockKey = bonding.PARAMETER_TIMELOCK_KEY();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, governor, bonding.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(governor);
+        bonding.cancelProposedChange(timelockKey);
+    }
+
+    /// @notice Admin cannot cancel governor's minimumBond proposal (M-1 role split)
+    function test_M1_adminCannotCancelGovernorProposal() public {
+        vm.prank(governor);
+        bonding.proposeMinimumBond(2_000_000e18);
+
+        bytes32 minBondKey = bonding.MINIMUM_BOND_KEY();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, admin, bonding.GOVERNOR_ROLE()
+            )
+        );
+        vm.prank(admin);
+        bonding.cancelProposedChange(minBondKey);
+    }
+
+    /// @notice Governor can still cancel their own proposals (minimumBond, unbondingPeriod)
+    function test_M1_governorCancelsOwnProposals() public {
+        vm.prank(governor);
+        bonding.proposeMinimumBond(2_000_000e18);
+
+        bytes32 minBondKey = bonding.MINIMUM_BOND_KEY();
+        vm.prank(governor);
+        bonding.cancelProposedChange(minBondKey);
+
+        (uint256 v, uint256 t) = bonding.getPendingChange(minBondKey);
+        assertEq(v, 0);
+        assertEq(t, 0);
+
+        // Also test unbondingPeriod
+        vm.prank(governor);
+        bonding.proposeUnbondingPeriod(14 days);
+
+        bytes32 unbondKey = bonding.UNBONDING_PERIOD_KEY();
+        vm.prank(governor);
+        bonding.cancelProposedChange(unbondKey);
+
+        (v, t) = bonding.getPendingChange(unbondKey);
+        assertEq(v, 0);
+        assertEq(t, 0);
+    }
+
+    // ────────────────────────────── L-3 FIX: bondFor approval consumed ──────────────────────────────
+
+    /// @notice bondFor() consumes the approval — second call reverts
+    function test_L3_bondForApprovalConsumedAfterUse() public {
+        // Setup: operator1 approves bonder (uses state variable `bonder`)
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        // Mint tokens to bonder
+        deal(address(supToken), bonder, MINIMUM_BOND * 2);
+        vm.prank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND * 2);
+
+        // First bondFor succeeds
+        vm.prank(bonder);
+        bonding.bondFor(operator1, MINIMUM_BOND);
+
+        // Approval was consumed — getBondForApproval returns empty
+        IValidatorBonding.BondForApproval memory approval = bonding.getBondForApproval(operator1);
+        assertEq(approval.bonder, address(0));
+        assertEq(approval.beneficiary, address(0));
+        assertEq(approval.delegateKey, address(0));
+    }
+
+    /// @notice After full unbond, stale approval is gone — bonder cannot re-bond without fresh approval
+    function test_L3_bondForStaleApprovalBlockedAfterUnbond() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        deal(address(supToken), bonder, MINIMUM_BOND * 3);
+        vm.prank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND * 3);
+
+        // bondFor succeeds (consumes approval)
+        vm.prank(bonder);
+        bonding.bondFor(operator1, MINIMUM_BOND);
+
+        // Full unbond cycle
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, MINIMUM_BOND);
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        // Bonder tries to re-bond without fresh approval — reverts
+        vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
+        vm.prank(bonder);
+        bonding.bondFor(operator1, MINIMUM_BOND);
+
+        // Operator must re-approve
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        // Now it works
+        vm.prank(bonder);
+        bonding.bondFor(operator1, MINIMUM_BOND);
+
+        assertTrue(bonding.isBonded(operator1));
+    }
+
+    // ────────────────────────────── FUZZ: slash proportional math ──────────────────────────────
+
+    /// @notice Fuzz test slash proportional math with direct unbondAmount input and status invariant
+    /// @dev Tests all invariants including post-slash status transitions
+    function testFuzz_slash_proportionalMathExtended(
+        uint256 bondAmount,
+        uint256 unbondAmount,
+        uint256 slashAmount
+    )
+        public
+    {
+        // Constrain inputs to reasonable ranges
+        bondAmount = bound(bondAmount, MINIMUM_BOND, 100_000_000e18);
+        unbondAmount = bound(unbondAmount, 0, bondAmount);
+        slashAmount = bound(slashAmount, 1, bondAmount);
+
+        // Setup bond
+        deal(address(supToken), operator1, bondAmount);
+        vm.startPrank(operator1);
+        supToken.approve(address(bonding), bondAmount);
+        bonding.bond(bondAmount, beneficiary1, delegateKey1);
+        vm.stopPrank();
+
+        // If unbondAmount > 0, request partial/full unbond
+        if (unbondAmount > 0) {
+            // For partial unbond, remaining must be >= minimumBond
+            if (unbondAmount < bondAmount && bondAmount - unbondAmount < MINIMUM_BOND) {
+                // Skip this case — would revert BELOW_MINIMUM_BOND
+                return;
+            }
+            vm.prank(operator1);
+            bonding.requestUnbond(operator1, unbondAmount);
+        }
+
+        // Record pre-slash state
+        IValidatorBonding.BondRecord memory preBond = bonding.getBond(operator1);
+        uint256 recipientBalBefore = supToken.balanceOf(treasury);
+
+        // Slash
+        vm.prank(governor);
+        bonding.slash(operator1, slashAmount, treasury);
+
+        // Actual slash is capped to bond.amount
+        uint256 actualSlash = slashAmount > preBond.amount ? preBond.amount : slashAmount;
+
+        // Post-slash state
+        IValidatorBonding.BondRecord memory postBond = bonding.getBond(operator1);
+
+        // Invariant 1: bond.amount decreased by actualSlash
+        assertEq(postBond.amount, preBond.amount - actualSlash, "amount invariant");
+
+        // Invariant 2: unbondingAmount <= amount
+        assertLe(postBond.unbondingAmount, postBond.amount, "unbonding <= amount");
+
+        // Invariant 3: recipient received exactly actualSlash tokens
+        assertEq(supToken.balanceOf(treasury), recipientBalBefore + actualSlash, "recipient received slash");
+
+        // Invariant 4: if below minimum, status is Unbonded
+        if (postBond.amount < MINIMUM_BOND) {
+            assertEq(uint256(postBond.status), uint256(IValidatorBonding.ValidatorStatus.Unbonded), "below min -> Unbonded");
+        }
+    }
+
+    // ────────────────────────────── FUZZ: slashFromUnbonding invariant ──────────────────────────────
+
+    /// @notice Fuzz: slashFromUnbonding never exceeds unbondingAmount after mulDiv(Ceil)
+    function testFuzz_slash_unbondingPortionNeverExceedsUnbondingAmount(
+        uint256 bondAmount,
+        uint256 unbondFraction,
+        uint256 slashFraction
+    )
+        public
+    {
+        bondAmount = bound(bondAmount, MINIMUM_BOND, 100_000_000e18);
+        unbondFraction = bound(unbondFraction, 1, 100);
+        slashFraction = bound(slashFraction, 1, 100);
+
+        // Compute unbond amount (must leave >= minimumBond for partial, or be full)
+        uint256 unbondAmount;
+        if (unbondFraction == 100) {
+            unbondAmount = bondAmount;
+        } else {
+            uint256 maxPartial = bondAmount > MINIMUM_BOND ? bondAmount - MINIMUM_BOND : 0;
+            if (maxPartial == 0) return;
+            unbondAmount = bound(unbondFraction, 1, maxPartial);
+        }
+
+        uint256 slashAmount = (bondAmount * slashFraction) / 100;
+        if (slashAmount == 0) slashAmount = 1;
+
+        supToken.mint(operator1, bondAmount);
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, unbondAmount);
+
+        IValidatorBonding.BondRecord memory pre = bonding.getBond(operator1);
+
+        vm.prank(governor);
+        bonding.slash(operator1, slashAmount, treasury);
+
+        IValidatorBonding.BondRecord memory post = bonding.getBond(operator1);
+
+        // Core invariant: unbondingAmount <= amount (always)
+        assertLe(post.unbondingAmount, post.amount, "unbonding <= amount");
+        // Unbonding portion decreased or stayed zero
+        assertLe(post.unbondingAmount, pre.unbondingAmount, "unbonding decreased");
+    }
+
+    // ────────────────────────────── P2-3: executeUnbond front-running slash ──────────────────────────────
+
+    /// @notice Operator executes unbond in same block that governor wants to slash
+    /// @dev Verifies that if executeUnbond runs first, slash operates on reduced balance
+    function test_executeUnbondBeforeSlash_sameBlock() public {
+        uint256 bondAmount = 3_000_000e18;
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        // Partial unbond for half
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondAmount / 2);
+
+        // Advance past unbonding period
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+
+        // Operator executes unbond first (same block)
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        IValidatorBonding.BondRecord memory afterUnbond = bonding.getBond(operator1);
+        assertEq(afterUnbond.amount, bondAmount / 2);
+
+        // Governor slashes remaining — slash is capped to bond.amount
+        vm.prank(governor);
+        bonding.slash(operator1, bondAmount, treasury);
+
+        IValidatorBonding.BondRecord memory afterSlash = bonding.getBond(operator1);
+        assertEq(afterSlash.amount, 0);
+        // Treasury received only the remaining half
+        assertEq(supToken.balanceOf(treasury), bondAmount / 2);
+    }
+
+    /// @notice Full unbond front-run: operator withdraws everything before slash
+    function test_fullUnbondFrontRunsSlash() public {
+        uint256 bondAmount = 2_000_000e18;
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        // Full unbond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, bondAmount);
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+
+        // Operator executes full unbond
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        // Now slash reverts — nothing to slash
+        vm.expectRevert(IValidatorBonding.NOTHING_TO_SLASH.selector);
+        vm.prank(governor);
+        bonding.slash(operator1, bondAmount, treasury);
+    }
+
+    // ────────────────────────────── Consecutive slashes on Unbonded-residual ──────────────────────────────
+
+    /// @notice Multiple consecutive slashes on an operator with Unbonded-residual status
+    function test_consecutiveSlashesOnUnbondedResidual() public {
+        uint256 bondAmount = 5_000_000e18;
+        _bondOperator(operator1, beneficiary1, delegateKey1, bondAmount);
+
+        // First slash pushes below minimum → Unbonded with residual
+        uint256 firstSlash = bondAmount - (MINIMUM_BOND / 2); // leaves 500k < 1M minimum
+        vm.prank(governor);
+        bonding.slash(operator1, firstSlash, treasury);
+
+        IValidatorBonding.BondRecord memory r1 = bonding.getBond(operator1);
+        assertEq(uint256(r1.status), uint256(IValidatorBonding.ValidatorStatus.Unbonded));
+        assertGt(r1.amount, 0);
+
+        uint256 residual = r1.amount;
+
+        // Second slash: take half the residual
+        vm.prank(governor);
+        bonding.slash(operator1, residual / 2, treasury);
+
+        IValidatorBonding.BondRecord memory r2 = bonding.getBond(operator1);
+        assertEq(r2.amount, residual - residual / 2);
+        assertEq(uint256(r2.status), uint256(IValidatorBonding.ValidatorStatus.Unbonded));
+
+        // Third slash: take everything remaining
+        vm.prank(governor);
+        bonding.slash(operator1, r2.amount, treasury);
+
+        IValidatorBonding.BondRecord memory r3 = bonding.getBond(operator1);
+        assertEq(r3.amount, 0);
+
+        // Fourth slash: reverts since nothing left
+        vm.expectRevert(IValidatorBonding.NOTHING_TO_SLASH.selector);
+        vm.prank(governor);
+        bonding.slash(operator1, 1, treasury);
+
+        // Total slashed = original bond
+        assertEq(supToken.balanceOf(treasury), bondAmount);
     }
 
     /*//////////////////////////////////////////////////////////////

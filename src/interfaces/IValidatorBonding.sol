@@ -34,7 +34,8 @@ interface IValidatorBonding is IAccessControl {
     ///        but amount < minimumBond. Always use isBonded() for active-bond checks.
     /// @param delegateKey Validator's signing key for off-chain coordination
     /// @param unbondingAmount Portion of amount being unbonded
-    /// @param unbondingInitiator Who called requestUnbond (tracked for audit trail)
+    /// @param unbondingInitiator Who called requestUnbond (observability only — not access-controlled;
+    ///        both operator and beneficiary can cancel regardless of initiator)
     struct BondRecord {
         uint256 amount; // slot 0
         address beneficiary; // slot 1: 20 bytes
@@ -77,8 +78,6 @@ interface IValidatorBonding is IAccessControl {
     error UNBONDING_NOT_COMPLETE();
     /// @notice Thrown when caller is not the operator or beneficiary
     error NOT_OPERATOR_OR_BENEFICIARY();
-    /// @notice Thrown when caller is not the unbond initiator (for cancelUnbond)
-    error NOT_UNBOND_INITIATOR();
     /// @notice Thrown when trying to slash an operator with zero bond
     error NOTHING_TO_SLASH();
     /// @notice Thrown when providing an invalid minimum bond value (out of bounds)

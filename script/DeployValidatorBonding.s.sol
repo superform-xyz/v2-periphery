@@ -99,13 +99,15 @@ contract DeployValidatorBonding is DeployV2Base {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Get sUP token address for the given environment
+    /// @dev Currently only production is supported. To deploy to staging/vnet, add the appropriate
+    ///      sUP address for that environment and uncomment the corresponding branch.
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @return supToken The sUP token address
     function _getSupTokenForEnv(uint256 env) internal pure returns (address supToken) {
         if (env == 0) {
-            // Production: known sUP SuperVault on Base
             supToken = SUP_VAULT_BASE;
         } else {
+            // TODO: add staging/vnet sUP addresses when available
             revert("STAGING_SUP_NOT_CONFIGURED: set a staging sUP address before deploying to non-prod");
         }
     }
@@ -125,8 +127,6 @@ contract DeployValidatorBonding is DeployV2Base {
     )
         internal
     {
-        _setBaseConfiguration(env, branchName);
-
         console2.log("====== Deploying ValidatorBonding ======");
         console2.log("Chain ID:", BASE_CHAIN_ID);
         console2.log("Environment:", env);
