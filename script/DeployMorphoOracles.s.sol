@@ -117,7 +117,7 @@ contract DeployMorphoOracles is DeployV2Base {
         address borrowAddr = _deployBorrowOracle(chainId, morpho, slc, admin);
 
         // Write JSON output
-        _writeMorphoOraclesJson(env, chainId, lendAddr, borrowAddr, admin);
+        _writeMorphoOraclesJson(env, chainId, lendAddr, borrowAddr);
 
         console2.log("");
         console2.log("====== Deployment Complete ======");
@@ -194,13 +194,12 @@ contract DeployMorphoOracles is DeployV2Base {
         return address(0);
     }
 
-    /// @notice Write MorphoOracles-latest.json to script/output/{prod|staging}/{chainId}/
+    /// @notice Merge Morpho oracle addresses into {ChainName}-latest.json
     function _writeMorphoOraclesJson(
         uint256 env,
         uint64 chainId,
         address lendAddr,
-        address borrowAddr,
-        address admin
+        address borrowAddr
     )
         internal
     {
@@ -212,18 +211,15 @@ contract DeployMorphoOracles is DeployV2Base {
         // Create directory if needed
         vm.createDir(outputFolder, true);
 
-        // Create JSON content
-        string memory json = vm.serializeAddress("MorphoOracles", "MorphoLendYieldSourceOracle", lendAddr);
-        json = vm.serializeAddress("MorphoOracles", "MorphoBorrowCostOracle", borrowAddr);
-        json = vm.serializeAddress("MorphoOracles", "admin", admin);
-        json = vm.serializeUint("MorphoOracles", "chainId", chainId);
+        string memory chainName = chainNames[chainId];
+        require(bytes(chainName).length > 0, "UNSUPPORTED_CHAIN_NAME");
 
-        // Write to file
-        string memory outputPath = string(abi.encodePacked(outputFolder, "MorphoOracles-latest.json"));
-        vm.writeJson(json, outputPath);
+        string memory outputPath = string(abi.encodePacked(outputFolder, chainName, "-latest.json"));
+        vm.writeJson(vm.toString(lendAddr), outputPath, ".MorphoLendYieldSourceOracle");
+        vm.writeJson(vm.toString(borrowAddr), outputPath, ".MorphoBorrowCostOracle");
 
         console2.log("");
-        console2.log("JSON output written to:", outputPath);
+        console2.log("Morpho oracle addresses merged into:", outputPath);
     }
 
     /// @notice Compute deterministic address for MorphoLendYieldSourceOracle
@@ -233,7 +229,6 @@ contract DeployMorphoOracles is DeployV2Base {
         address admin
     )
         internal
-        view
         returns (address)
     {
         return DeterministicDeployerLib.computeAddress(
@@ -252,7 +247,6 @@ contract DeployMorphoOracles is DeployV2Base {
         address admin
     )
         internal
-        view
         returns (address)
     {
         return DeterministicDeployerLib.computeAddress(

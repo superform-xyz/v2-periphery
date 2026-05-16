@@ -2392,18 +2392,31 @@ contract DeployUpOFT is Script {
         if (contractCount[chainId] == 0) return;
 
         string memory root = vm.projectRoot();
-        string memory chainOutputFolder = string(
-            abi.encodePacked("/script/output/", envName, "/", vm.toString(uint256(chainId)), "/")
-        );
+        string memory chainOutputFolder =
+            string(abi.encodePacked("/script/output/", envName, "/", vm.toString(uint256(chainId)), "/"));
 
         // Create directory if it doesn't exist
         vm.createDir(string(abi.encodePacked(root, chainOutputFolder)), true);
 
-        // Write to UpOFT-latest.json
-        string memory outputPath = string(abi.encodePacked(root, chainOutputFolder, "UpOFT-latest.json"));
-        vm.writeJson(exportedContracts[chainId], outputPath);
+        string memory chainName = _getChainName(chainId);
+        string memory outputPath = string(abi.encodePacked(root, chainOutputFolder, chainName, "-latest.json"));
+
+        string[] memory contractNames = vm.parseJsonKeys(exportedContracts[chainId], "$");
+        for (uint256 i = 0; i < contractNames.length; i++) {
+            string memory jsonPath = string(abi.encodePacked(".", contractNames[i]));
+            address contractAddress = vm.parseJsonAddress(exportedContracts[chainId], jsonPath);
+            vm.writeJson(vm.toString(contractAddress), outputPath, jsonPath);
+        }
 
         console2.log("Exported", contractCount[chainId], "contracts to:", outputPath);
+    }
+
+    function _getChainName(uint64 chainId) internal pure returns (string memory) {
+        if (chainId == MAINNET_CHAIN_ID) return "Ethereum";
+        if (chainId == BASE_CHAIN_ID) return "Base";
+        if (chainId == HYPEREVM_CHAIN_ID) return "HyperEVM";
+        if (chainId == FLARE_CHAIN_ID) return "Flare";
+        revert("UNSUPPORTED_CHAIN");
     }
 
     function _getEnvName(uint256 env) internal pure returns (string memory) {
@@ -2413,7 +2426,7 @@ contract DeployUpOFT is Script {
     }
 
     /// @notice Export deployed contract addresses to JSON files
-    /// @dev Call this after deployment to write addresses to script/output/{env}/{chainId}/UpOFT-latest.json
+    /// @dev Call this after deployment to write addresses to script/output/{env}/{chainId}/{ChainName}-latest.json
     function exportAddresses(uint256 env) public {
         _exportAddresses(env, "");
     }

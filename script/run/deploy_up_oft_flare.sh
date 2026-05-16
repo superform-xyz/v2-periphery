@@ -401,7 +401,7 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Failed to export addresses${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Addresses exported to script/output/$ENVIRONMENT/14/UpOFT-latest.json${NC}"
+echo -e "${GREEN}✅ Addresses exported to script/output/$ENVIRONMENT/14/Flare-latest.json${NC}"
 
 print_separator
 
