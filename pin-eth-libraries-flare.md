@@ -1,0 +1,32 @@
+# Pin Send/Receive Libraries on ETH for Flare Pathway
+
+Execute from multisig on **Ethereum Mainnet**.
+
+**Target contract:** `0x1a44076050125825900e736c501f859c50fE728c` (LZ Endpoint)
+
+## TX 1: setSendLibrary (ETH -> Flare)
+
+| Param | Value |
+|-------|-------|
+| Function | `setSendLibrary(address,uint32,address)` |
+| OApp | `0x722ff7C0665F4b1823c9C4cFcDF73A43de5865BD` (ETH OFTAdapter) |
+| EID | `30295` (Flare) |
+| Send Lib | `0xbB2Ea70C9E858123480642Cf96acbcCE1372dCe1` |
+
+```
+0x9535ff30000000000000000000000000722ff7c0665f4b1823c9c4cfcdf73a43de5865bd0000000000000000000000000000000000000000000000000000000000007657000000000000000000000000bb2ea70c9e858123480642cf96acbcce1372dce1
+```
+
+## TX 2: setReceiveLibrary (ETH <- Flare)
+
+| Param | Value |
+|-------|-------|
+| Function | `setReceiveLibrary(address,uint32,address,uint256)` |
+| OApp | `0x722ff7C0665F4b1823c9C4cFcDF73A43de5865BD` (ETH OFTAdapter) |
+| EID | `30295` (Flare) |
+| Receive Lib | `0xc02Ab410f0734EFa3F14628780e6e695156024C2` |
+| Grace Period | `0` |
+
+```
+0x6a14d715000000000000000000000000722ff7c0665f4b1823c9c4cfcdf73a43de5865bd0000000000000000000000000000000000000000000000000000000000007657000000000000000000000000c02ab410f0734efa3f14628780e6e695156024c20000000000000000000000000000000000000000000000000000000000000000
+```
