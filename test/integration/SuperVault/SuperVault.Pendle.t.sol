@@ -16,6 +16,7 @@ import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVa
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
 import { PendleRouterSwapHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterSwapHook.sol";
 import { PendleRouterRedeemHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterRedeemHook.sol";
+import { IOdosRouterV2 } from "@superform-v2-core/src/vendor/odos/IOdosRouterV2.sol";
 import { IPendleMarket } from "@superform-v2-core/src/vendor/pendle/IPendleMarket.sol";
 import { IStandardizedYield } from "@superform-v2-core/src/vendor/pendle/IStandardizedYield.sol";
 import {
@@ -195,7 +196,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
@@ -261,7 +262,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion instead of hardcoded 1e12
@@ -376,7 +377,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
 
         // Mock the Odos router to perform a 1:1 swap (USDC amount in -> equivalent WETH amount out)
         // The swap happens inside Pendle's swapExactTokenForPt
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Deal WETH to Pendle Router (not swap contract) to simulate successful Odos swap
         // Pendle Router checks its own balance after the swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
@@ -503,7 +504,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router to perform a 1:1 swap
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Deal WETH to Pendle Router to simulate successful Odos swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
@@ -576,7 +577,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
 
@@ -647,7 +648,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
 
         // Mock the Odos router to perform a 1:1 swap
-        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSignature("swapCompact()"), abi.encode(0));
+        vm.mockCall(CHAIN_1_ODOS_ROUTER, abi.encodeWithSelector(IOdosRouterV2.swap.selector), abi.encode(0));
         // Deal WETH to Pendle Router to simulate successful Odos swap
         // Use dynamic decimal conversion via helper function (inlined to avoid stack too deep)
         deal(vars.syTokenIns[1], CHAIN_1_PENDLE_ROUTER, _scaleTokenAmount(CHAIN_1_USDC, vars.syTokenIns[1], amount));
@@ -1115,18 +1116,21 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         address receiver_
     )
         internal
+        pure
         returns (bytes memory)
     {
-        // get pathId
-        QuoteInputToken[] memory inputTokens = new QuoteInputToken[](1);
-        inputTokens[0] = QuoteInputToken({ tokenAddress: tokenIn_, amount: amount_ });
-        QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
-        outputTokens[0] = QuoteOutputToken({ tokenAddress: tokenOut_, proportion: 1 });
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, receiver_, ETH, true);
-
-        // get assemble data
-        string memory swapCompactData = surlCallAssemble(pathId, receiver_);
-        return fromHex(swapCompactData);
+        // Return mock ABI-encoded swap() calldata. The Odos router is vm.mockCall'd in
+        // every test that uses this, so the calldata is never actually executed.
+        IOdosRouterV2.swapTokenInfo memory tokenInfo = IOdosRouterV2.swapTokenInfo({
+            inputToken: tokenIn_,
+            inputAmount: amount_,
+            inputReceiver: receiver_,
+            outputToken: tokenOut_,
+            outputQuote: amount_,
+            outputMin: 1,
+            outputReceiver: receiver_
+        });
+        return abi.encodeWithSelector(IOdosRouterV2.swap.selector, tokenInfo, bytes(""), address(0), uint32(0));
     }
 
     function _createPendleRouterSwapHookDataPtToToken(

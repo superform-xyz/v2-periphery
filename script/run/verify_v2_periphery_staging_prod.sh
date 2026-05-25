@@ -163,6 +163,8 @@ get_contract_source() {
         "SuperformGasOracle") echo "src/oracles/SuperformGasOracle.sol" ;;
         "FixedPriceOracle") echo "src/oracles/FixedPriceOracle.sol" ;;
         "ECDSAPPSOracle") echo "src/oracles/ECDSAPPSOracle.sol" ;;
+        "MorphoBorrowCostOracle") echo "src/oracles/MorphoBorrowCostOracle.sol" ;;
+        "MorphoLendYieldSourceOracle") echo "src/oracles/MorphoLendYieldSourceOracle.sol" ;;
 
         # SuperVault
         "SuperVault") echo "src/SuperVault/SuperVault.sol" ;;
@@ -383,9 +385,52 @@ generate_constructor_args() {
             # DeploySuperformGasOracle.s.sol L107: abi.encode(initialGasPrice, owner)
             # DEFAULT_INITIAL_GAS_PRICE = 1_000_000
             local owner=$(jq -r '.owner // empty' "$json_file")
-            if [ -n "$owner" ]; then
-                echo "$(cast abi-encode "constructor(int256,address)" 1000000 "$owner")"
+            if [ -z "$owner" ]; then
+                owner="$DEPLOYER"
             fi
+            echo "$(cast abi-encode "constructor(int256,address)" 1000000 "$owner")"
+            ;;
+
+        "MorphoBorrowCostOracle"|"MorphoLendYieldSourceOracle")
+            # DeployMorphoOracles.s.sol: abi.encode(morpho, superLedgerConfiguration, admin)
+            local morpho=""
+            case $chain_id in
+                "1"|"8453") morpho="0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb" ;;
+                "10") morpho="0xce95AfbB8EA029495c66020883F87aaE8864AF92" ;;
+                "42161") morpho="0x6c247b1F6182318877311737BaC0844bAa518F5e" ;;
+                "56") morpho="0x01b0Bd309AA75547f7a37Ad7B1219A898E67a83a" ;;
+                *)
+                    echo ""
+                    return
+                    ;;
+            esac
+
+            local network_suffix=$(get_network_suffix "$chain_id")
+            local core_json="$PROJECT_ROOT/lib/v2-core/script/output/$ENVIRONMENT/$chain_id/$network_suffix.json"
+            local slc=""
+            if [ -f "$core_json" ]; then
+                slc=$(jq -r '.SuperLedgerConfiguration // empty' "$core_json")
+            fi
+            if [ -z "$slc" ]; then
+                if [ "$ENVIRONMENT" = "staging" ]; then
+                    slc="0x102146454720de58Ee1331F7a91cdCC1F0c346E0"
+                else
+                    slc="0x2e2D71289CBA19f831856f85DEC7f194B0165e69"
+                fi
+            fi
+
+            local admin=$(jq -r '.admin // empty' "$json_file")
+            if [ -z "$admin" ]; then
+                local contract_address=$(jq -r ".$contract_name // empty" "$json_file")
+                if [ "$ENVIRONMENT" = "staging" ] && \
+                    { [ "$contract_address" = "0x8f21F381CA2F61d7f2aAd875cE42Df272bB5802A" ] || \
+                      [ "$contract_address" = "0xeb8CEC4d504eB3cdc6a91AE688aCa6aB576C4A29" ]; }; then
+                    admin="0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38"
+                else
+                    admin="$DEPLOYER"
+                fi
+            fi
+            echo "$(cast abi-encode "constructor(address,address,address)" "$morpho" "$slc" "$admin")"
             ;;
 
         "SuperVaultExecutor")
@@ -734,24 +779,6 @@ verify_network() {
     # Verify main contracts file (e.g., Base-latest.json)
     if [ -f "$main_json" ]; then
         verify_json_file "$chain_id" "$main_json" "$rpc_url" "main"
-    fi
-
-    # Verify SuperformGasOracle if exists
-    local gas_oracle_json="$chain_dir/SuperformGasOracle-latest.json"
-    if [ -f "$gas_oracle_json" ]; then
-        verify_json_file "$chain_id" "$gas_oracle_json" "$rpc_url" "gas_oracle"
-    fi
-
-    # Verify UpOFT if exists
-    local up_oft_json="$chain_dir/UpOFT-latest.json"
-    if [ -f "$up_oft_json" ]; then
-        verify_json_file "$chain_id" "$up_oft_json" "$rpc_url" "up_oft"
-    fi
-
-    # Verify SuperVaultBatchOperator if exists (separate file)
-    local batch_operator_json="$chain_dir/SuperVaultBatchOperator-latest.json"
-    if [ -f "$batch_operator_json" ]; then
-        verify_json_file "$chain_id" "$batch_operator_json" "$rpc_url" "super_vault_batch_operator"
     fi
 
     echo -e "${GREEN}✅ Network $network_name verification completed${NC}"

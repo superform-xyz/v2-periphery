@@ -274,7 +274,7 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Failed to export addresses${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Addresses exported to script/output/$ENVIRONMENT/999/UpOFT-latest.json${NC}"
+echo -e "${GREEN}✅ Addresses exported to script/output/$ENVIRONMENT/999/HyperEVM-latest.json${NC}"
 
 print_separator
 
@@ -293,4 +293,4 @@ echo -e "${CYAN}   Run the following script to complete bidirectional config:${N
 echo -e "${CYAN}   FIREBLOCKS_API_KEY_OP_PATH=\"op://vault/item/field\" \\${NC}"
 echo -e "${CYAN}   FIREBLOCKS_SECRET_OP_PATH=\"op://vault/item/field\" \\${NC}"
 echo -e "${CYAN}   ./script/run/configure_hyperevm_from_ethbase.sh $ENVIRONMENT execute <sender-address>${NC}"
-echo -e "${CYAN}   (HyperEVM OFT address will be read from script/output/$ENVIRONMENT/999/UpOFT-latest.json)${NC}"
+echo -e "${CYAN}   (HyperEVM OFT address will be read from script/output/$ENVIRONMENT/999/HyperEVM-latest.json)${NC}"
