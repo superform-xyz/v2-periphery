@@ -44,6 +44,9 @@ contract UpOftHyperEVMPausedSmoke is Test {
     address internal bridger;
 
     function setUp() public {
+        // HyperEVM has been unpaused on-chain; these smoke tests are now obsolete.
+        vm.skip(true);
+
         ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
         baseForkId = vm.createFork(vm.envString("BASE_RPC_URL"));
         hyperEvmForkId = vm.createFork(vm.envString("HYPEREVM_RPC_URL"));
