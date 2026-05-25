@@ -117,9 +117,7 @@ contract TransferUpOFTOwnership is Script {
     function _readAdapterAddress(uint256 env) internal view returns (address) {
         string memory envName = _getEnvName(env);
         string memory root = vm.projectRoot();
-        string memory path = string(
-            abi.encodePacked(root, "/script/output/", envName, "/1/UpOFT-latest.json")
-        );
+        string memory path = string(abi.encodePacked(root, "/script/output/", envName, "/1/Ethereum-latest.json"));
 
         string memory json = vm.readFile(path);
         address adapter = vm.parseJsonAddress(json, ".UpOFTAdapter");
@@ -131,9 +129,7 @@ contract TransferUpOFTOwnership is Script {
     function _readOFTAddress(uint256 env) internal view returns (address) {
         string memory envName = _getEnvName(env);
         string memory root = vm.projectRoot();
-        string memory path = string(
-            abi.encodePacked(root, "/script/output/", envName, "/8453/UpOFT-latest.json")
-        );
+        string memory path = string(abi.encodePacked(root, "/script/output/", envName, "/8453/Base-latest.json"));
 
         string memory json = vm.readFile(path);
         address oft = vm.parseJsonAddress(json, ".UpOFT");

@@ -10,6 +10,10 @@ CHAINS_TO_VERIFY=()
 # Leave empty array to verify all contracts found in deployment JSON
 CONTRACTS_TO_VERIFY=()
 
+# ===== RATE LIMIT CONFIGURATION =====
+# Delay in seconds between verification requests (prevents Cloudflare rate limiting)
+VERIFY_DELAY=5
+
 # Colors for better visual output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -159,6 +163,8 @@ get_contract_source() {
         "SuperformGasOracle") echo "src/oracles/SuperformGasOracle.sol" ;;
         "FixedPriceOracle") echo "src/oracles/FixedPriceOracle.sol" ;;
         "ECDSAPPSOracle") echo "src/oracles/ECDSAPPSOracle.sol" ;;
+        "MorphoBorrowCostOracle") echo "src/oracles/MorphoBorrowCostOracle.sol" ;;
+        "MorphoLendYieldSourceOracle") echo "src/oracles/MorphoLendYieldSourceOracle.sol" ;;
 
         # SuperVault
         "SuperVault") echo "src/SuperVault/SuperVault.sol" ;;
@@ -214,15 +220,20 @@ generate_constructor_args() {
     local ORACLE_GAS_TO_WEI_BASE="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
     local ORACLE_GAS_TO_WEI_HYPEREVM="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
     local ORACLE_GAS_TO_WEI_HYPEREVM_STAGING="0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3"
+    local ORACLE_GAS_TO_WEI_FLARE="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
+    local ORACLE_GAS_TO_WEI_FLARE_STAGING="0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3"
     local ORACLE_ETH_USD_MAINNET="0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
     local ORACLE_ETH_USD_BASE="0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"
     local ORACLE_ETH_USD_HYPEREVM="0x017151e74fB3a393673B5B5149F53578c0Fa55B0"
+    local ORACLE_FLR_USD_FLARE="0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697"
 
     # UP Token addresses per chain
     local UP_TOKEN="0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
     local UP_TOKEN_BASE="0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B"
     local UP_TOKEN_HYPEREVM="0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
     local UP_TOKEN_HYPEREVM_STAGING="0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f"
+    local UP_TOKEN_FLARE="0xe030A89fd2b7f858c8aA47725679CA25D467dFD1"
+    local UP_TOKEN_FLARE_STAGING="0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5"
 
     # LayerZero V2 endpoints
     local LZ_ENDPOINT="0x1a44076050125825900e736c501f859c50fE728c"
@@ -308,6 +319,16 @@ generate_constructor_args() {
                     fi
                     eth_usd_oracle="$ORACLE_ETH_USD_HYPEREVM"
                     ;;
+                "14")
+                    if [ "$ENVIRONMENT" = "staging" ]; then
+                        gas_oracle="$ORACLE_GAS_TO_WEI_FLARE_STAGING"
+                        up_token="$UP_TOKEN_FLARE_STAGING"
+                    else
+                        gas_oracle="$ORACLE_GAS_TO_WEI_FLARE"
+                        up_token="$UP_TOKEN_FLARE"
+                    fi
+                    eth_usd_oracle="$ORACLE_FLR_USD_FLARE"
+                    ;;
                 *)
                     echo ""
                     return
@@ -364,9 +385,52 @@ generate_constructor_args() {
             # DeploySuperformGasOracle.s.sol L107: abi.encode(initialGasPrice, owner)
             # DEFAULT_INITIAL_GAS_PRICE = 1_000_000
             local owner=$(jq -r '.owner // empty' "$json_file")
-            if [ -n "$owner" ]; then
-                echo "$(cast abi-encode "constructor(int256,address)" 1000000 "$owner")"
+            if [ -z "$owner" ]; then
+                owner="$DEPLOYER"
             fi
+            echo "$(cast abi-encode "constructor(int256,address)" 1000000 "$owner")"
+            ;;
+
+        "MorphoBorrowCostOracle"|"MorphoLendYieldSourceOracle")
+            # DeployMorphoOracles.s.sol: abi.encode(morpho, superLedgerConfiguration, admin)
+            local morpho=""
+            case $chain_id in
+                "1"|"8453") morpho="0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb" ;;
+                "10") morpho="0xce95AfbB8EA029495c66020883F87aaE8864AF92" ;;
+                "42161") morpho="0x6c247b1F6182318877311737BaC0844bAa518F5e" ;;
+                "56") morpho="0x01b0Bd309AA75547f7a37Ad7B1219A898E67a83a" ;;
+                *)
+                    echo ""
+                    return
+                    ;;
+            esac
+
+            local network_suffix=$(get_network_suffix "$chain_id")
+            local core_json="$PROJECT_ROOT/lib/v2-core/script/output/$ENVIRONMENT/$chain_id/$network_suffix.json"
+            local slc=""
+            if [ -f "$core_json" ]; then
+                slc=$(jq -r '.SuperLedgerConfiguration // empty' "$core_json")
+            fi
+            if [ -z "$slc" ]; then
+                if [ "$ENVIRONMENT" = "staging" ]; then
+                    slc="0x102146454720de58Ee1331F7a91cdCC1F0c346E0"
+                else
+                    slc="0x2e2D71289CBA19f831856f85DEC7f194B0165e69"
+                fi
+            fi
+
+            local admin=$(jq -r '.admin // empty' "$json_file")
+            if [ -z "$admin" ]; then
+                local contract_address=$(jq -r ".$contract_name // empty" "$json_file")
+                if [ "$ENVIRONMENT" = "staging" ] && \
+                    { [ "$contract_address" = "0x8f21F381CA2F61d7f2aAd875cE42Df272bB5802A" ] || \
+                      [ "$contract_address" = "0xeb8CEC4d504eB3cdc6a91AE688aCa6aB576C4A29" ]; }; then
+                    admin="0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38"
+                else
+                    admin="$DEPLOYER"
+                fi
+            fi
+            echo "$(cast abi-encode "constructor(address,address,address)" "$morpho" "$slc" "$admin")"
             ;;
 
         "SuperVaultExecutor")
@@ -580,6 +644,11 @@ verify_json_file() {
                 local source_file=$(get_contract_source "$contract_name")
 
                 verify_contract "$chain_id" "$contract_name" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                # Rate limit protection: wait between verification requests
+                if [ "$VERIFY_DELAY" -gt 0 ]; then
+                    sleep "$VERIFY_DELAY"
+                fi
             done
             ;;
 
@@ -603,6 +672,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "SuperformGasOracle")
                     local constructor_args=$(generate_constructor_args "SuperformGasOracle" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "SuperformGasOracle" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
@@ -627,6 +701,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "UpOFT")
                     local constructor_args=$(generate_constructor_args "UpOFT" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "UpOFT" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
@@ -651,6 +730,11 @@ verify_json_file() {
                     local source_file=$(get_contract_source "SuperVaultBatchOperator")
                     local constructor_args=$(generate_constructor_args "SuperVaultBatchOperator" "$chain_id" "$json_file")
                     verify_contract "$chain_id" "SuperVaultBatchOperator" "$contract_address" "$constructor_args" "$source_file" "$rpc_url"
+
+                    # Rate limit protection
+                    if [ "$VERIFY_DELAY" -gt 0 ]; then
+                        sleep "$VERIFY_DELAY"
+                    fi
                 fi
             fi
             ;;
@@ -695,24 +779,6 @@ verify_network() {
     # Verify main contracts file (e.g., Base-latest.json)
     if [ -f "$main_json" ]; then
         verify_json_file "$chain_id" "$main_json" "$rpc_url" "main"
-    fi
-
-    # Verify SuperformGasOracle if exists
-    local gas_oracle_json="$chain_dir/SuperformGasOracle-latest.json"
-    if [ -f "$gas_oracle_json" ]; then
-        verify_json_file "$chain_id" "$gas_oracle_json" "$rpc_url" "gas_oracle"
-    fi
-
-    # Verify UpOFT if exists
-    local up_oft_json="$chain_dir/UpOFT-latest.json"
-    if [ -f "$up_oft_json" ]; then
-        verify_json_file "$chain_id" "$up_oft_json" "$rpc_url" "up_oft"
-    fi
-
-    # Verify SuperVaultBatchOperator if exists (separate file)
-    local batch_operator_json="$chain_dir/SuperVaultBatchOperator-latest.json"
-    if [ -f "$batch_operator_json" ]; then
-        verify_json_file "$chain_id" "$batch_operator_json" "$rpc_url" "super_vault_batch_operator"
     fi
 
     echo -e "${GREEN}✅ Network $network_name verification completed${NC}"

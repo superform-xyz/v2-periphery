@@ -94,6 +94,8 @@ CORE_PERIPHERY_CONTRACTS=(
     "UpOFT"
     "UpOFTAdapter"
     "SuperformGasOracle"
+    "MorphoLendYieldSourceOracle"
+    "MorphoBorrowCostOracle"
 )
 
 # Function to map contract name to source file path (for Standard JSON Input generation)
@@ -116,6 +118,8 @@ get_contract_source() {
         "UpOFT") echo "src/UP/UpOFT.sol" ;;
         "UpOFTAdapter") echo "src/UP/UpOFTAdapter.sol" ;;
         "Up") echo "src/UP/Up.sol" ;;
+        "MorphoLendYieldSourceOracle") echo "src/oracles/MorphoLendYieldSourceOracle.sol" ;;
+        "MorphoBorrowCostOracle") echo "src/oracles/MorphoBorrowCostOracle.sol" ;;
         *) echo "" ;;
     esac
 }

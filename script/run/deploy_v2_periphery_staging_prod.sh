@@ -687,11 +687,11 @@ for network_def in "${NETWORKS[@]}"; do
             local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
             local CHAIN_ETHERSCAN_FLAGS=""
             local CHAIN_SLOW_FLAG=""
-            if [ "$network_id" != "999" ]; then
+            if [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
             else
                 CHAIN_VERIFY_FLAG=""
-                # HyperEVM needs --slow to avoid nonce issues
+                # HyperEVM/Flare needs --slow to avoid nonce issues
                 CHAIN_SLOW_FLAG="--slow"
             fi
 

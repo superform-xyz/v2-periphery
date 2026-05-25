@@ -78,7 +78,8 @@ contract SuperVaultExecutorForkTest is Test {
         aggregator = ISuperVaultAggregator(AGGREGATOR);
 
         // Deploy SuperVaultExecutor against real SuperGovernor
-        superVaultExecutor = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
+        // Using canonical v0.7 EntryPoint address
+        superVaultExecutor = new SuperVaultExecutor(SUPER_GOVERNOR, admin, 0x0000000071727De22E5E9d8BAf0edAc6f37da032);
 
         // Add SuperVaultExecutor as secondary manager on USDC strategy
         // (impersonate the real production primary manager)
@@ -244,8 +245,14 @@ contract SuperVaultExecutorForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_BatchGrant_MultipleRealStrategies() public {
-        // Add to WETH and CBBTC strategies too
+        // Remove an existing secondary manager to free up a slot (max is 5)
         vm.startPrank(MAIN_MANAGER);
+        address[] memory wethManagers = aggregator.getSecondaryManagers(WETH_STRATEGY);
+        address[] memory cbbtcManagers = aggregator.getSecondaryManagers(CBBTC_STRATEGY);
+        if (wethManagers.length >= 5) aggregator.removeSecondaryManager(WETH_STRATEGY, wethManagers[0]);
+        if (cbbtcManagers.length >= 5) aggregator.removeSecondaryManager(CBBTC_STRATEGY, cbbtcManagers[0]);
+
+        // Add to WETH and CBBTC strategies
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
         aggregator.addSecondaryManager(CBBTC_STRATEGY, address(superVaultExecutor));
         vm.stopPrank();
@@ -279,8 +286,10 @@ contract SuperVaultExecutorForkTest is Test {
     }
 
     function test_Fork_BatchRevoke_MultipleRealStrategies() public {
-        // Add to WETH strategy
+        // Remove an existing secondary manager to free up a slot (max is 5)
         vm.startPrank(MAIN_MANAGER);
+        address[] memory wethManagers = aggregator.getSecondaryManagers(WETH_STRATEGY);
+        if (wethManagers.length >= 5) aggregator.removeSecondaryManager(WETH_STRATEGY, wethManagers[0]);
         aggregator.addSecondaryManager(WETH_STRATEGY, address(superVaultExecutor));
 
         // Grant on both
@@ -356,7 +365,7 @@ contract SuperVaultExecutorForkTest is Test {
 
     function test_Fork_NotSecondaryManager_RevertsOnPause() public {
         // Deploy a second SuperVaultExecutor that is NOT added as secondary manager
-        SuperVaultExecutor svm2 = new SuperVaultExecutor(SUPER_GOVERNOR, admin);
+        SuperVaultExecutor svm2 = new SuperVaultExecutor(SUPER_GOVERNOR, admin, 0x0000000071727De22E5E9d8BAf0edAc6f37da032);
 
         uint256 expiry = block.timestamp + 1 days;
         vm.prank(MAIN_MANAGER);

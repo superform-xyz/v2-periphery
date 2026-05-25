@@ -10,6 +10,8 @@ import { SuperGovernor } from "../../../src/SuperGovernor.sol";
 import { IHookExecutionData } from "../../../src/interfaces/IHookExecutionData.sol";
 import { ISuperHookInspector } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 import { OdosAPIParser } from "@superform-v2-core/test/utils/parsers/OdosAPIParser.sol";
+import { Surl } from "@surl/Surl.sol";
+import { strings } from "@stringutils/strings.sol";
 import { AcrossV3Helper } from "@pigeon/across/AcrossV3Helper.sol";
 
 /// @title SuperBankSwapIntegration
@@ -26,6 +28,9 @@ import { AcrossV3Helper } from "@pigeon/across/AcrossV3Helper.sol";
 /// Run:
 ///   forge test --match-contract SuperBankSwapIntegration -vvv
 contract SuperBankSwapIntegration is Test, OdosAPIParser {
+    using Surl for *;
+    using strings for *;
+
     // ═══════════════════════════════════════════════════════════════════
     //                    PRODUCTION ADDRESSES (BASE MAINNET)
     // ═══════════════════════════════════════════════════════════════════
@@ -60,6 +65,7 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     // ETH mainnet addresses (for cross-chain bridge test)
     address constant ETH_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant ACROSS_SEND_FUNDS_HOOK_ETH = 0x39962bE24192d0d6B6e3a19f332e3c825604d16A;
+    address constant APPROVE_AND_ACROSS_HOOK_ETH = 0x72422aB917e4a698369767F7AcE667a769E0F3f2;
     address constant ETH_SPOKE_POOL = 0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5;
     address constant BASE_SPOKE_POOL = 0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64;
 
@@ -123,7 +129,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -212,7 +220,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -236,9 +246,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         // 4. Set production merkle roots
         //    ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
-        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0xdaa40f360d2bee5c44c9780104cba8949e13e9c32fb9f57f84a1e790d2fec412);
         //    SwapOdosV2Hook: hook_0x074f9973...json (5 leaves)
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698);
 
         // 5. Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -376,7 +386,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -399,9 +411,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
 
         // Set production merkle roots
         //   ApproveERC20Hook: hook_0x8b789980...json (65 leaves)
-        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0xdaa40f360d2bee5c44c9780104cba8949e13e9c32fb9f57f84a1e790d2fec412);
         //   SwapOdosV2Hook: hook_0x074f9973...json (5 leaves)
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698);
 
         // Execute with production proofs (swap proof selected dynamically based on Odos executor)
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -422,6 +434,79 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         assertGt(upAfter - upBefore, 0, "SuperBank should have received UP tokens");
 
         console2.log("Swap result: %d USDC -> %d UP", usdcOnBase, upAfter - upBefore);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //      BRIDGE VIA ApproveAndAcrossSendFundsAndExecuteOnDstHook
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Bridges USDC from ETH to Base using ApproveAndAcross (single combined hook) then swaps USDC→UP.
+    /// @dev Same flow as test_executeHooks_bridgeAndSwapUSDCtoUP() but uses ApproveAndAcross (1 hook)
+    ///      instead of ApproveERC20Hook + AcrossSendFundsHook (2 hooks).
+    ///
+    ///      Phase 1: ETH fork — bridge via ApproveAndAcrossSendFundsAndExecuteOnDstHook
+    ///      Phase 2: Pigeon relay — AcrossV3Helper fills the relay on Base fork
+    ///      Phase 3: Base fork — approve USDC for Odos Router + swap via SwapOdosV2Hook
+    ///
+    ///      ETH ApproveAndAcrossHook (0x72422aB9...): root 0x9878e749..., 1122 leaves
+    ///      Leaf 139: USDC ETH→USDC Base (SuperBank recipient)
+    function test_executeHooks_bridgeAndSwapUSDCtoUP_withApproveAndAcross() public {
+        uint256 baseForkId = vm.activeFork();
+        uint256 baseOriginalTimestamp = block.timestamp;
+
+        // Phase 1: Bridge USDC from ETH to Base using combined ApproveAndAcross hook
+        Vm.Log[] memory logs = _bridgeUsdcFromEthToBase_withApproveAndAcross(100e6);
+
+        // Phase 2: Pigeon relay
+        _relayAcrossBridge(logs, baseForkId);
+
+        // Phase 3: Swap USDC→UP on Base (same as existing test)
+        vm.selectFork(baseForkId);
+        vm.warp(baseOriginalTimestamp);
+        _swapUsdcToUpOnBase();
+    }
+
+    /// @dev Phase 1: On ETH fork, bridge USDC to SuperBank on Base via ApproveAndAcross (single hook).
+    ///      Uses production merkle tree:
+    ///        ApproveAndAcross: root 0x9878e749..., leaf 139 (USDC ETH→USDC Base, SuperBank recipient)
+    function _bridgeUsdcFromEthToBase_withApproveAndAcross(uint256 bridgeAmount)
+        internal
+        returns (Vm.Log[] memory logs)
+    {
+        uint256 ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
+        vm.selectFork(ethForkId);
+
+        // Grant roles on ETH fork
+        _forceGrantRole(superGovernor.GOVERNOR_ROLE(), address(this));
+        _forceGrantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+
+        // Register the combined hook
+        superGovernor.registerHook(APPROVE_AND_ACROSS_HOOK_ETH);
+
+        // Fund SuperBank on ETH with USDC
+        deal(ETH_USDC, SUPER_BANK, bridgeAmount);
+        assertEq(IERC20(ETH_USDC).balanceOf(SUPER_BANK), bridgeAmount, "ETH USDC not dealt");
+
+        // Encode hook data (same layout as AcrossSendFundsHook — the hook handles approval internally)
+        bytes memory acrossData = _encodeAcrossHookData(
+            SUPER_BANK, ETH_USDC, USDC, bridgeAmount, bridgeAmount * 99 / 100, BASE_CHAIN_ID, false, bytes("")
+        );
+
+        // ApproveAndAcross: production merkle root (1122 leaves)
+        bytes32 approveAndAcrossRoot = 0x9878e7490ce4be12530b2e7bc670855c1b4c9c044a593c47c2c9b0abbfe37877;
+        _setMerkleRoot(APPROVE_AND_ACROSS_HOOK_ETH, approveAndAcrossRoot);
+
+        // Execute: single hook with production proof (leaf 139: USDC ETH→USDC Base)
+        vm.recordLogs();
+        superBank.executeHooks(
+            _buildSingleHookExecutionData(
+                APPROVE_AND_ACROSS_HOOK_ETH, acrossData, _getApproveAndAcrossUsdcEthToBaseProof()
+            )
+        );
+        logs = vm.getRecordedLogs();
+
+        assertEq(IERC20(ETH_USDC).balanceOf(SUPER_BANK), 0, "All ETH USDC should be consumed by the bridge");
+        console2.log("Phase 1 (ApproveAndAcross): Bridged %d USDC from ETH to Base", bridgeAmount);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -570,7 +655,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -593,8 +680,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         );
 
         // 4. Set production merkle roots
-        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0xdaa40f360d2bee5c44c9780104cba8949e13e9c32fb9f57f84a1e790d2fec412);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698);
 
         // 5. Execute with production proofs
         uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -635,7 +722,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -658,8 +747,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         );
 
         // 4. Set production merkle roots
-        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0xdaa40f360d2bee5c44c9780104cba8949e13e9c32fb9f57f84a1e790d2fec412);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698);
 
         // 5. Execute with production proofs
         uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -702,7 +791,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -725,8 +816,8 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         );
 
         // 4. Set production merkle roots
-        _setMerkleRoot(APPROVE_ERC20_HOOK, 0x4babad826da43858847227ec8c52ddfe054b5d75614631e8ec1860791c330e4e);
-        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0xca4c63cef52826a335cf1c54af58cb2061410710aca21f64375b0151d70825d2);
+        _setMerkleRoot(APPROVE_ERC20_HOOK, 0xdaa40f360d2bee5c44c9780104cba8949e13e9c32fb9f57f84a1e790d2fec412);
+        _setMerkleRoot(SWAP_ODOS_V2_HOOK, 0x43cd09102bdf9a7b87be532337a97fdec0c0f1d1b8d07ccfad7862d413816698);
 
         // 5. Execute with production proofs
         uint256 upBefore = IERC20(UP).balanceOf(SUPER_BANK);
@@ -771,18 +862,18 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     //                     PRODUCTION MERKLE PROOFS
     // ═══════════════════════════════════════════════════════════════════
 
-    /// @dev Returns the production merkle proof for USDC + Odos Router leaf (index 32) in the
+    /// @dev Returns the production merkle proof for USDC + Odos Router leaf (index 31) in the
     ///      ApproveERC20Hook tree on Base.
     ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453)
     ///      Args: token=USDC (0x833589fC...), spender=Odos Router V2 (0x19cEeAd7...)
     function _getBaseApproveUsdcForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
         proof = new bytes32[](7);
-        proof[0] = 0x92c51b1be8863998aa297cf694f46e298a96694f9abc79a9ffb57d527181f2ba;
-        proof[1] = 0x62f88cfd69237b7406c0b73a65f8356be4e4e342a40c4ca89c3642e1cbc99a5c;
-        proof[2] = 0x153c4ac519759d33b5eea18953fa859a628ebf0ff7565333ee875aeb6c77ae86;
-        proof[3] = 0x9f156bc9eaafd618e89fd31b1f0a86f5b6631ac5d60dad794d393d9ca737861c;
-        proof[4] = 0xffcf13b1670a12ef50a6e9daaa3358799d9a05e9f51c57e1f27c85e4df2a4d9d;
-        proof[5] = 0xd6b2acbc681dd6407a4fe10298e1534bf1c728c151d379c13b13eb7415f53167;
+        proof[0] = 0x8ff532e6fb7b80138c312fa9f03951de00ad181c6784f52885c27c153c62b39e;
+        proof[1] = 0x00a4777ac75cfa9249a5ae50cbaea4d1b30c94ad4983a2fec46c50db24ab1f9a;
+        proof[2] = 0xa7232f69950135a08b185560765444fc0fdd0123b3ada17fc052dbdff49fce87;
+        proof[3] = 0xbabbe37eeeb38c04dccf0232dcc4de246e856f1c8a65f35ec93344f807a538d0;
+        proof[4] = 0x7a90d49f881c218fcc0ce26fd662efb5af44ee0711745cd8058e058b69b771f1;
+        proof[5] = 0x1898e448f5a0a4b665aa52f6cac5223345a49c5d2a2f2d91911a1b0848fdd040;
         proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
     }
 
@@ -791,26 +882,26 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453, 65 leaves)
     function _getBaseApproveWethForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
         proof = new bytes32[](7);
-        proof[0] = 0x7b815452bf048e2fbdd34eeb13d661432bb4ac64b308fa6fe5bac9c34eaaf145;
-        proof[1] = 0x0d37c4172d9b71d1192032c463630598f589be77835d9efef6fd31f69b970571;
-        proof[2] = 0x6541b3a08d6be51d54a50878a3c044632ba98b7a75f19946b5df4aa3a346fd82;
-        proof[3] = 0x5d3629c389c8746ffdf9e78921bcaf835c7e2435e0500aee5ca2c9cbc1f5958e;
-        proof[4] = 0x446acd76b4ea527e766fb70fa895c4be34ffb8de3df96380dc605767a6077852;
-        proof[5] = 0xc3ac3e3eebc59e0e29e51f50471d06514b624e2b6d4b8d5081fd72c3804679c8;
+        proof[0] = 0x81d1d153c3f9eec33fc47326f41becec1fc7c37b7628fb3e33778d4d060540cf;
+        proof[1] = 0x9e83ac6cab33f8706aa3268c7b67e5681b8e4bc052e77ef498b754cbc2804852;
+        proof[2] = 0xf97c189ad66cf6832bf630b06808be198163a4c85764860499abf4ed03225033;
+        proof[3] = 0xbabbe37eeeb38c04dccf0232dcc4de246e856f1c8a65f35ec93344f807a538d0;
+        proof[4] = 0x7a90d49f881c218fcc0ce26fd662efb5af44ee0711745cd8058e058b69b771f1;
+        proof[5] = 0x1898e448f5a0a4b665aa52f6cac5223345a49c5d2a2f2d91911a1b0848fdd040;
         proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
     }
 
-    /// @dev Returns the production merkle proof for approve cbBTC for OdosRouter (leaf index 44)
+    /// @dev Returns the production merkle proof for approve cbBTC for OdosRouter (leaf index 42)
     ///      in the ApproveERC20Hook tree on Base.
     ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453, 65 leaves)
     function _getBaseApproveCbbtcForOdosRouterProof() internal pure returns (bytes32[] memory proof) {
         proof = new bytes32[](7);
         proof[0] = 0xce5a4c188b0ab4bc573ef075f435b49419a6f69e94fc96e284005f7171c9afb9;
-        proof[1] = 0xd8076ffd7e8aadce532de47381a44874a6dcc967026f85eeb56832e35ea7847e;
-        proof[2] = 0x6cd9dc6a91dd7f272b0ff72d282d56ecf4edc126960f51d02c071545fbfb973a;
-        proof[3] = 0x859baa3c337fd909c7d18569085818f0eab25a2db02b56d35036c4ad9e4c543e;
-        proof[4] = 0xffcf13b1670a12ef50a6e9daaa3358799d9a05e9f51c57e1f27c85e4df2a4d9d;
-        proof[5] = 0xd6b2acbc681dd6407a4fe10298e1534bf1c728c151d379c13b13eb7415f53167;
+        proof[1] = 0x6c3cd2c7e3613e2057f71f4b220e79203b95777f62305cc7dd4532d04ffec984;
+        proof[2] = 0x532e581f446b0e3ccba32206831a826e3c9a3bc0d2bce3e0e8c7caf4456d1185;
+        proof[3] = 0xa51210c759606a4f457fd2e2ea1286573241dfff4c9dbf6d36c5e4abe5878e5f;
+        proof[4] = 0xc5518ac470ce01beae4f3e24aa1af06ee57be6eda991c4695109d1b308dd1391;
+        proof[5] = 0x3b15e44430cbe83a077fccec1c7f5bc3d9213e0cb85123bc8b09a848c621ce0e;
         proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
     }
 
@@ -818,33 +909,34 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
     ///      Source: hook_0x074f9973ebfb050d7abc75a5cb03491d675da843.json (chain 8453, 5 leaves)
     ///      Odos can return different executors per quote, so the proof is selected dynamically.
     function _getBaseSwapOdosExecutorProof(address executor) internal pure returns (bytes32[] memory proof) {
-        if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
-            // Idx 0: Odos Router V2 (3-element proof)
-            proof = new bytes32[](3);
-            proof[0] = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
-            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
-            proof[2] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
-        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
-            // Idx 1 (2-element proof)
-            proof = new bytes32[](2);
-            proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
-            proof[1] = 0x1571308f3b28a3d390ebf0b27e72a4143c692bf997501128010b7377c0fd5cbf;
-        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
-            // Idx 2 (2-element proof)
-            proof = new bytes32[](2);
-            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
-            proof[1] = 0x1571308f3b28a3d390ebf0b27e72a4143c692bf997501128010b7377c0fd5cbf;
-        } else if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
-            // Idx 3 (2-element proof)
-            proof = new bytes32[](2);
-            proof[0] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
-            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
-        } else if (executor == 0xe6151691FF20684426d5DC017c0a3C4E1e533dee) {
-            // Idx 4: NEW executor (3-element proof)
+        if (executor == 0xe6151691FF20684426d5DC017c0a3C4E1e533dee) {
+            // Idx 0: New Odos executor (3-element proof)
             proof = new bytes32[](3);
             proof[0] = 0x822415c9b9d0f04cdb8d7850763588d2590f44ed2e074ac069d175202f9f584b;
-            proof[1] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
-            proof[2] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        } else if (executor == 0x19cEeAd7105607Cd444F5ad10dd51356436095a1) {
+            // Idx 1: Odos Router V2 (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x64261dfccff3b48e824a374513dd250b43c4181f8089f205e949eae157610009;
+            proof[1] = 0x5c23b76fb29f2eec3c95a57935f072973f0ba21767d256bdc2607af7014d7ba2;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        } else if (executor == 0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09) {
+            // Idx 2 (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0xd2705c4c0bb867a7e891f71cd74abdd001cbb2ce530aadc4f43c5b49163d321c;
+            proof[1] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        } else if (executor == 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5) {
+            // Idx 3: KyberSwap (3-element proof)
+            proof = new bytes32[](3);
+            proof[0] = 0x83f1ab11e5deaa03b7cfc9574a037a510ad4759d278f287925c3fd113f6cc126;
+            proof[1] = 0x877c94e2893505a22222c534a1752cbd516983cdb2d5e3afb3a7626dc95bece7;
+            proof[2] = 0xda2c835670e3df155414b4f235d43561fc870de2160a43846dd89ee4c7cfed2f;
+        } else if (executor == 0xd4F480965D2347d421F1bEC7F545682E5Ec2151D) {
+            // Idx 4: Pendle (1-element proof)
+            proof = new bytes32[](1);
+            proof[0] = 0x073f89ad109be8c177fc3f6449435002143e9219cc7832ca0aea6495e9541fe5;
         } else {
             revert("Unknown Odos executor - not in SwapOdosV2Hook tree");
         }
@@ -881,6 +973,25 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         proof[7] = 0xc4a9ad9cd18708394cf1435a50d14821086838040f058b661202961b223d1a4e;
         proof[8] = 0x1025aeaa46830ad674cf0d34ed425bfd481113edfeb36dd33cbccb2ced327736;
         proof[9] = 0x9e2e9e759cb239f75211c1dca8325051fa7a2dcef4c77803170bb0aea301c269;
+    }
+
+    /// @dev Returns the production merkle proof for USDC ETH→USDC Base leaf (index 139) in the
+    ///      ApproveAndAcrossSendFundsAndExecuteOnDstHook tree on ETH.
+    ///      Source: hook_0x72422ab917e4a698369767f7ace667a769e0f3f2.json (chain 1, 1122 leaves)
+    ///      Args: recipient=SuperBank, inputToken=ETH USDC, outputToken=Base USDC, exclusiveRelayer=0x0
+    function _getApproveAndAcrossUsdcEthToBaseProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](11);
+        proof[0] = 0x2209c0bb75cc3e5a47907d425217d4a60cc51c72da91efc14f5d9dbe60dbfacc;
+        proof[1] = 0xb8f5d3e0d0f914d4c1f493683e779baaa75d0a44accc18c6af8735fdbb11d123;
+        proof[2] = 0xc9ce4d27884f156978ca86f8ceac9fe9d38b54e21d53bbc7818bd2a6fbf66ce7;
+        proof[3] = 0x30ac81180d703037cd6f8053420e4283faf72124ab019fe8cdb0411067e51c72;
+        proof[4] = 0xb2d31e87b205d38b964fab7deff187483f5d91fcc4b82b488b1dd9571abe45b5;
+        proof[5] = 0x79a1721bb48097a4d6fb423a3c7d430787fd267f5a78b84396ec04d8eed23858;
+        proof[6] = 0xa5bab8e07df6c9d5770adc64b58b77ffc68e2db2dbce83b5c169f5ec7266354b;
+        proof[7] = 0xd01782b5c95f7ca1f952e2b2cc011c2a305b192cc50a34ab231b7aa2dc0e5a4f;
+        proof[8] = 0xf4bf1a9800ee392588f13e1eb9f8ea049f3127b8ea4c3a4e21b9ea30b22a267e;
+        proof[9] = 0x19a6ca198114d31cd0a622f608ff5d8109d20632a4a0de45cd8a10237a9cfe60;
+        proof[10] = 0xfaae5afb421149c014a7deb594cf48523b31b9dd06e55cb770ed8811bb72d044;
     }
 
     /// @dev Returns the production merkle proof for WETH→USDC swap via ApproveAndSwapOdosV2Hook on ETH.
@@ -1597,7 +1708,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: UP, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1650,7 +1763,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1703,7 +1818,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false);
+        // Blacklist "Metric" source to avoid MetricOMM pools that may return zero output on fork
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, BASE_CHAIN_ID, false, '["Metric"]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1876,6 +1993,48 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         vm.warp(savedTimestamp);
 
         assertEq(superGovernor.getSuperBankHookMerkleRoot(hook), leaf, "Merkle root mismatch");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //                     ODOS API HELPERS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @dev Calls Odos quote v2 with a sourceBlacklist to avoid broken pools on the fork.
+    ///      Builds the base JSON via buildQuoteV2RequestBody, strips trailing "}", appends the blacklist.
+    function _surlCallQuoteV2WithBlacklist(
+        QuoteInputToken[] memory _inputTokens,
+        QuoteOutputToken[] memory _outputTokens,
+        address _account,
+        uint256 _chainId,
+        bool _compact,
+        string memory _blacklist
+    )
+        internal
+        returns (string memory)
+    {
+        string memory body = buildQuoteV2RequestBody(_inputTokens, _outputTokens, _account, _chainId, _compact);
+        // Remove trailing "}" and append sourceBlacklist
+        bytes memory bodyBytes = bytes(body);
+        assembly {
+            mstore(bodyBytes, sub(mload(bodyBytes), 1))
+        }
+        body = string(abi.encodePacked(bodyBytes, ',"sourceBlacklist":', _blacklist, "}"));
+
+        string[] memory headers = new string[](1);
+        headers[0] = "Content-Type: application/json";
+
+        (uint256 status, bytes memory data) = API_QUOTE_URL.post(headers, body);
+        if (status != 200) {
+            revert("surlCallQuoteV2WithBlacklist failed");
+        }
+        string memory json = string(data);
+
+        strings.slice memory jsonSlice = json.toSlice();
+        strings.slice memory key = '"pathId":"'.toSlice();
+        strings.slice memory afterKey = jsonSlice.find(key).beyond(key);
+        strings.slice memory pathId = afterKey.split('"'.toSlice());
+
+        return pathId.toString();
     }
 
     // ═══════════════════════════════════════════════════════════════════

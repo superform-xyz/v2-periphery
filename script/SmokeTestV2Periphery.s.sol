@@ -266,9 +266,9 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
 
         // Verify all roles are configured correctly
-        // Skip for HyperEVM (999) since roles haven't been transferred yet
-        if (chainId == HYPEREVM_CHAIN_ID) {
-            console2.log("[Role Check] SKIPPED - Roles not yet transferred on HyperEVM");
+        // Skip for HyperEVM/Flare since roles haven't been transferred yet
+        if (chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID) {
+            console2.log("[Role Check] SKIPPED - Roles not yet transferred on this chain");
         } else {
             _verifyRoles(governor, env);
         }
