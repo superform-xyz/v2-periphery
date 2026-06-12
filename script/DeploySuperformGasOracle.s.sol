@@ -122,32 +122,29 @@ contract DeploySuperformGasOracle is DeployV2Base {
         console2.log("Decimals:", oracle.decimals());
 
         // Write JSON output
-        _writeGasOracleJson(env, chainId, oracleAddr, owner);
+        _writeGasOracleJson(env, chainId, oracleAddr);
 
         console2.log("");
         console2.log("====== Deployment Complete ======");
     }
 
-    /// @notice Write SuperformGasOracle-latest.json to script/output/{env}/{chainId}/
-    function _writeGasOracleJson(uint256 env, uint64 chainId, address oracleAddr, address owner) internal {
+    /// @notice Merge SuperformGasOracle address into {ChainName}-latest.json
+    function _writeGasOracleJson(uint256 env, uint64 chainId, address oracleAddr) internal {
         string memory root = vm.projectRoot();
         string memory envFolder = env == 0 ? "prod" : "staging";
         string memory outputFolder =
             string(abi.encodePacked(root, "/script/output/", envFolder, "/", vm.toString(uint256(chainId)), "/"));
 
-        // Create JSON content
-        string memory json = vm.serializeAddress("SuperformGasOracle", "address", oracleAddr);
-        json = vm.serializeAddress("SuperformGasOracle", "owner", owner);
-        json = vm.serializeUint("SuperformGasOracle", "chainId", chainId);
-        json = vm.serializeUint("SuperformGasOracle", "decimals", 0);
-        json = vm.serializeString("SuperformGasOracle", "description", "Superform Fast Gas / Gwei");
+        vm.createDir(outputFolder, true);
 
-        // Write to file
-        string memory outputPath = string(abi.encodePacked(outputFolder, "SuperformGasOracle-latest.json"));
-        vm.writeJson(json, outputPath);
+        string memory chainName = chainNames[chainId];
+        require(bytes(chainName).length > 0, "UNSUPPORTED_CHAIN_NAME");
+
+        string memory outputPath = string(abi.encodePacked(outputFolder, chainName, "-latest.json"));
+        vm.writeJson(vm.toString(oracleAddr), outputPath, ".SuperformGasOracle");
 
         console2.log("");
-        console2.log("JSON output written to:", outputPath);
+        console2.log("SuperformGasOracle merged into:", outputPath);
     }
 
     /// @notice Compute the deterministic address for SuperformGasOracle

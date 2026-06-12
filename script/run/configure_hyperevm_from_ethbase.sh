@@ -179,7 +179,7 @@ elif [ "$ENVIRONMENT" = "prod" ]; then
 fi
 
 echo -e "${CYAN}   • Loading HyperEVM OFT address from deployment output...${NC}"
-HYPEREVM_OFT_JSON="$PROJECT_ROOT/script/output/$ENV_NAME/999/UpOFT-latest.json"
+HYPEREVM_OFT_JSON="$PROJECT_ROOT/script/output/$ENV_NAME/999/HyperEVM-latest.json"
 if [ ! -f "$HYPEREVM_OFT_JSON" ]; then
     echo -e "${RED}❌ HyperEVM OFT deployment output not found: $HYPEREVM_OFT_JSON${NC}"
     echo -e "${YELLOW}Run deploy_up_oft_hyperevm.sh first to deploy and export addresses${NC}"

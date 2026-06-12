@@ -1032,6 +1032,48 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("[Step 6] SKIPPED - L1 chain has no sequencer uptime feed");
         }
 
+        // Step 7: Set UP token address
+        {
+            address upToken;
+            if (chainId == MAINNET_CHAIN_ID) {
+                upToken = UP_TOKEN;
+            } else if (chainId == BASE_CHAIN_ID) {
+                upToken = UP_TOKEN_BASE;
+            } else if (chainId == HYPEREVM_CHAIN_ID) {
+                upToken = env == 2 ? UP_TOKEN_HYPEREVM_STAGING : UP_TOKEN_HYPEREVM;
+            } else if (chainId == FLARE_CHAIN_ID) {
+                upToken = env == 2 ? UP_TOKEN_FLARE_STAGING : UP_TOKEN_FLARE;
+            } else {
+                revert("UP token not configured for this chain");
+            }
+
+            console2.log("[Step 7] Setting UP token address...");
+            console2.log("  UP token:", upToken);
+            sg.setAddress(sg.UP(), upToken);
+            console2.log("[Step 7] DONE - Set UP token address");
+        }
+
+        // Step 8: Set UPKEEP_TOKEN address
+        {
+            address upkeepToken;
+            if (chainId == MAINNET_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_MAINNET;
+            } else if (chainId == BASE_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_BASE;
+            } else if (chainId == HYPEREVM_CHAIN_ID) {
+                upkeepToken = env == 2 ? UPKEEP_TOKEN_HYPEREVM_STAGING : UPKEEP_TOKEN_HYPEREVM;
+            } else if (chainId == FLARE_CHAIN_ID) {
+                upkeepToken = env == 2 ? UPKEEP_TOKEN_FLARE_STAGING : UPKEEP_TOKEN_FLARE;
+            } else {
+                revert("UPKEEP token not configured for this chain");
+            }
+
+            console2.log("[Step 8] Setting UPKEEP_TOKEN address...");
+            console2.log("  UPKEEP token:", upkeepToken);
+            sg.setAddress(sg.UPKEEP_TOKEN(), upkeepToken);
+            console2.log("[Step 8] DONE - Set UPKEEP_TOKEN address");
+        }
+
         // NOTE: Governor roles are granted to the deployer initially via configuration.governor
         // in the SuperGovernor constructor. Transfer to the actual GOVERNOR address should happen
         // later via TransferSuperGovernorRole script after Fireblocks is set up.
@@ -1103,6 +1145,20 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("[Config Check] SuperBank:", superBank);
         require(superBank == peripheryContracts.superBank, "SMOKE_TEST_FAILED: SuperBank mismatch");
         require(superBank != address(0), "SMOKE_TEST_FAILED: SuperBank not set");
+
+        // Verify UP token is set
+        {
+            address upAddr = governor.getAddress(governor.UP());
+            console2.log("[Config Check] UP token:", upAddr);
+            require(upAddr != address(0), "SMOKE_TEST_FAILED: UP token not set");
+        }
+
+        // Verify UPKEEP_TOKEN is set
+        {
+            address upkeepAddr = governor.getAddress(governor.UPKEEP_TOKEN());
+            console2.log("[Config Check] UPKEEP_TOKEN:", upkeepAddr);
+            require(upkeepAddr != address(0), "SMOKE_TEST_FAILED: UPKEEP_TOKEN not set");
+        }
 
         // Verify validator configuration
         (, address[] memory validatorAddrs,, uint256 quorum) = governor.getValidatorConfig();

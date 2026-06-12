@@ -12,7 +12,7 @@ env:
   OPTIMISM_RPC_URL: ${{ secrets.OPTIMISM_RPC_URL }}
   FLARE_RPC_URL: ${{ secrets.FLARE_RPC_URL }}
   ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
-  HYPEREVM_RPC_URL: ${{ secrets.HYPEREVM_RPC_URL }}
+  HYPEREVM_RPC_URL: ${{ secrets.HYPEREVM_RPC_URL || 'https://rpc.hyperliquid.xyz/evm' }}
   BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
   TENDERLY_ACCESS_KEY: ${{ secrets.TENDERLY_ACCESS_KEY }}
   TENDERLY_PROJECT_SLUG: "v2"
