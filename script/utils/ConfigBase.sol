@@ -53,6 +53,8 @@ abstract contract ConfigBase is Constants {
     address internal constant BATCH_OPERATOR_PROD = 0x92C0B875501611B91C6aF3D801424E724Ab039DE;
     /// @notice SuperVaultBatchOperator operator address for staging environment
     address internal constant BATCH_OPERATOR_STAGING = 0x02cbf3dac926743ec757b5A51310f46580e25A04;
+    /// @notice SuperVaultBatchOperator operator address for Flare (no Gnosis Safe available)
+    address internal constant BATCH_OPERATOR_FLARE = 0x7e218f365D6e38665a783648e8DC358Ea058C64B;
 
     /*//////////////////////////////////////////////////////////////
                             ORACLE ADDRESSES
