@@ -57,7 +57,10 @@ readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Admin address (SUPER_GOVERNOR_ADDRESS) - used for --sender in simulate mode
 readonly ADMIN="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
 
-# Operator addresses are read from ConfigBase.sol by the Solidity script
+# Flare uses deployer as admin (no Gnosis Safe available on Flare)
+readonly FLARE_CHAIN_ID="14"
+
+# Admin/Operator addresses are read from ConfigBase.sol by the Solidity script
 
 ###################################################################################
 # Helper Functions
@@ -174,8 +177,14 @@ deploy_on_chain() {
         fi
         log "INFO" "Mode: Execute (will broadcast using account: $account)"
     elif [ "$mode" = "simulate" ]; then
-        SENDER_FLAG="--sender $ADMIN"
-        log "INFO" "Mode: Simulate (no broadcast, using sender: $ADMIN)"
+        # Flare uses deployer as admin (no Gnosis Safe), so --sender determines the admin address
+        if [ "$chain_id" = "$FLARE_CHAIN_ID" ]; then
+            SENDER_FLAG="--sender $ADMIN"
+            log "INFO" "Mode: Simulate (Flare - deployer will be admin, using sender: $ADMIN)"
+        else
+            SENDER_FLAG="--sender $ADMIN"
+            log "INFO" "Mode: Simulate (no broadcast, using sender: $ADMIN)"
+        fi
     else
         log "INFO" "Mode: Check (read-only)"
     fi
@@ -284,7 +293,7 @@ main() {
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
     log "INFO" "Mode: $mode"
-    log "INFO" "Note: Admin and Operator addresses are read from ConfigBase.sol"
+    log "INFO" "Note: Admin and Operator addresses are read from ConfigBase.sol (Flare uses deployer as admin)"
     if [ -n "$specific_chain" ]; then
         log "INFO" "Target Chain: $specific_chain"
     else

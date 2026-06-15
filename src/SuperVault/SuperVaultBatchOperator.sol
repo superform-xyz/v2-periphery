@@ -18,6 +18,7 @@ contract SuperVaultBatchOperator is ISuperVaultBatchOperator, AccessControl {
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
+    uint256 public constant VERSION = 2;
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     /*//////////////////////////////////////////////////////////////

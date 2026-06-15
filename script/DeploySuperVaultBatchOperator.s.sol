@@ -27,8 +27,8 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function run(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
-        address admin = SUPER_GOVERNOR_ADDRESS;
-        address operator = _getOperatorForEnv(env);
+        address admin = _getAdminForChain(chainId);
+        address operator = _getOperatorForEnvAndChain(env, chainId);
         _deploy(env, chainId, admin, operator, branchName);
     }
 
@@ -38,20 +38,18 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     /// @param branchName Branch name for vnet deployments (required when env == 1, ignored otherwise)
     function runMultiChain(uint256 env, uint64[] calldata chainIds, string calldata branchName) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
-        address admin = SUPER_GOVERNOR_ADDRESS;
-        address operator = _getOperatorForEnv(env);
 
         console2.log("====== Deploying SuperVaultBatchOperator (Multi-Chain) ======");
         console2.log("Environment:", env);
         if (env == 1) {
             console2.log("Branch Name:", branchName);
         }
-        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
-        console2.log("Operator:", operator);
         console2.log("Number of chains:", chainIds.length);
         console2.log("");
 
         for (uint256 i = 0; i < chainIds.length; i++) {
+            address admin = _getAdminForChain(chainIds[i]);
+            address operator = _getOperatorForEnvAndChain(env, chainIds[i]);
             _deploy(env, chainIds[i], admin, operator, branchName);
             console2.log("");
         }
@@ -67,8 +65,8 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        address admin = SUPER_GOVERNOR_ADDRESS;
-        address operator = _getOperatorForEnv(env);
+        address admin = _getAdminForChain(chainId);
+        address operator = _getOperatorForEnvAndChain(env, chainId);
 
         console2.log("====== SuperVaultBatchOperator Deployment Check ======");
         console2.log("Chain ID:", chainId);
@@ -76,7 +74,10 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         if (env == 1) {
             console2.log("Branch Name:", branchName);
         }
-        console2.log("Admin (SUPER_GOVERNOR_ADDRESS):", admin);
+        console2.log("Admin:", admin);
+        if (chainId == FLARE_CHAIN_ID) {
+            console2.log("Note: Flare uses deployer as admin (no Gnosis Safe available)");
+        }
         console2.log("Operator:", operator);
         console2.log("");
 
@@ -98,15 +99,29 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         console2.log("====== Check Complete ======");
     }
 
-    /// @notice Get operator address based on environment
+    /// @notice Get admin address based on chain
+    /// @dev Flare uses deployer (msg.sender) since Gnosis Safe is not available on Flare
+    /// @param chainId Chain ID
+    function _getAdminForChain(uint64 chainId) internal view returns (address) {
+        if (chainId == FLARE_CHAIN_ID) {
+            return msg.sender;
+        }
+        return SUPER_GOVERNOR_ADDRESS;
+    }
+
+    /// @notice Get operator address based on environment and chain
+    /// @dev Flare uses a dedicated operator since Gnosis Safe is not available
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
-    function _getOperatorForEnv(uint256 env) internal pure returns (address) {
+    /// @param chainId Chain ID
+    function _getOperatorForEnvAndChain(uint256 env, uint64 chainId) internal pure returns (address) {
+        if (chainId == FLARE_CHAIN_ID) {
+            return BATCH_OPERATOR_FLARE;
+        }
         if (env == 0) {
             return BATCH_OPERATOR_PROD;
-        } else {
-            // vnet and staging use the same operator
-            return BATCH_OPERATOR_STAGING;
         }
+        // vnet and staging use the same operator
+        return BATCH_OPERATOR_STAGING;
     }
 
     /*//////////////////////////////////////////////////////////////
