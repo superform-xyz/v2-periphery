@@ -66,7 +66,7 @@ contract SuperVaultB20ForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("BASE_SEPOLIA_RPC_URL", string("https://sepolia.base.org")));
+        vm.createSelectFork("https://sepolia.base.org");
 
         sGovernor = makeAddr("sGovernor");
         manager = makeAddr("manager");
