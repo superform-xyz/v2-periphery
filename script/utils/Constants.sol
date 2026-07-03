@@ -52,10 +52,17 @@ abstract contract Constants {
     string internal constant UP_KEY = "Up";
     string internal constant UP_DISTRIBUTOR_KEY = "UpDistributor";
 
-    // SuperVault implementation keys (for salt generation and address tracking)
+    // SuperVault V1 implementation keys (for salt generation and address tracking)
     string internal constant SUPER_VAULT_KEY = "SuperVault";
     string internal constant SUPER_VAULT_STRATEGY_KEY = "SuperVaultStrategy";
     string internal constant SUPER_VAULT_ESCROW_KEY = "SuperVaultEscrow";
+
+    // SuperVault V2 implementation keys
+    // V2 adds: B20 precompile asset support (AssetMetadataLibV2), ERC721/ERC1155/ERC1271/ERC165 receivers
+    string internal constant SUPER_VAULT_V2_KEY = "SuperVaultV2";
+    string internal constant SUPER_VAULT_STRATEGY_V2_KEY = "SuperVaultStrategyV2";
+    string internal constant SUPER_VAULT_ESCROW_V2_KEY = "SuperVaultEscrowV2";
+    string internal constant SUPER_VAULT_AGGREGATOR_V2_KEY = "SuperVaultAggregatorV2";
 
     // Validator configuration defaults
     uint256 internal constant INITIAL_VALIDATOR_CONFIG_VERSION = 1;
