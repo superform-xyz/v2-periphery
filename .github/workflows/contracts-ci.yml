@@ -19,6 +19,7 @@ env:
   TENDERLY_ACCOUNT_ID: "superform"
   FOUNDRY_EXPORTS_OVERWRITE_LATEST: "true"
   ONE_INCH_API_KEY: ${{ secrets.ONE_INCH_API_KEY }}
+  ODOS_API_KEY: ${{ secrets.ODOS_API_KEY }}
   CI: "true"
 
 on:
