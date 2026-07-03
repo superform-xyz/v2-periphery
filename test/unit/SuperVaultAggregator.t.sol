@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
 import { ISuperGovernor } from "../../src/interfaces/ISuperGovernor.sol";
@@ -265,6 +266,36 @@ contract SuperVaultAggregatorTest is PeripheryHelpers {
                 })
             })
         );
+    }
+
+    /// @notice Tests that createVault succeeds with a B20-like precompile asset (no bytecode, responds to decimals())
+    /// @dev B20 tokens on Base are Rust precompiles: code.length == 0 but they respond to ERC20 calls.
+    ///      The old code.length guard blocked them; after removing it, only the staticcall result matters.
+    function test_CreateVault_B20PrecompileAsset() public {
+        // Simulate a B20 precompile: no EVM bytecode but responds to decimals()
+        address b20Token = makeAddr("b20Token");
+        assertEq(b20Token.code.length, 0, "must have no bytecode like a B20 precompile");
+
+        vm.mockCall(b20Token, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(uint8(18)));
+
+        vm.prank(manager);
+        (address sv,,) = superVaultAggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: b20Token,
+                name: "B20 Vault",
+                symbol: "B20V",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: 5,
+                maxStaleness: 300,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: manager
+                })
+            })
+        );
+
+        assertNotEq(sv, address(0), "vault should be deployed");
+        assertEq(SuperVault(sv).PRECISION(), 10 ** 18, "PRECISION should reflect 18 decimals from B20");
     }
 
     /// @notice Tests that createVault reverts when maxStaleness is below minimum required staleness

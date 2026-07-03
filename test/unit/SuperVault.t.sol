@@ -4823,4 +4823,5 @@ contract SuperVaultTest is PeripheryHelpers {
         vm.expectRevert(ISuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         superVaultAggregator.pauseStrategy(address(strategy));
     }
+
 }
