@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 import { SuperGovernor } from "../../../src/SuperGovernor.sol";
@@ -67,7 +66,7 @@ contract SuperVaultB20ForkTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_SEPOLIA_RPC_URL"));
+        vm.createSelectFork(vm.envOr("BASE_SEPOLIA_RPC_URL", string("https://sepolia.base.org")));
 
         sGovernor = makeAddr("sGovernor");
         manager = makeAddr("manager");
@@ -143,5 +142,4 @@ contract SuperVaultB20ForkTest is Test {
         assertEq(SuperVault(vault).asset(), B20_TOKEN, "vault asset must be B20_TOKEN");
         assertEq(SuperVault(vault).PRECISION(), 10 ** 18, "PRECISION must reflect B20 decimals of 18");
     }
-
 }
