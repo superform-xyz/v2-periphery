@@ -108,9 +108,10 @@ contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
         // Manager proposes NAV = 1.10; independent attestor finalizes
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        uint256 proposalId = mController.proposeNAVUpdate(1.1e18, block.timestamp, EVIDENCE_HASH, "ipfs://q2-nav");
+        uint256 proposalId =
+            aggregator.proposeNAVUpdate(address(mController), 1.1e18, block.timestamp, EVIDENCE_HASH, "ipfs://q2-nav");
         vm.prank(attestor);
-        mController.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(mController), proposalId);
         assertEq(mController.getStoredPPS(), 1.1e18);
 
         // ---------- 6. Performance fee skim ----------
@@ -170,9 +171,9 @@ contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
         // Manager proposes a 2x NAV (exceeds 50% deviation bound); attestation trips review + pause
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        uint256 proposalId = mController.proposeNAVUpdate(2e18, block.timestamp, EVIDENCE_HASH, "");
+        uint256 proposalId = aggregator.proposeNAVUpdate(address(mController), 2e18, block.timestamp, EVIDENCE_HASH, "");
         vm.prank(attestor);
-        mController.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(mController), proposalId);
 
         assertTrue(aggregator.isManagedVaultPaused(address(mController)));
         assertEq(mController.getStoredPPS(), 1e18); // value dropped
@@ -190,7 +191,7 @@ contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
 
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        mController.resolveLargeDeviationNAV(proposalId);
+        aggregator.resolveLargeDeviationNAV(address(mController), proposalId);
 
         assertEq(mController.getStoredPPS(), 2e18);
         assertFalse(aggregator.isNAVStale(address(mController)));

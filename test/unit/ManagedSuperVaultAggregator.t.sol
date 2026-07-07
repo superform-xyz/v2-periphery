@@ -47,7 +47,7 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
     function test_createManagedVault_revertsWithoutAttestors() public {
         IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params = _defaultParams();
         params.navConfig.attestors = new address[](0);
-        vm.expectRevert(IManagedSuperVaultController.INVALID_ATTESTATION_CONFIG.selector);
+        vm.expectRevert(IManagedSuperVaultAggregator.INVALID_ATTESTATION_CONFIG.selector);
         vm.prank(manager);
         aggregator.createManagedVault(params);
     }
@@ -65,7 +65,7 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
 
     function test_updateManagedNAV_onlyRegisteredController() public {
         vm.expectRevert(IManagedSuperVaultAggregator.UNKNOWN_CONTROLLER.selector);
-        aggregator.updateManagedNAV(1e18, block.timestamp, false);
+        aggregator.proposeNAVUpdate(makeAddr("notAController"), 1e18, block.timestamp, EVIDENCE_HASH, "");
     }
 
     function test_updateManagedNAV_happyPath() public {
@@ -79,10 +79,10 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         // Propose with an effective timestamp inside the min interval window
         uint256 badTimestamp = aggregator.getLastUpdateTimestamp(address(controller)) + 1;
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(1.01e18, badTimestamp, EVIDENCE_HASH, "");
+        uint256 proposalId = aggregator.proposeNAVUpdate(address(controller), 1.01e18, badTimestamp, EVIDENCE_HASH, "");
         vm.expectRevert(IManagedSuperVaultAggregator.UPDATE_TOO_FREQUENT.selector);
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
     }
 
     function test_updateManagedNAV_deviationAutoPausesAndDropsValue() public {
@@ -91,16 +91,17 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         // Propose >50% move
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(2e18, block.timestamp, EVIDENCE_HASH, "");
+        uint256 proposalId = aggregator.proposeNAVUpdate(address(controller), 2e18, block.timestamp, EVIDENCE_HASH, "");
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
 
         // Rejected value is not stored; vault paused and NAV stale
         assertEq(aggregator.getPPS(address(controller)), ppsBefore);
         assertTrue(aggregator.isManagedVaultPaused(address(controller)));
         assertTrue(aggregator.isNAVStale(address(controller)));
 
-        IManagedSuperVaultController.NAVUpdateProposal memory proposal = controller.getNAVProposal(proposalId);
+        IManagedSuperVaultController.NAVUpdateProposal memory proposal =
+            aggregator.getNAVProposal(address(controller), proposalId);
         assertEq(uint8(proposal.status), uint8(IManagedSuperVaultController.NAVProposalStatus.ReviewRequired));
     }
 
@@ -109,19 +110,19 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         uint256 effectiveTs = block.timestamp;
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(2e18, effectiveTs, EVIDENCE_HASH, "");
+        uint256 proposalId = aggregator.proposeNAVUpdate(address(controller), 2e18, effectiveTs, EVIDENCE_HASH, "");
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
 
         // Cannot resolve while paused
-        vm.expectRevert(IManagedSuperVaultController.MANAGED_VAULT_PAUSED.selector);
+        vm.expectRevert(IManagedSuperVaultAggregator.MANAGED_VAULT_PAUSED.selector);
         vm.prank(manager);
-        controller.resolveLargeDeviationNAV(proposalId);
+        aggregator.resolveLargeDeviationNAV(address(controller), proposalId);
 
         // Only the primary manager can resolve
-        vm.expectRevert(IManagedSuperVaultController.MANAGER_NOT_AUTHORIZED.selector);
+        vm.expectRevert(IManagedSuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
         vm.prank(secondaryManager);
-        controller.resolveLargeDeviationNAV(proposalId);
+        aggregator.resolveLargeDeviationNAV(address(controller), proposalId);
 
         // Explicit unpause (elevated, indexable action); NAV remains stale
         vm.prank(manager);
@@ -131,13 +132,13 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         // Resolve re-stamps the attested NAV at resolve time; the stale flag bypasses the deviation bound
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        controller.resolveLargeDeviationNAV(proposalId);
+        aggregator.resolveLargeDeviationNAV(address(controller), proposalId);
 
         assertEq(aggregator.getPPS(address(controller)), 2e18);
         assertFalse(aggregator.isNAVStale(address(controller)));
-        assertEq(controller.getActiveNAVProposalId(), 0);
+        assertEq(aggregator.getActiveNAVProposalId(address(controller)), 0);
         assertEq(
-            uint8(controller.getNAVProposal(proposalId).status),
+            uint8(aggregator.getNAVProposal(address(controller), proposalId).status),
             uint8(IManagedSuperVaultController.NAVProposalStatus.Finalized)
         );
     }
@@ -166,15 +167,15 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
 
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(3e18, block.timestamp, EVIDENCE_HASH, "");
+        uint256 proposalId = aggregator.proposeNAVUpdate(address(controller), 3e18, block.timestamp, EVIDENCE_HASH, "");
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
 
         // The out-of-bound value is dropped and the proposal is flagged for review — NOT finalized
         assertEq(aggregator.getPPS(address(controller)), 1.2e18);
         assertTrue(aggregator.isManagedVaultPaused(address(controller)));
         assertEq(
-            uint8(controller.getNAVProposal(proposalId).status),
+            uint8(aggregator.getNAVProposal(address(controller), proposalId).status),
             uint8(IManagedSuperVaultController.NAVProposalStatus.ReviewRequired)
         );
     }
@@ -215,10 +216,11 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
 
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(1.01e18, block.timestamp, EVIDENCE_HASH, "");
+        uint256 proposalId =
+            aggregator.proposeNAVUpdate(address(controller), 1.01e18, block.timestamp, EVIDENCE_HASH, "");
         vm.expectRevert(IManagedSuperVaultAggregator.MANAGED_VAULT_PAUSED.selector);
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
     }
 
     /*//////////////////////////////////////////////////////////////

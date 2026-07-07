@@ -7,8 +7,9 @@ import { IManagedSuperVaultController } from "./IManagedSuperVaultController.sol
 /// @notice Interface for the ManagedSuperVaultAggregator: sibling factory and registry for Managed Vaults.
 ///         Deploys deterministic vault/controller/escrow trios and owns per-vault registry state:
 ///         managers, pause state, attested manual NAV/PPS, freshness, and deviation bounds.
-/// @dev Unlike SuperVaultAggregator there is no PPS oracle / upkeep machinery: the NAV write path is
-///      controller-only (finalized attested NAV proposals and fee-skim decreases).
+/// @dev Unlike SuperVaultAggregator there is no PPS oracle / upkeep machinery. This aggregator also owns
+///      the full attested-manual NAV lifecycle (propose/attest/resolve + attestor-set timelock), keyed by
+///      controller, so all NAV/PPS/deviation/pause logic lives in one place.
 /// @author Superform Labs
 interface IManagedSuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
@@ -152,6 +153,34 @@ interface IManagedSuperVaultAggregator {
     /// @notice Emitted when the metadata URI is updated
     event MetadataURIUpdated(address indexed controller, string metadataURI);
 
+    // --- NAV attestation lifecycle ---
+    event NAVProposed(
+        address indexed controller,
+        uint256 indexed proposalId,
+        uint256 previousPPS,
+        uint256 proposedPPS,
+        uint256 effectiveTimestamp,
+        address indexed proposer,
+        bytes32 evidenceHash,
+        string evidenceURI
+    );
+    event NAVAttested(
+        address indexed controller, uint256 indexed proposalId, address indexed attestor, uint8 attestationCount
+    );
+    event NAVFinalized(address indexed controller, uint256 indexed proposalId, uint256 finalizedPPS, uint256 timestamp);
+    event NAVReviewRequired(
+        address indexed controller, uint256 indexed proposalId, uint256 proposedPPS, uint256 currentPPS
+    );
+    event NAVProposalCanceled(address indexed controller, uint256 indexed proposalId, address indexed canceledBy);
+    event NAVLargeDeviationResolved(address indexed controller, uint256 indexed proposalId, address indexed resolvedBy);
+    event NAVAttestorAdded(address indexed controller, address indexed attestor);
+    event NAVAttestorRemoved(address indexed controller, address indexed attestor);
+    event NAVAttestationThresholdUpdated(address indexed controller, uint8 threshold);
+    event NAVAttestationConfigProposed(
+        address indexed controller, address[] attestors, uint8 threshold, uint256 effectiveTime
+    );
+    event NAVAttestationConfigCancelled(address indexed controller);
+
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -182,6 +211,19 @@ interface IManagedSuperVaultAggregator {
     error NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
     error INVALID_DEVIATION_THRESHOLD();
     error INDEX_OUT_OF_BOUNDS();
+    // NAV attestation lifecycle
+    error EVIDENCE_REQUIRED();
+    error NOT_NAV_ATTESTOR();
+    error ATTESTOR_CANNOT_BE_PROPOSER();
+    error ALREADY_ATTESTED();
+    error NAV_PROPOSAL_PENDING();
+    error NAV_PROPOSAL_NOT_PENDING();
+    error NAV_PROPOSAL_NOT_IN_REVIEW();
+    error ATTESTATION_THRESHOLD_NOT_MET();
+    error INVALID_ATTESTATION_CONFIG();
+    error ATTESTOR_ALREADY_EXISTS();
+    error NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
+    error NO_PENDING_NAV_CONFIG();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
@@ -197,27 +239,46 @@ interface IManagedSuperVaultAggregator {
         returns (address vault, address controller, address escrow);
 
     /*//////////////////////////////////////////////////////////////
-                        NAV WRITE PATH (CONTROLLER-ONLY)
+                        NAV ATTESTATION LIFECYCLE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Store a finalized attested NAV. Only callable by a registered controller for itself.
-    /// @dev Enforces: not paused, timestamp monotonicity, no future timestamps, min update interval,
-    ///      max staleness, and the deviation bound. A deviation-bound failure auto-pauses the vault,
-    ///      marks NAV stale, drops the value, and returns false (mirrors Full SuperVault posture).
-    ///      The deviation check is bypassed ONLY when allowLargeDeviation is true, which the controller
-    ///      sets exclusively on its elevated resolveLargeDeviationNAV path — a manual pause/unpause can
-    ///      never bypass the bound.
-    /// @param newPPS The finalized price-per-share
-    /// @param timestamp The observation timestamp of the NAV
-    /// @param allowLargeDeviation Bypass the deviation bound (resolve path only)
-    /// @return accepted True if stored, false if rejected for deviation (vault now paused)
-    function updateManagedNAV(
+    /// @notice Propose a NAV/PPS update with evidence; requires independent attestation to finalize
+    /// @dev Any manager may propose. Only one active proposal per vault at a time.
+    /// @param controller The managed vault controller
+    /// @param newPPS The proposed price-per-share (scaled by asset decimals)
+    /// @param effectiveTimestamp The observation timestamp the NAV corresponds to (<= block.timestamp)
+    /// @param evidenceHash Hash of offchain evidence backing the NAV (required)
+    /// @param evidenceURI URI of offchain evidence (optional)
+    /// @return proposalId The created proposal id
+    function proposeNAVUpdate(
+        address controller,
         uint256 newPPS,
-        uint256 timestamp,
-        bool allowLargeDeviation
+        uint256 effectiveTimestamp,
+        bytes32 evidenceHash,
+        string calldata evidenceURI
     )
         external
-        returns (bool accepted);
+        returns (uint256 proposalId);
+
+    /// @notice Attest a pending NAV proposal; auto-finalizes when the attestation threshold is met
+    function attestNAVUpdate(address controller, uint256 proposalId) external;
+
+    /// @notice Cancel a pending or in-review NAV proposal (any manager)
+    function cancelNAVUpdate(address controller, uint256 proposalId) external;
+
+    /// @notice Finalize a large-deviation NAV proposal after the vault was explicitly unpaused
+    /// @dev Requires: proposal in ReviewRequired with threshold attestations, vault unpaused (main
+    ///      manager only). This is the only path that finalizes a NAV exceeding the deviation bound.
+    function resolveLargeDeviationNAV(address controller, uint256 proposalId) external;
+
+    /// @notice Propose a replacement NAV attestor set and threshold (main manager only, 3-day timelock)
+    function proposeNAVAttestationConfig(address controller, address[] calldata attestors, uint8 threshold) external;
+
+    /// @notice Execute a pending NAV attestation config change after the timelock (main manager only)
+    function executeNAVAttestationConfig(address controller) external;
+
+    /// @notice Cancel a pending NAV attestation config change (main manager only)
+    function cancelNAVAttestationConfig(address controller) external;
 
     /// @notice Reduce PPS after a performance fee skim. Only callable by a registered controller for itself.
     /// @param newPPS The post-skim price-per-share (must strictly decrease within max fee bounds)
@@ -352,6 +413,36 @@ interface IManagedSuperVaultAggregator {
         external
         view
         returns (uint256 proposedThreshold, uint256 effectiveTime);
+
+    /// @notice Get a NAV proposal for a controller
+    function getNAVProposal(
+        address controller,
+        uint256 proposalId
+    )
+        external
+        view
+        returns (IManagedSuperVaultController.NAVUpdateProposal memory proposal);
+
+    /// @notice Get the currently active (pending or in-review) NAV proposal id for a controller, 0 if none
+    function getActiveNAVProposalId(address controller) external view returns (uint256 proposalId);
+
+    /// @notice Get the NAV attestation configuration for a controller
+    function getNAVAttestationConfig(address controller)
+        external
+        view
+        returns (address[] memory attestors, uint8 threshold);
+
+    /// @notice Get the pending (timelocked) NAV attestation config change for a controller, if any
+    function getPendingNAVAttestationConfig(address controller)
+        external
+        view
+        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime);
+
+    /// @notice Whether an address is a configured NAV attestor for a controller
+    function isNAVAttestor(address controller, address attestor) external view returns (bool);
+
+    /// @notice Whether an attestor has attested a given proposal for a controller
+    function hasAttested(address controller, uint256 proposalId, address attestor) external view returns (bool);
 
     /// @notice Whether an address is a Managed Vault created by this aggregator
     function isManagedVault(address vault) external view returns (bool);

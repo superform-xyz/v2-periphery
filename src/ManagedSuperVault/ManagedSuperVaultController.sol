@@ -9,7 +9,6 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // Periphery Interfaces
 import { IManagedSuperVault } from "../interfaces/ManagedSuperVault/IManagedSuperVault.sol";
@@ -19,6 +18,7 @@ import { IManagedSuperVaultEscrow } from "../interfaces/ManagedSuperVault/IManag
 import { ISuperGovernor, FeeType } from "../interfaces/ISuperGovernor.sol";
 import { SuperVaultAccountingLib } from "../libraries/SuperVaultAccountingLib.sol";
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
+import { ManagedExecutionLib } from "../libraries/ManagedExecutionLib.sol";
 
 /// @title ManagedSuperVaultController
 /// @author Superform Labs
@@ -29,7 +29,6 @@ import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 ///      gated by an explicit onchain policy: target/selector allowlist, per-call and rolling-window native
 ///      value caps, and address-argument constraints for value-moving selectors.
 contract ManagedSuperVaultController is IManagedSuperVaultController, Initializable, ReentrancyGuardUpgradeable {
-    using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
     using Math for uint256;
     using AssetMetadataLib for address;
@@ -52,18 +51,8 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     /// @dev Maximum number of calls per managed batch execution
     uint256 public constant MAX_BATCH_SIZE = 50;
 
-    /// @dev Timelock for NAV attestation config (attestor set / threshold) changes
-    uint256 private constant NAV_CONFIG_TIMELOCK = 3 days;
-
     /// @dev Registry key for the ManagedSuperVaultAggregator in the SuperGovernor address registry
     bytes32 public constant MANAGED_SUPER_VAULT_AGGREGATOR_KEY = keccak256("MANAGED_SUPER_VAULT_AGGREGATOR");
-
-    // Sensitive value-moving selectors that require argument constraints (spec 6.5)
-    bytes4 private constant SELECTOR_TRANSFER = 0xa9059cbb; // transfer(address,uint256)
-    bytes4 private constant SELECTOR_APPROVE = 0x095ea7b3; // approve(address,uint256)
-    bytes4 private constant SELECTOR_TRANSFER_FROM = 0x23b872dd; // transferFrom(address,address,uint256)
-    bytes4 private constant SELECTOR_INCREASE_ALLOWANCE = 0x39509351; // increaseAllowance(address,uint256)
-    bytes4 private constant SELECTOR_SET_APPROVAL_FOR_ALL = 0xa22cb465; // setApprovalForAll(address,bool)
 
     uint256 public PRECISION;
 
@@ -98,19 +87,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     DepositPolicy private depositPolicy;
     mapping(address depositor => ApprovalStatus status) private _approvalStatus;
 
-    // --- NAV attestation ---
-    EnumerableSet.AddressSet private _navAttestors;
-    uint8 private _navThreshold;
-    uint256 private _nextProposalId;
-    uint256 private _activeProposalId;
-    mapping(uint256 proposalId => NAVUpdateProposal proposal) private _navProposals;
-    mapping(uint256 proposalId => mapping(address attestor => bool attested)) private _hasAttested;
-
-    // --- NAV attestation config timelock (independence guarantee) ---
-    address[] private _pendingAttestors;
-    uint8 private _pendingThreshold;
-    uint256 private _navConfigEffectiveTime;
-
     // --- Execution policy ---
     mapping(address target => mapping(bytes4 selector => CallRule rule)) private _callRules;
     mapping(address target => mapping(bytes4 selector => WindowUsage usage)) private _windowUsage;
@@ -134,11 +110,12 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
                             INITIALIZATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IManagedSuperVaultController
+    /// @dev The NAV attestation lifecycle lives in the ManagedSuperVaultAggregator (which owns PPS,
+    ///      deviation, and pause state); the aggregator configures the attestor set at creation.
     function initialize(
         address vaultAddress,
         FeeConfig memory feeConfigData,
-        DepositPolicy memory depositPolicyData,
-        NavAttestationConfig memory navConfigData
+        DepositPolicy memory depositPolicyData
     )
         external
         initializer
@@ -161,21 +138,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         feeConfig = feeConfigData;
 
         _setDepositPolicy(depositPolicyData);
-
-        // NAV attestation config: a configured independent attestor set is mandatory
-        uint256 attestorsLen = navConfigData.attestors.length;
-        if (attestorsLen == 0) revert INVALID_ATTESTATION_CONFIG();
-        if (navConfigData.threshold == 0 || navConfigData.threshold > attestorsLen) {
-            revert INVALID_ATTESTATION_CONFIG();
-        }
-        for (uint256 i; i < attestorsLen; ++i) {
-            address attestor = navConfigData.attestors[i];
-            if (attestor == address(0)) revert ZERO_ADDRESS();
-            if (!_navAttestors.add(attestor)) revert ATTESTOR_ALREADY_EXISTS();
-            emit NAVAttestorAdded(attestor);
-        }
-        _navThreshold = navConfigData.threshold;
-        emit NAVAttestationThresholdUpdated(navConfigData.threshold);
 
         // Initialize HWM to 1.0 using asset decimals (same as aggregator initial PPS)
         (bool success, uint8 assetDecimals) = address(_asset).tryGetAssetDecimals();
@@ -475,177 +437,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     }
 
     /*//////////////////////////////////////////////////////////////
-                    MANAGER OPERATIONS: NAV
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IManagedSuperVaultController
-    function proposeNAVUpdate(
-        uint256 newPPS,
-        uint256 effectiveTimestamp,
-        bytes32 evidenceHash,
-        string calldata evidenceURI
-    )
-        external
-        returns (uint256 proposalId)
-    {
-        _isManager(msg.sender);
-
-        if (newPPS == 0) revert INVALID_PPS();
-        if (evidenceHash == bytes32(0)) revert EVIDENCE_REQUIRED();
-        if (effectiveTimestamp > block.timestamp) revert INVALID_TIMESTAMP();
-
-        IManagedSuperVaultAggregator aggregator = _getAggregator();
-        if (effectiveTimestamp <= aggregator.getLastUpdateTimestamp(address(this))) revert INVALID_TIMESTAMP();
-
-        // Only one active proposal at a time; an existing pending/in-review proposal must be
-        // explicitly cancelled (cancelNAVUpdate) or resolved first
-        if (_activeProposalId != 0) revert NAV_PROPOSAL_PENDING();
-
-        proposalId = ++_nextProposalId;
-        _navProposals[proposalId] = NAVUpdateProposal({
-            proposedPPS: newPPS,
-            effectiveTimestamp: effectiveTimestamp,
-            evidenceHash: evidenceHash,
-            evidenceURI: evidenceURI,
-            proposer: msg.sender,
-            attestationCount: 0,
-            status: NAVProposalStatus.PendingAttestation
-        });
-        _activeProposalId = proposalId;
-
-        emit NAVProposed(
-            proposalId,
-            aggregator.getPPS(address(this)),
-            newPPS,
-            effectiveTimestamp,
-            msg.sender,
-            evidenceHash,
-            evidenceURI
-        );
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function attestNAVUpdate(uint256 proposalId) external {
-        if (!_navAttestors.contains(msg.sender)) revert NOT_NAV_ATTESTOR();
-
-        NAVUpdateProposal storage proposal = _navProposals[proposalId];
-        if (proposal.status != NAVProposalStatus.PendingAttestation) revert NAV_PROPOSAL_NOT_PENDING();
-        if (msg.sender == proposal.proposer) revert ATTESTOR_CANNOT_BE_PROPOSER();
-        if (_hasAttested[proposalId][msg.sender]) revert ALREADY_ATTESTED();
-
-        _hasAttested[proposalId][msg.sender] = true;
-        proposal.attestationCount += 1;
-
-        emit NAVAttested(proposalId, msg.sender, proposal.attestationCount);
-
-        // Normal path: never bypasses the deviation bound (allowLargeDeviation = false).
-        // An out-of-bound proposal moves to ReviewRequired and can only finalize via
-        // resolveLargeDeviationNAV (the elevated, explicit-unpause path).
-        if (proposal.attestationCount >= _navThreshold) {
-            _finalizeNAV(proposalId, proposal, proposal.effectiveTimestamp, false);
-        }
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function cancelNAVUpdate(uint256 proposalId) external {
-        _isManager(msg.sender);
-
-        NAVUpdateProposal storage proposal = _navProposals[proposalId];
-        if (
-            proposal.status != NAVProposalStatus.PendingAttestation
-                && proposal.status != NAVProposalStatus.ReviewRequired
-        ) revert NAV_PROPOSAL_NOT_PENDING();
-
-        proposal.status = NAVProposalStatus.Canceled;
-        if (_activeProposalId == proposalId) _activeProposalId = 0;
-
-        emit NAVProposalCanceled(proposalId, msg.sender);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function resolveLargeDeviationNAV(uint256 proposalId) external {
-        _isPrimaryManager(msg.sender);
-
-        NAVUpdateProposal storage proposal = _navProposals[proposalId];
-        if (proposal.status != NAVProposalStatus.ReviewRequired) revert NAV_PROPOSAL_NOT_IN_REVIEW();
-        if (proposal.attestationCount < _navThreshold) revert ATTESTATION_THRESHOLD_NOT_MET();
-
-        // Elevated action: the vault auto-paused on the deviation breach; it must have been explicitly
-        // unpaused (indexable manager action) before the large-deviation NAV can be finalized. This is
-        // the ONLY path that finalizes a NAV exceeding the deviation bound (allowLargeDeviation = true);
-        // an ordinary attestation can never bypass the bound, even right after a manual pause/unpause.
-        IManagedSuperVaultAggregator aggregator = _getAggregator();
-        if (aggregator.isManagedVaultPaused(address(this))) revert MANAGED_VAULT_PAUSED();
-
-        // Re-stamp the NAV at resolve time: the original effective timestamp necessarily predates the
-        // deviation pause, which the aggregator's post-unpause validation would reject. The elevated
-        // resolve action re-affirms the attested value as of now.
-        _finalizeNAV(proposalId, proposal, block.timestamp, true);
-        emit NAVLargeDeviationResolved(proposalId, msg.sender);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function proposeNAVAttestationConfig(address[] calldata attestors, uint8 threshold) external {
-        _isPrimaryManager(msg.sender);
-
-        uint256 len = attestors.length;
-        if (len == 0 || threshold == 0 || threshold > len) revert INVALID_ATTESTATION_CONFIG();
-        for (uint256 i; i < len; ++i) {
-            if (attestors[i] == address(0)) revert ZERO_ADDRESS();
-            // Reject duplicates within the proposed set
-            for (uint256 j = i + 1; j < len; ++j) {
-                if (attestors[i] == attestors[j]) revert ATTESTOR_ALREADY_EXISTS();
-            }
-        }
-
-        _pendingAttestors = attestors;
-        _pendingThreshold = threshold;
-        _navConfigEffectiveTime = block.timestamp + NAV_CONFIG_TIMELOCK;
-
-        emit NAVAttestationConfigProposed(attestors, threshold, _navConfigEffectiveTime);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function executeNAVAttestationConfig() external {
-        _isPrimaryManager(msg.sender);
-
-        if (_navConfigEffectiveTime == 0) revert NO_PENDING_NAV_CONFIG();
-        if (block.timestamp < _navConfigEffectiveTime) revert NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
-
-        // Clear the current attestor set
-        address[] memory current = _navAttestors.values();
-        for (uint256 i; i < current.length; ++i) {
-            _navAttestors.remove(current[i]);
-            emit NAVAttestorRemoved(current[i]);
-        }
-
-        // Install the new attestor set + threshold
-        address[] memory next = _pendingAttestors;
-        for (uint256 i; i < next.length; ++i) {
-            _navAttestors.add(next[i]);
-            emit NAVAttestorAdded(next[i]);
-        }
-        _navThreshold = _pendingThreshold;
-        emit NAVAttestationThresholdUpdated(_pendingThreshold);
-
-        delete _pendingAttestors;
-        _pendingThreshold = 0;
-        _navConfigEffectiveTime = 0;
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function cancelNAVAttestationConfig() external {
-        _isPrimaryManager(msg.sender);
-        if (_navConfigEffectiveTime == 0) revert NO_PENDING_NAV_CONFIG();
-
-        delete _pendingAttestors;
-        _pendingThreshold = 0;
-        _navConfigEffectiveTime = 0;
-
-        emit NAVAttestationConfigCancelled();
-    }
-
-    /*//////////////////////////////////////////////////////////////
                     MANAGER OPERATIONS: EXECUTION
     //////////////////////////////////////////////////////////////*/
 
@@ -653,7 +444,9 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     function executeManagedCall(ManagedCall calldata call, bytes32 operationId) external payable nonReentrant {
         _isManager(msg.sender);
         _useOperationId(operationId);
-        _executeSingle(call, operationId, 0);
+        ManagedExecutionLib.executeSingle(
+            _callRules, _windowUsage, _allowedArgValues, call, _forbiddenTargets(), operationId, 0
+        );
     }
 
     /// @inheritdoc IManagedSuperVaultController
@@ -666,8 +459,11 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
         _useOperationId(operationId);
 
+        ManagedExecutionLib.ForbiddenTargets memory forbidden = _forbiddenTargets();
         for (uint256 i; i < len; ++i) {
-            _executeSingle(calls[i], operationId, i);
+            ManagedExecutionLib.executeSingle(
+                _callRules, _windowUsage, _allowedArgValues, calls[i], forbidden, operationId, i
+            );
         }
     }
 
@@ -678,33 +474,7 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         if (target == address(0)) revert ZERO_ADDRESS();
         _checkForbiddenTarget(target);
 
-        if (rule.allowed) {
-            // Value config must be explicit and consistent
-            if (!rule.valueAllowed && (rule.maxValuePerCall != 0 || rule.windowValueCap != 0)) {
-                revert INVALID_CALL_RULE();
-            }
-            if (rule.valueAllowed && rule.maxValuePerCall == 0) revert INVALID_CALL_RULE();
-            // Spec 6.9: no per-call cap without a cumulative/windowed cap. A value-moving rule must
-            // always carry a rolling-window cap (and a non-zero window duration) as the real backstop.
-            if (rule.valueAllowed && (rule.windowValueCap == 0 || rule.windowDuration == 0)) {
-                revert INVALID_CALL_RULE();
-            }
-            if (rule.windowValueCap != 0 && rule.windowValueCap < rule.maxValuePerCall) revert INVALID_CALL_RULE();
-
-            // Sensitive value-moving selectors cannot be enabled without constraining their
-            // spender/recipient/operator argument onchain
-            (bool required, uint8 requiredArg) = _sensitiveArg(selector);
-            if (required) {
-                bool found;
-                for (uint256 i; i < rule.constrainedArgs.length; ++i) {
-                    if (rule.constrainedArgs[i] == requiredArg) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) revert ARG_CONSTRAINT_REQUIRED();
-            }
-        }
+        ManagedExecutionLib.validateCallRule(rule, selector);
 
         _callRules[target][selector] = rule;
         delete _windowUsage[target][selector];
@@ -947,40 +717,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function getNAVProposal(uint256 proposalId) external view returns (NAVUpdateProposal memory proposal) {
-        return _navProposals[proposalId];
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function getActiveNAVProposalId() external view returns (uint256 proposalId) {
-        return _activeProposalId;
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function getNAVAttestationConfig() external view returns (address[] memory attestors, uint8 threshold) {
-        return (_navAttestors.values(), _navThreshold);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function getPendingNAVAttestationConfig()
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime)
-    {
-        return (_pendingAttestors, _pendingThreshold, _navConfigEffectiveTime);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function isNAVAttestor(address attestor) external view returns (bool) {
-        return _navAttestors.contains(attestor);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
-    function hasAttested(uint256 proposalId, address attestor) external view returns (bool) {
-        return _hasAttested[proposalId][attestor];
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
     function getCallRule(address target, bytes4 selector) external view returns (CallRule memory rule) {
         return _callRules[target][selector];
     }
@@ -1072,40 +808,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     }
 
     /*//////////////////////////////////////////////////////////////
-                    INTERNAL NAV FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Finalize an attested NAV proposal through the aggregator write path
-    /// @dev The aggregator enforces monotonicity, rate limiting, staleness, and the deviation bound.
-    ///      A deviation-bound rejection auto-pauses the vault and returns false, moving the proposal
-    ///      into ReviewRequired instead of Finalized.
-    /// @param navTimestamp The observation timestamp to store: the proposal's effective timestamp on
-    ///        the attestation path, or block.timestamp on the elevated resolve path
-    /// @param allowLargeDeviation True only on the resolve path; lets the aggregator finalize a NAV
-    ///        that exceeds the deviation bound. The ordinary attestation path always passes false.
-    function _finalizeNAV(
-        uint256 proposalId,
-        NAVUpdateProposal storage proposal,
-        uint256 navTimestamp,
-        bool allowLargeDeviation
-    )
-        internal
-    {
-        IManagedSuperVaultAggregator aggregator = _getAggregator();
-
-        bool accepted = aggregator.updateManagedNAV(proposal.proposedPPS, navTimestamp, allowLargeDeviation);
-
-        if (accepted) {
-            proposal.status = NAVProposalStatus.Finalized;
-            _activeProposalId = 0;
-            emit NAVFinalized(proposalId, proposal.proposedPPS, navTimestamp);
-        } else {
-            proposal.status = NAVProposalStatus.ReviewRequired;
-            emit NAVReviewRequired(proposalId, proposal.proposedPPS, aggregator.getPPS(address(this)));
-        }
-    }
-
-    /*//////////////////////////////////////////////////////////////
                     INTERNAL EXECUTION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -1116,85 +818,23 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         _usedOperationIds[operationId] = true;
     }
 
-    /// @notice Validate a call against the execution policy and execute it
-    function _executeSingle(ManagedCall calldata call, bytes32 operationId, uint256 index) internal {
-        if (call.target == address(0)) revert ZERO_ADDRESS();
-        _checkForbiddenTarget(call.target);
-
-        // Selector extraction: empty calldata is treated as selector 0 (plain native transfer);
-        // malformed short calldata is never allowed
-        bytes4 selector;
-        uint256 dataLength = call.data.length;
-        if (dataLength == 0) {
-            selector = bytes4(0);
-        } else if (dataLength < 4) {
-            revert CALL_NOT_ALLOWED();
-        } else {
-            selector = bytes4(call.data[:4]);
-        }
-
-        CallRule storage rule = _callRules[call.target][selector];
-        if (!rule.allowed) revert CALL_NOT_ALLOWED();
-
-        // Native value checks: per-call cap and rolling-window cumulative cap
-        if (call.value > 0) {
-            if (!rule.valueAllowed) revert VALUE_NOT_ALLOWED();
-            if (call.value > rule.maxValuePerCall) revert VALUE_EXCEEDS_CAP();
-
-            if (rule.windowValueCap != 0) {
-                WindowUsage storage usage = _windowUsage[call.target][selector];
-                if (block.timestamp >= usage.windowStart + rule.windowDuration) {
-                    usage.windowStart = uint64(block.timestamp);
-                    usage.valueUsed = 0;
-                }
-                if (usage.valueUsed + call.value > rule.windowValueCap) revert VALUE_EXCEEDS_WINDOW_CAP();
-                usage.valueUsed += call.value;
-            }
-        }
-
-        // Argument constraints: constrained static words must decode to allowlisted addresses
-        uint256 constrainedLen = rule.constrainedArgs.length;
-        for (uint256 i; i < constrainedLen; ++i) {
-            uint8 argIndex = rule.constrainedArgs[i];
-            uint256 offset = 4 + uint256(argIndex) * 32;
-            if (dataLength < offset + 32) revert ARG_CONSTRAINT_VIOLATED();
-
-            bytes32 word = bytes32(call.data[offset:offset + 32]);
-            // A properly ABI-encoded address arg has its upper 12 bytes zeroed
-            if (uint256(word) > type(uint160).max) revert ARG_CONSTRAINT_VIOLATED();
-
-            address argValue = address(uint160(uint256(word)));
-            if (!_allowedArgValues[call.target][selector][argIndex][argValue]) revert ARG_CONSTRAINT_VIOLATED();
-        }
-
-        (bool success, bytes memory returnData) = call.target.call{ value: call.value }(call.data);
-        if (!success) revert EXECUTION_FAILED(index, returnData);
-
-        emit ManagedCallExecuted(msg.sender, call.target, selector, call.value, operationId, keccak256(call.data));
+    /// @notice Build the forbidden-target set for the execution library
+    function _forbiddenTargets() internal view returns (ManagedExecutionLib.ForbiddenTargets memory) {
+        return ManagedExecutionLib.ForbiddenTargets({
+            vault: _vault,
+            controller: address(this),
+            escrow: _escrow,
+            aggregator: address(_getAggregator()),
+            governor: address(SUPER_GOVERNOR)
+        });
     }
 
-    /// @notice Block calls that could mutate the vault system outside dedicated admin flows
+    /// @notice Block setting a policy rule for a system target it could never safely call
     function _checkForbiddenTarget(address target) internal view {
         if (
             target == _vault || target == address(this) || target == _escrow || target == address(_getAggregator())
                 || target == address(SUPER_GOVERNOR)
         ) revert TARGET_FORBIDDEN();
-    }
-
-    /// @notice Whether a selector is a sensitive value-moving selector requiring argument constraints
-    /// @return required True if the selector requires a constrained argument
-    /// @return argIndex The static-word index of the spender/recipient/operator argument
-    function _sensitiveArg(bytes4 selector) internal pure returns (bool required, uint8 argIndex) {
-        if (
-            selector == SELECTOR_TRANSFER || selector == SELECTOR_APPROVE || selector == SELECTOR_INCREASE_ALLOWANCE
-                || selector == SELECTOR_SET_APPROVAL_FOR_ALL
-        ) {
-            return (true, 0);
-        }
-        if (selector == SELECTOR_TRANSFER_FROM) {
-            return (true, 1);
-        }
-        return (false, 0);
     }
 
     /*//////////////////////////////////////////////////////////////

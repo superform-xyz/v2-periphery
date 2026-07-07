@@ -86,7 +86,7 @@ contract ManagedSuperVaultExecutorTest is ManagedSuperVaultTestBase {
         uint256 proposalId = executor.proposeNAVUpdate(address(controller), 1.01e18, block.timestamp, EVIDENCE_HASH, "");
 
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
         assertEq(controller.getStoredPPS(), 1.01e18);
     }
 

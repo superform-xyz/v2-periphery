@@ -22,9 +22,10 @@ import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 /// @notice Sibling factory and registry for Managed Vaults. Deploys deterministic
 ///         vault/controller/escrow trios and owns per-vault registry state: managers, pause state,
 ///         attested manual NAV/PPS, freshness, and deviation bounds.
-/// @dev There is intentionally no PPS oracle / upkeep / hooks-root machinery here: the NAV write path
-///      is controller-only (finalized attested NAV proposals and fee-skim decreases). Large NAV
-///      deviations auto-pause the vault and mark NAV stale, mirroring the Full SuperVault posture.
+/// @dev There is intentionally no PPS oracle / upkeep / hooks-root machinery here. The aggregator owns
+///      the full attested-manual NAV lifecycle (propose/attest/resolve + attestor-set timelock), keyed by
+///      controller. Large NAV deviations auto-pause the vault and mark NAV stale, mirroring the Full
+///      SuperVault posture.
 contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     using AssetMetadataLib for address;
     using Clones for address;
@@ -86,6 +87,20 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     // Vault lookups
     mapping(address vault => address controller) private _vaultToController;
     mapping(address vault => address escrow) private _vaultToEscrow;
+
+    // NAV attestation lifecycle, keyed by controller. Consolidated here (rather than the controller) so
+    // all NAV/PPS/deviation/pause logic lives in one place, and to keep the controller under EIP-170.
+    mapping(address controller => EnumerableSet.AddressSet) private _navAttestors;
+    mapping(address controller => uint8) private _navThreshold;
+    mapping(address controller => uint256) private _nextProposalId;
+    mapping(address controller => uint256) private _activeProposalId;
+    mapping(address controller => mapping(uint256 => IManagedSuperVaultController.NAVUpdateProposal)) private
+        _navProposals;
+    mapping(address controller => mapping(uint256 => mapping(address => bool))) private _hasAttested;
+    // Timelocked attestor-set / threshold change (independence guarantee)
+    mapping(address controller => address[]) private _pendingAttestors;
+    mapping(address controller => uint8) private _pendingThreshold;
+    mapping(address controller => uint256) private _navConfigEffectiveTime;
 
     // Constants
     uint256 private constant BPS_PRECISION = 10_000;
@@ -188,8 +203,23 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         ManagedSuperVaultEscrow(escrow).initialize(vault, controller);
 
         // Initialize controller
-        ManagedSuperVaultController(payable(controller))
-            .initialize(vault, params.feeConfig, params.depositPolicy, params.navConfig);
+        ManagedSuperVaultController(payable(controller)).initialize(vault, params.feeConfig, params.depositPolicy);
+
+        // Configure the NAV attestor set (the NAV lifecycle lives here in the aggregator).
+        // A configured independent attestor set is mandatory.
+        uint256 attestorsLen = params.navConfig.attestors.length;
+        if (attestorsLen == 0) revert INVALID_ATTESTATION_CONFIG();
+        if (params.navConfig.threshold == 0 || params.navConfig.threshold > attestorsLen) {
+            revert INVALID_ATTESTATION_CONFIG();
+        }
+        for (uint256 i; i < attestorsLen; ++i) {
+            address attestor = params.navConfig.attestors[i];
+            if (attestor == address(0)) revert ZERO_ADDRESS();
+            if (!_navAttestors[controller].add(attestor)) revert ATTESTOR_ALREADY_EXISTS();
+            emit NAVAttestorAdded(controller, attestor);
+        }
+        _navThreshold[controller] = params.navConfig.threshold;
+        emit NAVAttestationThresholdUpdated(controller, params.navConfig.threshold);
 
         // Store vault trio in registry
         _managedVaults.add(vault);
@@ -277,16 +307,216 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function updateManagedNAV(
+    function proposeNAVUpdate(
+        address controller,
+        uint256 newPPS,
+        uint256 effectiveTimestamp,
+        bytes32 evidenceHash,
+        string calldata evidenceURI
+    )
+        external
+        validController(controller)
+        returns (uint256 proposalId)
+    {
+        if (!isAnyManager(msg.sender, controller)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        if (newPPS == 0) revert INVALID_NAV();
+        if (evidenceHash == bytes32(0)) revert EVIDENCE_REQUIRED();
+        if (effectiveTimestamp > block.timestamp) revert INVALID_TIMESTAMP();
+        if (effectiveTimestamp <= _managedVaultData[controller].lastUpdateTimestamp) revert INVALID_TIMESTAMP();
+
+        // Only one active proposal at a time; an existing pending/in-review proposal must be
+        // explicitly cancelled (cancelNAVUpdate) or resolved first
+        if (_activeProposalId[controller] != 0) revert NAV_PROPOSAL_PENDING();
+
+        proposalId = ++_nextProposalId[controller];
+        _navProposals[controller][proposalId] = IManagedSuperVaultController.NAVUpdateProposal({
+            proposedPPS: newPPS,
+            effectiveTimestamp: effectiveTimestamp,
+            evidenceHash: evidenceHash,
+            evidenceURI: evidenceURI,
+            proposer: msg.sender,
+            attestationCount: 0,
+            status: IManagedSuperVaultController.NAVProposalStatus.PendingAttestation
+        });
+        _activeProposalId[controller] = proposalId;
+
+        emit NAVProposed(
+            controller,
+            proposalId,
+            _managedVaultData[controller].pps,
+            newPPS,
+            effectiveTimestamp,
+            msg.sender,
+            evidenceHash,
+            evidenceURI
+        );
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function attestNAVUpdate(address controller, uint256 proposalId) external validController(controller) {
+        if (!_navAttestors[controller].contains(msg.sender)) revert NOT_NAV_ATTESTOR();
+
+        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
+        if (proposal.status != IManagedSuperVaultController.NAVProposalStatus.PendingAttestation) {
+            revert NAV_PROPOSAL_NOT_PENDING();
+        }
+        if (msg.sender == proposal.proposer) revert ATTESTOR_CANNOT_BE_PROPOSER();
+        if (_hasAttested[controller][proposalId][msg.sender]) revert ALREADY_ATTESTED();
+
+        _hasAttested[controller][proposalId][msg.sender] = true;
+        proposal.attestationCount += 1;
+
+        emit NAVAttested(controller, proposalId, msg.sender, proposal.attestationCount);
+
+        // Normal path: never bypasses the deviation bound (allowLargeDeviation = false). An out-of-bound
+        // proposal moves to ReviewRequired and can only finalize via resolveLargeDeviationNAV.
+        if (proposal.attestationCount >= _navThreshold[controller]) {
+            _finalizeNAV(controller, proposalId, proposal, proposal.effectiveTimestamp, false);
+        }
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function cancelNAVUpdate(address controller, uint256 proposalId) external validController(controller) {
+        if (!isAnyManager(msg.sender, controller)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
+        if (
+            proposal.status != IManagedSuperVaultController.NAVProposalStatus.PendingAttestation
+                && proposal.status != IManagedSuperVaultController.NAVProposalStatus.ReviewRequired
+        ) revert NAV_PROPOSAL_NOT_PENDING();
+
+        proposal.status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
+        if (_activeProposalId[controller] == proposalId) _activeProposalId[controller] = 0;
+
+        emit NAVProposalCanceled(controller, proposalId, msg.sender);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function resolveLargeDeviationNAV(address controller, uint256 proposalId) external validController(controller) {
+        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
+        if (proposal.status != IManagedSuperVaultController.NAVProposalStatus.ReviewRequired) {
+            revert NAV_PROPOSAL_NOT_IN_REVIEW();
+        }
+        if (proposal.attestationCount < _navThreshold[controller]) revert ATTESTATION_THRESHOLD_NOT_MET();
+
+        // Elevated action: the vault auto-paused on the deviation breach; it must have been explicitly
+        // unpaused (indexable manager action) before the large-deviation NAV can be finalized. This is
+        // the ONLY path that finalizes a NAV exceeding the deviation bound (allowLargeDeviation = true);
+        // an ordinary attestation can never bypass the bound, even right after a manual pause/unpause.
+        if (_managedVaultData[controller].isPaused) revert MANAGED_VAULT_PAUSED();
+
+        // Re-stamp the NAV at resolve time: the original effective timestamp necessarily predates the
+        // deviation pause, which the post-unpause validation would reject.
+        _finalizeNAV(controller, proposalId, proposal, block.timestamp, true);
+        emit NAVLargeDeviationResolved(controller, proposalId, msg.sender);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function proposeNAVAttestationConfig(
+        address controller,
+        address[] calldata attestors,
+        uint8 threshold
+    )
+        external
+        validController(controller)
+    {
+        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        uint256 len = attestors.length;
+        if (len == 0 || threshold == 0 || threshold > len) revert INVALID_ATTESTATION_CONFIG();
+        for (uint256 i; i < len; ++i) {
+            if (attestors[i] == address(0)) revert ZERO_ADDRESS();
+            for (uint256 j = i + 1; j < len; ++j) {
+                if (attestors[i] == attestors[j]) revert ATTESTOR_ALREADY_EXISTS();
+            }
+        }
+
+        _pendingAttestors[controller] = attestors;
+        _pendingThreshold[controller] = threshold;
+        _navConfigEffectiveTime[controller] = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+
+        emit NAVAttestationConfigProposed(controller, attestors, threshold, _navConfigEffectiveTime[controller]);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function executeNAVAttestationConfig(address controller) external validController(controller) {
+        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+
+        if (_navConfigEffectiveTime[controller] == 0) revert NO_PENDING_NAV_CONFIG();
+        if (block.timestamp < _navConfigEffectiveTime[controller]) revert NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
+
+        // Clear the current attestor set
+        address[] memory current = _navAttestors[controller].values();
+        for (uint256 i; i < current.length; ++i) {
+            _navAttestors[controller].remove(current[i]);
+            emit NAVAttestorRemoved(controller, current[i]);
+        }
+
+        // Install the new attestor set + threshold
+        address[] memory next = _pendingAttestors[controller];
+        for (uint256 i; i < next.length; ++i) {
+            _navAttestors[controller].add(next[i]);
+            emit NAVAttestorAdded(controller, next[i]);
+        }
+        _navThreshold[controller] = _pendingThreshold[controller];
+        emit NAVAttestationThresholdUpdated(controller, _pendingThreshold[controller]);
+
+        delete _pendingAttestors[controller];
+        _pendingThreshold[controller] = 0;
+        _navConfigEffectiveTime[controller] = 0;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function cancelNAVAttestationConfig(address controller) external validController(controller) {
+        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        if (_navConfigEffectiveTime[controller] == 0) revert NO_PENDING_NAV_CONFIG();
+
+        delete _pendingAttestors[controller];
+        _pendingThreshold[controller] = 0;
+        _navConfigEffectiveTime[controller] = 0;
+
+        emit NAVAttestationConfigCancelled(controller);
+    }
+
+    /// @notice Finalize an attested NAV proposal by attempting to store it
+    /// @dev A deviation-bound rejection auto-pauses the vault and returns the proposal to ReviewRequired.
+    function _finalizeNAV(
+        address controller,
+        uint256 proposalId,
+        IManagedSuperVaultController.NAVUpdateProposal storage proposal,
+        uint256 navTimestamp,
+        bool allowLargeDeviation
+    )
+        internal
+    {
+        bool accepted = _storeNAV(controller, proposal.proposedPPS, navTimestamp, allowLargeDeviation);
+
+        if (accepted) {
+            proposal.status = IManagedSuperVaultController.NAVProposalStatus.Finalized;
+            _activeProposalId[controller] = 0;
+            emit NAVFinalized(controller, proposalId, proposal.proposedPPS, navTimestamp);
+        } else {
+            proposal.status = IManagedSuperVaultController.NAVProposalStatus.ReviewRequired;
+            emit NAVReviewRequired(controller, proposalId, proposal.proposedPPS, _managedVaultData[controller].pps);
+        }
+    }
+
+    /// @notice Store a finalized attested NAV, enforcing freshness/monotonicity/deviation invariants
+    /// @dev Internal: only reachable via _finalizeNAV (attestation or elevated resolve path). A
+    ///      deviation-bound failure auto-pauses the vault, marks NAV stale, drops the value, returns false.
+    ///      The deviation check is bypassed only when allowLargeDeviation is set (resolve path).
+    function _storeNAV(
+        address controller,
         uint256 newPPS,
         uint256 timestamp,
         bool allowLargeDeviation
     )
-        external
-        validController(msg.sender)
+        internal
         returns (bool)
     {
-        address controller = msg.sender;
         ManagedVaultData storage data = _managedVaultData[controller];
 
         // No NAV finalization while paused
@@ -817,6 +1047,51 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
             _managedVaultData[controller].proposedDeviationThreshold,
             _managedVaultData[controller].deviationThresholdEffectiveTime
         );
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getNAVProposal(
+        address controller,
+        uint256 proposalId
+    )
+        external
+        view
+        returns (IManagedSuperVaultController.NAVUpdateProposal memory proposal)
+    {
+        return _navProposals[controller][proposalId];
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getActiveNAVProposalId(address controller) external view returns (uint256 proposalId) {
+        return _activeProposalId[controller];
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getNAVAttestationConfig(address controller)
+        external
+        view
+        returns (address[] memory attestors, uint8 threshold)
+    {
+        return (_navAttestors[controller].values(), _navThreshold[controller]);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getPendingNAVAttestationConfig(address controller)
+        external
+        view
+        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime)
+    {
+        return (_pendingAttestors[controller], _pendingThreshold[controller], _navConfigEffectiveTime[controller]);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isNAVAttestor(address controller, address attestor) external view returns (bool) {
+        return _navAttestors[controller].contains(attestor);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function hasAttested(address controller, uint256 proposalId, address attestor) external view returns (bool) {
+        return _hasAttested[controller][proposalId][attestor];
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator

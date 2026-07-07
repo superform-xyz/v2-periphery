@@ -47,20 +47,6 @@ interface IManagedSuperVaultController {
     error DEPOSIT_ABOVE_MAXIMUM();
     error INVALID_APPROVAL_STATUS();
 
-    // NAV errors
-    error NAV_PROPOSAL_PENDING();
-    error NAV_PROPOSAL_NOT_PENDING();
-    error NAV_PROPOSAL_NOT_IN_REVIEW();
-    error EVIDENCE_REQUIRED();
-    error NOT_NAV_ATTESTOR();
-    error ATTESTOR_CANNOT_BE_PROPOSER();
-    error ALREADY_ATTESTED();
-    error ATTESTATION_THRESHOLD_NOT_MET();
-    error INVALID_ATTESTATION_CONFIG();
-    error ATTESTOR_ALREADY_EXISTS();
-    error NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
-    error NO_PENDING_NAV_CONFIG();
-
     // Execution policy errors
     error TARGET_FORBIDDEN();
     error CALL_NOT_ALLOWED();
@@ -245,27 +231,6 @@ interface IManagedSuperVaultController {
     );
     event RedeemSlippageSet(address indexed controller, uint16 slippageBps);
 
-    // NAV lifecycle
-    event NAVProposed(
-        uint256 indexed proposalId,
-        uint256 previousPPS,
-        uint256 proposedPPS,
-        uint256 effectiveTimestamp,
-        address indexed proposer,
-        bytes32 evidenceHash,
-        string evidenceURI
-    );
-    event NAVAttested(uint256 indexed proposalId, address indexed attestor, uint8 attestationCount);
-    event NAVFinalized(uint256 indexed proposalId, uint256 finalizedPPS, uint256 effectiveTimestamp);
-    event NAVReviewRequired(uint256 indexed proposalId, uint256 proposedPPS, uint256 currentPPS);
-    event NAVProposalCanceled(uint256 indexed proposalId, address indexed canceledBy);
-    event NAVLargeDeviationResolved(uint256 indexed proposalId, address indexed resolvedBy);
-    event NAVAttestorAdded(address indexed attestor);
-    event NAVAttestorRemoved(address indexed attestor);
-    event NAVAttestationThresholdUpdated(uint8 threshold);
-    event NAVAttestationConfigProposed(address[] attestors, uint8 threshold, uint256 effectiveTime);
-    event NAVAttestationConfigCancelled();
-
     // Execution policy
     event CallRuleSet(
         address indexed target,
@@ -306,15 +271,14 @@ interface IManagedSuperVaultController {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the controller with required parameters
+    /// @dev The NAV attestation lifecycle lives in the ManagedSuperVaultAggregator
     /// @param vaultAddress Address of the associated ManagedSuperVault
     /// @param feeConfigData Fee configuration
     /// @param depositPolicyData Deposit policy configuration
-    /// @param navConfigData NAV attestation configuration
     function initialize(
         address vaultAddress,
         FeeConfig memory feeConfigData,
-        DepositPolicy memory depositPolicyData,
-        NavAttestationConfig memory navConfigData
+        DepositPolicy memory depositPolicyData
     )
         external;
 
@@ -390,52 +354,6 @@ interface IManagedSuperVaultController {
     /// @param controllers Ordered/unique controllers with pending requests
     /// @param totalAssetsOut Total assets for each controller[i], bounded by slippage floor and theoretical value
     function fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut) external;
-
-    /*//////////////////////////////////////////////////////////////
-                    MANAGER OPERATIONS: NAV
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Propose a NAV/PPS update with evidence; requires independent attestation to finalize
-    /// @param newPPS The proposed price-per-share (scaled by asset decimals)
-    /// @param effectiveTimestamp The observation timestamp the NAV corresponds to (<= block.timestamp)
-    /// @param evidenceHash Hash of offchain evidence backing the NAV (required)
-    /// @param evidenceURI URI of offchain evidence (optional)
-    /// @return proposalId The created proposal id
-    function proposeNAVUpdate(
-        uint256 newPPS,
-        uint256 effectiveTimestamp,
-        bytes32 evidenceHash,
-        string calldata evidenceURI
-    )
-        external
-        returns (uint256 proposalId);
-
-    /// @notice Attest a pending NAV proposal; auto-finalizes when the attestation threshold is met
-    /// @param proposalId The proposal to attest
-    function attestNAVUpdate(uint256 proposalId) external;
-
-    /// @notice Cancel a pending or in-review NAV proposal
-    /// @param proposalId The proposal to cancel
-    function cancelNAVUpdate(uint256 proposalId) external;
-
-    /// @notice Finalize a large-deviation NAV proposal after the vault was explicitly unpaused
-    /// @dev Requires: proposal in ReviewRequired with threshold attestations, vault unpaused (elevated action).
-    ///      This is the only path that finalizes a NAV exceeding the deviation bound.
-    /// @param proposalId The proposal to resolve
-    function resolveLargeDeviationNAV(uint256 proposalId) external;
-
-    /// @notice Propose a replacement NAV attestor set and threshold (main manager only, timelocked)
-    /// @dev The attestor set / threshold are the independence guarantee; changes are timelocked so
-    ///      investors and Superform have a visible window to react before they take effect.
-    /// @param attestors The new full attestor set
-    /// @param threshold The new attestation threshold (1..attestors.length)
-    function proposeNAVAttestationConfig(address[] calldata attestors, uint8 threshold) external;
-
-    /// @notice Execute a pending NAV attestation config change after the timelock (main manager only)
-    function executeNAVAttestationConfig() external;
-
-    /// @notice Cancel a pending NAV attestation config change (main manager only)
-    function cancelNAVAttestationConfig() external;
 
     /*//////////////////////////////////////////////////////////////
                     MANAGER OPERATIONS: EXECUTION
@@ -540,30 +458,6 @@ interface IManagedSuperVaultController {
 
     /// @notice Weighted average PPS at which a controller's deposits were fulfilled (claim pricing)
     function getAverageDepositPrice(address controller) external view returns (uint256 averageDepositPrice);
-
-    /// @notice Get a NAV proposal
-    function getNAVProposal(uint256 proposalId) external view returns (NAVUpdateProposal memory proposal);
-
-    /// @notice Get the currently active (pending or in-review) NAV proposal id, 0 if none
-    function getActiveNAVProposalId() external view returns (uint256 proposalId);
-
-    /// @notice Get the NAV attestation configuration
-    function getNAVAttestationConfig() external view returns (address[] memory attestors, uint8 threshold);
-
-    /// @notice Get the pending (timelocked) NAV attestation config change, if any
-    /// @return attestors The proposed attestor set
-    /// @return threshold The proposed threshold
-    /// @return effectiveTime Timestamp after which the change can be executed (0 = none pending)
-    function getPendingNAVAttestationConfig()
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime);
-
-    /// @notice Whether an address is a configured NAV attestor
-    function isNAVAttestor(address attestor) external view returns (bool);
-
-    /// @notice Whether an attestor has attested a given proposal
-    function hasAttested(uint256 proposalId, address attestor) external view returns (bool);
 
     /// @notice Get the execution policy rule for a (target, selector) pair
     function getCallRule(address target, bytes4 selector) external view returns (CallRule memory rule);

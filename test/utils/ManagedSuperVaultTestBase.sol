@@ -131,15 +131,17 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
     }
 
     /// @notice Propose and attest a NAV update so it finalizes at `newPPS`
+    /// @dev The NAV lifecycle lives on the aggregator, keyed by controller
     function _updateNAV(uint256 newPPS) internal {
         // Respect the min update interval
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
 
         vm.prank(manager);
-        uint256 proposalId = controller.proposeNAVUpdate(newPPS, block.timestamp, EVIDENCE_HASH, "ipfs://evidence");
+        uint256 proposalId =
+            aggregator.proposeNAVUpdate(address(controller), newPPS, block.timestamp, EVIDENCE_HASH, "ipfs://evidence");
 
         vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
     }
 
     /// @notice Full async deposit round trip: request -> manager fulfill -> claim

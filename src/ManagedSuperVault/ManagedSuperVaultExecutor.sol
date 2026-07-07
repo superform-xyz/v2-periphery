@@ -278,8 +278,7 @@ contract ManagedSuperVaultExecutor is IManagedSuperVaultExecutor, IAccount, Acce
         returns (uint256 proposalId)
     {
         _validateSessionKey(controller, _toBit(Permission.ProposeNAV));
-        return IManagedSuperVaultController(controller)
-            .proposeNAVUpdate(newPPS, effectiveTimestamp, evidenceHash, evidenceURI);
+        return _getAggregator().proposeNAVUpdate(controller, newPPS, effectiveTimestamp, evidenceHash, evidenceURI);
     }
 
     /// @inheritdoc IManagedSuperVaultExecutor
