@@ -29,7 +29,6 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         assertEq(aggregator.getDeviationThreshold(address(controller)), 5e17);
         assertFalse(aggregator.isManagedVaultPaused(address(controller)));
         assertFalse(aggregator.isNAVStale(address(controller)));
-        assertEq(aggregator.getMetadataURI(address(controller)), "ipfs://managed-vault-metadata");
 
         // Type markers
         assertEq(aggregator.VAULT_TYPE(), "managed_vault");
@@ -66,7 +65,7 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
 
     function test_updateManagedNAV_onlyRegisteredController() public {
         vm.expectRevert(IManagedSuperVaultAggregator.UNKNOWN_CONTROLLER.selector);
-        aggregator.updateManagedNAV(1e18, block.timestamp);
+        aggregator.updateManagedNAV(1e18, block.timestamp, false);
     }
 
     function test_updateManagedNAV_happyPath() public {
@@ -141,6 +140,73 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
             uint8(controller.getNAVProposal(proposalId).status),
             uint8(IManagedSuperVaultController.NAVProposalStatus.Finalized)
         );
+    }
+
+    /// @notice Finding 1 regression: a manual pause/unpause must NOT let the manager bypass the
+    ///         deviation bound. After unpause the ordinary attest path still trips ReviewRequired on an
+    ///         out-of-bound NAV instead of finalizing it.
+    function test_manualUnpause_doesNotBypassDeviationBound() public {
+        // Manual pause + unpause leaves NAV flagged stale but must not arm a deviation bypass
+        vm.startPrank(manager);
+        aggregator.pauseManagedVault(address(controller));
+        aggregator.unpauseManagedVault(address(controller));
+        vm.stopPrank();
+        assertTrue(aggregator.isNAVStale(address(controller)));
+
+        // A within-bound update still finalizes normally and clears the stale flag
+        _updateNAV(1.2e18);
+        assertEq(aggregator.getPPS(address(controller)), 1.2e18);
+        assertFalse(aggregator.isNAVStale(address(controller)));
+
+        // Pause/unpause again, then try an out-of-bound (>50%) update via the ordinary path
+        vm.startPrank(manager);
+        aggregator.pauseManagedVault(address(controller));
+        aggregator.unpauseManagedVault(address(controller));
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.prank(manager);
+        uint256 proposalId = controller.proposeNAVUpdate(3e18, block.timestamp, EVIDENCE_HASH, "");
+        vm.prank(attestor);
+        controller.attestNAVUpdate(proposalId);
+
+        // The out-of-bound value is dropped and the proposal is flagged for review — NOT finalized
+        assertEq(aggregator.getPPS(address(controller)), 1.2e18);
+        assertTrue(aggregator.isManagedVaultPaused(address(controller)));
+        assertEq(
+            uint8(controller.getNAVProposal(proposalId).status),
+            uint8(IManagedSuperVaultController.NAVProposalStatus.ReviewRequired)
+        );
+    }
+
+    function test_deviationThreshold_timelockedAndBounded() public {
+        // Cannot disable (0) or exceed 100%
+        vm.startPrank(manager);
+        vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
+        aggregator.proposeDeviationThresholdChange(address(controller), 0);
+        vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
+        aggregator.proposeDeviationThresholdChange(address(controller), 1e18 + 1);
+
+        // Valid proposal is timelocked
+        aggregator.proposeDeviationThresholdChange(address(controller), 1e17); // 10%
+        vm.expectRevert(IManagedSuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
+        aggregator.executeDeviationThresholdChange(address(controller));
+        vm.stopPrank();
+
+        // Still at the default until executed
+        assertEq(aggregator.getDeviationThreshold(address(controller)), 5e17);
+
+        vm.warp(block.timestamp + 3 days);
+        aggregator.executeDeviationThresholdChange(address(controller));
+        assertEq(aggregator.getDeviationThreshold(address(controller)), 1e17);
+    }
+
+    function test_createManagedVault_revertsOnDeviationBpsAboveMax() public {
+        IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params = _defaultParams();
+        params.maxUpdateDeviationBps = 10_001; // > 100%
+        vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
+        vm.prank(manager);
+        aggregator.createManagedVault(params);
     }
 
     function test_updateManagedNAV_revertsWhenPaused() public {

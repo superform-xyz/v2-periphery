@@ -25,9 +25,9 @@ interface IManagedSuperVaultAggregator {
     /// @param maxStaleness Maximum age of a NAV update before the vault is considered stale
     /// @param maxUpdateDeviationBps Max NAV change per update in bps before review/pause (0 = default 50%)
     /// @param depositPolicy Deposit policy configuration
-    /// @param navConfig NAV attestation configuration (attestors, threshold, validity)
+    /// @param navConfig NAV attestation configuration (attestors, threshold)
     /// @param feeConfig Fee configuration (same structure as Full SuperVaults)
-    /// @param metadataURI Offchain metadata URI (descriptions, policies, disclosures)
+    /// @param metadataURI Offchain metadata URI (descriptions, policies, disclosures); emitted, not stored
     struct ManagedVaultCreationParams {
         address asset;
         string name;
@@ -109,8 +109,14 @@ interface IManagedSuperVaultAggregator {
     /// @notice Emitted when a secondary manager is removed
     event SecondaryManagerRemoved(address indexed controller, address indexed manager);
 
-    /// @notice Emitted when the deviation threshold is updated
+    /// @notice Emitted when a deviation threshold change is proposed
+    event DeviationThresholdChangeProposed(address indexed controller, uint256 newThreshold, uint256 effectiveTime);
+
+    /// @notice Emitted when a deviation threshold change is executed
     event DeviationThresholdUpdated(address indexed controller, uint256 deviationThreshold);
+
+    /// @notice Emitted when a deviation threshold change is cancelled
+    event DeviationThresholdChangeCancelled(address indexed controller, uint256 cancelledThreshold);
 
     /// @notice Emitted when a primary manager change is proposed
     event PrimaryManagerChangeProposed(
@@ -173,6 +179,8 @@ interface IManagedSuperVaultAggregator {
     error TIMELOCK_NOT_EXPIRED();
     error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
     error MIN_UPDATE_INTERVAL_TOO_HIGH();
+    error NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+    error INVALID_DEVIATION_THRESHOLD();
     error INDEX_OUT_OF_BOUNDS();
 
     /*//////////////////////////////////////////////////////////////
@@ -196,11 +204,20 @@ interface IManagedSuperVaultAggregator {
     /// @dev Enforces: not paused, timestamp monotonicity, no future timestamps, min update interval,
     ///      max staleness, and the deviation bound. A deviation-bound failure auto-pauses the vault,
     ///      marks NAV stale, drops the value, and returns false (mirrors Full SuperVault posture).
-    ///      The deviation check is skipped while NAV is stale (explicit resolve/escape hatch).
+    ///      The deviation check is bypassed ONLY when allowLargeDeviation is true, which the controller
+    ///      sets exclusively on its elevated resolveLargeDeviationNAV path — a manual pause/unpause can
+    ///      never bypass the bound.
     /// @param newPPS The finalized price-per-share
     /// @param timestamp The observation timestamp of the NAV
+    /// @param allowLargeDeviation Bypass the deviation bound (resolve path only)
     /// @return accepted True if stored, false if rejected for deviation (vault now paused)
-    function updateManagedNAV(uint256 newPPS, uint256 timestamp) external returns (bool accepted);
+    function updateManagedNAV(
+        uint256 newPPS,
+        uint256 timestamp,
+        bool allowLargeDeviation
+    )
+        external
+        returns (bool accepted);
 
     /// @notice Reduce PPS after a performance fee skim. Only callable by a registered controller for itself.
     /// @param newPPS The post-skim price-per-share (must strictly decrease within max fee bounds)
@@ -227,10 +244,18 @@ interface IManagedSuperVaultAggregator {
     /// @notice Remove a secondary manager (main manager only)
     function removeSecondaryManager(address controller, address manager) external;
 
-    /// @notice Update the NAV deviation threshold, 1e18 scale (main manager only)
-    function updateDeviationThreshold(address controller, uint256 deviationThreshold) external;
+    /// @notice Propose a NAV deviation-threshold change, 1e18 scale (main manager only, 3-day timelock)
+    /// @dev The threshold is the mandatory guardrail against manager NAV manipulation; changes are
+    ///      timelocked and cannot disable it (bounded to (0, 1e18]).
+    function proposeDeviationThresholdChange(address controller, uint256 deviationThreshold) external;
 
-    /// @notice Update the offchain metadata URI (main manager only)
+    /// @notice Execute a pending deviation-threshold change after the timelock
+    function executeDeviationThresholdChange(address controller) external;
+
+    /// @notice Cancel a pending deviation-threshold change (main manager only)
+    function cancelDeviationThresholdChange(address controller) external;
+
+    /// @notice Emit an updated offchain metadata URI (main manager only; event-only, not stored)
     function updateMetadataURI(address controller, string calldata metadataURI) external;
 
     /// @notice Propose a primary manager change (secondary managers only, 7-day timelock)
@@ -322,8 +347,11 @@ interface IManagedSuperVaultAggregator {
         view
         returns (uint256 proposedInterval, uint256 effectiveTime);
 
-    /// @notice Get the offchain metadata URI for a controller
-    function getMetadataURI(address controller) external view returns (string memory metadataURI);
+    /// @notice Get pending deviation-threshold change details
+    function getProposedDeviationThreshold(address controller)
+        external
+        view
+        returns (uint256 proposedThreshold, uint256 effectiveTime);
 
     /// @notice Whether an address is a Managed Vault created by this aggregator
     function isManagedVault(address vault) external view returns (bool);

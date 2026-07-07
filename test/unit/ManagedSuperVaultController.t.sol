@@ -46,7 +46,6 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         c.approveDepositors(depositors, refs);
 
         assertEq(uint8(c.getApprovalStatus(user)), uint8(IManagedSuperVaultController.ApprovalStatus.Approved));
-        assertEq(c.getKycRef(user), keccak256("kyc-ref"));
 
         vm.prank(user);
         v.requestDeposit(100e18, user, user);
@@ -63,12 +62,8 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         vm.stopPrank();
     }
 
-    function test_requestApproval_auditTrail() public {
+    function test_rejectDepositors_setsStatus() public {
         (, ManagedSuperVaultController c) = _allowlistVault();
-
-        vm.prank(user);
-        c.requestApproval();
-        assertEq(uint8(c.getApprovalStatus(user)), uint8(IManagedSuperVaultController.ApprovalStatus.Requested));
 
         address[] memory depositors = new address[](1);
         depositors[0] = user;
@@ -91,11 +86,10 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
                         DEPOSIT POLICY
     //////////////////////////////////////////////////////////////*/
 
-    function test_depositPolicy_minAndCaps() public {
+    function test_depositPolicy_minAndMax() public {
         IManagedSuperVaultController.DepositPolicy memory policy = controller.getDepositPolicy();
         policy.minDepositAssets = 10e18;
-        policy.maxDepositAssets = 150e18; // per-wallet cumulative cap
-        policy.totalDepositCap = 200e18;
+        policy.maxDepositAssets = 150e18; // per-request max
 
         vm.prank(manager);
         controller.setDepositPolicy(policy);
@@ -106,25 +100,17 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         vm.expectRevert(IManagedSuperVaultController.DEPOSIT_BELOW_MINIMUM.selector);
         vault.requestDeposit(9e18, user, user);
 
-        vault.requestDeposit(100e18, user, user);
+        vm.expectRevert(IManagedSuperVaultController.DEPOSIT_ABOVE_MAXIMUM.selector);
+        vault.requestDeposit(151e18, user, user);
 
-        vm.expectRevert(IManagedSuperVaultController.DEPOSIT_WALLET_CAP_EXCEEDED.selector);
-        vault.requestDeposit(51e18, user, user);
-
-        vault.requestDeposit(50e18, user, user);
-        vm.stopPrank();
-
-        // Total cap: user has 150, user2 can only add 50
-        vm.startPrank(user2);
-        asset.approve(address(vault), type(uint256).max);
-        vm.expectRevert(IManagedSuperVaultController.DEPOSIT_TOTAL_CAP_EXCEEDED.selector);
-        vault.requestDeposit(51e18, user2, user2);
-
-        vault.requestDeposit(50e18, user2, user2);
+        // Within [min, max] passes; the cap is per-request, so a second request is independent
+        vault.requestDeposit(150e18, user, user);
+        vault.requestDeposit(150e18, user, user);
+        assertEq(controller.pendingDepositRequest(user), 300e18);
         vm.stopPrank();
     }
 
-    function test_depositPolicy_pausedAndWindow() public {
+    function test_depositPolicy_paused() public {
         IManagedSuperVaultController.DepositPolicy memory policy = controller.getDepositPolicy();
         policy.depositsPaused = true;
         vm.prank(manager);
@@ -136,19 +122,13 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         vault.requestDeposit(100e18, user, user);
         vm.stopPrank();
 
-        // Subscription window in the future
         policy.depositsPaused = false;
-        policy.subscriptionWindowStart = block.timestamp + 1 days;
         vm.prank(manager);
         controller.setDepositPolicy(policy);
 
         vm.prank(user);
-        vm.expectRevert(IManagedSuperVaultController.SUBSCRIPTION_WINDOW_CLOSED.selector);
         vault.requestDeposit(100e18, user, user);
-
-        vm.warp(block.timestamp + 1 days);
-        vm.prank(user);
-        vault.requestDeposit(100e18, user, user);
+        assertEq(controller.pendingDepositRequest(user), 100e18);
     }
 
     function test_rejectDepositRequests_refundsDepositor() public {
@@ -270,25 +250,22 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         assertEq(c.getStoredPPS(), 1.01e18);
     }
 
-    function test_navProposal_expiry() public {
+    function test_navProposal_oneActiveAtATime() public {
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
         vm.prank(manager);
         uint256 proposalId = controller.proposeNAVUpdate(1.01e18, block.timestamp, EVIDENCE_HASH, "");
 
-        vm.warp(block.timestamp + 1 days + 1);
-
-        vm.expectRevert(IManagedSuperVaultController.NAV_PROPOSAL_EXPIRED.selector);
-        vm.prank(attestor);
-        controller.attestNAVUpdate(proposalId);
-
-        // Expired proposal is auto-canceled by a fresh proposal
+        // A second proposal is blocked while one is active; must cancel first
         vm.prank(manager);
-        uint256 newId = controller.proposeNAVUpdate(1.01e18, block.timestamp, EVIDENCE_HASH, "");
+        vm.expectRevert(IManagedSuperVaultController.NAV_PROPOSAL_PENDING.selector);
+        controller.proposeNAVUpdate(1.02e18, block.timestamp, EVIDENCE_HASH, "");
+
+        vm.prank(manager);
+        controller.cancelNAVUpdate(proposalId);
+
+        vm.prank(manager);
+        uint256 newId = controller.proposeNAVUpdate(1.02e18, block.timestamp, EVIDENCE_HASH, "");
         assertEq(controller.getActiveNAVProposalId(), newId);
-        assertEq(
-            uint8(controller.getNAVProposal(proposalId).status),
-            uint8(IManagedSuperVaultController.NAVProposalStatus.Canceled)
-        );
     }
 
     function test_cancelNAVUpdate() public {
@@ -301,31 +278,66 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         assertEq(controller.getActiveNAVProposalId(), 0);
     }
 
-    function test_attestorManagement() public {
+    function test_attestationConfig_timelocked() public {
         address newAttestor = makeAddr("newAttestor");
+        address newAttestor2 = makeAddr("newAttestor2");
 
+        address[] memory proposed = new address[](2);
+        proposed[0] = newAttestor;
+        proposed[1] = newAttestor2;
+
+        // Only the primary manager can propose
         vm.expectRevert(IManagedSuperVaultController.MANAGER_NOT_AUTHORIZED.selector);
         vm.prank(user);
-        controller.addNAVAttestor(newAttestor);
+        controller.proposeNAVAttestationConfig(proposed, 2);
 
-        vm.startPrank(manager);
-        controller.addNAVAttestor(newAttestor);
-        assertTrue(controller.isNAVAttestor(newAttestor));
-
-        controller.setNAVAttestationThreshold(3);
-
-        // Cannot remove below threshold
+        // Threshold above set size rejected
         vm.expectRevert(IManagedSuperVaultController.INVALID_ATTESTATION_CONFIG.selector);
-        controller.removeNAVAttestor(newAttestor);
+        vm.prank(manager);
+        controller.proposeNAVAttestationConfig(proposed, 3);
 
-        controller.setNAVAttestationThreshold(1);
-        controller.removeNAVAttestor(newAttestor);
+        vm.prank(manager);
+        controller.proposeNAVAttestationConfig(proposed, 2);
+
+        // Cannot execute before the timelock
+        vm.expectRevert(IManagedSuperVaultController.NAV_CONFIG_TIMELOCK_NOT_EXPIRED.selector);
+        vm.prank(manager);
+        controller.executeNAVAttestationConfig();
+
+        // Old attestor set is still in force until execution
+        assertTrue(controller.isNAVAttestor(attestor));
         assertFalse(controller.isNAVAttestor(newAttestor));
 
-        // Threshold above attestor count rejected
-        vm.expectRevert(IManagedSuperVaultController.INVALID_ATTESTATION_CONFIG.selector);
-        controller.setNAVAttestationThreshold(3);
-        vm.stopPrank();
+        vm.warp(block.timestamp + 3 days);
+        vm.prank(manager);
+        controller.executeNAVAttestationConfig();
+
+        // New set installed, old set removed
+        assertTrue(controller.isNAVAttestor(newAttestor));
+        assertTrue(controller.isNAVAttestor(newAttestor2));
+        assertFalse(controller.isNAVAttestor(attestor));
+        assertFalse(controller.isNAVAttestor(attestor2));
+
+        (address[] memory attestors, uint8 threshold) = controller.getNAVAttestationConfig();
+        assertEq(attestors.length, 2);
+        assertEq(threshold, 2);
+    }
+
+    function test_attestationConfig_cancel() public {
+        address[] memory proposed = new address[](1);
+        proposed[0] = makeAddr("newAttestor");
+
+        vm.prank(manager);
+        controller.proposeNAVAttestationConfig(proposed, 1);
+
+        (,, uint256 eff) = controller.getPendingNAVAttestationConfig();
+        assertGt(eff, 0);
+
+        vm.prank(manager);
+        controller.cancelNAVAttestationConfig();
+
+        (,, uint256 effAfter) = controller.getPendingNAVAttestationConfig();
+        assertEq(effAfter, 0);
     }
 
     /*//////////////////////////////////////////////////////////////

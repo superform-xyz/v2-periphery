@@ -37,12 +37,7 @@ contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
     }
 
     function test_fullLifecycle() public {
-        // ---------- 1. Subscription: KYC approval gating ----------
-        vm.prank(user);
-        mController.requestApproval();
-        vm.prank(user2);
-        mController.requestApproval();
-
+        // ---------- 1. Subscription: KYC approval gating (approval requested offchain) ----------
         address[] memory depositors = new address[](2);
         depositors[0] = user;
         depositors[1] = user2;
@@ -153,14 +148,11 @@ contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
 
         // ---------- 8. Audit surface sanity ----------
         assertEq(mVault.totalSupply(), sharesUser - redeemShares + sharesUser2);
-        assertEq(aggregator.getMetadataURI(address(mController)), "ipfs://managed-vault-metadata");
         assertTrue(mController.isOperationIdUsed(keccak256("deploy-to-custodian")));
     }
 
     function test_largeDeviationLifecycle() public {
         // Seed the vault
-        vm.prank(user);
-        mController.requestApproval();
         address[] memory depositors = new address[](1);
         depositors[0] = user;
         bytes32[] memory kycRefs = new bytes32[](1);

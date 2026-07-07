@@ -44,15 +44,12 @@ interface IManagedSuperVaultController {
     error DEPOSITS_PAUSED();
     error DEPOSITOR_NOT_APPROVED();
     error DEPOSIT_BELOW_MINIMUM();
-    error DEPOSIT_WALLET_CAP_EXCEEDED();
-    error DEPOSIT_TOTAL_CAP_EXCEEDED();
-    error SUBSCRIPTION_WINDOW_CLOSED();
+    error DEPOSIT_ABOVE_MAXIMUM();
     error INVALID_APPROVAL_STATUS();
 
     // NAV errors
     error NAV_PROPOSAL_PENDING();
     error NAV_PROPOSAL_NOT_PENDING();
-    error NAV_PROPOSAL_EXPIRED();
     error NAV_PROPOSAL_NOT_IN_REVIEW();
     error EVIDENCE_REQUIRED();
     error NOT_NAV_ATTESTOR();
@@ -61,7 +58,8 @@ interface IManagedSuperVaultController {
     error ATTESTATION_THRESHOLD_NOT_MET();
     error INVALID_ATTESTATION_CONFIG();
     error ATTESTOR_ALREADY_EXISTS();
-    error ATTESTOR_NOT_FOUND();
+    error NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
+    error NO_PENDING_NAV_CONFIG();
 
     // Execution policy errors
     error TARGET_FORBIDDEN();
@@ -98,9 +96,9 @@ interface IManagedSuperVaultController {
     }
 
     /// @notice Approval status of a depositor
+    /// @dev Approval requests originate offchain; only manager decisions are recorded onchain
     enum ApprovalStatus {
         None,
-        Requested,
         Approved,
         Rejected,
         Revoked
@@ -130,28 +128,20 @@ interface IManagedSuperVaultController {
     /// @param approvalMode Approval mode gating deposit requests
     /// @param depositsPaused Manager-controlled pause for new deposit requests
     /// @param minDepositAssets Minimum assets per deposit request (0 = no minimum)
-    /// @param maxDepositAssets Maximum cumulative requested assets per wallet (0 = unlimited)
-    /// @param totalDepositCap Maximum cumulative requested assets across all wallets (0 = unlimited)
-    /// @param subscriptionWindowStart Deposit requests accepted from this timestamp (0 = always open)
-    /// @param subscriptionWindowEnd Deposit requests accepted until this timestamp (0 = no end)
+    /// @param maxDepositAssets Maximum assets per deposit request (0 = unlimited)
     struct DepositPolicy {
         DepositApprovalMode approvalMode;
         bool depositsPaused;
         uint256 minDepositAssets;
         uint256 maxDepositAssets;
-        uint256 totalDepositCap;
-        uint256 subscriptionWindowStart;
-        uint256 subscriptionWindowEnd;
     }
 
     /// @notice NAV attestation configuration
-    /// @param attestors Initial set of independent attestor addresses
+    /// @param attestors Set of independent attestor addresses
     /// @param threshold Number of attestations required to finalize a NAV proposal (MVP: 1)
-    /// @param attestationValidity Seconds a proposal remains attestable/finalizable after creation
     struct NavAttestationConfig {
         address[] attestors;
         uint8 threshold;
-        uint256 attestationValidity;
     }
 
     /// @notice A NAV update proposal
@@ -161,7 +151,6 @@ interface IManagedSuperVaultController {
         bytes32 evidenceHash;
         string evidenceURI;
         address proposer;
-        uint256 createdAt;
         uint8 attestationCount;
         NAVProposalStatus status;
     }
@@ -172,7 +161,6 @@ interface IManagedSuperVaultController {
         uint256 pendingDepositAssets; // Assets requested, held in escrow, awaiting fulfillment
         uint256 claimableDepositAssets; // Net assets fulfilled, claimable via deposit()/mint() (ERC-7540 claim)
         uint256 averageDepositPrice; // Weighted average PPS across fulfillments (claim pricing)
-        uint256 cumulativeDepositedAssets; // Lifetime requested assets (net of cancels/rejects) for wallet cap
         // Cancellation (redeem)
         bool pendingCancelRedeemRequest;
         uint256 claimableCancelRedeemRequest;
@@ -237,17 +225,12 @@ interface IManagedSuperVaultController {
     );
     event DepositClaimed(address indexed controller, uint256 assets);
     event DepositPolicyUpdated(
-        DepositApprovalMode approvalMode,
-        bool depositsPaused,
-        uint256 minDepositAssets,
-        uint256 maxDepositAssets,
-        uint256 totalDepositCap
+        DepositApprovalMode approvalMode, bool depositsPaused, uint256 minDepositAssets, uint256 maxDepositAssets
     );
 
     // Approvals
-    event DepositorApprovalRequested(address indexed depositor);
     event DepositorApproved(address indexed depositor, bytes32 kycRef);
-    event DepositorRejected(address indexed depositor, bytes32 kycRef);
+    event DepositorRejected(address indexed depositor);
     event DepositorRevoked(address indexed depositor);
 
     // Redemptions (mirrors SuperVaultStrategy events)
@@ -280,6 +263,8 @@ interface IManagedSuperVaultController {
     event NAVAttestorAdded(address indexed attestor);
     event NAVAttestorRemoved(address indexed attestor);
     event NAVAttestationThresholdUpdated(uint8 threshold);
+    event NAVAttestationConfigProposed(address[] attestors, uint8 threshold, uint256 effectiveTime);
+    event NAVAttestationConfigCancelled();
 
     // Execution policy
     event CallRuleSet(
@@ -365,8 +350,10 @@ interface IManagedSuperVaultController {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Fulfill pending deposit requests at the current finalized NAV, minting claimable shares
-    /// @dev Pulls pending assets from escrow into the controller, skims entry fee, prices shares at stored PPS
-    /// @param controllers Controllers with pending deposit requests (sorted ascending, unique)
+    /// @dev Pulls pending assets from escrow into the controller, skims entry fee, prices shares at stored PPS.
+    ///      Controllers with no pending deposit are skipped (not reverted) so a front-run cancel cannot
+    ///      brick the whole batch.
+    /// @param controllers Controllers with pending deposit requests
     function fulfillDepositRequests(address[] calldata controllers) external;
 
     /// @notice Reject pending deposit requests, refunding assets from escrow to the depositors
@@ -377,9 +364,6 @@ interface IManagedSuperVaultController {
     /*//////////////////////////////////////////////////////////////
                     MANAGER OPERATIONS: APPROVALS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Request deposit approval as a prospective depositor (onchain audit trail)
-    function requestApproval() external;
 
     /// @notice Approve depositors, optionally recording a KYC/subscription reference hash
     /// @param depositors The depositor addresses to approve
@@ -435,18 +419,23 @@ interface IManagedSuperVaultController {
     function cancelNAVUpdate(uint256 proposalId) external;
 
     /// @notice Finalize a large-deviation NAV proposal after the vault was explicitly unpaused
-    /// @dev Requires: proposal in ReviewRequired with threshold attestations, vault unpaused (elevated action)
+    /// @dev Requires: proposal in ReviewRequired with threshold attestations, vault unpaused (elevated action).
+    ///      This is the only path that finalizes a NAV exceeding the deviation bound.
     /// @param proposalId The proposal to resolve
     function resolveLargeDeviationNAV(uint256 proposalId) external;
 
-    /// @notice Add a NAV attestor (main manager only)
-    function addNAVAttestor(address attestor) external;
+    /// @notice Propose a replacement NAV attestor set and threshold (main manager only, timelocked)
+    /// @dev The attestor set / threshold are the independence guarantee; changes are timelocked so
+    ///      investors and Superform have a visible window to react before they take effect.
+    /// @param attestors The new full attestor set
+    /// @param threshold The new attestation threshold (1..attestors.length)
+    function proposeNAVAttestationConfig(address[] calldata attestors, uint8 threshold) external;
 
-    /// @notice Remove a NAV attestor (main manager only)
-    function removeNAVAttestor(address attestor) external;
+    /// @notice Execute a pending NAV attestation config change after the timelock (main manager only)
+    function executeNAVAttestationConfig() external;
 
-    /// @notice Update the attestation threshold (main manager only)
-    function setNAVAttestationThreshold(uint8 threshold) external;
+    /// @notice Cancel a pending NAV attestation config change (main manager only)
+    function cancelNAVAttestationConfig() external;
 
     /*//////////////////////////////////////////////////////////////
                     MANAGER OPERATIONS: EXECUTION
@@ -540,9 +529,6 @@ interface IManagedSuperVaultController {
     /// @notice Get a depositor's approval status
     function getApprovalStatus(address depositor) external view returns (ApprovalStatus status);
 
-    /// @notice Get a depositor's KYC/subscription reference hash
-    function getKycRef(address depositor) external view returns (bytes32 kycRef);
-
     /// @notice Total assets across all pending deposit requests (held in escrow)
     function totalPendingDepositAssets() external view returns (uint256);
 
@@ -562,10 +548,16 @@ interface IManagedSuperVaultController {
     function getActiveNAVProposalId() external view returns (uint256 proposalId);
 
     /// @notice Get the NAV attestation configuration
-    function getNAVAttestationConfig()
+    function getNAVAttestationConfig() external view returns (address[] memory attestors, uint8 threshold);
+
+    /// @notice Get the pending (timelocked) NAV attestation config change, if any
+    /// @return attestors The proposed attestor set
+    /// @return threshold The proposed threshold
+    /// @return effectiveTime Timestamp after which the change can be executed (0 = none pending)
+    function getPendingNAVAttestationConfig()
         external
         view
-        returns (address[] memory attestors, uint8 threshold, uint256 attestationValidity);
+        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime);
 
     /// @notice Whether an address is a configured NAV attestor
     function isNAVAttestor(address attestor) external view returns (bool);

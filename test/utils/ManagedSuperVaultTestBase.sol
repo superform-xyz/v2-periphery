@@ -112,14 +112,9 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
                 approvalMode: IManagedSuperVaultController.DepositApprovalMode.Open,
                 depositsPaused: false,
                 minDepositAssets: 0,
-                maxDepositAssets: 0,
-                totalDepositCap: 0,
-                subscriptionWindowStart: 0,
-                subscriptionWindowEnd: 0
+                maxDepositAssets: 0
             }),
-            navConfig: IManagedSuperVaultController.NavAttestationConfig({
-                attestors: attestors, threshold: 1, attestationValidity: 1 days
-            }),
+            navConfig: IManagedSuperVaultController.NavAttestationConfig({ attestors: attestors, threshold: 1 }),
             feeConfig: IManagedSuperVaultController.FeeConfig({
                 performanceFeeBps: 1000, managementFeeBps: 0, recipient: feeRecipient
             }),

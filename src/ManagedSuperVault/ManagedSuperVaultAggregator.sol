@@ -56,12 +56,12 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         uint256 managerChangeEffectiveTime;
         // NAV deviation threshold: abs(new - current) / current, 1e18 scale
         uint256 deviationThreshold;
+        uint256 proposedDeviationThreshold;
+        uint256 deviationThresholdEffectiveTime;
         // Min update interval proposal data
         uint256 proposedMinUpdateInterval;
         uint256 minUpdateIntervalEffectiveTime;
         uint256 lastUnpauseTimestamp;
-        // Offchain metadata (descriptions, policies, disclosures)
-        string metadataURI;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -96,6 +96,10 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
 
     // Default NAV deviation threshold for new vaults (50% in 1e18 scale, same as Full SuperVaults)
     uint256 private constant DEFAULT_DEVIATION_THRESHOLD = 5e17;
+
+    // Maximum NAV deviation threshold (100% in 1e18 scale). The bound is mandatory for attested-manual
+    // NAV, so it can never be raised high enough to effectively disable it.
+    uint256 private constant MAX_DEVIATION_THRESHOLD = 1e18;
 
     // Timelock for manager changes
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
@@ -225,7 +229,6 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         data.mainManager = params.mainManager;
         data.vault = vault;
         data.escrow = escrow;
-        data.metadataURI = params.metadataURI;
 
         uint256 secondaryLen = params.secondaryManagers.length;
         if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
@@ -238,7 +241,9 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
             if (!data.secondaryManagers.add(secondaryManager)) revert MANAGER_ALREADY_EXISTS();
         }
 
-        // NAV deviation threshold: creation param in bps, stored in 1e18 scale (0 = default 50%)
+        // NAV deviation threshold: creation param in bps, stored in 1e18 scale (0 = default 50%,
+        // capped at 100% so the mandatory bound can never be effectively disabled)
+        if (params.maxUpdateDeviationBps > BPS_PRECISION) revert INVALID_DEVIATION_THRESHOLD();
         data.deviationThreshold = params.maxUpdateDeviationBps == 0
             ? DEFAULT_DEVIATION_THRESHOLD
             : Math.mulDiv(params.maxUpdateDeviationBps, 1e18, BPS_PRECISION);
@@ -272,7 +277,15 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function updateManagedNAV(uint256 newPPS, uint256 timestamp) external validController(msg.sender) returns (bool) {
+    function updateManagedNAV(
+        uint256 newPPS,
+        uint256 timestamp,
+        bool allowLargeDeviation
+    )
+        external
+        validController(msg.sender)
+        returns (bool)
+    {
         address controller = msg.sender;
         ManagedVaultData storage data = _managedVaultData[controller];
 
@@ -298,11 +311,11 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         // [Rate Limit Enforcement]
         if (timestamp - lastUpdate < data.minUpdateInterval) revert UPDATE_TOO_FREQUENT();
 
-        // [Deviation Threshold] Large deviations auto-pause the vault and drop the value; the stale
-        // flag skips this check so an explicitly resolved large-deviation NAV can finalize after an
-        // unpause (mirrors the Full SuperVault emergency-update escape hatch)
+        // [Deviation Threshold] Large deviations auto-pause the vault and drop the value. The check is
+        // bypassed ONLY when the controller passes allowLargeDeviation (its elevated resolve path) — a
+        // manual pause/unpause leaves navStale set but can never bypass the bound on the normal path.
         uint256 currentPPS = data.pps;
-        if (data.deviationThreshold != type(uint256).max && currentPPS > 0 && !data.navStale) {
+        if (!allowLargeDeviation && data.deviationThreshold != type(uint256).max && currentPPS > 0) {
             uint256 absDiff = newPPS > currentPPS ? (newPPS - currentPPS) : (currentPPS - newPPS);
             uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
             if (relativeDeviation > data.deviationThreshold) {
@@ -419,7 +432,7 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function updateDeviationThreshold(
+    function proposeDeviationThresholdChange(
         address controller,
         uint256 deviationThreshold_
     )
@@ -429,19 +442,59 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         if (msg.sender != _managedVaultData[controller].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
+        // Cannot disable or loosen beyond 100%; the bound is mandatory for attested-manual NAV
+        if (deviationThreshold_ == 0 || deviationThreshold_ > MAX_DEVIATION_THRESHOLD) {
+            revert INVALID_DEVIATION_THRESHOLD();
+        }
 
-        _managedVaultData[controller].deviationThreshold = deviationThreshold_;
+        uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+        _managedVaultData[controller].proposedDeviationThreshold = deviationThreshold_;
+        _managedVaultData[controller].deviationThresholdEffectiveTime = effectiveTime;
 
-        emit DeviationThresholdUpdated(controller, deviationThreshold_);
+        emit DeviationThresholdChangeProposed(controller, deviationThreshold_, effectiveTime);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
+    function executeDeviationThresholdChange(address controller) external validController(controller) {
+        if (_managedVaultData[controller].deviationThresholdEffectiveTime == 0) {
+            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+        }
+        if (block.timestamp < _managedVaultData[controller].deviationThresholdEffectiveTime) {
+            revert TIMELOCK_NOT_EXPIRED();
+        }
+
+        uint256 newThreshold = _managedVaultData[controller].proposedDeviationThreshold;
+
+        _managedVaultData[controller].proposedDeviationThreshold = 0;
+        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
+
+        _managedVaultData[controller].deviationThreshold = newThreshold;
+
+        emit DeviationThresholdUpdated(controller, newThreshold);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function cancelDeviationThresholdChange(address controller) external validController(controller) {
+        if (msg.sender != _managedVaultData[controller].mainManager) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+        if (_managedVaultData[controller].deviationThresholdEffectiveTime == 0) {
+            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+        }
+
+        uint256 cancelled = _managedVaultData[controller].proposedDeviationThreshold;
+        _managedVaultData[controller].proposedDeviationThreshold = 0;
+        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
+
+        emit DeviationThresholdChangeCancelled(controller, cancelled);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    /// @dev Event-only: the URI is not stored onchain; indexers read the latest from this event
     function updateMetadataURI(address controller, string calldata metadataURI) external validController(controller) {
         if (msg.sender != _managedVaultData[controller].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
-
-        _managedVaultData[controller].metadataURI = metadataURI;
 
         emit MetadataURIUpdated(controller, metadataURI);
     }
@@ -472,6 +525,9 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         _managedVaultData[controller].managerChangeEffectiveTime = 0;
         _managedVaultData[controller].proposedMinUpdateInterval = 0;
         _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
+        // SECURITY: drop any pending deviation-threshold loosening queued by the outgoing manager
+        _managedVaultData[controller].proposedDeviationThreshold = 0;
+        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
 
         // SECURITY: Clear all secondary managers as they may be controlled by the malicious manager
         address[] memory clearedSecondaryManagers = _managedVaultData[controller].secondaryManagers.values();
@@ -550,6 +606,8 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
 
         _managedVaultData[controller].proposedMinUpdateInterval = 0;
         _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
+        _managedVaultData[controller].proposedDeviationThreshold = 0;
+        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
 
         _managedVaultData[controller].mainManager = newManager;
 
@@ -750,8 +808,15 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function getMetadataURI(address controller) external view returns (string memory metadataURI) {
-        return _managedVaultData[controller].metadataURI;
+    function getProposedDeviationThreshold(address controller)
+        external
+        view
+        returns (uint256 proposedThreshold, uint256 effectiveTime)
+    {
+        return (
+            _managedVaultData[controller].proposedDeviationThreshold,
+            _managedVaultData[controller].deviationThresholdEffectiveTime
+        );
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator

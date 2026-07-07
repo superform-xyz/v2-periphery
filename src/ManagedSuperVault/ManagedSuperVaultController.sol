@@ -52,8 +52,8 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     /// @dev Maximum number of calls per managed batch execution
     uint256 public constant MAX_BATCH_SIZE = 50;
 
-    /// @dev Default NAV proposal validity when not configured
-    uint256 private constant DEFAULT_ATTESTATION_VALIDITY = 1 days;
+    /// @dev Timelock for NAV attestation config (attestor set / threshold) changes
+    uint256 private constant NAV_CONFIG_TIMELOCK = 3 days;
 
     /// @dev Registry key for the ManagedSuperVaultAggregator in the SuperGovernor address registry
     bytes32 public constant MANAGED_SUPER_VAULT_AGGREGATOR_KEY = keccak256("MANAGED_SUPER_VAULT_AGGREGATOR");
@@ -93,21 +93,23 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
     // --- Deposit accounting ---
     uint256 public totalPendingDepositAssets;
-    uint256 private _totalCumulativeRequestedAssets;
 
     // --- Deposit policy & approvals ---
     DepositPolicy private depositPolicy;
     mapping(address depositor => ApprovalStatus status) private _approvalStatus;
-    mapping(address depositor => bytes32 kycRef) private _kycRefs;
 
     // --- NAV attestation ---
     EnumerableSet.AddressSet private _navAttestors;
     uint8 private _navThreshold;
-    uint256 private _attestationValidity;
     uint256 private _nextProposalId;
     uint256 private _activeProposalId;
     mapping(uint256 proposalId => NAVUpdateProposal proposal) private _navProposals;
     mapping(uint256 proposalId => mapping(address attestor => bool attested)) private _hasAttested;
+
+    // --- NAV attestation config timelock (independence guarantee) ---
+    address[] private _pendingAttestors;
+    uint8 private _pendingThreshold;
+    uint256 private _navConfigEffectiveTime;
 
     // --- Execution policy ---
     mapping(address target => mapping(bytes4 selector => CallRule rule)) private _callRules;
@@ -173,8 +175,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             emit NAVAttestorAdded(attestor);
         }
         _navThreshold = navConfigData.threshold;
-        _attestationValidity =
-            navConfigData.attestationValidity == 0 ? DEFAULT_ATTESTATION_VALIDITY : navConfigData.attestationValidity;
         emit NAVAttestationThresholdUpdated(navConfigData.threshold);
 
         // Initialize HWM to 1.0 using asset decimals (same as aggregator initial PPS)
@@ -201,32 +201,15 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
         if (policy.depositsPaused) revert DEPOSITS_PAUSED();
 
-        if (policy.subscriptionWindowStart != 0 && block.timestamp < policy.subscriptionWindowStart) {
-            revert SUBSCRIPTION_WINDOW_CLOSED();
-        }
-        if (policy.subscriptionWindowEnd != 0 && block.timestamp > policy.subscriptionWindowEnd) {
-            revert SUBSCRIPTION_WINDOW_CLOSED();
-        }
-
         if (policy.approvalMode != DepositApprovalMode.Open && _approvalStatus[controller] != ApprovalStatus.Approved) {
             revert DEPOSITOR_NOT_APPROVED();
         }
 
         if (assets < policy.minDepositAssets) revert DEPOSIT_BELOW_MINIMUM();
+        if (policy.maxDepositAssets != 0 && assets > policy.maxDepositAssets) revert DEPOSIT_ABOVE_MAXIMUM();
 
-        ManagedVaultState storage state = managedVaultState[controller];
-
-        if (policy.maxDepositAssets != 0 && state.cumulativeDepositedAssets + assets > policy.maxDepositAssets) {
-            revert DEPOSIT_WALLET_CAP_EXCEEDED();
-        }
-        if (policy.totalDepositCap != 0 && _totalCumulativeRequestedAssets + assets > policy.totalDepositCap) {
-            revert DEPOSIT_TOTAL_CAP_EXCEEDED();
-        }
-
-        state.pendingDepositAssets += assets;
-        state.cumulativeDepositedAssets += assets;
+        managedVaultState[controller].pendingDepositAssets += assets;
         totalPendingDepositAssets += assets;
-        _totalCumulativeRequestedAssets += assets;
 
         emit DepositRequestPlaced(controller, assets);
     }
@@ -241,9 +224,7 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         if (assets == 0) revert REQUEST_NOT_FOUND();
 
         state.pendingDepositAssets = 0;
-        state.cumulativeDepositedAssets -= assets;
         totalPendingDepositAssets -= assets;
-        _totalCumulativeRequestedAssets -= assets;
 
         emit DepositRequestCanceled(controller, assets);
     }
@@ -304,7 +285,8 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             ManagedVaultState storage state = managedVaultState[controller];
 
             uint256 assetsGross = state.pendingDepositAssets;
-            if (assetsGross == 0) revert REQUEST_NOT_FOUND();
+            // Skip controllers with no pending request so a front-run cancel cannot brick the batch
+            if (assetsGross == 0) continue;
 
             // Entry fee in ASSETS (asset-side, mirrors SuperVaultStrategy management fee)
             uint256 feeAssets = feeBps == 0 ? 0 : Math.mulDiv(assetsGross, feeBps, BPS_PRECISION, Math.Rounding.Ceil);
@@ -334,7 +316,9 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         totalPendingDepositAssets -= totalGrossAssets;
 
         // Move deposit assets from escrow into operational custody
-        IManagedSuperVaultEscrow(_escrow).releaseDepositAssets(address(this), totalGrossAssets);
+        if (totalGrossAssets != 0) {
+            IManagedSuperVaultEscrow(_escrow).releaseDepositAssets(address(this), totalGrossAssets);
+        }
 
         // Pay entry fees
         if (totalFeeAssets != 0) {
@@ -356,12 +340,11 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             ManagedVaultState storage state = managedVaultState[controller];
 
             uint256 assets = state.pendingDepositAssets;
-            if (assets == 0) revert REQUEST_NOT_FOUND();
+            // Skip controllers with no pending request (mirrors fulfill; avoids batch-brick reverts)
+            if (assets == 0) continue;
 
             state.pendingDepositAssets = 0;
-            state.cumulativeDepositedAssets -= assets;
             totalPendingDepositAssets -= assets;
-            _totalCumulativeRequestedAssets -= assets;
 
             // Refund assets from escrow back to the depositor
             IManagedSuperVaultEscrow(_escrow).refundDepositAssets(controller, assets);
@@ -375,16 +358,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IManagedSuperVaultController
-    function requestApproval() external {
-        ApprovalStatus status = _approvalStatus[msg.sender];
-        if (status == ApprovalStatus.Approved || status == ApprovalStatus.Requested) {
-            revert INVALID_APPROVAL_STATUS();
-        }
-        _approvalStatus[msg.sender] = ApprovalStatus.Requested;
-        emit DepositorApprovalRequested(msg.sender);
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
     function approveDepositors(address[] calldata depositors, bytes32[] calldata kycRefs) external {
         _isManager(msg.sender);
 
@@ -396,7 +369,7 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             address depositor = depositors[i];
             if (depositor == address(0)) revert ZERO_ADDRESS();
             _approvalStatus[depositor] = ApprovalStatus.Approved;
-            _kycRefs[depositor] = kycRefs[i];
+            // KYC/subscription reference is emitted for offchain indexing only; never stored onchain
             emit DepositorApproved(depositor, kycRefs[i]);
         }
     }
@@ -411,7 +384,7 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         for (uint256 i; i < len; ++i) {
             address depositor = depositors[i];
             _approvalStatus[depositor] = ApprovalStatus.Rejected;
-            emit DepositorRejected(depositor, _kycRefs[depositor]);
+            emit DepositorRejected(depositor);
         }
     }
 
@@ -524,25 +497,9 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         IManagedSuperVaultAggregator aggregator = _getAggregator();
         if (effectiveTimestamp <= aggregator.getLastUpdateTimestamp(address(this))) revert INVALID_TIMESTAMP();
 
-        // Only one active proposal at a time; expired proposals are auto-canceled
-        uint256 activeId = _activeProposalId;
-        if (activeId != 0) {
-            NAVUpdateProposal storage active = _navProposals[activeId];
-            if (
-                (active.status == NAVProposalStatus.PendingAttestation
-                        || active.status == NAVProposalStatus.ReviewRequired)
-                    && block.timestamp <= active.createdAt + _attestationValidity
-            ) {
-                revert NAV_PROPOSAL_PENDING();
-            }
-            if (
-                active.status == NAVProposalStatus.PendingAttestation
-                    || active.status == NAVProposalStatus.ReviewRequired
-            ) {
-                active.status = NAVProposalStatus.Canceled;
-                emit NAVProposalCanceled(activeId, msg.sender);
-            }
-        }
+        // Only one active proposal at a time; an existing pending/in-review proposal must be
+        // explicitly cancelled (cancelNAVUpdate) or resolved first
+        if (_activeProposalId != 0) revert NAV_PROPOSAL_PENDING();
 
         proposalId = ++_nextProposalId;
         _navProposals[proposalId] = NAVUpdateProposal({
@@ -551,7 +508,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             evidenceHash: evidenceHash,
             evidenceURI: evidenceURI,
             proposer: msg.sender,
-            createdAt: block.timestamp,
             attestationCount: 0,
             status: NAVProposalStatus.PendingAttestation
         });
@@ -574,7 +530,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
         NAVUpdateProposal storage proposal = _navProposals[proposalId];
         if (proposal.status != NAVProposalStatus.PendingAttestation) revert NAV_PROPOSAL_NOT_PENDING();
-        if (block.timestamp > proposal.createdAt + _attestationValidity) revert NAV_PROPOSAL_EXPIRED();
         if (msg.sender == proposal.proposer) revert ATTESTOR_CANNOT_BE_PROPOSER();
         if (_hasAttested[proposalId][msg.sender]) revert ALREADY_ATTESTED();
 
@@ -583,8 +538,11 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
         emit NAVAttested(proposalId, msg.sender, proposal.attestationCount);
 
+        // Normal path: never bypasses the deviation bound (allowLargeDeviation = false).
+        // An out-of-bound proposal moves to ReviewRequired and can only finalize via
+        // resolveLargeDeviationNAV (the elevated, explicit-unpause path).
         if (proposal.attestationCount >= _navThreshold) {
-            _finalizeNAV(proposalId, proposal, proposal.effectiveTimestamp);
+            _finalizeNAV(proposalId, proposal, proposal.effectiveTimestamp, false);
         }
     }
 
@@ -610,45 +568,81 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
         NAVUpdateProposal storage proposal = _navProposals[proposalId];
         if (proposal.status != NAVProposalStatus.ReviewRequired) revert NAV_PROPOSAL_NOT_IN_REVIEW();
-        if (block.timestamp > proposal.createdAt + _attestationValidity) revert NAV_PROPOSAL_EXPIRED();
         if (proposal.attestationCount < _navThreshold) revert ATTESTATION_THRESHOLD_NOT_MET();
 
         // Elevated action: the vault auto-paused on the deviation breach; it must have been explicitly
-        // unpaused (indexable manager action) before the large-deviation NAV can be finalized. The NAV
-        // remains flagged stale from the pause, which is what bypasses the deviation bound below —
-        // mirroring the Full SuperVault emergency-update escape hatch.
+        // unpaused (indexable manager action) before the large-deviation NAV can be finalized. This is
+        // the ONLY path that finalizes a NAV exceeding the deviation bound (allowLargeDeviation = true);
+        // an ordinary attestation can never bypass the bound, even right after a manual pause/unpause.
         IManagedSuperVaultAggregator aggregator = _getAggregator();
         if (aggregator.isManagedVaultPaused(address(this))) revert MANAGED_VAULT_PAUSED();
 
         // Re-stamp the NAV at resolve time: the original effective timestamp necessarily predates the
         // deviation pause, which the aggregator's post-unpause validation would reject. The elevated
         // resolve action re-affirms the attested value as of now.
-        _finalizeNAV(proposalId, proposal, block.timestamp);
+        _finalizeNAV(proposalId, proposal, block.timestamp, true);
         emit NAVLargeDeviationResolved(proposalId, msg.sender);
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function addNAVAttestor(address attestor) external {
+    function proposeNAVAttestationConfig(address[] calldata attestors, uint8 threshold) external {
         _isPrimaryManager(msg.sender);
-        if (attestor == address(0)) revert ZERO_ADDRESS();
-        if (!_navAttestors.add(attestor)) revert ATTESTOR_ALREADY_EXISTS();
-        emit NAVAttestorAdded(attestor);
+
+        uint256 len = attestors.length;
+        if (len == 0 || threshold == 0 || threshold > len) revert INVALID_ATTESTATION_CONFIG();
+        for (uint256 i; i < len; ++i) {
+            if (attestors[i] == address(0)) revert ZERO_ADDRESS();
+            // Reject duplicates within the proposed set
+            for (uint256 j = i + 1; j < len; ++j) {
+                if (attestors[i] == attestors[j]) revert ATTESTOR_ALREADY_EXISTS();
+            }
+        }
+
+        _pendingAttestors = attestors;
+        _pendingThreshold = threshold;
+        _navConfigEffectiveTime = block.timestamp + NAV_CONFIG_TIMELOCK;
+
+        emit NAVAttestationConfigProposed(attestors, threshold, _navConfigEffectiveTime);
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function removeNAVAttestor(address attestor) external {
+    function executeNAVAttestationConfig() external {
         _isPrimaryManager(msg.sender);
-        if (!_navAttestors.remove(attestor)) revert ATTESTOR_NOT_FOUND();
-        if (_navThreshold > _navAttestors.length()) revert INVALID_ATTESTATION_CONFIG();
-        emit NAVAttestorRemoved(attestor);
+
+        if (_navConfigEffectiveTime == 0) revert NO_PENDING_NAV_CONFIG();
+        if (block.timestamp < _navConfigEffectiveTime) revert NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
+
+        // Clear the current attestor set
+        address[] memory current = _navAttestors.values();
+        for (uint256 i; i < current.length; ++i) {
+            _navAttestors.remove(current[i]);
+            emit NAVAttestorRemoved(current[i]);
+        }
+
+        // Install the new attestor set + threshold
+        address[] memory next = _pendingAttestors;
+        for (uint256 i; i < next.length; ++i) {
+            _navAttestors.add(next[i]);
+            emit NAVAttestorAdded(next[i]);
+        }
+        _navThreshold = _pendingThreshold;
+        emit NAVAttestationThresholdUpdated(_pendingThreshold);
+
+        delete _pendingAttestors;
+        _pendingThreshold = 0;
+        _navConfigEffectiveTime = 0;
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function setNAVAttestationThreshold(uint8 threshold) external {
+    function cancelNAVAttestationConfig() external {
         _isPrimaryManager(msg.sender);
-        if (threshold == 0 || threshold > _navAttestors.length()) revert INVALID_ATTESTATION_CONFIG();
-        _navThreshold = threshold;
-        emit NAVAttestationThresholdUpdated(threshold);
+        if (_navConfigEffectiveTime == 0) revert NO_PENDING_NAV_CONFIG();
+
+        delete _pendingAttestors;
+        _pendingThreshold = 0;
+        _navConfigEffectiveTime = 0;
+
+        emit NAVAttestationConfigCancelled();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -690,7 +684,11 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
                 revert INVALID_CALL_RULE();
             }
             if (rule.valueAllowed && rule.maxValuePerCall == 0) revert INVALID_CALL_RULE();
-            if (rule.windowValueCap != 0 && rule.windowDuration == 0) revert INVALID_CALL_RULE();
+            // Spec 6.9: no per-call cap without a cumulative/windowed cap. A value-moving rule must
+            // always carry a rolling-window cap (and a non-zero window duration) as the real backstop.
+            if (rule.valueAllowed && (rule.windowValueCap == 0 || rule.windowDuration == 0)) {
+                revert INVALID_CALL_RULE();
+            }
             if (rule.windowValueCap != 0 && rule.windowValueCap < rule.maxValuePerCall) revert INVALID_CALL_RULE();
 
             // Sensitive value-moving selectors cannot be enabled without constraining their
@@ -934,11 +932,6 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function getKycRef(address depositor) external view returns (bytes32 kycRef) {
-        return _kycRefs[depositor];
-    }
-
-    /// @inheritdoc IManagedSuperVaultController
     function pendingDepositRequest(address controller) external view returns (uint256 pendingAssets) {
         return managedVaultState[controller].pendingDepositAssets;
     }
@@ -964,12 +957,17 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     }
 
     /// @inheritdoc IManagedSuperVaultController
-    function getNAVAttestationConfig()
+    function getNAVAttestationConfig() external view returns (address[] memory attestors, uint8 threshold) {
+        return (_navAttestors.values(), _navThreshold);
+    }
+
+    /// @inheritdoc IManagedSuperVaultController
+    function getPendingNAVAttestationConfig()
         external
         view
-        returns (address[] memory attestors, uint8 threshold, uint256 attestationValidity)
+        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime)
     {
-        return (_navAttestors.values(), _navThreshold, _attestationValidity);
+        return (_pendingAttestors, _pendingThreshold, _navConfigEffectiveTime);
     }
 
     /// @inheritdoc IManagedSuperVaultController
@@ -1083,10 +1081,19 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     ///      into ReviewRequired instead of Finalized.
     /// @param navTimestamp The observation timestamp to store: the proposal's effective timestamp on
     ///        the attestation path, or block.timestamp on the elevated resolve path
-    function _finalizeNAV(uint256 proposalId, NAVUpdateProposal storage proposal, uint256 navTimestamp) internal {
+    /// @param allowLargeDeviation True only on the resolve path; lets the aggregator finalize a NAV
+    ///        that exceeds the deviation bound. The ordinary attestation path always passes false.
+    function _finalizeNAV(
+        uint256 proposalId,
+        NAVUpdateProposal storage proposal,
+        uint256 navTimestamp,
+        bool allowLargeDeviation
+    )
+        internal
+    {
         IManagedSuperVaultAggregator aggregator = _getAggregator();
 
-        bool accepted = aggregator.updateManagedNAV(proposal.proposedPPS, navTimestamp);
+        bool accepted = aggregator.updateManagedNAV(proposal.proposedPPS, navTimestamp, allowLargeDeviation);
 
         if (accepted) {
             proposal.status = NAVProposalStatus.Finalized;
@@ -1254,19 +1261,14 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
 
     /// @notice Validate and store the deposit policy
     function _setDepositPolicy(DepositPolicy memory policy) internal {
-        if (
-            policy.subscriptionWindowStart != 0 && policy.subscriptionWindowEnd != 0
-                && policy.subscriptionWindowEnd <= policy.subscriptionWindowStart
-        ) revert ACTION_TYPE_DISALLOWED();
+        if (policy.maxDepositAssets != 0 && policy.maxDepositAssets < policy.minDepositAssets) {
+            revert ACTION_TYPE_DISALLOWED();
+        }
 
         depositPolicy = policy;
 
         emit DepositPolicyUpdated(
-            policy.approvalMode,
-            policy.depositsPaused,
-            policy.minDepositAssets,
-            policy.maxDepositAssets,
-            policy.totalDepositCap
+            policy.approvalMode, policy.depositsPaused, policy.minDepositAssets, policy.maxDepositAssets
         );
     }
 
