@@ -448,6 +448,15 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         if (_navConfigEffectiveTime[controller] == 0) revert NO_PENDING_NAV_CONFIG();
         if (block.timestamp < _navConfigEffectiveTime[controller]) revert NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
 
+        // SECURITY: cancel any in-flight proposal so attestations collected under the OLD attestor set
+        // cannot finalize under the new set/threshold (no stale-attestation carry across a config swap).
+        uint256 activeId = _activeProposalId[controller];
+        if (activeId != 0) {
+            _navProposals[controller][activeId].status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
+            _activeProposalId[controller] = 0;
+            emit NAVProposalCanceled(controller, activeId, msg.sender);
+        }
+
         // Clear the current attestor set
         address[] memory current = _navAttestors[controller].values();
         for (uint256 i; i < current.length; ++i) {
@@ -501,6 +510,25 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         } else {
             proposal.status = IManagedSuperVaultController.NAVProposalStatus.ReviewRequired;
             emit NAVReviewRequired(controller, proposalId, proposal.proposedPPS, _managedVaultData[controller].pps);
+        }
+    }
+
+    /// @notice Invalidate any in-flight NAV proposal and pending attestor-config change for a controller
+    /// @dev Called when the attestor set or the primary manager changes. This prevents (a) attestations
+    ///      collected under an old attestor set from finalizing under a new set, and (b) a NAV proposal or
+    ///      a queued attestor-config change left by an outgoing manager from surviving the transition.
+    function _invalidatePendingNAV(address controller) internal {
+        uint256 activeId = _activeProposalId[controller];
+        if (activeId != 0) {
+            _navProposals[controller][activeId].status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
+            _activeProposalId[controller] = 0;
+            emit NAVProposalCanceled(controller, activeId, msg.sender);
+        }
+        if (_navConfigEffectiveTime[controller] != 0) {
+            delete _pendingAttestors[controller];
+            _pendingThreshold[controller] = 0;
+            _navConfigEffectiveTime[controller] = 0;
+            emit NAVAttestationConfigCancelled(controller);
         }
     }
 
@@ -758,6 +786,8 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         // SECURITY: drop any pending deviation-threshold loosening queued by the outgoing manager
         _managedVaultData[controller].proposedDeviationThreshold = 0;
         _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
+        // SECURITY: invalidate any in-flight NAV proposal / queued attestor-config change
+        _invalidatePendingNAV(controller);
 
         // SECURITY: Clear all secondary managers as they may be controlled by the malicious manager
         address[] memory clearedSecondaryManagers = _managedVaultData[controller].secondaryManagers.values();
@@ -838,6 +868,8 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
         _managedVaultData[controller].proposedDeviationThreshold = 0;
         _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
+        // SECURITY: invalidate any in-flight NAV proposal / queued attestor-config change
+        _invalidatePendingNAV(controller);
 
         _managedVaultData[controller].mainManager = newManager;
 

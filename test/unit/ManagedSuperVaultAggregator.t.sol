@@ -245,6 +245,63 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
         assertEq(aggregator.getLastUnpauseTimestamp(address(controller)), block.timestamp);
     }
 
+    /// @notice Hardening: an attestor-set swap cancels any in-flight proposal so pre-swap attestations
+    ///         (from now-removed attestors) can't finalize under the new set/threshold.
+    function test_attestationConfigSwap_cancelsActiveProposal() public {
+        // Open a proposal (unattested)
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.prank(manager);
+        uint256 proposalId =
+            aggregator.proposeNAVUpdate(address(controller), 1.01e18, block.timestamp, EVIDENCE_HASH, "");
+        assertEq(aggregator.getActiveNAVProposalId(address(controller)), proposalId);
+
+        // Swap the attestor set (timelocked)
+        address[] memory next = new address[](1);
+        next[0] = makeAddr("freshAttestor");
+        vm.prank(manager);
+        aggregator.proposeNAVAttestationConfig(address(controller), next, 1);
+        vm.warp(block.timestamp + 3 days);
+        vm.prank(manager);
+        aggregator.executeNAVAttestationConfig(address(controller));
+
+        // The in-flight proposal is cancelled; even a NEW valid attestor cannot finalize it
+        assertEq(aggregator.getActiveNAVProposalId(address(controller)), 0);
+        assertEq(
+            uint8(aggregator.getNAVProposal(address(controller), proposalId).status),
+            uint8(IManagedSuperVaultController.NAVProposalStatus.Canceled)
+        );
+        vm.expectRevert(IManagedSuperVaultAggregator.NAV_PROPOSAL_NOT_PENDING.selector);
+        vm.prank(next[0]);
+        aggregator.attestNAVUpdate(address(controller), proposalId);
+    }
+
+    /// @notice Hardening: a primary-manager change invalidates any in-flight NAV proposal and pending
+    ///         attestor-config change left by the outgoing manager.
+    function test_managerChange_invalidatesPendingNAV() public {
+        // Outgoing manager leaves an in-flight proposal and a queued attestor-config change
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.prank(manager);
+        uint256 proposalId =
+            aggregator.proposeNAVUpdate(address(controller), 1.01e18, block.timestamp, EVIDENCE_HASH, "");
+        address[] memory next = new address[](1);
+        next[0] = makeAddr("sockpuppet");
+        vm.prank(manager);
+        aggregator.proposeNAVAttestationConfig(address(controller), next, 1);
+
+        // Governance replaces the primary manager
+        vm.prank(address(superGovernor));
+        aggregator.changePrimaryManager(address(controller), makeAddr("newManager"), feeRecipient);
+
+        // Both are cleared
+        assertEq(aggregator.getActiveNAVProposalId(address(controller)), 0);
+        assertEq(
+            uint8(aggregator.getNAVProposal(address(controller), proposalId).status),
+            uint8(IManagedSuperVaultController.NAVProposalStatus.Canceled)
+        );
+        (,, uint256 eff) = aggregator.getPendingNAVAttestationConfig(address(controller));
+        assertEq(eff, 0);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         MANAGER MANAGEMENT
     //////////////////////////////////////////////////////////////*/
