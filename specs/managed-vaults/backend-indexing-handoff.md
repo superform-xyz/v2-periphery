@@ -2,7 +2,7 @@
 
 **Source of truth:** this repo (`v2-periphery`), `src/ManagedSuperVault/` + `src/interfaces/ManagedSuperVault/`. This is a **new vault family**, a sibling to SuperVaults — not a change to existing SuperVault indexing.
 
-This document is intentionally backend-agnostic. The Erebor vs Persephone/datamat split is left to the two repo owners (see §7); everything here applies regardless of where the work lands.
+This document is backend-agnostic in its event semantics; where the work lands is settled in §7.
 
 ## 1. Identity model (read this first)
 
@@ -19,7 +19,7 @@ Build the `vault ↔ controller ↔ escrow` map from `ManagedSuperVaultDeployed`
 ## 2. Discovery / addresses
 
 - **Aggregator address:** SuperGovernor registry under `keccak256("MANAGED_SUPER_VAULT_AGGREGATOR")`; also in `script/output/{prod|staging}/{chainId}/{Chain}-latest.json` as `ManagedSuperVaultAggregator`. Deterministic per environment.
-- **New vaults:** subscribe to `ManagedSuperVaultDeployed` on the aggregator. Backfill via `getAllManagedVaults()` / `getAllManagedVaultControllers()`.
+- **New vaults:** subscribe to `ManagedSuperVaultDeployed` on the aggregator. `getAllManagedVaults()` / `getAllManagedVaultControllers()` are **reconciliation tools**, not the primary backfill path — the subgraph backfills from the deploy block automatically, but index mirrors drift, so run periodic onchain-vs-index reconciliation against these getters (see the SuperVault balance-reconciliation precedent).
 - **Executor address:** output JSON `ManagedSuperVaultExecutor` (optional; only if session keys are used).
 
 ## 3. Event catalog (grouped by concern)
@@ -133,8 +133,8 @@ AllSessionKeysInvalidated(address indexed controller, uint80 newGeneration)
 
 ## 5. Critical semantics — get these right
 
-- **PPS/NAV units:** scaled to **asset decimals** (`10**assetDecimals == 1.0`). Initial PPS = 1.0. Read current via `aggregator.getPPS(controller)`.
-- **`nav_mode` is always `"attested_manual"`** (aggregator `NAV_MODE()`, controller `navMode()`). **Every NAV/PPS read the backend exposes must carry `nav_mode`** — downstream must never render manager-proposed NAV as validator-attested PPS (spec 6.8).
+- **PPS/NAV units:** scaled to **asset decimals** (`10**assetDecimals == 1.0`). Initial PPS = 1.0. Read current via `aggregator.getPPS(controller)`. `vault.totalAssets()` is NAV-derived (totalSupply × attested PPS), so `totalAssets/totalSupply` stats paths remain valid.
+- **`nav_mode` is always `"attested_manual"`** (aggregator `NAV_MODE()`, controller `navMode()`). Backends may carry this as a vault-family label rather than a per-read field, but the invariant stands: **any manager-facing or user-facing NAV/PPS render must be distinguishable from validator-attested PPS** — the labeling obligation lands on whichever layer feeds the frontend (spec 6.8).
 - **A deviation breach is not a finalized NAV.** `NAVReviewRequired` + `ManagedNAVDeviationExceeded` + `ManagedVaultPaused` + `ManagedVaultNAVStale` means the value was **dropped**; the proposal sits in `ReviewRequired` until an explicit unpause + `resolveLargeDeviationNAV`. Don't treat `proposedPPS` as the vault's NAV.
 - **Freshness:** `aggregator.isNAVStale(controller)`, `getLastUpdateTimestamp`, `getMaxStaleness`. Spec 6.4 also wants **NAV drift over time**, not just per-update deltas — derive from the `ManagedNAVUpdated` series.
 - **NAV lifecycle lives on the aggregator, keyed by controller** (it was relocated there from the controller during development). All `NAV*` events come from the aggregator.
@@ -148,12 +148,17 @@ AllSessionKeysInvalidated(address indexed controller, uint80 newGeneration)
 - **KYC PII** — only `bytes32` reference hashes are onchain.
 - **metadataURI content** — offchain.
 
-## 7. Suggested entities + the open Erebor-vs-Persephone split
+## 7. Where the work lands (settled)
+
+Four lanes, three consumers of one indexer. v2-periphery events remain the source of truth for all onchain actions.
+
+- **subgraphs-monorepo/v2-periphery** — the only event-indexing layer. Extends the existing SuperVault subgraph: new dataSources for the aggregator + executor singletons, templates instantiated per `ManagedSuperVaultDeployed` for vault/controller, the entities below, and Goldsky pipeline sinks mirroring hot entities into downstream Postgres (existing `pending_redeem_for_controller` pattern). **Gating work — every other lane waits on it.**
+- **supervaults-data-pipeline** — derived series for the operate-console lane: NAV/PPS history + drift, flows, manager-NAV-derived TVL, fee history, execution history, and pending-request reconcilers (modeled on `supervault_redeem_requests`).
+- **erebor** — Superman console API (deposit/approval queues, active NAV proposal + attestation state, pending timelocked changes as "pending + eta", policy/pause/fee views, session-key views, audit log, RBAC over the family) reading the pipeline DB + subgraph. Never indexes. Prereq: rename the existing RBAC-meaning `domain.ManagedVault`. **No keepers in v1** — deposit/redeem fulfillment is manager-initiated, since fulfillment prices at the current attested PPS and depends on manager-positioned controller liquidity; keeper automation via session keys with `FulfillDeposits`/`FulfillRedeem` bits is a v2 path.
+- **persephone/datamat** — consumer-app lane (managed vaults appear in the Superform app): vault-family labeling, catalog worker, NAV history series, and stats via the existing ERC-4626 path (valid per the `totalAssets()` note in §5).
 
 Entities (spec §8): `ManagedVault`, `ManagedVaultPolicy`, `ManagedVaultNavProposal`/`NavUpdate`, `ManagedVaultApproval`, `ManagedVaultDepositRequest`, `ManagedVaultRedemptionRequest`, `ManagedVaultExecution`, `ManagedVaultRoleAssignment`/`SessionKey`, `ManagedVaultAuditEvent` (unified chronological log — every event above with `{timestamp, actor, txHash, human-readable summary}`).
 
-**The Erebor vs Persephone decision is explicitly left open in spec §8** — that's for the two repo owners to settle. A reasonable default division, if it helps decide:
-- **Erebor (operational API for Superman):** the live operate-console needs — deposit/redemption/approval queues, the active NAV proposal + attestation state, current policy (deposit/execution/fee/roles), pause state, and the audit log. "Current state + pending actions."
-- **Persephone / datamat (normalized analytics/history):** NAV history + drift series, TVL/AUM time series (labeled manager-NAV-derived), fee history, execution history. "Time series over the event stream."
+## 8. Deployment scope
 
-v2-periphery events are the source of truth for all onchain actions either way; nothing here dictates the split.
+Ethereum + Base only at launch. Dev/staging aggregator deployments and matching dev subgraph deployments will exist for pre-prod indexing.
