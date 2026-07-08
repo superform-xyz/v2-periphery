@@ -166,6 +166,11 @@ interface IManagedSuperVaultController {
     }
 
     /// @notice Execution policy rule for a (target, selector) pair
+    /// @dev The value cap covers native value only; ERC-20 amounts are constrained by recipient allowlist,
+    ///      not amount. The window is a fixed tumbling window (resets fully at windowStart + windowDuration),
+    ///      not a true sliding window, so up to ~2x windowValueCap can move across a window boundary in a
+    ///      short span — it is a disclosed backstop, not a hard rate limit, and the admin/multisig trust
+    ///      root remains the ultimate bound.
     /// @param allowed Whether calls to this (target, selector) are allowed
     /// @param valueAllowed Whether native value may be attached
     /// @param maxValuePerCall Maximum native value per call (only if valueAllowed)

@@ -137,7 +137,7 @@ interface IManagedSuperVaultAggregator {
     );
 
     /// @notice Emitted when the high-water mark is reset by governance
-    event HighWaterMarkReset(address indexed controller, uint256 newHwmPps);
+    event HighWaterMarkReset(address indexed controller, uint256 indexed newHwmPps);
 
     /// @notice Emitted when a min update interval change is proposed
     event MinUpdateIntervalChangeProposed(

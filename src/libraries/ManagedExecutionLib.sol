@@ -173,6 +173,11 @@ library ManagedExecutionLib {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Whether a selector is a sensitive value-moving selector requiring argument constraints
+    /// @dev For transferFrom(from,to,amount) only the recipient `to` (arg index 1) is forced into the
+    ///      allowlist, not the source `from` (index 0). This is sound because the controller never grants
+    ///      ERC-20 approvals to third parties, so a transferFrom pulling from anyone other than the
+    ///      controller itself reverts on allowance regardless — constraining `to` is the meaningful guard.
+    ///      A manager may still additionally constrain index 0 via constrainedArgs if desired.
     function _sensitiveArg(bytes4 selector) private pure returns (bool required, uint8 argIndex) {
         if (
             selector == SELECTOR_TRANSFER || selector == SELECTOR_APPROVE || selector == SELECTOR_INCREASE_ALLOWANCE

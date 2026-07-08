@@ -151,7 +151,11 @@ contract ManagedSuperVault is
 
     /// @inheritdoc IERC7540Deposit
     /// @notice Transfers assets from owner into escrow and submits an async deposit request
-    /// @dev controller MUST equal owner (accounting invariant, mirrors the redeem side)
+    /// @dev controller MUST equal owner (accounting invariant, mirrors the redeem side).
+    /// @dev Assumes a standard (non-fee-on-transfer, non-rebasing) underlying asset: the nominal `assets`
+    ///      is recorded as pending before the transfer, so a fee-on-transfer token would overstate escrowed
+    ///      balance and later surface as a fulfillment revert (liveness), never fund loss. Managed vaults
+    ///      are expected to use curated assets, as elsewhere in this repo.
     function requestDeposit(uint256 assets, address controller_, address owner)
         external
         nonReentrant
