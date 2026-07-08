@@ -99,6 +99,12 @@ contract DeployManagedSuperVault is DeployV2Base {
 
         address aggregator = _readDeployedAddress(env, chainId, branchName, AGGREGATOR_KEY);
         require(aggregator != address(0) && aggregator.code.length > 0, "AGGREGATOR_NOT_DEPLOYED");
+        // Re-verify the aggregator actually belongs to this SuperGovernor before wiring it into the
+        // live registry — guards against a stale or hand-edited output JSON pointing at the wrong one.
+        require(
+            address(ManagedSuperVaultAggregator(aggregator).SUPER_GOVERNOR()) == superGovernor,
+            "AGGREGATOR_GOVERNOR_MISMATCH"
+        );
 
         console2.log("====== Registering ManagedSuperVaultAggregator ======");
         console2.log("Chain ID:", chainId);

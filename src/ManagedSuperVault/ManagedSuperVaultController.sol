@@ -253,10 +253,13 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
             // Entry fee in ASSETS (asset-side, mirrors SuperVaultStrategy management fee)
             uint256 feeAssets = feeBps == 0 ? 0 : Math.mulDiv(assetsGross, feeBps, BPS_PRECISION, Math.Rounding.Ceil);
             uint256 assetsNet = assetsGross - feeAssets;
-            if (assetsNet == 0) revert INVALID_AMOUNT();
+            // Skip (don't revert) a dust request that nets to zero assets or zero shares, so one such
+            // entry can't brick the whole batch — consistent with the zero-pending skip above. The
+            // request stays pending; the depositor can cancel it or the manager can reject it.
+            if (assetsNet == 0) continue;
 
             uint256 impliedShares = Math.mulDiv(assetsNet, PRECISION, currentPPS, Math.Rounding.Floor);
-            if (impliedShares == 0) revert INVALID_AMOUNT();
+            if (impliedShares == 0) continue;
 
             // Weighted average claim price across fulfillments (same formula as the redeem side)
             state.averageDepositPrice = SuperVaultAccountingLib.calculateAverageWithdrawPrice(
@@ -477,7 +480,9 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
         ManagedExecutionLib.validateCallRule(rule, selector);
 
         _callRules[target][selector] = rule;
-        delete _windowUsage[target][selector];
+        // Deliberately do NOT reset _windowUsage here: otherwise the primary manager could zero the
+        // rolling-window value cap on demand by re-applying a rule, defeating the very backstop it is.
+        // Accrued usage carries over (conservative); it self-resets on natural window expiry in execution.
 
         emit CallRuleSet(
             target,
@@ -495,7 +500,8 @@ contract ManagedSuperVaultController is IManagedSuperVaultController, Initializa
     function removeCallRule(address target, bytes4 selector) external {
         _isPrimaryManager(msg.sender);
         delete _callRules[target][selector];
-        delete _windowUsage[target][selector];
+        // _windowUsage is intentionally preserved so a remove + re-add cannot be used to reset the
+        // rolling-window value cap (see setCallRule); it self-resets on natural window expiry.
         emit CallRuleRemoved(target, selector);
     }
 

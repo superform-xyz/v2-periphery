@@ -519,6 +519,80 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         controller.executeManagedCall(noValueCall, keccak256("op-6"));
     }
 
+    /// @notice Regression: re-applying (or removing + re-adding) a rule must NOT reset the rolling
+    ///         window usage, else the manager could zero the value cap on demand.
+    function test_setCallRule_doesNotResetWindowUsage() public {
+        vm.deal(address(controller), 100 ether);
+        address payable sink = payable(makeAddr("windowSink"));
+
+        IManagedSuperVaultController.CallRule memory rule;
+        rule.allowed = true;
+        rule.valueAllowed = true;
+        rule.maxValuePerCall = 1 ether;
+        rule.windowValueCap = 2 ether;
+        rule.windowDuration = 1 days;
+
+        vm.startPrank(manager);
+        controller.setCallRule(sink, bytes4(0), rule);
+
+        IManagedSuperVaultController.ManagedCall memory call_ =
+            IManagedSuperVaultController.ManagedCall({ target: sink, value: 1 ether, data: "" });
+        controller.executeManagedCall(call_, keccak256("w-1"));
+        controller.executeManagedCall(call_, keccak256("w-2")); // window now full (2 ether)
+
+        // Re-applying the same rule must not zero the counter...
+        controller.setCallRule(sink, bytes4(0), rule);
+        vm.expectRevert(IManagedSuperVaultController.VALUE_EXCEEDS_WINDOW_CAP.selector);
+        controller.executeManagedCall(call_, keccak256("w-3"));
+
+        // ...nor does remove + re-add.
+        controller.removeCallRule(sink, bytes4(0));
+        controller.setCallRule(sink, bytes4(0), rule);
+        vm.expectRevert(IManagedSuperVaultController.VALUE_EXCEEDS_WINDOW_CAP.selector);
+        controller.executeManagedCall(call_, keccak256("w-4"));
+        vm.stopPrank();
+
+        assertEq(sink.balance, 2 ether);
+    }
+
+    /// @notice Fix: a dust request that nets to zero assets/shares is skipped, not reverted, so it
+    ///         can't brick the batch — mirroring the zero-pending skip.
+    function test_fulfillDepositRequests_skipsDustAndMixed() public {
+        // Vault with a management fee so a 1-wei request nets to zero
+        IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params = _defaultParams();
+        params.feeConfig.managementFeeBps = 100; // 1%
+        (address vault_, address controller_,) = _createManagedVault(params);
+        ManagedSuperVault v = ManagedSuperVault(vault_);
+        ManagedSuperVaultController c = ManagedSuperVaultController(payable(controller_));
+
+        // user2 places a dust request (1 wei -> fee rounds it to 0 net); user places a real one
+        vm.startPrank(user2);
+        asset.approve(vault_, 1);
+        v.requestDeposit(1, user2, user2);
+        vm.stopPrank();
+
+        vm.startPrank(user);
+        asset.approve(vault_, 100e18);
+        v.requestDeposit(100e18, user, user);
+        vm.stopPrank();
+
+        // Mixed batch (dust + real, plus an untouched third) must not revert
+        address[] memory depositors = new address[](3);
+        depositors[0] = user2; // dust -> skipped
+        depositors[1] = user; // real -> fulfilled
+        depositors[2] = makeAddr("noRequest"); // zero-pending -> skipped
+        vm.prank(manager);
+        c.fulfillDepositRequests(depositors);
+
+        // Real request fulfilled; dust stays pending and can still be cancelled/refunded
+        assertEq(c.claimableDepositRequest(user), 99e18);
+        assertEq(c.pendingDepositRequest(user2), 1);
+
+        vm.prank(user2);
+        v.cancelDepositRequest(0, user2);
+        assertEq(c.pendingDepositRequest(user2), 0);
+    }
+
     function test_executeManagedCall_failureBubbles() public {
         // transfer of more than the controller balance -> ERC20 revert wrapped in EXECUTION_FAILED
         vm.startPrank(manager);
@@ -623,6 +697,30 @@ contract ManagedSuperVaultControllerTest is ManagedSuperVaultTestBase {
         controller.skimPerformanceFee();
 
         vm.warp(block.timestamp + 12 hours);
+        vm.prank(manager);
+        controller.skimPerformanceFee();
+    }
+
+    /// @notice Fix: a fee skim is blocked while a NAV proposal is in flight, so the skim's timestamp
+    ///         bump can't stall the proposal on the monotonicity check at finalize.
+    function test_skim_blockedWhileNavProposalPending() public {
+        _depositRoundTrip(user, 100e18);
+        _updateNAV(1.1e18); // PPS now above HWM, no active proposal
+
+        // Open (but don't finalize) a NAV proposal
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.prank(manager);
+        aggregator.proposeNAVUpdate(address(controller), 1.2e18, block.timestamp, EVIDENCE_HASH, "");
+
+        // Skim is blocked until the proposal is resolved or cancelled
+        vm.expectRevert(IManagedSuperVaultAggregator.NAV_PROPOSAL_PENDING.selector);
+        vm.prank(manager);
+        controller.skimPerformanceFee();
+
+        // Cancel the proposal -> skim works again
+        uint256 activeId = aggregator.getActiveNAVProposalId(address(controller));
+        vm.prank(manager);
+        aggregator.cancelNAVUpdate(address(controller), activeId);
         vm.prank(manager);
         controller.skimPerformanceFee();
     }

@@ -604,6 +604,10 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         ManagedVaultData storage data = _managedVaultData[controller];
         if (data.isPaused) revert MANAGED_VAULT_PAUSED();
         if (data.navStale) revert NAV_STALE();
+        // Serialize skims against the NAV lifecycle: a skim bumps lastUpdateTimestamp, which would
+        // otherwise stall an in-flight proposal on the monotonicity check at finalize. Resolve or
+        // cancel the active proposal before skimming.
+        if (_activeProposalId[controller] != 0) revert NAV_PROPOSAL_PENDING();
         uint256 oldPPS = data.pps;
 
         // VALIDATION 1: PPS must decrease after fee skim
