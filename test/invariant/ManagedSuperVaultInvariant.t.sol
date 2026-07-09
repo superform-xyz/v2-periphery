@@ -279,6 +279,21 @@ contract ManagedSuperVaultInvariantTest is ManagedSuperVaultTestBase {
         assertEq(vault.totalSupply(), attributed);
     }
 
+    /// @notice Redeem-side solvency: every fulfilled-but-unclaimed redemption is fully backed by
+    ///         assets in the escrow. fulfillRedeemRequests moves exactly the fulfilled assets into
+    ///         escrow and withdraw pulls exactly the claimed assets back out, so the escrow's asset
+    ///         balance covers the sum of claimable withdrawals — and with only tracked actors
+    ///         interacting it is an exact equality.
+    function invariant_escrowAssetsBackClaimableRedemptions() public view {
+        uint256 sumClaimableWithdraw;
+        for (uint256 i; i < actors.length; ++i) {
+            sumClaimableWithdraw += vault.maxWithdraw(actors[i]);
+        }
+        uint256 escrowAssetBal = asset.balanceOf(address(escrow));
+        assertGe(escrowAssetBal, sumClaimableWithdraw, "escrow assets under-back claimable redemptions");
+        assertEq(escrowAssetBal, sumClaimableWithdraw, "exact with only tracked actors");
+    }
+
     /// @notice PPS is always positive (the rails reject zero and auto-pause instead of storing).
     function invariant_ppsPositive() public view {
         assertGt(aggregator.getPPS(address(strategy)), 0);

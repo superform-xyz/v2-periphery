@@ -20,7 +20,7 @@ import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVault
 ///      (2) upkeep subsystem removed (PPS pushes need no funding),
 ///      (3) governance re-gated from `msg.sender == SUPER_GOVERNOR` to SuperGovernor ROLE holders,
 ///      (4) createVault clones a quartet + registers NAV attestation config atomically,
-///      (5) updateDeviationThreshold hardened to (0, 1e18].
+///      (5) deviation-threshold changes timelocked (3d) and hardened to (0, 1e18]; unpause main-manager-only.
 ///      Inherited-identical logic is covered by the main family's suite.
 contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
     /*//////////////////////////////////////////////////////////////
@@ -644,33 +644,107 @@ contract ManagedSuperVaultAggregatorTest is ManagedSuperVaultTestBase {
                    DEVIATION THRESHOLD HARDENING
     //////////////////////////////////////////////////////////////*/
 
-    function test_UpdateDeviationThreshold_BoundsEnforced() public {
+    /// @notice The managed fork replaces the main family's instant setter with a 3-day timelocked
+    ///         propose/execute/cancel flow (the manager is also the NAV proposer)
+    function test_DeviationThreshold_TimelockedLifecycle() public {
+        uint256 defaultThreshold = aggregator.getDeviationThreshold(address(strategy));
+
+        // Propose: main-manager only
+        vm.prank(secondaryManager);
+        vm.expectRevert(IManagedSuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 3e17);
+
+        vm.prank(manager);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 3e17);
+        (uint256 proposed, uint256 eta) = aggregator.getProposedDeviationThreshold(address(strategy));
+        assertEq(proposed, 3e17);
+        assertEq(eta, block.timestamp + 3 days);
+
+        // The live threshold is unchanged until execution
+        assertEq(aggregator.getDeviationThreshold(address(strategy)), defaultThreshold);
+
+        // Execute before the timelock reverts
+        vm.expectRevert(IManagedSuperVaultAggregator.TIMELOCK_NOT_EXPIRED.selector);
+        aggregator.executeDeviationThresholdChange(address(strategy));
+
+        // Execute after the timelock (permissionless) applies and clears the proposal
+        vm.warp(block.timestamp + 3 days);
+        aggregator.executeDeviationThresholdChange(address(strategy));
+        assertEq(aggregator.getDeviationThreshold(address(strategy)), 3e17);
+        (proposed, eta) = aggregator.getProposedDeviationThreshold(address(strategy));
+        assertEq(proposed, 0);
+        assertEq(eta, 0);
+
+        // Executing again with no pending proposal reverts
+        vm.expectRevert(IManagedSuperVaultAggregator.NO_PENDING_DEVIATION_THRESHOLD_CHANGE.selector);
+        aggregator.executeDeviationThresholdChange(address(strategy));
+    }
+
+    function test_DeviationThreshold_BoundsEnforcedAtPropose() public {
         // Upper bound inclusive: exactly 100% is allowed
         vm.prank(manager);
-        aggregator.updateDeviationThreshold(address(strategy), 1e18);
-        assertEq(aggregator.getDeviationThreshold(address(strategy)), 1e18);
-
-        // Interior value allowed
-        vm.prank(manager);
-        aggregator.updateDeviationThreshold(address(strategy), 3e17);
-        assertEq(aggregator.getDeviationThreshold(address(strategy)), 3e17);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 1e18);
 
         // Zero would block every update
         vm.prank(manager);
         vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
-        aggregator.updateDeviationThreshold(address(strategy), 0);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 0);
 
         // Above 100% rejected
         vm.prank(manager);
         vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
-        aggregator.updateDeviationThreshold(address(strategy), 1e18 + 1);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 1e18 + 1);
 
         // type(uint256).max (the main family's "disable" sentinel) cannot disable the check here
         vm.prank(manager);
         vm.expectRevert(IManagedSuperVaultAggregator.INVALID_DEVIATION_THRESHOLD.selector);
-        aggregator.updateDeviationThreshold(address(strategy), type(uint256).max);
+        aggregator.proposeDeviationThresholdChange(address(strategy), type(uint256).max);
+    }
 
-        assertEq(aggregator.getDeviationThreshold(address(strategy)), 3e17);
+    function test_DeviationThreshold_CancelAndManagerChangeClearPending() public {
+        // Cancel path: main-manager only, clears the pending proposal
+        vm.prank(manager);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 3e17);
+
+        vm.prank(secondaryManager);
+        vm.expectRevert(IManagedSuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        aggregator.cancelDeviationThresholdChange(address(strategy));
+
+        vm.prank(manager);
+        aggregator.cancelDeviationThresholdChange(address(strategy));
+        (, uint256 eta) = aggregator.getProposedDeviationThreshold(address(strategy));
+        assertEq(eta, 0);
+
+        vm.prank(manager);
+        vm.expectRevert(IManagedSuperVaultAggregator.NO_PENDING_DEVIATION_THRESHOLD_CHANGE.selector);
+        aggregator.cancelDeviationThresholdChange(address(strategy));
+
+        // Governance manager change wipes a pending proposal left by the outgoing manager
+        vm.prank(manager);
+        aggregator.proposeDeviationThresholdChange(address(strategy), 9e17);
+
+        address newManager = makeAddr("devThresholdNewManager");
+        address newRecipient = makeAddr("devThresholdNewRecipient");
+        vm.prank(sGovernor);
+        aggregator.changePrimaryManager(address(strategy), newManager, newRecipient);
+
+        (, eta) = aggregator.getProposedDeviationThreshold(address(strategy));
+        assertEq(eta, 0, "pending deviation proposal must not survive a manager change");
+    }
+
+    /// @notice Managed diff: unpause is main-manager-only because it arms the deviation stale-skip;
+    ///         pause stays open to any manager (emergency stop)
+    function test_Unpause_MainManagerOnly() public {
+        vm.prank(secondaryManager);
+        aggregator.pauseStrategy(address(strategy));
+
+        vm.prank(secondaryManager);
+        vm.expectRevert(IManagedSuperVaultAggregator.UNAUTHORIZED_UPDATE_AUTHORITY.selector);
+        aggregator.unpauseStrategy(address(strategy));
+
+        vm.prank(manager);
+        aggregator.unpauseStrategy(address(strategy));
+        assertFalse(aggregator.isStrategyPaused(address(strategy)));
     }
 
     /*//////////////////////////////////////////////////////////////

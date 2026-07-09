@@ -491,8 +491,12 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     /// @notice Manually unpauses a strategy
     /// @param strategy Address of the strategy to unpause
     /// @dev unpausing marks PPS stale until a fresh oracle update
+    /// @dev Managed diff: main-manager-only (any manager may still pause). Because _forwardPPS skips
+    ///      the deviation check while PPS is stale, unpausing arms the large-deviation NAV path — that
+    ///      elevation belonged to the main manager in the previous design (resolveLargeDeviationNAV)
+    ///      and is preserved here.
     function unpauseStrategy(address strategy) external validStrategy(strategy) {
-        if (!isAnyManager(msg.sender, strategy)) {
+        if (!isMainManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
@@ -544,23 +548,89 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external validStrategy(strategy) {
+    /// @dev Managed diff: deviation-threshold changes are TIMELOCKED (3 days), unlike the main family's
+    ///      instant setter. Manual NAV is manager-attested, so the manager must not be able to widen
+    ///      their own bound in the same breath as proposing a value (restores the #324 hardening).
+    function proposeDeviationThresholdChange(
+        address strategy,
+        uint256 newDeviationThreshold
+    )
+        external
+        validStrategy(strategy)
+    {
         // Since this is a risky call, we only allow main managers as callers
         if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        // Managed hardening: the deviation check cannot be disabled — manual NAV is manager-attested,
-        // so the bound must stay live (capped at 100%; zero would block every update)
-        if (deviationThreshold_ == 0 || deviationThreshold_ > MAX_DEVIATION_THRESHOLD) {
+        // Managed hardening: the deviation check cannot be disabled — the bound must stay live
+        // (capped at 100%; zero would block every update)
+        if (newDeviationThreshold == 0 || newDeviationThreshold > MAX_DEVIATION_THRESHOLD) {
             revert INVALID_DEVIATION_THRESHOLD();
         }
 
-        // Update the threshold
-        _strategyData[strategy].deviationThreshold = deviationThreshold_;
+        // Set proposed threshold with timelock
+        uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+        _strategyData[strategy].proposedDeviationThreshold = newDeviationThreshold;
+        _strategyData[strategy].deviationThresholdEffectiveTime = effectiveTime;
 
-        // Emit the event
-        emit DeviationThresholdUpdated(strategy, deviationThreshold_);
+        emit DeviationThresholdChangeProposed(strategy, msg.sender, newDeviationThreshold, effectiveTime);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function executeDeviationThresholdChange(address strategy) external validStrategy(strategy) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].deviationThresholdEffectiveTime == 0) {
+            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+        }
+
+        // Check if the timelock period has passed
+        if (block.timestamp < _strategyData[strategy].deviationThresholdEffectiveTime) {
+            revert TIMELOCK_NOT_EXPIRED();
+        }
+
+        uint256 newThreshold = _strategyData[strategy].proposedDeviationThreshold;
+
+        // Clear the proposal first
+        _strategyData[strategy].proposedDeviationThreshold = 0;
+        _strategyData[strategy].deviationThresholdEffectiveTime = 0;
+
+        // Update the threshold
+        _strategyData[strategy].deviationThreshold = newThreshold;
+
+        emit DeviationThresholdUpdated(strategy, newThreshold);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function cancelDeviationThresholdChange(address strategy) external validStrategy(strategy) {
+        // Only the main manager can cancel
+        if (msg.sender != _strategyData[strategy].mainManager) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].deviationThresholdEffectiveTime == 0) {
+            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+        }
+
+        uint256 cancelledThreshold = _strategyData[strategy].proposedDeviationThreshold;
+
+        // Clear the proposal
+        _strategyData[strategy].proposedDeviationThreshold = 0;
+        _strategyData[strategy].deviationThresholdEffectiveTime = 0;
+
+        emit DeviationThresholdChangeCancelled(strategy, cancelledThreshold);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getProposedDeviationThreshold(address strategy)
+        external
+        view
+        returns (uint256 proposedThreshold, uint256 effectiveTime)
+    {
+        return (
+            _strategyData[strategy].proposedDeviationThreshold, _strategyData[strategy].deviationThresholdEffectiveTime
+        );
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
@@ -634,6 +704,11 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         // SECURITY: Clear any pending minUpdateInterval proposals
         _strategyData[strategy].proposedMinUpdateInterval = 0;
         _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        // SECURITY (managed diff): Clear any pending deviation-threshold proposals left by the
+        // outgoing manager
+        _strategyData[strategy].proposedDeviationThreshold = 0;
+        _strategyData[strategy].deviationThresholdEffectiveTime = 0;
 
         // SECURITY: Clear all secondary managers as they may be controlled by malicious manager
         // Get all secondary managers first to emit proper events
@@ -729,6 +804,9 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         _strategyData[strategy].hooksRootEffectiveTime = 0;
         _strategyData[strategy].proposedMinUpdateInterval = 0;
         _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+        // Managed diff: clear pending deviation-threshold proposals on manager change
+        _strategyData[strategy].proposedDeviationThreshold = 0;
+        _strategyData[strategy].deviationThresholdEffectiveTime = 0;
 
         // Set the new primary manager
         _strategyData[strategy].mainManager = newManager;

@@ -73,6 +73,9 @@ interface IManagedSuperVaultAggregator {
         uint256 proposedMinUpdateInterval;
         uint256 minUpdateIntervalEffectiveTime;
         uint256 lastUnpauseTimestamp; // Timestamp of last unpause (for skim timelock)
+        // Deviation threshold proposal data (managed diff: timelocked, unlike the main family)
+        uint256 proposedDeviationThreshold;
+        uint256 deviationThresholdEffectiveTime;
     }
 
     /// @notice Parameters for creating a new Managed SuperVault quartet
@@ -274,6 +277,20 @@ interface IManagedSuperVaultAggregator {
     /// @param deviationThreshold New deviation threshold (abs diff/current)
     event DeviationThresholdUpdated(address indexed strategy, uint256 deviationThreshold);
 
+    /// @notice Emitted when a deviation-threshold change is proposed (starts the 3-day timelock)
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the main manager who made the proposal
+    /// @param newDeviationThreshold The proposed threshold
+    /// @param effectiveTime Timestamp when the proposal can be executed
+    event DeviationThresholdChangeProposed(
+        address indexed strategy, address indexed proposer, uint256 newDeviationThreshold, uint256 effectiveTime
+    );
+
+    /// @notice Emitted when a pending deviation-threshold change is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledThreshold The proposed threshold that was cancelled
+    event DeviationThresholdChangeCancelled(address indexed strategy, uint256 cancelledThreshold);
+
     /// @notice Emitted when the hooks root update timelock is changed
     /// @param newTimelock New timelock duration in seconds
     event HooksRootUpdateTimelockChanged(uint256 newTimelock);
@@ -420,6 +437,8 @@ interface IManagedSuperVaultAggregator {
     error NAV_ORACLE_ALREADY_SET();
     /// @notice Thrown when a deviation threshold outside (0, 1e18] is proposed — the check cannot be disabled
     error INVALID_DEVIATION_THRESHOLD();
+    /// @notice Thrown when no deviation-threshold change proposal is pending
+    error NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
     /// @notice Thrown when manager takeovers are globally frozen in the SuperGovernor
     error MANAGER_TAKEOVERS_FROZEN();
     /// @notice PPS must decrease after skimming fees
@@ -602,10 +621,32 @@ interface IManagedSuperVaultAggregator {
     /// @param vetoed Whether to veto (true) or unveto (false)
     function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external;
 
-    /// @notice Updates the deviation threshold for a strategy
+    /// @notice Proposes a deviation-threshold change for a strategy (starts the 3-day timelock)
+    /// @dev Managed diff: timelocked, unlike the main family's instant setter — manual NAV is
+    ///      manager-attested, so the manager must not be able to widen their own bound instantly.
+    ///      Bounded to (0, 1e18]; the deviation check can never be disabled.
     /// @param strategy Address of the strategy
-    /// @param deviationThreshold_ New deviation threshold (abs diff/current ratio, scaled by 1e18)
-    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external;
+    /// @param newDeviationThreshold New deviation threshold (abs diff/current ratio, scaled by 1e18)
+    function proposeDeviationThresholdChange(address strategy, uint256 newDeviationThreshold) external;
+
+    /// @notice Executes a pending deviation-threshold change after the timelock
+    /// @dev Can be called by anyone once the timelock has elapsed
+    /// @param strategy Address of the strategy
+    function executeDeviationThresholdChange(address strategy) external;
+
+    /// @notice Cancels a pending deviation-threshold change
+    /// @dev Only the main manager can cancel
+    /// @param strategy Address of the strategy
+    function cancelDeviationThresholdChange(address strategy) external;
+
+    /// @notice Gets the proposed deviation threshold and effective time
+    /// @param strategy Address of the strategy
+    /// @return proposedThreshold The proposed deviation threshold (0 if none)
+    /// @return effectiveTime The timestamp when the proposal can be executed (0 if none)
+    function getProposedDeviationThreshold(address strategy)
+        external
+        view
+        returns (uint256 proposedThreshold, uint256 effectiveTime);
 
     /// @notice Changes the banned status of global leaves for a specific strategy
     /// @dev Only callable by the primary manager of the strategy
