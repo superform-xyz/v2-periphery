@@ -2,198 +2,333 @@
 pragma solidity 0.8.30;
 
 import { ManagedSuperVaultTestBase } from "../../utils/ManagedSuperVaultTestBase.sol";
-import { ManagedSuperVault } from "../../../src/ManagedSuperVault/ManagedSuperVault.sol";
-import { ManagedSuperVaultController } from "../../../src/ManagedSuperVault/ManagedSuperVaultController.sol";
-import { ManagedSuperVaultEscrow } from "../../../src/ManagedSuperVault/ManagedSuperVaultEscrow.sol";
+import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import {
     IManagedSuperVaultAggregator
 } from "../../../src/interfaces/ManagedSuperVault/IManagedSuperVaultAggregator.sol";
 import {
-    IManagedSuperVaultController
-} from "../../../src/interfaces/ManagedSuperVault/IManagedSuperVaultController.sol";
+    IManagedSuperVaultDepositQueue
+} from "../../../src/interfaces/ManagedSuperVault/IManagedSuperVaultDepositQueue.sol";
+import { MockSuperHook } from "../../mocks/MockSuperHook.sol";
+import { MockHookTarget } from "../../mocks/MockHookTarget.sol";
 
-/// @notice Full Managed Vault lifecycle: partner-gated subscriptions, whitelisted execution to an
-///         offchain custodian, attested NAV appreciation, fee skim, and batch redemption settlement.
+/// @notice Full-lifecycle integration tests for the Managed SuperVault family (fork-based reuse
+///         architecture): async deposits through the queue, attested-NAV pricing, performance fee
+///         skims, native async redeems, and hook execution through the REUSED Merkle machinery.
 contract ManagedSuperVaultIntegrationTest is ManagedSuperVaultTestBase {
-    ManagedSuperVault internal mVault;
-    ManagedSuperVaultController internal mController;
-    ManagedSuperVaultEscrow internal mEscrow;
+    uint256 internal constant WAD = 1e18;
 
-    address internal custodian;
+    // Mirrors MockHookTarget.Executed for expectEmit
+    event Executed();
+    // Mirrors ISuperVaultStrategy.HooksExecuted for expectEmit
+    event HooksExecuted(address[] hooks);
 
-    function setUp() public override {
-        super.setUp();
-        custodian = makeAddr("custodian");
+    /*//////////////////////////////////////////////////////////////
+                        END-TO-END LIFECYCLE
+    //////////////////////////////////////////////////////////////*/
 
-        // Allowlist-gated vault with entry fee and 10% performance fee
-        IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params = _defaultParams();
-        params.depositPolicy.approvalMode = IManagedSuperVaultController.DepositApprovalMode.KycApproved;
-        params.feeConfig.managementFeeBps = 50; // 0.5% entry fee
+    // Expected E2E figures for a 100e18 deposit, +10% NAV, 10% perf fee, 50% protocol fee share
+    uint256 internal constant E2E_DEPOSIT = 100e18;
+    uint256 internal constant E2E_YIELD = 10e18; // 10% on principal
+    uint256 internal constant E2E_FEE = 1e18; // 10% perf fee on 10e18 profit above HWM 1.0
+    uint256 internal constant E2E_SF_FEE = 0.5e18; // 50% protocol share -> treasury
+    uint256 internal constant E2E_POST_SKIM_PPS = 1.09e18; // 1.10 - fee/totalSupply
 
-        (address vault_, address controller_, address escrow_) = _createManagedVault(params);
-        mVault = ManagedSuperVault(vault_);
-        mController = ManagedSuperVaultController(payable(controller_));
-        mEscrow = ManagedSuperVaultEscrow(escrow_);
-    }
-
-    function test_fullLifecycle() public {
-        // ---------- 1. Subscription: KYC approval gating (approval requested offchain) ----------
-        address[] memory depositors = new address[](2);
-        depositors[0] = user;
-        depositors[1] = user2;
-        bytes32[] memory kycRefs = new bytes32[](2);
-        kycRefs[0] = keccak256("kyc-user");
-        kycRefs[1] = keccak256("kyc-user2");
-        vm.prank(manager);
-        mController.approveDepositors(depositors, kycRefs);
-
-        // ---------- 2. Async deposit requests ----------
-        vm.startPrank(user);
-        asset.approve(address(mVault), 200_000e18);
-        mVault.requestDeposit(200_000e18, user, user);
-        vm.stopPrank();
-
-        vm.startPrank(user2);
-        asset.approve(address(mVault), 100_000e18);
-        mVault.requestDeposit(100_000e18, user2, user2);
-        vm.stopPrank();
-
-        assertEq(asset.balanceOf(address(mEscrow)), 300_000e18);
-
-        // ---------- 3. Manager fulfills; entry fee skimmed; users claim shares ----------
-        vm.prank(manager);
-        mController.fulfillDepositRequests(depositors);
-
-        // 0.5% entry fee on 300k = 1500
-        assertEq(asset.balanceOf(feeRecipient), 1500e18);
-
-        uint256 claimableUser = mVault.maxDeposit(user);
-        uint256 claimableUser2 = mVault.maxDeposit(user2);
-        vm.prank(user);
-        uint256 sharesUser = mVault.deposit(claimableUser, user, user);
-        vm.prank(user2);
-        uint256 sharesUser2 = mVault.deposit(claimableUser2, user2, user2);
-
-        assertEq(sharesUser, 199_000e18);
-        assertEq(sharesUser2, 99_500e18);
-
-        // ---------- 4. Whitelisted execution: move capital to the custodian ----------
-        IManagedSuperVaultController.CallRule memory rule;
-        rule.allowed = true;
-        rule.constrainedArgs = new uint8[](1);
-        rule.constrainedArgs[0] = 0;
-
-        vm.startPrank(manager);
-        mController.setCallRule(address(asset), asset.transfer.selector, rule);
-        address[] memory allowed = new address[](1);
-        allowed[0] = custodian;
-        mController.setArgAllowedValues(address(asset), asset.transfer.selector, 0, allowed, true);
-
-        mController.executeManagedCall(
-            IManagedSuperVaultController.ManagedCall({
-                target: address(asset), value: 0, data: abi.encodeCall(asset.transfer, (custodian, 298_500e18))
-            }),
-            keccak256("deploy-to-custodian")
-        );
-        vm.stopPrank();
-
-        assertEq(asset.balanceOf(custodian), 298_500e18);
-        assertEq(asset.balanceOf(address(mController)), 0);
-
-        // ---------- 5. Offchain strategy gains 10%; capital returns; NAV attested up ----------
-        asset.mint(custodian, 29_850e18); // +10% offchain gains
-        vm.prank(custodian);
-        asset.transfer(address(mController), 328_350e18);
-
-        // Manager proposes NAV = 1.10; independent attestor finalizes
-        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
-        vm.prank(manager);
-        uint256 proposalId =
-            aggregator.proposeNAVUpdate(address(mController), 1.1e18, block.timestamp, EVIDENCE_HASH, "ipfs://q2-nav");
-        vm.prank(attestor);
-        aggregator.attestNAVUpdate(address(mController), proposalId);
-        assertEq(mController.getStoredPPS(), 1.1e18);
-
-        // ---------- 6. Performance fee skim ----------
-        vm.prank(manager);
-        mController.skimPerformanceFee();
-
-        // profit = 0.1 * 298,500 = 29,850; 10% fee = 2,985 split 50/50 treasury/recipient
-        assertEq(asset.balanceOf(treasury), 1492.5e18);
-        uint256 postSkimPPS = mController.getStoredPPS();
-        assertEq(postSkimPPS, 1.09e18); // 1.10 - 2985/298500
-
-        // ---------- 7. Async redemption: user redeems half ----------
-        uint256 redeemShares = sharesUser / 2;
-        vm.prank(user);
-        mVault.requestRedeem(redeemShares, user, user);
-
-        (, uint256 theoreticalAssets,) = mController.previewExactRedeem(user);
-
-        address[] memory redeemers = new address[](1);
-        redeemers[0] = user;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = theoreticalAssets;
-
-        vm.prank(manager);
-        mController.fulfillRedeemRequests(redeemers, amounts);
-
+    /// @notice request deposit -> fulfill -> claim native shares -> NAV 1.1 -> skim 10% perf fee
+    ///         -> requestRedeem -> fulfillRedeemRequests -> withdraw. End-user P&L must equal the
+    ///         PPS path net of fees, and every fee leg must land where it belongs.
+    function test_EndToEnd_DepositNavSkimRedeemLifecycle() public {
         uint256 userAssetsBefore = asset.balanceOf(user);
-        uint256 claimable = mVault.maxWithdraw(user);
-        vm.prank(user);
-        mVault.withdraw(claimable, user, user);
 
-        // 99,500 shares at post-skim PPS 1.09
-        assertEq(asset.balanceOf(user) - userAssetsBefore, redeemShares * postSkimPPS / 1e18);
-        assertEq(mVault.balanceOf(user), sharesUser - redeemShares);
+        uint256 shares = _e2eDepositLeg(); // steps 1-3
+        _e2eNavAndSkimLeg(shares); // steps 4-5
+        uint256 assetsOut = _e2eRedeemLeg(shares); // steps 6-8
 
-        // ---------- 8. Audit surface sanity ----------
-        assertEq(mVault.totalSupply(), sharesUser - redeemShares + sharesUser2);
-        assertTrue(mController.isOperationIdUsed(keccak256("deploy-to-custodian")));
+        // End-user P&L consistent with the PPS path and fees:
+        // gain = yield - perf fee = 10e18 - 1e18 = 9e18
+        uint256 userGain = asset.balanceOf(user) - userAssetsBefore;
+        assertEq(userGain, E2E_YIELD - E2E_FEE, "user nets yield - fee");
+        assertEq(userGain, assetsOut - E2E_DEPOSIT, "P&L = pps path");
+
+        // Full conservation: yield split exactly between user and the two fee recipients
+        assertEq(userGain + E2E_FEE, E2E_YIELD, "value conservation");
+        assertEq(asset.balanceOf(address(strategy)), 0, "strategy drained");
+        assertEq(asset.balanceOf(address(escrow)), 0, "escrow drained");
     }
 
-    function test_largeDeviationLifecycle() public {
-        // Seed the vault
+    /// @dev Steps 1-3: request on the queue -> manager fulfill -> claim NATIVE vault shares
+    function _e2eDepositLeg() internal returns (uint256 shares) {
+        // 1. User requests a deposit on the queue (assets held in queue custody)
+        vm.startPrank(user);
+        asset.approve(address(queue), E2E_DEPOSIT);
+        queue.requestDeposit(E2E_DEPOSIT, user, user);
+        vm.stopPrank();
+        assertEq(asset.balanceOf(address(queue)), E2E_DEPOSIT, "queue holds pending assets");
+        assertEq(queue.pendingDepositRequest(0, user), E2E_DEPOSIT, "pending recorded");
+
+        // 2. Manager fulfills: queue -> vault.deposit -> assets land in the strategy,
+        //    net shares pre-minted to the queue
         address[] memory depositors = new address[](1);
         depositors[0] = user;
-        bytes32[] memory kycRefs = new bytes32[](1);
         vm.prank(manager);
-        mController.approveDepositors(depositors, kycRefs);
+        queue.fulfillDepositRequests(depositors);
+        assertEq(asset.balanceOf(address(strategy)), E2E_DEPOSIT, "deposits sit in the strategy");
+        assertEq(queue.claimableDepositRequest(0, user), E2E_DEPOSIT, "claimable (no entry fee)");
 
+        // 3. User claims NATIVE vault shares (pps 1.0, no management fee => 1:1)
+        vm.prank(user);
+        shares = queue.deposit(E2E_DEPOSIT, user, user);
+        assertEq(shares, E2E_DEPOSIT, "shares = floor(assets * 1e18 / pps)");
+        assertEq(vault.balanceOf(user), shares, "user holds native vault shares");
+        assertEq(vault.balanceOf(address(queue)), 0, "queue fully drained of shares");
+    }
+
+    /// @dev Steps 4-5: attested NAV to 1.1 (yield realized into the strategy) + perf fee skim
+    function _e2eNavAndSkimLeg(uint256 shares) internal {
+        // 4. NAV moves to 1.1: realize the yield into the strategy so the attested NAV is backed,
+        //    then push through propose/attest on the NAV oracle
+        asset.mint(address(strategy), E2E_YIELD);
+        _pushNAV(1.1e18);
+        assertEq(strategy.getStoredPPS(), 1.1e18, "attested NAV stored");
+
+        // 5. Manager skims the performance fee (10% of profit above HWM 1e18).
+        //    POST_UNPAUSE_SKIM_TIMELOCK is 12h from lastUnpause (0 here); base warped to 30 days.
+        uint256 treasuryBefore = asset.balanceOf(treasury);
+        uint256 feeRecipientBefore = asset.balanceOf(feeRecipient);
+
+        vm.prank(manager);
+        strategy.skimPerformanceFee();
+
+        assertEq(asset.balanceOf(treasury) - treasuryBefore, E2E_SF_FEE, "treasury fee share");
+        assertEq(asset.balanceOf(feeRecipient) - feeRecipientBefore, E2E_FEE - E2E_SF_FEE, "manager fee share");
+        assertEq(strategy.getStoredPPS(), E2E_POST_SKIM_PPS, "PPS reduced by fee extraction");
+        assertEq(strategy.getStoredPPS(), 1.1e18 - (E2E_FEE * WAD / shares), "fee/supply reduction");
+        assertEq(strategy.vaultHwmPps(), E2E_POST_SKIM_PPS, "HWM ratchets to post-fee PPS");
+    }
+
+    /// @dev Steps 6-8: native async redeem round trip at the post-skim PPS
+    function _e2eRedeemLeg(uint256 shares) internal returns (uint256 assetsOut) {
+        // 6. User requests redemption of all shares through the NATIVE vault redeem leg
+        vm.prank(user);
+        vault.requestRedeem(shares, user, user);
+        assertEq(vault.balanceOf(address(escrow)), shares, "shares locked in escrow");
+
+        // 7. Manager fulfills at the stored PPS: amounts = shares * pps / 1e18
+        uint256 theoreticalAssets = shares * E2E_POST_SKIM_PPS / WAD; // 109e18
+        assertEq(
+            asset.balanceOf(address(strategy)),
+            E2E_DEPOSIT + E2E_YIELD - E2E_FEE,
+            "strategy exactly solvent for the full redemption"
+        );
+
+        address[] memory controllers = new address[](1);
+        controllers[0] = user;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = theoreticalAssets;
+        vm.prank(manager);
+        strategy.fulfillRedeemRequests(controllers, amounts);
+        assertEq(vault.totalSupply(), 0, "all shares burned at fulfillment");
+
+        // 8. User withdraws the fulfilled assets
+        assertEq(vault.maxWithdraw(user), theoreticalAssets, "claimable assets at fulfillment price");
+        assetsOut = _withdrawAll(user);
+        assertEq(assetsOut, theoreticalAssets, "paid the theoretical amount");
+    }
+
+    /// @notice Two users deposit different amounts, NAV moves, both redeem everything:
+    ///         payouts stay exactly proportional to deposits.
+    function test_MultiUser_ProportionalRedemption() public {
+        uint256 depositA = 100e18;
+        uint256 depositB = 250e18;
+
+        uint256 sharesA = _requestFulfillClaim(user, depositA);
+        uint256 sharesB = _requestFulfillClaim(user2, depositB);
+        assertEq(sharesA, depositA, "1:1 at pps 1.0");
+        assertEq(sharesB, depositB, "1:1 at pps 1.0");
+
+        // NAV up 20%, backed by realized yield in the strategy
+        uint256 newPPS = 1.2e18;
+        asset.mint(address(strategy), (depositA + depositB) * 20 / 100);
+        _pushNAV(newPPS);
+
+        // Both request full redemption
+        vm.prank(user);
+        vault.requestRedeem(sharesA, user, user);
+        vm.prank(user2);
+        vault.requestRedeem(sharesB, user2, user2);
+
+        // Manager fulfills both in one sorted batch at the shared PPS
+        _fulfillBatchAtPPS(newPPS);
+
+        uint256 outA = _withdrawAll(user);
+        uint256 outB = _withdrawAll(user2);
+
+        // Exact per-user pricing at the shared PPS
+        assertEq(outA, depositA * newPPS / WAD, "A paid at pps");
+        assertEq(outB, depositB * newPPS / WAD, "B paid at pps");
+
+        // Proportionality: outA / outB == depositA / depositB
+        assertEq(outA * depositB, outB * depositA, "payouts proportional to deposits");
+
+        assertEq(vault.totalSupply(), 0, "everything redeemed");
+    }
+
+    /// @dev Fulfills user and user2's pending redeem requests in one sorted batch, paying each
+    ///      the theoretical shares * pps / 1e18 (fulfillRedeemRequests requires sorted, unique
+    ///      controllers)
+    function _fulfillBatchAtPPS(uint256 pps) internal {
+        (address lo, address hi) = user < user2 ? (user, user2) : (user2, user);
+        address[] memory controllers = new address[](2);
+        controllers[0] = lo;
+        controllers[1] = hi;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = strategy.pendingRedeemRequest(lo) * pps / WAD;
+        amounts[1] = strategy.pendingRedeemRequest(hi) * pps / WAD;
+        vm.prank(manager);
+        strategy.fulfillRedeemRequests(controllers, amounts);
+    }
+
+    /// @dev Withdraws the full claimable balance for `who` and returns the assets received
+    function _withdrawAll(address who) internal returns (uint256 assetsOut) {
+        uint256 balBefore = asset.balanceOf(who);
+        uint256 maxW = vault.maxWithdraw(who);
+        vm.prank(who);
+        vault.withdraw(maxW, who, who);
+        assetsOut = asset.balanceOf(who) - balBefore;
+        assertEq(assetsOut, maxW, "withdraw pays exactly maxWithdraw");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                HOOK EXECUTION THROUGH REUSED MERKLE MACHINERY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proves the execution-reuse decision end to end: register a hook on SuperGovernor,
+    ///         install a STRATEGY hooks root through the managed aggregator's timelocked
+    ///         propose/execute flow (single-leaf tree: root == leaf, empty proof), then drive
+    ///         strategy.executeHooks full-depth so the hook's built executions actually run.
+    function test_HookExecution_ThroughReusedMerkleMachinery() public {
+        MockHookTarget target = new MockHookTarget();
+        MockSuperHook hook = new MockSuperHook(address(target));
+
+        // 1. Register the hook on SuperGovernor (GOVERNOR_ROLE)
+        vm.prank(governor);
+        superGovernor.registerHook(address(hook));
+        assertTrue(superGovernor.isHookRegistered(address(hook)));
+
+        // 2-3. Install a single-leaf STRATEGY hooks root through the timelocked manager flow.
+        //      hookArgs = ISuperHookInspector(hook).inspect(hookCalldata), exactly as the strategy
+        //      derives them at execution time.
+        bytes memory hookCalldata = abi.encodePacked(bytes32(0), address(target)); // oracleId + yieldSource
+        bytes memory hookArgs = hook.inspect(hookCalldata);
+        _installSingleLeafStrategyRoot(address(hook), hookArgs);
+
+        // 4. Single-leaf tree: empty proof is valid when root == leaf (_validateSingleHook);
+        //    a foreign args payload does not validate
+        assertTrue(_validateHook(address(hook), hookArgs), "leaf validates against installed strategy root");
+        assertFalse(_validateHook(address(hook), abi.encodePacked(address(0xdead))), "foreign args rejected");
+
+        // 5. Full-depth execution: strategy validates the hook against the Merkle root and runs
+        //    its built executions (preExecute -> target.execute() -> postExecute)
+        address[] memory hooks = new address[](1);
+        hooks[0] = address(hook);
+
+        vm.expectEmit(true, true, true, true, address(target));
+        emit Executed();
+        vm.expectEmit(true, true, true, true, address(strategy));
+        emit HooksExecuted(hooks);
+
+        vm.prank(manager);
+        strategy.executeHooks(_singleHookExecuteArgs(address(hook), hookCalldata));
+    }
+
+    /// @dev Builds the leaf exactly as the aggregator does —
+    ///      keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs)))) — proposes it as
+    ///      the STRATEGY hooks root (MANAGER-gated), warps past the 15-min timelock, and executes
+    function _installSingleLeafStrategyRoot(address hook, bytes memory hookArgs) internal {
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hook, hookArgs))));
+
+        vm.prank(manager);
+        aggregator.proposeStrategyHooksRoot(address(strategy), leaf);
+        (bytes32 proposedRoot,) = aggregator.getProposedStrategyHooksRoot(address(strategy));
+        assertEq(proposedRoot, leaf);
+
+        vm.warp(block.timestamp + aggregator.getHooksRootUpdateTimelock() + 1);
+        aggregator.executeStrategyHooksRootUpdate(address(strategy));
+        assertEq(aggregator.getStrategyHooksRoot(address(strategy)), leaf, "root installed");
+    }
+
+    function _validateHook(address hook, bytes memory hookArgs) internal view returns (bool) {
+        return aggregator.validateHook(
+            address(strategy),
+            IManagedSuperVaultAggregator.ValidateHookArgs({
+                hookAddress: hook,
+                hookArgs: hookArgs,
+                globalProof: new bytes32[](0),
+                strategyProof: new bytes32[](0)
+            })
+        );
+    }
+
+    function _singleHookExecuteArgs(
+        address hook,
+        bytes memory hookCalldata
+    )
+        internal
+        pure
+        returns (ISuperVaultStrategy.ExecuteArgs memory args)
+    {
+        args.hooks = new address[](1);
+        args.hooks[0] = hook;
+        args.hookCalldata = new bytes[](1);
+        args.hookCalldata[0] = hookCalldata;
+        args.expectedAssetsOrSharesOut = new uint256[](1);
+        args.globalProofs = new bytes32[][](1);
+        args.globalProofs[0] = new bytes32[](0);
+        args.strategyProofs = new bytes32[][](1);
+        args.strategyProofs[0] = new bytes32[](0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        NAV STALENESS LIFECYCLE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Once the stored PPS ages past ppsExpiration (1 day default) with no NAV updates,
+    ///         the queue stops accepting deposit requests; a fresh attested NAV restores service.
+    function test_NAVStalenessLifecycle() public {
+        assertEq(strategy.ppsExpiration(), 1 days, "default expiration");
+
+        // Fresh vault accepts requests
         vm.startPrank(user);
-        asset.approve(address(mVault), 100e18);
-        mVault.requestDeposit(100e18, user, user);
+        asset.approve(address(queue), 2e18);
+        queue.requestDeposit(1e18, user, user);
         vm.stopPrank();
 
+        // Warp past ppsExpiration without any NAV updates
+        vm.warp(block.timestamp + 1 days + 1);
+
+        vm.prank(user);
+        vm.expectRevert(IManagedSuperVaultDepositQueue.VAULT_NOT_ACCEPTING_DEPOSITS.selector);
+        queue.requestDeposit(1e18, user, user);
+
+        // Fulfilling the earlier request is also blocked while expired (vault-side PPS_EXPIRED)
+        address[] memory depositors = new address[](1);
+        depositors[0] = user;
         vm.prank(manager);
-        mController.fulfillDepositRequests(depositors);
+        vm.expectRevert(ISuperVaultStrategy.PPS_EXPIRED.selector);
+        queue.fulfillDepositRequests(depositors);
 
-        // Manager proposes a 2x NAV (exceeds 50% deviation bound); attestation trips review + pause
-        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        // A fresh attested NAV restores deposits
+        _pushNAV(1e18);
+
+        vm.prank(user);
+        queue.requestDeposit(1e18, user, user);
+        assertEq(queue.pendingDepositRequest(0, user), 2e18, "requests accepted again");
+
+        // And the full round trip works once more
         vm.prank(manager);
-        uint256 proposalId = aggregator.proposeNAVUpdate(address(mController), 2e18, block.timestamp, EVIDENCE_HASH, "");
-        vm.prank(attestor);
-        aggregator.attestNAVUpdate(address(mController), proposalId);
-
-        assertTrue(aggregator.isManagedVaultPaused(address(mController)));
-        assertEq(mController.getStoredPPS(), 1e18); // value dropped
-
-        // NAV-sensitive operations are blocked while paused/stale
-        vm.startPrank(user);
-        asset.approve(address(mVault), 1e18);
-        vm.expectRevert(IManagedSuperVaultController.MANAGED_VAULT_PAUSED.selector);
-        mVault.requestDeposit(1e18, user, user);
-        vm.stopPrank();
-
-        // Explicit unpause, then the elevated resolve finalizes the attested large-deviation NAV
-        vm.prank(manager);
-        aggregator.unpauseManagedVault(address(mController));
-
-        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
-        vm.prank(manager);
-        aggregator.resolveLargeDeviationNAV(address(mController), proposalId);
-
-        assertEq(mController.getStoredPPS(), 2e18);
-        assertFalse(aggregator.isNAVStale(address(mController)));
+        queue.fulfillDepositRequests(depositors);
+        vm.prank(user);
+        uint256 shares = queue.deposit(2e18, user, user);
+        assertEq(shares, 2e18, "claimed at pps 1.0");
     }
 }

@@ -2,36 +2,50 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ManagedSuperVaultTestBase } from "../utils/ManagedSuperVaultTestBase.sol";
 import { ManagedSuperVault } from "../../src/ManagedSuperVault/ManagedSuperVault.sol";
-import { ManagedSuperVaultController } from "../../src/ManagedSuperVault/ManagedSuperVaultController.sol";
-import { ManagedSuperVaultAggregator } from "../../src/ManagedSuperVault/ManagedSuperVaultAggregator.sol";
+import { ManagedSuperVaultStrategy } from "../../src/ManagedSuperVault/ManagedSuperVaultStrategy.sol";
+import { ManagedSuperVaultDepositQueue } from "../../src/ManagedSuperVault/ManagedSuperVaultDepositQueue.sol";
+import { ManagedNAVOracle } from "../../src/ManagedSuperVault/ManagedNAVOracle.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
-/// @notice Drives random deposit/redeem lifecycle sequences across a fixed actor set. NAV is held at 1.0
-///         so the invariants isolate the escrow-custody and deposit accounting (the novel surface); NAV
-///         and fee fixed-point math are covered by the fuzz suite.
+/// @notice Drives random deposit-queue lifecycle sequences (plus native redeems and bounded NAV
+///         pushes) across a fixed actor set to pin the reuse architecture's custody accounting:
+///         the QUEUE holds exactly the pending deposit assets and the pre-minted claimable shares,
+///         while fulfilled assets sit in the strategy and share supply is fully attributed.
 contract Handler is Test {
     ManagedSuperVault internal vault;
-    ManagedSuperVaultController internal controller;
-    address internal escrow;
+    ManagedSuperVaultStrategy internal strategy;
+    ManagedSuperVaultDepositQueue internal queue;
+    ManagedNAVOracle internal navOracle;
     MockERC20 internal asset;
     address internal manager;
+    address internal attestor;
+    uint256 internal minUpdateInterval;
+    bytes32 internal constant EVIDENCE_HASH = keccak256("nav-evidence");
+
     address[] internal actors; // sorted ascending (fulfillRedeemRequests requires sorted, unique)
 
     constructor(
         ManagedSuperVault vault_,
-        ManagedSuperVaultController controller_,
-        address escrow_,
+        ManagedSuperVaultStrategy strategy_,
+        ManagedSuperVaultDepositQueue queue_,
+        ManagedNAVOracle navOracle_,
         MockERC20 asset_,
         address manager_,
+        address attestor_,
+        uint256 minUpdateInterval_,
         address[] memory actors_
     ) {
         vault = vault_;
-        controller = controller_;
-        escrow = escrow_;
+        strategy = strategy_;
+        queue = queue_;
+        navOracle = navOracle_;
         asset = asset_;
         manager = manager_;
+        attestor = attestor_;
+        minUpdateInterval = minUpdateInterval_;
         actors = actors_;
     }
 
@@ -39,77 +53,114 @@ contract Handler is Test {
         return actors[seed % actors.length];
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        DEPOSIT QUEUE OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+
     function requestDeposit(uint256 seed, uint256 amount) external {
         address a = _actor(seed);
         amount = bound(amount, 1e6, 1e22);
         asset.mint(a, amount);
         vm.startPrank(a);
-        asset.approve(address(vault), amount);
-        vault.requestDeposit(amount, a, a);
+        asset.approve(address(queue), amount);
+        queue.requestDeposit(amount, a, a);
         vm.stopPrank();
     }
 
     function cancelDeposit(uint256 seed) external {
         address a = _actor(seed);
-        if (controller.pendingDepositRequest(a) == 0) return;
+        if (queue.pendingDepositRequest(0, a) == 0) return;
         vm.prank(a);
-        vault.cancelDepositRequest(0, a);
+        queue.cancelDepositRequest(0, a);
     }
 
     function rejectDeposit(uint256 seed) external {
         address a = _actor(seed);
-        if (controller.pendingDepositRequest(a) == 0) return;
+        if (queue.pendingDepositRequest(0, a) == 0) return;
         address[] memory one = new address[](1);
         one[0] = a;
         vm.prank(manager);
-        controller.rejectDepositRequests(one, "reject");
+        queue.rejectDepositRequests(one, "reject");
     }
 
     function fulfillDeposits() external {
-        address[] memory pending = _actorsWith(true);
+        address[] memory pending = _actorsWithPendingDeposit();
         if (pending.length == 0) return;
         vm.prank(manager);
-        controller.fulfillDepositRequests(pending);
+        queue.fulfillDepositRequests(pending);
     }
 
-    function claimDeposit(uint256 seed) external {
+    /// @notice Claim through the assets leg (queue.deposit), sometimes partially
+    function claimDepositAsDeposit(uint256 seed, uint256 fractionSeed) external {
         address a = _actor(seed);
-        uint256 claimable = controller.claimableDepositRequest(a);
-        if (claimable == 0) return;
+        uint256 claimableAssets = queue.claimableDepositRequest(0, a);
+        if (claimableAssets == 0) return;
+        uint256 assets = bound(fractionSeed, 1, claimableAssets);
+        // Skip dust claims that would round to zero shares (queue reverts INVALID_AMOUNT)
+        uint256 claimableShares = queue.maxMint(a);
+        if (claimableShares * assets / claimableAssets == 0) return;
         vm.prank(a);
-        vault.deposit(claimable, a, a);
+        queue.deposit(assets, a, a);
     }
+
+    /// @notice Claim through the shares leg (queue.mint), sometimes partially
+    function claimDepositAsMint(uint256 seed, uint256 fractionSeed) external {
+        address a = _actor(seed);
+        uint256 claimableShares = queue.maxMint(a);
+        if (claimableShares == 0) return;
+        uint256 shares = bound(fractionSeed, 1, claimableShares);
+        vm.prank(a);
+        queue.mint(shares, a, a);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        NATIVE REDEEM OPERATIONS
+    //////////////////////////////////////////////////////////////*/
 
     function requestRedeem(uint256 seed, uint256 shareSeed) external {
         address a = _actor(seed);
         uint256 bal = vault.balanceOf(a);
-        if (bal == 0 || controller.pendingRedeemRequest(a) != 0) return;
-        if (controller.pendingCancelRedeemRequest(a)) return;
+        if (bal == 0) return;
+        if (strategy.pendingCancelRedeemRequest(a)) return;
         uint256 shares = bound(shareSeed, 1, bal);
         vm.prank(a);
         vault.requestRedeem(shares, a, a);
     }
 
-    function fulfillRedeem() external {
-        // actors are pre-sorted; collect those with a pending redeem in-order (stays sorted/unique)
+    function fulfillRedeems() external {
+        // Actors are pre-sorted; collect fulfillable requests in order (stays sorted/unique).
+        // Skip controllers whose slippage floor exceeds today's theoretical value (PPS moved
+        // down more than their tolerance) — a real manager would wait, not revert the batch.
         uint256 n;
+        uint256 totalNeeded;
         for (uint256 i; i < actors.length; ++i) {
-            if (controller.pendingRedeemRequest(actors[i]) != 0) n++;
+            (uint256 shares, uint256 theoretical, uint256 minAssets) = strategy.previewExactRedeem(actors[i]);
+            if (shares == 0 || theoretical < minAssets) continue;
+            n++;
+            totalNeeded += theoretical;
         }
         if (n == 0) return;
+
         address[] memory cs = new address[](n);
         uint256[] memory amts = new uint256[](n);
         uint256 j;
         for (uint256 i; i < actors.length; ++i) {
-            uint256 pending = controller.pendingRedeemRequest(actors[i]);
-            if (pending == 0) continue;
-            (, uint256 theoretical,) = controller.previewExactRedeem(actors[i]);
+            (uint256 shares, uint256 theoretical, uint256 minAssets) = strategy.previewExactRedeem(actors[i]);
+            if (shares == 0 || theoretical < minAssets) continue;
             cs[j] = actors[i];
-            amts[j] = theoretical; // PPS is 1.0, so this is within the slippage band
+            amts[j] = theoretical;
             j++;
         }
+
+        // Realize any NAV appreciation into the strategy so fulfillment is solvent (the attested
+        // NAV models offchain gains; strategy balance is not part of any invariant here)
+        uint256 balance = asset.balanceOf(address(strategy));
+        if (balance < totalNeeded) {
+            asset.mint(address(strategy), totalNeeded - balance);
+        }
+
         vm.prank(manager);
-        controller.fulfillRedeemRequests(cs, amts);
+        strategy.fulfillRedeemRequests(cs, amts);
     }
 
     function claimRedeem(uint256 seed) external {
@@ -120,15 +171,41 @@ contract Handler is Test {
         vault.withdraw(claimable, a, a);
     }
 
-    function _actorsWith(bool pendingDeposit) internal view returns (address[] memory) {
+    /*//////////////////////////////////////////////////////////////
+                            NAV OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Push an attested NAV within the deviation bound (multiplicative step in
+    ///         [-4%, +4%], clamped to [0.5, 2.0]) through propose + attest on the oracle
+    function pushNAV(uint256 stepSeed) external {
+        uint256 current = strategy.getStoredPPS();
+        uint256 stepBps = bound(stepSeed, 9600, 10_400); // x0.96 .. x1.04
+        uint256 newPPS = current * stepBps / 10_000;
+        if (newPPS < 0.5e18) newPPS = 0.5e18;
+        if (newPPS > 2e18) newPPS = 2e18;
+        if (newPPS == current && stepBps != 10_000) return; // clamped into a no-op
+
+        vm.warp(block.timestamp + minUpdateInterval + 1);
+
+        vm.prank(manager);
+        uint256 id = navOracle.proposeNAVUpdate(address(strategy), newPPS, block.timestamp, EVIDENCE_HASH, "");
+        vm.prank(attestor);
+        navOracle.attestNAVUpdate(address(strategy), id);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    function _actorsWithPendingDeposit() internal view returns (address[] memory) {
         uint256 n;
         for (uint256 i; i < actors.length; ++i) {
-            if ((controller.pendingDepositRequest(actors[i]) != 0) == pendingDeposit) n++;
+            if (queue.pendingDepositRequest(0, actors[i]) != 0) n++;
         }
         address[] memory out = new address[](n);
         uint256 j;
         for (uint256 i; i < actors.length; ++i) {
-            if ((controller.pendingDepositRequest(actors[i]) != 0) == pendingDeposit) out[j++] = actors[i];
+            if (queue.pendingDepositRequest(0, actors[i]) != 0) out[j++] = actors[i];
         }
         return out;
     }
@@ -158,37 +235,52 @@ contract ManagedSuperVaultInvariantTest is ManagedSuperVaultTestBase {
         }
         actors = raw;
 
-        handler = new Handler(vault, controller, address(escrow), asset, manager, actors);
+        handler = new Handler(
+            vault, strategy, queue, navOracle, asset, manager, attestor, MIN_UPDATE_INTERVAL, actors
+        );
         targetContract(address(handler));
     }
 
-    /// @notice The controller's totalPendingDepositAssets always equals the sum of per-actor pending.
+    /// @notice The queue holds EXACTLY the pending deposit assets: fulfilled (claimable) assets
+    ///         move to the strategy at fulfillment, cancellations/rejections refund immediately.
+    function invariant_queueHoldsExactlyPendingAssets() public view {
+        assertEq(asset.balanceOf(address(queue)), queue.totalPendingDepositAssets());
+    }
+
+    /// @notice The queue's vault-share balance backs every claimable share; with only tracked
+    ///         actors interacting this is an exact equality.
+    function invariant_queueSharesBackClaimable() public view {
+        uint256 sumClaimableShares;
+        for (uint256 i; i < actors.length; ++i) {
+            sumClaimableShares += queue.maxMint(actors[i]);
+        }
+        uint256 queueShareBal = IERC20(address(vault)).balanceOf(address(queue));
+        assertGe(queueShareBal, sumClaimableShares, "queue shares under-back claimables");
+        assertEq(queueShareBal, sumClaimableShares, "exact with only tracked actors");
+    }
+
+    /// @notice The queue's aggregate pending counter always equals the sum of per-actor pendings.
     function invariant_totalPendingMatchesSum() public view {
         uint256 sum;
         for (uint256 i; i < actors.length; ++i) {
-            sum += controller.pendingDepositRequest(actors[i]);
+            sum += queue.pendingDepositRequest(0, actors[i]);
         }
-        assertEq(controller.totalPendingDepositAssets(), sum);
+        assertEq(queue.totalPendingDepositAssets(), sum);
     }
 
-    /// @notice The escrow always holds at least its obligations: every pending deposit and every
-    ///         fulfilled-but-unclaimed redemption is backed by real assets in escrow.
-    function invariant_escrowSolvency() public view {
-        uint256 obligations = controller.totalPendingDepositAssets();
+    /// @notice Share supply is fully attributed: every minted share is either still custodied by
+    ///         the queue (unclaimed), held by an actor, or escrowed pending redemption.
+    function invariant_totalSupplyFullyAttributed() public view {
+        uint256 attributed = IERC20(address(vault)).balanceOf(address(queue))
+            + IERC20(address(vault)).balanceOf(address(escrow));
         for (uint256 i; i < actors.length; ++i) {
-            obligations += controller.claimableWithdraw(actors[i]);
+            attributed += IERC20(address(vault)).balanceOf(actors[i]);
         }
-        assertGe(asset.balanceOf(address(escrow)), obligations);
+        assertEq(vault.totalSupply(), attributed);
     }
 
-    /// @notice Redemption claims can never dip into pending-deposit custody.
-    function invariant_redeemableExcludesPendingDeposits() public view {
-        uint256 escrowBal = asset.balanceOf(address(escrow));
-        assertGe(escrowBal, controller.totalPendingDepositAssets());
-    }
-
-    /// @notice PPS is always positive.
+    /// @notice PPS is always positive (the rails reject zero and auto-pause instead of storing).
     function invariant_ppsPositive() public view {
-        assertGt(aggregator.getPPS(address(controller)), 0);
+        assertGt(aggregator.getPPS(address(strategy)), 0);
     }
 }

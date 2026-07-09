@@ -5,27 +5,30 @@ pragma solidity 0.8.30;
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 // Superform
 import { ManagedSuperVault } from "./ManagedSuperVault.sol";
-import { ManagedSuperVaultController } from "./ManagedSuperVaultController.sol";
-import { ManagedSuperVaultEscrow } from "./ManagedSuperVaultEscrow.sol";
-import { IManagedSuperVaultController } from "../interfaces/ManagedSuperVault/IManagedSuperVaultController.sol";
-import { IManagedSuperVaultAggregator } from "../interfaces/ManagedSuperVault/IManagedSuperVaultAggregator.sol";
+import { ManagedSuperVaultStrategy } from "./ManagedSuperVaultStrategy.sol";
+import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
+import { SuperVaultEscrow } from "../SuperVault/SuperVaultEscrow.sol";
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
-
+import { IManagedSuperVaultAggregator } from "../interfaces/ManagedSuperVault/IManagedSuperVaultAggregator.sol";
+import { IManagedNAVOracle } from "../interfaces/ManagedSuperVault/IManagedNAVOracle.sol";
+import { IManagedSuperVaultDepositQueue } from "../interfaces/ManagedSuperVault/IManagedSuperVaultDepositQueue.sol";
 // Libraries
 import { AssetMetadataLib } from "../libraries/AssetMetadataLib.sol";
 
 /// @title ManagedSuperVaultAggregator
 /// @author Superform Labs
-/// @notice Sibling factory and registry for Managed Vaults. Deploys deterministic
-///         vault/controller/escrow trios and owns per-vault registry state: managers, pause state,
-///         attested manual NAV/PPS, freshness, and deviation bounds.
-/// @dev There is intentionally no PPS oracle / upkeep / hooks-root machinery here. The aggregator owns
-///      the full attested-manual NAV lifecycle (propose/attest/resolve + attestor-set timelock), keyed by
-///      controller. Large NAV deviations auto-pause the vault and mark NAV stale, mirroring the Full
-///      SuperVault posture.
+/// @notice Registry and attested-PPS sink for all Managed SuperVaults
+/// @dev Fork of SuperVaultAggregator — review by diffing against src/SuperVault/SuperVaultAggregator.sol.
+///      Managed diffs: (1) PPS pushed by a manual-NAV attestation oracle (timelocked swap) instead of the
+///      SuperGovernor's active PPS oracle; (2) upkeep subsystem removed; (3) governance functions gated by
+///      SuperGovernor roles (the deployed SuperGovernor only drives the main-family aggregator);
+///      (4) createVault clones a 4th contract, the deposit queue, and registers the vault's NAV attestation
+///      config atomically. Sync deposits on managed vaults are gated to the queue (see ManagedSuperVault).
 contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     using AssetMetadataLib for address;
     using Clones for address;
@@ -33,94 +36,72 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /*//////////////////////////////////////////////////////////////
-                                 STRUCTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Managed vault configuration and state data, keyed by controller address
-    struct ManagedVaultData {
-        uint256 pps; // Latest finalized attested NAV (scaled by asset decimals)
-        uint256 lastUpdateTimestamp; // Observation timestamp of the latest finalized NAV
-        uint256 minUpdateInterval; // Minimum time between NAV updates
-        uint256 maxStaleness; // Maximum NAV age before the vault is operationally stale
-        // Packed slot
-        address mainManager;
-        bool navStale;
-        bool isPaused;
-        // Registry links
-        address vault;
-        address escrow;
-        // Managers
-        EnumerableSet.AddressSet secondaryManagers;
-        // Manager change proposal data
-        address proposedManager;
-        address proposedFeeRecipient;
-        uint256 managerChangeEffectiveTime;
-        // NAV deviation threshold: abs(new - current) / current, 1e18 scale
-        uint256 deviationThreshold;
-        uint256 proposedDeviationThreshold;
-        uint256 deviationThresholdEffectiveTime;
-        // Min update interval proposal data
-        uint256 proposedMinUpdateInterval;
-        uint256 minUpdateIntervalEffectiveTime;
-        uint256 lastUnpauseTimestamp;
-    }
-
-    /*//////////////////////////////////////////////////////////////
                                  STORAGE
     //////////////////////////////////////////////////////////////*/
     // Vault implementation contracts
     address public immutable VAULT_IMPLEMENTATION;
-    address public immutable CONTROLLER_IMPLEMENTATION;
+    address public immutable STRATEGY_IMPLEMENTATION;
     address public immutable ESCROW_IMPLEMENTATION;
+    address public immutable QUEUE_IMPLEMENTATION;
 
     // Governance
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
-    // Managed vault data storage, keyed by controller
-    mapping(address controller => ManagedVaultData) private _managedVaultData;
+    // Manual-NAV attestation oracle authorized to push PPS for this aggregator's strategies.
+    // Managed replacement for SuperGovernor's (singleton, validator-fed) active PPS oracle.
+    address public navOracle;
+    address public proposedNavOracle;
+    uint256 public navOracleEffectiveTime;
+
+    // Strategy data storage
+    mapping(address strategy => StrategyData) private _strategyData;
 
     // Registry of created vaults
-    EnumerableSet.AddressSet private _managedVaults;
-    EnumerableSet.AddressSet private _managedVaultControllers;
-    EnumerableSet.AddressSet private _managedVaultEscrows;
+    EnumerableSet.AddressSet private _superVaults;
+    EnumerableSet.AddressSet private _superVaultStrategies;
+    EnumerableSet.AddressSet private _superVaultEscrows;
+    EnumerableSet.AddressSet private _depositQueues;
 
-    // Vault lookups
-    mapping(address vault => address controller) private _vaultToController;
-    mapping(address vault => address escrow) private _vaultToEscrow;
+    // Deposit queue lookup by vault
+    mapping(address vault => address queue) private _depositQueueByVault;
 
-    // NAV attestation lifecycle, keyed by controller. Consolidated here (rather than the controller) so
-    // all NAV/PPS/deviation/pause logic lives in one place, and to keep the controller under EIP-170.
-    mapping(address controller => EnumerableSet.AddressSet) private _navAttestors;
-    mapping(address controller => uint8) private _navThreshold;
-    mapping(address controller => uint256) private _nextProposalId;
-    mapping(address controller => uint256) private _activeProposalId;
-    mapping(address controller => mapping(uint256 => IManagedSuperVaultController.NAVUpdateProposal)) private
-        _navProposals;
-    mapping(address controller => mapping(uint256 => mapping(address => bool))) private _hasAttested;
-    // Timelocked attestor-set / threshold change (independence guarantee)
-    mapping(address controller => address[]) private _pendingAttestors;
-    mapping(address controller => uint8) private _pendingThreshold;
-    mapping(address controller => uint256) private _navConfigEffectiveTime;
-
-    // Constants
+    // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
+
+    // Maximum performance fee allowed (51%)
     uint256 private constant MAX_PERFORMANCE_FEE = 5100;
 
-    // Maximum number of secondary managers per vault to prevent governance DoS on manager replacement
+    // Maximum number of secondary managers per strategy to prevent governance DoS on manager replacement
     uint256 public constant MAX_SECONDARY_MANAGERS = 5;
 
-    // Default NAV deviation threshold for new vaults (50% in 1e18 scale, same as Full SuperVaults)
+    // Default deviation threshold for new strategies (50% in 1e18 scale)
     uint256 private constant DEFAULT_DEVIATION_THRESHOLD = 5e17;
 
-    // Maximum NAV deviation threshold (100% in 1e18 scale). The bound is mandatory for attested-manual
-    // NAV, so it can never be raised high enough to effectively disable it.
+    // Maximum deviation threshold (100% in 1e18 scale) — the deviation check cannot be disabled
     uint256 private constant MAX_DEVIATION_THRESHOLD = 1e18;
 
-    // Timelock for manager changes
+    // Timelock for NAV oracle changes (mirrors SuperGovernor's active-PPS-oracle timelock)
+    uint256 public constant NAV_ORACLE_CHANGE_TIMELOCK = 7 days;
+
+    // SuperGovernor roles authorized for governance functions on this aggregator.
+    // The deployed SuperGovernor contract only drives the aggregator registered at its main
+    // SUPER_VAULT_AGGREGATOR key, so this fork gates on role-holders calling directly instead.
+    bytes32 private constant _SUPER_GOVERNOR_ROLE = keccak256("SUPER_GOVERNOR_ROLE");
+    bytes32 private constant _GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
+    bytes32 private constant _GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+
+    // Timelock for manager changes and Merkle root updates
     uint256 private constant _MANAGER_CHANGE_TIMELOCK = 7 days;
+    uint256 private _hooksRootUpdateTimelock = 15 minutes;
 
     // Timelock for parameter changes (3 days)
     uint256 private constant _PARAMETER_CHANGE_TIMELOCK = 3 days;
+
+    // Global hooks Merkle root data
+    bytes32 private _globalHooksRoot;
+    bytes32 private _proposedGlobalHooksRoot;
+    uint256 private _globalHooksRootEffectiveTime;
+    bool private _globalHooksRootVetoed;
 
     // Nonce for vault creation tracking
     uint256 private _vaultCreationNonce;
@@ -128,15 +109,33 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Validates that a controller exists (has been created by this aggregator)
-    modifier validController(address controller) {
-        _validController(controller);
+    /// @notice Validates that msg.sender is the active PPS Oracle
+    modifier onlyPPSOracle() {
+        _onlyPPSOracle();
         _;
     }
 
-    function _validController(address controller) internal view {
-        if (!_managedVaultControllers.contains(controller)) revert UNKNOWN_CONTROLLER();
+    function _onlyPPSOracle() internal view {
+        if (msg.sender != navOracle) {
+            revert UNAUTHORIZED_PPS_ORACLE();
+        }
+    }
+
+    /// @notice Validates that msg.sender holds the given SuperGovernor role
+    function _requireRole(bytes32 role) internal view {
+        if (!IAccessControl(address(SUPER_GOVERNOR)).hasRole(role, msg.sender)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+    }
+
+    /// @notice Validates that a strategy exists (has been created by this aggregator)
+    modifier validStrategy(address strategy) {
+        _validStrategy(strategy);
+        _;
+    }
+
+    function _validStrategy(address strategy) internal view {
+        if (!_superVaultStrategies.contains(strategy)) revert UNKNOWN_STRATEGY();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -145,149 +144,148 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
     /// @notice Initializes the ManagedSuperVaultAggregator
     /// @param superGovernor_ Address of the SuperGovernor contract
     /// @param vaultImpl_ Address of the pre-deployed ManagedSuperVault implementation
-    /// @param controllerImpl_ Address of the pre-deployed ManagedSuperVaultController implementation
-    /// @param escrowImpl_ Address of the pre-deployed ManagedSuperVaultEscrow implementation
-    constructor(address superGovernor_, address vaultImpl_, address controllerImpl_, address escrowImpl_) {
+    /// @param strategyImpl_ Address of the pre-deployed ManagedSuperVaultStrategy implementation
+    /// @param escrowImpl_ Address of the pre-deployed SuperVaultEscrow implementation (reused from the main family)
+    /// @param queueImpl_ Address of the pre-deployed ManagedSuperVaultDepositQueue implementation
+    /// @dev The NAV oracle is NOT a constructor arg: the oracle's constructor takes this aggregator's
+    ///      address, so mutual CREATE2 constructor args would be circular. It is wired post-deploy via
+    ///      setInitialNavOracle (first-set immediate, mirroring SuperGovernor.setActivePPSOracle); the
+    ///      family is inert (forwardPPS and createVault revert) until then.
+    constructor(
+        address superGovernor_,
+        address vaultImpl_,
+        address strategyImpl_,
+        address escrowImpl_,
+        address queueImpl_
+    ) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
         if (vaultImpl_ == address(0)) revert ZERO_ADDRESS();
-        if (controllerImpl_ == address(0)) revert ZERO_ADDRESS();
+        if (strategyImpl_ == address(0)) revert ZERO_ADDRESS();
         if (escrowImpl_ == address(0)) revert ZERO_ADDRESS();
+        if (queueImpl_ == address(0)) revert ZERO_ADDRESS();
 
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
         VAULT_IMPLEMENTATION = vaultImpl_;
-        CONTROLLER_IMPLEMENTATION = controllerImpl_;
+        STRATEGY_IMPLEMENTATION = strategyImpl_;
         ESCROW_IMPLEMENTATION = escrowImpl_;
+        QUEUE_IMPLEMENTATION = queueImpl_;
     }
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IManagedSuperVaultAggregator
-    function createManagedVault(ManagedVaultCreationParams calldata params)
+    function createVault(VaultCreationParams calldata params)
         external
-        returns (address vault, address controller, address escrow)
+        returns (address superVault, address strategy, address escrow, address depositQueue)
     {
         // Input validation
-        if (params.asset == address(0) || params.mainManager == address(0)) revert ZERO_ADDRESS();
-        if (
-            (params.feeConfig.performanceFeeBps > 0 || params.feeConfig.managementFeeBps > 0)
-                && params.feeConfig.recipient == address(0)
-        ) revert ZERO_ADDRESS();
+        if (params.asset == address(0) || params.mainManager == address(0) || params.feeConfig.recipient == address(0))
+        {
+            revert ZERO_ADDRESS();
+        }
 
+        /// @dev Check that name and symbol are not empty
+        ///      We don't check for anything else and
+        ///       it's up to the creator to ensure that the vault
+        ///       is created with valid parameters
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) {
             revert INVALID_VAULT_PARAMS();
         }
 
-        // Validate NAV freshness parameters
-        if (params.maxStaleness < SUPER_GOVERNOR.getMinStaleness()) {
-            revert MAX_STALENESS_TOO_LOW();
-        }
-        if (params.minUpdateInterval >= params.maxStaleness) {
-            revert INVALID_VAULT_PARAMS();
-        }
-
+        // Initialize local variables struct to avoid stack too deep
         VaultCreationLocalVars memory vars;
 
         vars.currentNonce = _vaultCreationNonce++;
         vars.salt = keccak256(abi.encode(msg.sender, params.asset, params.name, params.symbol, vars.currentNonce));
 
         // Create minimal proxies
-        vault = VAULT_IMPLEMENTATION.cloneDeterministic(vars.salt);
+        superVault = VAULT_IMPLEMENTATION.cloneDeterministic(vars.salt);
         escrow = ESCROW_IMPLEMENTATION.cloneDeterministic(vars.salt);
-        controller = CONTROLLER_IMPLEMENTATION.cloneDeterministic(vars.salt);
+        strategy = STRATEGY_IMPLEMENTATION.cloneDeterministic(vars.salt);
+        depositQueue = QUEUE_IMPLEMENTATION.cloneDeterministic(vars.salt);
 
-        // Initialize vault
-        ManagedSuperVault(vault).initialize(params.asset, params.name, params.symbol, controller, escrow);
+        // Initialize superVault (sync deposit/mint gated to the deposit queue)
+        ManagedSuperVault(superVault).initialize(params.asset, params.name, params.symbol, strategy, escrow, depositQueue);
 
         // Initialize escrow
-        ManagedSuperVaultEscrow(escrow).initialize(vault, controller);
+        SuperVaultEscrow(escrow).initialize(superVault);
 
-        // Initialize controller
-        ManagedSuperVaultController(payable(controller)).initialize(vault, params.feeConfig, params.depositPolicy);
+        // Initialize strategy
+        ManagedSuperVaultStrategy(payable(strategy)).initialize(superVault, params.feeConfig);
 
-        // Configure the NAV attestor set (the NAV lifecycle lives here in the aggregator).
-        // A configured independent attestor set is mandatory.
-        uint256 attestorsLen = params.navConfig.attestors.length;
-        if (attestorsLen == 0) revert INVALID_ATTESTATION_CONFIG();
-        if (params.navConfig.threshold == 0 || params.navConfig.threshold > attestorsLen) {
-            revert INVALID_ATTESTATION_CONFIG();
-        }
-        for (uint256 i; i < attestorsLen; ++i) {
-            address attestor = params.navConfig.attestors[i];
-            if (attestor == address(0)) revert ZERO_ADDRESS();
-            if (!_navAttestors[controller].add(attestor)) revert ATTESTOR_ALREADY_EXISTS();
-            emit NAVAttestorAdded(controller, attestor);
-        }
-        _navThreshold[controller] = params.navConfig.threshold;
-        emit NAVAttestationThresholdUpdated(controller, params.navConfig.threshold);
+        // Initialize deposit queue
+        IManagedSuperVaultDepositQueue(depositQueue).initialize(superVault, strategy, params.depositPolicy);
 
-        // Store vault trio in registry
-        _managedVaults.add(vault);
-        _managedVaultControllers.add(controller);
-        _managedVaultEscrows.add(escrow);
-        _vaultToController[vault] = controller;
-        _vaultToEscrow[vault] = escrow;
+        // Register the vault's NAV attestation config with the oracle atomically so the vault
+        // can never exist in an unconfigured-NAV state
+        IManagedNAVOracle(navOracle).initializeAttestationConfig(strategy, params.navConfig);
 
-        _registerManagedVault(params, vault, controller, escrow, vars);
+        // Store vault quartet in registry
+        _superVaults.add(superVault);
+        _superVaultStrategies.add(strategy);
+        _superVaultEscrows.add(escrow);
+        _depositQueues.add(depositQueue);
+        _depositQueueByVault[superVault] = depositQueue;
 
-        return (vault, controller, escrow);
-    }
-
-    /// @notice Store registry data and emit deployment events for a newly created trio
-    /// @dev Split from createManagedVault to avoid stack-too-deep
-    function _registerManagedVault(
-        ManagedVaultCreationParams calldata params,
-        address vault,
-        address controller,
-        address escrow,
-        VaultCreationLocalVars memory vars
-    )
-        internal
-    {
         // Get asset decimals
         (bool success, uint8 assetDecimals) = params.asset.tryGetAssetDecimals();
         if (!success) revert INVALID_ASSET();
         // Initial PPS is always 1.0 (scaled by asset decimals) for new vaults
+        // This means 1 vault share = 1 unit of underlying asset at inception
         vars.initialPPS = 10 ** assetDecimals;
 
-        ManagedVaultData storage data = _managedVaultData[controller];
-        data.pps = vars.initialPPS;
-        data.lastUpdateTimestamp = block.timestamp;
-        data.minUpdateInterval = params.minUpdateInterval;
-        data.maxStaleness = params.maxStaleness;
-        data.isPaused = false;
-        data.mainManager = params.mainManager;
-        data.vault = vault;
-        data.escrow = escrow;
+        // Validate maxStaleness against minimum required staleness
+        if (params.maxStaleness < SUPER_GOVERNOR.getMinStaleness()) {
+            revert MAX_STALENESS_TOO_LOW();
+        }
+
+        // Validate minUpdateInterval against minimum required staleness
+        if (params.minUpdateInterval >= params.maxStaleness) {
+            revert INVALID_VAULT_PARAMS();
+        }
+
+        // Initialize StrategyData individually to avoid mapping assignment issues
+        _strategyData[strategy].pps = vars.initialPPS;
+        _strategyData[strategy].lastUpdateTimestamp = block.timestamp;
+        _strategyData[strategy].minUpdateInterval = params.minUpdateInterval;
+        _strategyData[strategy].maxStaleness = params.maxStaleness;
+        _strategyData[strategy].isPaused = false;
+        _strategyData[strategy].mainManager = params.mainManager;
 
         uint256 secondaryLen = params.secondaryManagers.length;
         if (secondaryLen > MAX_SECONDARY_MANAGERS) revert TOO_MANY_SECONDARY_MANAGERS();
 
         for (uint256 i; i < secondaryLen; ++i) {
-            address secondaryManager = params.secondaryManagers[i];
+            address _secondaryManager = params.secondaryManagers[i];
 
-            if (secondaryManager == address(0)) revert ZERO_ADDRESS();
-            if (data.mainManager == secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
-            if (!data.secondaryManagers.add(secondaryManager)) revert MANAGER_ALREADY_EXISTS();
+            // Check if manager is a zero address
+            if (_secondaryManager == address(0)) revert ZERO_ADDRESS();
+
+            // Check if manager is already the primary manager
+            if (_strategyData[strategy].mainManager == _secondaryManager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+
+            // Add secondary manager and revert if it already exists
+            if (!_strategyData[strategy].secondaryManagers.add(_secondaryManager)) {
+                revert MANAGER_ALREADY_EXISTS();
+            }
         }
 
-        // NAV deviation threshold: creation param in bps, stored in 1e18 scale (0 = default 50%,
-        // capped at 100% so the mandatory bound can never be effectively disabled)
-        if (params.maxUpdateDeviationBps > BPS_PRECISION) revert INVALID_DEVIATION_THRESHOLD();
-        data.deviationThreshold = params.maxUpdateDeviationBps == 0
-            ? DEFAULT_DEVIATION_THRESHOLD
-            : Math.mulDiv(params.maxUpdateDeviationBps, 1e18, BPS_PRECISION);
+        _strategyData[strategy].deviationThreshold = DEFAULT_DEVIATION_THRESHOLD;
 
-        _emitDeploymentEvents(params, vault, controller, escrow, vars.currentNonce, vars.initialPPS);
+        _emitDeploymentEvents(params, superVault, strategy, escrow, depositQueue, vars.currentNonce, vars.initialPPS);
+
+        return (superVault, strategy, escrow, depositQueue);
     }
 
     /// @notice Emit deployment events
-    /// @dev Split from registration and using memory copies of the dynamic fields to avoid stack-too-deep
+    /// @dev Split from createVault and using memory copies of the dynamic fields to avoid stack-too-deep
     function _emitDeploymentEvents(
-        ManagedVaultCreationParams calldata params,
-        address vault,
-        address controller,
+        VaultCreationParams calldata params,
+        address superVault,
+        address strategy,
         address escrow,
+        address depositQueue,
         uint256 nonce,
         uint256 initialPPS
     )
@@ -297,608 +295,594 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
         string memory symbol_ = params.symbol;
         string memory metadataURI_ = params.metadataURI;
 
-        emit ManagedSuperVaultDeployed(vault, controller, escrow, params.asset, name_, symbol_, nonce);
-        emit ManagedVaultConfigRegistered(controller, params.depositPolicy.approvalMode, metadataURI_);
-        emit ManagedNAVUpdated(controller, 0, initialPPS, block.timestamp);
+        emit ManagedVaultDeployed(superVault, strategy, escrow, depositQueue, params.asset, name_, symbol_, nonce);
+        emit MetadataURIUpdated(strategy, metadataURI_);
+        emit PPSUpdated(strategy, initialPPS, _strategyData[strategy].lastUpdateTimestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
-                    NAV WRITE PATH (CONTROLLER-ONLY)
+                          PPS UPDATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc IManagedSuperVaultAggregator
-    function proposeNAVUpdate(
-        address controller,
-        uint256 newPPS,
-        uint256 effectiveTimestamp,
-        bytes32 evidenceHash,
-        string calldata evidenceURI
-    )
-        external
-        validController(controller)
-        returns (uint256 proposalId)
-    {
-        if (!isAnyManager(msg.sender, controller)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+    function forwardPPS(ForwardPPSArgs calldata args) external onlyPPSOracle {
+        uint256 strategiesLength = args.strategies.length;
+        for (uint256 i; i < strategiesLength; ++i) {
+            address strategy = args.strategies[i];
 
-        if (newPPS == 0) revert INVALID_NAV();
-        if (evidenceHash == bytes32(0)) revert EVIDENCE_REQUIRED();
-        if (effectiveTimestamp > block.timestamp) revert INVALID_TIMESTAMP();
-        if (effectiveTimestamp <= _managedVaultData[controller].lastUpdateTimestamp) revert INVALID_TIMESTAMP();
-
-        // Only one active proposal at a time; an existing pending/in-review proposal must be
-        // explicitly cancelled (cancelNAVUpdate) or resolved first
-        if (_activeProposalId[controller] != 0) revert NAV_PROPOSAL_PENDING();
-
-        proposalId = ++_nextProposalId[controller];
-        _navProposals[controller][proposalId] = IManagedSuperVaultController.NAVUpdateProposal({
-            proposedPPS: newPPS,
-            effectiveTimestamp: effectiveTimestamp,
-            evidenceHash: evidenceHash,
-            evidenceURI: evidenceURI,
-            proposer: msg.sender,
-            attestationCount: 0,
-            status: IManagedSuperVaultController.NAVProposalStatus.PendingAttestation
-        });
-        _activeProposalId[controller] = proposalId;
-
-        emit NAVProposed(
-            controller,
-            proposalId,
-            _managedVaultData[controller].pps,
-            newPPS,
-            effectiveTimestamp,
-            msg.sender,
-            evidenceHash,
-            evidenceURI
-        );
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function attestNAVUpdate(address controller, uint256 proposalId) external validController(controller) {
-        if (!_navAttestors[controller].contains(msg.sender)) revert NOT_NAV_ATTESTOR();
-
-        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
-        if (proposal.status != IManagedSuperVaultController.NAVProposalStatus.PendingAttestation) {
-            revert NAV_PROPOSAL_NOT_PENDING();
-        }
-        if (msg.sender == proposal.proposer) revert ATTESTOR_CANNOT_BE_PROPOSER();
-        if (_hasAttested[controller][proposalId][msg.sender]) revert ALREADY_ATTESTED();
-
-        _hasAttested[controller][proposalId][msg.sender] = true;
-        proposal.attestationCount += 1;
-
-        emit NAVAttested(controller, proposalId, msg.sender, proposal.attestationCount);
-
-        // Normal path: never bypasses the deviation bound (allowLargeDeviation = false). An out-of-bound
-        // proposal moves to ReviewRequired and can only finalize via resolveLargeDeviationNAV.
-        if (proposal.attestationCount >= _navThreshold[controller]) {
-            _finalizeNAV(controller, proposalId, proposal, proposal.effectiveTimestamp, false);
-        }
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function cancelNAVUpdate(address controller, uint256 proposalId) external validController(controller) {
-        if (!isAnyManager(msg.sender, controller)) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
-        if (
-            proposal.status != IManagedSuperVaultController.NAVProposalStatus.PendingAttestation
-                && proposal.status != IManagedSuperVaultController.NAVProposalStatus.ReviewRequired
-        ) revert NAV_PROPOSAL_NOT_PENDING();
-
-        proposal.status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
-        if (_activeProposalId[controller] == proposalId) _activeProposalId[controller] = 0;
-
-        emit NAVProposalCanceled(controller, proposalId, msg.sender);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function resolveLargeDeviationNAV(address controller, uint256 proposalId) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        IManagedSuperVaultController.NAVUpdateProposal storage proposal = _navProposals[controller][proposalId];
-        if (proposal.status != IManagedSuperVaultController.NAVProposalStatus.ReviewRequired) {
-            revert NAV_PROPOSAL_NOT_IN_REVIEW();
-        }
-        if (proposal.attestationCount < _navThreshold[controller]) revert ATTESTATION_THRESHOLD_NOT_MET();
-
-        // Elevated action: the vault auto-paused on the deviation breach; it must have been explicitly
-        // unpaused (indexable manager action) before the large-deviation NAV can be finalized. This is
-        // the ONLY path that finalizes a NAV exceeding the deviation bound (allowLargeDeviation = true);
-        // an ordinary attestation can never bypass the bound, even right after a manual pause/unpause.
-        if (_managedVaultData[controller].isPaused) revert MANAGED_VAULT_PAUSED();
-
-        // Re-stamp the NAV at resolve time: the original effective timestamp necessarily predates the
-        // deviation pause, which the post-unpause validation would reject.
-        _finalizeNAV(controller, proposalId, proposal, block.timestamp, true);
-        emit NAVLargeDeviationResolved(controller, proposalId, msg.sender);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function proposeNAVAttestationConfig(
-        address controller,
-        address[] calldata attestors,
-        uint8 threshold
-    )
-        external
-        validController(controller)
-    {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        uint256 len = attestors.length;
-        if (len == 0 || threshold == 0 || threshold > len) revert INVALID_ATTESTATION_CONFIG();
-        for (uint256 i; i < len; ++i) {
-            if (attestors[i] == address(0)) revert ZERO_ADDRESS();
-            for (uint256 j = i + 1; j < len; ++j) {
-                if (attestors[i] == attestors[j]) revert ATTESTOR_ALREADY_EXISTS();
+            // Skip invalid strategy
+            if (!_superVaultStrategies.contains(strategy)) {
+                emit UnknownStrategy(strategy);
+                continue;
             }
-        }
 
-        _pendingAttestors[controller] = attestors;
-        _pendingThreshold[controller] = threshold;
-        _navConfigEffectiveTime[controller] = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
+            // Skip invalid timestamp
+            uint256 ts = args.timestamps[i];
 
-        emit NAVAttestationConfigProposed(controller, attestors, threshold, _navConfigEffectiveTime[controller]);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function executeNAVAttestationConfig(address controller) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-
-        if (_navConfigEffectiveTime[controller] == 0) revert NO_PENDING_NAV_CONFIG();
-        if (block.timestamp < _navConfigEffectiveTime[controller]) revert NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
-
-        // SECURITY: cancel any in-flight proposal so attestations collected under the OLD attestor set
-        // cannot finalize under the new set/threshold (no stale-attestation carry across a config swap).
-        uint256 activeId = _activeProposalId[controller];
-        if (activeId != 0) {
-            _navProposals[controller][activeId].status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
-            _activeProposalId[controller] = 0;
-            emit NAVProposalCanceled(controller, activeId, msg.sender);
-        }
-
-        // Clear the current attestor set
-        address[] memory current = _navAttestors[controller].values();
-        for (uint256 i; i < current.length; ++i) {
-            _navAttestors[controller].remove(current[i]);
-            emit NAVAttestorRemoved(controller, current[i]);
-        }
-
-        // Install the new attestor set + threshold
-        address[] memory next = _pendingAttestors[controller];
-        for (uint256 i; i < next.length; ++i) {
-            _navAttestors[controller].add(next[i]);
-            emit NAVAttestorAdded(controller, next[i]);
-        }
-        _navThreshold[controller] = _pendingThreshold[controller];
-        emit NAVAttestationThresholdUpdated(controller, _pendingThreshold[controller]);
-
-        delete _pendingAttestors[controller];
-        _pendingThreshold[controller] = 0;
-        _navConfigEffectiveTime[controller] = 0;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function cancelNAVAttestationConfig(address controller) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        if (_navConfigEffectiveTime[controller] == 0) revert NO_PENDING_NAV_CONFIG();
-
-        delete _pendingAttestors[controller];
-        _pendingThreshold[controller] = 0;
-        _navConfigEffectiveTime[controller] = 0;
-
-        emit NAVAttestationConfigCancelled(controller);
-    }
-
-    /// @notice Finalize an attested NAV proposal by attempting to store it
-    /// @dev A deviation-bound rejection auto-pauses the vault and returns the proposal to ReviewRequired.
-    function _finalizeNAV(
-        address controller,
-        uint256 proposalId,
-        IManagedSuperVaultController.NAVUpdateProposal storage proposal,
-        uint256 navTimestamp,
-        bool allowLargeDeviation
-    )
-        internal
-    {
-        bool accepted = _storeNAV(controller, proposal.proposedPPS, navTimestamp, allowLargeDeviation);
-
-        if (accepted) {
-            proposal.status = IManagedSuperVaultController.NAVProposalStatus.Finalized;
-            _activeProposalId[controller] = 0;
-            emit NAVFinalized(controller, proposalId, proposal.proposedPPS, navTimestamp);
-        } else {
-            proposal.status = IManagedSuperVaultController.NAVProposalStatus.ReviewRequired;
-            emit NAVReviewRequired(controller, proposalId, proposal.proposedPPS, _managedVaultData[controller].pps);
-        }
-    }
-
-    /// @notice Invalidate any in-flight NAV proposal and pending attestor-config change for a controller
-    /// @dev Called when the attestor set or the primary manager changes. This prevents (a) attestations
-    ///      collected under an old attestor set from finalizing under a new set, and (b) a NAV proposal or
-    ///      a queued attestor-config change left by an outgoing manager from surviving the transition.
-    function _invalidatePendingNAV(address controller) internal {
-        uint256 activeId = _activeProposalId[controller];
-        if (activeId != 0) {
-            _navProposals[controller][activeId].status = IManagedSuperVaultController.NAVProposalStatus.Canceled;
-            _activeProposalId[controller] = 0;
-            emit NAVProposalCanceled(controller, activeId, msg.sender);
-        }
-        if (_navConfigEffectiveTime[controller] != 0) {
-            delete _pendingAttestors[controller];
-            _pendingThreshold[controller] = 0;
-            _navConfigEffectiveTime[controller] = 0;
-            emit NAVAttestationConfigCancelled(controller);
-        }
-    }
-
-    /// @notice Store a finalized attested NAV, enforcing freshness/monotonicity/deviation invariants
-    /// @dev Internal: only reachable via _finalizeNAV (attestation or elevated resolve path). A
-    ///      deviation-bound failure auto-pauses the vault, marks NAV stale, drops the value, returns false.
-    ///      The deviation check is bypassed only when allowLargeDeviation is set (resolve path).
-    function _storeNAV(
-        address controller,
-        uint256 newPPS,
-        uint256 timestamp,
-        bool allowLargeDeviation
-    )
-        internal
-        returns (bool)
-    {
-        ManagedVaultData storage data = _managedVaultData[controller];
-
-        // No NAV finalization while paused
-        if (data.isPaused) revert MANAGED_VAULT_PAUSED();
-
-        if (newPPS == 0) revert INVALID_NAV();
-
-        // [Future Timestamp Rejection]
-        if (timestamp > block.timestamp) revert INVALID_TIMESTAMP();
-
-        // [Timestamp Monotonicity]
-        uint256 lastUpdate = data.lastUpdateTimestamp;
-        if (timestamp <= lastUpdate) revert INVALID_TIMESTAMP();
-
-        // [Post-Unpause Timestamp Validation] only accept observations made after the last unpause
-        uint256 lastUnpauseTimestamp = data.lastUnpauseTimestamp;
-        if (lastUnpauseTimestamp > 0 && timestamp <= lastUnpauseTimestamp) revert INVALID_TIMESTAMP();
-
-        // [Staleness Enforcement (Absolute Time)]
-        if (block.timestamp - timestamp > data.maxStaleness) revert STALE_UPDATE();
-
-        // [Rate Limit Enforcement]
-        if (timestamp - lastUpdate < data.minUpdateInterval) revert UPDATE_TOO_FREQUENT();
-
-        // [Deviation Threshold] Large deviations auto-pause the vault and drop the value. The check is
-        // bypassed ONLY when the controller passes allowLargeDeviation (its elevated resolve path) — a
-        // manual pause/unpause leaves navStale set but can never bypass the bound on the normal path.
-        uint256 currentPPS = data.pps;
-        if (!allowLargeDeviation && data.deviationThreshold != type(uint256).max && currentPPS > 0) {
-            uint256 absDiff = newPPS > currentPPS ? (newPPS - currentPPS) : (currentPPS - newPPS);
-            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
-            if (relativeDeviation > data.deviationThreshold) {
-                data.isPaused = true;
-                data.navStale = true;
-                emit ManagedNAVDeviationExceeded(controller, newPPS, currentPPS, relativeDeviation);
-                emit ManagedVaultPaused(controller);
-                emit ManagedVaultNAVStale(controller);
-                return false;
+            // [Property 4: Future Timestamp Rejection]
+            // Reject updates with timestamps in the future. This prevents validators from
+            // creating signatures with future timestamps that could be used later.
+            if (ts > block.timestamp) {
+                emit ProvidedTimestampExceedsBlockTimestamp(strategy, ts, block.timestamp);
+                continue;
             }
-        }
 
-        // Store NAV and clear the stale flag
-        data.pps = newPPS;
-        data.lastUpdateTimestamp = timestamp;
-        if (data.navStale) {
-            data.navStale = false;
-            emit ManagedVaultNAVStaleReset(controller);
+            StrategyData storage data = _strategyData[strategy];
+
+            // [Property 5: Pause Rejection]
+            // Always skip paused strategies, regardless of payment settings.
+            // Paused strategies should not accept any PPS updates until explicitly unpaused.
+            // This check happens early to avoid unnecessary processing and gas costs.
+            if (data.isPaused) {
+                emit PPSUpdateRejectedStrategyPaused(strategy);
+                continue; // Skip processing paused strategies
+            }
+
+            // [Property 6: Staleness Enforcement (Absolute Time)]
+            // Always enforce staleness check, regardless of payment status.
+            // This prevents attackers from submitting stale signatures to manipulate PPS.
+            // The check must occur before payment calculation to protect all strategies.
+            if (block.timestamp - ts > data.maxStaleness) {
+                emit StaleUpdate(strategy, args.updateAuthority, ts);
+                continue; // Skip processing stale updates
+            }
+
+            _forwardPPS(PPSUpdateData({ strategy: strategy, pps: args.ppss[i], timestamp: ts }));
         }
-        emit ManagedNAVUpdated(controller, currentPPS, newPPS, timestamp);
-        return true;
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external validController(msg.sender) {
-        address controller = msg.sender;
+    function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external validStrategy(msg.sender) {
+        // msg.sender must be a registered strategy (validated by modifier)
+        address strategy = msg.sender;
 
-        ManagedVaultData storage data = _managedVaultData[controller];
-        if (data.isPaused) revert MANAGED_VAULT_PAUSED();
-        if (data.navStale) revert NAV_STALE();
-        // Serialize skims against the NAV lifecycle: a skim bumps lastUpdateTimestamp, which would
-        // otherwise stall an in-flight proposal on the monotonicity check at finalize. Resolve or
-        // cancel the active proposal before skimming.
-        if (_activeProposalId[controller] != 0) revert NAV_PROPOSAL_PENDING();
+        StrategyData storage data = _strategyData[strategy];
+        // Disallow PPS updates after skim when strategy is paused or PPS is stale
+        if (data.isPaused) revert STRATEGY_PAUSED();
+        if (data.ppsStale) revert PPS_STALE();
         uint256 oldPPS = data.pps;
 
         // VALIDATION 1: PPS must decrease after fee skim
         if (newPPS >= oldPPS) revert PPS_MUST_DECREASE_AFTER_SKIM();
 
         // VALIDATION 2: PPS must be positive
-        if (newPPS == 0) revert INVALID_NAV();
+        if (newPPS == 0) revert INVALID_ASSET();
 
         // VALIDATION 3: Range check - deduction must be within max fee bounds
+        // Use MAX_PERFORMANCE_FEE to avoid external call to strategy
+        // Max possible PPS after skim: oldPPS * (1 - MAX_PERFORMANCE_FEE)
+        // Use Ceil rounding to ensure strict enforcement of MAX_PERFORMANCE_FEE (51%) limit
         uint256 minAllowedPPS = oldPPS.mulDiv(BPS_PRECISION - MAX_PERFORMANCE_FEE, BPS_PRECISION, Math.Rounding.Ceil);
+
         if (newPPS < minAllowedPPS) revert PPS_DEDUCTION_TOO_LARGE();
 
         // VALIDATION 4: Fee amount must be non-zero when PPS decreases
-        if (feeAmount == 0) revert INVALID_NAV();
+        // This ensures consistent reporting between PPS change and claimed fee amount
+        if (feeAmount == 0) revert INVALID_ASSET();
 
+        // UPDATE: Store new PPS
         data.pps = newPPS;
+
+        // UPDATE TIMESTAMP
+        // Update timestamp to reflect when this PPS change occurred
+        // NOTE: This may interact with oracle submissions - to be discussed
         data.lastUpdateTimestamp = block.timestamp;
 
-        emit PPSUpdatedAfterSkim(controller, oldPPS, newPPS, feeAmount, block.timestamp);
+        // NOTE: We do NOT reset ppsStale flag here
+        // The skim function can only be called if _validateStrategyState doesn't revert
+        // So if we reach here, the strategy state is valid
+
+        emit PPSUpdatedAfterSkim(strategy, oldPPS, newPPS, feeAmount, block.timestamp);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        NAV ORACLE MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IManagedSuperVaultAggregator
+    /// @dev First-set is immediate and one-time (mirrors SuperGovernor.setActivePPSOracle); all
+    ///      subsequent changes must go through the timelocked propose/execute path
+    function setInitialNavOracle(address oracle) external {
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+
+        if (oracle == address(0)) revert ZERO_ADDRESS();
+        if (navOracle != address(0)) revert NAV_ORACLE_ALREADY_SET();
+
+        navOracle = oracle;
+
+        emit NavOracleChanged(address(0), oracle);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    /// @dev Timelocked because the NAV oracle has full control over stored PPS for every
+    ///      managed vault — mirrors SuperGovernor's active-PPS-oracle change pattern
+    function proposeNavOracle(address newOracle) external {
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+
+        if (newOracle == address(0)) revert ZERO_ADDRESS();
+
+        proposedNavOracle = newOracle;
+        navOracleEffectiveTime = block.timestamp + NAV_ORACLE_CHANGE_TIMELOCK;
+
+        emit NavOracleProposed(newOracle, navOracleEffectiveTime);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function executeNavOracleChange() external {
+        if (proposedNavOracle == address(0)) revert NO_PENDING_NAV_ORACLE_CHANGE();
+        if (block.timestamp < navOracleEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+
+        address oldOracle = navOracle;
+        navOracle = proposedNavOracle;
+
+        proposedNavOracle = address(0);
+        navOracleEffectiveTime = 0;
+
+        emit NavOracleChanged(oldOracle, navOracle);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function cancelNavOracleChange() external {
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+
+        if (proposedNavOracle == address(0)) revert NO_PENDING_NAV_ORACLE_CHANGE();
+
+        address cancelledOracle = proposedNavOracle;
+        proposedNavOracle = address(0);
+        navOracleEffectiveTime = 0;
+
+        emit NavOracleChangeCancelled(cancelledOracle);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        METADATA MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IManagedSuperVaultAggregator
+    /// @dev The metadata URI is event-only (no onchain storage) — indexers track the latest value
+    function updateMetadataURI(address strategy, string calldata metadataURI) external validStrategy(strategy) {
+        if (!isAnyManager(msg.sender, strategy)) {
+            revert UNAUTHORIZED_UPDATE_AUTHORITY();
+        }
+
+        emit MetadataURIUpdated(strategy, metadataURI);
     }
 
     /*//////////////////////////////////////////////////////////////
                         PAUSE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function pauseManagedVault(address controller) external validController(controller) {
-        if (!isAnyManager(msg.sender, controller)) {
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    /// @dev Only the main or secondary manager of the strategy can pause it
+    function pauseStrategy(address strategy) external validStrategy(strategy) {
+        // Either primary or secondary manager can pause
+        if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (_managedVaultData[controller].isPaused) {
-            revert MANAGED_VAULT_ALREADY_PAUSED();
+        // Check if strategy is already paused
+        if (_strategyData[strategy].isPaused) {
+            revert STRATEGY_ALREADY_PAUSED();
         }
 
-        _managedVaultData[controller].isPaused = true;
-        _managedVaultData[controller].navStale = true;
-        emit ManagedVaultPaused(controller);
-        emit ManagedVaultNAVStale(controller);
+        // Pause the strategy
+        _strategyData[strategy].isPaused = true;
+        _strategyData[strategy].ppsStale = true;
+        emit StrategyPaused(strategy);
     }
 
-    /// @inheritdoc IManagedSuperVaultAggregator
-    /// @dev Unpausing keeps NAV stale until a fresh attested update finalizes
-    function unpauseManagedVault(address controller) external validController(controller) {
-        if (!isAnyManager(msg.sender, controller)) {
+    /// @notice Manually unpauses a strategy
+    /// @param strategy Address of the strategy to unpause
+    /// @dev unpausing marks PPS stale until a fresh oracle update
+    function unpauseStrategy(address strategy) external validStrategy(strategy) {
+        if (!isAnyManager(msg.sender, strategy)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (!_managedVaultData[controller].isPaused) {
-            revert MANAGED_VAULT_NOT_PAUSED();
+        // Check if strategy is currently paused
+        if (!_strategyData[strategy].isPaused) {
+            revert STRATEGY_NOT_PAUSED();
         }
 
-        _managedVaultData[controller].isPaused = false;
-        _managedVaultData[controller].lastUnpauseTimestamp = block.timestamp; // Track for skim timelock
-        // navStale remains true from pause until a fresh update finalizes
-        emit ManagedVaultUnpaused(controller);
+        // Unpause the strategy and track unpause timestamp
+        _strategyData[strategy].isPaused = false;
+        _strategyData[strategy].lastUnpauseTimestamp = block.timestamp; // Track for skim timelock
+        // ppsStale already true from pause - no need to set again (gas savings)
+        emit StrategyUnpaused(strategy);
     }
 
     /*//////////////////////////////////////////////////////////////
                        MANAGER MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IManagedSuperVaultAggregator
-    function addSecondaryManager(address controller, address manager) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+    function addSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
+        // Only the primary manager can add secondary managers
+        if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
         if (manager == address(0)) revert ZERO_ADDRESS();
-        if (_managedVaultData[controller].mainManager == manager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
 
-        if (_managedVaultData[controller].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
+        // Check if manager is already the primary manager
+        if (_strategyData[strategy].mainManager == manager) revert SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+
+        // Enforce a cap on secondary managers to prevent governance DoS on changePrimaryManager
+        if (_strategyData[strategy].secondaryManagers.length() >= MAX_SECONDARY_MANAGERS) {
             revert TOO_MANY_SECONDARY_MANAGERS();
         }
 
-        if (!_managedVaultData[controller].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
+        // Add as secondary manager using EnumerableSet
+        if (!_strategyData[strategy].secondaryManagers.add(manager)) revert MANAGER_ALREADY_EXISTS();
 
-        emit SecondaryManagerAdded(controller, manager);
+        emit SecondaryManagerAdded(strategy, manager);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function removeSecondaryManager(address controller, address manager) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
+    function removeSecondaryManager(address strategy, address manager) external validStrategy(strategy) {
+        // Only the primary manager can remove secondary managers
+        if (msg.sender != _strategyData[strategy].mainManager) revert UNAUTHORIZED_UPDATE_AUTHORITY();
 
-        if (!_managedVaultData[controller].secondaryManagers.remove(manager)) revert MANAGER_NOT_FOUND();
+        // Remove the manager using EnumerableSet
+        if (!_strategyData[strategy].secondaryManagers.remove(manager)) revert MANAGER_NOT_FOUND();
 
-        emit SecondaryManagerRemoved(controller, manager);
+        emit SecondaryManagerRemoved(strategy, manager);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function proposeDeviationThresholdChange(
-        address controller,
-        uint256 deviationThreshold_
-    )
-        external
-        validController(controller)
-    {
-        if (msg.sender != _managedVaultData[controller].mainManager) {
+    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external validStrategy(strategy) {
+        // Since this is a risky call, we only allow main managers as callers
+        if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
-        // Cannot disable or loosen beyond 100%; the bound is mandatory for attested-manual NAV
+
+        // Managed hardening: the deviation check cannot be disabled — manual NAV is manager-attested,
+        // so the bound must stay live (capped at 100%; zero would block every update)
         if (deviationThreshold_ == 0 || deviationThreshold_ > MAX_DEVIATION_THRESHOLD) {
             revert INVALID_DEVIATION_THRESHOLD();
         }
 
-        uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
-        _managedVaultData[controller].proposedDeviationThreshold = deviationThreshold_;
-        _managedVaultData[controller].deviationThresholdEffectiveTime = effectiveTime;
+        // Update the threshold
+        _strategyData[strategy].deviationThreshold = deviationThreshold_;
 
-        emit DeviationThresholdChangeProposed(controller, deviationThreshold_, effectiveTime);
+        // Emit the event
+        emit DeviationThresholdUpdated(strategy, deviationThreshold_);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function executeDeviationThresholdChange(address controller) external validController(controller) {
-        if (_managedVaultData[controller].deviationThresholdEffectiveTime == 0) {
-            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
-        }
-        if (block.timestamp < _managedVaultData[controller].deviationThresholdEffectiveTime) {
-            revert TIMELOCK_NOT_EXPIRED();
-        }
-
-        uint256 newThreshold = _managedVaultData[controller].proposedDeviationThreshold;
-
-        _managedVaultData[controller].proposedDeviationThreshold = 0;
-        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
-
-        _managedVaultData[controller].deviationThreshold = newThreshold;
-
-        emit DeviationThresholdUpdated(controller, newThreshold);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function cancelDeviationThresholdChange(address controller) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) {
+    function changeGlobalLeavesStatus(
+        bytes32[] memory leaves,
+        bool[] memory statuses,
+        address strategy
+    )
+        external
+        validStrategy(strategy)
+    {
+        // Only the primary manager can change global leaves status
+        if (msg.sender != _strategyData[strategy].mainManager) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
-        if (_managedVaultData[controller].deviationThresholdEffectiveTime == 0) {
-            revert NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
+        uint256 leavesLen = leaves.length;
+        // Check array lengths match
+        if (leavesLen != statuses.length) {
+            revert MISMATCHED_ARRAY_LENGTHS();
         }
 
-        uint256 cancelled = _managedVaultData[controller].proposedDeviationThreshold;
-        _managedVaultData[controller].proposedDeviationThreshold = 0;
-        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
+        // Update banned status for each leaf
+        for (uint256 i; i < leavesLen; i++) {
+            _strategyData[strategy].bannedLeaves[leaves[i]] = statuses[i];
+        }
 
-        emit DeviationThresholdChangeCancelled(controller, cancelled);
+        // Emit event
+        emit GlobalLeavesStatusChanged(strategy, leaves, statuses);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    /// @dev Event-only: the URI is not stored onchain; indexers read the latest from this event
-    function updateMetadataURI(address controller, string calldata metadataURI) external validController(controller) {
-        if (msg.sender != _managedVaultData[controller].mainManager) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
-
-        emit MetadataURIUpdated(controller, metadataURI);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    /// @dev SECURITY: emergency governance override, mirrors SuperVaultAggregator.changePrimaryManager.
-    ///      Clears all pending proposals and secondary managers to prevent malicious manager attacks.
+    /// @dev SECURITY: This is the emergency governance override function
+    /// @dev Clears ALL pending proposals and secondary managers to prevent malicious manager attacks:
+    ///      - Pending manager change proposals
+    ///      - Pending hooks root proposals
+    ///      - Pending minUpdateInterval proposals
+    ///      - ALL secondary managers (they may be controlled by malicious manager)
+    /// @dev This ensures clean slate for new manager without inherited vulnerabilities
+    /// @dev This function is only callable by SUPER_GOVERNOR
     function changePrimaryManager(
-        address controller,
+        address strategy,
         address newManager,
         address feeRecipient
     )
         external
-        validController(controller)
+        validStrategy(strategy)
     {
-        if (msg.sender != address(SUPER_GOVERNOR)) {
-            revert UNAUTHORIZED_UPDATE_AUTHORITY();
-        }
+        // Gated on the SuperGovernor role (the deployed SuperGovernor contract cannot reach this
+        // aggregator); the takeover-freeze check is inlined since it lives in the governor wrapper
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+        if (SUPER_GOVERNOR.isManagerTakeoverFrozen()) revert MANAGER_TAKEOVERS_FROZEN();
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
-        if (newManager == _managedVaultData[controller].mainManager) revert MANAGER_ALREADY_EXISTS();
 
-        address oldManager = _managedVaultData[controller].mainManager;
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
 
-        // SECURITY: Clear any pending proposals to prevent malicious re-takeover
-        _managedVaultData[controller].proposedManager = address(0);
-        _managedVaultData[controller].proposedFeeRecipient = address(0);
-        _managedVaultData[controller].managerChangeEffectiveTime = 0;
-        _managedVaultData[controller].proposedMinUpdateInterval = 0;
-        _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
-        // SECURITY: drop any pending deviation-threshold loosening queued by the outgoing manager
-        _managedVaultData[controller].proposedDeviationThreshold = 0;
-        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
-        // SECURITY: invalidate any in-flight NAV proposal / queued attestor-config change
-        _invalidatePendingNAV(controller);
+        address oldManager = _strategyData[strategy].mainManager;
 
-        // SECURITY: Clear all secondary managers as they may be controlled by the malicious manager
-        address[] memory clearedSecondaryManagers = _managedVaultData[controller].secondaryManagers.values();
+        // SECURITY: Clear any pending manager proposals to prevent malicious re-takeover
+        _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].managerChangeEffectiveTime = 0;
+
+        // SECURITY: Clear any pending fee recipient proposals to prevent malicious change
+        _strategyData[strategy].proposedFeeRecipient = address(0);
+
+        // SECURITY: Clear any pending hooks root proposals to prevent malicious hook updates
+        _strategyData[strategy].proposedHooksRoot = bytes32(0);
+        _strategyData[strategy].hooksRootEffectiveTime = 0;
+
+        // SECURITY: Clear any pending minUpdateInterval proposals
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
+
+        // SECURITY: Clear all secondary managers as they may be controlled by malicious manager
+        // Get all secondary managers first to emit proper events
+        address[] memory clearedSecondaryManagers = _strategyData[strategy].secondaryManagers.values();
+
+        // Clear the entire secondary managers set
         for (uint256 i = 0; i < clearedSecondaryManagers.length; i++) {
-            _managedVaultData[controller].secondaryManagers.remove(clearedSecondaryManagers[i]);
-            emit SecondaryManagerRemoved(controller, clearedSecondaryManagers[i]);
+            _strategyData[strategy].secondaryManagers.remove(clearedSecondaryManagers[i]);
+            emit SecondaryManagerRemoved(strategy, clearedSecondaryManagers[i]);
         }
 
-        _managedVaultData[controller].mainManager = newManager;
+        // Set the new primary manager
+        _strategyData[strategy].mainManager = newManager;
 
-        IManagedSuperVaultController(controller).changeFeeRecipient(feeRecipient);
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
 
-        emit PrimaryManagerChanged(controller, oldManager, newManager, feeRecipient);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
     function proposeChangePrimaryManager(
-        address controller,
+        address strategy,
         address newManager,
         address feeRecipient
     )
         external
-        validController(controller)
+        validStrategy(strategy)
     {
         // Only secondary managers can propose changes to the primary manager
-        if (!_managedVaultData[controller].secondaryManagers.contains(msg.sender)) {
+        if (!_strategyData[strategy].secondaryManagers.contains(msg.sender)) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
-        if (newManager == _managedVaultData[controller].mainManager) revert MANAGER_ALREADY_EXISTS();
 
+        // Check if new manager is already the primary manager to prevent malicious feeRecipient update
+        if (newManager == _strategyData[strategy].mainManager) revert MANAGER_ALREADY_EXISTS();
+
+        // Set up the proposal with 7-day timelock
         uint256 effectiveTime = block.timestamp + _MANAGER_CHANGE_TIMELOCK;
 
-        _managedVaultData[controller].proposedManager = newManager;
-        _managedVaultData[controller].proposedFeeRecipient = feeRecipient;
-        _managedVaultData[controller].managerChangeEffectiveTime = effectiveTime;
+        // Store proposal in the strategy data
+        _strategyData[strategy].proposedManager = newManager;
+        _strategyData[strategy].proposedFeeRecipient = feeRecipient;
+        _strategyData[strategy].managerChangeEffectiveTime = effectiveTime;
 
-        emit PrimaryManagerChangeProposed(controller, msg.sender, newManager, feeRecipient, effectiveTime);
+        emit PrimaryManagerChangeProposed(strategy, msg.sender, newManager, feeRecipient, effectiveTime);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function cancelChangePrimaryManager(address controller) external validController(controller) {
-        if (_managedVaultData[controller].mainManager != msg.sender) {
+    function cancelChangePrimaryManager(address strategy) external validStrategy(strategy) {
+        // Only the current main manager can cancel the proposal
+        if (_strategyData[strategy].mainManager != msg.sender) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (_managedVaultData[controller].proposedManager == address(0)) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].proposedManager == address(0)) {
             revert NO_PENDING_MANAGER_CHANGE();
         }
 
-        address cancelledManager = _managedVaultData[controller].proposedManager;
+        address cancelledManager = _strategyData[strategy].proposedManager;
 
-        _managedVaultData[controller].proposedManager = address(0);
-        _managedVaultData[controller].proposedFeeRecipient = address(0);
-        _managedVaultData[controller].managerChangeEffectiveTime = 0;
+        // Clear the proposal
+        _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
+        _strategyData[strategy].managerChangeEffectiveTime = 0;
 
-        emit PrimaryManagerChangeCancelled(controller, cancelledManager);
+        emit PrimaryManagerChangeCancelled(strategy, cancelledManager);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function executeChangePrimaryManager(address controller) external validController(controller) {
-        if (_managedVaultData[controller].proposedManager == address(0)) revert NO_PENDING_MANAGER_CHANGE();
+    function executeChangePrimaryManager(address strategy) external validStrategy(strategy) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].proposedManager == address(0)) revert NO_PENDING_MANAGER_CHANGE();
 
-        if (block.timestamp < _managedVaultData[controller].managerChangeEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
+        // Check if the timelock period has passed
+        if (block.timestamp < _strategyData[strategy].managerChangeEffectiveTime) revert TIMELOCK_NOT_EXPIRED();
 
-        address newManager = _managedVaultData[controller].proposedManager;
-        address feeRecipient = _managedVaultData[controller].proposedFeeRecipient;
+        address newManager = _strategyData[strategy].proposedManager;
+        address feeRecipient = _strategyData[strategy].proposedFeeRecipient;
 
+        // Validate proposed values are not zero addresses (defense in depth)
         if (newManager == address(0) || feeRecipient == address(0)) revert ZERO_ADDRESS();
 
-        address oldManager = _managedVaultData[controller].mainManager;
+        address oldManager = _strategyData[strategy].mainManager;
 
-        // SECURITY: Clear all secondary managers to prevent privilege retention
-        _managedVaultData[controller].secondaryManagers.clear();
+        // SECURITY: Clear all secondary managers to prevent privilege retntion
+        _strategyData[strategy].secondaryManagers.clear();
 
-        _managedVaultData[controller].proposedMinUpdateInterval = 0;
-        _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
-        _managedVaultData[controller].proposedDeviationThreshold = 0;
-        _managedVaultData[controller].deviationThresholdEffectiveTime = 0;
-        // SECURITY: invalidate any in-flight NAV proposal / queued attestor-config change
-        _invalidatePendingNAV(controller);
+        _strategyData[strategy].proposedHooksRoot = bytes32(0);
+        _strategyData[strategy].hooksRootEffectiveTime = 0;
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
 
-        _managedVaultData[controller].mainManager = newManager;
+        // Set the new primary manager
+        _strategyData[strategy].mainManager = newManager;
 
-        IManagedSuperVaultController(controller).changeFeeRecipient(feeRecipient);
+        // Set the new fee recipient
+        ISuperVaultStrategy(strategy).changeFeeRecipient(feeRecipient);
 
-        _managedVaultData[controller].proposedManager = address(0);
-        _managedVaultData[controller].proposedFeeRecipient = address(0);
-        _managedVaultData[controller].managerChangeEffectiveTime = 0;
+        // Clear the proposal
+        _strategyData[strategy].proposedManager = address(0);
+        _strategyData[strategy].proposedFeeRecipient = address(0);
+        _strategyData[strategy].managerChangeEffectiveTime = 0;
 
-        emit PrimaryManagerChanged(controller, oldManager, newManager, feeRecipient);
+        emit PrimaryManagerChanged(strategy, oldManager, newManager, feeRecipient);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    /// @dev SECURITY: allows governance to onboard a new manager without penalizing them for the
-    ///      previous manager's performance (mirrors SuperVaultAggregator.resetHighWaterMark)
-    function resetHighWaterMark(address controller) external validController(controller) {
-        if (msg.sender != address(SUPER_GOVERNOR)) {
+    /// @dev SECURITY: This function is intended to be used by governance to onboard a new manager without penalizing
+    /// them for the previous manager's performance.
+    /// @dev If a manager is replaced while the strategy is below its
+    /// previous HWM, the new manager would otherwise inherit a "loss" state and be unable to earn performance fees
+    /// until the fee config are updated after the week timelock.
+    /// @dev Calling this function resets the HWM to the current PPS, allowing a newly appointed manager to start from a
+    /// neutral baseline. @dev This function is only callable by SUPER_GOVERNOR
+    function resetHighWaterMark(address strategy) external validStrategy(strategy) {
+        // Gated on the SuperGovernor role (see changePrimaryManager)
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+
+        uint256 newHwmPps = _strategyData[strategy].pps;
+
+        // Reset the High Water Mark to the current PPS
+        ISuperVaultStrategy(strategy).resetHighWaterMark(newHwmPps);
+
+        emit HighWaterMarkReset(strategy, newHwmPps);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        HOOK VALIDATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function setHooksRootUpdateTimelock(uint256 newTimelock) external {
+        // Gated on the SuperGovernor role (see changePrimaryManager)
+        _requireRole(_SUPER_GOVERNOR_ROLE);
+
+        // Update the timelock
+        _hooksRootUpdateTimelock = newTimelock;
+
+        emit HooksRootUpdateTimelockChanged(newTimelock);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function proposeGlobalHooksRoot(bytes32 newRoot) external {
+        // Governor role proposes this aggregator's own global hooks root (mirrors
+        // SuperGovernor.changeGlobalHooksRoot, which only drives the main-family aggregator)
+        _requireRole(_GOVERNOR_ROLE);
+
+        // Set new root with timelock
+        _proposedGlobalHooksRoot = newRoot;
+        uint256 effectiveTime = block.timestamp + _hooksRootUpdateTimelock;
+        _globalHooksRootEffectiveTime = effectiveTime;
+
+        emit GlobalHooksRootUpdateProposed(newRoot, effectiveTime);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function executeGlobalHooksRootUpdate() external {
+        bytes32 proposedRoot = _proposedGlobalHooksRoot;
+        // Ensure there is a pending proposal
+        if (proposedRoot == bytes32(0)) {
+            revert NO_PENDING_GLOBAL_ROOT_CHANGE();
+        }
+
+        // Check if timelock period has elapsed
+        if (block.timestamp < _globalHooksRootEffectiveTime) {
+            revert ROOT_UPDATE_NOT_READY();
+        }
+
+        // Update the global hooks root
+        bytes32 oldRoot = _globalHooksRoot;
+        _globalHooksRoot = proposedRoot;
+        _globalHooksRootEffectiveTime = 0;
+        _proposedGlobalHooksRoot = bytes32(0);
+
+        emit GlobalHooksRootUpdated(oldRoot, proposedRoot);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function setGlobalHooksRootVetoStatus(bool vetoed) external {
+        // Guardian role vetoes (mirrors SuperGovernor.setGlobalHooksRootVetoStatus)
+        _requireRole(_GUARDIAN_ROLE);
+
+        // Don't emit event if status doesn't change
+        if (_globalHooksRootVetoed == vetoed) {
+            return;
+        }
+
+        // Update veto status
+        _globalHooksRootVetoed = vetoed;
+
+        emit GlobalHooksRootVetoStatusChanged(vetoed, _globalHooksRoot);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function proposeStrategyHooksRoot(address strategy, bytes32 newRoot) external validStrategy(strategy) {
+        // Only the main manager can propose strategy-specific hooks root
+        if (_strategyData[strategy].mainManager != msg.sender) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        uint256 newHwmPps = _managedVaultData[controller].pps;
+        // Set proposed root with timelock
+        _strategyData[strategy].proposedHooksRoot = newRoot;
+        uint256 effectiveTime = block.timestamp + _hooksRootUpdateTimelock;
+        _strategyData[strategy].hooksRootEffectiveTime = effectiveTime;
 
-        IManagedSuperVaultController(controller).resetHighWaterMark(newHwmPps);
+        emit StrategyHooksRootUpdateProposed(strategy, msg.sender, newRoot, effectiveTime);
+    }
 
-        emit HighWaterMarkReset(controller, newHwmPps);
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function executeStrategyHooksRootUpdate(address strategy) external validStrategy(strategy) {
+        bytes32 proposedRoot = _strategyData[strategy].proposedHooksRoot;
+        // Ensure there is a pending proposal
+        if (proposedRoot == bytes32(0)) {
+            revert NO_PENDING_MANAGER_CHANGE(); // Reusing error for simplicity
+        }
+
+        // Check if timelock period has elapsed
+        if (block.timestamp < _strategyData[strategy].hooksRootEffectiveTime) {
+            revert ROOT_UPDATE_NOT_READY();
+        }
+
+        // Update the strategy's hooks root
+        bytes32 oldRoot = _strategyData[strategy].managerHooksRoot;
+        _strategyData[strategy].managerHooksRoot = proposedRoot;
+
+        // Reset proposal state
+        _strategyData[strategy].proposedHooksRoot = bytes32(0);
+        _strategyData[strategy].hooksRootEffectiveTime = 0;
+
+        emit StrategyHooksRootUpdated(strategy, oldRoot, proposedRoot);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external validStrategy(strategy) {
+        // Guardian role vetoes (mirrors SuperGovernor.setStrategyHooksRootVetoStatus)
+        _requireRole(_GUARDIAN_ROLE);
+
+        // Don't emit event if status doesn't change
+        if (_strategyData[strategy].hooksRootVetoed == vetoed) {
+            return;
+        }
+
+        // Update veto status
+        _strategyData[strategy].hooksRootVetoed = vetoed;
+
+        emit StrategyHooksRootVetoStatusChanged(strategy, vetoed, _strategyData[strategy].managerHooksRoot);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -907,273 +891,509 @@ contract ManagedSuperVaultAggregator is IManagedSuperVaultAggregator {
 
     /// @inheritdoc IManagedSuperVaultAggregator
     function proposeMinUpdateIntervalChange(
-        address controller,
+        address strategy,
         uint256 newMinUpdateInterval
     )
         external
-        validController(controller)
+        validStrategy(strategy)
     {
-        if (_managedVaultData[controller].mainManager != msg.sender) {
+        // Only the main manager can propose changes
+        if (_strategyData[strategy].mainManager != msg.sender) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (newMinUpdateInterval >= _managedVaultData[controller].maxStaleness) {
+        // Validate: newMinUpdateInterval must be less than maxStaleness
+        // This ensures updates can occur before data becomes stale
+        if (newMinUpdateInterval >= _strategyData[strategy].maxStaleness) {
             revert MIN_UPDATE_INTERVAL_TOO_HIGH();
         }
 
+        // Set proposed interval with timelock
         uint256 effectiveTime = block.timestamp + _PARAMETER_CHANGE_TIMELOCK;
-        _managedVaultData[controller].proposedMinUpdateInterval = newMinUpdateInterval;
-        _managedVaultData[controller].minUpdateIntervalEffectiveTime = effectiveTime;
+        _strategyData[strategy].proposedMinUpdateInterval = newMinUpdateInterval;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = effectiveTime;
 
-        emit MinUpdateIntervalChangeProposed(controller, msg.sender, newMinUpdateInterval, effectiveTime);
+        emit MinUpdateIntervalChangeProposed(strategy, msg.sender, newMinUpdateInterval, effectiveTime);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function executeMinUpdateIntervalChange(address controller) external validController(controller) {
-        if (_managedVaultData[controller].minUpdateIntervalEffectiveTime == 0) {
+    function executeMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
             revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
         }
 
-        if (block.timestamp < _managedVaultData[controller].minUpdateIntervalEffectiveTime) {
+        // Check if the timelock period has passed
+        if (block.timestamp < _strategyData[strategy].minUpdateIntervalEffectiveTime) {
             revert TIMELOCK_NOT_EXPIRED();
         }
 
-        uint256 newInterval = _managedVaultData[controller].proposedMinUpdateInterval;
-        uint256 oldInterval = _managedVaultData[controller].minUpdateInterval;
+        uint256 newInterval = _strategyData[strategy].proposedMinUpdateInterval;
+        uint256 oldInterval = _strategyData[strategy].minUpdateInterval;
 
-        _managedVaultData[controller].proposedMinUpdateInterval = 0;
-        _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
+        // Clear the proposal first
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
 
-        _managedVaultData[controller].minUpdateInterval = newInterval;
+        // Update the minUpdateInterval
+        _strategyData[strategy].minUpdateInterval = newInterval;
 
-        emit MinUpdateIntervalChanged(controller, oldInterval, newInterval);
+        emit MinUpdateIntervalChanged(strategy, oldInterval, newInterval);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function cancelMinUpdateIntervalChange(address controller) external validController(controller) {
-        if (_managedVaultData[controller].mainManager != msg.sender) {
+    function cancelMinUpdateIntervalChange(address strategy) external validStrategy(strategy) {
+        // Only the main manager can cancel
+        if (_strategyData[strategy].mainManager != msg.sender) {
             revert UNAUTHORIZED_UPDATE_AUTHORITY();
         }
 
-        if (_managedVaultData[controller].minUpdateIntervalEffectiveTime == 0) {
+        // Check if there is a pending proposal
+        if (_strategyData[strategy].minUpdateIntervalEffectiveTime == 0) {
             revert NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
         }
 
-        uint256 cancelledInterval = _managedVaultData[controller].proposedMinUpdateInterval;
+        uint256 cancelledInterval = _strategyData[strategy].proposedMinUpdateInterval;
 
-        _managedVaultData[controller].proposedMinUpdateInterval = 0;
-        _managedVaultData[controller].minUpdateIntervalEffectiveTime = 0;
+        // Clear the proposal
+        _strategyData[strategy].proposedMinUpdateInterval = 0;
+        _strategyData[strategy].minUpdateIntervalEffectiveTime = 0;
 
-        emit MinUpdateIntervalChangeCancelled(controller, cancelledInterval);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                              VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function VAULT_TYPE() external pure returns (string memory) {
-        return "managed_vault";
+        emit MinUpdateIntervalChangeCancelled(strategy, cancelledInterval);
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function NAV_MODE() external pure returns (string memory) {
-        return "attested_manual";
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getPPS(address controller) external view validController(controller) returns (uint256 pps) {
-        return _managedVaultData[controller].pps;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getLastUpdateTimestamp(address controller) external view returns (uint256 timestamp) {
-        return _managedVaultData[controller].lastUpdateTimestamp;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getMinUpdateInterval(address controller) external view returns (uint256 interval) {
-        return _managedVaultData[controller].minUpdateInterval;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getMaxStaleness(address controller) external view returns (uint256 staleness) {
-        return _managedVaultData[controller].maxStaleness;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getDeviationThreshold(address controller)
-        external
-        view
-        validController(controller)
-        returns (uint256 deviationThreshold)
-    {
-        return _managedVaultData[controller].deviationThreshold;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isManagedVaultPaused(address controller) external view returns (bool isPaused) {
-        return _managedVaultData[controller].isPaused;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isNAVStale(address controller) external view returns (bool isStale) {
-        return _managedVaultData[controller].navStale;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getLastUnpauseTimestamp(address controller) external view returns (uint256 timestamp) {
-        return _managedVaultData[controller].lastUnpauseTimestamp;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getMainManager(address controller) external view returns (address manager) {
-        return _managedVaultData[controller].mainManager;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getPendingManagerChange(address controller)
-        external
-        view
-        returns (address proposedManager, uint256 effectiveTime)
-    {
-        return (_managedVaultData[controller].proposedManager, _managedVaultData[controller].managerChangeEffectiveTime);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isMainManager(address manager, address controller) public view returns (bool) {
-        return _managedVaultData[controller].mainManager == manager;
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getSecondaryManagers(address controller) external view returns (address[] memory) {
-        return _managedVaultData[controller].secondaryManagers.values();
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isSecondaryManager(address manager, address controller) external view returns (bool) {
-        return _managedVaultData[controller].secondaryManagers.contains(manager);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isAnyManager(address manager, address controller) public view returns (bool) {
-        ManagedVaultData storage data = _managedVaultData[controller];
-        return (data.mainManager == manager) || data.secondaryManagers.contains(manager);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getProposedMinUpdateInterval(address controller)
+    function getProposedMinUpdateInterval(address strategy)
         external
         view
         returns (uint256 proposedInterval, uint256 effectiveTime)
     {
         return (
-            _managedVaultData[controller].proposedMinUpdateInterval,
-            _managedVaultData[controller].minUpdateIntervalEffectiveTime
+            _strategyData[strategy].proposedMinUpdateInterval, _strategyData[strategy].minUpdateIntervalEffectiveTime
         );
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function getProposedDeviationThreshold(address controller)
-        external
-        view
-        returns (uint256 proposedThreshold, uint256 effectiveTime)
-    {
-        return (
-            _managedVaultData[controller].proposedDeviationThreshold,
-            _managedVaultData[controller].deviationThresholdEffectiveTime
-        );
+    function isGlobalHooksRootVetoed() external view returns (bool vetoed) {
+        return _globalHooksRootVetoed;
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function getNAVProposal(
-        address controller,
-        uint256 proposalId
-    )
-        external
-        view
-        returns (IManagedSuperVaultController.NAVUpdateProposal memory proposal)
-    {
-        return _navProposals[controller][proposalId];
+    function isStrategyHooksRootVetoed(address strategy) external view returns (bool vetoed) {
+        return _strategyData[strategy].hooksRootVetoed;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getSuperVaultsCount() external view returns (uint256) {
+        return _superVaults.length();
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function getActiveNAVProposalId(address controller) external view returns (uint256 proposalId) {
-        return _activeProposalId[controller];
+    function getSuperVaultStrategiesCount() external view returns (uint256) {
+        return _superVaultStrategies.length();
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
-    function getNAVAttestationConfig(address controller)
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold)
-    {
-        return (_navAttestors[controller].values(), _navThreshold[controller]);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getPendingNAVAttestationConfig(address controller)
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime)
-    {
-        return (_pendingAttestors[controller], _pendingThreshold[controller], _navConfigEffectiveTime[controller]);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isNAVAttestor(address controller, address attestor) external view returns (bool) {
-        return _navAttestors[controller].contains(attestor);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function hasAttested(address controller, uint256 proposalId, address attestor) external view returns (bool) {
-        return _hasAttested[controller][proposalId][attestor];
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function isManagedVault(address vault) external view returns (bool) {
-        return _managedVaults.contains(vault);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getManagedVaultController(address vault) external view returns (address controller) {
-        return _vaultToController[vault];
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getManagedVaultEscrow(address vault) external view returns (address escrow) {
-        return _vaultToEscrow[vault];
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getAllManagedVaults() external view returns (address[] memory) {
-        return _managedVaults.values();
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getAllManagedVaultControllers() external view returns (address[] memory) {
-        return _managedVaultControllers.values();
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function managedVaults(uint256 index) external view returns (address) {
-        if (index >= _managedVaults.length()) revert INDEX_OUT_OF_BOUNDS();
-        return _managedVaults.at(index);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function managedVaultControllers(uint256 index) external view returns (address) {
-        if (index >= _managedVaultControllers.length()) revert INDEX_OUT_OF_BOUNDS();
-        return _managedVaultControllers.at(index);
-    }
-
-    /// @inheritdoc IManagedSuperVaultAggregator
-    function getManagedVaultsCount() external view returns (uint256) {
-        return _managedVaults.length();
+    function getSuperVaultEscrowsCount() external view returns (uint256) {
+        return _superVaultEscrows.length();
     }
 
     /// @inheritdoc IManagedSuperVaultAggregator
     function getCurrentNonce() external view returns (uint256) {
         return _vaultCreationNonce;
     }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getHooksRootUpdateTimelock() external view returns (uint256) {
+        return _hooksRootUpdateTimelock;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getPPS(address strategy) external view validStrategy(strategy) returns (uint256 pps) {
+        return _strategyData[strategy].pps;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getLastUpdateTimestamp(address strategy) external view returns (uint256 timestamp) {
+        return _strategyData[strategy].lastUpdateTimestamp;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getMinUpdateInterval(address strategy) external view returns (uint256 interval) {
+        return _strategyData[strategy].minUpdateInterval;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getMaxStaleness(address strategy) external view returns (uint256 staleness) {
+        return _strategyData[strategy].maxStaleness;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getDeviationThreshold(address strategy)
+        external
+        view
+        validStrategy(strategy)
+        returns (uint256 deviationThreshold)
+    {
+        return _strategyData[strategy].deviationThreshold;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isStrategyPaused(address strategy) external view returns (bool isPaused) {
+        return _strategyData[strategy].isPaused;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isPPSStale(address strategy) external view returns (bool isStale) {
+        return _strategyData[strategy].ppsStale;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp) {
+        return _strategyData[strategy].lastUnpauseTimestamp;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getDepositQueue(address vault) external view returns (address queue) {
+        return _depositQueueByVault[vault];
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getAllDepositQueues() external view returns (address[] memory) {
+        return _depositQueues.values();
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isDepositQueue(address queue) external view returns (bool) {
+        return _depositQueues.contains(queue);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getMainManager(address strategy) external view returns (address manager) {
+        return _strategyData[strategy].mainManager;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getPendingManagerChange(address strategy)
+        external
+        view
+        returns (address proposedManager, uint256 effectiveTime)
+    {
+        return (_strategyData[strategy].proposedManager, _strategyData[strategy].managerChangeEffectiveTime);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isMainManager(address manager, address strategy) public view returns (bool) {
+        return _strategyData[strategy].mainManager == manager;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getSecondaryManagers(address strategy) external view returns (address[] memory) {
+        return _strategyData[strategy].secondaryManagers.values();
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isSecondaryManager(address manager, address strategy) external view returns (bool) {
+        return _strategyData[strategy].secondaryManagers.contains(manager);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function isAnyManager(address manager, address strategy) public view returns (bool) {
+        // Single storage pointer read instead of multiple
+        StrategyData storage data = _strategyData[strategy];
+        return (data.mainManager == manager) || data.secondaryManagers.contains(manager);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getAllSuperVaults() external view returns (address[] memory) {
+        return _superVaults.values();
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function superVaults(uint256 index) external view returns (address) {
+        if (index >= _superVaults.length()) revert INDEX_OUT_OF_BOUNDS();
+        return _superVaults.at(index);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getAllSuperVaultStrategies() external view returns (address[] memory) {
+        return _superVaultStrategies.values();
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function superVaultStrategies(uint256 index) external view returns (address) {
+        if (index >= _superVaultStrategies.length()) revert INDEX_OUT_OF_BOUNDS();
+        return _superVaultStrategies.at(index);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getAllSuperVaultEscrows() external view returns (address[] memory) {
+        return _superVaultEscrows.values();
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function superVaultEscrows(uint256 index) external view returns (address) {
+        if (index >= _superVaultEscrows.length()) revert INDEX_OUT_OF_BOUNDS();
+        return _superVaultEscrows.at(index);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function validateHook(address strategy, ValidateHookArgs calldata args) external view returns (bool isValid) {
+        // Cache all state variables in struct
+        HookValidationCache memory cache = HookValidationCache({
+            globalHooksRootVetoed: _globalHooksRootVetoed,
+            globalHooksRoot: _globalHooksRoot,
+            strategyHooksRootVetoed: _strategyData[strategy].hooksRootVetoed,
+            strategyRoot: _strategyData[strategy].managerHooksRoot
+        });
+
+        // Early return false if either global or strategy hooks root is vetoed
+        if (cache.globalHooksRootVetoed || cache.strategyHooksRootVetoed) {
+            return false;
+        }
+
+        // Try to validate against global root first
+        if (_validateSingleHook(args.hookAddress, args.hookArgs, args.globalProof, true, cache, strategy)) {
+            return true;
+        }
+
+        // If global validation fails, try strategy root
+        return _validateSingleHook(args.hookAddress, args.hookArgs, args.strategyProof, false, cache, strategy);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function validateHooks(
+        address strategy,
+        ValidateHookArgs[] calldata argsArray
+    )
+        external
+        view
+        returns (bool[] memory validHooks)
+    {
+        uint256 length = argsArray.length;
+
+        // Cache all state variables in struct
+        HookValidationCache memory cache = HookValidationCache({
+            globalHooksRootVetoed: _globalHooksRootVetoed,
+            globalHooksRoot: _globalHooksRoot,
+            strategyHooksRootVetoed: _strategyData[strategy].hooksRootVetoed,
+            strategyRoot: _strategyData[strategy].managerHooksRoot
+        });
+
+        // Early return all false if either global or strategy hooks root is vetoed
+        if (cache.globalHooksRootVetoed || cache.strategyHooksRootVetoed) {
+            return new bool[](length); // Array initialized with all false values
+        }
+
+        // Validate each hook
+        validHooks = new bool[](length);
+        for (uint256 i; i < length; i++) {
+            // Try global root first
+            if (_validateSingleHook(
+                    argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].globalProof, true, cache, strategy
+                )) {
+                validHooks[i] = true;
+            } else {
+                // Try strategy root
+                validHooks[i] = _validateSingleHook(
+                    argsArray[i].hookAddress, argsArray[i].hookArgs, argsArray[i].strategyProof, false, cache, strategy
+                );
+            }
+            // If both conditions fail, validHooks[i] remains false (default value)
+        }
+
+        return validHooks;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getGlobalHooksRoot() external view returns (bytes32 root) {
+        return _globalHooksRoot;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getProposedGlobalHooksRoot() external view returns (bytes32 root, uint256 effectiveTime) {
+        return (_proposedGlobalHooksRoot, _globalHooksRootEffectiveTime);
+    }
+
+    /// @notice Checks if the global hooks root is active (timelock period has passed)
+    /// @return isActive True if the global hooks root is active
+    function isGlobalHooksRootActive() external view returns (bool) {
+        return block.timestamp >= _globalHooksRootEffectiveTime && _globalHooksRoot != bytes32(0);
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getStrategyHooksRoot(address strategy) external view returns (bytes32 root) {
+        return _strategyData[strategy].managerHooksRoot;
+    }
+
+    /// @inheritdoc IManagedSuperVaultAggregator
+    function getProposedStrategyHooksRoot(address strategy)
+        external
+        view
+        returns (bytes32 root, uint256 effectiveTime)
+    {
+        return (_strategyData[strategy].proposedHooksRoot, _strategyData[strategy].hooksRootEffectiveTime);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         INTERNAL HELPER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Internal implementation of forwarding PPS updates
+    /// @dev Implements Properties 7-10 from /security/security_properties.md:
+    ///      - Property 7: Timestamp Monotonicity
+    ///      - Property 8: Post-Unpause Timestamp Validation / C1-RE_ANCHOR
+    ///      - Property 9: Rate Limit Enforcement
+    ///      - Property 10: Deviation Threshold / C1 Check
+    ///      (Property 11, the upkeep balance check, does not apply — the managed family has no upkeep)
+    /// @dev Uses 'return' (not 'revert') for business logic rejections to enable batch processing
+    /// @dev Auto-pauses strategy and marks PPS stale on validation failures
+    /// @param args Struct containing all parameters for PPS update
+    function _forwardPPS(PPSUpdateData memory args) internal {
+        // Check rate limiting
+        // Use the minimum of minUpdateInterval and maxStaleness to ensure minInterval is never higher than maxStaleness
+        uint256 minInterval = _strategyData[args.strategy].minUpdateInterval;
+        uint256 lastUpdate = _strategyData[args.strategy].lastUpdateTimestamp;
+
+        // [Property 7: Timestamp Monotonicity]
+        // Ensure timestamps are strictly increasing to prevent out-of-order updates.
+        // This guarantees that PPS updates reflect the true chronological order of market conditions.
+        if (args.timestamp <= lastUpdate) {
+            emit TimestampNotMonotonic();
+            return;
+        }
+
+        // [Property 8: Post-Unpause Timestamp Validation (C1-RE_ANCHOR)]
+        // After unpause, only accept signatures timestamped AFTER the unpause event.
+        // Note: lastUnpauseTimestamp is 0 for never-paused strategies (check skipped via short-circuit).
+        uint256 lastUnpauseTimestamp = _strategyData[args.strategy].lastUnpauseTimestamp;
+        if (lastUnpauseTimestamp > 0 && args.timestamp <= lastUnpauseTimestamp) {
+            emit StaleSignatureAfterUnpause(args.strategy, args.timestamp, lastUnpauseTimestamp);
+            return;
+        }
+
+        // [Property 9: Rate Limit Enforcement]
+        // Enforce minimum time interval between PPS updates to prevent spam and ensure
+        // adequate time for market conditions to change meaningfully.
+        if (args.timestamp - lastUpdate < minInterval) {
+            emit UpdateTooFrequent();
+            return;
+        }
+
+        // Flag to track if any check failed
+        bool checksFailed;
+
+        // [Property 10: Deviation Threshold (C1 Check)]
+        // Check if PPS deviation exceeds the configured threshold.
+        // Large deviations may indicate data errors or extreme market conditions requiring review.
+        // Skip this check if: threshold disabled (type(uint256).max), no previous PPS, or PPS marked stale.
+        // Stale PPS skip allows emergency updates during liquidation scenarios.
+        // Failures trigger auto-pause and mark PPS as stale (handled below).
+        uint256 currentPPS = _strategyData[args.strategy].pps;
+        if (
+            _strategyData[args.strategy].deviationThreshold != type(uint256).max && currentPPS > 0
+                && !_strategyData[args.strategy].ppsStale
+        ) {
+            // Skip deviation check if stale
+            // Calculate absolute deviation, scaled by 1e18
+            uint256 absDiff = args.pps > currentPPS ? (args.pps - currentPPS) : (currentPPS - args.pps);
+            uint256 relativeDeviation = Math.mulDiv(absDiff, 1e18, currentPPS);
+            if (relativeDeviation > _strategyData[args.strategy].deviationThreshold) {
+                checksFailed = true;
+                emit StrategyCheckFailed(args.strategy, "HIGH_PPS_DEVIATION");
+            }
+        }
+
+
+        // Pause strategy if any check failed and mark PPS as stale
+        if ((checksFailed || args.pps == 0)) {
+            _strategyData[args.strategy].isPaused = true;
+            _strategyData[args.strategy].ppsStale = true; // Mark stale when auto-pausing
+            emit StrategyPaused(args.strategy);
+            emit StrategyPPSStale(args.strategy);
+        } else {
+            // Only store PPS, timestamp and clear stale flag when validation passes
+            _strategyData[args.strategy].pps = args.pps;
+            _strategyData[args.strategy].lastUpdateTimestamp = args.timestamp;
+            // Only reset stale flag if it was previously stale (gas optimization)
+            if (_strategyData[args.strategy].ppsStale) {
+                _strategyData[args.strategy].ppsStale = false;
+                emit StrategyPPSStaleReset(args.strategy);
+            }
+            emit PPSUpdated(args.strategy, args.pps, args.timestamp);
+        }
+        // If checks failed, PPS remains at old value (safer for external integrators)
+    }
+
+    /// @notice Creates a leaf node for Merkle verification from hook address and arguments
+    /// @param hookAddress The address of the hook contract
+    /// @param hookArgs The packed-encoded hook arguments (from solidityPack in JS)
+    /// @return leaf The leaf node hash
+    function _createLeaf(address hookAddress, bytes calldata hookArgs) internal pure returns (bytes32) {
+        /// @dev The leaf now includes both hook address and args to prevent cross-hook replay attacks
+        /// @dev Different hooks with identical encoded args will have different authorization leaves
+        /// @dev This matches StandardMerkleTree's standardLeafHash: keccak256(keccak256(abi.encode(hookAddress,
+        /// hookArgs)))
+        /// @dev but uses bytes.concat for explicit concatenation
+        return keccak256(bytes.concat(keccak256(abi.encode(hookAddress, hookArgs))));
+    }
+
+    /**
+     * @dev Internal function to validate a single hook against either global or strategy root
+     * @param hookAddress The address of the hook contract
+     * @param hookArgs Hook arguments
+     * @param proof Merkle proof for the specified root
+     * @param isGlobalProof Whether to validate against global root (true) or strategy root (false)
+     * @param cache Cached hook validation state variables
+     * @param strategy Address of the strategy (needed to check banned leaves for global proofs)
+     * @return True if hook is valid, false otherwise
+     */
+    function _validateSingleHook(
+        address hookAddress,
+        bytes calldata hookArgs,
+        bytes32[] calldata proof,
+        bool isGlobalProof,
+        HookValidationCache memory cache,
+        address strategy
+    )
+        internal
+        view
+        returns (bool)
+    {
+        // Early return for common veto cases (avoid leaf creation cost)
+        if (isGlobalProof) {
+            if (cache.globalHooksRootVetoed || cache.globalHooksRoot == bytes32(0)) {
+                return false;
+            }
+        } else {
+            if (cache.strategyHooksRootVetoed || cache.strategyRoot == bytes32(0)) {
+                return false;
+            }
+        }
+
+        // Only create leaf if checks pass
+        bytes32 leaf = _createLeaf(hookAddress, hookArgs);
+
+        if (isGlobalProof) {
+            // Check if this leaf is banned by the manager
+            if (_strategyData[strategy].bannedLeaves[leaf]) {
+                return false;
+            }
+
+            // For single-leaf trees, empty proof is valid when root equals leaf
+            if (proof.length == 0) {
+                return cache.globalHooksRoot == leaf;
+            }
+            return MerkleProof.verify(proof, cache.globalHooksRoot, leaf);
+        } else {
+            // For single-leaf trees, empty proof is valid when root equals leaf
+            if (proof.length == 0) {
+                return cache.strategyRoot == leaf;
+            }
+            return MerkleProof.verify(proof, cache.strategyRoot, leaf);
+        }
+    }
+
 }

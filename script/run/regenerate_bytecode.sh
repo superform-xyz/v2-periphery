@@ -87,10 +87,10 @@ CORE_PERIPHERY_CONTRACTS=(
     "SuperVaultBatchOperator"
     "SuperVaultExecutor"
     "ManagedSuperVault"
-    "ManagedSuperVaultController"
-    "ManagedSuperVaultEscrow"
+    "ManagedSuperVaultStrategy"
+    "ManagedSuperVaultDepositQueue"
     "ManagedSuperVaultAggregator"
-    "ManagedSuperVaultExecutor"
+    "ManagedNAVOracle"
     "ECDSAPPSOracle"
     "FixedPriceOracle"
     "SuperOracle"
@@ -120,10 +120,10 @@ get_contract_source() {
         "SuperVaultBatchOperator") echo "src/SuperVault/SuperVaultBatchOperator.sol" ;;
         "SuperVaultExecutor") echo "src/SuperVault/SuperVaultExecutor.sol" ;;
         "ManagedSuperVault") echo "src/ManagedSuperVault/ManagedSuperVault.sol" ;;
-        "ManagedSuperVaultController") echo "src/ManagedSuperVault/ManagedSuperVaultController.sol" ;;
-        "ManagedSuperVaultEscrow") echo "src/ManagedSuperVault/ManagedSuperVaultEscrow.sol" ;;
+        "ManagedSuperVaultStrategy") echo "src/ManagedSuperVault/ManagedSuperVaultStrategy.sol" ;;
+        "ManagedSuperVaultDepositQueue") echo "src/ManagedSuperVault/ManagedSuperVaultDepositQueue.sol" ;;
         "ManagedSuperVaultAggregator") echo "src/ManagedSuperVault/ManagedSuperVaultAggregator.sol" ;;
-        "ManagedSuperVaultExecutor") echo "src/ManagedSuperVault/ManagedSuperVaultExecutor.sol" ;;
+        "ManagedNAVOracle") echo "src/ManagedSuperVault/ManagedNAVOracle.sol" ;;
         "SuperBank") echo "src/SuperBank.sol" ;;
         "SuperGovernor") echo "src/SuperGovernor.sol" ;;
         "UpOFT") echo "src/UP/UpOFT.sol" ;;

@@ -3,28 +3,38 @@ pragma solidity 0.8.30;
 
 import { SuperGovernor } from "../../src/SuperGovernor.sol";
 import { ManagedSuperVault } from "../../src/ManagedSuperVault/ManagedSuperVault.sol";
-import { ManagedSuperVaultController } from "../../src/ManagedSuperVault/ManagedSuperVaultController.sol";
-import { ManagedSuperVaultEscrow } from "../../src/ManagedSuperVault/ManagedSuperVaultEscrow.sol";
+import { ManagedSuperVaultStrategy } from "../../src/ManagedSuperVault/ManagedSuperVaultStrategy.sol";
 import { ManagedSuperVaultAggregator } from "../../src/ManagedSuperVault/ManagedSuperVaultAggregator.sol";
+import { ManagedSuperVaultDepositQueue } from "../../src/ManagedSuperVault/ManagedSuperVaultDepositQueue.sol";
+import { ManagedNAVOracle } from "../../src/ManagedSuperVault/ManagedNAVOracle.sol";
+import { SuperVaultEscrow } from "../../src/SuperVault/SuperVaultEscrow.sol";
+import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { IManagedSuperVaultAggregator } from "../../src/interfaces/ManagedSuperVault/IManagedSuperVaultAggregator.sol";
-import { IManagedSuperVaultController } from "../../src/interfaces/ManagedSuperVault/IManagedSuperVaultController.sol";
+import { IManagedNAVOracle } from "../../src/interfaces/ManagedSuperVault/IManagedNAVOracle.sol";
+import {
+    IManagedSuperVaultDepositQueue
+} from "../../src/interfaces/ManagedSuperVault/IManagedSuperVaultDepositQueue.sol";
 import { PeripheryHelpers } from "./PeripheryHelpers.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 
-/// @notice Shared test harness for the ManagedSuperVault family
+/// @notice Shared test harness for the Managed SuperVault family (reuse architecture):
+///         forked vault/strategy/aggregator + reused escrow impl + deposit queue + NAV oracle
 abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
     SuperGovernor internal superGovernor;
     ManagedSuperVaultAggregator internal aggregator;
+    ManagedNAVOracle internal navOracle;
 
     ManagedSuperVault internal vault;
-    ManagedSuperVaultController internal controller;
-    ManagedSuperVaultEscrow internal escrow;
+    ManagedSuperVaultStrategy internal strategy;
+    SuperVaultEscrow internal escrow;
+    ManagedSuperVaultDepositQueue internal queue;
 
     MockERC20 internal asset;
 
     // Accounts
     address internal sGovernor;
     address internal governor;
+    address internal guardian;
     address internal treasury;
     address internal manager;
     address internal secondaryManager;
@@ -37,6 +47,7 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
     // Default vault parameters
     uint256 internal constant MIN_UPDATE_INTERVAL = 100;
     uint256 internal constant MAX_STALENESS = 1 days;
+    uint256 internal constant INITIAL_PPS = 1e18; // 18-decimals asset
 
     bytes32 internal constant MANAGED_AGGREGATOR_KEY = keccak256("MANAGED_SUPER_VAULT_AGGREGATOR");
     bytes32 internal constant EVIDENCE_HASH = keccak256("nav-evidence");
@@ -47,6 +58,7 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
 
         sGovernor = _deployAccount(0x1, "SuperGovernor");
         governor = _deployAccount(0x2, "Governor");
+        guardian = _deployAccount(0xB, "Guardian");
         treasury = _deployAccount(0x3, "Treasury");
         manager = _deployAccount(0x4, "Manager");
         secondaryManager = _deployAccount(0x5, "SecondaryManager");
@@ -58,28 +70,37 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
 
         asset = new MockERC20("Asset", "ASSET", 18);
 
-        superGovernor = new SuperGovernor(sGovernor, governor, governor, governor, governor, governor, treasury, false);
+        superGovernor =
+            new SuperGovernor(sGovernor, governor, governor, governor, governor, guardian, treasury, false);
 
-        // Deploy implementation contracts
+        // Deploy implementation contracts (escrow impl is REUSED from the main family)
         address vaultImpl = address(new ManagedSuperVault(address(superGovernor)));
-        address controllerImpl = address(new ManagedSuperVaultController(address(superGovernor)));
-        address escrowImpl = address(new ManagedSuperVaultEscrow());
+        address strategyImpl = address(new ManagedSuperVaultStrategy(address(superGovernor)));
+        address escrowImpl = address(new SuperVaultEscrow());
+        address queueImpl = address(new ManagedSuperVaultDepositQueue());
 
-        aggregator = new ManagedSuperVaultAggregator(address(superGovernor), vaultImpl, controllerImpl, escrowImpl);
+        // Aggregator first (inert until the oracle is wired), then oracle, then one-time wiring
+        aggregator =
+            new ManagedSuperVaultAggregator(address(superGovernor), vaultImpl, strategyImpl, escrowImpl, queueImpl);
+        navOracle = new ManagedNAVOracle(address(aggregator));
+        vm.prank(sGovernor);
+        aggregator.setInitialNavOracle(address(navOracle));
 
-        // Register the managed aggregator in the SuperGovernor address registry
+        // Register the managed aggregator in the SuperGovernor address registry (discovery-only:
+        // managed clones store their aggregator at initialize)
         vm.prank(sGovernor);
         superGovernor.setAddress(MANAGED_AGGREGATOR_KEY, address(aggregator));
 
         // Create a default managed vault
-        (address vault_, address controller_, address escrow_) = _createManagedVault(_defaultParams());
+        (address vault_, address strategy_, address escrow_, address queue_) = _createManagedVault(_defaultParams());
         vault = ManagedSuperVault(vault_);
-        controller = ManagedSuperVaultController(payable(controller_));
-        escrow = ManagedSuperVaultEscrow(escrow_);
+        strategy = ManagedSuperVaultStrategy(payable(strategy_));
+        escrow = SuperVaultEscrow(escrow_);
+        queue = ManagedSuperVaultDepositQueue(queue_);
 
         // Add secondary manager
         vm.prank(manager);
-        aggregator.addSecondaryManager(controller_, secondaryManager);
+        aggregator.addSecondaryManager(strategy_, secondaryManager);
 
         // Fund users
         asset.mint(user, 1_000_000e18);
@@ -90,16 +111,12 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
                             HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function _defaultParams()
-        internal
-        view
-        returns (IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params)
-    {
+    function _defaultParams() internal view returns (IManagedSuperVaultAggregator.VaultCreationParams memory params) {
         address[] memory attestors = new address[](2);
         attestors[0] = attestor;
         attestors[1] = attestor2;
 
-        params = IManagedSuperVaultAggregator.ManagedVaultCreationParams({
+        params = IManagedSuperVaultAggregator.VaultCreationParams({
             asset: address(asset),
             name: "Managed Vault",
             symbol: "MV",
@@ -107,66 +124,69 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
             secondaryManagers: new address[](0),
             minUpdateInterval: MIN_UPDATE_INTERVAL,
             maxStaleness: MAX_STALENESS,
-            maxUpdateDeviationBps: 0, // default 50%
-            depositPolicy: IManagedSuperVaultController.DepositPolicy({
-                approvalMode: IManagedSuperVaultController.DepositApprovalMode.Open,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 1000, managementFeeBps: 0, recipient: feeRecipient
+            }),
+            depositPolicy: IManagedSuperVaultDepositQueue.DepositPolicy({
+                approvalMode: IManagedSuperVaultDepositQueue.DepositApprovalMode.Open,
                 depositsPaused: false,
                 minDepositAssets: 0,
                 maxDepositAssets: 0
             }),
-            navConfig: IManagedSuperVaultController.NavAttestationConfig({ attestors: attestors, threshold: 1 }),
-            feeConfig: IManagedSuperVaultController.FeeConfig({
-                performanceFeeBps: 1000, managementFeeBps: 0, recipient: feeRecipient
-            }),
+            navConfig: IManagedNAVOracle.NavAttestationConfig({ attestors: attestors, threshold: 1 }),
             metadataURI: "ipfs://managed-vault-metadata"
         });
     }
 
-    function _createManagedVault(IManagedSuperVaultAggregator.ManagedVaultCreationParams memory params)
+    function _createManagedVault(IManagedSuperVaultAggregator.VaultCreationParams memory params)
         internal
-        returns (address vault_, address controller_, address escrow_)
+        returns (address vault_, address strategy_, address escrow_, address queue_)
     {
         vm.prank(manager);
-        return aggregator.createManagedVault(params);
+        return aggregator.createVault(params);
     }
 
     /// @notice Propose and attest a NAV update so it finalizes at `newPPS`
-    /// @dev The NAV lifecycle lives on the aggregator, keyed by controller
-    function _updateNAV(uint256 newPPS) internal {
+    /// @dev The attestation lifecycle lives on the NAV oracle, keyed by strategy; the aggregator's
+    ///      _forwardPPS rails accept/reject the push
+    function _pushNAV(uint256 newPPS) internal returns (uint256 proposalId) {
         // Respect the min update interval
         vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
 
         vm.prank(manager);
-        uint256 proposalId =
-            aggregator.proposeNAVUpdate(address(controller), newPPS, block.timestamp, EVIDENCE_HASH, "ipfs://evidence");
+        proposalId =
+            navOracle.proposeNAVUpdate(address(strategy), newPPS, block.timestamp, EVIDENCE_HASH, "ipfs://evidence");
 
         vm.prank(attestor);
-        aggregator.attestNAVUpdate(address(controller), proposalId);
+        navOracle.attestNAVUpdate(address(strategy), proposalId);
     }
 
-    /// @notice Full async deposit round trip: request -> manager fulfill -> claim
-    function _depositRoundTrip(address depositor, uint256 assets) internal returns (uint256 shares) {
+    /// @notice Full async deposit round trip: queue request -> manager fulfill -> claim native shares
+    function _requestFulfillClaim(address depositor, uint256 assets) internal returns (uint256 shares) {
         vm.startPrank(depositor);
-        asset.approve(address(vault), assets);
-        vault.requestDeposit(assets, depositor, depositor);
+        asset.approve(address(queue), assets);
+        queue.requestDeposit(assets, depositor, depositor);
         vm.stopPrank();
 
         address[] memory depositors = new address[](1);
         depositors[0] = depositor;
         vm.prank(manager);
-        controller.fulfillDepositRequests(depositors);
+        queue.fulfillDepositRequests(depositors);
 
-        uint256 claimable = controller.claimableDepositRequest(depositor);
+        uint256 claimable = queue.claimableDepositRequest(0, depositor);
         vm.prank(depositor);
-        shares = vault.deposit(claimable, depositor, depositor);
+        shares = queue.deposit(claimable, depositor, depositor);
     }
 
-    /// @notice Full async redeem round trip: request -> manager fulfill -> claim assets
+    /// @notice Full async redeem round trip through the NATIVE SuperVault redeem path:
+    ///         request -> manager fulfill on the strategy -> claim assets from the vault
     function _redeemRoundTrip(address redeemer, uint256 shares) internal returns (uint256 assetsOut) {
         vm.prank(redeemer);
         vault.requestRedeem(shares, redeemer, redeemer);
 
-        (, uint256 theoreticalAssets,) = controller.previewExactRedeem(redeemer);
+        // Theoretical assets at the current stored PPS
+        uint256 pps = strategy.getStoredPPS();
+        uint256 theoreticalAssets = shares * pps / vault.PRECISION();
 
         address[] memory controllers = new address[](1);
         controllers[0] = redeemer;
@@ -174,7 +194,7 @@ abstract contract ManagedSuperVaultTestBase is PeripheryHelpers {
         amounts[0] = theoreticalAssets;
 
         vm.prank(manager);
-        controller.fulfillRedeemRequests(controllers, amounts);
+        strategy.fulfillRedeemRequests(controllers, amounts);
 
         assetsOut = vault.maxWithdraw(redeemer);
         vm.prank(redeemer);

@@ -1,35 +1,92 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
-import { IManagedSuperVaultController } from "./IManagedSuperVaultController.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { ISuperVaultStrategy } from "../SuperVault/ISuperVaultStrategy.sol";
+import { IManagedNAVOracle } from "./IManagedNAVOracle.sol";
+import { IManagedSuperVaultDepositQueue } from "./IManagedSuperVaultDepositQueue.sol";
 
 /// @title IManagedSuperVaultAggregator
-/// @notice Interface for the ManagedSuperVaultAggregator: sibling factory and registry for Managed Vaults.
-///         Deploys deterministic vault/controller/escrow trios and owns per-vault registry state:
-///         managers, pause state, attested manual NAV/PPS, freshness, and deviation bounds.
-/// @dev Unlike SuperVaultAggregator there is no PPS oracle / upkeep machinery. This aggregator also owns
-///      the full attested-manual NAV lifecycle (propose/attest/resolve + attestor-set timelock), keyed by
-///      controller, so all NAV/PPS/deviation/pause logic lives in one place.
 /// @author Superform Labs
+/// @notice Interface for the ManagedSuperVaultAggregator contract
+/// @dev Registry and attested-PPS sink for all Managed SuperVaults. Fork of ISuperVaultAggregator:
+///      no upkeep subsystem, manual-NAV oracle authorization (timelocked), and a 4th clone
+///      (deposit queue) per vault.
 interface IManagedSuperVaultAggregator {
     /*//////////////////////////////////////////////////////////////
                                  STRUCTS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Arguments for forwarding PPS updates to avoid stack too deep errors
+    /// @param strategy Address of the strategy being updated
+    /// @param pps New price-per-share value
+    /// @param timestamp Timestamp when the value was generated
+    struct PPSUpdateData {
+        address strategy;
+        uint256 pps;
+        uint256 timestamp;
+    }
 
-    /// @notice Parameters for creating a new Managed Vault trio
+    /// @notice Local variables for vault creation to avoid stack too deep
+    /// @param currentNonce Current vault creation nonce
+    /// @param salt Salt for deterministic proxy creation
+    /// @param initialPPS Initial price-per-share value
+    struct VaultCreationLocalVars {
+        uint256 currentNonce;
+        bytes32 salt;
+        uint256 initialPPS;
+    }
+
+    /// @notice Strategy configuration and state data
+    /// @param pps Current price-per-share value
+    /// @param lastUpdateTimestamp Last time PPS was updated
+    /// @param minUpdateInterval Minimum time interval between PPS updates
+    /// @param maxStaleness Maximum time allowed between PPS updates before staleness
+    /// @param isPaused Whether the strategy is paused
+    /// @param mainManager Address of the primary manager controlling the strategy
+    /// @param secondaryManagers Set of secondary managers that can manage the strategy
+    struct StrategyData {
+        uint256 pps; // Slot 0: 32 bytes
+        uint256 lastUpdateTimestamp; // Slot 1: 32 bytes
+        uint256 minUpdateInterval; // Slot 2: 32 bytes
+        uint256 maxStaleness; // Slot 3: 32 bytes
+        // Packed slot 4: saves 2 storage slots (~4000 gas per read)
+        address mainManager; // 20 bytes
+        bool ppsStale; // 1 byte
+        bool isPaused; // 1 byte
+        bool hooksRootVetoed; // 1 byte
+        uint72 __gap1; // 9 bytes padding
+        EnumerableSet.AddressSet secondaryManagers;
+        // Manager change proposal data
+        address proposedManager;
+        address proposedFeeRecipient;
+        uint256 managerChangeEffectiveTime;
+        // Hook validation data
+        bytes32 managerHooksRoot;
+        // Hook root update proposal data
+        bytes32 proposedHooksRoot;
+        uint256 hooksRootEffectiveTime;
+        // PPS Verification thresholds
+        uint256 deviationThreshold; // Threshold for abs(new - current) / current
+        // Banned global leaves mapping
+        mapping(bytes32 => bool) bannedLeaves; // Mapping of leaf hash to banned status
+        // Min update interval proposal data
+        uint256 proposedMinUpdateInterval;
+        uint256 minUpdateIntervalEffectiveTime;
+        uint256 lastUnpauseTimestamp; // Timestamp of last unpause (for skim timelock)
+    }
+
+    /// @notice Parameters for creating a new Managed SuperVault quartet
     /// @param asset Address of the underlying asset
     /// @param name Name of the vault token
     /// @param symbol Symbol of the vault token
-    /// @param mainManager Address of the vault main manager
-    /// @param secondaryManagers Secondary manager addresses (max 5)
-    /// @param minUpdateInterval Minimum time interval between NAV updates
-    /// @param maxStaleness Maximum age of a NAV update before the vault is considered stale
-    /// @param maxUpdateDeviationBps Max NAV change per update in bps before review/pause (0 = default 50%)
-    /// @param depositPolicy Deposit policy configuration
-    /// @param navConfig NAV attestation configuration (attestors, threshold)
-    /// @param feeConfig Fee configuration (same structure as Full SuperVaults)
-    /// @param metadataURI Offchain metadata URI (descriptions, policies, disclosures); emitted, not stored
-    struct ManagedVaultCreationParams {
+    /// @param mainManager Address of the vault mainManager
+    /// @param minUpdateInterval Minimum time interval between PPS updates
+    /// @param maxStaleness Maximum time allowed between PPS updates before staleness
+    /// @param feeConfig Fee configuration for the vault
+    /// @param depositPolicy Deposit policy for the vault's deposit queue
+    /// @param navConfig NAV attestation config (attestor set + threshold) registered with the NAV oracle
+    /// @param metadataURI Offchain metadata URI (event-only, not stored onchain)
+    struct VaultCreationParams {
         address asset;
         string name;
         string symbol;
@@ -37,91 +94,123 @@ interface IManagedSuperVaultAggregator {
         address[] secondaryManagers;
         uint256 minUpdateInterval;
         uint256 maxStaleness;
-        uint256 maxUpdateDeviationBps;
-        IManagedSuperVaultController.DepositPolicy depositPolicy;
-        IManagedSuperVaultController.NavAttestationConfig navConfig;
-        IManagedSuperVaultController.FeeConfig feeConfig;
+        ISuperVaultStrategy.FeeConfig feeConfig;
+        IManagedSuperVaultDepositQueue.DepositPolicy depositPolicy;
+        IManagedNAVOracle.NavAttestationConfig navConfig;
         string metadataURI;
     }
 
-    /// @notice Local variables for vault creation to avoid stack too deep
-    struct VaultCreationLocalVars {
-        uint256 currentNonce;
-        bytes32 salt;
-        uint256 initialPPS;
+    /// @notice Struct to hold cached hook validation state variables to avoid stack too deep
+    /// @param globalHooksRootVetoed Cached global hooks root veto status
+    /// @param globalHooksRoot Cached global hooks root
+    /// @param strategyHooksRootVetoed Cached strategy hooks root veto status
+    /// @param strategyRoot Cached strategy hooks root
+    struct HookValidationCache {
+        bool globalHooksRootVetoed;
+        bytes32 globalHooksRoot;
+        bool strategyHooksRootVetoed;
+        bytes32 strategyRoot;
+    }
+
+    /// @notice Arguments for validating a hook to avoid stack too deep
+    /// @param hookAddress Address of the hook contract
+    /// @param hookArgs Encoded arguments for the hook operation
+    /// @param globalProof Merkle proof for the global root
+    /// @param strategyProof Merkle proof for the strategy-specific root
+    struct ValidateHookArgs {
+        address hookAddress;
+        bytes hookArgs;
+        bytes32[] globalProof;
+        bytes32[] strategyProof;
     }
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Emitted when a new Managed Vault trio is created
-    event ManagedSuperVaultDeployed(
+    /// @notice Emitted when a new managed vault quartet is created
+    /// @param vault Address of the created ManagedSuperVault
+    /// @param strategy Address of the created ManagedSuperVaultStrategy
+    /// @param escrow Address of the created escrow (reused SuperVaultEscrow implementation)
+    /// @param depositQueue Address of the created ManagedSuperVaultDepositQueue
+    /// @param asset Address of the underlying asset
+    /// @param name Name of the vault token
+    /// @param symbol Symbol of the vault token
+    /// @param nonce The nonce used for vault creation
+    event ManagedVaultDeployed(
         address indexed vault,
-        address indexed controller,
+        address indexed strategy,
         address escrow,
+        address depositQueue,
         address asset,
         string name,
         string symbol,
         uint256 indexed nonce
     );
 
-    /// @notice Emitted alongside deployment with the vault's configuration flags and metadata
-    event ManagedVaultConfigRegistered(
-        address indexed controller, IManagedSuperVaultController.DepositApprovalMode approvalMode, string metadataURI
+    /// @notice Emitted when a vault's metadata URI is set or updated (event-only, no onchain storage)
+    /// @param strategy Address of the strategy the metadata belongs to
+    /// @param metadataURI The new metadata URI
+    event MetadataURIUpdated(address indexed strategy, string metadataURI);
+
+    /// @notice Emitted when a NAV oracle change is proposed
+    /// @param proposedOracle Address of the proposed NAV oracle
+    /// @param effectiveTime Timestamp when the change can be executed
+    event NavOracleProposed(address indexed proposedOracle, uint256 effectiveTime);
+
+    /// @notice Emitted when the NAV oracle is changed (or initially set in the constructor)
+    /// @param oldOracle Address of the previous NAV oracle (address(0) at construction)
+    /// @param newOracle Address of the new NAV oracle
+    event NavOracleChanged(address indexed oldOracle, address indexed newOracle);
+
+    /// @notice Emitted when a pending NAV oracle change is cancelled
+    /// @param cancelledOracle Address of the oracle that had been proposed
+    event NavOracleChangeCancelled(address indexed cancelledOracle);
+
+    /// @notice Emitted when a PPS value is updated
+    /// @param strategy Address of the strategy
+    /// @param pps New price-per-share value
+    /// @param timestamp Timestamp of the update
+    event PPSUpdated(address indexed strategy, uint256 pps, uint256 timestamp);
+
+    /// @notice Emitted when a strategy is paused due to missed updates
+    /// @param strategy Address of the paused strategy
+    event StrategyPaused(address indexed strategy);
+
+    /// @notice Emitted when a strategy is unpaused
+    /// @param strategy Address of the unpaused strategy
+    event StrategyUnpaused(address indexed strategy);
+
+    /// @notice Emitted when a strategy validation check fails but execution continues
+    /// @param strategy Address of the strategy that failed the check
+    /// @param reason String description of which check failed
+    event StrategyCheckFailed(address indexed strategy, string reason);
+
+    /// @notice Emitted when a secondary manager is added to a strategy
+    /// @param strategy Address of the strategy
+    /// @param manager Address of the manager added
+    event SecondaryManagerAdded(address indexed strategy, address indexed manager);
+
+    /// @notice Emitted when a secondary manager is removed from a strategy
+    /// @param strategy Address of the strategy
+    /// @param manager Address of the manager removed
+    event SecondaryManagerRemoved(address indexed strategy, address indexed manager);
+
+    /// @notice Emitted when a primary manager is changed
+    /// @param strategy Address of the strategy
+    /// @param oldManager Address of the old primary manager
+    /// @param newManager Address of the new primary manager
+    /// @param feeRecipient Address of the new fee recipient
+    event PrimaryManagerChanged(
+        address indexed strategy, address indexed oldManager, address indexed newManager, address feeRecipient
     );
 
-    /// @notice Emitted when a finalized attested NAV is stored
-    /// @param controller Address of the vault controller
-    /// @param previousPPS Previous price-per-share value
-    /// @param newPPS New price-per-share value
-    /// @param timestamp Observation timestamp of the update
-    event ManagedNAVUpdated(address indexed controller, uint256 previousPPS, uint256 newPPS, uint256 timestamp);
-
-    /// @notice Emitted when a NAV update is rejected for exceeding the deviation threshold
-    /// @param controller Address of the vault controller
-    /// @param proposedPPS Rejected price-per-share value
-    /// @param currentPPS Current stored price-per-share value
-    /// @param deviation Relative deviation (1e18 scale)
-    event ManagedNAVDeviationExceeded(
-        address indexed controller, uint256 proposedPPS, uint256 currentPPS, uint256 deviation
-    );
-
-    /// @notice Emitted when PPS is reduced after a performance fee skim
-    event PPSUpdatedAfterSkim(
-        address indexed controller, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
-    );
-
-    /// @notice Emitted when a managed vault is paused
-    event ManagedVaultPaused(address indexed controller);
-
-    /// @notice Emitted when a managed vault is unpaused
-    event ManagedVaultUnpaused(address indexed controller);
-
-    /// @notice Emitted when a managed vault's NAV is marked stale
-    event ManagedVaultNAVStale(address indexed controller);
-
-    /// @notice Emitted when a managed vault's NAV stale flag is cleared
-    event ManagedVaultNAVStaleReset(address indexed controller);
-
-    /// @notice Emitted when a secondary manager is added
-    event SecondaryManagerAdded(address indexed controller, address indexed manager);
-
-    /// @notice Emitted when a secondary manager is removed
-    event SecondaryManagerRemoved(address indexed controller, address indexed manager);
-
-    /// @notice Emitted when a deviation threshold change is proposed
-    event DeviationThresholdChangeProposed(address indexed controller, uint256 newThreshold, uint256 effectiveTime);
-
-    /// @notice Emitted when a deviation threshold change is executed
-    event DeviationThresholdUpdated(address indexed controller, uint256 deviationThreshold);
-
-    /// @notice Emitted when a deviation threshold change is cancelled
-    event DeviationThresholdChangeCancelled(address indexed controller, uint256 cancelledThreshold);
-
-    /// @notice Emitted when a primary manager change is proposed
+    /// @notice Emitted when a change to primary manager is proposed by a secondary manager
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the secondary manager who made the proposal
+    /// @param newManager Address of the proposed new primary manager
+    /// @param effectiveTime Timestamp when the proposal can be executed
     event PrimaryManagerChangeProposed(
-        address indexed controller,
+        address indexed strategy,
         address indexed proposer,
         address indexed newManager,
         address feeRecipient,
@@ -129,345 +218,628 @@ interface IManagedSuperVaultAggregator {
     );
 
     /// @notice Emitted when a primary manager change proposal is cancelled
-    event PrimaryManagerChangeCancelled(address indexed controller, address indexed cancelledManager);
+    /// @param strategy Address of the strategy
+    /// @param cancelledManager Address of the manager that was proposed
+    event PrimaryManagerChangeCancelled(address indexed strategy, address indexed cancelledManager);
 
-    /// @notice Emitted when the primary manager is changed
-    event PrimaryManagerChanged(
-        address indexed controller, address indexed oldManager, address indexed newManager, address feeRecipient
+    /// @notice Emitted when the High Water Mark for a strategy is reset to PPS
+    /// @param strategy Address of the strategy
+    /// @param newHWM The new High Water Mark (PPS)
+    event HighWaterMarkReset(address indexed strategy, uint256 indexed newHWM);
+
+    /// @notice Emitted when a PPS update is stale (Validators could get slashed for innactivity)
+    /// @param strategy Address of the strategy
+    /// @param updateAuthority Address of the update authority
+    /// @param timestamp Timestamp of the stale update
+    event StaleUpdate(address indexed strategy, address indexed updateAuthority, uint256 timestamp);
+
+    /// @notice Emitted when the global hooks Merkle root is being updated
+    /// @param root New root value
+    /// @param effectiveTime Timestamp when the root becomes effective
+    event GlobalHooksRootUpdateProposed(bytes32 indexed root, uint256 effectiveTime);
+
+    /// @notice Emitted when the global hooks Merkle root is updated
+    /// @param oldRoot Previous root value
+    /// @param newRoot New root value
+    event GlobalHooksRootUpdated(bytes32 indexed oldRoot, bytes32 newRoot);
+
+    /// @notice Emitted when a strategy-specific hooks Merkle root is updated
+    /// @param strategy Address of the strategy
+    /// @param oldRoot Previous root value (may be zero)
+    /// @param newRoot New root value
+    event StrategyHooksRootUpdated(address indexed strategy, bytes32 oldRoot, bytes32 newRoot);
+
+    /// @notice Emitted when a strategy-specific hooks Merkle root is proposed
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the account proposing the new root
+    /// @param root New root value
+    /// @param effectiveTime Timestamp when the root becomes effective
+    event StrategyHooksRootUpdateProposed(
+        address indexed strategy, address indexed proposer, bytes32 root, uint256 effectiveTime
     );
 
-    /// @notice Emitted when the high-water mark is reset by governance
-    event HighWaterMarkReset(address indexed controller, uint256 indexed newHwmPps);
+    /// @notice Emitted when a proposed global hooks root update is vetoed by SuperGovernor
+    /// @param vetoed Whether the root is being vetoed (true) or unvetoed (false)
+    /// @param root The root value affected
+    event GlobalHooksRootVetoStatusChanged(bool vetoed, bytes32 indexed root);
 
-    /// @notice Emitted when a min update interval change is proposed
+    /// @notice Emitted when a strategy's hooks Merkle root veto status changes
+    /// @param strategy Address of the strategy
+    /// @param vetoed Whether the root is being vetoed (true) or unvetoed (false)
+    /// @param root The root value affected
+    event StrategyHooksRootVetoStatusChanged(address indexed strategy, bool vetoed, bytes32 indexed root);
+
+    /// @notice Emitted when a strategy's deviation threshold is updated
+    /// @param strategy Address of the strategy
+    /// @param deviationThreshold New deviation threshold (abs diff/current)
+    event DeviationThresholdUpdated(address indexed strategy, uint256 deviationThreshold);
+
+    /// @notice Emitted when the hooks root update timelock is changed
+    /// @param newTimelock New timelock duration in seconds
+    event HooksRootUpdateTimelockChanged(uint256 newTimelock);
+
+    /// @notice Emitted when global leaves status is changed for a strategy
+    /// @param strategy Address of the strategy
+    /// @param leaves Array of leaf hashes that had their status changed
+    /// @param statuses Array of new banned statuses (true = banned, false = allowed)
+    event GlobalLeavesStatusChanged(address indexed strategy, bytes32[] leaves, bool[] statuses);
+
+    /// @notice Emitted when PPS update is too frequent (before minUpdateInterval)
+    event UpdateTooFrequent();
+
+    /// @notice Emitted when PPS update timestamp is not monotonically increasing
+    event TimestampNotMonotonic();
+
+    /// @notice Emitted when PPS update is rejected due to stale signature after unpause
+    event StaleSignatureAfterUnpause(
+        address indexed strategy, uint256 signatureTimestamp, uint256 lastUnpauseTimestamp
+    );
+
+    /// @notice Emitted when the provided timestamp is too large
+    event ProvidedTimestampExceedsBlockTimestamp(
+        address indexed strategy, uint256 argsTimestamp, uint256 blockTimestamp
+    );
+
+    /// @notice Emitted when a strategy is unknown
+    event UnknownStrategy(address indexed strategy);
+
+    /// @notice Emitted when the old primary manager is removed from the strategy
+    /// @dev This can happen because of reaching the max number of secondary managers
+    event OldPrimaryManagerRemoved(address indexed strategy, address indexed oldManager);
+
+    /// @notice Emitted when a strategy's PPS is stale
+    event StrategyPPSStale(address indexed strategy);
+
+    /// @notice Emitted when a strategy's PPS is reset
+    event StrategyPPSStaleReset(address indexed strategy);
+
+    /// @notice Emitted when PPS is updated after performance fee skimming
+    /// @param strategy Address of the strategy
+    /// @param oldPPS Previous price-per-share value
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee skimmed that caused the PPS update
+    /// @param timestamp Timestamp of the update
+    event PPSUpdatedAfterSkim(
+        address indexed strategy, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp
+    );
+
+    /// @notice Emitted when a change to minUpdateInterval is proposed
+    /// @param strategy Address of the strategy
+    /// @param proposer Address of the manager who made the proposal
+    /// @param newMinUpdateInterval The proposed new minimum update interval
+    /// @param effectiveTime Timestamp when the proposal can be executed
     event MinUpdateIntervalChangeProposed(
-        address indexed controller, address indexed proposer, uint256 newMinUpdateInterval, uint256 effectiveTime
+        address indexed strategy, address indexed proposer, uint256 newMinUpdateInterval, uint256 effectiveTime
     );
 
-    /// @notice Emitted when a min update interval change is executed
-    event MinUpdateIntervalChanged(address indexed controller, uint256 oldInterval, uint256 newInterval);
-
-    /// @notice Emitted when a min update interval change is cancelled
-    event MinUpdateIntervalChangeCancelled(address indexed controller, uint256 cancelledInterval);
-
-    /// @notice Emitted when the metadata URI is updated
-    event MetadataURIUpdated(address indexed controller, string metadataURI);
-
-    // --- NAV attestation lifecycle ---
-    event NAVProposed(
-        address indexed controller,
-        uint256 indexed proposalId,
-        uint256 previousPPS,
-        uint256 proposedPPS,
-        uint256 effectiveTimestamp,
-        address indexed proposer,
-        bytes32 evidenceHash,
-        string evidenceURI
+    /// @notice Emitted when a minUpdateInterval change is executed
+    /// @param strategy Address of the strategy
+    /// @param oldMinUpdateInterval Previous minimum update interval
+    /// @param newMinUpdateInterval New minimum update interval
+    event MinUpdateIntervalChanged(
+        address indexed strategy, uint256 oldMinUpdateInterval, uint256 newMinUpdateInterval
     );
-    event NAVAttested(
-        address indexed controller, uint256 indexed proposalId, address indexed attestor, uint8 attestationCount
-    );
-    event NAVFinalized(address indexed controller, uint256 indexed proposalId, uint256 finalizedPPS, uint256 timestamp);
-    event NAVReviewRequired(
-        address indexed controller, uint256 indexed proposalId, uint256 proposedPPS, uint256 currentPPS
-    );
-    event NAVProposalCanceled(address indexed controller, uint256 indexed proposalId, address indexed canceledBy);
-    event NAVLargeDeviationResolved(address indexed controller, uint256 indexed proposalId, address indexed resolvedBy);
-    event NAVAttestorAdded(address indexed controller, address indexed attestor);
-    event NAVAttestorRemoved(address indexed controller, address indexed attestor);
-    event NAVAttestationThresholdUpdated(address indexed controller, uint8 threshold);
-    event NAVAttestationConfigProposed(
-        address indexed controller, address[] attestors, uint8 threshold, uint256 effectiveTime
-    );
-    event NAVAttestationConfigCancelled(address indexed controller);
 
-    /*//////////////////////////////////////////////////////////////
+    /// @notice Emitted when a minUpdateInterval change proposal is rejected due to validation failure
+    /// @param strategy Address of the strategy
+    /// @param proposedInterval The proposed interval that was rejected
+    /// @param currentMaxStaleness The current maxStaleness value that caused rejection
+    event MinUpdateIntervalChangeRejected(
+        address indexed strategy, uint256 proposedInterval, uint256 currentMaxStaleness
+    );
+
+    /// @notice Emitted when a minUpdateInterval change proposal is cancelled
+    /// @param strategy Address of the strategy
+    /// @param cancelledInterval The proposed interval that was cancelled
+    event MinUpdateIntervalChangeCancelled(address indexed strategy, uint256 cancelledInterval);
+
+    /// @notice Emitted when a PPS update is rejected because strategy is paused
+    /// @param strategy Address of the paused strategy
+    event PPSUpdateRejectedStrategyPaused(address indexed strategy);
+
+    /*///////////////////////////////////////////////////////////////
                                  ERRORS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Thrown when address provided is zero
     error ZERO_ADDRESS();
+    /// @notice Thrown when amount provided is zero
+    error ZERO_AMOUNT();
+    /// @notice Thrown when vault creation parameters are invalid (empty name or symbol)
     error INVALID_VAULT_PARAMS();
+    /// @notice Thrown when array length is zero
+    error ZERO_ARRAY_LENGTH();
+    /// @notice Thrown when array length is zero
+    error ARRAY_LENGTH_MISMATCH();
+    /// @notice Thrown when asset is invalid
     error INVALID_ASSET();
-    error UNKNOWN_CONTROLLER();
+    /// @notice Thrown when caller is not authorized
+    error CALLER_NOT_AUTHORIZED();
+    /// @notice Thrown when caller is not an approved PPS oracle
+    error UNAUTHORIZED_PPS_ORACLE();
+    /// @notice Thrown when caller is not authorized for update
     error UNAUTHORIZED_UPDATE_AUTHORITY();
-    error MANAGED_VAULT_PAUSED();
-    error MANAGED_VAULT_NOT_PAUSED();
-    error MANAGED_VAULT_ALREADY_PAUSED();
-    error NAV_STALE();
-    error INVALID_NAV();
-    error INVALID_TIMESTAMP();
-    error UPDATE_TOO_FREQUENT();
-    error STALE_UPDATE();
-    error PPS_MUST_DECREASE_AFTER_SKIM();
-    error PPS_DEDUCTION_TOO_LARGE();
-    error MAX_STALENESS_TOO_LOW();
-    error TOO_MANY_SECONDARY_MANAGERS();
-    error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
-    error MANAGER_ALREADY_EXISTS();
-    error MANAGER_NOT_FOUND();
-    error NO_PENDING_MANAGER_CHANGE();
-    error TIMELOCK_NOT_EXPIRED();
-    error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
-    error MIN_UPDATE_INTERVAL_TOO_HIGH();
-    error NO_PENDING_DEVIATION_THRESHOLD_CHANGE();
-    error INVALID_DEVIATION_THRESHOLD();
+    /// @notice Thrown when strategy address is not a known SuperVault strategy
+    error UNKNOWN_STRATEGY();
+    /// @notice Thrown when trying to unpause a strategy that is not paused
+    error STRATEGY_NOT_PAUSED();
+    /// @notice Thrown when trying to pause a strategy that is already paused
+    error STRATEGY_ALREADY_PAUSED();
+    /// @notice Thrown when array index is out of bounds
     error INDEX_OUT_OF_BOUNDS();
-    // NAV attestation lifecycle
-    error EVIDENCE_REQUIRED();
-    error NOT_NAV_ATTESTOR();
-    error ATTESTOR_CANNOT_BE_PROPOSER();
-    error ALREADY_ATTESTED();
-    error NAV_PROPOSAL_PENDING();
-    error NAV_PROPOSAL_NOT_PENDING();
-    error NAV_PROPOSAL_NOT_IN_REVIEW();
-    error ATTESTATION_THRESHOLD_NOT_MET();
-    error INVALID_ATTESTATION_CONFIG();
-    error ATTESTOR_ALREADY_EXISTS();
-    error NAV_CONFIG_TIMELOCK_NOT_EXPIRED();
-    error NO_PENDING_NAV_CONFIG();
+    /// @notice Thrown when attempting to add a manager that already exists
+    error MANAGER_ALREADY_EXISTS();
+    /// @notice Thrown when attempting to add a manager that is the primary manager
+    error SECONDARY_MANAGER_CANNOT_BE_PRIMARY();
+    /// @notice Thrown when there is no pending global hooks root change
+    error NO_PENDING_GLOBAL_ROOT_CHANGE();
+    /// @notice Thrown when attempting to execute a hooks root change before timelock has elapsed
+    error ROOT_UPDATE_NOT_READY();
+    /// @notice Thrown when a provided hook fails Merkle proof validation
+    error HOOK_VALIDATION_FAILED();
+    /// @notice Thrown when manager is not found
+    error MANAGER_NOT_FOUND();
+    /// @notice Thrown when there is no pending manager change proposal
+    error NO_PENDING_MANAGER_CHANGE();
+    /// @notice Thrown when caller is not authorized to update settings
+    error UNAUTHORIZED_CALLER();
+    /// @notice Thrown when the timelock for a proposed change has not expired
+    error TIMELOCK_NOT_EXPIRED();
+    /// @notice Thrown when an array length is invalid
+    error INVALID_ARRAY_LENGTH();
+    /// @notice Thrown when the provided maxStaleness is less than the minimum required staleness
+    error MAX_STALENESS_TOO_LOW();
+    /// @notice Thrown when arrays have mismatched lengths
+    error MISMATCHED_ARRAY_LENGTHS();
+    /// @notice Thrown when timestamp is invalid
+    error INVALID_TIMESTAMP(uint256 index);
+    /// @notice Thrown when too many secondary managers are added
+    error TOO_MANY_SECONDARY_MANAGERS();
+    /// @notice Thrown when no NAV oracle change proposal is pending
+    error NO_PENDING_NAV_ORACLE_CHANGE();
+    /// @notice Thrown when setting the initial NAV oracle after one is already set
+    error NAV_ORACLE_ALREADY_SET();
+    /// @notice Thrown when a deviation threshold outside (0, 1e18] is proposed — the check cannot be disabled
+    error INVALID_DEVIATION_THRESHOLD();
+    /// @notice Thrown when manager takeovers are globally frozen in the SuperGovernor
+    error MANAGER_TAKEOVERS_FROZEN();
+    /// @notice PPS must decrease after skimming fees
+    error PPS_MUST_DECREASE_AFTER_SKIM();
+    /// @notice PPS deduction is larger than the maximum allowed fee rate
+    error PPS_DEDUCTION_TOO_LARGE();
+    /// @notice Thrown when no minUpdateInterval change proposal is pending
+    error NO_PENDING_MIN_UPDATE_INTERVAL_CHANGE();
+    /// @notice Thrown when minUpdateInterval >= maxStaleness
+    error MIN_UPDATE_INTERVAL_TOO_HIGH();
+    /// @notice Thrown when trying to update PPS while strategy is paused
+    error STRATEGY_PAUSED();
+    /// @notice Thrown when trying to update PPS while PPS is stale
+    error PPS_STALE();
 
     /*//////////////////////////////////////////////////////////////
                             VAULT CREATION
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Creates a new Managed Vault trio (vault, controller, escrow) via deterministic clones
-    /// @param params Creation parameters
-    /// @return vault Address of the created ManagedSuperVault
-    /// @return controller Address of the created ManagedSuperVaultController
-    /// @return escrow Address of the created ManagedSuperVaultEscrow
-    function createManagedVault(ManagedVaultCreationParams calldata params)
+    /// @notice Creates a new Managed SuperVault quartet (vault, strategy, escrow, deposit queue)
+    /// @dev Also registers the vault's NAV attestation config with the NAV oracle atomically
+    /// @param params Parameters for the new vault creation
+    /// @return superVault Address of the created ManagedSuperVault
+    /// @return strategy Address of the created ManagedSuperVaultStrategy
+    /// @return escrow Address of the created escrow (reused SuperVaultEscrow implementation)
+    /// @return depositQueue Address of the created ManagedSuperVaultDepositQueue
+    function createVault(VaultCreationParams calldata params)
         external
-        returns (address vault, address controller, address escrow);
+        returns (address superVault, address strategy, address escrow, address depositQueue);
 
     /*//////////////////////////////////////////////////////////////
-                        NAV ATTESTATION LIFECYCLE
+                          PPS UPDATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Arguments for batch forwarding PPS updates
+    /// @param strategies Array of strategy addresses
+    /// @param ppss Array of price-per-share values
+    /// @param timestamps Array of timestamps when values were generated
+    /// @param updateAuthority Address of the update authority
+    struct ForwardPPSArgs {
+        address[] strategies;
+        uint256[] ppss;
+        uint256[] timestamps;
+        address updateAuthority;
+    }
 
-    /// @notice Propose a NAV/PPS update with evidence; requires independent attestation to finalize
-    /// @dev Any manager may propose. Only one active proposal per vault at a time.
-    /// @param controller The managed vault controller
-    /// @param newPPS The proposed price-per-share (scaled by asset decimals)
-    /// @param effectiveTimestamp The observation timestamp the NAV corresponds to (<= block.timestamp)
-    /// @param evidenceHash Hash of offchain evidence backing the NAV (required)
-    /// @param evidenceURI URI of offchain evidence (optional)
-    /// @return proposalId The created proposal id
-    function proposeNAVUpdate(
-        address controller,
-        uint256 newPPS,
-        uint256 effectiveTimestamp,
-        bytes32 evidenceHash,
-        string calldata evidenceURI
-    )
-        external
-        returns (uint256 proposalId);
+    /// @notice Batch forwards validated PPS updates to multiple strategies
+    /// @param args Struct containing all batch PPS update parameters
+    function forwardPPS(ForwardPPSArgs calldata args) external;
 
-    /// @notice Attest a pending NAV proposal; auto-finalizes when the attestation threshold is met
-    function attestNAVUpdate(address controller, uint256 proposalId) external;
-
-    /// @notice Cancel a pending or in-review NAV proposal (any manager)
-    function cancelNAVUpdate(address controller, uint256 proposalId) external;
-
-    /// @notice Finalize a large-deviation NAV proposal after the vault was explicitly unpaused
-    /// @dev Requires: proposal in ReviewRequired with threshold attestations, vault unpaused (main
-    ///      manager only). This is the only path that finalizes a NAV exceeding the deviation bound.
-    function resolveLargeDeviationNAV(address controller, uint256 proposalId) external;
-
-    /// @notice Propose a replacement NAV attestor set and threshold (main manager only, 3-day timelock)
-    function proposeNAVAttestationConfig(address controller, address[] calldata attestors, uint8 threshold) external;
-
-    /// @notice Execute a pending NAV attestation config change after the timelock (main manager only)
-    function executeNAVAttestationConfig(address controller) external;
-
-    /// @notice Cancel a pending NAV attestation config change (main manager only)
-    function cancelNAVAttestationConfig(address controller) external;
-
-    /// @notice Reduce PPS after a performance fee skim. Only callable by a registered controller for itself.
-    /// @param newPPS The post-skim price-per-share (must strictly decrease within max fee bounds)
-    /// @param feeAmount The fee amount extracted (must be non-zero)
+    /// @notice Updates PPS directly after performance fee skimming
+    /// @dev Only callable by the strategy contract itself (msg.sender must be a registered strategy)
+    /// @param newPPS New price-per-share value after fee deduction
+    /// @param feeAmount Amount of fee that was skimmed (for event logging)
     function updatePPSAfterSkim(uint256 newPPS, uint256 feeAmount) external;
 
     /*//////////////////////////////////////////////////////////////
-                            PAUSE MANAGEMENT
+                        NAV ORACLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Manually pause a managed vault (any manager). Marks NAV stale.
-    function pauseManagedVault(address controller) external;
+    /// @notice Wires the initial NAV oracle (one-time, immediate)
+    /// @dev Only callable by SUPER_GOVERNOR_ROLE holders while no oracle is set. Not a constructor arg
+    ///      because the oracle's constructor takes this aggregator's address (circular under CREATE2).
+    ///      The family is inert (forwardPPS and createVault revert) until this is called.
+    /// @param oracle Address of the ManagedNAVOracle
+    function setInitialNavOracle(address oracle) external;
 
-    /// @notice Manually unpause a managed vault (any manager). NAV remains stale until a fresh update.
-    function unpauseManagedVault(address controller) external;
+    /// @notice Proposes a new NAV oracle (starts the 7-day timelock)
+    /// @dev Only callable by SUPER_GOVERNOR_ROLE holders. The NAV oracle fully controls stored PPS
+    ///      for every managed vault, so changes are timelocked like SuperGovernor's active PPS oracle.
+    /// @param newOracle Address of the proposed NAV oracle
+    function proposeNavOracle(address newOracle) external;
+
+    /// @notice Executes a pending NAV oracle change after the timelock
+    /// @dev Can be called by anyone once the timelock has elapsed
+    function executeNavOracleChange() external;
+
+    /// @notice Cancels a pending NAV oracle change
+    /// @dev Only callable by SUPER_GOVERNOR_ROLE holders
+    function cancelNavOracleChange() external;
 
     /*//////////////////////////////////////////////////////////////
-                        MANAGER MANAGEMENT
+                        METADATA MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Add a secondary manager (main manager only)
-    function addSecondaryManager(address controller, address manager) external;
-
-    /// @notice Remove a secondary manager (main manager only)
-    function removeSecondaryManager(address controller, address manager) external;
-
-    /// @notice Propose a NAV deviation-threshold change, 1e18 scale (main manager only, 3-day timelock)
-    /// @dev The threshold is the mandatory guardrail against manager NAV manipulation; changes are
-    ///      timelocked and cannot disable it (bounded to (0, 1e18]).
-    function proposeDeviationThresholdChange(address controller, uint256 deviationThreshold) external;
-
-    /// @notice Execute a pending deviation-threshold change after the timelock
-    function executeDeviationThresholdChange(address controller) external;
-
-    /// @notice Cancel a pending deviation-threshold change (main manager only)
-    function cancelDeviationThresholdChange(address controller) external;
-
-    /// @notice Emit an updated offchain metadata URI (main manager only; event-only, not stored)
-    function updateMetadataURI(address controller, string calldata metadataURI) external;
-
-    /// @notice Propose a primary manager change (secondary managers only, 7-day timelock)
-    function proposeChangePrimaryManager(address controller, address newManager, address feeRecipient) external;
-
-    /// @notice Cancel a pending primary manager change (main manager only)
-    function cancelChangePrimaryManager(address controller) external;
-
-    /// @notice Execute a pending primary manager change after the timelock
-    function executeChangePrimaryManager(address controller) external;
-
-    /// @notice Emergency governance override of the primary manager (SuperGovernor only)
-    function changePrimaryManager(address controller, address newManager, address feeRecipient) external;
-
-    /// @notice Reset the high-water mark to the current PPS (SuperGovernor only)
-    function resetHighWaterMark(address controller) external;
+    /// @notice Emits an updated metadata URI for a vault (event-only, no onchain storage)
+    /// @dev Only callable by a manager of the strategy
+    /// @param strategy Address of the strategy
+    /// @param metadataURI The new metadata URI
+    function updateMetadataURI(address strategy, string calldata metadataURI) external;
 
     /*//////////////////////////////////////////////////////////////
-                    MIN UPDATE INTERVAL MANAGEMENT
+                        PAUSE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Propose a min update interval change (main manager only, 3-day timelock)
-    function proposeMinUpdateIntervalChange(address controller, uint256 newMinUpdateInterval) external;
+    /// @notice Manually pauses a strategy
+    /// @param strategy Address of the strategy to pause
+    function pauseStrategy(address strategy) external;
 
-    /// @notice Execute a pending min update interval change after the timelock
-    function executeMinUpdateIntervalChange(address controller) external;
+    /// @notice Manually unpauses a strategy
+    /// @param strategy Address of the strategy to unpause
+    function unpauseStrategy(address strategy) external;
 
-    /// @notice Cancel a pending min update interval change (main manager only)
-    function cancelMinUpdateIntervalChange(address controller) external;
+    /*//////////////////////////////////////////////////////////////
+                       MANAGER MANAGEMENT FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Adds a secondary manager to a strategy
+    /// @notice A manager can either be secondary or primary
+    /// @param strategy Address of the strategy
+    /// @param manager Address of the manager to add
+    function addSecondaryManager(address strategy, address manager) external;
+
+    /// @notice Removes a secondary manager from a strategy
+    /// @param strategy Address of the strategy
+    /// @param manager Address of the manager to remove
+    function removeSecondaryManager(address strategy, address manager) external;
+
+    /// @notice Changes the primary manager of a strategy immediately (only callable by SuperGovernor)
+    /// @notice A manager can either be secondary or primary
+    /// @param strategy Address of the strategy
+    /// @param newManager Address of the new primary manager
+    /// @param feeRecipient Address of the new fee recipient
+    function changePrimaryManager(address strategy, address newManager, address feeRecipient) external;
+
+    /// @notice Proposes a change to the primary manager (callable by secondary managers)
+    /// @notice A manager can either be secondary or primary
+    /// @param strategy Address of the strategy
+    /// @param newManager Address of the proposed new primary manager
+    /// @param feeRecipient Address of the new fee recipient
+    function proposeChangePrimaryManager(address strategy, address newManager, address feeRecipient) external;
+
+    /// @notice Cancels a pending primary manager change proposal
+    /// @dev Only the current primary manager can cancel the proposal
+    /// @param strategy Address of the strategy
+    function cancelChangePrimaryManager(address strategy) external;
+
+    /// @notice Executes a previously proposed change to the primary manager after timelock
+    /// @param strategy Address of the strategy
+    function executeChangePrimaryManager(address strategy) external;
+
+    /// @notice Resets the strategy's performance-fee high-water mark to PPS
+    /// @dev Only callable by SuperGovernor
+    /// @param strategy Address of the strategy
+    function resetHighWaterMark(address strategy) external;
+
+    /*//////////////////////////////////////////////////////////////
+                        HOOK VALIDATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Sets a new hooks root update timelock duration
+    /// @param newTimelock The new timelock duration in seconds
+    function setHooksRootUpdateTimelock(uint256 newTimelock) external;
+
+    /// @notice Proposes an update to the global hooks Merkle root
+    /// @dev Only callable by SUPER_GOVERNOR
+    /// @param newRoot New Merkle root for global hooks validation
+    function proposeGlobalHooksRoot(bytes32 newRoot) external;
+
+    /// @notice Executes a previously proposed global hooks root update after timelock period
+    /// @dev Can be called by anyone after the timelock period has elapsed
+    function executeGlobalHooksRootUpdate() external;
+
+    /// @notice Proposes an update to a strategy-specific hooks Merkle root
+    /// @dev Only callable by the main manager for the strategy
+    /// @param strategy Address of the strategy
+    /// @param newRoot New Merkle root for strategy-specific hooks
+    function proposeStrategyHooksRoot(address strategy, bytes32 newRoot) external;
+
+    /// @notice Executes a previously proposed strategy hooks root update after timelock period
+    /// @dev Can be called by anyone after the timelock period has elapsed
+    /// @param strategy Address of the strategy whose root update to execute
+    function executeStrategyHooksRootUpdate(address strategy) external;
+
+    /// @notice Set veto status for the global hooks root
+    /// @dev Only callable by SuperGovernor
+    /// @param vetoed Whether to veto (true) or unveto (false) the global hooks root
+    function setGlobalHooksRootVetoStatus(bool vetoed) external;
+
+    /// @notice Set veto status for a strategy-specific hooks root
+    /// @notice Sets the veto status of a strategy's hooks Merkle root
+    /// @param strategy Address of the strategy
+    /// @param vetoed Whether to veto (true) or unveto (false)
+    function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external;
+
+    /// @notice Updates the deviation threshold for a strategy
+    /// @param strategy Address of the strategy
+    /// @param deviationThreshold_ New deviation threshold (abs diff/current ratio, scaled by 1e18)
+    function updateDeviationThreshold(address strategy, uint256 deviationThreshold_) external;
+
+    /// @notice Changes the banned status of global leaves for a specific strategy
+    /// @dev Only callable by the primary manager of the strategy
+    /// @param leaves Array of leaf hashes to change status for
+    /// @param statuses Array of banned statuses (true = banned, false = allowed)
+    /// @param strategy Address of the strategy to change banned leaves for
+    function changeGlobalLeavesStatus(bytes32[] memory leaves, bool[] memory statuses, address strategy) external;
+
+    /*//////////////////////////////////////////////////////////////
+                 MIN UPDATE INTERVAL MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Proposes a change to the minimum update interval for a strategy
+    /// @param strategy Address of the strategy
+    /// @param newMinUpdateInterval The proposed new minimum update interval (in seconds)
+    /// @dev Only the main manager can propose. Must be less than maxStaleness
+    function proposeMinUpdateIntervalChange(address strategy, uint256 newMinUpdateInterval) external;
+
+    /// @notice Executes a previously proposed minUpdateInterval change after timelock
+    /// @param strategy Address of the strategy whose minUpdateInterval to update
+    /// @dev Can be called by anyone after the timelock period has elapsed
+    function executeMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Cancels a pending minUpdateInterval change proposal
+    /// @param strategy Address of the strategy
+    /// @dev Only the main manager can cancel
+    function cancelMinUpdateIntervalChange(address strategy) external;
+
+    /// @notice Gets the proposed minUpdateInterval and effective time
+    /// @param strategy Address of the strategy
+    /// @return proposedInterval The proposed minimum update interval
+    /// @return effectiveTime The timestamp when the proposed interval becomes effective
+    function getProposedMinUpdateInterval(address strategy)
+        external
+        view
+        returns (uint256 proposedInterval, uint256 effectiveTime);
 
     /*//////////////////////////////////////////////////////////////
                               VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Vault type marker for downstream systems; always "managed_vault"
-    function VAULT_TYPE() external pure returns (string memory);
+    /// @notice Returns the current vault creation nonce
+    /// @dev This nonce is incremented every time a new vault is created
+    /// @return Current vault creation nonce
+    function getCurrentNonce() external view returns (uint256);
 
-    /// @notice NAV mode marker for downstream systems; always "attested_manual"
-    function NAV_MODE() external pure returns (string memory);
+    /// @notice Check if the global hooks root is currently vetoed
+    /// @return vetoed True if the global hooks root is vetoed
+    function isGlobalHooksRootVetoed() external view returns (bool vetoed);
 
-    /// @notice Get the current PPS (latest finalized attested NAV) for a controller
-    function getPPS(address controller) external view returns (uint256 pps);
+    /// @notice Check if a strategy hooks root is currently vetoed
+    /// @param strategy Address of the strategy to check
+    /// @return vetoed True if the strategy hooks root is vetoed
+    function isStrategyHooksRootVetoed(address strategy) external view returns (bool vetoed);
 
-    /// @notice Get the last NAV update timestamp for a controller
-    function getLastUpdateTimestamp(address controller) external view returns (uint256 timestamp);
+    /// @notice Gets the current hooks root update timelock duration
+    /// @return The current timelock duration in seconds
+    function getHooksRootUpdateTimelock() external view returns (uint256);
 
-    /// @notice Get the min NAV update interval for a controller
-    function getMinUpdateInterval(address controller) external view returns (uint256 interval);
+    /// @notice Gets the current PPS (price-per-share) for a strategy
+    /// @param strategy Address of the strategy
+    /// @return pps Current price-per-share value
+    function getPPS(address strategy) external view returns (uint256 pps);
 
-    /// @notice Get the max NAV staleness for a controller
-    function getMaxStaleness(address controller) external view returns (uint256 staleness);
+    /// @notice Gets the last update timestamp for a strategy's PPS
+    /// @param strategy Address of the strategy
+    /// @return timestamp Last update timestamp
+    function getLastUpdateTimestamp(address strategy) external view returns (uint256 timestamp);
 
-    /// @notice Get the NAV deviation threshold (1e18 scale) for a controller
-    function getDeviationThreshold(address controller) external view returns (uint256 deviationThreshold);
+    /// @notice Gets the minimum update interval for a strategy
+    /// @param strategy Address of the strategy
+    /// @return interval Minimum time between updates
+    function getMinUpdateInterval(address strategy) external view returns (uint256 interval);
 
-    /// @notice Whether a managed vault is paused
-    function isManagedVaultPaused(address controller) external view returns (bool isPaused);
+    /// @notice Gets the maximum staleness period for a strategy
+    /// @param strategy Address of the strategy
+    /// @return staleness Maximum time allowed between updates
+    function getMaxStaleness(address strategy) external view returns (uint256 staleness);
 
-    /// @notice Whether a managed vault's NAV is flagged stale
-    function isNAVStale(address controller) external view returns (bool isStale);
+    /// @notice Gets the deviation threshold for a strategy
+    /// @param strategy Address of the strategy
+    /// @return deviationThreshold The current deviation threshold (abs diff/current ratio, scaled by 1e18)
+    function getDeviationThreshold(address strategy) external view returns (uint256 deviationThreshold);
 
-    /// @notice Get the last unpause timestamp (for the post-unpause skim timelock)
-    function getLastUnpauseTimestamp(address controller) external view returns (uint256 timestamp);
+    /// @notice Checks if a strategy is currently paused
+    /// @param strategy Address of the strategy
+    /// @return isPaused True if paused, false otherwise
+    function isStrategyPaused(address strategy) external view returns (bool isPaused);
 
-    /// @notice Get the main manager for a controller
-    function getMainManager(address controller) external view returns (address manager);
+    /// @notice Checks if a strategy's PPS is stale
+    /// @dev PPS is automatically set to stale when the strategy is paused due to
+    ///      lack of upkeep payment in `SuperVaultAggregator`
+    /// @param strategy Address of the strategy
+    /// @return isStale True if stale, false otherwise
+    function isPPSStale(address strategy) external view returns (bool isStale);
 
-    /// @notice Get pending primary manager change details
-    function getPendingManagerChange(address controller)
+    /// @notice Gets the last unpause timestamp for a strategy
+    /// @param strategy Address of the strategy
+    /// @return timestamp Last unpause timestamp (0 if never unpaused)
+    function getLastUnpauseTimestamp(address strategy) external view returns (uint256 timestamp);
+
+    /// @notice Gets the deposit queue for a vault
+    /// @param vault Address of the ManagedSuperVault
+    /// @return queue Address of the vault's deposit queue (address(0) if unknown vault)
+    function getDepositQueue(address vault) external view returns (address queue);
+
+    /// @notice Gets all created deposit queues
+    /// @return Array of deposit queue addresses
+    function getAllDepositQueues() external view returns (address[] memory);
+
+    /// @notice Checks whether an address is a deposit queue created by this aggregator
+    /// @param queue Address to check
+    /// @return True if the address is a registered deposit queue
+    function isDepositQueue(address queue) external view returns (bool);
+
+    /// @notice Gets the current NAV oracle
+    /// @return The address of the NAV oracle authorized to push PPS
+    function navOracle() external view returns (address);
+
+    /// @notice Gets the main manager for a strategy
+    /// @param strategy Address of the strategy
+    /// @return manager Address of the main manager
+    function getMainManager(address strategy) external view returns (address manager);
+
+    /// @notice Gets pending primary manager change details
+    /// @param strategy Address of the strategy
+    /// @return proposedManager Address of the proposed new manager (address(0) if no pending change)
+    /// @return effectiveTime Timestamp when the change can be executed (0 if no pending change)
+    function getPendingManagerChange(address strategy)
         external
         view
         returns (address proposedManager, uint256 effectiveTime);
 
-    /// @notice Whether an address is the main manager of a controller
-    function isMainManager(address manager, address controller) external view returns (bool);
+    /// @notice Checks if an address is the main manager for a strategy
+    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
+    /// @return isMainManager True if the address is the main manager, false otherwise
+    function isMainManager(address manager, address strategy) external view returns (bool isMainManager);
 
-    /// @notice Get all secondary managers for a controller
-    function getSecondaryManagers(address controller) external view returns (address[] memory);
+    /// @notice Gets all secondary managers for a strategy
+    /// @param strategy Address of the strategy
+    /// @return secondaryManagers Array of secondary manager addresses
+    function getSecondaryManagers(address strategy) external view returns (address[] memory secondaryManagers);
 
-    /// @notice Whether an address is a secondary manager of a controller
-    function isSecondaryManager(address manager, address controller) external view returns (bool);
+    /// @notice Checks if an address is a secondary manager for a strategy
+    /// @param manager Address of the manager
+    /// @param strategy Address of the strategy
+    /// @return isSecondaryManager True if the address is a secondary manager, false otherwise
+    function isSecondaryManager(address manager, address strategy) external view returns (bool isSecondaryManager);
 
-    /// @notice Whether an address is the main or a secondary manager of a controller
-    function isAnyManager(address manager, address controller) external view returns (bool);
+    /// @dev Internal helper function to check if an address is any kind of manager (primary or secondary)
+    /// @param manager Address to check
+    /// @param strategy The strategy to check against
+    /// @return True if the address is either the primary manager or a secondary manager
+    function isAnyManager(address manager, address strategy) external view returns (bool);
 
-    /// @notice Get pending min update interval change details
-    function getProposedMinUpdateInterval(address controller)
-        external
-        view
-        returns (uint256 proposedInterval, uint256 effectiveTime);
+    /// @notice Gets all created SuperVaults
+    /// @return Array of SuperVault addresses
+    function getAllSuperVaults() external view returns (address[] memory);
 
-    /// @notice Get pending deviation-threshold change details
-    function getProposedDeviationThreshold(address controller)
-        external
-        view
-        returns (uint256 proposedThreshold, uint256 effectiveTime);
+    /// @notice Gets a SuperVault by index
+    /// @param index The index of the SuperVault
+    /// @return The SuperVault address at the given index
+    function superVaults(uint256 index) external view returns (address);
 
-    /// @notice Get a NAV proposal for a controller
-    function getNAVProposal(
-        address controller,
-        uint256 proposalId
+    /// @notice Gets all created SuperVaultStrategies
+    /// @return Array of SuperVaultStrategy addresses
+    function getAllSuperVaultStrategies() external view returns (address[] memory);
+
+    /// @notice Gets a SuperVaultStrategy by index
+    /// @param index The index of the SuperVaultStrategy
+    /// @return The SuperVaultStrategy address at the given index
+    function superVaultStrategies(uint256 index) external view returns (address);
+
+    /// @notice Gets all created SuperVaultEscrows
+    /// @return Array of SuperVaultEscrow addresses
+    function getAllSuperVaultEscrows() external view returns (address[] memory);
+
+    /// @notice Gets a SuperVaultEscrow by index
+    /// @param index The index of the SuperVaultEscrow
+    /// @return The SuperVaultEscrow address at the given index
+    function superVaultEscrows(uint256 index) external view returns (address);
+
+    /// @notice Validates a hook against both global and strategy-specific Merkle roots
+    /// @param strategy Address of the strategy
+    /// @param args Arguments for hook validation
+    /// @return isValid True if the hook is valid against either root
+    function validateHook(address strategy, ValidateHookArgs calldata args) external view returns (bool isValid);
+
+    /// @notice Batch validates multiple hooks against Merkle roots
+    /// @param strategy Address of the strategy
+    /// @param argsArray Array of hook validation arguments
+    /// @return validHooks Array of booleans indicating which hooks are valid
+    function validateHooks(
+        address strategy,
+        ValidateHookArgs[] calldata argsArray
     )
         external
         view
-        returns (IManagedSuperVaultController.NAVUpdateProposal memory proposal);
+        returns (bool[] memory validHooks);
 
-    /// @notice Get the currently active (pending or in-review) NAV proposal id for a controller, 0 if none
-    function getActiveNAVProposalId(address controller) external view returns (uint256 proposalId);
+    /// @notice Gets the current global hooks Merkle root
+    /// @return root The current global hooks Merkle root
+    function getGlobalHooksRoot() external view returns (bytes32 root);
 
-    /// @notice Get the NAV attestation configuration for a controller
-    function getNAVAttestationConfig(address controller)
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold);
+    /// @notice Gets the proposed global hooks root and effective time
+    /// @return root The proposed global hooks Merkle root
+    /// @return effectiveTime The timestamp when the proposed root becomes effective
+    function getProposedGlobalHooksRoot() external view returns (bytes32 root, uint256 effectiveTime);
 
-    /// @notice Get the pending (timelocked) NAV attestation config change for a controller, if any
-    function getPendingNAVAttestationConfig(address controller)
-        external
-        view
-        returns (address[] memory attestors, uint8 threshold, uint256 effectiveTime);
+    /// @notice Checks if the global hooks root is active (timelock period has passed)
+    /// @return isActive True if the global hooks root is active
+    function isGlobalHooksRootActive() external view returns (bool);
 
-    /// @notice Whether an address is a configured NAV attestor for a controller
-    function isNAVAttestor(address controller, address attestor) external view returns (bool);
+    /// @notice Gets the hooks Merkle root for a specific strategy
+    /// @param strategy Address of the strategy
+    /// @return root The strategy-specific hooks Merkle root
+    function getStrategyHooksRoot(address strategy) external view returns (bytes32 root);
 
-    /// @notice Whether an attestor has attested a given proposal for a controller
-    function hasAttested(address controller, uint256 proposalId, address attestor) external view returns (bool);
+    /// @notice Gets the proposed strategy hooks root and effective time
+    /// @param strategy Address of the strategy
+    /// @return root The proposed strategy hooks Merkle root
+    /// @return effectiveTime The timestamp when the proposed root becomes effective
+    function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32 root, uint256 effectiveTime);
 
-    /// @notice Whether an address is a Managed Vault created by this aggregator
-    function isManagedVault(address vault) external view returns (bool);
+    /// @notice Gets the total number of SuperVaults
+    /// @return count The total number of SuperVaults
+    function getSuperVaultsCount() external view returns (uint256);
 
-    /// @notice Get the controller for a managed vault
-    function getManagedVaultController(address vault) external view returns (address controller);
+    /// @notice Gets the total number of SuperVaultStrategies
+    /// @return count The total number of SuperVaultStrategies
+    function getSuperVaultStrategiesCount() external view returns (uint256);
 
-    /// @notice Get the escrow for a managed vault
-    function getManagedVaultEscrow(address vault) external view returns (address escrow);
-
-    /// @notice Get all managed vaults
-    function getAllManagedVaults() external view returns (address[] memory);
-
-    /// @notice Get all managed vault controllers
-    function getAllManagedVaultControllers() external view returns (address[] memory);
-
-    /// @notice Get the managed vault at an index
-    function managedVaults(uint256 index) external view returns (address);
-
-    /// @notice Get the managed vault controller at an index
-    function managedVaultControllers(uint256 index) external view returns (address);
-
-    /// @notice Get the count of managed vaults
-    function getManagedVaultsCount() external view returns (uint256);
-
-    /// @notice Get the current vault creation nonce
-    function getCurrentNonce() external view returns (uint256);
+    /// @notice Gets the total number of SuperVaultEscrows
+    /// @return count The total number of SuperVaultEscrows
+    function getSuperVaultEscrowsCount() external view returns (uint256);
 }

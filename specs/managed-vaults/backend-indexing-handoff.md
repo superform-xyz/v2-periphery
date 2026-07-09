@@ -1,164 +1,118 @@
-# Managed Vaults — Backend Indexing Handoff
+# Managed Vaults — Backend Indexing Handoff (reuse architecture)
 
-**Source of truth:** this repo (`v2-periphery`), `src/ManagedSuperVault/` + `src/interfaces/ManagedSuperVault/`. This is a **new vault family**, a sibling to SuperVaults — not a change to existing SuperVault indexing.
+**Source of truth:** this repo (`v2-periphery`), `src/ManagedSuperVault/` + `src/interfaces/ManagedSuperVault/`.
 
-This document is backend-agnostic in its event semantics; where the work lands is settled in §7.
+**Architecture note (supersedes the previous version of this doc):** Managed Vaults are no longer a from-scratch contract family. They are **minimal forks of the SuperVault family running on a second aggregator instance**, plus two new contracts. Consequence for indexing: the vault/strategy/aggregator emit **the same event signatures as the main SuperVault family** — most existing SuperVault subgraph handlers are reused as-is, and the *new* indexing surface is only the deposit queue + the NAV oracle. **Everything must be scoped by contract address (the managed aggregator and its clone set), never by event signature alone, or the two families will merge.**
 
 ## 1. Identity model (read this first)
 
-Each Managed Vault is a **trio of clones**: `{ vault, controller, escrow }`, plus two singletons shared across all vaults (`aggregator`, `executor`).
+Each Managed Vault is a **quartet of clones**: `{ vault, strategy, escrow, depositQueue }`, plus two singletons shared across all managed vaults (`aggregator`, `navOracle`).
 
-- **`vault`** — the ERC-20 share token and ERC-7540 surface. This is the user-facing address.
-- **`controller`** — holds deposit/redeem accounting, execution policy, fees, and **operational asset custody**. **The aggregator keys almost everything by `controller` address, not `vault`.**
-- **`escrow`** — custody of pending-deposit assets and in-flight redeem shares.
-- **`aggregator`** (singleton) — registry + the entire **attested-manual NAV lifecycle**, keyed by controller.
-- **`executor`** (singleton) — session keys, keyed by controller.
+- **`vault`** (`ManagedSuperVault`, fork of `SuperVault`) — the ERC-20 share token. Sync `deposit`/`mint` are **gated to the deposit queue**; the async ERC-7540 **redeem** side is byte-identical to the main family. Users hold NATIVE vault shares.
+- **`strategy`** (`ManagedSuperVaultStrategy`, fork) — custody, hook execution, fees, redeem accounting. Identical events to the main family.
+- **`escrow`** — the main family's `SuperVaultEscrow` implementation, reused unmodified (redeem-side custody only).
+- **`depositQueue`** (`ManagedSuperVaultDepositQueue`, NEW, per-vault clone) — the async ERC-7540 **deposit leg**: request/fulfill/claim/cancel + deposit approval policy. Holds pending assets and pre-minted claimable shares.
+- **`aggregator`** (`ManagedSuperVaultAggregator`, fork, singleton) — factory/registry + PPS store. Same rails as the main aggregator (deviation → auto-pause + stale, rate limiting, staleness); differences: PPS is pushed by the `navOracle` (not the validator oracle), no upkeep subsystem, governance functions called directly by SuperGovernor role-holders (not via the SuperGovernor contract).
+- **`navOracle`** (`ManagedNAVOracle`, NEW, singleton) — the **attested-manual NAV lifecycle**, keyed by `strategy`: manager proposes (evidence hash/URI), M-of-N attestors attest, at threshold the oracle pushes into `aggregator.forwardPPS`.
 
-Build the `vault ↔ controller ↔ escrow` map from `ManagedSuperVaultDeployed`. When you see an aggregator event keyed by `controller`, join back to `vault` for display.
+Build the `vault ↔ strategy ↔ escrow ↔ depositQueue` map from `ManagedVaultDeployed`. NAV-oracle events are keyed by `strategy`; queue events are keyed by `controller` (the user). Join back to `vault` for display.
 
 ## 2. Discovery / addresses
 
-- **Aggregator address:** SuperGovernor registry under `keccak256("MANAGED_SUPER_VAULT_AGGREGATOR")`; also in `script/output/{prod|staging}/{chainId}/{Chain}-latest.json` as `ManagedSuperVaultAggregator`. Deterministic per environment.
-- **New vaults:** subscribe to `ManagedSuperVaultDeployed` on the aggregator. `getAllManagedVaults()` / `getAllManagedVaultControllers()` are **reconciliation tools**, not the primary backfill path — the subgraph backfills from the deploy block automatically, but index mirrors drift, so run periodic onchain-vs-index reconciliation against these getters (see the SuperVault balance-reconciliation precedent).
-- **Executor address:** output JSON `ManagedSuperVaultExecutor` (optional; only if session keys are used).
+- **Aggregator:** SuperGovernor registry under `keccak256("MANAGED_SUPER_VAULT_AGGREGATOR")` (discovery-only — unlike the main family, managed clones store their aggregator internally); also in `script/output/{prod|staging}/{chainId}/{Chain}-latest.json` as `ManagedSuperVaultAggregator`. `ManagedNAVOracle` in the same JSON; onchain via `aggregator.navOracle()`.
+- **New vaults:** subscribe to `ManagedVaultDeployed(vault, strategy, escrow, depositQueue, asset, name, symbol, nonce)` on the aggregator. `getAllSuperVaults()/getAllSuperVaultStrategies()/getAllDepositQueues()/getDepositQueue(vault)` are reconciliation tools.
+- **Escrow reuse caveat:** the escrow *implementation* address equals the main family's — per-vault escrow *clones* are distinct and come from `ManagedVaultDeployed`.
 
-## 3. Event catalog (grouped by concern)
+## 3. Event catalog (grouped by emitter)
 
-### Creation & config — emitter: **aggregator**
+### Aggregator (fork — same signatures as main `SuperVaultAggregator`, MUST be scoped by address)
+Reused handlers: `PPSUpdated`, `PPSUpdatedAfterSkim`, `StrategyPaused`, `StrategyUnpaused`, `StrategyPPSStale`, `StrategyPPSStaleReset`, `StrategyCheckFailed` (reason `"HIGH_PPS_DEVIATION"` = deviation breach), `TimestampNotMonotonic`, `UpdateTooFrequent`, `StaleUpdate`, `StaleSignatureAfterUnpause`, `SecondaryManagerAdded/Removed`, `PrimaryManagerChanged/ChangeProposed/ChangeCancelled` (7-day timelock), `DeviationThresholdUpdated`, `MinUpdateIntervalChange*` (3-day timelock), `HighWaterMarkReset`, hooks-root events (`GlobalHooksRoot*`, `StrategyHooksRoot*`, `GlobalLeavesStatusChanged`, `HooksRootUpdateTimelockChanged`).
+New (managed-only):
 ```solidity
-ManagedSuperVaultDeployed(address indexed vault, address indexed controller, address escrow,
-                          address asset, string name, string symbol, uint256 indexed nonce)
-ManagedVaultConfigRegistered(address indexed controller, DepositApprovalMode approvalMode, string metadataURI)
-MetadataURIUpdated(address indexed controller, string metadataURI)   // metadataURI is EVENT-ONLY (no getter)
+ManagedVaultDeployed(address indexed vault, address indexed strategy, address escrow, address depositQueue,
+                     address asset, string name, string symbol, uint256 indexed nonce)
+MetadataURIUpdated(address indexed strategy, string metadataURI)   // EVENT-ONLY (no getter); also emitted at creation
+NavOracleProposed(address indexed proposedOracle, uint256 effectiveTime)   // 7-day timelock
+NavOracleChanged(address indexed oldOracle, address indexed newOracle)
+NavOracleChangeCancelled(address indexed cancelledOracle)
 ```
+Removed vs main family: all `Upkeep*` events (no upkeep subsystem).
 
-### NAV lifecycle — emitter: **aggregator**, keyed by controller
+### NAV oracle (NEW singleton, keyed by strategy)
 ```solidity
-NAVProposed(address indexed controller, uint256 indexed proposalId, uint256 previousPPS,
-            uint256 proposedPPS, uint256 effectiveTimestamp, address indexed proposer,
-            bytes32 evidenceHash, string evidenceURI)
-NAVAttested(address indexed controller, uint256 indexed proposalId, address indexed attestor, uint8 attestationCount)
-NAVFinalized(address indexed controller, uint256 indexed proposalId, uint256 finalizedPPS, uint256 timestamp)
-NAVReviewRequired(address indexed controller, uint256 indexed proposalId, uint256 proposedPPS, uint256 currentPPS)
-NAVProposalCanceled(address indexed controller, uint256 indexed proposalId, address indexed canceledBy)
-NAVLargeDeviationResolved(address indexed controller, uint256 indexed proposalId, address indexed resolvedBy)
-ManagedNAVUpdated(address indexed controller, uint256 previousPPS, uint256 newPPS, uint256 timestamp)  // the stored/finalized value
-ManagedNAVDeviationExceeded(address indexed controller, uint256 proposedPPS, uint256 currentPPS, uint256 deviation)
-PPSUpdatedAfterSkim(address indexed controller, uint256 oldPPS, uint256 newPPS, uint256 feeAmount, uint256 timestamp)
-// attestor set (timelocked)
-NAVAttestorAdded / NAVAttestorRemoved(address indexed controller, address indexed attestor)
-NAVAttestationThresholdUpdated(address indexed controller, uint8 threshold)
-NAVAttestationConfigProposed(address indexed controller, address[] attestors, uint8 threshold, uint256 effectiveTime)
-NAVAttestationConfigCancelled(address indexed controller)
+NAVProposed(address indexed strategy, uint256 indexed proposalId, uint256 previousPPS, uint256 proposedPPS,
+            uint256 effectiveTimestamp, address indexed proposer, bytes32 evidenceHash, string evidenceURI)
+NAVAttested(address indexed strategy, uint256 indexed proposalId, address indexed attestor, uint8 attestationCount)
+NAVFinalized(address indexed strategy, uint256 indexed proposalId, uint256 finalizedPPS, uint256 timestamp)
+NAVRejected(address indexed strategy, uint256 indexed proposalId, uint256 proposedPPS)   // push dropped by rails
+NAVProposalCanceled(address indexed strategy, uint256 indexed proposalId, address indexed canceledBy)
+NAVAttestorAdded / NAVAttestorRemoved(address indexed strategy, address indexed attestor)
+NAVAttestationThresholdUpdated(address indexed strategy, uint8 threshold)
+NAVAttestationConfigInitialized(address indexed strategy, address[] attestors, uint8 threshold)
+NAVAttestationConfigProposed(address indexed strategy, address[] attestors, uint8 threshold, uint256 effectiveTime)
+NAVAttestationConfigCancelled(address indexed strategy)   // manager cancel OR auto-cancel on manager change
 ```
+Proposal status enum: `0 None · 1 PendingAttestation · 2 Finalized · 3 Rejected · 4 Canceled`. **There is no ReviewRequired state** (see §5, deviation runbook). The stored/canonical PPS series is the aggregator's `PPSUpdated` (+ `PPSUpdatedAfterSkim`); `NAVFinalized` is the attestation-level record.
 
-### Pause / freshness / registry params — emitter: **aggregator**
+### Deposit queue (NEW per-vault clone, keyed by controller = user)
 ```solidity
-ManagedVaultPaused / ManagedVaultUnpaused(address indexed controller)
-ManagedVaultNAVStale / ManagedVaultNAVStaleReset(address indexed controller)
-SecondaryManagerAdded / SecondaryManagerRemoved(address indexed controller, address indexed manager)
-PrimaryManagerChangeProposed / PrimaryManagerChangeCancelled / PrimaryManagerChanged(...)   // timelocked
-DeviationThresholdChangeProposed / DeviationThresholdUpdated / DeviationThresholdChangeCancelled(...)  // timelocked
-MinUpdateIntervalChangeProposed / MinUpdateIntervalChanged / MinUpdateIntervalChangeCancelled(...)     // timelocked
-HighWaterMarkReset(address indexed controller, uint256 newHwmPps)
-```
-
-### Async deposit state machine — emitters: **vault** (ERC-7540) + **controller**
-```solidity
-// vault (ERC-7540):
+// ERC-7540 standard:
 DepositRequest(address indexed controller, address indexed owner, uint256 indexed requestId, address sender, uint256 assets)
 CancelDepositRequest(address indexed controller, uint256 indexed requestId, address sender)
 CancelDepositClaim(address indexed receiver, address indexed controller, uint256 indexed requestId, address sender, uint256 assets)
-Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)  // the claim (mint)
-// controller:
+Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)   // the CLAIM (share transfer)
+// queue-specific:
 DepositRequestPlaced(address indexed controller, uint256 assets)
 DepositRequestFulfilled(address indexed controller, uint256 assetsGross, uint256 assetsNet, uint256 shares, uint256 pps)
 DepositRequestRejected(address indexed controller, uint256 assets, string reason)
 DepositRequestCanceled(address indexed controller, uint256 assets)
 DepositClaimed(address indexed controller, uint256 assets)
 DepositPolicyUpdated(DepositApprovalMode approvalMode, bool depositsPaused, uint256 minDepositAssets, uint256 maxDepositAssets)
-```
-State: `Requested → (Fulfilled → Claimable → Claimed) | Rejected | Canceled`. `requestId` is always `0` (single-request model). Claimable is denominated in **assets**, minted at `averageDepositPrice` on claim.
-
-### Async redeem state machine — emitters: **vault** + **controller**
-```solidity
-// vault: RedeemRequest, CancelRedeemRequest, CancelRedeemClaim, Withdraw(...)
-// controller:
-RedeemRequestPlaced(address indexed controller, address indexed owner, uint256 shares)
-RedeemRequestsFulfilled(address[] controllers, uint256 processedShares, uint256 currentPPS)
-RedeemClaimable(address indexed controller, uint256 assetsFulfilled, uint256 sharesFulfilled, uint256 averageWithdrawPrice)
-RedeemRequestClaimed(address indexed controller, address indexed receiver, uint256 assets, uint256 shares)
-RedeemCancelRequestPlaced / RedeemCancelRequestFulfilled / RedeemRequestCanceled(...)
-```
-
-### Approvals — emitter: **controller**
-```solidity
 DepositorApproved(address indexed depositor, bytes32 kycRef)   // kycRef is a HASH, event-only, never PII
-DepositorRejected(address indexed depositor)
-DepositorRevoked(address indexed depositor)
+DepositorRejected / DepositorRevoked(address indexed depositor)
 ```
+State machine: `Requested → (Fulfilled → Claimable → Claimed) | Rejected | Canceled`. `requestId` is always `0` (single-request model). Cancels are instant (never pending). Claimable is tracked in **both assets and shares**; claims are **pro-rata** (`shares = claimableShares·assets/claimableAssets`); `getAverageDepositPrice(controller)` is a derived view for price display.
 
-### Whitelisted execution — emitter: **controller**
-```solidity
-ManagedCallExecuted(address indexed executor, address indexed target, bytes4 indexed selector,
-                    uint256 value, bytes32 operationId, bytes32 calldataHash)
-CallRuleSet(address indexed target, bytes4 indexed selector, bool allowed, bool valueAllowed,
-            uint256 maxValuePerCall, uint256 windowValueCap, uint64 windowDuration, uint8[] constrainedArgs)
-CallRuleRemoved(address indexed target, bytes4 indexed selector)
-ArgAllowedValueSet(address indexed target, bytes4 indexed selector, uint8 argIndex, address value, bool allowed)
-```
+### Vault + strategy (forks — same signatures as main family, reuse existing SuperVault handlers, scope by address)
+Redeem lifecycle (`RedeemRequest`, `RedeemRequestPlaced/Fulfilled/Claimable/Claimed`, cancel-redeem events, `Withdraw`), fees (`ManagementFeePaid`, `PerformanceFeeSkimmed`, `HWMPPSUpdated`, `VaultFeeConfig*`, `FeeRecipientChanged`), hooks (`HooksExecuted`/`HookExecuted`), operator events (`OperatorSet`, EIP-7741) — all identical to main-family indexing.
 
-### Fees — emitter: **controller**
-```solidity
-ManagementFeePaid(...)         // entry fee at deposit fulfillment
-PerformanceFeeSkimmed(uint256 totalFee, uint256 superformFee)
-HWMPPSUpdated(uint256 newHwmPps, uint256 previousPps, uint256 profit, uint256 feeCollected)
-VaultFeeConfigProposed / VaultFeeConfigUpdated / FeeRecipientChanged(...)
-```
-
-### Session keys — emitter: **executor** (singleton), keyed by controller
-```solidity
-SessionKeyGranted(address indexed controller, address indexed sessionKey, uint256 expiry,
-                  address indexed grantedByManager, uint80 generation, uint16 permissions)  // permissions = bitmask
-SessionKeyRevoked(address indexed controller, address indexed sessionKey)
-AllSessionKeysInvalidated(address indexed controller, uint80 newGeneration)
-```
+**Fee/flow attribution (get this right):** at fulfillment the **vault** emits `Deposit(sender=depositQueue, owner=depositQueue, gross, sharesNet)` and the **strategy** emits `ManagementFeePaid`/`DepositHandled` attributed to the queue address. Treat vault-level `Deposit` where `sender == depositQueue` as **internal plumbing** — index user deposit flows from the QUEUE's events (`DepositRequest` → `DepositRequestFulfilled` → queue-level `Deposit` claim). Redeem-side flows are user-attributed as in the main family.
 
 ## 4. Enums to decode
 
 - **DepositApprovalMode:** `0 Open · 1 Allowlist · 2 ManagerApproved · 3 KycApproved`
 - **ApprovalStatus:** `0 None · 1 Approved · 2 Rejected · 3 Revoked`
-- **NAVProposalStatus:** `0 None · 1 PendingAttestation · 2 ReviewRequired · 3 Finalized · 4 Canceled`
-- **SessionKey `permissions`** = uint16 bitmask, `bit = 1 << enumValue`: `0 ExecuteCalls · 1 FulfillDeposits · 2 ManageApprovals · 3 FulfillRedeem · 4 FulfillCancelRedeem · 5 SkimFee · 6 ProposeNAV · 7 Pause · 8 Unpause`
+- **NAVProposalStatus:** `0 None · 1 PendingAttestation · 2 Finalized · 3 Rejected · 4 Canceled`
 
 ## 5. Critical semantics — get these right
 
-- **PPS/NAV units:** scaled to **asset decimals** (`10**assetDecimals == 1.0`). Initial PPS = 1.0. Read current via `aggregator.getPPS(controller)`. `vault.totalAssets()` is NAV-derived (totalSupply × attested PPS), so `totalAssets/totalSupply` stats paths remain valid.
-- **`nav_mode` is always `"attested_manual"`** (aggregator `NAV_MODE()`, controller `navMode()`). Backends may carry this as a vault-family label rather than a per-read field, but the invariant stands: **any manager-facing or user-facing NAV/PPS render must be distinguishable from validator-attested PPS** — the labeling obligation lands on whichever layer feeds the frontend (spec 6.8).
-- **A deviation breach is not a finalized NAV.** `NAVReviewRequired` + `ManagedNAVDeviationExceeded` + `ManagedVaultPaused` + `ManagedVaultNAVStale` means the value was **dropped**; the proposal sits in `ReviewRequired` until an explicit unpause + `resolveLargeDeviationNAV`. Don't treat `proposedPPS` as the vault's NAV.
-- **Freshness:** `aggregator.isNAVStale(controller)`, `getLastUpdateTimestamp`, `getMaxStaleness`. Spec 6.4 also wants **NAV drift over time**, not just per-update deltas — derive from the `ManagedNAVUpdated` series.
-- **NAV lifecycle lives on the aggregator, keyed by controller** (it was relocated there from the controller during development). All `NAV*` events come from the aggregator.
-- **`metadataURI` and `kycRef` are event-only** — no onchain storage/getter. Source "latest metadataURI" from `ManagedVaultConfigRegistered` (creation) + `MetadataURIUpdated`. The URI points to offchain content (IPFS etc.) — index the URI, not the content.
-- **Timelocked changes** emit a `*Proposed` → `*Updated`/`*Changed` (or `*Cancelled`) pair, each with an `effectiveTime`. Model "pending change + eta" for deviation threshold, min update interval, attestor config, and primary manager.
-- **Manager/attestor changes invalidate in-flight NAV.** On a primary-manager change or an attestor-set swap, any active proposal is cancelled (`NAVProposalCanceled`) and pending attestor config cleared — reflect that in queues.
+- **PPS/NAV units:** scaled to **asset decimals** (`10**assetDecimals == 1.0`). Initial PPS = 1.0. Read via `aggregator.getPPS(strategy)`. `vault.totalAssets()` = `totalSupply × PPS`, so existing ERC-4626 stats paths remain valid.
+- **`nav_mode` is `"attested_manual"`** (`navOracle.NAV_MODE()`). Any manager/user-facing NAV render must be distinguishable from validator-attested PPS (spec 6.8) — the labeling lands on whichever layer feeds the frontend.
+- **NAVRejected ≠ NAV update.** The proposed value was **dropped** by the aggregator rails. Determine why from the paired aggregator event in the same tx (`StrategyCheckFailed("HIGH_PPS_DEVIATION")` + `StrategyPaused` + `StrategyPPSStale` = deviation breach; `TimestampNotMonotonic`/`UpdateTooFrequent`/`StaleUpdate` = timing).
+- **Deviation runbook (replaces ReviewRequired/resolve):** deviation breach → auto-pause + PPS stale (value dropped, proposal `Rejected`) → manager `unpauseStrategy` (`StrategyUnpaused`; PPS stays stale) → manager re-proposes with a fresh observation timestamp → attestors attest → push lands (`_forwardPPS` skips the deviation check while stale) → `PPSUpdated` + `StrategyPPSStaleReset` + `NAVFinalized`. Surface this whole sequence in the ops console.
+- **Manager/attestor changes invalidate in-flight NAV lazily:** a primary-manager change doesn't emit a cancel by itself; the next `attestNAVUpdate` (or attestor-config `execute`) auto-cancels (`NAVProposalCanceled` / `NAVAttestationConfigCancelled`). Queues should treat a proposal as dead once `getMainManager(strategy)` ≠ the proposal's snapshot (view: `getNAVProposal`).
+- **Freshness:** `aggregator.isPPSStale(strategy)`, `getLastUpdateTimestamp`, `getMaxStaleness`; the strategy's `ppsExpiration` (default 1 day, **hard cap 1 week**) gates deposits/fulfills — **operating requirement: NAV attested at least weekly** (typically at the vault's configured cadence).
+- **Timelocked changes** (`*Proposed` → `*Changed`/`*Updated` or `*Cancelled`, model "pending + eta"): attestor config (3d, on navOracle), NAV oracle swap (7d, on aggregator), primary manager (7d), min update interval (3d), fee config (1w, on strategy), hooks roots (15min default).
+- **Deviation threshold** is main-manager-set, instant, but **capped to (0, 1e18]** in the managed fork — it can never be disabled.
+- **`metadataURI` and `kycRef` are event-only** — no onchain storage/getter.
+- **Sync-deposit gating:** direct `vault.deposit`/`mint` reverts for anyone but the queue; `vault.maxDeposit(anyone-but-queue) == 0`. Don't flag these as anomalies.
 
 ## 6. Do NOT index / not onchain
 
-- **Redemption policy** (notice periods, windows) — intentionally not in the contracts for v1; it's a manager/offchain concern.
-- **KYC PII** — only `bytes32` reference hashes are onchain.
-- **metadataURI content** — offchain.
+- **Redemption policy** (notice periods/windows) — intentionally not in contracts for v1.
+- **KYC PII** — only `bytes32` hashes onchain.
+- **metadataURI content** — offchain; index the URI only.
+- **Upkeep** — does not exist in the managed family.
 
-## 7. Where the work lands (settled)
+## 7. Where the work lands
 
-Four lanes, three consumers of one indexer. v2-periphery events remain the source of truth for all onchain actions.
+Same four lanes as before, but the indexing lane shrinks substantially because the family reuses main-family events:
 
-- **subgraphs-monorepo/v2-periphery** — the only event-indexing layer. Extends the existing SuperVault subgraph: new dataSources for the aggregator + executor singletons, templates instantiated per `ManagedSuperVaultDeployed` for vault/controller, the entities below, and Goldsky pipeline sinks mirroring hot entities into downstream Postgres (existing `pending_redeem_for_controller` pattern). **Gating work — every other lane waits on it.**
-- **supervaults-data-pipeline** — derived series for the operate-console lane: NAV/PPS history + drift, flows, manager-NAV-derived TVL, fee history, execution history, and pending-request reconcilers (modeled on `supervault_redeem_requests`).
-- **erebor** — Superman console API (deposit/approval queues, active NAV proposal + attestation state, pending timelocked changes as "pending + eta", policy/pause/fee views, session-key views, audit log, RBAC over the family) reading the pipeline DB + subgraph. Never indexes. Prereq: rename the existing RBAC-meaning `domain.ManagedVault`. **No keepers in v1** — deposit/redeem fulfillment is manager-initiated, since fulfillment prices at the current attested PPS and depends on manager-positioned controller liquidity; keeper automation via session keys with `FulfillDeposits`/`FulfillRedeem` bits is a v2 path.
-- **persephone/datamat** — consumer-app lane (managed vaults appear in the Superform app): vault-family labeling, catalog worker, NAV history series, and stats via the existing ERC-4626 path (valid per the `totalAssets()` note in §5).
-
-Entities (spec §8): `ManagedVault`, `ManagedVaultPolicy`, `ManagedVaultNavProposal`/`NavUpdate`, `ManagedVaultApproval`, `ManagedVaultDepositRequest`, `ManagedVaultRedemptionRequest`, `ManagedVaultExecution`, `ManagedVaultRoleAssignment`/`SessionKey`, `ManagedVaultAuditEvent` (unified chronological log — every event above with `{timestamp, actor, txHash, human-readable summary}`).
+- **subgraphs-monorepo/v2-periphery** — extend the existing SuperVault subgraph: new dataSources for the **managed aggregator** + **navOracle** singletons; a **queue template** instantiated per `ManagedVaultDeployed`; vault/strategy handled by the **existing SuperVault templates** instantiated for managed clone addresses (scoped by the managed aggregator's registry). Goldsky sinks mirror hot entities as today. **Still the gating lane.**
+- **supervaults-data-pipeline** — NAV/PPS history + drift (from `PPSUpdated` series), flows, TVL, fee history, pending-request reconcilers; redeem side reuses the existing `supervault_redeem_requests` machinery pointed at managed addresses.
+- **erebor** — Superman console API: deposit/approval queues, active NAV proposal + attestation state, pending timelocked changes, pause/policy/fee views, audit log. **No keepers in v1** (fulfillment is manager-initiated). Note: no session keys in v1 (the managed executor was dropped; revisit for v2 keeper automation).
+- **persephone/datamat** — consumer-app lane unchanged in shape: vault-family labeling, catalog, NAV history, ERC-4626 stats via `totalAssets()`.
 
 ## 8. Deployment scope
 
-Ethereum + Base only at launch. Dev/staging aggregator deployments and matching dev subgraph deployments will exist for pre-prod indexing.
+Ethereum + Base at launch. Aggregator + navOracle are deterministic per environment; dev/staging deployments will exist for pre-prod indexing. Wiring order: deploy family → `runRegister` (sets the registry key AND wires the NAV oracle via `setInitialNavOracle`; the family is inert until then).
