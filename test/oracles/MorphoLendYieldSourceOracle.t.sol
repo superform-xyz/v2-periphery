@@ -532,6 +532,9 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     /// @notice assets → shares → assets never creates value (lend rounds DOWN both ways)
+    /// @dev Both assetsIn and totalSupplyShares are capped at type(uint128).max / 2 to prevent
+    ///      uint256 overflow in SharesMathLib.mulDivDown: assetsIn * (totalSupplyShares + VIRTUAL_SHARES).
+    ///      Inputs near type(uint128).max are unrealistic for real Morpho markets.
     function test_fuzz_roundTrip_assetsNeverGrow(
         uint128 totalSupplyAssets_,
         uint128 totalSupplyShares_,
@@ -540,8 +543,8 @@ contract MorphoLendYieldSourceOracleTest is Test {
         public
     {
         totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
-        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
-        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max / 2));
+        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max / 2));
 
         morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
 
