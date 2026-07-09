@@ -512,6 +512,9 @@ contract MorphoLendYieldSourceOracleTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice shares → assets → shares never creates value (lend rounds DOWN both ways)
+    /// @dev Inputs are capped at type(uint128).max / 2 to prevent intermediate overflow in
+    ///      Morpho's mulDivDown (raw `*` operator). With both operands near type(uint128).max,
+    ///      the product exceeds type(uint256).max and panics.
     function test_fuzz_roundTrip_neverCreatesValue(
         uint128 totalSupplyAssets_,
         uint128 totalSupplyShares_,
@@ -519,9 +522,10 @@ contract MorphoLendYieldSourceOracleTest is Test {
     )
         public
     {
-        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
-        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
-        sharesIn = uint128(bound(sharesIn, 1, type(uint128).max));
+        uint128 MAX = type(uint128).max / 2;
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, MAX));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, MAX));
+        sharesIn = uint128(bound(sharesIn, 1, MAX));
 
         morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
 
@@ -532,6 +536,10 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     /// @notice assets → shares → assets never creates value (lend rounds DOWN both ways)
+    /// @dev Inputs are capped at type(uint128).max / 2 to prevent intermediate overflow in
+    ///      Morpho's mulDivDown (raw `*` operator). toSharesDown computes
+    ///      `assetsIn * (totalShares + VIRTUAL_SHARES)`; with both near type(uint128).max
+    ///      the product exceeds type(uint256).max and panics (arithmetic overflow 0x11).
     function test_fuzz_roundTrip_assetsNeverGrow(
         uint128 totalSupplyAssets_,
         uint128 totalSupplyShares_,
@@ -539,9 +547,10 @@ contract MorphoLendYieldSourceOracleTest is Test {
     )
         public
     {
-        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
-        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
-        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+        uint128 MAX = type(uint128).max / 2;
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, MAX));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, MAX));
+        assetsIn = uint128(bound(assetsIn, 1, MAX));
 
         morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
 
