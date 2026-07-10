@@ -70,7 +70,7 @@ contract ECDSAPPSOracle is IECDSAPPSOracle, EIP712 {
                          PPS UPDATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IECDSAPPSOracle
-    function updatePPS(UpdatePPSArgs calldata args) external {
+    function updatePPS(UpdatePPSArgs calldata args) public virtual {
         uint256 strategiesLength = args.strategies.length;
 
         if (strategiesLength == 0) revert ZERO_LENGTH_ARRAY();
