@@ -42,6 +42,10 @@ contract SuperBankOdosV3KyberSwapIntegrationV2 is Test, OdosAPIParser, KyberSwap
     // ── Redeployed hooks (same deterministic address on Base and ETH) ──
     address constant APPROVE_AND_SWAP_ODOS_V3_HOOK = 0xb6adcd6E912f8c8F355E9bC970E458B9d6609d0b;
     address constant APPROVE_AND_SWAP_KYBERSWAP_HOOK = 0xcF5419270C9415E44c97E595c505708cfA334C30;
+    address constant SWAP_KYBERSWAP_HOOK = 0x05c49e05bb8575afdf1142cC95dA6747b069174A;
+
+    // KyberSwap MetaAggregationRouterV2 (read from SWAP_KYBERSWAP_HOOK.KYBER_ROUTER())
+    address constant KYBER_ROUTER = 0x6131B5fae19EA4f9D964eAc0408E4408b66337b5;
 
     // ── Base tokens ──
     address constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
@@ -66,6 +70,12 @@ contract SuperBankOdosV3KyberSwapIntegrationV2 is Test, OdosAPIParser, KyberSwap
     bytes32 constant ETH_ODOS_V3_ROOT = 0xb7c3a6da27bfb6e789f368a5e1d8f441565b3b5e1a8c82d0a118687858eb6a69;
     // ETH ApproveAndSwapKyberSwapHook: 4 leaves (outputToken = USDC, UP eth/base/oft)
     bytes32 constant ETH_KYBERSWAP_ROOT = 0x89dda69d740e47e63470e89491222f4ad5ebc03b33e6eb28cd2ed95e47e27a47;
+    // Base standalone SwapKyberSwapHook (0x05c49e05...): 13 leaves (dst tokens)
+    bytes32 constant BASE_SWAP_KYBERSWAP_ROOT =
+        0x61a826a9d90fb9d1ac20483037191ca66bdcfd4acf5f65cceb00c4ac2cd2a467;
+    // ETH standalone SwapKyberSwapHook (0x05c49e05...): 33 leaves (dst tokens)
+    bytes32 constant ETH_SWAP_KYBERSWAP_ROOT =
+        0xf9f7263790313a077bc49c6bf7f4d8d894e02c21a83ed84630348479e914b4fa;
 
     // Retry config for API-dependent tests (routes may use incompatible DEXes)
     uint256 constant MAX_RETRIES = 3;
@@ -682,6 +692,143 @@ contract SuperBankOdosV3KyberSwapIntegrationV2 is Test, OdosAPIParser, KyberSwap
             }
         }
         revert("KyberSwap WETH->USDC on ETH failed after all retries");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //       KYBERSWAP: REAL SWAPS VIA STANDALONE SwapKyberSwapHook
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Swaps WETH→USDC on Base via the standalone (redeployed) SwapKyberSwapHook with its
+    ///         production merkle root.
+    /// @dev The production ApproveERC20Hook tree has NO leaf for the KyberSwap router as spender, so
+    ///      the router allowance is set here via prank as test setup. Flagged as a config gap: without
+    ///      an approve leaf the standalone SwapKyberSwapHook is not executable through SuperBank in
+    ///      production — only the ApproveAndSwap variant is.
+    function test_executeHooks_swapWETHtoUSDC_standaloneKyberSwap_onBase() public {
+        _skipIfKyberUnavailable("base", BASE_WETH, BASE_USDC);
+
+        superGovernor.registerHook(SWAP_KYBERSWAP_HOOK);
+        _setMerkleRoot(SWAP_KYBERSWAP_HOOK, BASE_SWAP_KYBERSWAP_ROOT);
+
+        uint256 swapAmount = 0.05 ether;
+
+        for (uint256 attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            uint256 snap = vm.snapshotState();
+            deal(BASE_WETH, SUPER_BANK, swapAmount);
+
+            // Test-only router allowance (no production approve leaf for the KyberSwap router)
+            vm.prank(SUPER_BANK);
+            IERC20(BASE_WETH).approve(KYBER_ROUTER, swapAmount);
+
+            (bytes memory txData, uint256 expectedOut) =
+                _getKyberSwapTxData(BASE_WETH, BASE_USDC, swapAmount, "base");
+            console2.log("KyberSwap (standalone) attempt", attempt, "- Expected USDC out:", expectedOut);
+
+            bytes memory hookData = _encodeKyberSwapHookData(
+                BASE_WETH, BASE_USDC, swapAmount, expectedOut, expectedOut / 2, false, txData
+            );
+
+            uint256 usdcBefore = IERC20(BASE_USDC).balanceOf(SUPER_BANK);
+
+            try superBank.executeHooks(
+                _buildSingleHookExecutionData(
+                    SWAP_KYBERSWAP_HOOK, hookData, _getBaseSwapKyberSwapProof(BASE_USDC)
+                )
+            ) {
+                assertEq(IERC20(BASE_WETH).balanceOf(SUPER_BANK), 0, "All WETH should be consumed");
+                assertGt(
+                    IERC20(BASE_USDC).balanceOf(SUPER_BANK) - usdcBefore, 0, "SuperBank should have received USDC"
+                );
+                console2.log("Standalone KyberSwap Base: swapped WETH -> USDC");
+                return;
+            } catch {
+                console2.log("Attempt", attempt, "failed (incompatible route), retrying...");
+                vm.revertToState(snap);
+            }
+        }
+        vm.skip(true); // KyberSwap live routes returned incompatible calldata on all retries
+    }
+
+    /// @notice Swaps WETH→USDC on ETH via the standalone (redeployed) SwapKyberSwapHook with its
+    ///         production merkle root.
+    /// @dev Same production config gap as the Base variant: router allowance set via prank.
+    function test_executeHooks_swapWETHtoUSDC_standaloneKyberSwap_onEth() public {
+        _skipIfKyberUnavailable("ethereum", ETH_WETH, ETH_USDC);
+
+        vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+        _forceGrantRole(superGovernor.GOVERNOR_ROLE(), address(this));
+        _forceGrantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
+
+        superGovernor.registerHook(SWAP_KYBERSWAP_HOOK);
+        _setMerkleRoot(SWAP_KYBERSWAP_HOOK, ETH_SWAP_KYBERSWAP_ROOT);
+
+        uint256 swapAmount = 0.1 ether;
+
+        for (uint256 attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            uint256 snap = vm.snapshotState();
+            deal(ETH_WETH, SUPER_BANK, swapAmount);
+
+            // Test-only router allowance (no production approve leaf for the KyberSwap router)
+            vm.prank(SUPER_BANK);
+            IERC20(ETH_WETH).approve(KYBER_ROUTER, swapAmount);
+
+            (bytes memory txData, uint256 expectedOut) =
+                _getKyberSwapTxData(ETH_WETH, ETH_USDC, swapAmount, "ethereum");
+            console2.log("KyberSwap (standalone) attempt", attempt, "- Expected USDC out:", expectedOut);
+
+            bytes memory hookData = _encodeKyberSwapHookData(
+                ETH_WETH, ETH_USDC, swapAmount, expectedOut, expectedOut / 2, false, txData
+            );
+
+            uint256 usdcBefore = IERC20(ETH_USDC).balanceOf(SUPER_BANK);
+
+            try superBank.executeHooks(
+                _buildSingleHookExecutionData(
+                    SWAP_KYBERSWAP_HOOK, hookData, _getEthSwapKyberSwapProof(ETH_USDC)
+                )
+            ) {
+                assertEq(IERC20(ETH_WETH).balanceOf(SUPER_BANK), 0, "All WETH should be consumed");
+                assertGt(
+                    IERC20(ETH_USDC).balanceOf(SUPER_BANK) - usdcBefore, 0, "SuperBank should have received USDC"
+                );
+                console2.log("Standalone KyberSwap ETH: swapped WETH -> USDC");
+                return;
+            } catch {
+                console2.log("Attempt", attempt, "failed (incompatible route), retrying...");
+                vm.revertToState(snap);
+            }
+        }
+        vm.skip(true); // KyberSwap live routes returned incompatible calldata on all retries
+    }
+
+    /// @dev Base standalone SwapKyberSwapHook proof for dst_token=USDC (leaf index 8, 13 leaves).
+    ///      Source: hook_0x05c49e05bb8575afdf1142cc95da6747b069174a.json (chain 8453)
+    function _getBaseSwapKyberSwapProof(address dstToken) internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](4);
+        if (dstToken == BASE_USDC) {
+            proof[0] = 0x9f9fe8c6bc78f08e80264238a3751d3964fbbe6a0cfbb493c105ee9b6d2ad549;
+            proof[1] = 0x52b3c06ea2745c71ef1a68e7e0c50b141a303cf8d7f1163a97956445864487ec;
+            proof[2] = 0xc0e8ebef0ab4cf07f5cd6972aaddd917baef92d08a89d937f2d39d4cb2cfa561;
+            proof[3] = 0xc023c90c0c4c27a1bc95c57623533b7528a62ba99af986707022f9d28d02216e;
+        } else {
+            revert("Unknown dstToken - not in Base SwapKyberSwapHook proofs");
+        }
+    }
+
+    /// @dev ETH standalone SwapKyberSwapHook proof for dst_token=USDC (leaf index 1, 33 leaves).
+    ///      Source: hook_0x05c49e05bb8575afdf1142cc95da6747b069174a.json (chain 1)
+    function _getEthSwapKyberSwapProof(address dstToken) internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](6);
+        if (dstToken == ETH_USDC) {
+            proof[0] = 0x15459d5030deb12e8c1070fdf4ca40cff36cad2af22d28c1c0f0e4a313e03897;
+            proof[1] = 0xb771f2edffdd38904034a88e5e5228bb657167e09e0c02e7d66e22a9ed3736da;
+            proof[2] = 0x29ebd8c520c229858f99f925757bec4ee0caf6a55aa9f7e8c6a775ab454eb4dd;
+            proof[3] = 0xe31ae781d7bd30d6346329d570735f4070be355221e0cd178caaf61a08522bd8;
+            proof[4] = 0xf6c095f82596430d2691ce6e5228f103ca62f6ed12ed1ee9b4b4a5b7d10a48ba;
+            proof[5] = 0xfbe6b8e4b8eee344bdabf840e6d845bd88dcf898c005e8bbde46b8e39ad2ff78;
+        } else {
+            revert("Unknown dstToken - not in ETH SwapKyberSwapHook proofs");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════

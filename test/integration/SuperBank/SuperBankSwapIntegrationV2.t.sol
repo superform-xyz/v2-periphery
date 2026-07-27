@@ -100,6 +100,15 @@ contract SuperBankSwapIntegrationV2 is Test, OdosAPIParser {
     bytes32 constant ETH_APPROVE_AND_ACROSS_ROOT =
         0xe9993d523de6c75ebe945a2adfd7646564f799a7f35be10bc1f8bec1ca9c2a26;
 
+    // Base Across hooks (redeployed) — for Base-origin bridging
+    address constant ACROSS_SEND_FUNDS_HOOK_BASE = 0xF583a7826Da0917a8d45eC4457d45D26D251B152;
+    address constant APPROVE_AND_ACROSS_HOOK_BASE = 0x3170e72b2F8Ea2a7028374B051C5D443F5bcA91a;
+    // Base AcrossSendFundsAndExecuteOnDstHook (redeployed): 169 leaves
+    bytes32 constant BASE_ACROSS_ROOT = 0x6bc2e59da85e5eebcff11a9de5f2154654d59a24d21ecade2f56f4af92c34365;
+    // Base ApproveAndAcrossSendFundsAndExecuteOnDstHook (redeployed): 169 leaves
+    bytes32 constant BASE_APPROVE_AND_ACROSS_ROOT =
+        0xb5f07630f5ff4ca4ea8b7caf7fe8d1f6dafe26c7472405de6a4948b8483e711d;
+
     // Contracts
     SuperBank superBank;
     SuperGovernor superGovernor;
@@ -608,6 +617,92 @@ contract SuperBankSwapIntegrationV2 is Test, OdosAPIParser {
         vm.selectFork(baseForkId);
         vm.warp(baseOriginalTimestamp);
         _assertBridgedTokenArrived(BASE_CBBTC);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //              CROSS-CHAIN BRIDGE BASE → ETH (cbBTC) TESTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// @notice Bridges cbBTC from SuperBank on Base to SuperBank on ETH via the redeployed Base Across hook
+    ///         (ApproveERC20Hook + AcrossSendFundsAndExecuteOnDstHook) and verifies arrival.
+    /// @dev cbBTC has the same address on Base and ETH mainnet, so the Base tree's output leaf is
+    ///      cross-chain valid.
+    function test_executeHooks_bridgeCbBtcBaseToEth() public {
+        Vm.Log[] memory logs = _bridgeCbBtcFromBaseToEth(false);
+
+        uint256 ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
+        _relayAcrossBridgeToEth(logs, ethForkId);
+
+        vm.selectFork(ethForkId);
+        _assertBridgedTokenArrived(BASE_CBBTC); // same cbBTC address on ETH
+    }
+
+    /// @notice Bridges cbBTC from Base to ETH using the redeployed Base ApproveAndAcross
+    ///         (single combined hook) and verifies arrival.
+    function test_executeHooks_bridgeCbBtcBaseToEth_withApproveAndAcross() public {
+        Vm.Log[] memory logs = _bridgeCbBtcFromBaseToEth(true);
+
+        uint256 ethForkId = vm.createFork(vm.envString("ETHEREUM_RPC_URL"));
+        _relayAcrossBridgeToEth(logs, ethForkId);
+
+        vm.selectFork(ethForkId);
+        _assertBridgedTokenArrived(BASE_CBBTC); // same cbBTC address on ETH
+    }
+
+    /// @dev Phase 1: On the Base fork (active from setUp), bridge cbBTC to SuperBank on ETH.
+    ///      useCombinedHook=false: ApproveERC20Hook + AcrossSendFundsAndExecuteOnDstHook (Base trees)
+    ///      useCombinedHook=true:  ApproveAndAcrossSendFundsAndExecuteOnDstHook (single hook)
+    function _bridgeCbBtcFromBaseToEth(bool useCombinedHook) internal returns (Vm.Log[] memory logs) {
+        uint256 bridgeAmount = 1e6; // 0.01 cbBTC (8 decimals)
+        deal(BASE_CBBTC, SUPER_BANK, bridgeAmount);
+
+        bytes memory acrossData = _encodeAcrossHookData(
+            SUPER_BANK, BASE_CBBTC, BASE_CBBTC, bridgeAmount, bridgeAmount * 99 / 100, ETH_CHAIN_ID, false, bytes("")
+        );
+
+        vm.recordLogs();
+        if (useCombinedHook) {
+            superGovernor.registerHook(APPROVE_AND_ACROSS_HOOK_BASE);
+            _setMerkleRoot(APPROVE_AND_ACROSS_HOOK_BASE, BASE_APPROVE_AND_ACROSS_ROOT);
+            superBank.executeHooks(
+                _buildSingleHookExecutionData(
+                    APPROVE_AND_ACROSS_HOOK_BASE, acrossData, _getApproveAndAcrossCbbtcBaseToEthProof()
+                )
+            );
+        } else {
+            superGovernor.registerHook(ACROSS_SEND_FUNDS_HOOK_BASE);
+            _setMerkleRoot(APPROVE_ERC20_HOOK, BASE_APPROVE_ERC20_ROOT);
+            _setMerkleRoot(ACROSS_SEND_FUNDS_HOOK_BASE, BASE_ACROSS_ROOT);
+            superBank.executeHooks(
+                _buildExecutionDataWithProofs(
+                    APPROVE_ERC20_HOOK,
+                    ACROSS_SEND_FUNDS_HOOK_BASE,
+                    _encodeApproveHookData(BASE_CBBTC, BASE_SPOKE_POOL, bridgeAmount, false),
+                    acrossData,
+                    _getBaseApproveCbbtcForSpokePoolProof(),
+                    _getCbbtcBaseToEthAcrossProof()
+                )
+            );
+        }
+        logs = vm.getRecordedLogs();
+
+        assertEq(IERC20(BASE_CBBTC).balanceOf(SUPER_BANK), 0, "All cbBTC should be consumed by the bridge");
+        console2.log("Phase 1: Bridged %d cbBTC from Base to ETH", bridgeAmount);
+    }
+
+    /// @dev Phase 2: Relay a Base→ETH Across bridge via Pigeon AcrossV3Helper.
+    function _relayAcrossBridgeToEth(Vm.Log[] memory logs, uint256 ethForkId) internal {
+        AcrossV3Helper acrossHelper = new AcrossV3Helper();
+        vm.makePersistent(address(acrossHelper));
+
+        address relayer = makeAddr("ACROSS_RELAYER");
+        vm.makePersistent(relayer);
+
+        acrossHelper.help(
+            BASE_SPOKE_POOL, ETH_SPOKE_POOL, relayer, block.timestamp, ethForkId, ETH_CHAIN_ID, BASE_CHAIN_ID, logs
+        );
+
+        console2.log("Phase 2: Pigeon relayed Across bridge to ETH fork");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1341,6 +1436,52 @@ contract SuperBankSwapIntegrationV2 is Test, OdosAPIParser {
         proof[8] = 0xef57d536b4749d3ee8107082b2b9ba0ce4e92615dbde4af3386fa0b76c0e95df;
         proof[9] = 0x67374508497e575540b6c2177d3c0fb699518ef52685be3db18a332e4b6fc96b;
         proof[10] = 0xc0319a24d92f70caae93f049e380ce7cba78b2e29ecda0ed32216a21da766506;
+    }
+
+    /// @dev Returns the production merkle proof for approve cbBTC for SpokePool Base
+    ///      in the ApproveERC20Hook tree on Base (unchanged deployment).
+    ///      Source: hook_0x8b789980dc6cc7d88e30c442d704646ff7f6d306.json (chain 8453)
+    ///      Args: token=Base cbBTC, spender=Base SpokePool (0x09aea4b2...), leaf index 21
+    function _getBaseApproveCbbtcForSpokePoolProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](7);
+        proof[0] = 0x5311008a93a84fe7d8dc438f1cff8a90e021351b598aaac5e7ef4e0fb3f63b10;
+        proof[1] = 0xeb2ed70b31f774ddddc042c4661836343f31304678386bc7cf5812e2b2ac3e08;
+        proof[2] = 0x961d3762c18203d498ee79263eebae52b32006894607b3fe9109968f7e1d2693;
+        proof[3] = 0xd9cd9b2767d15475d60f490a6ca8692e3bc6de1fc72a31742248f226b5a4fd6a;
+        proof[4] = 0x7a90d49f881c218fcc0ce26fd662efb5af44ee0711745cd8058e058b69b771f1;
+        proof[5] = 0x1898e448f5a0a4b665aa52f6cac5223345a49c5d2a2f2d91911a1b0848fdd040;
+        proof[6] = 0xfc4c551dfd1d006b73230db4e7f5fdd90a74a48a13d13ca624a92df0da6f24b2;
+    }
+
+    /// @dev Returns the production merkle proof for cbBTC Base→cbBTC ETH leaf (index 137) in the
+    ///      redeployed AcrossSendFundsAndExecuteOnDstHook tree on Base.
+    ///      Source: hook_0xf583a7826da0917a8d45ec4457d45d26d251b152.json (chain 8453, 169 leaves)
+    ///      Args: recipient=SuperBank, inputToken=cbBTC, outputToken=cbBTC, exclusiveRelayer=0x0
+    function _getCbbtcBaseToEthAcrossProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](7);
+        proof[0] = 0xcb0dd06209adeeff874916e0ecfc7a6c60530935409238233dc8374a82e24458;
+        proof[1] = 0x059b20b9de05404c0d601d23eb51a35f2b94831f5f54069804be4c0078b2bed1;
+        proof[2] = 0x236385da9d614a190db7108dda433bf9ee7d2975446232248557320cdd2f64a0;
+        proof[3] = 0xcc59de364bbfd3109c38e419657b96b62e4441df72cbb5e6ad65efec22921660;
+        proof[4] = 0xa22c213837604f3370b9dd8306d1dcde9c36a62b977307c84a05850a65953813;
+        proof[5] = 0x779fbd049d32d66216fd7d01b9b439ba0de2935eb0b9f7cdf1b18e891ba12502;
+        proof[6] = 0x01b0a4707a118b90e38025a566ba4db3978515a8a58488e21cb910e4f4cc4ea6;
+    }
+
+    /// @dev Returns the production merkle proof for cbBTC Base→cbBTC ETH leaf (index 101) in the
+    ///      redeployed ApproveAndAcrossSendFundsAndExecuteOnDstHook tree on Base.
+    ///      Source: hook_0x3170e72b2f8ea2a7028374b051c5d443f5bca91a.json (chain 8453, 169 leaves)
+    ///      Args: recipient=SuperBank, inputToken=cbBTC, outputToken=cbBTC, exclusiveRelayer=0x0
+    function _getApproveAndAcrossCbbtcBaseToEthProof() internal pure returns (bytes32[] memory proof) {
+        proof = new bytes32[](8);
+        proof[0] = 0xa08afcd655626de428dec47ad81f6dbe5472cb3a21ad8370002644e0d76263e5;
+        proof[1] = 0x625b20e39ff2dacb80290d3ae44412d4d81c14d085508da829193c1b18529064;
+        proof[2] = 0xb631a9c5a0d044c66eecd0370b7194b6f91581b0b9ab99146e548c21dea1959e;
+        proof[3] = 0xa2aaa437f52b38ad52a600efa2c742dac31999d143cc59f0437981a57b26a0eb;
+        proof[4] = 0x450ffc60ca6ce9a50f41c4e553dc29bbf74ff9f526a3899f6c293d7496741503;
+        proof[5] = 0xee56c1d2049c7b49d7cef6bac961e78f1d522352218eb8180236279a5032d1e5;
+        proof[6] = 0x5648ee53fed3f31ae3ab63404ad598d478ff83751cbb7ed034de82351785b278;
+        proof[7] = 0x6224c8ff67df8a70a5e31e1e594668e96c17285ca340cf22b4701c144fc043c4;
     }
 
     // ═══════════════════════════════════════════════════════════════════
