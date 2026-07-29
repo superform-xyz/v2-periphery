@@ -1,0 +1,632 @@
+{
+  "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+  "hook_names": [
+    "TransferHook"
+  ],
+  "root": "0xeedf5ef91a2042f57f1a5aa225dade9a09de819f47d174ac0f79a6acebd3605b",
+  "total_leaves": 33,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b36fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x0469b52304e05fe43a424951ef5d8ffdbced95989b08ea3ef1f1d0df8274855c",
+      "proof": [
+        "0x1012e27ff9a4e8f084e3c07e97fc51e1f6d9cf41c0ee670a6ebde8b71553ab39",
+        "0xcf069e74ca3fb3f978dc9af7b37f7143ad602fbb404cde657bc60c5d8413ebb4",
+        "0xaa9bafb2709bdce1aeb163b9a8ba456eb7781cd5e19f3434fac1b490a5124e59",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a34976fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x1012e27ff9a4e8f084e3c07e97fc51e1f6d9cf41c0ee670a6ebde8b71553ab39",
+      "proof": [
+        "0x0469b52304e05fe43a424951ef5d8ffdbced95989b08ea3ef1f1d0df8274855c",
+        "0xcf069e74ca3fb3f978dc9af7b37f7143ad602fbb404cde657bc60c5d8413ebb4",
+        "0xaa9bafb2709bdce1aeb163b9a8ba456eb7781cd5e19f3434fac1b490a5124e59",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x19b1ee0d76c77d6b2f226407f200a7e69de8b21fd53f99bdabc718b8bb88e2c0",
+      "proof": [
+        "0x2be2454cee228d1018dd320002667105172d26472e147cd1db5831c5928b293b",
+        "0x646f054c3faf3710a8d9109f26120e688e523728db72e224ba41626f93ab3768",
+        "0xaa9bafb2709bdce1aeb163b9a8ba456eb7781cd5e19f3434fac1b490a5124e59",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x2be2454cee228d1018dd320002667105172d26472e147cd1db5831c5928b293b",
+      "proof": [
+        "0x19b1ee0d76c77d6b2f226407f200a7e69de8b21fd53f99bdabc718b8bb88e2c0",
+        "0x646f054c3faf3710a8d9109f26120e688e523728db72e224ba41626f93ab3768",
+        "0xaa9bafb2709bdce1aeb163b9a8ba456eb7781cd5e19f3434fac1b490a5124e59",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x32df5ead3f0b128655593ca67272d32c11158d1392a5fd347e1916ea44fb4622",
+      "proof": [
+        "0x3b5b6273a97129ab6caf23836957b377ae30a86aa2e4d14f385656bad259d66d",
+        "0xfb512b14924ef6053e995abd210b455aaba9436ae25776dabb6cf018bd5c6b34",
+        "0x75ae1505015d8639bc927e16577604923d2698b5522a3e2145fe7b3e82d7fa22",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf336fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x3b5b6273a97129ab6caf23836957b377ae30a86aa2e4d14f385656bad259d66d",
+      "proof": [
+        "0x32df5ead3f0b128655593ca67272d32c11158d1392a5fd347e1916ea44fb4622",
+        "0xfb512b14924ef6053e995abd210b455aaba9436ae25776dabb6cf018bd5c6b34",
+        "0x75ae1505015d8639bc927e16577604923d2698b5522a3e2145fe7b3e82d7fa22",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x3d2d9500e55a8ec2ca9226615b7ac4fdd1f3e4b95f3c8806731af8942a0544f5",
+      "proof": [
+        "0x61b3f54e6eba091c4af2aca5c0daa2ec31f6c06e97c5c2309286e41e641a59ad",
+        "0x3284163327e5287df1392ff29cdc44ff61da8a2816d43e968f339451ad61969d",
+        "0x75ae1505015d8639bc927e16577604923d2698b5522a3e2145fe7b3e82d7fa22",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec76fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x61b3f54e6eba091c4af2aca5c0daa2ec31f6c06e97c5c2309286e41e641a59ad",
+      "proof": [
+        "0x3d2d9500e55a8ec2ca9226615b7ac4fdd1f3e4b95f3c8806731af8942a0544f5",
+        "0x3284163327e5287df1392ff29cdc44ff61da8a2816d43e968f339451ad61969d",
+        "0x75ae1505015d8639bc927e16577604923d2698b5522a3e2145fe7b3e82d7fa22",
+        "0x445c50d30832aba889083341039e669551c84a651cc1f5c772807edd2c744876",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f24606fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x63229b60810f5f83337c55594699459d797f677801f666205c6cf2357c3780bc",
+      "proof": [
+        "0x641f604a0c116215bbf2de713764a835bdae85b262a053d9bf55d53ee8fe9476",
+        "0x55e22dc13d1580dc431b746de469696382a9fb4e78a4ee12c846013c9553c408",
+        "0x50eaf6d9a903a8b4304f5cee65825868d44cdddacb4e7bfdfc75d9986b9f5f85",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af3076fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x641f604a0c116215bbf2de713764a835bdae85b262a053d9bf55d53ee8fe9476",
+      "proof": [
+        "0x63229b60810f5f83337c55594699459d797f677801f666205c6cf2357c3780bc",
+        "0x55e22dc13d1580dc431b746de469696382a9fb4e78a4ee12c846013c9553c408",
+        "0x50eaf6d9a903a8b4304f5cee65825868d44cdddacb4e7bfdfc75d9986b9f5f85",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c5996fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x64cc2d0b7e8a8eafe3961f7819cc3629ec35dd0f3e249866a8ab9535846863ff",
+      "proof": [
+        "0x730c24394b64be0fcd2c61e27091bf7cfdcd1727c8ea317d0dd73d519eb4e991",
+        "0x0ea1784fd96367445398ea5e2329e9f52ef1a409c22f0152841855e099a34090",
+        "0x50eaf6d9a903a8b4304f5cee65825868d44cdddacb4e7bfdfc75d9986b9f5f85",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d54986fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x730c24394b64be0fcd2c61e27091bf7cfdcd1727c8ea317d0dd73d519eb4e991",
+      "proof": [
+        "0x64cc2d0b7e8a8eafe3961f7819cc3629ec35dd0f3e249866a8ab9535846863ff",
+        "0x0ea1784fd96367445398ea5e2329e9f52ef1a409c22f0152841855e099a34090",
+        "0x50eaf6d9a903a8b4304f5cee65825868d44cdddacb4e7bfdfc75d9986b9f5f85",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x732ed5a57aebc891f48f0f96cc49acd4b80145fcfd59fdd0ace86afdf65f7a8a",
+      "proof": [
+        "0x760db9d9b0380efc16c698cad04570e1355f54fc4c5cc4af7c740bd4eb1d0387",
+        "0x5eaad91049bbc0ea93a06b04caa871b3b6386c011870bd063c7369d89e42577e",
+        "0x72ffc465150b42c2400a13e9bc37b2c298f5089ac670d525d1d09ed423ac39c8",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 13,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f25266fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x760db9d9b0380efc16c698cad04570e1355f54fc4c5cc4af7c740bd4eb1d0387",
+      "proof": [
+        "0x732ed5a57aebc891f48f0f96cc49acd4b80145fcfd59fdd0ace86afdf65f7a8a",
+        "0x5eaad91049bbc0ea93a06b04caa871b3b6386c011870bd063c7369d89e42577e",
+        "0x72ffc465150b42c2400a13e9bc37b2c298f5089ac670d525d1d09ed423ac39c8",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 14,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c596fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x772063a22418dde3e81baa1ae736c01e3737eba17e14ece24264f7c2b4ae2cbc",
+      "proof": [
+        "0x7ac8060c33125d8366476178b91362329e4dfa45177ee8908b9194a39a4fcf59",
+        "0x72047a3b598435b95c0a6ef94e09c8dd268a99c3ed7c4f7c9e65b29a9fe6c59b",
+        "0x72ffc465150b42c2400a13e9bc37b2c298f5089ac670d525d1d09ed423ac39c8",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 15,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x7ac8060c33125d8366476178b91362329e4dfa45177ee8908b9194a39a4fcf59",
+      "proof": [
+        "0x772063a22418dde3e81baa1ae736c01e3737eba17e14ece24264f7c2b4ae2cbc",
+        "0x72047a3b598435b95c0a6ef94e09c8dd268a99c3ed7c4f7c9e65b29a9fe6c59b",
+        "0x72ffc465150b42c2400a13e9bc37b2c298f5089ac670d525d1d09ed423ac39c8",
+        "0x970c46caafc8e0ec72e18b9053e93f8e9cdf7624b52e4b44dcb78cbcb1b66e0d",
+        "0x85c81960825dca2e39bda6e346d61cd76e3dc8f51d84dca7a0d3220b84035eca",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 16,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x9178f43c066c32f905c5cd21bc4e084cf62ac570b58652735190e579849964bb",
+      "proof": [
+        "0x9885a58a067ca2208d1193c199c82ae8e92a58b5f793b080a9218ea791dfc3ab",
+        "0x1fcaf0382dc726f648e37265b4a3fb4498a65760357b346465a72f0626438fe8",
+        "0x9f3daa9daed3ce054eff3e120fec396e52735a1c59059b13619c1d8abf27ea80",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 17,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x9885a58a067ca2208d1193c199c82ae8e92a58b5f793b080a9218ea791dfc3ab",
+      "proof": [
+        "0x9178f43c066c32f905c5cd21bc4e084cf62ac570b58652735190e579849964bb",
+        "0x1fcaf0382dc726f648e37265b4a3fb4498a65760357b346465a72f0626438fe8",
+        "0x9f3daa9daed3ce054eff3e120fec396e52735a1c59059b13619c1d8abf27ea80",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 18,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb486fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x9ca22885e58f5d72fc995b5728e7eb4845e91f855c8a61b6e5f4309fa5bf0649",
+      "proof": [
+        "0xa4b7cde52f96064dd13411990cba5a213601f8d5fca04bbff399e5ed92d7e30f",
+        "0xd0186a51129587cf2665dedf84d49aa0629e7a57e393f6e282f8083a9c6ac830",
+        "0x9f3daa9daed3ce054eff3e120fec396e52735a1c59059b13619c1d8abf27ea80",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 19,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xa4b7cde52f96064dd13411990cba5a213601f8d5fca04bbff399e5ed92d7e30f",
+      "proof": [
+        "0x9ca22885e58f5d72fc995b5728e7eb4845e91f855c8a61b6e5f4309fa5bf0649",
+        "0xd0186a51129587cf2665dedf84d49aa0629e7a57e393f6e282f8083a9c6ac830",
+        "0x9f3daa9daed3ce054eff3e120fec396e52735a1c59059b13619c1d8abf27ea80",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 20,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xaafde24d84d9d0665b1b1b38c27d821c4be580e31bc96a15cb0d15e8a8107113",
+      "proof": [
+        "0xab9733474131331eb6ac28ce3a6802d2687108c798c7de8cbca529b8db4b9b22",
+        "0x00599053d341781b38a0707d54cdde1d134df048f34a2b6b3db9c33a21064593",
+        "0xd547aba93b0ed2aa795898dce677343bf1071d584f6d98c2285348672e25cddd",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 21,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d86fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xab9733474131331eb6ac28ce3a6802d2687108c798c7de8cbca529b8db4b9b22",
+      "proof": [
+        "0xaafde24d84d9d0665b1b1b38c27d821c4be580e31bc96a15cb0d15e8a8107113",
+        "0x00599053d341781b38a0707d54cdde1d134df048f34a2b6b3db9c33a21064593",
+        "0xd547aba93b0ed2aa795898dce677343bf1071d584f6d98c2285348672e25cddd",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 22,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xad183e15eb10f2788fe06053791ab4b6a2322ae56368ecedb2bb22690e333e57",
+      "proof": [
+        "0xb14062f257edea9bdd9a6bcdf6258b595a2cfb7f7153e212127a23ec3364d5fe",
+        "0x3ada25a93276edfb42a401bcc0632fe0a0efcfe6782203af6a19088af8607056",
+        "0xd547aba93b0ed2aa795898dce677343bf1071d584f6d98c2285348672e25cddd",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 23,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e43896fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb14062f257edea9bdd9a6bcdf6258b595a2cfb7f7153e212127a23ec3364d5fe",
+      "proof": [
+        "0xad183e15eb10f2788fe06053791ab4b6a2322ae56368ecedb2bb22690e333e57",
+        "0x3ada25a93276edfb42a401bcc0632fe0a0efcfe6782203af6a19088af8607056",
+        "0xd547aba93b0ed2aa795898dce677343bf1071d584f6d98c2285348672e25cddd",
+        "0x2b8c4eb2663cb0cafdf033819b5fbac4b729723a6b64d36c68e9ee9cfbfe0f75",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 24,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c006fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xbac05cfaf88c947fe6e7b2272f1be08712aa78086dfd436875c22216a1878074",
+      "proof": [
+        "0xc0d6b1163422445ebe931a6990549ab4f698cceea861c43c00e3ac09c4bbdf87",
+        "0xb6b9db4d9c71be2fef3777fc8b17e3117e76516d60a36a5a01c603c610f26fab",
+        "0x6dd636ac234ade59191823e507018e85b883097950c03991b41fb1e74f393245",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 25,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xc0d6b1163422445ebe931a6990549ab4f698cceea861c43c00e3ac09c4bbdf87",
+      "proof": [
+        "0xbac05cfaf88c947fe6e7b2272f1be08712aa78086dfd436875c22216a1878074",
+        "0xb6b9db4d9c71be2fef3777fc8b17e3117e76516d60a36a5a01c603c610f26fab",
+        "0x6dd636ac234ade59191823e507018e85b883097950c03991b41fb1e74f393245",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 26,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d846fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xc7cfa0eddccfc5469c2564234105e415d109cb7e4d718791d3da096a95cd8b9a",
+      "proof": [
+        "0xcbcaf1907caa2d96389c82c1525a297320a23ea1f018df2bb612da6b71558105",
+        "0x8edff1c6874ab02e74fc801c18f65837b77d126956ab9d1bfe9dca7c1b539405",
+        "0x6dd636ac234ade59191823e507018e85b883097950c03991b41fb1e74f393245",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 27,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xcbcaf1907caa2d96389c82c1525a297320a23ea1f018df2bb612da6b71558105",
+      "proof": [
+        "0xc7cfa0eddccfc5469c2564234105e415d109cb7e4d718791d3da096a95cd8b9a",
+        "0x8edff1c6874ab02e74fc801c18f65837b77d126956ab9d1bfe9dca7c1b539405",
+        "0x6dd636ac234ade59191823e507018e85b883097950c03991b41fb1e74f393245",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 28,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b4188746fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd01423bf6100b1bde5c189954459dc7f6d0015b2ded56174c11a8f1bef63ccb3",
+      "proof": [
+        "0xdab867de9f84e58e28b990c4c5000232550c5cde4b5850fc55a5f4836d142a72",
+        "0x51aab56e3713823d07fa6f4e0a8c8af68558d162758a909e235efb4aa8986524",
+        "0x3e41cc97caf738c95e572ad4cf8e4b27b49b43bbc4e2967b32b09c4bc74bbd80",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 29,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xdab867de9f84e58e28b990c4c5000232550c5cde4b5850fc55a5f4836d142a72",
+      "proof": [
+        "0xd01423bf6100b1bde5c189954459dc7f6d0015b2ded56174c11a8f1bef63ccb3",
+        "0x51aab56e3713823d07fa6f4e0a8c8af68558d162758a909e235efb4aa8986524",
+        "0x3e41cc97caf738c95e572ad4cf8e4b27b49b43bbc4e2967b32b09c4bc74bbd80",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 30,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f51666fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xea5a2a82f4e0e9a0b46187fbd3e12fe424f78ad37713b84b741f916804b8f7f7",
+      "proof": [
+        "0xf44888dc7f5286e043ac07dc13c07c4deda238420594af0108b7f4b62c9d49ee",
+        "0x7136eb0a5d9ff879196fea3a0263bc32e3ca8fcb1cb01378d077e34d8537559b",
+        "0x3e41cc97caf738c95e572ad4cf8e4b27b49b43bbc4e2967b32b09c4bc74bbd80",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 31,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed146000816fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xf44888dc7f5286e043ac07dc13c07c4deda238420594af0108b7f4b62c9d49ee",
+      "proof": [
+        "0xea5a2a82f4e0e9a0b46187fbd3e12fe424f78ad37713b84b741f916804b8f7f7",
+        "0x7136eb0a5d9ff879196fea3a0263bc32e3ca8fcb1cb01378d077e34d8537559b",
+        "0x3e41cc97caf738c95e572ad4cf8e4b27b49b43bbc4e2967b32b09c4bc74bbd80",
+        "0xbfc7cbfc6a0274f1b7c19004dd722e11b35d0b4553a2bc18f5ba72173d34b771",
+        "0xd100fbf6ba29a2e5038e7098f3e6eae17122a870c4421ea13eb2f6e0d15ae1ce",
+        "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75"
+      ]
+    },
+    {
+      "index": 32,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xf9278704645decce295853727513c74351a64190a0fe7bb5915f2922757eef75",
+      "proof": [
+        "0x3c488cc329e1c5f3c00dddb973064a9fc5d0cae67803689cf8ffcb4452bcd871"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "hook_address": "0x88832253c5BFBD07d37A02E6EDFaa28F6e280227",
+  "hook_names": [
+    "ApproveAndSwapOpenOceanHook"
+  ],
+  "root": "0x5acc43860cfc8545ae8e8acaee108f5330385af7fec2dae444827016848bfc5a",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapOpenOceanHook",
+      "hook_address": "0x88832253c5BFBD07d37A02E6EDFaa28F6e280227",
+      "args": {
+        "dst_token": "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d"
+      },
+      "encoded_args": "0x1d80c49bbbcd1c0911346656b529df9e5c2f783d",
+      "leaf_hash": "0xaaad9588c108079188c7ef88cf8381c980f86ac4af656ba9b5f164293ad1e999",
+      "proof": [
+        "0xbaca9b94fd69fd2b6a1ad29b69556c7873d3e9a1b4fe12f21b47d0b671cf1c51"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndSwapOpenOceanHook",
+      "hook_address": "0x88832253c5BFBD07d37A02E6EDFaa28F6e280227",
+      "args": {
+        "dst_token": "0x657097cC15fdEc9e383dB8628B57eA4a763F2ba0"
+      },
+      "encoded_args": "0x657097cc15fdec9e383db8628b57ea4a763f2ba0",
+      "leaf_hash": "0xbaca9b94fd69fd2b6a1ad29b69556c7873d3e9a1b4fe12f21b47d0b671cf1c51",
+      "proof": [
+        "0xaaad9588c108079188c7ef88cf8381c980f86ac4af656ba9b5f164293ad1e999"
+      ]
+    }
+  ]
+}

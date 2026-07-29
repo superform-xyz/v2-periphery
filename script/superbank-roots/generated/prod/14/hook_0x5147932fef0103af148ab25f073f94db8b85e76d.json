@@ -1,0 +1,21 @@
+{
+  "hook_address": "0x5147932fEf0103Af148aB25f073f94Db8B85E76D",
+  "hook_names": [
+    "ApproveAndSwapOpenOceanHook"
+  ],
+  "root": "0x0648eac0fa7524dd1badbb46fab3c42313c100c7f9fe28a9af388e38504e7c7f",
+  "total_leaves": 1,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapOpenOceanHook",
+      "hook_address": "0x5147932fEf0103Af148aB25f073f94Db8B85E76D",
+      "args": {
+        "dstReceiver": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x0648eac0fa7524dd1badbb46fab3c42313c100c7f9fe28a9af388e38504e7c7f",
+      "proof": []
+    }
+  ]
+}

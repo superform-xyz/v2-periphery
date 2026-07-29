@@ -1,0 +1,57 @@
+{
+  "chain_id": "8453",
+  "environment": "prod",
+  "generated_at": "2026-07-29T09:08:39.345911+00:00",
+  "superbank_address": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+  "hooks": {
+    "0xE03FDd61D40045079e7aF3A381F80DD74739546e": {
+      "names": [
+        "SwapOdosV2Hook"
+      ],
+      "root": "0xd631e923cdc355660cd79ca08fabdc9d4e295c4e3d72123af473ad247ab84ab4",
+      "total_leaves": 4
+    },
+    "0x2334321db75F2889b44d10826b511ABE57C62Adf": {
+      "names": [
+        "ApproveAndSwapOdosV2Hook"
+      ],
+      "root": "0xb9e3c9b82b8f5de43bc743c1aeece9cf4869a2781a84e6fb3fe6db1e37f8f430",
+      "total_leaves": 4
+    },
+    "0xb6adcd6E912f8c8F355E9bC970E458B9d6609d0b": {
+      "names": [
+        "ApproveAndSwapOdosV3Hook"
+      ],
+      "root": "0xd5c3c9902d45f1cafeb1612d324edefe937e38f5d279baec12cf3fff8357698d",
+      "total_leaves": 4
+    },
+    "0x05c49e05bb8575afdf1142cC95dA6747b069174A": {
+      "names": [
+        "SwapKyberSwapHook"
+      ],
+      "root": "0x61a826a9d90fb9d1ac20483037191ca66bdcfd4acf5f65cceb00c4ac2cd2a467",
+      "total_leaves": 13
+    },
+    "0xcF5419270C9415E44c97E595c505708cfA334C30": {
+      "names": [
+        "ApproveAndSwapKyberSwapHook"
+      ],
+      "root": "0x357d1ad8049689a3f5673b1e08a3632bc4aff5ec6801599a9ef9dcf1c7e4bb6c",
+      "total_leaves": 4
+    },
+    "0xF583a7826Da0917a8d45eC4457d45D26D251B152": {
+      "names": [
+        "AcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0x6bc2e59da85e5eebcff11a9de5f2154654d59a24d21ecade2f56f4af92c34365",
+      "total_leaves": 169
+    },
+    "0x3170e72b2F8Ea2a7028374B051C5D443F5bcA91a": {
+      "names": [
+        "ApproveAndAcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0xb5f07630f5ff4ca4ea8b7caf7fe8d1f6dafe26c7472405de6a4948b8483e711d",
+      "total_leaves": 169
+    }
+  }
+}

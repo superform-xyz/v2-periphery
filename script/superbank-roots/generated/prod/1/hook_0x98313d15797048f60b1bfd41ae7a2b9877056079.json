@@ -1,0 +1,83 @@
+{
+  "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+  "hook_names": [
+    "SwapOdosV2Hook"
+  ],
+  "root": "0x5e14f7d12bb4ac20daa69c287eb01fb52d23e02db209f8d3875d96de7f1e689d",
+  "total_leaves": 5,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+      "args": {
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5",
+      "leaf_hash": "0x1e66ee5011cb342290eae0cd0327b34e0b3023397c6329d4f3112228ddf58076",
+      "proof": [
+        "0x3c617b6c11970657bcb68d93956fa01d042b96241cc4d9b81e032d882c12656f",
+        "0x1d0c334132a6f52efb3d6c673892fc4649e356c640c8df5aa53218b7781fc4d1",
+        "0xa747fe104b486ee0399ddc202915af3b97a859c94d1a42ba4a01dd890fb6c4d1"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+      "args": {
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e09",
+      "leaf_hash": "0x3c617b6c11970657bcb68d93956fa01d042b96241cc4d9b81e032d882c12656f",
+      "proof": [
+        "0x1e66ee5011cb342290eae0cd0327b34e0b3023397c6329d4f3112228ddf58076",
+        "0x1d0c334132a6f52efb3d6c673892fc4649e356c640c8df5aa53218b7781fc4d1",
+        "0xa747fe104b486ee0399ddc202915af3b97a859c94d1a42ba4a01dd890fb6c4d1"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+      "args": {
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151d",
+      "leaf_hash": "0x50c4938378f202e5e867d354da2f599c1b0971083db2616e67d5b7b9990a94f2",
+      "proof": [
+        "0x9cc8d9dbc35d3c5e40de4e506ced5fd79ff9db3ca43c738136cbf726cf466d2c",
+        "0xaa67ed68abff8633f6c54a83b428f233cc7e313b4888873e4ba24a10e6df9958",
+        "0xa747fe104b486ee0399ddc202915af3b97a859c94d1a42ba4a01dd890fb6c4d1"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+      "args": {
+        "executor": "0x365084B05Fa7d5028346bD21D842eD0601bAB5b8"
+      },
+      "encoded_args": "0x365084b05fa7d5028346bd21d842ed0601bab5b8",
+      "leaf_hash": "0x9cc8d9dbc35d3c5e40de4e506ced5fd79ff9db3ca43c738136cbf726cf466d2c",
+      "proof": [
+        "0x50c4938378f202e5e867d354da2f599c1b0971083db2616e67d5b7b9990a94f2",
+        "0xaa67ed68abff8633f6c54a83b428f233cc7e313b4888873e4ba24a10e6df9958",
+        "0xa747fe104b486ee0399ddc202915af3b97a859c94d1a42ba4a01dd890fb6c4d1"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x98313d15797048F60B1bFd41AE7A2B9877056079",
+      "args": {
+        "executor": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xa747fe104b486ee0399ddc202915af3b97a859c94d1a42ba4a01dd890fb6c4d1",
+      "proof": [
+        "0x40f29cc4a2059d9e572ee68643c4182102ba2b487aaaaaf821d70eb8f47cda6e"
+      ]
+    }
+  ]
+}

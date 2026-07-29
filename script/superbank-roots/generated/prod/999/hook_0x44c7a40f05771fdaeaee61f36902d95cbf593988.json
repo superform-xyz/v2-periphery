@@ -1,0 +1,36 @@
+{
+  "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+  "hook_names": [
+    "ApproveAndDeposit5115VaultHook"
+  ],
+  "root": "0x1410744286370a590a5faeb51625bd03b6b834ba72ccf031a7d8f876827a8481",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f",
+      "leaf_hash": "0x40e59dab071b580511fa3f116e4e24448082bbc639f4da3031102d5143bed76e",
+      "proof": [
+        "0x8b921f3c62b8138c2a96463d0da39bfe09b6b5e378325e507735b5b6858e55b1"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x8b921f3c62b8138c2a96463d0da39bfe09b6b5e378325e507735b5b6858e55b1",
+      "proof": [
+        "0x40e59dab071b580511fa3f116e4e24448082bbc639f4da3031102d5143bed76e"
+      ]
+    }
+  ]
+}

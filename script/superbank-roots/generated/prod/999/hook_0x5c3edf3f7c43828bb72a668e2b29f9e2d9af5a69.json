@@ -1,0 +1,22 @@
+{
+  "hook_address": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
+  "hook_names": [
+    "Redeem4626VaultHook"
+  ],
+  "root": "0xea1ba55c1975a84e50370054cdf813bf29eccf7e0101926716d4d4cb60b7d318",
+  "total_leaves": 1,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "Redeem4626VaultHook",
+      "hook_address": "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69",
+      "args": {
+        "yieldSource": "0x08C00F8279dFF5B0CB5a04d349E7d79708Ceadf3",
+        "owner": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x08c00f8279dff5b0cb5a04d349e7d79708ceadf36fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xea1ba55c1975a84e50370054cdf813bf29eccf7e0101926716d4d4cb60b7d318",
+      "proof": []
+    }
+  ]
+}

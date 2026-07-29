@@ -1,0 +1,166 @@
+{
+  "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+  "hook_names": [
+    "RecordRedemptionPendlePTAmortizedOracleHook"
+  ],
+  "root": "0x48ad2cb35e1bd2f2dbfa4dfd322b363c159fa68b55633de02272bdb8df1c64f1",
+  "total_leaves": 10,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0xF968b785b4bFD5A6C0Fc197B42264beeECF58d85"
+      },
+      "encoded_args": "0xf968b785b4bfd5a6c0fc197b42264beeecf58d85",
+      "leaf_hash": "0x0603e8ea0092f6ad984432f3e8c581d1399faa3234cc9b61ea3cf6f14151d925",
+      "proof": [
+        "0x209bd54e3f1f56b6ddd51cd14c5cd15418920873fe11723e337e5fe28693d43e",
+        "0x2ca47576d42a979e5f3a435cf2b01e0b18fbf3bf26e61e74bf28b811213d0d3b",
+        "0x86c49451d647d74f0f88af6303e7c08cfd3e3b3462868f9ceeff7f5c826d96f5",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0x6D8C4DE7071D5AeE27fc3a810764E62a4a00Ceb9"
+      },
+      "encoded_args": "0x6d8c4de7071d5aee27fc3a810764e62a4a00ceb9",
+      "leaf_hash": "0x209bd54e3f1f56b6ddd51cd14c5cd15418920873fe11723e337e5fe28693d43e",
+      "proof": [
+        "0x0603e8ea0092f6ad984432f3e8c581d1399faa3234cc9b61ea3cf6f14151d925",
+        "0x2ca47576d42a979e5f3a435cf2b01e0b18fbf3bf26e61e74bf28b811213d0d3b",
+        "0x86c49451d647d74f0f88af6303e7c08cfd3e3b3462868f9ceeff7f5c826d96f5",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0xED29A86ac1d85199232dA55043f6307448973c91"
+      },
+      "encoded_args": "0xed29a86ac1d85199232da55043f6307448973c91",
+      "leaf_hash": "0x28f7b6fb5d1f765345fcb6faa5ac9051a14f0046db83acaa162233e5ec0b93fd",
+      "proof": [
+        "0x294e4855c491abe14aff16ef6b2d5836caafc41da12947684aa9df591df9b1a1",
+        "0x873aa551e59603df85e88f860c236ada11459b21bedd26c06bab9c9b72b08f72",
+        "0x86c49451d647d74f0f88af6303e7c08cfd3e3b3462868f9ceeff7f5c826d96f5",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0xf5929a1C332ceaB7918A4593a43Db2B9aC20095f"
+      },
+      "encoded_args": "0xf5929a1c332ceab7918a4593a43db2b9ac20095f",
+      "leaf_hash": "0x294e4855c491abe14aff16ef6b2d5836caafc41da12947684aa9df591df9b1a1",
+      "proof": [
+        "0x28f7b6fb5d1f765345fcb6faa5ac9051a14f0046db83acaa162233e5ec0b93fd",
+        "0x873aa551e59603df85e88f860c236ada11459b21bedd26c06bab9c9b72b08f72",
+        "0x86c49451d647d74f0f88af6303e7c08cfd3e3b3462868f9ceeff7f5c826d96f5",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0x9A4e45841DdB012f1946372e8Bd9D65bB17a7768"
+      },
+      "encoded_args": "0x9a4e45841ddb012f1946372e8bd9d65bb17a7768",
+      "leaf_hash": "0x3fb1c341ae4d2b51ba48369f5a9af135dba44627b489c861b46152aa4c645446",
+      "proof": [
+        "0x606547352f3043a6fd10a68021e434520da0efd378b67335b64442e674d58e82",
+        "0x3d201358fab522626f428d60bf98f0e4cb2873ca68fcf0271e74597ee8d34eef",
+        "0xbcee6e096d19d3539d0b9809e203d2639bdfb2174a37ffcb94cf17fcc302e204",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0xaAAF90CBc7c8C38a08ca810c5e5f3C1D99a2b600"
+      },
+      "encoded_args": "0xaaaf90cbc7c8c38a08ca810c5e5f3c1d99a2b600",
+      "leaf_hash": "0x606547352f3043a6fd10a68021e434520da0efd378b67335b64442e674d58e82",
+      "proof": [
+        "0x3fb1c341ae4d2b51ba48369f5a9af135dba44627b489c861b46152aa4c645446",
+        "0x3d201358fab522626f428d60bf98f0e4cb2873ca68fcf0271e74597ee8d34eef",
+        "0xbcee6e096d19d3539d0b9809e203d2639bdfb2174a37ffcb94cf17fcc302e204",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0xFb6a09634A3C1aC05318F85321980d1208372793"
+      },
+      "encoded_args": "0xfb6a09634a3c1ac05318f85321980d1208372793",
+      "leaf_hash": "0x69c3c182a29e3ed723413bc430f9cef28a3bbfc97cfdc330611526c186af0ebd",
+      "proof": [
+        "0xa4be5e463c71afe42cd5be35f479271b98342977813192f4b3c8369e67f9f757",
+        "0x09d322f6919c06dc2531a8891647d65f54b3123dadcec46cb5fbd9b4486c17ad",
+        "0xbcee6e096d19d3539d0b9809e203d2639bdfb2174a37ffcb94cf17fcc302e204",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0x9df7Af9B298b6a37f50C9df4a7A3f048e4629E66"
+      },
+      "encoded_args": "0x9df7af9b298b6a37f50c9df4a7a3f048e4629e66",
+      "leaf_hash": "0xa4be5e463c71afe42cd5be35f479271b98342977813192f4b3c8369e67f9f757",
+      "proof": [
+        "0x69c3c182a29e3ed723413bc430f9cef28a3bbfc97cfdc330611526c186af0ebd",
+        "0x09d322f6919c06dc2531a8891647d65f54b3123dadcec46cb5fbd9b4486c17ad",
+        "0xbcee6e096d19d3539d0b9809e203d2639bdfb2174a37ffcb94cf17fcc302e204",
+        "0x683b298ec3f91b826b6678fea51e0bae3b6fbd8f008dca6ee1872f28d08dad6d"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0x937c7868824ae53dB3b7C634de209FB7a74E362c"
+      },
+      "encoded_args": "0x937c7868824ae53db3b7c634de209fb7a74e362c",
+      "leaf_hash": "0xaa00706f9cfc8a5785cec8729dae1158287646d788241c0593200d624d072fc9",
+      "proof": [
+        "0xc1721c06945363489a2d270cd781da70498aed28b7ded66bc25562c1242f6e26",
+        "0x3eea3a7f47e14813bd08f95d270e7b4b6de57e1a43a0af1b8da8c0e3160a85bd"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "RecordRedemptionPendlePTAmortizedOracleHook",
+      "hook_address": "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc",
+      "args": {
+        "market": "0x6D520a943a4Da0784917a2e71defe95248A1DaA1"
+      },
+      "encoded_args": "0x6d520a943a4da0784917a2e71defe95248a1daa1",
+      "leaf_hash": "0xc1721c06945363489a2d270cd781da70498aed28b7ded66bc25562c1242f6e26",
+      "proof": [
+        "0xaa00706f9cfc8a5785cec8729dae1158287646d788241c0593200d624d072fc9",
+        "0x3eea3a7f47e14813bd08f95d270e7b4b6de57e1a43a0af1b8da8c0e3160a85bd"
+      ]
+    }
+  ]
+}

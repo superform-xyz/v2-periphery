@@ -1,0 +1,36 @@
+{
+  "hook_address": "0x32209A2302865784bC1Dc0bd3C55D0A6eB205851",
+  "hook_names": [
+    "Deposit5115VaultHook"
+  ],
+  "root": "0xfe0fefe2eba0d82a3ce29e2f112839974b71f82e783f848fa413b2b7475e6988",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "Deposit5115VaultHook",
+      "hook_address": "0x32209A2302865784bC1Dc0bd3C55D0A6eB205851",
+      "args": {
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f",
+      "leaf_hash": "0x624465e80511bd3d9b9e561bd758839dab4bbe618ef69c3384455ce4ab77d1db",
+      "proof": [
+        "0x873417319bc4d627968b31100decb04275f5302b42465c5a308adb26f87ea206"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "Deposit5115VaultHook",
+      "hook_address": "0x32209A2302865784bC1Dc0bd3C55D0A6eB205851",
+      "args": {
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x873417319bc4d627968b31100decb04275f5302b42465c5a308adb26f87ea206",
+      "proof": [
+        "0x624465e80511bd3d9b9e561bd758839dab4bbe618ef69c3384455ce4ab77d1db"
+      ]
+    }
+  ]
+}

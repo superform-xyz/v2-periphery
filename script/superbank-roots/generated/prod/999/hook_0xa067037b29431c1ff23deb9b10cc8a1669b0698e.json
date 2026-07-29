@@ -1,0 +1,21 @@
+{
+  "hook_address": "0xa067037B29431C1ff23dEB9b10CC8a1669B0698E",
+  "hook_names": [
+    "Deposit4626VaultHook"
+  ],
+  "root": "0xa328509d9f6e4a7faed43ce5f5352e465a91255eebbbf881020441e5af2c3ed1",
+  "total_leaves": 1,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "Deposit4626VaultHook",
+      "hook_address": "0xa067037B29431C1ff23dEB9b10CC8a1669B0698E",
+      "args": {
+        "yieldSource": "0x08C00F8279dFF5B0CB5a04d349E7d79708Ceadf3"
+      },
+      "encoded_args": "0x08c00f8279dff5b0cb5a04d349e7d79708ceadf3",
+      "leaf_hash": "0xa328509d9f6e4a7faed43ce5f5352e465a91255eebbbf881020441e5af2c3ed1",
+      "proof": []
+    }
+  ]
+}

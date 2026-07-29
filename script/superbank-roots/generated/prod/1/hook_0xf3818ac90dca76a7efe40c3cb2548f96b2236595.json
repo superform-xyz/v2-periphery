@@ -1,0 +1,599 @@
+{
+  "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+  "hook_names": [
+    "ApproveAndSwapKyberSwapHook"
+  ],
+  "root": "0xc38b969d99b67d7a72602dfa722c9f084c84eef6e89d802ab08c97fee3054188",
+  "total_leaves": 33,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b418874",
+      "leaf_hash": "0x063dad3a15878d100ff6057fa1099577bffb8be87c5608106a0d75366016e0a7",
+      "proof": [
+        "0x1174463a098e5b0e6ed98e534d02cf700bdc6a12ff1d82dcd21e5265682b93f9",
+        "0xca62050a7c11b60c9185935990c826b0ca95a93ee44ba22c79bef9b5162c0528",
+        "0x1ab05eafaf2ee40b66ac1f24a1c850978c792ad55cbc9e29fa68c029f82168c0",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "leaf_hash": "0x1174463a098e5b0e6ed98e534d02cf700bdc6a12ff1d82dcd21e5265682b93f9",
+      "proof": [
+        "0x063dad3a15878d100ff6057fa1099577bffb8be87c5608106a0d75366016e0a7",
+        "0xca62050a7c11b60c9185935990c826b0ca95a93ee44ba22c79bef9b5162c0528",
+        "0x1ab05eafaf2ee40b66ac1f24a1c850978c792ad55cbc9e29fa68c029f82168c0",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d8",
+      "leaf_hash": "0x1755b61886a361061508a6fee1e893f63c003e81672745b0e0a1414c722fd370",
+      "proof": [
+        "0x1e0ba7bdc5e45db937fc835a1f9014c7b406a0ce32e3c1ffab33e4912711507a",
+        "0x4a6531fb29e019c5c1b24d55f4f7c5cb0f6393ac92260e56906cbca86d79705a",
+        "0x1ab05eafaf2ee40b66ac1f24a1c850978c792ad55cbc9e29fa68c029f82168c0",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf2",
+      "leaf_hash": "0x1e0ba7bdc5e45db937fc835a1f9014c7b406a0ce32e3c1ffab33e4912711507a",
+      "proof": [
+        "0x1755b61886a361061508a6fee1e893f63c003e81672745b0e0a1414c722fd370",
+        "0x4a6531fb29e019c5c1b24d55f4f7c5cb0f6393ac92260e56906cbca86d79705a",
+        "0x1ab05eafaf2ee40b66ac1f24a1c850978c792ad55cbc9e29fa68c029f82168c0",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "leaf_hash": "0x25ac4e47df2de6441118af0fac4265ed95d49e3d10bb651f3bafa9cedacdc6da",
+      "proof": [
+        "0x274e7de01b2b379baa00c3722f1265a88f0bb8f74f88e24d3912663261df5092",
+        "0xb3842b15d1e96d7be65616231077d4c06f682b4dea9669d921adf868ea5ec3df",
+        "0xfa49a614ed3d7f6811e36ccd77812dc11432fb4618fe5236fcce97e03d07aaf5",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c00",
+      "leaf_hash": "0x274e7de01b2b379baa00c3722f1265a88f0bb8f74f88e24d3912663261df5092",
+      "proof": [
+        "0x25ac4e47df2de6441118af0fac4265ed95d49e3d10bb651f3bafa9cedacdc6da",
+        "0xb3842b15d1e96d7be65616231077d4c06f682b4dea9669d921adf868ea5ec3df",
+        "0xfa49a614ed3d7f6811e36ccd77812dc11432fb4618fe5236fcce97e03d07aaf5",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d",
+      "leaf_hash": "0x2a05887eab5e4662e5ef1932e23163666c58212e8b45362eb89f0871c079a1e2",
+      "proof": [
+        "0x4351a5d786a5027c34748478b885e1a9122736d15319f9339c935c3177b70fad",
+        "0x11cf0339ac2aff2d3f55d8c26fc3e536636df0478cc32fc5eaf434cec5351ed4",
+        "0xfa49a614ed3d7f6811e36ccd77812dc11432fb4618fe5236fcce97e03d07aaf5",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f2526",
+      "leaf_hash": "0x4351a5d786a5027c34748478b885e1a9122736d15319f9339c935c3177b70fad",
+      "proof": [
+        "0x2a05887eab5e4662e5ef1932e23163666c58212e8b45362eb89f0871c079a1e2",
+        "0x11cf0339ac2aff2d3f55d8c26fc3e536636df0478cc32fc5eaf434cec5351ed4",
+        "0xfa49a614ed3d7f6811e36ccd77812dc11432fb4618fe5236fcce97e03d07aaf5",
+        "0x3c3e3b80fd6b56eeaae72c336afa7d3a5af0825137fc347c53d4d0913bbe7ba7",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "leaf_hash": "0x4f3544d17d7dd462bdc3bfbcd354da9fd198df52ab22e4b0e7cfd82acfa10137",
+      "proof": [
+        "0x50c0aaaf5bfcae5affbfadda3c2800559ad255024ac1fc3f824c09da16505a5b",
+        "0x0d37a64765b81bf6528838b80e3d32ff2fe5bb0704fee16b365edc61e035b603",
+        "0x71629eb51c4db8c82f9505b03404ffa3bdcb7f33f9895f26832f9c78fc8d544e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "leaf_hash": "0x50c0aaaf5bfcae5affbfadda3c2800559ad255024ac1fc3f824c09da16505a5b",
+      "proof": [
+        "0x4f3544d17d7dd462bdc3bfbcd354da9fd198df52ab22e4b0e7cfd82acfa10137",
+        "0x0d37a64765b81bf6528838b80e3d32ff2fe5bb0704fee16b365edc61e035b603",
+        "0x71629eb51c4db8c82f9505b03404ffa3bdcb7f33f9895f26832f9c78fc8d544e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b2",
+      "leaf_hash": "0x558133ec5eb74546d447ea52932946ce78cd1910610336f7d89bf68807699fc1",
+      "proof": [
+        "0x62b5fb74243471bcf561924aef7f31ed036f7a026fe1d5bc0f37dbf4a10dbb3f",
+        "0xe25c65cc05b487e7b026205dbcca02b79fe76f40edbf17a8f82d771c48eafd9a",
+        "0x71629eb51c4db8c82f9505b03404ffa3bdcb7f33f9895f26832f9c78fc8d544e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d5498",
+      "leaf_hash": "0x62b5fb74243471bcf561924aef7f31ed036f7a026fe1d5bc0f37dbf4a10dbb3f",
+      "proof": [
+        "0x558133ec5eb74546d447ea52932946ce78cd1910610336f7d89bf68807699fc1",
+        "0xe25c65cc05b487e7b026205dbcca02b79fe76f40edbf17a8f82d771c48eafd9a",
+        "0x71629eb51c4db8c82f9505b03404ffa3bdcb7f33f9895f26832f9c78fc8d544e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "leaf_hash": "0x6f3a0fb05a995cbac8e0587c26a19444a0c4eae8e9496d9b6fa4a22416040bac",
+      "proof": [
+        "0x7398c2d586623eb3876c65f66d31db75fd0381169c6e962b960b14f127474a9c",
+        "0xa82c93f5bbf1a7c74512432c698fcee7fc6a7f8387fe39b0a344481252fd5e5c",
+        "0xf0ecfbb097af790b8542534dea6aae7ed08fdc8b2f2c84f7d7a5baed10cb3c6e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 13,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af307",
+      "leaf_hash": "0x7398c2d586623eb3876c65f66d31db75fd0381169c6e962b960b14f127474a9c",
+      "proof": [
+        "0x6f3a0fb05a995cbac8e0587c26a19444a0c4eae8e9496d9b6fa4a22416040bac",
+        "0xa82c93f5bbf1a7c74512432c698fcee7fc6a7f8387fe39b0a344481252fd5e5c",
+        "0xf0ecfbb097af790b8542534dea6aae7ed08fdc8b2f2c84f7d7a5baed10cb3c6e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 14,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b",
+      "leaf_hash": "0x7e5e617f2de89ed5bfceed2ffe52c49412544b24e5b976a80d9d9a554d3853d6",
+      "proof": [
+        "0x8035096383d2ec937f3c5fe3edfd8b5632877717f58886cf6d1b69b975f80aca",
+        "0x3d717435976e2b958115006ef322c60557bf298a37311861bc56dd2fdf8de1c8",
+        "0xf0ecfbb097af790b8542534dea6aae7ed08fdc8b2f2c84f7d7a5baed10cb3c6e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 15,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed",
+      "leaf_hash": "0x8035096383d2ec937f3c5fe3edfd8b5632877717f58886cf6d1b69b975f80aca",
+      "proof": [
+        "0x7e5e617f2de89ed5bfceed2ffe52c49412544b24e5b976a80d9d9a554d3853d6",
+        "0x3d717435976e2b958115006ef322c60557bf298a37311861bc56dd2fdf8de1c8",
+        "0xf0ecfbb097af790b8542534dea6aae7ed08fdc8b2f2c84f7d7a5baed10cb3c6e",
+        "0xd3c0d0120f7803f42eb76052d35efe9749fa93a5fb3403a52af77f67673c6bf0",
+        "0x5f68718b3e746d1f33439a801f4c745ec255075cafdba1a25d9e5de20c786fe7",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 16,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x5d928577454dfb826dd6163c75A487AB96032c2D"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d",
+      "leaf_hash": "0x81bae3275744976eef09404538462a03d11a0dcf44d0895ea906d3a47e32f663",
+      "proof": [
+        "0x8751bb20462c99a2becf7ffa27746d0b8a528202f4e5790460b71fb767e1f9c3",
+        "0x9f67a509f5f7655a67875ad1d65bed9c4fc2e9c6e8608618d67147aa76288fa5",
+        "0xcb37b314a565c85405ac8e55c90b4e513cebb1c57b46adc5252bfdd2e09408a6",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 17,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f2460",
+      "leaf_hash": "0x8751bb20462c99a2becf7ffa27746d0b8a528202f4e5790460b71fb767e1f9c3",
+      "proof": [
+        "0x81bae3275744976eef09404538462a03d11a0dcf44d0895ea906d3a47e32f663",
+        "0x9f67a509f5f7655a67875ad1d65bed9c4fc2e9c6e8608618d67147aa76288fa5",
+        "0xcb37b314a565c85405ac8e55c90b4e513cebb1c57b46adc5252bfdd2e09408a6",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 18,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed14600081",
+      "leaf_hash": "0x91a00c4283a00feb2a77d3b17f8476b37eae6a092e5dc95c9f7a42bb76848ccb",
+      "proof": [
+        "0x9cce822638d809976f98fb7e43c92dd885f982357bc068abfa469feb8df821b1",
+        "0xd0e0c4af036816f7114ddcab5a12e706d6cc28b187135f3ed9f36b4bc6b3cb4a",
+        "0xcb37b314a565c85405ac8e55c90b4e513cebb1c57b46adc5252bfdd2e09408a6",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 19,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf33",
+      "leaf_hash": "0x9cce822638d809976f98fb7e43c92dd885f982357bc068abfa469feb8df821b1",
+      "proof": [
+        "0x91a00c4283a00feb2a77d3b17f8476b37eae6a092e5dc95c9f7a42bb76848ccb",
+        "0xd0e0c4af036816f7114ddcab5a12e706d6cc28b187135f3ed9f36b4bc6b3cb4a",
+        "0xcb37b314a565c85405ac8e55c90b4e513cebb1c57b46adc5252bfdd2e09408a6",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 20,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d2",
+      "leaf_hash": "0xa0d9553c199470c24799f433a9785ae12acca18e67d40c4161f8416fe4e31dc3",
+      "proof": [
+        "0xafb851a21b155935082fc673c2db695e77d69ea2cdf73e3de8f7056d509e59e8",
+        "0x82ba9a13563a25fa9efb9b8897a1281f26165319590bb841dfbfa2eac7465c2f",
+        "0xcb7986541a58216122194bd2b166b81f9e9772f2f57202d4cac92a3b7acaf735",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 21,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "leaf_hash": "0xafb851a21b155935082fc673c2db695e77d69ea2cdf73e3de8f7056d509e59e8",
+      "proof": [
+        "0xa0d9553c199470c24799f433a9785ae12acca18e67d40c4161f8416fe4e31dc3",
+        "0x82ba9a13563a25fa9efb9b8897a1281f26165319590bb841dfbfa2eac7465c2f",
+        "0xcb7986541a58216122194bd2b166b81f9e9772f2f57202d4cac92a3b7acaf735",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 22,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e4389",
+      "leaf_hash": "0xc1bf674c656e5b9235adc631ddc245911a25fce01c2f7e2b4de27a17837eb419",
+      "proof": [
+        "0xc84bd1a802c4b5470b50b9f53e5a578a4451bd3170b1829d2f6ead3d906f65fb",
+        "0x9d04e029326041e9b14805d9c33d86a3c079eb647ff0b71b7117ef66d60d2189",
+        "0xcb7986541a58216122194bd2b166b81f9e9772f2f57202d4cac92a3b7acaf735",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 23,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b",
+      "leaf_hash": "0xc84bd1a802c4b5470b50b9f53e5a578a4451bd3170b1829d2f6ead3d906f65fb",
+      "proof": [
+        "0xc1bf674c656e5b9235adc631ddc245911a25fce01c2f7e2b4de27a17837eb419",
+        "0x9d04e029326041e9b14805d9c33d86a3c079eb647ff0b71b7117ef66d60d2189",
+        "0xcb7986541a58216122194bd2b166b81f9e9772f2f57202d4cac92a3b7acaf735",
+        "0x5103298dc70edbe4ac04ac79048125b473562f6cc6d75497392ec242c53bd9a7",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 24,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d84",
+      "leaf_hash": "0xcd44cff57779ad4e29df5a1c571de0895fdd0a5caa646e3e4af88e7e4b63f9ba",
+      "proof": [
+        "0xd81cadeed905c01fdc44ffdfb0976d651ad592163098aa15e7fee5b0f407850a",
+        "0x668c7bbfb7e3f763246b6ee83781ab8b6b1685cc799ce87b3d974f3da0e0ae51",
+        "0x53a42417781a5100740afbcd75fc064b390329d2cd4193d70522d2319891a358",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 25,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f5166",
+      "leaf_hash": "0xd81cadeed905c01fdc44ffdfb0976d651ad592163098aa15e7fee5b0f407850a",
+      "proof": [
+        "0xcd44cff57779ad4e29df5a1c571de0895fdd0a5caa646e3e4af88e7e4b63f9ba",
+        "0x668c7bbfb7e3f763246b6ee83781ab8b6b1685cc799ce87b3d974f3da0e0ae51",
+        "0x53a42417781a5100740afbcd75fc064b390329d2cd4193d70522d2319891a358",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 26,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf",
+      "leaf_hash": "0xdad2dd69a08ccdd34c0e8aacd0165fd4542db79222d1c7de80457ede244323dc",
+      "proof": [
+        "0xde2a7d1cde4cb058295a3bb21eca5b99f1a4be839bdf2f0d35b9000dfb81714a",
+        "0xd7d1933f3dcb22ec1dbd35446435ff8bae289024bab5bb08fa62e60b77925168",
+        "0x53a42417781a5100740afbcd75fc064b390329d2cd4193d70522d2319891a358",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 27,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea",
+      "leaf_hash": "0xde2a7d1cde4cb058295a3bb21eca5b99f1a4be839bdf2f0d35b9000dfb81714a",
+      "proof": [
+        "0xdad2dd69a08ccdd34c0e8aacd0165fd4542db79222d1c7de80457ede244323dc",
+        "0xd7d1933f3dcb22ec1dbd35446435ff8bae289024bab5bb08fa62e60b77925168",
+        "0x53a42417781a5100740afbcd75fc064b390329d2cd4193d70522d2319891a358",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 28,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc",
+      "leaf_hash": "0xdf631366a79d2c90e206067f21467b8f561a73c477c7bbd96eb9853692a7d9ee",
+      "proof": [
+        "0xe3d20d6436fa61d2a0a2643e918f47fb6c24c51102bf9e30d836da7132a0b1cc",
+        "0xd59258851c8443c41b5ed5154c0f805d583c534454e79cc6c0661c82154c1123",
+        "0xcafc082e60dcfa61ba1181a5ab04c03d9b966a153a90816a39caabfbaed33cd4",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 29,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "leaf_hash": "0xe3d20d6436fa61d2a0a2643e918f47fb6c24c51102bf9e30d836da7132a0b1cc",
+      "proof": [
+        "0xdf631366a79d2c90e206067f21467b8f561a73c477c7bbd96eb9853692a7d9ee",
+        "0xd59258851c8443c41b5ed5154c0f805d583c534454e79cc6c0661c82154c1123",
+        "0xcafc082e60dcfa61ba1181a5ab04c03d9b966a153a90816a39caabfbaed33cd4",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 30,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d",
+      "leaf_hash": "0xe68071fdeec8aacfdd916f172b2e546f9031062df21858997c52156f962ee731",
+      "proof": [
+        "0xe720309ee594a1316f480bff0cb065212b014563974d75064d5f6c84b3d48c67",
+        "0xb2f6cfdc7bdb1ece1f1e68004dfd4a28cdfc6c31f532a3815feafbab18229096",
+        "0xcafc082e60dcfa61ba1181a5ab04c03d9b966a153a90816a39caabfbaed33cd4",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 31,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c59",
+      "leaf_hash": "0xe720309ee594a1316f480bff0cb065212b014563974d75064d5f6c84b3d48c67",
+      "proof": [
+        "0xe68071fdeec8aacfdd916f172b2e546f9031062df21858997c52156f962ee731",
+        "0xb2f6cfdc7bdb1ece1f1e68004dfd4a28cdfc6c31f532a3815feafbab18229096",
+        "0xcafc082e60dcfa61ba1181a5ab04c03d9b966a153a90816a39caabfbaed33cd4",
+        "0x334b6823675d1c8158c9bb99b41c3a1be62f55fd0d8a6529593722b955f9d0d9",
+        "0x8eac9aa7d0c37d2d169267c5132134d4dcfab90abb476b4245ceac6ad0e4c18c",
+        "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3"
+      ]
+    },
+    {
+      "index": 32,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xF3818ac90DCA76a7Efe40C3cB2548F96B2236595",
+      "args": {
+        "dst_token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba",
+      "leaf_hash": "0xf5ea9f43f3c4a9f5bf3bb2001e358a58a76a90d86d169e17ce655c113a38c8e3",
+      "proof": [
+        "0x406e4fc60671bada34cc0b4f8c31853d1fcb83cdeedc18146d869acb78389234"
+      ]
+    }
+  ]
+}

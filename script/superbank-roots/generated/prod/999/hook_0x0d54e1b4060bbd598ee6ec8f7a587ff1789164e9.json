@@ -1,0 +1,38 @@
+{
+  "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+  "hook_names": [
+    "TransferHook"
+  ],
+  "root": "0xf9d01d2e927de97ce0f6cf825ced232096c286d91e2d67baded48be240815ddb",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x28a7df53eeada9c9ba03937bea21541fb87b4fdc079fe897f5a8e3c21234c744",
+      "proof": [
+        "0x92d9a94f270dbe0035899061b2e706016c0a00c6e80e7c1c88d1b17eca2f045e"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "TransferHook",
+      "hook_address": "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9",
+      "args": {
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x92d9a94f270dbe0035899061b2e706016c0a00c6e80e7c1c88d1b17eca2f045e",
+      "proof": [
+        "0x28a7df53eeada9c9ba03937bea21541fb87b4fdc079fe897f5a8e3c21234c744"
+      ]
+    }
+  ]
+}

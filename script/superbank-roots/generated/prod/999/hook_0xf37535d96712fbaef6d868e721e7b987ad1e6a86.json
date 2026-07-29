@@ -1,0 +1,38 @@
+{
+  "hook_address": "0xF37535D96712FBaEf6D868e721E7b987ad1E6A86",
+  "hook_names": [
+    "ApproveAndDeposit4626VaultHook"
+  ],
+  "root": "0x07585146ca0b1a2432f3914e8cab9b2b05c1d8f2e836a08fde2ff95d4a5bf666",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndDeposit4626VaultHook",
+      "hook_address": "0xF37535D96712FBaEf6D868e721E7b987ad1E6A86",
+      "args": {
+        "yieldSource": "0x08C00F8279dFF5B0CB5a04d349E7d79708Ceadf3",
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x08c00f8279dff5b0cb5a04d349e7d79708ceadf3642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x4d826857bc194cacb8d7c9eb69eb672df9663e66546d88acec3d6365f95606bc",
+      "proof": [
+        "0x8bbdfcf2e16066a3f9147df7d033ee05c5a1c957c062d10e66b96dfa662211ff"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndDeposit4626VaultHook",
+      "hook_address": "0xF37535D96712FBaEf6D868e721E7b987ad1E6A86",
+      "args": {
+        "yieldSource": "0x08C00F8279dFF5B0CB5a04d349E7d79708Ceadf3",
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+      },
+      "encoded_args": "0x08c00f8279dff5b0cb5a04d349e7d79708ceadf3b88339cb7199b77e23db6e890353e22632ba630f",
+      "leaf_hash": "0x8bbdfcf2e16066a3f9147df7d033ee05c5a1c957c062d10e66b96dfa662211ff",
+      "proof": [
+        "0x4d826857bc194cacb8d7c9eb69eb672df9663e66546d88acec3d6365f95606bc"
+      ]
+    }
+  ]
+}

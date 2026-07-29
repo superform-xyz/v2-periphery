@@ -1,0 +1,3426 @@
+{
+  "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+  "hook_names": [
+    "ApproveERC20Hook"
+  ],
+  "root": "0xfa69a2a289b14c7a0b1b34de4e82e0a1d4582e315b301e965b26e432bba0e456",
+  "total_leaves": 165,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x0258f103ed7083caa972e1cfb209fbaa576e9375fb89764bcb8b605e72dad7ff",
+      "proof": [
+        "0x04791254cca7f2e1d5ae2094f6346018dac776428a9b4d4359536b594b4d5e7d",
+        "0x5191ba01d7bf0970b69a6434a7bada7be661657e8c1aceaba9174ae83cedaf1b",
+        "0xc414958371b6ab4698067ba6c23353e6443b7cb4beaa738411d923e46e7395ba",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d809aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x04791254cca7f2e1d5ae2094f6346018dac776428a9b4d4359536b594b4d5e7d",
+      "proof": [
+        "0x0258f103ed7083caa972e1cfb209fbaa576e9375fb89764bcb8b605e72dad7ff",
+        "0x5191ba01d7bf0970b69a6434a7bada7be661657e8c1aceaba9174ae83cedaf1b",
+        "0xc414958371b6ab4698067ba6c23353e6443b7cb4beaa738411d923e46e7395ba",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x05cc21f4ac8a47173707ad3eb0326489508d6efc82602db9d48be5248f0517ef",
+      "proof": [
+        "0x066e2eb3b46b5e18c6768936fb3d63b864b446b1bb2be1ed16f8aad54a4c770a",
+        "0x088c7f6f3274acfc91bc95f9e3a7d671ace0cc85b2b52b23a9bae5f3056c477d",
+        "0xc414958371b6ab4698067ba6c23353e6443b7cb4beaa738411d923e46e7395ba",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x066e2eb3b46b5e18c6768936fb3d63b864b446b1bb2be1ed16f8aad54a4c770a",
+      "proof": [
+        "0x05cc21f4ac8a47173707ad3eb0326489508d6efc82602db9d48be5248f0517ef",
+        "0x088c7f6f3274acfc91bc95f9e3a7d671ace0cc85b2b52b23a9bae5f3056c477d",
+        "0xc414958371b6ab4698067ba6c23353e6443b7cb4beaa738411d923e46e7395ba",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e4389cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x0a9626ae58693161f1eba43d1adb7cdeb4d2155d5b5a16110b6502fae665afc8",
+      "proof": [
+        "0x0abb2fe60bfdd094a9226ba736c3cabc9bab12f3e8cfb683345a32ce93b81fa5",
+        "0x630ce2a5a72c4bcb2724087b84b71edb0fe4c868d85ac49b29f18b88cac726c8",
+        "0xfaf8188d333d843b6e2fb2e6c7f8b2b75eef40710d5912264170c7f075fa4659",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccccf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x0abb2fe60bfdd094a9226ba736c3cabc9bab12f3e8cfb683345a32ce93b81fa5",
+      "proof": [
+        "0x0a9626ae58693161f1eba43d1adb7cdeb4d2155d5b5a16110b6502fae665afc8",
+        "0x630ce2a5a72c4bcb2724087b84b71edb0fe4c868d85ac49b29f18b88cac726c8",
+        "0xfaf8188d333d843b6e2fb2e6c7f8b2b75eef40710d5912264170c7f075fa4659",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x0b17119dfca6870b0673f3e194a26f2eab4707c0f2eb86cea6fcf7cefba9e7d4",
+      "proof": [
+        "0x0cddd64b961ca49a435c8e0a867ecc158546cf5a20a286e91b628f258b3b5c70",
+        "0x05133740958b75bd17d7ee794a11e0b1263474fad5a7fd412b9887ca69d4efa8",
+        "0xfaf8188d333d843b6e2fb2e6c7f8b2b75eef40710d5912264170c7f075fa4659",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x0cddd64b961ca49a435c8e0a867ecc158546cf5a20a286e91b628f258b3b5c70",
+      "proof": [
+        "0x0b17119dfca6870b0673f3e194a26f2eab4707c0f2eb86cea6fcf7cefba9e7d4",
+        "0x05133740958b75bd17d7ee794a11e0b1263474fad5a7fd412b9887ca69d4efa8",
+        "0xfaf8188d333d843b6e2fb2e6c7f8b2b75eef40710d5912264170c7f075fa4659",
+        "0x3ba13c81684479369b636861692052d9869c65bf3d12773c5c3be25a11d38771",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f252619ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x0dbeb464a4e17af119ded50b7058776ec381602e5e3b495bce712e84c328bf10",
+      "proof": [
+        "0x0dff8f258eb4bce639f10cdf707f11c211418573fd794a42abf72c7758f00bbe",
+        "0xacc46a3bc13935b41f4d86bfa6c734b60edfd54612237018838a6e3e2eaa7fbf",
+        "0x5ddcd927d2acaf5445ce71df0a940ca44ec116d933b936a79b6ad0d2b93d2c2d",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x0dff8f258eb4bce639f10cdf707f11c211418573fd794a42abf72c7758f00bbe",
+      "proof": [
+        "0x0dbeb464a4e17af119ded50b7058776ec381602e5e3b495bce712e84c328bf10",
+        "0xacc46a3bc13935b41f4d86bfa6c734b60edfd54612237018838a6e3e2eaa7fbf",
+        "0x5ddcd927d2acaf5445ce71df0a940ca44ec116d933b936a79b6ad0d2b93d2c2d",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf3309aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x0f3c9c5926aae7e16cb0769b912a458b6ffbc9aecab05e670d3085b9d935c714",
+      "proof": [
+        "0x103b0b202df6060e137c7a2390195968923f2a6d505cd5429a05f64507548d10",
+        "0xb8dfae013714a40855e3dba9a605c836bae17bb3779cc112cd6ce05c27b31a9e",
+        "0x5ddcd927d2acaf5445ce71df0a940ca44ec116d933b936a79b6ad0d2b93d2c2d",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f2460cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x103b0b202df6060e137c7a2390195968923f2a6d505cd5429a05f64507548d10",
+      "proof": [
+        "0x0f3c9c5926aae7e16cb0769b912a458b6ffbc9aecab05e670d3085b9d935c714",
+        "0xb8dfae013714a40855e3dba9a605c836bae17bb3779cc112cd6ce05c27b31a9e",
+        "0x5ddcd927d2acaf5445ce71df0a940ca44ec116d933b936a79b6ad0d2b93d2c2d",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x10dfa6379c1aab1f5a64d5e24a00d975fc7c1e9e6dfd186fa696b590963022b7",
+      "proof": [
+        "0x113c0aef807ed86fb64f0c64e36b366aa67a98d5ee817537ad9bc2121e593241",
+        "0x370e3f7492211224341432f5ce3d1bcbea1f5263add9ed5abb97ce7e8e22c7e7",
+        "0xd920bb1d135962c0f5fb7e77f5c6a66c1aeb10182245c7b9e1c200ac6df44e94",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 13,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f51666fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x113c0aef807ed86fb64f0c64e36b366aa67a98d5ee817537ad9bc2121e593241",
+      "proof": [
+        "0x10dfa6379c1aab1f5a64d5e24a00d975fc7c1e9e6dfd186fa696b590963022b7",
+        "0x370e3f7492211224341432f5ce3d1bcbea1f5263add9ed5abb97ce7e8e22c7e7",
+        "0xd920bb1d135962c0f5fb7e77f5c6a66c1aeb10182245c7b9e1c200ac6df44e94",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 14,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x116cdbd93856010b26378d88812a932e5860cc3a41e9e699715130c508240d08",
+      "proof": [
+        "0x15585bcf79c7e47c85a5c8067f60ee1b3f9386db5699f75d50d4176a611726c8",
+        "0x27b079043eefd6a90759b81428ae1d7db701de52ab8ff8137cf8ee140e4ee595",
+        "0xd920bb1d135962c0f5fb7e77f5c6a66c1aeb10182245c7b9e1c200ac6df44e94",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 15,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f24605c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x15585bcf79c7e47c85a5c8067f60ee1b3f9386db5699f75d50d4176a611726c8",
+      "proof": [
+        "0x116cdbd93856010b26378d88812a932e5860cc3a41e9e699715130c508240d08",
+        "0x27b079043eefd6a90759b81428ae1d7db701de52ab8ff8137cf8ee140e4ee595",
+        "0xd920bb1d135962c0f5fb7e77f5c6a66c1aeb10182245c7b9e1c200ac6df44e94",
+        "0x2c53892f16e43a63d228213c999b42f32f15dcd5af9e7825d917ed5f0fe607e9",
+        "0xa98697f152ac29ad0dc645ae95a85606afc5ea72aba3617cb6e8d99d1ce28253",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 16,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b4188745c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x16892b87594813c7a096dfeb178a01601dbc899e276dd223eeb698088dbc349d",
+      "proof": [
+        "0x16a54ed566db3ec2b670ef6349c34e6915e6f8190ee58c6455eab8b9ad46299e",
+        "0xfe5d1b060a54aa89dfd4844f44c2c69a61391b6d2bf90a751a22040f58612d46",
+        "0x5918495095a2a5318c54cdcb5704757b85ff6d20ab0c55f4bacd39a1f5c929b5",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 17,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0fcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x16a54ed566db3ec2b670ef6349c34e6915e6f8190ee58c6455eab8b9ad46299e",
+      "proof": [
+        "0x16892b87594813c7a096dfeb178a01601dbc899e276dd223eeb698088dbc349d",
+        "0xfe5d1b060a54aa89dfd4844f44c2c69a61391b6d2bf90a751a22040f58612d46",
+        "0x5918495095a2a5318c54cdcb5704757b85ff6d20ab0c55f4bacd39a1f5c929b5",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 18,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf336fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x176a78178e3cd3517132f53c3a66174d336224d85bdeeb56ef2548564f72b071",
+      "proof": [
+        "0x1c9817d1a7bcca754c879a29e60c5a7b3dcb5701ca0c21667d59bbcdcee0e645",
+        "0x62112dde52e64a5018cb6882924e5a919abc00976b9c87f6f8c4dd24b7b923ed",
+        "0x5918495095a2a5318c54cdcb5704757b85ff6d20ab0c55f4bacd39a1f5c929b5",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 19,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec76fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x1c9817d1a7bcca754c879a29e60c5a7b3dcb5701ca0c21667d59bbcdcee0e645",
+      "proof": [
+        "0x176a78178e3cd3517132f53c3a66174d336224d85bdeeb56ef2548564f72b071",
+        "0x62112dde52e64a5018cb6882924e5a919abc00976b9c87f6f8c4dd24b7b923ed",
+        "0x5918495095a2a5318c54cdcb5704757b85ff6d20ab0c55f4bacd39a1f5c929b5",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 20,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b4188746fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x1e721d550b56314b553d0a8cdc40958d781b9950965f69e0a2a36b79a0905f7f",
+      "proof": [
+        "0x1f4bfc821afe79a5b3bd5e4dcecf8874dbb568acda48999a183fd0ea65d446df",
+        "0xd7bd54cb88b8f9be27afae035e098647e215e5d0bcc4f481046549d0f102c891",
+        "0xd78bc833ad7149c6ba1a4495a4735cd0f090339489ba2ac52261803e75afe295",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 21,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b418874cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x1f4bfc821afe79a5b3bd5e4dcecf8874dbb568acda48999a183fd0ea65d446df",
+      "proof": [
+        "0x1e721d550b56314b553d0a8cdc40958d781b9950965f69e0a2a36b79a0905f7f",
+        "0xd7bd54cb88b8f9be27afae035e098647e215e5d0bcc4f481046549d0f102c891",
+        "0xd78bc833ad7149c6ba1a4495a4735cd0f090339489ba2ac52261803e75afe295",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 22,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b209aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x1fde73b1cbb53b07894d92560f079c90bb2654e6c46ba858deb1eab55fbe66de",
+      "proof": [
+        "0x230945aea42d8756108540c9640d821a48a2428600175b3b3aa3e665a7eaf2d9",
+        "0x313f5468fb957c6bcd84dde4cdae1b5fee7120952d2ab93c5df3a4d4339389eb",
+        "0xd78bc833ad7149c6ba1a4495a4735cd0f090339489ba2ac52261803e75afe295",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 23,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x230945aea42d8756108540c9640d821a48a2428600175b3b3aa3e665a7eaf2d9",
+      "proof": [
+        "0x1fde73b1cbb53b07894d92560f079c90bb2654e6c46ba858deb1eab55fbe66de",
+        "0x313f5468fb957c6bcd84dde4cdae1b5fee7120952d2ab93c5df3a4d4339389eb",
+        "0xd78bc833ad7149c6ba1a4495a4735cd0f090339489ba2ac52261803e75afe295",
+        "0x5aa9f2301e5dd6e6b2c71de74349c48ec7746863e3a1dede5f7f235e5f9e5016",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 24,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf3319ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x2425d9cad1c95af443389c944005ce5742951d43267ff745220b2686bddf29f5",
+      "proof": [
+        "0x27d466f15db59bbb330af069b2eebf899386a7883588b6f5ec685e99d2af7aa3",
+        "0x10a5e3afc1b937b835267de4619f1ffadbd85edd7d9fa762fc655444c2134d4a",
+        "0x28e842f2871516c646429872c6447fedad4d129c91416e6906f8171164bcf8ab",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 25,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d845c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x27d466f15db59bbb330af069b2eebf899386a7883588b6f5ec685e99d2af7aa3",
+      "proof": [
+        "0x2425d9cad1c95af443389c944005ce5742951d43267ff745220b2686bddf29f5",
+        "0x10a5e3afc1b937b835267de4619f1ffadbd85edd7d9fa762fc655444c2134d4a",
+        "0x28e842f2871516c646429872c6447fedad4d129c91416e6906f8171164bcf8ab",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 26,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d549809aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x288d25c5f434e6cb4e7f3f3ec6f485e76f78bbf2ceb938d766b52bcd49a6fe42",
+      "proof": [
+        "0x2c87b25a3ac6ee4c47f89d5004a4892924064f49e8de5cb5a3dc6d89be653736",
+        "0x2db86c108e9b1e44d39424a63685a3d08f0a33b26825f13324f3a00c5f1122c1",
+        "0x28e842f2871516c646429872c6447fedad4d129c91416e6906f8171164bcf8ab",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 27,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x2c87b25a3ac6ee4c47f89d5004a4892924064f49e8de5cb5a3dc6d89be653736",
+      "proof": [
+        "0x288d25c5f434e6cb4e7f3f3ec6f485e76f78bbf2ceb938d766b52bcd49a6fe42",
+        "0x2db86c108e9b1e44d39424a63685a3d08f0a33b26825f13324f3a00c5f1122c1",
+        "0x28e842f2871516c646429872c6447fedad4d129c91416e6906f8171164bcf8ab",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 28,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6dcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x2d38d1f6cc8351a3ab79a0ed6042d727da70dce47f892ba3629b852a8bd9da02",
+      "proof": [
+        "0x2efb17f169358efbace6077de39b25c4a69a920e7b57fefb0a9ade30e307295d",
+        "0xe53157f8ec812c2c288d867191cc5632cc988847060929de5d98bba98322279c",
+        "0x849dcbc343b738323fb73dae2bd944c201c5cb599c3963628bf9e3d5c75714b6",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 29,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af30719ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x2efb17f169358efbace6077de39b25c4a69a920e7b57fefb0a9ade30e307295d",
+      "proof": [
+        "0x2d38d1f6cc8351a3ab79a0ed6042d727da70dce47f892ba3629b852a8bd9da02",
+        "0xe53157f8ec812c2c288d867191cc5632cc988847060929de5d98bba98322279c",
+        "0x849dcbc343b738323fb73dae2bd944c201c5cb599c3963628bf9e3d5c75714b6",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 30,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bbacf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x2f16c4f65cf36c8300fa0546dcacdc056689236d629248497cb954d2f80bd317",
+      "proof": [
+        "0x309d9b555cb1dce5447787d3a731c7fbf9bdddd8833c09c3cc012458e731e06d",
+        "0x42fe7ce377e4982bf3f45c6ce67158ee6ee823ebf202a333b9a99bd5d9c2c412",
+        "0x849dcbc343b738323fb73dae2bd944c201c5cb599c3963628bf9e3d5c75714b6",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 31,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x309d9b555cb1dce5447787d3a731c7fbf9bdddd8833c09c3cc012458e731e06d",
+      "proof": [
+        "0x2f16c4f65cf36c8300fa0546dcacdc056689236d629248497cb954d2f80bd317",
+        "0x42fe7ce377e4982bf3f45c6ce67158ee6ee823ebf202a333b9a99bd5d9c2c412",
+        "0x849dcbc343b738323fb73dae2bd944c201c5cb599c3963628bf9e3d5c75714b6",
+        "0x1501bc40a77e08e06d273b4ac518f3ac8b872754ca3707a7e20baa616dab2343",
+        "0x726d48e3d86bc900da0c9f9de8d9d545c9159ca3e844f23ac0aae051cc6dbb49",
+        "0x706a98ddf79ce0d4f240cbd1c98db746568bf1d3d62bcfa7696f6dfb28afe088",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 32,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec709aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x31191aed21aac142d5ec28dccbb8ae07e991c4124a9a39171ddb3e5acd2b8978",
+      "proof": [
+        "0x34e188e27af99ac453f7986c8fa6a734fb6647a618a078883fe84822e2d0ac0d",
+        "0xf2aa48692a2919cdcff0861a039328f34407b8e54eb42a2e44f8b2db0d03a183",
+        "0x37325853508c5f8dc8748ee7eb68920cecdbd92a79ff04872ccd328843175272",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 33,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d219ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x34e188e27af99ac453f7986c8fa6a734fb6647a618a078883fe84822e2d0ac0d",
+      "proof": [
+        "0x31191aed21aac142d5ec28dccbb8ae07e991c4124a9a39171ddb3e5acd2b8978",
+        "0xf2aa48692a2919cdcff0861a039328f34407b8e54eb42a2e44f8b2db0d03a183",
+        "0x37325853508c5f8dc8748ee7eb68920cecdbd92a79ff04872ccd328843175272",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 34,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x34f473fac4b2312ea6ec296976fb05bbc9dfe3461875c09aaf79709a537091c8",
+      "proof": [
+        "0x35e987885ab50955f957d71c6af1101fbfa2898328c2793e4d51bf0e2fc878bb",
+        "0xe0332339e220e29812f278240c0dfba0bfc0a8d2daa55eea303a8e16ee561247",
+        "0x37325853508c5f8dc8748ee7eb68920cecdbd92a79ff04872ccd328843175272",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 35,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x35e987885ab50955f957d71c6af1101fbfa2898328c2793e4d51bf0e2fc878bb",
+      "proof": [
+        "0x34f473fac4b2312ea6ec296976fb05bbc9dfe3461875c09aaf79709a537091c8",
+        "0xe0332339e220e29812f278240c0dfba0bfc0a8d2daa55eea303a8e16ee561247",
+        "0x37325853508c5f8dc8748ee7eb68920cecdbd92a79ff04872ccd328843175272",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 36,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e43895c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x37ac57e6f83bd33f5533856a5fe226eec2b8c0a425fededa1c562bcfb6568ebe",
+      "proof": [
+        "0x3b3aae09ff616ee34e76c8e00c7a4310d8280326437bf56db34f8163ff065f26",
+        "0x46fcee861bc161b7de7385efee65da0403883b96e6d5c7ddeae22660329bb2c8",
+        "0x055d5ce89a1ca1ed59f913c87c68aa0b6e9e14b85f0eb984d02646a8f450b217",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 37,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b25c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x3b3aae09ff616ee34e76c8e00c7a4310d8280326437bf56db34f8163ff065f26",
+      "proof": [
+        "0x37ac57e6f83bd33f5533856a5fe226eec2b8c0a425fededa1c562bcfb6568ebe",
+        "0x46fcee861bc161b7de7385efee65da0403883b96e6d5c7ddeae22660329bb2c8",
+        "0x055d5ce89a1ca1ed59f913c87c68aa0b6e9e14b85f0eb984d02646a8f450b217",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 38,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb485c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x3cc0fccbcaa89d33e1294a11263d1795e5b64e86cbdcf2fc3cdf05fed89cc1f9",
+      "proof": [
+        "0x473a3d510eea0ef3fb57fa85fde3a5c7a215379e4631ac6921d433b089f12a14",
+        "0xe6cfd83bd41aab4a23666b7260048a440ec9226ae717c5c4d3ea55f447af3e73",
+        "0x055d5ce89a1ca1ed59f913c87c68aa0b6e9e14b85f0eb984d02646a8f450b217",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 39,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf25c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x473a3d510eea0ef3fb57fa85fde3a5c7a215379e4631ac6921d433b089f12a14",
+      "proof": [
+        "0x3cc0fccbcaa89d33e1294a11263d1795e5b64e86cbdcf2fc3cdf05fed89cc1f9",
+        "0xe6cfd83bd41aab4a23666b7260048a440ec9226ae717c5c4d3ea55f447af3e73",
+        "0x055d5ce89a1ca1ed59f913c87c68aa0b6e9e14b85f0eb984d02646a8f450b217",
+        "0x80e80472d7194a05b29bc849a6c734d74e7c9f15fb188ee0dde1b69e60cab586",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 40,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f246009aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x49086d2349b78a93ee304bbf4e293f28fbfa9e74b8f06bbbf4f1a7308a8ffee1",
+      "proof": [
+        "0x493c84530e8f134dcf666ef6f1c38873e98a64fc0e66fb36d663ac5aff0ee0b8",
+        "0x77f799a330721ea4fa97513f1d25b2cc64495d9f917c7b1280f36e7f962c029c",
+        "0xa9500561f6e99aa11853ea5bd1de5ffbfff75f6265c57b9d2a78e0fedf8d717b",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 41,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x493c84530e8f134dcf666ef6f1c38873e98a64fc0e66fb36d663ac5aff0ee0b8",
+      "proof": [
+        "0x49086d2349b78a93ee304bbf4e293f28fbfa9e74b8f06bbbf4f1a7308a8ffee1",
+        "0x77f799a330721ea4fa97513f1d25b2cc64495d9f917c7b1280f36e7f962c029c",
+        "0xa9500561f6e99aa11853ea5bd1de5ffbfff75f6265c57b9d2a78e0fedf8d717b",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 42,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f51665c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x4b57d19150d1b7b96f846f1882d12318a414505d53acfa571e529b6e1ae1c700",
+      "proof": [
+        "0x4c61aef4dbe456dbac6b4cbfb5182371de5389dc7c7e3e6e50635e6f026550eb",
+        "0x2a87b3adb86aaee7843bc066b86e9584155b97d6cdc5830f5a74ea66f842f2fd",
+        "0xa9500561f6e99aa11853ea5bd1de5ffbfff75f6265c57b9d2a78e0fedf8d717b",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 43,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x4c61aef4dbe456dbac6b4cbfb5182371de5389dc7c7e3e6e50635e6f026550eb",
+      "proof": [
+        "0x4b57d19150d1b7b96f846f1882d12318a414505d53acfa571e529b6e1ae1c700",
+        "0x2a87b3adb86aaee7843bc066b86e9584155b97d6cdc5830f5a74ea66f842f2fd",
+        "0xa9500561f6e99aa11853ea5bd1de5ffbfff75f6265c57b9d2a78e0fedf8d717b",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 44,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf33cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x4d2bedc2214250aee5cb369ebdbe49880925980f5f7cbb9af69f05e3a6501332",
+      "proof": [
+        "0x4dc65be6b592b6553f9c538e5b4f7fdb80b7c54f06e181353a7f119d49f203c9",
+        "0x97ff34bb6ec71af8f93637f21a4f0dfc01056863aa2a61ef85353467507c583a",
+        "0x5ccf549270a90d59e263ed431243020615a83f48747394984f5b0a234c947699",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 45,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x4dc65be6b592b6553f9c538e5b4f7fdb80b7c54f06e181353a7f119d49f203c9",
+      "proof": [
+        "0x4d2bedc2214250aee5cb369ebdbe49880925980f5f7cbb9af69f05e3a6501332",
+        "0x97ff34bb6ec71af8f93637f21a4f0dfc01056863aa2a61ef85353467507c583a",
+        "0x5ccf549270a90d59e263ed431243020615a83f48747394984f5b0a234c947699",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 46,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c5909aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x4e75a08577edd356557ddb66502282ee8745eedc95d47e016bb7cba632d2f521",
+      "proof": [
+        "0x4ea5b61be36ed1d00e74ec1d6a0d6bfc086938fe1ca0d5a6838fcabfaa879798",
+        "0x38c6e3d79a596943ba0406adc4a7a9de6548dab813fd96224ed9ba17a69264d1",
+        "0x5ccf549270a90d59e263ed431243020615a83f48747394984f5b0a234c947699",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 47,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x4ea5b61be36ed1d00e74ec1d6a0d6bfc086938fe1ca0d5a6838fcabfaa879798",
+      "proof": [
+        "0x4e75a08577edd356557ddb66502282ee8745eedc95d47e016bb7cba632d2f521",
+        "0x38c6e3d79a596943ba0406adc4a7a9de6548dab813fd96224ed9ba17a69264d1",
+        "0x5ccf549270a90d59e263ed431243020615a83f48747394984f5b0a234c947699",
+        "0x7ce8755bd39d87abf07a3c984de68997200ae164bf640be80c8fc957ff1e8bd0",
+        "0x8bd0033f198c5635e5534c0c522a2472351260f1122823361cd2741abe4bb4c7",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 48,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f5166cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x4f9d9e653a8e6986da4e546117c25d4f0fcbb1e56c308f0ee0bbd6bce3ad688e",
+      "proof": [
+        "0x51532c2f651bd7add11e2490876f806b621584fe547146fabe1c3304987f89b1",
+        "0xce64e968f50f56e675ede3e77156671113c63c4fc5d29f8bb0c0998dcbc14336",
+        "0xb51576155bb58fdaa0eecf823ed26d947bd2be50536e810bad45b83d81210554",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 49,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x51532c2f651bd7add11e2490876f806b621584fe547146fabe1c3304987f89b1",
+      "proof": [
+        "0x4f9d9e653a8e6986da4e546117c25d4f0fcbb1e56c308f0ee0bbd6bce3ad688e",
+        "0xce64e968f50f56e675ede3e77156671113c63c4fc5d29f8bb0c0998dcbc14336",
+        "0xb51576155bb58fdaa0eecf823ed26d947bd2be50536e810bad45b83d81210554",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 50,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdfcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x51977d3fab8471dcc94949732f8522beed76f3e6c4a0b961ad26bec88da7117a",
+      "proof": [
+        "0x523720a3100f056586fbc2ae148a414d475becbf4600dffe5a8fef34009b8999",
+        "0x43ec87572c7c2414d30963add1a37583f40bf882d9b409885b275c9551d3fce9",
+        "0xb51576155bb58fdaa0eecf823ed26d947bd2be50536e810bad45b83d81210554",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 51,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x523720a3100f056586fbc2ae148a414d475becbf4600dffe5a8fef34009b8999",
+      "proof": [
+        "0x51977d3fab8471dcc94949732f8522beed76f3e6c4a0b961ad26bec88da7117a",
+        "0x43ec87572c7c2414d30963add1a37583f40bf882d9b409885b275c9551d3fce9",
+        "0xb51576155bb58fdaa0eecf823ed26d947bd2be50536e810bad45b83d81210554",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 52,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c00cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x526d8ee51c9ae2f2598b8d88b6fe3c62196b119d7cf35e7218b5eb61310fa744",
+      "proof": [
+        "0x52ce93bd5f754c01cf56ba2beab3f1b26ad3c66f8207b7ae30982e1260da531d",
+        "0xac3385280b4dc79952b57ef39d8664ecfe968dae8bb92d42bf4f83ea7b382d8f",
+        "0xf040f34e98bf49808df0cb7b8295111af3c144ebf62079c693348b4283bcd86c",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 53,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x52ce93bd5f754c01cf56ba2beab3f1b26ad3c66f8207b7ae30982e1260da531d",
+      "proof": [
+        "0x526d8ee51c9ae2f2598b8d88b6fe3c62196b119d7cf35e7218b5eb61310fa744",
+        "0xac3385280b4dc79952b57ef39d8664ecfe968dae8bb92d42bf4f83ea7b382d8f",
+        "0xf040f34e98bf49808df0cb7b8295111af3c144ebf62079c693348b4283bcd86c",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 54,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x5437292964c1559a54575d303de9c40a68c5dd5afedd9d14d38725209e3399f5",
+      "proof": [
+        "0x570d62d172a50488b2bf87593be9618e471e839718659230b1d61078b2e90eb3",
+        "0xd9edbd9cd19ea809c8041b98782fd595dc0f6c532147350f0172bb8e13e6cb18",
+        "0xf040f34e98bf49808df0cb7b8295111af3c144ebf62079c693348b4283bcd86c",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 55,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x570d62d172a50488b2bf87593be9618e471e839718659230b1d61078b2e90eb3",
+      "proof": [
+        "0x5437292964c1559a54575d303de9c40a68c5dd5afedd9d14d38725209e3399f5",
+        "0xd9edbd9cd19ea809c8041b98782fd595dc0f6c532147350f0172bb8e13e6cb18",
+        "0xf040f34e98bf49808df0cb7b8295111af3c144ebf62079c693348b4283bcd86c",
+        "0x3149e515cc5ffe3d4198c272424c4920c7c5e51ab0c1d4db7bec8996c1365c77",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 56,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c596fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x5787ff328984e36c8bdf796465824195eb8501af29e059a2970da6f37c76084c",
+      "proof": [
+        "0x584f04080a628cb6a2f833c03097b3a32121e6ce24e41760d83c1638f9f0e7d8",
+        "0x3ca133ea7ce25b82074798279e72d654363c04ea076afefd376caea03d3003fc",
+        "0x12faaede0ff0a29d56396d63e649fff772b6c61d17943434b1a9a9f141fb54a9",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 57,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f516619ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x584f04080a628cb6a2f833c03097b3a32121e6ce24e41760d83c1638f9f0e7d8",
+      "proof": [
+        "0x5787ff328984e36c8bdf796465824195eb8501af29e059a2970da6f37c76084c",
+        "0x3ca133ea7ce25b82074798279e72d654363c04ea076afefd376caea03d3003fc",
+        "0x12faaede0ff0a29d56396d63e649fff772b6c61d17943434b1a9a9f141fb54a9",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 58,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x5904dfa10b1f8c5b5731705f396e88bf1f038fd4fbd256db69e97ce6b77a6f18",
+      "proof": [
+        "0x5dc96bc1ca211ccf6bf6c343bcce3d5230ee6eb021f26a46c7214f9be09f3d6e",
+        "0x5f64e4de456f92977581d986b648677fa6c96dc3c1e968c1d29a43946021c9e5",
+        "0x12faaede0ff0a29d56396d63e649fff772b6c61d17943434b1a9a9f141fb54a9",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 59,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x5dc96bc1ca211ccf6bf6c343bcce3d5230ee6eb021f26a46c7214f9be09f3d6e",
+      "proof": [
+        "0x5904dfa10b1f8c5b5731705f396e88bf1f038fd4fbd256db69e97ce6b77a6f18",
+        "0x5f64e4de456f92977581d986b648677fa6c96dc3c1e968c1d29a43946021c9e5",
+        "0x12faaede0ff0a29d56396d63e649fff772b6c61d17943434b1a9a9f141fb54a9",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 60,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b2cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x66832db30f33cef3b17496906327c448eb4631c4d75f3888a3a2dfe65a4713e4",
+      "proof": [
+        "0x678ab7247e2006d95bcd6180b1b520ac13952064a87f79f8bc42597aee222d58",
+        "0x19742efb96f639e53fe5d93d6379622831e584ac91e1af954f20eec97eefa70e",
+        "0xea227a50199a54d24a17d98508d7bfe1bf3be68c2b1490bc18e7848ae847dcc7",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 61,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x678ab7247e2006d95bcd6180b1b520ac13952064a87f79f8bc42597aee222d58",
+      "proof": [
+        "0x66832db30f33cef3b17496906327c448eb4631c4d75f3888a3a2dfe65a4713e4",
+        "0x19742efb96f639e53fe5d93d6379622831e584ac91e1af954f20eec97eefa70e",
+        "0xea227a50199a54d24a17d98508d7bfe1bf3be68c2b1490bc18e7848ae847dcc7",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 62,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43bcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x682e8db7fc156d78c577c73524a48c6d9308a9a7448a6704af49eff1bda49013",
+      "proof": [
+        "0x68350c7535aa5c156549238c67abeeeabea3352e406cd79ae886fb0e1955b21c",
+        "0xdec5e76679cc052e85f6a644dcbf9ece9a3e5d30584ec41485c4602939ccbf70",
+        "0xea227a50199a54d24a17d98508d7bfe1bf3be68c2b1490bc18e7848ae847dcc7",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 63,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed146000815c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x68350c7535aa5c156549238c67abeeeabea3352e406cd79ae886fb0e1955b21c",
+      "proof": [
+        "0x682e8db7fc156d78c577c73524a48c6d9308a9a7448a6704af49eff1bda49013",
+        "0xdec5e76679cc052e85f6a644dcbf9ece9a3e5d30584ec41485c4602939ccbf70",
+        "0xea227a50199a54d24a17d98508d7bfe1bf3be68c2b1490bc18e7848ae847dcc7",
+        "0x2246ca5e775ecf193f21c8e5c60ee96d736344631efba2130304283269ac4319",
+        "0xf181314e34e66dd6bba7380f6b951f650d4ea4cc23d01ae9986329be06ba1c29",
+        "0x87fefce5b5fd95a0e092819255236d6db2a68cc3d783b1886f598760fefe5dac",
+        "0xaf4a53aae18cfcd590707a7c8fe5d1e6017ee12fbafd3b2c2d5b0dc07addcb6d",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 64,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83bcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x698faab719076f9d29ac922e4f8254af3eb436a14a01430584877f890d512683",
+      "proof": [
+        "0x6af9ba646408406deb706427bc24f908592fc3fbcbd92453fb912d5acec96b44",
+        "0xeaa7fb3cd7dbfe0de5c62ffda906783cb5eca962c6520c2de682299460e60f7f",
+        "0xfaa91d9d4fb863a9c4ceec5dc013965ba2c7f98941c07f67b31d6887cce73597",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 65,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c5996fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x6af9ba646408406deb706427bc24f908592fc3fbcbd92453fb912d5acec96b44",
+      "proof": [
+        "0x698faab719076f9d29ac922e4f8254af3eb436a14a01430584877f890d512683",
+        "0xeaa7fb3cd7dbfe0de5c62ffda906783cb5eca962c6520c2de682299460e60f7f",
+        "0xfaa91d9d4fb863a9c4ceec5dc013965ba2c7f98941c07f67b31d6887cce73597",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 66,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d84cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x6ddf6db50aa1569e21dbb720d3537bd8150e30c671b2e076d6c71c0d180b8d37",
+      "proof": [
+        "0x6ed82ac4602c0a450ddffd377acfd0e942091e2ad043258dd8c5db9572185a90",
+        "0xf4ba40af8a700db4014d70accd0fa3d43ebeb2aee5cec9708580721221a9023e",
+        "0xfaa91d9d4fb863a9c4ceec5dc013965ba2c7f98941c07f67b31d6887cce73597",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 67,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb486fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x6ed82ac4602c0a450ddffd377acfd0e942091e2ad043258dd8c5db9572185a90",
+      "proof": [
+        "0x6ddf6db50aa1569e21dbb720d3537bd8150e30c671b2e076d6c71c0d180b8d37",
+        "0xf4ba40af8a700db4014d70accd0fa3d43ebeb2aee5cec9708580721221a9023e",
+        "0xfaa91d9d4fb863a9c4ceec5dc013965ba2c7f98941c07f67b31d6887cce73597",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 68,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb4819ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x6f2e3a5effe2bf1615f8d90d776bb91e1452781ace40333bba8e51be36ffb556",
+      "proof": [
+        "0x733ff716b207e0040ab69460e8955d2241325c7cb2b1df3274bae52fa19e2bae",
+        "0x4932f0b820e303f50a40059bf11f91a430a962231e72852d10285c1e78bbb4da",
+        "0x8587b6ad5c04fd22ad4197c1cdd01b4b266e33d67d769b75d0e248b729a8e7c0",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 69,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af307cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x733ff716b207e0040ab69460e8955d2241325c7cb2b1df3274bae52fa19e2bae",
+      "proof": [
+        "0x6f2e3a5effe2bf1615f8d90d776bb91e1452781ace40333bba8e51be36ffb556",
+        "0x4932f0b820e303f50a40059bf11f91a430a962231e72852d10285c1e78bbb4da",
+        "0x8587b6ad5c04fd22ad4197c1cdd01b4b266e33d67d769b75d0e248b729a8e7c0",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 70,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d54986fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x751014a717aac04f929a96f849fb28157d5244c47e940c24d688b44d107612a8",
+      "proof": [
+        "0x768aba008854314dc5f9b72fd13b3cf84b5710471c91042493d77b49f503ccbd",
+        "0x5fa25147e52aa7836b2fc8382ff62db7ebb743acef675c6ebfa4bc6dce897ee9",
+        "0x8587b6ad5c04fd22ad4197c1cdd01b4b266e33d67d769b75d0e248b729a8e7c0",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 71,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed1460008109aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x768aba008854314dc5f9b72fd13b3cf84b5710471c91042493d77b49f503ccbd",
+      "proof": [
+        "0x751014a717aac04f929a96f849fb28157d5244c47e940c24d688b44d107612a8",
+        "0x5fa25147e52aa7836b2fc8382ff62db7ebb743acef675c6ebfa4bc6dce897ee9",
+        "0x8587b6ad5c04fd22ad4197c1cdd01b4b266e33d67d769b75d0e248b729a8e7c0",
+        "0xc649a7f02f3789c56322a820ac0642754d6446fb646a64d831d2f5d1a4de8342",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 72,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x79232a2f88437c9ca2dab6d7a9a7743f6598dd16ae305e8c569ddc136b7cfa4a",
+      "proof": [
+        "0x796ee5f42ede8dab68e4c5fd6ef22e4511bbbb0050eafabfa0c26f457cc09701",
+        "0x0ed062248f577ebca1a81890e813c7119ab82383b38efa7c81588ff03577d9cb",
+        "0x29c84150113e10d2a932fe4014a74d724a8a5aaf7d4db3dc1ce1c58ab97c4fff",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 73,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c59919ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x796ee5f42ede8dab68e4c5fd6ef22e4511bbbb0050eafabfa0c26f457cc09701",
+      "proof": [
+        "0x79232a2f88437c9ca2dab6d7a9a7743f6598dd16ae305e8c569ddc136b7cfa4a",
+        "0x0ed062248f577ebca1a81890e813c7119ab82383b38efa7c81588ff03577d9cb",
+        "0x29c84150113e10d2a932fe4014a74d724a8a5aaf7d4db3dc1ce1c58ab97c4fff",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 74,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af3076fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x798b92f51fff9bf2ff616ea34369c9e23021a9de789aaced629f3c9cb2b8eff5",
+      "proof": [
+        "0x7b4973edc91448d4aca465ab8cb384942213a982444ac14ba2399b1760ba685e",
+        "0x6bcc8304bc2b206bdc532c20b4d46489defdd800397539bae53b62d643188c77",
+        "0x29c84150113e10d2a932fe4014a74d724a8a5aaf7d4db3dc1ce1c58ab97c4fff",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 75,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b35c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x7b4973edc91448d4aca465ab8cb384942213a982444ac14ba2399b1760ba685e",
+      "proof": [
+        "0x798b92f51fff9bf2ff616ea34369c9e23021a9de789aaced629f3c9cb2b8eff5",
+        "0x6bcc8304bc2b206bdc532c20b4d46489defdd800397539bae53b62d643188c77",
+        "0x29c84150113e10d2a932fe4014a74d724a8a5aaf7d4db3dc1ce1c58ab97c4fff",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 76,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f2526cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x7c209e5b0f6af045e1c2e8ec29e0fb1b4e79fe9dfded7802cf5c43241e185cc8",
+      "proof": [
+        "0x7d297deb0f566aab5dd2e5813a07f5d1ea32dc11b483becc241e0f69b4fa4aca",
+        "0x2f6d2868debfed4895dd41445c9a62f8c04e7a0422147031576a7035ea7c5c7d",
+        "0xdd2a219288eeb25ca4d0e9c556bca464327bdb7b3a3933f806e967336a914a2f",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 77,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc209aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x7d297deb0f566aab5dd2e5813a07f5d1ea32dc11b483becc241e0f69b4fa4aca",
+      "proof": [
+        "0x7c209e5b0f6af045e1c2e8ec29e0fb1b4e79fe9dfded7802cf5c43241e185cc8",
+        "0x2f6d2868debfed4895dd41445c9a62f8c04e7a0422147031576a7035ea7c5c7d",
+        "0xdd2a219288eeb25ca4d0e9c556bca464327bdb7b3a3933f806e967336a914a2f",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 78,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf335c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x7e18ee4d3807a039ec251216e2b1fa75e298c21dfb5b8e775b118e482234fe72",
+      "proof": [
+        "0x8065d0e0ea11ae3d4b8b129108831db4e8b8258ae2a01c21526c5c15dce4ba5d",
+        "0x188e7b47fe26f2b32b29c829d69756163dd11f97390bc60554f79d4d4b58caec",
+        "0xdd2a219288eeb25ca4d0e9c556bca464327bdb7b3a3933f806e967336a914a2f",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 79,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d8419ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x8065d0e0ea11ae3d4b8b129108831db4e8b8258ae2a01c21526c5c15dce4ba5d",
+      "proof": [
+        "0x7e18ee4d3807a039ec251216e2b1fa75e298c21dfb5b8e775b118e482234fe72",
+        "0x188e7b47fe26f2b32b29c829d69756163dd11f97390bc60554f79d4d4b58caec",
+        "0xdd2a219288eeb25ca4d0e9c556bca464327bdb7b3a3933f806e967336a914a2f",
+        "0x75a38f7392af799180365fbfe5fd4adfec290ab958519681f506cc891cca6c30",
+        "0xb3a27e663082bda3de288798fb57ac02138c399ec7c5a441f33b0050dd2759c9",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 80,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f25265c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x80a9910c87cad87c3a18f135e85108e80a59d413dde245e2337e8beacf541429",
+      "proof": [
+        "0x842895a3a1d4add918aa4f156760c0d41fbe932fd9a1ef13665a49e073ffb737",
+        "0x6928d092aa85d96759142752e178c15610a11022e7c6448a2f6231615db39df6",
+        "0x54875b984d150634337186d3e293af9e9341f7a32e06959898d1a718300048ad",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 81,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed1460008119ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x842895a3a1d4add918aa4f156760c0d41fbe932fd9a1ef13665a49e073ffb737",
+      "proof": [
+        "0x80a9910c87cad87c3a18f135e85108e80a59d413dde245e2337e8beacf541429",
+        "0x6928d092aa85d96759142752e178c15610a11022e7c6448a2f6231615db39df6",
+        "0x54875b984d150634337186d3e293af9e9341f7a32e06959898d1a718300048ad",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 82,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc219ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x849457ae2aea2d7530debb59eb35d320a8150c7b75853a2f706bf2b7a0684d9f",
+      "proof": [
+        "0x8922baa9eb4fd9002e97de50a092da1b0dcb61e4fedb957bb80afd39b79bb391",
+        "0x973f882084ff29fb0c60063c3ccff084a797f3fe96f813d9f4a8877cc33054ea",
+        "0x54875b984d150634337186d3e293af9e9341f7a32e06959898d1a718300048ad",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 83,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec75c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x8922baa9eb4fd9002e97de50a092da1b0dcb61e4fedb957bb80afd39b79bb391",
+      "proof": [
+        "0x849457ae2aea2d7530debb59eb35d320a8150c7b75853a2f706bf2b7a0684d9f",
+        "0x973f882084ff29fb0c60063c3ccff084a797f3fe96f813d9f4a8877cc33054ea",
+        "0x54875b984d150634337186d3e293af9e9341f7a32e06959898d1a718300048ad",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 84,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83eacf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x892d6f1e08cb907df681b59282d99b356534f330634029d4443ed2c6f7a9d9e2",
+      "proof": [
+        "0x8adcef86ca75335c1dca673387e32295dd913abf5ad5ebbe5dc1888cea89bb4a",
+        "0x2bbda0aed315d4585fff461101b5bef754b251d5a7e15340ac56ad49ed75868f",
+        "0x9336bd8125b8575fdf4c40e661ba003c88ae1fe49087bd3cc5c180dced418428",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 85,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc25c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x8adcef86ca75335c1dca673387e32295dd913abf5ad5ebbe5dc1888cea89bb4a",
+      "proof": [
+        "0x892d6f1e08cb907df681b59282d99b356534f330634029d4443ed2c6f7a9d9e2",
+        "0x2bbda0aed315d4585fff461101b5bef754b251d5a7e15340ac56ad49ed75868f",
+        "0x9336bd8125b8575fdf4c40e661ba003c88ae1fe49087bd3cc5c180dced418428",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 86,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x8b4c4ce0b1a15a7e0e3c04cd5594b3a91f7ea37570505c71983ab53bdec058dd",
+      "proof": [
+        "0x8b686342c6bfde7d9037b6255718164d54aa8bbac1f67b3f06d434917a6503ff",
+        "0x01c1957097b2ed88ae85bb3c86189885cb8ddca22a51ff156ca952b3d9432baf",
+        "0x9336bd8125b8575fdf4c40e661ba003c88ae1fe49087bd3cc5c180dced418428",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 87,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf209aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x8b686342c6bfde7d9037b6255718164d54aa8bbac1f67b3f06d434917a6503ff",
+      "proof": [
+        "0x8b4c4ce0b1a15a7e0e3c04cd5594b3a91f7ea37570505c71983ab53bdec058dd",
+        "0x01c1957097b2ed88ae85bb3c86189885cb8ddca22a51ff156ca952b3d9432baf",
+        "0x9336bd8125b8575fdf4c40e661ba003c88ae1fe49087bd3cc5c180dced418428",
+        "0xb82a530baf9df46f4df7ca1af3d0e847a766992c9864340d0516afdad378b0c0",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 88,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c005c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x8d5995b89c95ae17f7eced4e380f328444d9c6ca5f1db37d2117fa5526ab1087",
+      "proof": [
+        "0x8da0622d97b342a8a669c51a28d874a44e15e345b757e29c0ff9def60cf7cbcc",
+        "0x1bd2dfd9ba4ec4384464b832a8ca2c8dddaee72a4ff7ca2df9f4329d5d207134",
+        "0x8aaa26d74ed62b5ee757fb710aa67538983afd9e6ef121a80037bf768c29344e",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 89,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a349719ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x8da0622d97b342a8a669c51a28d874a44e15e345b757e29c0ff9def60cf7cbcc",
+      "proof": [
+        "0x8d5995b89c95ae17f7eced4e380f328444d9c6ca5f1db37d2117fa5526ab1087",
+        "0x1bd2dfd9ba4ec4384464b832a8ca2c8dddaee72a4ff7ca2df9f4329d5d207134",
+        "0x8aaa26d74ed62b5ee757fb710aa67538983afd9e6ef121a80037bf768c29344e",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 90,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a349709aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x9276488b0df47a2c2c036fd20e24ba1f3766f107d28e6a9ccdd5dd50a5d4bf76",
+      "proof": [
+        "0x9386bbe1925d901aff247deef3cb08898cade23c410166be46a73737c0be267c",
+        "0x267a90e9ed43bd57835cb19b322a664dc68a27dec6322d2a493d511759c7f958",
+        "0x8aaa26d74ed62b5ee757fb710aa67538983afd9e6ef121a80037bf768c29344e",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 91,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a3497cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x9386bbe1925d901aff247deef3cb08898cade23c410166be46a73737c0be267c",
+      "proof": [
+        "0x9276488b0df47a2c2c036fd20e24ba1f3766f107d28e6a9ccdd5dd50a5d4bf76",
+        "0x267a90e9ed43bd57835cb19b322a664dc68a27dec6322d2a493d511759c7f958",
+        "0x8aaa26d74ed62b5ee757fb710aa67538983afd9e6ef121a80037bf768c29344e",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 92,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0x94f65eb584cda35d3818058693bc8db161d49c2d0b3ae400881939d9f30746ae",
+      "proof": [
+        "0x96d3171118b94995b63e29874b913f465a8edd5a925502e388fb9e1231f61663",
+        "0x485cf9ceeff0d4605df6847c9cbee2f3e5bb82358186d0dd5eb65a5fd74f80f8",
+        "0xb5f561f0c63bfef1ef4c1841df3d8292982c19184217235504f6c666a1fa0d20",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 93,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f24606fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x96d3171118b94995b63e29874b913f465a8edd5a925502e388fb9e1231f61663",
+      "proof": [
+        "0x94f65eb584cda35d3818058693bc8db161d49c2d0b3ae400881939d9f30746ae",
+        "0x485cf9ceeff0d4605df6847c9cbee2f3e5bb82358186d0dd5eb65a5fd74f80f8",
+        "0xb5f561f0c63bfef1ef4c1841df3d8292982c19184217235504f6c666a1fa0d20",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 94,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f25266fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x98b6151319bec6139be58199c90403a98e02d352772fc58d8c411706f5b9e190",
+      "proof": [
+        "0x98b84011e9dc744e1f7262e66bbe1789b2428898e98eeaf66d2be49720168c31",
+        "0xd23cdd6471e9124279c02765696002e35fb2c60bbf1e4baf63849b040d99a981",
+        "0xb5f561f0c63bfef1ef4c1841df3d8292982c19184217235504f6c666a1fa0d20",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 95,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf219ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x98b84011e9dc744e1f7262e66bbe1789b2428898e98eeaf66d2be49720168c31",
+      "proof": [
+        "0x98b6151319bec6139be58199c90403a98e02d352772fc58d8c411706f5b9e190",
+        "0xd23cdd6471e9124279c02765696002e35fb2c60bbf1e4baf63849b040d99a981",
+        "0xb5f561f0c63bfef1ef4c1841df3d8292982c19184217235504f6c666a1fa0d20",
+        "0xc94cff624566b57bb79d8901a2734a6d1351cec7d56af20a5d7677120a14718a",
+        "0xfe4798ce48d1a009d6e2ee7c6a94de0ea947e1654ac11ba7dafe86d794c2d24b",
+        "0xb8dfb84977fcb85af8076a4fc3ea5880bf73e8821f550346eb4d5de4d52f21ee",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 96,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf2cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x9aac926fe019451e109ffaf6e8f0f397b69ef7045b5e2b12e739babe2c99c00e",
+      "proof": [
+        "0x9ae3b14cc54c3ddae8ffa3bbfe10607c60cf1e8a2c543d0687858a3fde98792c",
+        "0x0c1ffb9ecf2703b7abce086a5f754d172a30c009c486a58454e79c26a10719f8",
+        "0x407dfdd4775221f0b6256c2f1dcbf5f555cd7049cc7b29f04051599d29291218",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 97,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0x9ae3b14cc54c3ddae8ffa3bbfe10607c60cf1e8a2c543d0687858a3fde98792c",
+      "proof": [
+        "0x9aac926fe019451e109ffaf6e8f0f397b69ef7045b5e2b12e739babe2c99c00e",
+        "0x0c1ffb9ecf2703b7abce086a5f754d172a30c009c486a58454e79c26a10719f8",
+        "0x407dfdd4775221f0b6256c2f1dcbf5f555cd7049cc7b29f04051599d29291218",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 98,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0x9c67e7146f9b788e6f30acf9a0759d05dfce523f486d62548592a0979377d285",
+      "proof": [
+        "0x9ecbf16a7f0430ee3e5f08e16ce85e19f6a4fe347f10d5fc5af6905697c1259e",
+        "0x14c531ec72c5fe05e3f150f93f625234a28c0981075c96a201100c61ec7c030c",
+        "0x407dfdd4775221f0b6256c2f1dcbf5f555cd7049cc7b29f04051599d29291218",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 99,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c59cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0x9ecbf16a7f0430ee3e5f08e16ce85e19f6a4fe347f10d5fc5af6905697c1259e",
+      "proof": [
+        "0x9c67e7146f9b788e6f30acf9a0759d05dfce523f486d62548592a0979377d285",
+        "0x14c531ec72c5fe05e3f150f93f625234a28c0981075c96a201100c61ec7c030c",
+        "0x407dfdd4775221f0b6256c2f1dcbf5f555cd7049cc7b29f04051599d29291218",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 100,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xa262ce0548d67683c2923a276b7981fe636f6166898218bc045baed1fc5ef764",
+      "proof": [
+        "0xa3472e1634504bcc4b22008b9ffb6bc8a0370c070a11ceeed56222609dcaa41e",
+        "0xcea09fc71f8a9e92fe320cb0f4ddadf2d93817c6f24ae6772fa7dfd68b61ad8f",
+        "0xb92e1121b7d214c40516bb2100550c6f7069c76a11f8c8757e1d995fbdb4d499",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 101,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c5919ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xa3472e1634504bcc4b22008b9ffb6bc8a0370c070a11ceeed56222609dcaa41e",
+      "proof": [
+        "0xa262ce0548d67683c2923a276b7981fe636f6166898218bc045baed1fc5ef764",
+        "0xcea09fc71f8a9e92fe320cb0f4ddadf2d93817c6f24ae6772fa7dfd68b61ad8f",
+        "0xb92e1121b7d214c40516bb2100550c6f7069c76a11f8c8757e1d995fbdb4d499",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 102,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c59909aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xa60b904caf8a50e4c5083328362bf50110766843d4a0c1399e6a79d8f03bf5e5",
+      "proof": [
+        "0xa66c030651d5d6779733348d2dcfaef1b4347feb4257ac5627df14272f114de0",
+        "0xc4adf77951dc838140cb6eb5a9cf3dce83e4e4aad901b0eb3c7387663fddcb94",
+        "0xb92e1121b7d214c40516bb2100550c6f7069c76a11f8c8757e1d995fbdb4d499",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 103,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xa66c030651d5d6779733348d2dcfaef1b4347feb4257ac5627df14272f114de0",
+      "proof": [
+        "0xa60b904caf8a50e4c5083328362bf50110766843d4a0c1399e6a79d8f03bf5e5",
+        "0xc4adf77951dc838140cb6eb5a9cf3dce83e4e4aad901b0eb3c7387663fddcb94",
+        "0xb92e1121b7d214c40516bb2100550c6f7069c76a11f8c8757e1d995fbdb4d499",
+        "0x25f6b93d2abbb5591acd2be72e7c2ca2408306bbade34cc81f02ce60d7668835",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 104,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xa85ada50e6c3a13c78e74dea03c7281448802b253712df8b0f2cebf31c79299d",
+      "proof": [
+        "0xa9bf8d801f2f657c84ce581289aa82924be53f6f3cd89a3533066a56864f46c3",
+        "0xe98c63190fa994be2825e68a54f12fc392a304d96e8bd94e901f72d89afccd12",
+        "0x6f19edc10687a6b9e68192c4f518f54af9b39795e3620ce0a9b15a87e149219a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 105,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d86fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xa9bf8d801f2f657c84ce581289aa82924be53f6f3cd89a3533066a56864f46c3",
+      "proof": [
+        "0xa85ada50e6c3a13c78e74dea03c7281448802b253712df8b0f2cebf31c79299d",
+        "0xe98c63190fa994be2825e68a54f12fc392a304d96e8bd94e901f72d89afccd12",
+        "0x6f19edc10687a6b9e68192c4f518f54af9b39795e3620ce0a9b15a87e149219a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 106,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d209aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xac8c1fcb158ae6c033bf9b4f0f3f7d5f6b7e3ee74614214e187a19760ef3ba0d",
+      "proof": [
+        "0xad49eae99e671156b53ff80cd5646172dd1946ebfe09faf697529b3757b9a1ea",
+        "0x95407f79f5be7ce4ea344b8b3abb95849d7d3b267e0fa0fe0cbacaba84108541",
+        "0x6f19edc10687a6b9e68192c4f518f54af9b39795e3620ce0a9b15a87e149219a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 107,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f246019ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xad49eae99e671156b53ff80cd5646172dd1946ebfe09faf697529b3757b9a1ea",
+      "proof": [
+        "0xac8c1fcb158ae6c033bf9b4f0f3f7d5f6b7e3ee74614214e187a19760ef3ba0d",
+        "0x95407f79f5be7ce4ea344b8b3abb95849d7d3b267e0fa0fe0cbacaba84108541",
+        "0x6f19edc10687a6b9e68192c4f518f54af9b39795e3620ce0a9b15a87e149219a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 108,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xae5afbf4df0d78e32728138fce5cbce3a5914bf4f53833f5114cd006e75de6db",
+      "proof": [
+        "0xb2b299d5d67352e33f1994ada6ac3937e0ece1814faf0316452511b09a16df31",
+        "0xc6a23e560eb9c19bbd9817a24403f6d278090f5f33bc9096f38f17360d99f28e",
+        "0xa2c736fc72a0d8b9527556954689d8da5230bbc19a43389459121b7eb012432a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 109,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f252609aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xb2b299d5d67352e33f1994ada6ac3937e0ece1814faf0316452511b09a16df31",
+      "proof": [
+        "0xae5afbf4df0d78e32728138fce5cbce3a5914bf4f53833f5114cd006e75de6db",
+        "0xc6a23e560eb9c19bbd9817a24403f6d278090f5f33bc9096f38f17360d99f28e",
+        "0xa2c736fc72a0d8b9527556954689d8da5230bbc19a43389459121b7eb012432a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 110,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb2f2fdbfd2c3367dda58ad523c8f94e68343a4b7e179bd78e483e1167fa75cb2",
+      "proof": [
+        "0xb3f0c6a75906df07c3c207f3017516daed532bd683381c916c9635f62d90c9ae",
+        "0xc51952d5296a4be19e8ca15d3bd856eb91429c06295e83501177889d2ee6488c",
+        "0xa2c736fc72a0d8b9527556954689d8da5230bbc19a43389459121b7eb012432a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 111,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xb3f0c6a75906df07c3c207f3017516daed532bd683381c916c9635f62d90c9ae",
+      "proof": [
+        "0xb2f2fdbfd2c3367dda58ad523c8f94e68343a4b7e179bd78e483e1167fa75cb2",
+        "0xc51952d5296a4be19e8ca15d3bd856eb91429c06295e83501177889d2ee6488c",
+        "0xa2c736fc72a0d8b9527556954689d8da5230bbc19a43389459121b7eb012432a",
+        "0x3132689d9ad6256f820c2edf3f69096960b03b6cb719ae01fe20f5e8fc9c6130",
+        "0x22d91124075ca72b75a81e191eb66cb47b0d0909675536a1b88e2d0c6c48950d",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 112,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c006fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb93d927807342a41ea9fdd27b24be3a5b5fd92b7708ddf592b361927697adee9",
+      "proof": [
+        "0xb9e2c48418adda6975c002dd9cbcf3646c1d99678e5d4806ece189506016a976",
+        "0x690e0afe724267bc83cddd4499c9ef514eb0fda1e105cc501b142451857d3aed",
+        "0x715ce10591ac7b3c71894f512d148024e26e1b5b64d8d41f01befbb5213e9bac",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 113,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb9e2c48418adda6975c002dd9cbcf3646c1d99678e5d4806ece189506016a976",
+      "proof": [
+        "0xb93d927807342a41ea9fdd27b24be3a5b5fd92b7708ddf592b361927697adee9",
+        "0x690e0afe724267bc83cddd4499c9ef514eb0fda1e105cc501b142451857d3aed",
+        "0x715ce10591ac7b3c71894f512d148024e26e1b5b64d8d41f01befbb5213e9bac",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 114,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb9fadb6d0392c6e1fa517d2ee436093e46349e7e6eebc7206a5eb3a459904cea",
+      "proof": [
+        "0xbb234592c8bbbeb8351bf0c21fad7137934360242cad0338b942b2fdc15c7e99",
+        "0x09689447fb067fe65a2c8d3eb3dab5392f6a3560b01bf2e868c527fa4bfe209a",
+        "0x715ce10591ac7b3c71894f512d148024e26e1b5b64d8d41f01befbb5213e9bac",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 115,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xbb234592c8bbbeb8351bf0c21fad7137934360242cad0338b942b2fdc15c7e99",
+      "proof": [
+        "0xb9fadb6d0392c6e1fa517d2ee436093e46349e7e6eebc7206a5eb3a459904cea",
+        "0x09689447fb067fe65a2c8d3eb3dab5392f6a3560b01bf2e868c527fa4bfe209a",
+        "0x715ce10591ac7b3c71894f512d148024e26e1b5b64d8d41f01befbb5213e9bac",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 116,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xbbbd97c5f0fb7f57b598a1a312ec6caa1ee6bd0cf5742a2b3a484e0585678193",
+      "proof": [
+        "0xbc00be6fba2578e0f780468654a2baafff2ef833d399038fc5c4d5317a57983f",
+        "0x3fc713f0460b2a7940f5745c6b67966ce5988aa8e3fc8df86bf99ffcc0b4d78a",
+        "0xa63bcfc7f4ca5a0f8d7ed1af6ab47a6493653fbf422ae32d01f9238a8a30669e",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 117,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d846fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xbc00be6fba2578e0f780468654a2baafff2ef833d399038fc5c4d5317a57983f",
+      "proof": [
+        "0xbbbd97c5f0fb7f57b598a1a312ec6caa1ee6bd0cf5742a2b3a484e0585678193",
+        "0x3fc713f0460b2a7940f5745c6b67966ce5988aa8e3fc8df86bf99ffcc0b4d78a",
+        "0xa63bcfc7f4ca5a0f8d7ed1af6ab47a6493653fbf422ae32d01f9238a8a30669e",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 118,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d85c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xbca3acd5cddb2f773789a45f3cf2e458624ea052b673a5202d9e12f18ae7f82d",
+      "proof": [
+        "0xbd86bd34d96e9f2b3ad256d067e5e8e0f6d4bc857e4cf14e5c761c9f4e1cc9b9",
+        "0x6cc3870eb79d9afd1b1265ed5e20d6a3df3f674e77d2fd84f17acf024a7adba4",
+        "0xa63bcfc7f4ca5a0f8d7ed1af6ab47a6493653fbf422ae32d01f9238a8a30669e",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 119,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d54985c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xbd86bd34d96e9f2b3ad256d067e5e8e0f6d4bc857e4cf14e5c761c9f4e1cc9b9",
+      "proof": [
+        "0xbca3acd5cddb2f773789a45f3cf2e458624ea052b673a5202d9e12f18ae7f82d",
+        "0x6cc3870eb79d9afd1b1265ed5e20d6a3df3f674e77d2fd84f17acf024a7adba4",
+        "0xa63bcfc7f4ca5a0f8d7ed1af6ab47a6493653fbf422ae32d01f9238a8a30669e",
+        "0x5aa66258631d3b6fde5d27edf88eaf12d5b2394037647bfd4e168a6939da028f",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 120,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b36fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xbf4bbc44aaf3160cb419d03652aab0bbf3a3b82570238cbba49bf0a0e110e3b6",
+      "proof": [
+        "0xc2e12299329ff379b70e4e82c810a2f519634fb43128e9b8089c7ccdcab199b2",
+        "0xa91840757983620a669f12b9f66a21f94dfd43de3cc8433061a7987591412cc9",
+        "0x055591a8269a9f05363ddfa2245bd62bde0dcab0aefa869a128aef645dcdde50",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 121,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d8cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xc2e12299329ff379b70e4e82c810a2f519634fb43128e9b8089c7ccdcab199b2",
+      "proof": [
+        "0xbf4bbc44aaf3160cb419d03652aab0bbf3a3b82570238cbba49bf0a0e110e3b6",
+        "0xa91840757983620a669f12b9f66a21f94dfd43de3cc8433061a7987591412cc9",
+        "0x055591a8269a9f05363ddfa2245bd62bde0dcab0aefa869a128aef645dcdde50",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 122,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b309aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xc47a8698aa7a68899e80ecd75649431638a691cd50907883e9fe9b20eb6ac5cd",
+      "proof": [
+        "0xc52b6737e24338c5cd569ff10128ecefccd51893656e7aa5f8ae8e62f8b9e39a",
+        "0x775536816b70315b98a6557ddaad43ca861edb912a265bc590890e5e1a42e94b",
+        "0x055591a8269a9f05363ddfa2245bd62bde0dcab0aefa869a128aef645dcdde50",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 123,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec719ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xc52b6737e24338c5cd569ff10128ecefccd51893656e7aa5f8ae8e62f8b9e39a",
+      "proof": [
+        "0xc47a8698aa7a68899e80ecd75649431638a691cd50907883e9fe9b20eb6ac5cd",
+        "0x775536816b70315b98a6557ddaad43ca861edb912a265bc590890e5e1a42e94b",
+        "0x055591a8269a9f05363ddfa2245bd62bde0dcab0aefa869a128aef645dcdde50",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 124,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2dcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xc769e8420f9b51df63794f9955ce3474c5abc08611d801d2d50aa41effbd13ce",
+      "proof": [
+        "0xc7fbf067b3c7892017dd672a1ce1743d2db1342462be7805049a32236175f12c",
+        "0xbf444fbf5e06de0cabfe772ba5a604a833ec641e377bb09f13c72c114e662abc",
+        "0x48b7048d7864be1754cbafb61d322cdb9ecca004e74ca91193be52c2d5b0fa5b",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 125,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e438909aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xc7fbf067b3c7892017dd672a1ce1743d2db1342462be7805049a32236175f12c",
+      "proof": [
+        "0xc769e8420f9b51df63794f9955ce3474c5abc08611d801d2d50aa41effbd13ce",
+        "0xbf444fbf5e06de0cabfe772ba5a604a833ec641e377bb09f13c72c114e662abc",
+        "0x48b7048d7864be1754cbafb61d322cdb9ecca004e74ca91193be52c2d5b0fa5b",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 126,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d5c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xc8dd13a3d0e99bd860f66c7be4bc2ddbd247c786e019035dc15ca62a2b4281ff",
+      "proof": [
+        "0xcc7da3290aa6a70296bc89bdeabddb62d7348f425addb60ab6d4f41c58ab6701",
+        "0x54d97053d642ecfe3de84e4c41474331dd89f303592567bf2c914feda9c49699",
+        "0x48b7048d7864be1754cbafb61d322cdb9ecca004e74ca91193be52c2d5b0fa5b",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 127,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b219ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xcc7da3290aa6a70296bc89bdeabddb62d7348f425addb60ab6d4f41c58ab6701",
+      "proof": [
+        "0xc8dd13a3d0e99bd860f66c7be4bc2ddbd247c786e019035dc15ca62a2b4281ff",
+        "0x54d97053d642ecfe3de84e4c41474331dd89f303592567bf2c914feda9c49699",
+        "0x48b7048d7864be1754cbafb61d322cdb9ecca004e74ca91193be52c2d5b0fa5b",
+        "0xb51da5d4a47c5d3707c2ac09fbc40ae26414376f4dd1a5c83ea8a5540b3e3df6",
+        "0xb35bfcc416004ca56e3653a21da4b4c90375422826e3cf10628380e207394700",
+        "0x5ca3b4b10e9cb82bff7301099ea505a39831adf617a514f48e0f2f0dfa184f96",
+        "0xbbad3daec60b4c56c24c820beb95a1d4ff14699ea0b9727d6aefc857cfcff669",
+        "0x6d609ffe0241e1a51d043b4ff0c8e4162b09e2f1dcb27b1ac82dbe9fb40da2b8"
+      ]
+    },
+    {
+      "index": 128,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xcd0810c9e7d80676ad8e6aca9c5803a2e829daa3bcad51c13e7eb822f9f76fd5",
+      "proof": [
+        "0xcd749d9f4efd516a834718c84c90e1e3561705d5aeb5ff3280987bee8516d8bc",
+        "0xa22904f651da11121169a2811b46fc14b02a5b4795ac76b0934d9659d46464f1",
+        "0x10876d9bfef00d153223e7f3dcb42fb8ed220580b13fafb19f2833fa3fbb7c6c",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 129,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b41887419ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xcd749d9f4efd516a834718c84c90e1e3561705d5aeb5ff3280987bee8516d8bc",
+      "proof": [
+        "0xcd0810c9e7d80676ad8e6aca9c5803a2e829daa3bcad51c13e7eb822f9f76fd5",
+        "0xa22904f651da11121169a2811b46fc14b02a5b4795ac76b0934d9659d46464f1",
+        "0x10876d9bfef00d153223e7f3dcb42fb8ed220580b13fafb19f2833fa3fbb7c6c",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 130,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c5995c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xce3486a162a2e40a16aa5776e901e0d85ee3e1ef382851525f3837428b40e848",
+      "proof": [
+        "0xce41750c3537aba27a76bc7c2a6e8465accf2d4591a9d26d1892843a9844d8a2",
+        "0x9aa5aa7cdb67831f40511930c9f865926a89c588b8cd85552b50960acc9cc3be",
+        "0x10876d9bfef00d153223e7f3dcb42fb8ed220580b13fafb19f2833fa3fbb7c6c",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 131,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d25c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xce41750c3537aba27a76bc7c2a6e8465accf2d4591a9d26d1892843a9844d8a2",
+      "proof": [
+        "0xce3486a162a2e40a16aa5776e901e0d85ee3e1ef382851525f3837428b40e848",
+        "0x9aa5aa7cdb67831f40511930c9f865926a89c588b8cd85552b50960acc9cc3be",
+        "0x10876d9bfef00d153223e7f3dcb42fb8ed220580b13fafb19f2833fa3fbb7c6c",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 132,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e43896fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xce90c994b9d1d5b2ec18768173b477bbbe7df4f7e6987e8f366bff8c5716aaf5",
+      "proof": [
+        "0xced46f9c2e23ae4620f972b00780665ce6d60d75994a7f92541d2525b13cbcbc",
+        "0xcf5b1ca1adc67d8f8594eb746a7a5c29fb208e66964c78fba38e7efc2b78dbea",
+        "0x1c14ce32abc264e39a95edb0b9fd84e67d66667fc2cb4379c2be6bd449b4cf21",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 133,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5dcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xced46f9c2e23ae4620f972b00780665ce6d60d75994a7f92541d2525b13cbcbc",
+      "proof": [
+        "0xce90c994b9d1d5b2ec18768173b477bbbe7df4f7e6987e8f366bff8c5716aaf5",
+        "0xcf5b1ca1adc67d8f8594eb746a7a5c29fb208e66964c78fba38e7efc2b78dbea",
+        "0x1c14ce32abc264e39a95edb0b9fd84e67d66667fc2cb4379c2be6bd449b4cf21",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 134,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d2cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xd066042b2cdf9d70eb06be6e9326e86800668b6687a33d87cf1a86f8087296f6",
+      "proof": [
+        "0xd17853d8716b07204d96aafc29a35df46132b1f6f6123a6798b7dea7847579b2",
+        "0xe2cab1e1f5e4b7466aa684be6b86b42179e1dc4316bd326d72a2e11d6ae1ca97",
+        "0x1c14ce32abc264e39a95edb0b9fd84e67d66667fc2cb4379c2be6bd449b4cf21",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 135,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c595c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xd17853d8716b07204d96aafc29a35df46132b1f6f6123a6798b7dea7847579b2",
+      "proof": [
+        "0xd066042b2cdf9d70eb06be6e9326e86800668b6687a33d87cf1a86f8087296f6",
+        "0xe2cab1e1f5e4b7466aa684be6b86b42179e1dc4316bd326d72a2e11d6ae1ca97",
+        "0x1c14ce32abc264e39a95edb0b9fd84e67d66667fc2cb4379c2be6bd449b4cf21",
+        "0xad6fec99d23a2b2b3f553e5af6914e93de082c2a968f5aaf5128188099e8be08",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 136,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f516609aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xd3e976cab229ace65c17903757826a0ecbe371f8bd74e1548f58dd461f05960d",
+      "proof": [
+        "0xd4afc81e30f9c73134a8103096ca4616a6990a8e2dcf0d9abf9aeef50951b16a",
+        "0x7a6df38d0bf6182941167147690710b299fcdd17f7d3b03adbf9c59fdf58a12d",
+        "0x452ef1f2fceb96013917852da072b22029477379707fcffefad1175899b2df09",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 137,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd4afc81e30f9c73134a8103096ca4616a6990a8e2dcf0d9abf9aeef50951b16a",
+      "proof": [
+        "0xd3e976cab229ace65c17903757826a0ecbe371f8bd74e1548f58dd461f05960d",
+        "0x7a6df38d0bf6182941167147690710b299fcdd17f7d3b03adbf9c59fdf58a12d",
+        "0x452ef1f2fceb96013917852da072b22029477379707fcffefad1175899b2df09",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 138,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd54ae538ebc7f1975710d68117f6a35aae077b36f753fd8e48c8f03c51b18f6a",
+      "proof": [
+        "0xd6cdb199ebb5ce409d990587aa8f543cf2cf66e8a41d3e36802dd14a3caa9a18",
+        "0x3a114f1f8c5feba6fb700c908bf62c5e7803b8e9a278d3c2d1ef88596e4bf3c1",
+        "0x452ef1f2fceb96013917852da072b22029477379707fcffefad1175899b2df09",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 139,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a34976fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd6cdb199ebb5ce409d990587aa8f543cf2cf66e8a41d3e36802dd14a3caa9a18",
+      "proof": [
+        "0xd54ae538ebc7f1975710d68117f6a35aae077b36f753fd8e48c8f03c51b18f6a",
+        "0x3a114f1f8c5feba6fb700c908bf62c5e7803b8e9a278d3c2d1ef88596e4bf3c1",
+        "0x452ef1f2fceb96013917852da072b22029477379707fcffefad1175899b2df09",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 140,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d819ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xd732562928774f39f8324964667385f75f2eca01a33e661cc1a76e881558de7f",
+      "proof": [
+        "0xdae38fe046849bf3e859fc66ba28125b100e80501537540a2d8e6030e0a6e7e6",
+        "0xee9393588d4cda0f9ccf47488399d0f52ae9521cb6a694c7daf553ed2bebcc43",
+        "0x73c98d2071e7a5b4a91763c3e2019443d5598e73db67e5877f0d7895838b59d1",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 141,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a34975c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xdae38fe046849bf3e859fc66ba28125b100e80501537540a2d8e6030e0a6e7e6",
+      "proof": [
+        "0xd732562928774f39f8324964667385f75f2eca01a33e661cc1a76e881558de7f",
+        "0xee9393588d4cda0f9ccf47488399d0f52ae9521cb6a694c7daf553ed2bebcc43",
+        "0x73c98d2071e7a5b4a91763c3e2019443d5598e73db67e5877f0d7895838b59d1",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 142,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec7cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xdb64f52e012f78af319b672ed20aaf74abda18616c43696e593ed10f105b3c98",
+      "proof": [
+        "0xdbba7482fe1bf6a93741f3cb56d33bbcb9fd564c44708aeda0e3cb420e3e3a23",
+        "0x9b8775ea6e37e3bd3919815a7d88765f956cb98cc5bd139ae205ee20059a037a",
+        "0x73c98d2071e7a5b4a91763c3e2019443d5598e73db67e5877f0d7895838b59d1",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 143,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xdbba7482fe1bf6a93741f3cb56d33bbcb9fd564c44708aeda0e3cb420e3e3a23",
+      "proof": [
+        "0xdb64f52e012f78af319b672ed20aaf74abda18616c43696e593ed10f105b3c98",
+        "0x9b8775ea6e37e3bd3919815a7d88765f956cb98cc5bd139ae205ee20059a037a",
+        "0x73c98d2071e7a5b4a91763c3e2019443d5598e73db67e5877f0d7895838b59d1",
+        "0x44e15b2defd86d9c3949bd79323db48da2faac5268f559f00e8703887beb72ba",
+        "0x6a134e9c8a29002e94b0eee961ff433505a3f8875ab1b236640c15c61966a148",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 144,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7edcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xdc48f2f78b0e202f7417d1d229df3db0fb751b40c80c7f4246532d72dcbdca65",
+      "proof": [
+        "0xde98763df51a7170728ad453cc6d4f0444872452b9515fa48c7f82b790572d93",
+        "0x46ee5f8f0d717d37e935e94854d44b09a62ea6c1c7f1c03052f2a98433c0e047",
+        "0x56e01adaade25aac9f3e7a267f913b1cd538f4b5b0cc11bcbdaafc65703f3931",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 145,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c0009aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xde98763df51a7170728ad453cc6d4f0444872452b9515fa48c7f82b790572d93",
+      "proof": [
+        "0xdc48f2f78b0e202f7417d1d229df3db0fb751b40c80c7f4246532d72dcbdca65",
+        "0x46ee5f8f0d717d37e935e94854d44b09a62ea6c1c7f1c03052f2a98433c0e047",
+        "0x56e01adaade25aac9f3e7a267f913b1cd538f4b5b0cc11bcbdaafc65703f3931",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 146,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xe3c5833132cb28851e8a75e41b1367582ad4e4d96f6c11b8619d378a030713c7",
+      "proof": [
+        "0xe6d73ccb2691750e46e88b58bedb3bb2cc3ef731793e508647ef5856032d351a",
+        "0x40dcb4ce0ed6b2483333e091927d3178dc23328a57f958136d772adc9e3405df",
+        "0x56e01adaade25aac9f3e7a267f913b1cd538f4b5b0cc11bcbdaafc65703f3931",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 147,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xe6d73ccb2691750e46e88b58bedb3bb2cc3ef731793e508647ef5856032d351a",
+      "proof": [
+        "0xe3c5833132cb28851e8a75e41b1367582ad4e4d96f6c11b8619d378a030713c7",
+        "0x40dcb4ce0ed6b2483333e091927d3178dc23328a57f958136d772adc9e3405df",
+        "0x56e01adaade25aac9f3e7a267f913b1cd538f4b5b0cc11bcbdaafc65703f3931",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 148,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed14600081cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xe98c0a78f7bd21467c17434e876956138775be2be9f378a2a4b60c546930cc27",
+      "proof": [
+        "0xeb47a95ee7889c2029189e538348d47d1f1e85c18c75909dc283b5ef3086a22c",
+        "0x8582013801c56cf71a4aa618cab9c7d269f916fb00b95dc2f87075c7881fa6ba",
+        "0x7bb4cd80520f114aa8a6af3bbd3a45801cc3e0416c5acd4925dd64dca29f8855",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 149,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081",
+        "spender": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed146000816fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xeb47a95ee7889c2029189e538348d47d1f1e85c18c75909dc283b5ef3086a22c",
+      "proof": [
+        "0xe98c0a78f7bd21467c17434e876956138775be2be9f378a2a4b60c546930cc27",
+        "0x8582013801c56cf71a4aa618cab9c7d269f916fb00b95dc2f87075c7881fa6ba",
+        "0x7bb4cd80520f114aa8a6af3bbd3a45801cc3e0416c5acd4925dd64dca29f8855",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 150,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xeb536681b69cbcf1d17a4a9f1ca5780cf1349fca76bc1d2d2bf9e6ffc366f224",
+      "proof": [
+        "0xecfe1dda2641b9253feab8b56325e7d3fb8549b19a0f941e6fda107d1b87b204",
+        "0x221c72419bbbe9611769d3ac65a93eb5f1671ae8e4c6c600fc06a486ef7cec7c",
+        "0x7bb4cd80520f114aa8a6af3bbd3a45801cc3e0416c5acd4925dd64dca29f8855",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 151,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xecfe1dda2641b9253feab8b56325e7d3fb8549b19a0f941e6fda107d1b87b204",
+      "proof": [
+        "0xeb536681b69cbcf1d17a4a9f1ca5780cf1349fca76bc1d2d2bf9e6ffc366f224",
+        "0x221c72419bbbe9611769d3ac65a93eb5f1671ae8e4c6c600fc06a486ef7cec7c",
+        "0x7bb4cd80520f114aa8a6af3bbd3a45801cc3e0416c5acd4925dd64dca29f8855",
+        "0xf690f013533a793cf7f4f3ecbffa84789e92125ca64cc572e676f23d0d1363e3",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 152,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c0019ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xeee73fedd50e4f451f854d2b27741cdb0e621d00757aea1fe56d3d2c9619bd11",
+      "proof": [
+        "0xefb0680bbbe23e6f4e44b4ace1f7602629c0b290eed19e4f15506bb8824b8dac",
+        "0xc935d93165a8431b98f02a7b595a997376537c3030fe13879345d57f8146b319",
+        "0xf7804b17550928eb772407e47b2b4f82285c9b55b2abc5a6cb137bc3aaea8399",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 153,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af30709aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xefb0680bbbe23e6f4e44b4ace1f7602629c0b290eed19e4f15506bb8824b8dac",
+      "proof": [
+        "0xeee73fedd50e4f451f854d2b27741cdb0e621d00757aea1fe56d3d2c9619bd11",
+        "0xc935d93165a8431b98f02a7b595a997376537c3030fe13879345d57f8146b319",
+        "0xf7804b17550928eb772407e47b2b4f82285c9b55b2abc5a6cb137bc3aaea8399",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 154,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d549819ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xf223ff89601d7d941df890d86fe02823de8cb12fee01b7e96c3fcc0ca10c1fee",
+      "proof": [
+        "0xf5cc22c6c12e1500447245180bbd0fa40b372308a079457c70f845d50647878c",
+        "0xe9fcaeffab7ea46eb8d50e9e6e4da733b34fa3edbb5f615e058f42066476b133",
+        "0xf7804b17550928eb772407e47b2b4f82285c9b55b2abc5a6cb137bc3aaea8399",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 155,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d09aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xf5cc22c6c12e1500447245180bbd0fa40b372308a079457c70f845d50647878c",
+      "proof": [
+        "0xf223ff89601d7d941df890d86fe02823de8cb12fee01b7e96c3fcc0ca10c1fee",
+        "0xe9fcaeffab7ea46eb8d50e9e6e4da733b34fa3edbb5f615e058f42066476b133",
+        "0xf7804b17550928eb772407e47b2b4f82285c9b55b2abc5a6cb137bc3aaea8399",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 156,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307",
+        "spender": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af3075c7bcd6e7de5423a257d81b442095a1a6ced35c5",
+      "leaf_hash": "0xf632d23842c1f0c80e58ec4b9f4917fb37a276e98f44fc3d03e99abdf7436dba",
+      "proof": [
+        "0xf6b046f49791bdfe5fc4a9063891ee94783f74659b8b64ebfb34d7af9cd67ef2",
+        "0x413acc008c4369009aff9e3c107eca72235870ed34e9632472ea657794fda9f6",
+        "0x38999d7906090a5080a5854f16fdda9d73fe8bbaed182580ba79f3b8333bc917",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 157,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b319ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xf6b046f49791bdfe5fc4a9063891ee94783f74659b8b64ebfb34d7af9cd67ef2",
+      "proof": [
+        "0xf632d23842c1f0c80e58ec4b9f4917fb37a276e98f44fc3d03e99abdf7436dba",
+        "0x413acc008c4369009aff9e3c107eca72235870ed34e9632472ea657794fda9f6",
+        "0x38999d7906090a5080a5854f16fdda9d73fe8bbaed182580ba79f3b8333bc917",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 158,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e438919ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xf70e865429efed6213aae1fe80da18405f09783a8f9e8df52dced7217d2836bc",
+      "proof": [
+        "0xf7425841e8df1f18d5f2ffa1afd96c65eddcb88e00f2a82998711d53698e2606",
+        "0xcf047d516c8876717b3dc32acae2f32278fc8f273baf7445e43cbb327e70b238",
+        "0x38999d7906090a5080a5854f16fdda9d73fe8bbaed182580ba79f3b8333bc917",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 159,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba",
+        "spender": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba19ceead7105607cd444f5ad10dd51356436095a1",
+      "leaf_hash": "0xf7425841e8df1f18d5f2ffa1afd96c65eddcb88e00f2a82998711d53698e2606",
+      "proof": [
+        "0xf70e865429efed6213aae1fe80da18405f09783a8f9e8df52dced7217d2836bc",
+        "0xcf047d516c8876717b3dc32acae2f32278fc8f273baf7445e43cbb327e70b238",
+        "0x38999d7906090a5080a5854f16fdda9d73fe8bbaed182580ba79f3b8333bc917",
+        "0xc531e084692c8c3c3a2139109c4c33d78103e67d51c43f6537d39186fb3fe1d5",
+        "0xb3db0b5c35df8ffa43de84dbe1d31c79905cdfe2cc70d808bec3d70db1c2db6b",
+        "0x62d7ca190902561196a3635ef43dde632f8177c293a000000b94217ee4df2f9c",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 160,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b41887409aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xf9210f66fab39add5d0636ef6b9b18857150f672229f6f81ef20f25b316592fe",
+      "proof": [
+        "0xfbaa06e66b06740d496857a720c9fd3346e42386c9226966c1aa43989c399b17",
+        "0x912f612a894dc647692190bdf415be7441b14dda4262a3e57e8925fd2665c625",
+        "0xfef6085d4cde81e2ed95bdb0c9efd3856a68915aaa423fe0b196b5478a249b36",
+        "0xf954faa097d95332c9db8ca3f6941b5546c0f2f5c75d440e57214cb5e36925a8",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 161,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d8409aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xfbaa06e66b06740d496857a720c9fd3346e42386c9226966c1aa43989c399b17",
+      "proof": [
+        "0xf9210f66fab39add5d0636ef6b9b18857150f672229f6f81ef20f25b316592fe",
+        "0x912f612a894dc647692190bdf415be7441b14dda4262a3e57e8925fd2665c625",
+        "0xfef6085d4cde81e2ed95bdb0c9efd3856a68915aaa423fe0b196b5478a249b36",
+        "0xf954faa097d95332c9db8ca3f6941b5546c0f2f5c75d440e57214cb5e36925a8",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 162,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d5498cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xfbc78027484c846fb9019b24ec59b245ff90e8d0741dbaebea9523c11a25070f",
+      "proof": [
+        "0xfe53eba84e5753b4d7850afdc177ee51f53e341cf42c9c9c1d68c7230cc669a3",
+        "0xa3951236b09fd8d0d7fe2c9f0f2cafc6198583bf94ba3473c1bb3df298c17ea5",
+        "0xfef6085d4cde81e2ed95bdb0c9efd3856a68915aaa423fe0b196b5478a249b36",
+        "0xf954faa097d95332c9db8ca3f6941b5546c0f2f5c75d440e57214cb5e36925a8",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 163,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "spender": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48cf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xfe53eba84e5753b4d7850afdc177ee51f53e341cf42c9c9c1d68c7230cc669a3",
+      "proof": [
+        "0xfbc78027484c846fb9019b24ec59b245ff90e8d0741dbaebea9523c11a25070f",
+        "0xa3951236b09fd8d0d7fe2c9f0f2cafc6198583bf94ba3473c1bb3df298c17ea5",
+        "0xfef6085d4cde81e2ed95bdb0c9efd3856a68915aaa423fe0b196b5478a249b36",
+        "0xf954faa097d95332c9db8ca3f6941b5546c0f2f5c75d440e57214cb5e36925a8",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    },
+    {
+      "index": 164,
+      "hook_name": "ApproveERC20Hook",
+      "hook_address": "0x8b789980dc6cC7d88E30C442D704646ff7F6d306",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "spender": "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb4809aea4b2242abc8bb4bb78d537a67a245a7bec64",
+      "leaf_hash": "0xfef6085d4cde81e2ed95bdb0c9efd3856a68915aaa423fe0b196b5478a249b36",
+      "proof": [
+        "0x9c6fbc83c7a58c93e0bacefca361f21bf880bc5ac628fff28861462773b68404",
+        "0xf954faa097d95332c9db8ca3f6941b5546c0f2f5c75d440e57214cb5e36925a8",
+        "0x3b9eca93f3983a8b10c17961c86aabf9b4610676db961672236f5345c768f7bd"
+      ]
+    }
+  ]
+}
