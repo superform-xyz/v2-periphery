@@ -180,7 +180,7 @@ contract SuperBankKyberSwapIntegration is Test, KyberSwapAPIParser {
                 vm.revertToState(snap);
             }
         }
-        vm.skip(true);
+        vm.skip(true); // KyberSwap live routes returned incompatible calldata on all retries — skip rather than fail CI
     }
 
     /// @notice Full integration: swap USDC→WHYPE on HyperEVM via ApproveAndSwapKyberSwapHook.

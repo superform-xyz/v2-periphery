@@ -108,6 +108,14 @@ contract SuperVaultB20MainnetForkTest is Test {
         mock4626 = new Mock4626Vault(B20_TOKEN, "Mock B20 Vault", "mvB20");
 
         _mockB20Calls();
+
+        // Mock getLastUpdateTimestamp so _isPPSNotUpdated() does not fire PPS_EXPIRED
+        // on any _validateStrategyState call (the on-chain PPS may be stale at fork block).
+        vm.mockCall(
+            AGGREGATOR,
+            abi.encodeCall(ISuperVaultAggregator.getLastUpdateTimestamp, (address(strategyContract))),
+            abi.encode(block.timestamp)
+        );
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -168,14 +176,6 @@ contract SuperVaultB20MainnetForkTest is Test {
 
         vm.warp(block.timestamp + aggregator.getHooksRootUpdateTimelock() + 1);
         aggregator.executeStrategyHooksRootUpdate(strategy);
-
-        // After the warp, mock getLastUpdateTimestamp so _isPPSNotUpdated() does not
-        // fire PPS_EXPIRED for any subsequent _validateStrategyState call.
-        vm.mockCall(
-            address(aggregator),
-            abi.encodeCall(ISuperVaultAggregator.getLastUpdateTimestamp, (strategy)),
-            abi.encode(block.timestamp)
-        );
 
         // ─── 4. Execute deposit hook: route B20 into mock4626 ─────────────────
         //
