@@ -72,10 +72,11 @@ log() {
 
 usage() {
     cat << EOF
-Usage: $0 <environment>
+Usage: $0 <environment> [chain_id]
 
 Arguments:
     environment  Environment: "production" (or "prod") or "staging" (required)
+    chain_id     (optional) Run only on this chain ID (e.g., 4663 for RH)
 
 Chains by environment:
     - production: Mainnet (chain ID 1)
@@ -127,6 +128,7 @@ main() {
     fi
 
     local environment="$1"
+    local chain_filter="${2:-}"
 
     # Normalize environment name
     case "$environment" in
@@ -168,6 +170,23 @@ main() {
     source "$networks_file"
 
     echo -e "${GREEN}Network configuration loaded for $environment environment${NC}"
+
+    # Filter networks if chain_id argument is provided
+    if [[ -n "$chain_filter" ]]; then
+        local filtered=()
+        for network_def in "${NETWORKS[@]}"; do
+            IFS=':' read -r network_id _ _ <<< "$network_def"
+            if [[ "$network_id" == "$chain_filter" ]]; then
+                filtered+=("$network_def")
+            fi
+        done
+        if [[ ${#filtered[@]} -eq 0 ]]; then
+            echo -e "${RED}Chain ID $chain_filter not found in $environment network configuration${NC}"
+            exit 1
+        fi
+        NETWORKS=("${filtered[@]}")
+        echo -e "${YELLOW}Filtered to chain $chain_filter only${NC}"
+    fi
 
     # Load RPC URLs - use different method for CI vs local
     echo -e "${CYAN}Loading RPC URLs...${NC}"

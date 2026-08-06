@@ -9,18 +9,21 @@
 #   appropriate configuration based on the environment and mode.
 #
 # Usage:
-#   ./add_hooks_to_governor_staging_prod.sh <environment> <mode> [account]
+#   ./add_hooks_to_governor_staging_prod.sh <environment> <mode> [account] [chain_id]
 #
 #   Parameters:
 #     environment: "staging" or "prod"
 #     mode: "simulate" or "configure"
 #     account: Account name (required for configure mode, e.g., "v2-supervaults")
+#     chain_id: (optional) Run only on this chain ID (e.g., 4663 for RH)
 #
 #   Examples:
 #     ./add_hooks_to_governor_staging_prod.sh staging simulate
 #     ./add_hooks_to_governor_staging_prod.sh staging configure v2-supervaults
 #     ./add_hooks_to_governor_staging_prod.sh prod simulate
 #     ./add_hooks_to_governor_staging_prod.sh prod configure v2-supervaults
+#     ./add_hooks_to_governor_staging_prod.sh prod simulate "" 4663
+#     ./add_hooks_to_governor_staging_prod.sh prod configure v2-supervaults 4663
 #
 # Prerequisites:
 #   - v2-core contracts must be deployed on target networks
@@ -471,28 +474,47 @@ configure_all_networks() {
 main() {
     # Check arguments
     if [ $# -lt 2 ]; then
-        log "ERROR" "Usage: $0 <environment> <mode> [account]"
+        log "ERROR" "Usage: $0 <environment> <mode> [account] [chain_id]"
         log "ERROR" "  environment: 'staging' or 'prod'"
         log "ERROR" "  mode: 'simulate' or 'configure'"
         log "ERROR" "  account: Account name (required for configure mode)"
+        log "ERROR" "  chain_id: (optional) Run only on this chain ID"
         log "ERROR" ""
         log "ERROR" "Examples:"
         log "ERROR" "  $0 staging simulate"
         log "ERROR" "  $0 staging configure v2-supervaults"
         log "ERROR" "  $0 prod simulate"
         log "ERROR" "  $0 prod configure v2-supervaults"
+        log "ERROR" "  $0 prod simulate \"\" 4663"
+        log "ERROR" "  $0 prod configure v2-supervaults 4663"
         exit 1
     fi
 
     local environment=$1
     local mode=$2
     local account="${3:-}"
+    local chain_filter="${4:-}"
 
     # Validate environment
     validate_environment "$environment"
 
     # Source network configuration based on environment
     source_network_config "$environment"
+
+    # Apply chain filter if provided (overrides SKIP_NETWORKS)
+    if [[ -n "$chain_filter" ]]; then
+        log "INFO" "Chain filter applied: only targeting chain $chain_filter"
+        # Override SKIP_NETWORKS: skip everything except the target chain
+        local all_network_ids
+        all_network_ids=$(get_supported_networks)
+        SKIP_NETWORKS=()
+        for nid in $all_network_ids; do
+            if [[ "$nid" != "$chain_filter" ]]; then
+                SKIP_NETWORKS+=("$nid")
+            fi
+        done
+        log "INFO" "Filtered to chain $chain_filter only"
+    fi
 
     # Validate mode
     validate_mode "$mode"

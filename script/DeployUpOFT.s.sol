@@ -29,11 +29,13 @@ contract DeployUpOFT is Script {
     uint32 internal constant BASE_EID = 30184;
     uint32 internal constant HYPEREVM_EID = 30367;
     uint32 internal constant FLARE_EID = 30295;
+    uint32 internal constant RH_EID = 30416;
 
     uint64 internal constant MAINNET_CHAIN_ID = 1;
     uint64 internal constant BASE_CHAIN_ID = 8453;
     uint64 internal constant HYPEREVM_CHAIN_ID = 999;
     uint64 internal constant FLARE_CHAIN_ID = 14;
+    uint64 internal constant RH_CHAIN_ID = 4663;
 
     uint16 internal constant SEND = 1;
     uint16 internal constant SEND_AND_CALL = 2;
@@ -47,9 +49,13 @@ contract DeployUpOFT is Script {
     // https://docs.layerzero.network/v2/deployments/deployed-contracts
     address internal constant DVN1_BASE = 0x9e059a54699a285714207b43B055483E78FAac25; // DVN LZ Base
     address internal constant DVN2_BASE = 0xEb62f578497Bdc351dD650853a751135212fAF49; // DVN Superform Base
+    address internal constant DVN3_BASE = 0x554833698Ae0FB22ECC90B01222903fD62CA4B47; // DVN Nethermind Base
+    address internal constant DVN4_BASE = 0xcd37CA043f8479064e10635020c65FfC005d36f6; // DVN Horizen Base
 
     address internal constant DVN1_ETH = 0x589dEDbD617e0CBcB916A9223F4d1300c294236b; // DVN LZ Eth
     address internal constant DVN2_ETH = 0x7518f30bd5867b5fA86702556245Dead173afE46; // DVN Superform Eth
+    address internal constant DVN3_ETH = 0xa4fE5A5B9A846458a70Cd0748228aED3bF65c2cd; // DVN Nethermind Eth
+    address internal constant DVN4_ETH = 0xa59BA433ac34D2927232918Ef5B2eaAfcF130BA5; // DVN Horizen Eth
 
     address internal constant SEND_LIB_BASE = 0xB5320B0B3a13cC860893E2Bd79FCd7e13484Dda2;
     address internal constant RECEIVE_LIB_BASE = 0xc70AB6f32772f59fBfc23889Caf4Ba3376C84bAf;
@@ -72,6 +78,15 @@ contract DeployUpOFT is Script {
     address internal constant SEND_LIB_FLARE = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
     address internal constant RECEIVE_LIB_FLARE = 0x2367325334447C5E1E0f1b3a6fB947b262F58312;
     address internal constant EXECUTOR_FLARE = 0xcCE466a522984415bC91338c232d98869193D46e;
+
+    // Robinhood Chain LayerZero V2 contracts (custom endpoint like HyperEVM)
+    address internal constant LZ_ENDPOINT_RH = 0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
+    address internal constant DVN_LZ_RH = 0xd01ae6905d48315f7bE10C7330aeCF8360Ef5b12; // DVN LZ Labs RH
+    address internal constant DVN_NETHERMIND_RH = 0x0Ffe02DF012299A370D5dd69298A5826EAcaFdF8; // DVN Nethermind RH
+    address internal constant DVN_CANARY_RH = 0x8D77D35604A9f37f488E41D1d916b2A0088F82Dd; // DVN Canary RH
+    address internal constant SEND_LIB_RH = 0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7;
+    address internal constant RECEIVE_LIB_RH = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
+    address internal constant EXECUTOR_RH = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b;
 
     uint32 internal constant GRACE_PERIOD = 0;
 
@@ -120,11 +135,26 @@ contract DeployUpOFT is Script {
     ExecutorConfig execBaseToFlare;
     ExecutorConfig execHyperEVMToFlare;
 
+    // RH pathway configs
+    UlnConfig ulnRHToEth;
+    UlnConfig ulnRHToBase;
+    UlnConfig ulnRHReceiveFromEth;
+    UlnConfig ulnRHReceiveFromBase;
+    UlnConfig ulnEthToRH;
+    UlnConfig ulnEthReceiveFromRH;
+    UlnConfig ulnBaseToRH;
+    UlnConfig ulnBaseReceiveFromRH;
+    ExecutorConfig execRHToEth;
+    ExecutorConfig execRHToBase;
+    ExecutorConfig execEthToRH;
+    ExecutorConfig execBaseToRH;
+
     struct OFTContracts {
         address adapter;
         address oft;
         address oftHyperEVM;
         address oftFlare;
+        address oftRH;
     }
 
     modifier broadcast(uint256 env) {
@@ -467,6 +497,127 @@ contract DeployUpOFT is Script {
         execHyperEVMToFlare = ExecutorConfig({
             maxMessageSize: 10_000,
             executor: EXECUTOR_HYPEREVM
+        });
+
+        // RH pathway configs (3 DVNs on RH side — LZ Labs, Nethermind, Canary; Superform DVN not yet deployed)
+        // On-chain all existing pathways use 20 confirmations uniformly, so we match that pattern.
+
+        address[] memory dvnsRH = new address[](3);
+        // Sorted ascending by address: Nethermind (0x0Ffe), Canary (0x8D77), LZ Labs (0xd01a)
+        dvnsRH[0] = DVN_NETHERMIND_RH;
+        dvnsRH[1] = DVN_CANARY_RH;
+        dvnsRH[2] = DVN_LZ_RH;
+
+        // RH→ETH send config (20 confirmations, matching on-chain pattern)
+        ulnRHToEth = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 3,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // RH→Base send config (20 confirmations, matching on-chain pattern)
+        ulnRHToBase = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 3,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // RH receive from ETH config (20 confirmations, matching on-chain pattern)
+        ulnRHReceiveFromEth = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 3,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // RH receive from Base config (20 confirmations, matching on-chain pattern)
+        ulnRHReceiveFromBase = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 3,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // ETH→RH send config (4 DVNs, 20 confirmations — matching all other ETH pathways on-chain)
+        address[] memory dvnsEthForRH = new address[](4);
+        // Sorted ascending: LZ (0x589d), Superform (0x7518), Nethermind (0xa4fE), Horizen (0xa59B)
+        dvnsEthForRH[0] = DVN1_ETH;
+        dvnsEthForRH[1] = DVN2_ETH;
+        dvnsEthForRH[2] = DVN3_ETH;
+        dvnsEthForRH[3] = DVN4_ETH;
+        ulnEthToRH = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsEthForRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // ETH receive from RH config (20 confirmations, 4 DVNs — matching on-chain pattern)
+        ulnEthReceiveFromRH = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsEthForRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // Base→RH send config (4 DVNs, 20 confirmations — matching all other Base pathways on-chain)
+        address[] memory dvnsBaseForRH = new address[](4);
+        // Sorted ascending: Nethermind (0x5548), LZ (0x9e05), Horizen (0xcd37), Superform (0xEb62)
+        dvnsBaseForRH[0] = DVN3_BASE;
+        dvnsBaseForRH[1] = DVN1_BASE;
+        dvnsBaseForRH[2] = DVN4_BASE;
+        dvnsBaseForRH[3] = DVN2_BASE;
+        ulnBaseToRH = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsBaseForRH,
+            optionalDVNs: new address[](0)
+        });
+
+        // Base receive from RH config (20 confirmations, 4 DVNs — matching on-chain pattern)
+        ulnBaseReceiveFromRH = UlnConfig({
+            confirmations: 20,
+            requiredDVNCount: 4,
+            optionalDVNCount: 0,
+            optionalDVNThreshold: 0,
+            requiredDVNs: dvnsBaseForRH,
+            optionalDVNs: new address[](0)
+        });
+
+        execRHToEth = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_RH
+        });
+
+        execRHToBase = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_RH
+        });
+
+        execEthToRH = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_ETH
+        });
+
+        execBaseToRH = ExecutorConfig({
+            maxMessageSize: 10_000,
+            executor: EXECUTOR_BASE
         });
     }
 
@@ -2187,6 +2338,10 @@ contract DeployUpOFT is Script {
         bytes memory oftFlareBytecode =
             abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT, owner));
         contracts.oftFlare = DeterministicDeployerLib.computeAddress(oftFlareBytecode, _getSalt("UpOFTFlare"));
+
+        bytes memory oftRHBytecode =
+            abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT_RH, owner));
+        contracts.oftRH = DeterministicDeployerLib.computeAddress(oftRHBytecode, _getSalt("UpOFT"));
     }
 
     function _deployAdapter(address owner) internal returns (address) {
@@ -2253,6 +2408,24 @@ contract DeployUpOFT is Script {
 
         if (predicted.code.length > 0) {
             console2.log("[!] UpOFT Flare already deployed, skipping...");
+            return predicted;
+        }
+
+        address deployed = DeterministicDeployerLib.deploy(bytecode, salt);
+        require(deployed == predicted, "Address mismatch");
+        require(deployed.code.length > 0, "Deployment failed");
+
+        return deployed;
+    }
+
+    function _deployOFTRH(address owner) internal returns (address) {
+        bytes32 salt = _getSalt("UpOFT");
+        bytes memory bytecode = abi.encodePacked(type(UpOFT).creationCode, abi.encode(LZ_ENDPOINT_RH, owner));
+
+        address predicted = DeterministicDeployerLib.computeAddress(bytecode, salt);
+
+        if (predicted.code.length > 0) {
+            console2.log("[!] UpOFT RH already deployed, skipping...");
             return predicted;
         }
 
@@ -2373,6 +2546,48 @@ contract DeployUpOFT is Script {
         ILayerZeroEndpointV2(LZ_ENDPOINT_HYPEREVM).setConfig(oapp, receiveLib, params);
     }
 
+    // RH-specific library functions (use LZ_ENDPOINT_RH)
+    function _setLibrariesRH(
+        address oapp,
+        uint32 dstEid,
+        uint32 srcEid,
+        address sendLib,
+        address receiveLib,
+        uint32 gracePeriod
+    ) internal {
+        // outbound messages to dstEid use sendLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT_RH).setSendLibrary(oapp, dstEid, sendLib);
+
+        // inbound messages from srcEid use receiveLib
+        ILayerZeroEndpointV2(LZ_ENDPOINT_RH).setReceiveLibrary(oapp, srcEid, receiveLib, gracePeriod);
+    }
+
+    function _setSendConfigRH(
+        address oapp,
+        uint32 remoteEid,
+        address sendLib,
+        UlnConfig memory uln,
+        ExecutorConfig memory exec
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](2);
+        params[0] = SetConfigParam(remoteEid, EXECUTOR_CONFIG_TYPE, abi.encode(exec));
+        params[1] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT_RH).setConfig(oapp, sendLib, params);
+    }
+
+    function _setReceiveConfigRH(
+        address oapp,
+        uint32 remoteEid,
+        address receiveLib,
+        UlnConfig memory uln
+    ) internal {
+        SetConfigParam[] memory params = new SetConfigParam[](1);
+        params[0] = SetConfigParam(remoteEid, ULN_CONFIG_TYPE, abi.encode(uln));
+
+        ILayerZeroEndpointV2(LZ_ENDPOINT_RH).setConfig(oapp, receiveLib, params);
+    }
+
     function _getSalt(string memory name) internal view returns (bytes32) {
         return keccak256(abi.encodePacked("SuperformV2", SALT_NAMESPACE, name, "v2.0"));
     }
@@ -2416,6 +2631,7 @@ contract DeployUpOFT is Script {
         if (chainId == BASE_CHAIN_ID) return "Base";
         if (chainId == HYPEREVM_CHAIN_ID) return "HyperEVM";
         if (chainId == FLARE_CHAIN_ID) return "Flare";
+        if (chainId == RH_CHAIN_ID) return "RH";
         revert("UNSUPPORTED_CHAIN");
     }
 
@@ -2423,6 +2639,530 @@ contract DeployUpOFT is Script {
         if (env == 0) return "prod";
         if (env == 2) return "staging";
         return "local";
+    }
+
+    // ============ RH Functions ============
+
+    function deployOFTOnRH(uint256 env) public {
+        _deployOFTOnRHWithBroadcast(env, "");
+    }
+
+    function deployOFTOnRH(uint256 env, string memory saltNamespace) public {
+        _deployOFTOnRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _deployOFTOnRHWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        address owner;
+        if (env == 1) {
+            (owner,) = deriveRememberKey(MNEMONIC, 0);
+        } else {
+            owner = msg.sender;
+        }
+
+        console2.log("");
+        console2.log("====== Deploying UpOFT on RH ======");
+        console2.log("Chain ID:", block.chainid);
+        console2.log("Owner:", owner);
+
+        address deployed = _deployOFTRH(owner);
+
+        console2.log("");
+        console2.log("UpOFT deployed:", deployed);
+        console2.log("====================================");
+    }
+
+    // ============ RH <-> Ethereum Functions ============
+
+    function configurePeerOnRH(uint256 env) public {
+        _configurePeerOnRHWithBroadcast(env, "");
+    }
+
+    function configurePeerOnRH(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnRHWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on RH ======");
+        console2.log("UpOFT:", contracts.oftRH);
+        console2.log("Peer (Ethereum UpOFTAdapter):", contracts.adapter);
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oftRH, ETH_EID, contracts.adapter);
+        console2.log("[+] Peer configured successfully");
+        console2.log("=====================================");
+    }
+
+    function configurePeerOnEthereumForRH(uint256 env) public {
+        _configurePeerOnEthereumForRHWithBroadcast(env, "", address(0));
+    }
+
+    function configurePeerOnEthereumForRH(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnEthereumForRHWithBroadcast(env, saltNamespace, address(0));
+    }
+
+    function configurePeerOnEthereumForRH(uint256 env, address rhOft) public {
+        _configurePeerOnEthereumForRHWithBroadcast(env, "", rhOft);
+    }
+
+    function _configurePeerOnEthereumForRHWithBroadcast(
+        uint256 env,
+        string memory saltNamespace,
+        address rhOftOverride
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+        address rhOft = rhOftOverride != address(0) ? rhOftOverride : contracts.oftRH;
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Ethereum for RH ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Peer (RH UpOFT):", rhOft);
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.adapter, RH_EID, rhOft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("==================================================");
+    }
+
+    function setEnforcedOptionsOnRH(uint256 env) public {
+        _setEnforcedOptionsOnRHWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnRH(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnRHWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on RH ======");
+        console2.log("UpOFT:", contracts.oftRH);
+        console2.log("Destination: Ethereum (EID:", ETH_EID, ")");
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oftRH, ETH_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("=============================================");
+    }
+
+    function setEnforcedOptionsOnEthereumForRH(uint256 env) public {
+        _setEnforcedOptionsOnEthereumForRHWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnEthereumForRH(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnEthereumForRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnEthereumForRHWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Ethereum for RH ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+        console2.log("Destination: RH (EID:", RH_EID, ")");
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.adapter, RH_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("=========================================================");
+    }
+
+    function configureLibrariesOnRH(uint256 env) public {
+        _configureLibrariesOnRHWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnRH(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnRHWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on RH ======");
+        console2.log("UpOFT:", contracts.oftRH);
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibrariesRH({
+            oapp: contracts.oftRH,
+            dstEid: ETH_EID,
+            srcEid: ETH_EID,
+            sendLib: SEND_LIB_RH,
+            receiveLib: RECEIVE_LIB_RH,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfigRH({
+            oapp: contracts.oftRH,
+            remoteEid: ETH_EID,
+            sendLib: SEND_LIB_RH,
+            uln: ulnRHToEth,
+            exec: execRHToEth
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfigRH({
+            oapp: contracts.oftRH,
+            remoteEid: ETH_EID,
+            receiveLib: RECEIVE_LIB_RH,
+            uln: ulnRHReceiveFromEth
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("==========================================");
+    }
+
+    function configureLibrariesOnEthereumForRH(uint256 env) public {
+        _configureLibrariesOnEthereumForRHWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnEthereumForRH(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnEthereumForRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnEthereumForRHWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == MAINNET_CHAIN_ID, "Must run on Ethereum");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Ethereum for RH ======");
+        console2.log("UpOFTAdapter:", contracts.adapter);
+
+        if (contracts.adapter.code.length == 0) {
+            console2.log("[!] UpOFTAdapter not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.adapter,
+            dstEid: RH_EID,
+            srcEid: RH_EID,
+            sendLib: SEND_LIB_ETH,
+            receiveLib: RECEIVE_LIB_ETH,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.adapter,
+            remoteEid: RH_EID,
+            sendLib: SEND_LIB_ETH,
+            uln: ulnEthToRH,
+            exec: execEthToRH
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.adapter,
+            remoteEid: RH_EID,
+            receiveLib: RECEIVE_LIB_ETH,
+            uln: ulnEthReceiveFromRH
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("======================================================");
+    }
+
+    // ============ RH <-> Base Functions ============
+
+    function configurePeerOnRHForBase(uint256 env) public {
+        _configurePeerOnRHForBaseWithBroadcast(env, "");
+    }
+
+    function configurePeerOnRHForBase(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnRHForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configurePeerOnRHForBaseWithBroadcast(uint256 env, string memory saltNamespace) internal broadcast(env) {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Peer on RH for Base ======");
+        console2.log("UpOFT:", contracts.oftRH);
+        console2.log("Peer (Base UpOFT):", contracts.oft);
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oftRH, BASE_EID, contracts.oft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("===============================================");
+    }
+
+    function configurePeerOnBaseForRH(uint256 env) public {
+        _configurePeerOnBaseForRHWithBroadcast(env, "", address(0));
+    }
+
+    function configurePeerOnBaseForRH(uint256 env, string memory saltNamespace) public {
+        _configurePeerOnBaseForRHWithBroadcast(env, saltNamespace, address(0));
+    }
+
+    function configurePeerOnBaseForRH(uint256 env, address rhOft) public {
+        _configurePeerOnBaseForRHWithBroadcast(env, "", rhOft);
+    }
+
+    function _configurePeerOnBaseForRHWithBroadcast(
+        uint256 env,
+        string memory saltNamespace,
+        address rhOftOverride
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+        address rhOft = rhOftOverride != address(0) ? rhOftOverride : contracts.oftRH;
+
+        console2.log("");
+        console2.log("====== Configuring Peer on Base for RH ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Peer (RH UpOFT):", rhOft);
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping peer configuration");
+            return;
+        }
+        _setPeer(contracts.oft, RH_EID, rhOft);
+        console2.log("[+] Peer configured successfully");
+        console2.log("===============================================");
+    }
+
+    function setEnforcedOptionsOnRHForBase(uint256 env) public {
+        _setEnforcedOptionsOnRHForBaseWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnRHForBase(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnRHForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnRHForBaseWithBroadcast(
+        uint256 env,
+        string memory saltNamespace
+    )
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on RH for Base ======");
+        console2.log("UpOFT:", contracts.oftRH);
+        console2.log("Destination: Base (EID:", BASE_EID, ")");
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oftRH, BASE_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("=====================================================");
+    }
+
+    function setEnforcedOptionsOnBaseForRH(uint256 env) public {
+        _setEnforcedOptionsOnBaseForRHWithBroadcast(env, "");
+    }
+
+    function setEnforcedOptionsOnBaseForRH(uint256 env, string memory saltNamespace) public {
+        _setEnforcedOptionsOnBaseForRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _setEnforcedOptionsOnBaseForRHWithBroadcast(uint256 env, string memory saltNamespace)
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Setting Enforced Options on Base for RH ======");
+        console2.log("UpOFT:", contracts.oft);
+        console2.log("Destination: RH (EID:", RH_EID, ")");
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping enforced options");
+            return;
+        }
+        _setEnforcedOptions(contracts.oft, RH_EID);
+        console2.log("[+] Enforced options set successfully");
+        console2.log("=====================================================");
+    }
+
+    function configureLibrariesOnRHForBase(uint256 env) public {
+        _configureLibrariesOnRHForBaseWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnRHForBase(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnRHForBaseWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnRHForBaseWithBroadcast(uint256 env, string memory saltNamespace)
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == RH_CHAIN_ID, "Must run on RH");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on RH for Base ======");
+        console2.log("UpOFT:", contracts.oftRH);
+
+        if (contracts.oftRH.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibrariesRH({
+            oapp: contracts.oftRH,
+            dstEid: BASE_EID,
+            srcEid: BASE_EID,
+            sendLib: SEND_LIB_RH,
+            receiveLib: RECEIVE_LIB_RH,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfigRH({
+            oapp: contracts.oftRH,
+            remoteEid: BASE_EID,
+            sendLib: SEND_LIB_RH,
+            uln: ulnRHToBase,
+            exec: execRHToBase
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfigRH({
+            oapp: contracts.oftRH,
+            remoteEid: BASE_EID,
+            receiveLib: RECEIVE_LIB_RH,
+            uln: ulnRHReceiveFromBase
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("==================================================");
+    }
+
+    function configureLibrariesOnBaseForRH(uint256 env) public {
+        _configureLibrariesOnBaseForRHWithBroadcast(env, "");
+    }
+
+    function configureLibrariesOnBaseForRH(uint256 env, string memory saltNamespace) public {
+        _configureLibrariesOnBaseForRHWithBroadcast(env, saltNamespace);
+    }
+
+    function _configureLibrariesOnBaseForRHWithBroadcast(uint256 env, string memory saltNamespace)
+        internal
+        broadcast(env)
+    {
+        _setConfiguration(env, saltNamespace);
+        require(block.chainid == BASE_CHAIN_ID, "Must run on Base");
+
+        OFTContracts memory contracts = _computeAddresses();
+
+        console2.log("");
+        console2.log("====== Configuring Libraries on Base for RH ======");
+        console2.log("UpOFT:", contracts.oft);
+
+        if (contracts.oft.code.length == 0) {
+            console2.log("[!] UpOFT not deployed yet, skipping library configuration");
+            return;
+        }
+
+        _setLibraries({
+            oapp: contracts.oft,
+            dstEid: RH_EID,
+            srcEid: RH_EID,
+            sendLib: SEND_LIB_BASE,
+            receiveLib: RECEIVE_LIB_BASE,
+            gracePeriod: GRACE_PERIOD
+        });
+        console2.log("[+] Send/Receive libraries set");
+
+        _setSendConfig({
+            oapp: contracts.oft,
+            remoteEid: RH_EID,
+            sendLib: SEND_LIB_BASE,
+            uln: ulnBaseToRH,
+            exec: execBaseToRH
+        });
+        console2.log("[+] Send config (ULN + Executor) set");
+
+        _setReceiveConfig({
+            oapp: contracts.oft,
+            remoteEid: RH_EID,
+            receiveLib: RECEIVE_LIB_BASE,
+            uln: ulnBaseReceiveFromRH
+        });
+        console2.log("[+] Receive config (ULN) set");
+
+        console2.log("==================================================");
     }
 
     /// @notice Export deployed contract addresses to JSON files
@@ -2476,11 +3216,19 @@ contract DeployUpOFT is Script {
         _exportContract("UpOFT", contracts.oftFlare, FLARE_CHAIN_ID);
         _writeExportedContracts(FLARE_CHAIN_ID, envName);
 
+        // Reset for RH
+        contractCount[FLARE_CHAIN_ID] = 0;
+
+        // Export RH contracts
+        _exportContract("UpOFT", contracts.oftRH, RH_CHAIN_ID);
+        _writeExportedContracts(RH_CHAIN_ID, envName);
+
         console2.log("");
         console2.log("====== Export Complete ======");
         console2.log("UpOFTAdapter (Ethereum):", contracts.adapter);
         console2.log("UpOFT (Base):", contracts.oft);
         console2.log("UpOFT (HyperEVM):", contracts.oftHyperEVM);
         console2.log("UpOFT (Flare):", contracts.oftFlare);
+        console2.log("UpOFT (RH):", contracts.oftRH);
     }
 }
