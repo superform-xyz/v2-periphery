@@ -1,0 +1,116 @@
+{
+  "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+  "hook_names": [
+    "AcrossSendFundsAndExecuteOnDstHook"
+  ],
+  "root": "0xa20104149c80c1beb82aaaf68f82c8d0fa2446eb69d8a6726d237a0c3ba82224",
+  "total_leaves": 6,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654fe642ffc3496aca19106bab7a42f1f221a329654fe0000000000000000000000000000000000000000",
+      "leaf_hash": "0x1c5c383ed7aaee0266492e016b2f74a16e90cb22b97c268939b5485ae771df3f",
+      "proof": [
+        "0x3a52f364d4ea942a46340a4e889afebf6913e4f71f30645f50f80e0779fba6d2",
+        "0x7cc6c6a173532c3b63bed8783e1c211642a09dbc36104cea5359e1e8030f7959",
+        "0x144c860b5075fc465c4795e512d8ae85fbb7ca517e4d127349bafe7bc0ed5cf9"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654fe833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000",
+      "leaf_hash": "0x3a52f364d4ea942a46340a4e889afebf6913e4f71f30645f50f80e0779fba6d2",
+      "proof": [
+        "0x1c5c383ed7aaee0266492e016b2f74a16e90cb22b97c268939b5485ae771df3f",
+        "0x7cc6c6a173532c3b63bed8783e1c211642a09dbc36104cea5359e1e8030f7959",
+        "0x144c860b5075fc465c4795e512d8ae85fbb7ca517e4d127349bafe7bc0ed5cf9"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630f642ffc3496aca19106bab7a42f1f221a329654fe0000000000000000000000000000000000000000",
+      "leaf_hash": "0x4950090d10753f833183cc82a4747fa7cf9adf2dc054dc2144ab34299bfef40e",
+      "proof": [
+        "0x4a379b413752d3b296a1e7641f5e0ec0f0c331c8012134d720302c2c837f178c",
+        "0xd7f6a697d9fe19f8e1ee3e8066792b62249bfcf1807bd1925fcc792f40db0195",
+        "0x144c860b5075fc465c4795e512d8ae85fbb7ca517e4d127349bafe7bc0ed5cf9"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630fb88339cb7199b77e23db6e890353e22632ba630f0000000000000000000000000000000000000000",
+      "leaf_hash": "0x4a379b413752d3b296a1e7641f5e0ec0f0c331c8012134d720302c2c837f178c",
+      "proof": [
+        "0x4950090d10753f833183cc82a4747fa7cf9adf2dc054dc2144ab34299bfef40e",
+        "0xd7f6a697d9fe19f8e1ee3e8066792b62249bfcf1807bd1925fcc792f40db0195",
+        "0x144c860b5075fc465c4795e512d8ae85fbb7ca517e4d127349bafe7bc0ed5cf9"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654feb88339cb7199b77e23db6e890353e22632ba630f0000000000000000000000000000000000000000",
+      "leaf_hash": "0xa4f4a6d4f13d4e51d3409d514bad6e3ce6e4a458742b8fb2b3e59558f7a62300",
+      "proof": [
+        "0xb59ce861ac3257b3e789218e38eb12e265d9068657a0b93c77f0e80f8a3f1842",
+        "0x53c576e5aaa1baf930a1b5632fd8fe6621deaacdfefe7ec767c4b0640d2151cb"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "AcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0xc5147702Cfd4d8ab5F028e57B30253460583b54d",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630f833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000",
+      "leaf_hash": "0xb59ce861ac3257b3e789218e38eb12e265d9068657a0b93c77f0e80f8a3f1842",
+      "proof": [
+        "0xa4f4a6d4f13d4e51d3409d514bad6e3ce6e4a458742b8fb2b3e59558f7a62300",
+        "0x53c576e5aaa1baf930a1b5632fd8fe6621deaacdfefe7ec767c4b0640d2151cb"
+      ]
+    }
+  ]
+}

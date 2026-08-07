@@ -1,0 +1,482 @@
+{
+  "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+  "hook_names": [
+    "ApproveAndSwapOdosV3Hook"
+  ],
+  "root": "0xd64155ff12bbcef440eff1d3832432971b6e59c5a1a5500e4c6a210e94a34870",
+  "total_leaves": 25,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "executor": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5e6151691ff20684426d5dc017c0a3c4e1e533dee0000000000000000000000000000000000000000",
+      "leaf_hash": "0x048f227285418462e5fda080005c65632273aad8a2b166d226453e0553b4689e",
+      "proof": [
+        "0x0dd5a03e096e2d85a0d0cb19c9fe3d8b02ce4e1d8d189198bade021febd89823",
+        "0xbd909934977cde27195df529f19e819b3ddd6d290e06ee8cdcb520e48b344aa0",
+        "0x40e9efefbc85aec3e3651d932fe45f3ad543fdab378a8494aa9a0ba4c6ebcc88",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "executor": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e09e6151691ff20684426d5dc017c0a3c4e1e533dee0000000000000000000000000000000000000000",
+      "leaf_hash": "0x0dd5a03e096e2d85a0d0cb19c9fe3d8b02ce4e1d8d189198bade021febd89823",
+      "proof": [
+        "0x048f227285418462e5fda080005c65632273aad8a2b166d226453e0553b4689e",
+        "0xbd909934977cde27195df529f19e819b3ddd6d290e06ee8cdcb520e48b344aa0",
+        "0x40e9efefbc85aec3e3651d932fe45f3ad543fdab378a8494aa9a0ba4c6ebcc88",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "executor": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b519ceead7105607cd444f5ad10dd51356436095a10000000000000000000000000000000000000000",
+      "leaf_hash": "0x1cf2e60b7a671c5c53ee183d9d267eae29c13a7f6b5aefeddc201dc7a64267d9",
+      "proof": [
+        "0x1fdbe978b9be762259b77cb52b048bf610dc1a87a795834ea5fbe5e3c8d0f3e5",
+        "0xe4945f4670a38eec3bd1de9f51d1de38163a9fdd8cf02ddb794bba4d46de6024",
+        "0x40e9efefbc85aec3e3651d932fe45f3ad543fdab378a8494aa9a0ba4c6ebcc88",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5bf44de8fc9eeeed8615b0b3bc095cb0ddef35e090000000000000000000000000000000000000000",
+      "leaf_hash": "0x1fdbe978b9be762259b77cb52b048bf610dc1a87a795834ea5fbe5e3c8d0f3e5",
+      "proof": [
+        "0x1cf2e60b7a671c5c53ee183d9d267eae29c13a7f6b5aefeddc201dc7a64267d9",
+        "0xe4945f4670a38eec3bd1de9f51d1de38163a9fdd8cf02ddb794bba4d46de6024",
+        "0x40e9efefbc85aec3e3651d932fe45f3ad543fdab378a8494aa9a0ba4c6ebcc88",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "executor": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xe6151691ff20684426d5dc017c0a3c4e1e533dee19ceead7105607cd444f5ad10dd51356436095a10000000000000000000000000000000000000000",
+      "leaf_hash": "0x28ee866abb4123b6aa8cfc9a41ff8857d8e5a9b89d7b000387e3a08245cd89af",
+      "proof": [
+        "0x2cc85a9ee745814cf4183ad1c66ca9313e09af271822800ad017f629d03f0a49",
+        "0xf025a53146c7cb6a029b9b0d6405fe401834b66852b78b22bd9c82163ea4c86c",
+        "0xc3454d0001bf32ca6a4d555f9fb26e14fb7756ab3a2a5a2e9174f430b43a20d2",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151dbf44de8fc9eeeed8615b0b3bc095cb0ddef35e090000000000000000000000000000000000000000",
+      "leaf_hash": "0x2cc85a9ee745814cf4183ad1c66ca9313e09af271822800ad017f629d03f0a49",
+      "proof": [
+        "0x28ee866abb4123b6aa8cfc9a41ff8857d8e5a9b89d7b000387e3a08245cd89af",
+        "0xf025a53146c7cb6a029b9b0d6405fe401834b66852b78b22bd9c82163ea4c86c",
+        "0xc3454d0001bf32ca6a4d555f9fb26e14fb7756ab3a2a5a2e9174f430b43a20d2",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5d4f480965d2347d421f1bec7f545682e5ec2151d0000000000000000000000000000000000000000",
+      "leaf_hash": "0x3787a1d5b66d16038bcecbb6137406ad340f06f9320d15613689b07f435bf26e",
+      "proof": [
+        "0x387238f1d562e126da51b85d054585dd04276f2ee9e524d4d4cb4e3e140338ab",
+        "0xc716b8cc544b77437ea2ecc7fc10e20dbb5b04a7bb331ce4541f57a97bda8a3c",
+        "0xc3454d0001bf32ca6a4d555f9fb26e14fb7756ab3a2a5a2e9174f430b43a20d2",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "executor": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151d19ceead7105607cd444f5ad10dd51356436095a10000000000000000000000000000000000000000",
+      "leaf_hash": "0x387238f1d562e126da51b85d054585dd04276f2ee9e524d4d4cb4e3e140338ab",
+      "proof": [
+        "0x3787a1d5b66d16038bcecbb6137406ad340f06f9320d15613689b07f435bf26e",
+        "0xc716b8cc544b77437ea2ecc7fc10e20dbb5b04a7bb331ce4541f57a97bda8a3c",
+        "0xc3454d0001bf32ca6a4d555f9fb26e14fb7756ab3a2a5a2e9174f430b43a20d2",
+        "0x353709bd22a200d65a73b1c9fd67784ea464cf7ae5e0f7a1639987e9f9a6acb0",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e096131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000",
+      "leaf_hash": "0x55c11c5e76d22a3ab0192331ed889cc75e2e3001ae9ab414e2c245d66287656b",
+      "proof": [
+        "0x58aec36218779eb456fdc673ffeff073fd6dd2efd65c744759f6379fca5c3740",
+        "0xebc26900aaebc92a4a67e9bf6783402867cc1e4d1fb789bb5e378952beec1605",
+        "0xf57286b2fb11500ddd2cc37234b1b48859427276939d95945c3f1754a2e0ac92",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "executor": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e0919ceead7105607cd444f5ad10dd51356436095a10000000000000000000000000000000000000000",
+      "leaf_hash": "0x58aec36218779eb456fdc673ffeff073fd6dd2efd65c744759f6379fca5c3740",
+      "proof": [
+        "0x55c11c5e76d22a3ab0192331ed889cc75e2e3001ae9ab414e2c245d66287656b",
+        "0xebc26900aaebc92a4a67e9bf6783402867cc1e4d1fb789bb5e378952beec1605",
+        "0xf57286b2fb11500ddd2cc37234b1b48859427276939d95945c3f1754a2e0ac92",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e09d4f480965d2347d421f1bec7f545682e5ec2151d0000000000000000000000000000000000000000",
+      "leaf_hash": "0x751a3da4366b831b1e72aa57dfa096cc05540b3a537665ff93c01888aa03d47a",
+      "proof": [
+        "0x784db04fd43f3df8ec8fbb48d28fed46d4bbfd5587dc4bd4148c242b1e481419",
+        "0x7c16ac6591714186b0442090c42411461ad8ce320f20fddfc83fc1d2bb563fc8",
+        "0xf57286b2fb11500ddd2cc37234b1b48859427276939d95945c3f1754a2e0ac92",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xe6151691ff20684426d5dc017c0a3c4e1e533deed4f480965d2347d421f1bec7f545682e5ec2151d0000000000000000000000000000000000000000",
+      "leaf_hash": "0x784db04fd43f3df8ec8fbb48d28fed46d4bbfd5587dc4bd4148c242b1e481419",
+      "proof": [
+        "0x751a3da4366b831b1e72aa57dfa096cc05540b3a537665ff93c01888aa03d47a",
+        "0x7c16ac6591714186b0442090c42411461ad8ce320f20fddfc83fc1d2bb563fc8",
+        "0xf57286b2fb11500ddd2cc37234b1b48859427276939d95945c3f1754a2e0ac92",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "executor": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x19ceead7105607cd444f5ad10dd51356436095a1e6151691ff20684426d5dc017c0a3c4e1e533dee0000000000000000000000000000000000000000",
+      "leaf_hash": "0x7d4ed3806e83fefb3518b08e718ae467cd6145c5d3c9d7f653028d1f86902fa2",
+      "proof": [
+        "0x99ca9378b620f65deff339194801e7fbc55ff0cbabfb9396031047b98250e648",
+        "0x95c8d95fa355ea80d9a3b4184726582f37fc91b3d7f18e255a617171c7447935",
+        "0x713a43fbd4bfe6d888652f7997efe154258b816588f876cb7a62378ef55db890",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 13,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "executor": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x19ceead7105607cd444f5ad10dd51356436095a119ceead7105607cd444f5ad10dd51356436095a10000000000000000000000000000000000000000",
+      "leaf_hash": "0x99ca9378b620f65deff339194801e7fbc55ff0cbabfb9396031047b98250e648",
+      "proof": [
+        "0x7d4ed3806e83fefb3518b08e718ae467cd6145c5d3c9d7f653028d1f86902fa2",
+        "0x95c8d95fa355ea80d9a3b4184726582f37fc91b3d7f18e255a617171c7447935",
+        "0x713a43fbd4bfe6d888652f7997efe154258b816588f876cb7a62378ef55db890",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 14,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "executor": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151de6151691ff20684426d5dc017c0a3c4e1e533dee0000000000000000000000000000000000000000",
+      "leaf_hash": "0xa041b4aec195f2e6d197c0b3c6e27531fb72be38668767bd64c75a2905d8d4d7",
+      "proof": [
+        "0xc036c67f31145711dad641d11c6e6370722dad50bec393fe1205983f9a5e1dc0",
+        "0x65f254b9ac19ec16a1bce7d9a17d195af571b3d60e5650d6b46ad211110110d9",
+        "0x713a43fbd4bfe6d888652f7997efe154258b816588f876cb7a62378ef55db890",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 15,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x19ceead7105607cd444f5ad10dd51356436095a1d4f480965d2347d421f1bec7f545682e5ec2151d0000000000000000000000000000000000000000",
+      "leaf_hash": "0xc036c67f31145711dad641d11c6e6370722dad50bec393fe1205983f9a5e1dc0",
+      "proof": [
+        "0xa041b4aec195f2e6d197c0b3c6e27531fb72be38668767bd64c75a2905d8d4d7",
+        "0x65f254b9ac19ec16a1bce7d9a17d195af571b3d60e5650d6b46ad211110110d9",
+        "0x713a43fbd4bfe6d888652f7997efe154258b816588f876cb7a62378ef55db890",
+        "0xf6dda1f6f7dde6b4623fc55d06b8c6f97beecf519c07acdc22a875213c109414",
+        "0x487a91a82e35c26e6cfb5f0edf1d094e5e9d30e78fb0bbbd2d9ca3daa1c2f67f"
+      ]
+    },
+    {
+      "index": 16,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151dd4f480965d2347d421f1bec7f545682e5ec2151d0000000000000000000000000000000000000000",
+      "leaf_hash": "0xc9c9de0fa08d1294602ca6eda5603fd56aa89507d47686b15dd909c1279b27d9",
+      "proof": [
+        "0xd882ed5663f07aaa94eb52f0db206940ec3ff6dbdb8fcdac4af779523bfdfa5c",
+        "0x05f8f12ee834fe8974bf797d65780fd13796cb173a840b614bc5da418a9d4d1d",
+        "0x026b860cacdde2b71f394a9a8addaca8618b2f9d1926d7e5bdee94d9070070ed",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 17,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x19ceead7105607cd444f5ad10dd51356436095a1bf44de8fc9eeeed8615b0b3bc095cb0ddef35e090000000000000000000000000000000000000000",
+      "leaf_hash": "0xd882ed5663f07aaa94eb52f0db206940ec3ff6dbdb8fcdac4af779523bfdfa5c",
+      "proof": [
+        "0xc9c9de0fa08d1294602ca6eda5603fd56aa89507d47686b15dd909c1279b27d9",
+        "0x05f8f12ee834fe8974bf797d65780fd13796cb173a840b614bc5da418a9d4d1d",
+        "0x026b860cacdde2b71f394a9a8addaca8618b2f9d1926d7e5bdee94d9070070ed",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 18,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xe6151691ff20684426d5dc017c0a3c4e1e533deebf44de8fc9eeeed8615b0b3bc095cb0ddef35e090000000000000000000000000000000000000000",
+      "leaf_hash": "0xd9e473567d23533e4a69d864346a12c33197bf867f8b468b5e81b1c60da4f795",
+      "proof": [
+        "0xdd92f52d4d1930000309ed16774f9be04a6530fd2a3c690add611ea9c29e385e",
+        "0x26e587410d873466ac95f898a4c9896cec51fbccab427121595bca3e3794c3e0",
+        "0x026b860cacdde2b71f394a9a8addaca8618b2f9d1926d7e5bdee94d9070070ed",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 19,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b56131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000",
+      "leaf_hash": "0xdd92f52d4d1930000309ed16774f9be04a6530fd2a3c690add611ea9c29e385e",
+      "proof": [
+        "0xd9e473567d23533e4a69d864346a12c33197bf867f8b468b5e81b1c60da4f795",
+        "0x26e587410d873466ac95f898a4c9896cec51fbccab427121595bca3e3794c3e0",
+        "0x026b860cacdde2b71f394a9a8addaca8618b2f9d1926d7e5bdee94d9070070ed",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 20,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xe6151691ff20684426d5dc017c0a3c4e1e533dee6131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000",
+      "leaf_hash": "0xdfc1da52694791ebf55ca900b85f05dc15e07e9abe05a1b627f724e59aa634f0",
+      "proof": [
+        "0xe6d95cd3fe282ac2f69bd0ec4003d24f6645695122be53d8321b9da3b9fd0938",
+        "0xcea66cb7b9b12e156fb5d7a8e3cbf69650055248f7627f971d9fbd1e69801a9b",
+        "0xe02bb838a1a4a004e9d122775cbeaca8f4535103c67eb87f7b1c3a02591a98fe",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 21,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "executor": "0xe6151691FF20684426d5DC017c0a3C4E1e533dee",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xe6151691ff20684426d5dc017c0a3c4e1e533deee6151691ff20684426d5dc017c0a3c4e1e533dee0000000000000000000000000000000000000000",
+      "leaf_hash": "0xe6d95cd3fe282ac2f69bd0ec4003d24f6645695122be53d8321b9da3b9fd0938",
+      "proof": [
+        "0xdfc1da52694791ebf55ca900b85f05dc15e07e9abe05a1b627f724e59aa634f0",
+        "0xcea66cb7b9b12e156fb5d7a8e3cbf69650055248f7627f971d9fbd1e69801a9b",
+        "0xe02bb838a1a4a004e9d122775cbeaca8f4535103c67eb87f7b1c3a02591a98fe",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 22,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0x19cEeAd7105607Cd444F5ad10dd51356436095a1",
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x19ceead7105607cd444f5ad10dd51356436095a16131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000",
+      "leaf_hash": "0xe82df115ef38632dc63cd6e99e9864d67c38f37bda8094ef7b8802dce823139e",
+      "proof": [
+        "0xecd21380adfaaf0997abe8e970e1de9f6a61e0d874049732a95c4c05a54b79de",
+        "0xb2f0a058d8c871e790b66a08bf80dc575a8978959fcba066a4e94cc5004bb030",
+        "0xe02bb838a1a4a004e9d122775cbeaca8f4535103c67eb87f7b1c3a02591a98fe",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 23,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "executor": "0xbF44De8fc9EEEED8615b0b3bc095CB0ddef35e09",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xbf44de8fc9eeeed8615b0b3bc095cb0ddef35e09bf44de8fc9eeeed8615b0b3bc095cb0ddef35e090000000000000000000000000000000000000000",
+      "leaf_hash": "0xecd21380adfaaf0997abe8e970e1de9f6a61e0d874049732a95c4c05a54b79de",
+      "proof": [
+        "0xe82df115ef38632dc63cd6e99e9864d67c38f37bda8094ef7b8802dce823139e",
+        "0xb2f0a058d8c871e790b66a08bf80dc575a8978959fcba066a4e94cc5004bb030",
+        "0xe02bb838a1a4a004e9d122775cbeaca8f4535103c67eb87f7b1c3a02591a98fe",
+        "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    },
+    {
+      "index": 24,
+      "hook_name": "ApproveAndSwapOdosV3Hook",
+      "hook_address": "0x6Fa4B7a931c53Fd2944646311fe5a71CA2C9112A",
+      "args": {
+        "inputReceiver": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+        "feeRecipient": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151d6131b5fae19ea4f9d964eac0408e4408b66337b50000000000000000000000000000000000000000",
+      "leaf_hash": "0xfc913779d83c642d41f1caf272e504a21a629733f13268d94815e9acdc7b8e75",
+      "proof": [
+        "0x3cd193fef30d7739e8ab68afc0b9e00e8bbb41d29f7ee30b43cef58f6f9fb1fc",
+        "0x216fd7b457244ca83fcdeb99a19e10d9e3a12efafa454ca62829d8a3b080c79a"
+      ]
+    }
+  ]
+}

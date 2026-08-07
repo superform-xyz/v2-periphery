@@ -1,0 +1,66 @@
+{
+  "hook_address": "0x38AA8bFD18a6477A51fc9772B9513098E98916C4",
+  "hook_names": [
+    "SwapOdosV2Hook"
+  ],
+  "root": "0xae5c137c764da500de1808d3a9a37a4439cb4098db87f0297f9b8313501cb8e5",
+  "total_leaves": 4,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x38AA8bFD18a6477A51fc9772B9513098E98916C4",
+      "args": {
+        "dst_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "leaf_hash": "0x0c120c8ce07d798b7041aed949969beefecc887c46f1835bb580ef88062b0958",
+      "proof": [
+        "0x4bddaac57da9a321103c52fbcb9530b62602a071a8991e9f0aa0dfc3de1873d4",
+        "0x8adefc2b49145b87b30d8da228762f3e3bd57eec825fb5b49788441166120335"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x38AA8bFD18a6477A51fc9772B9513098E98916C4",
+      "args": {
+        "dst_token": "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B"
+      },
+      "encoded_args": "0x5b2193fdc451c1f847be09ca9d13a4bf60f8c86b",
+      "leaf_hash": "0x4bddaac57da9a321103c52fbcb9530b62602a071a8991e9f0aa0dfc3de1873d4",
+      "proof": [
+        "0x0c120c8ce07d798b7041aed949969beefecc887c46f1835bb580ef88062b0958",
+        "0x8adefc2b49145b87b30d8da228762f3e3bd57eec825fb5b49788441166120335"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x38AA8bFD18a6477A51fc9772B9513098E98916C4",
+      "args": {
+        "dst_token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x5afc84a02cc47adaed4cd1b71f5953350ad4f981d32dcae9749814971b1887a8",
+      "proof": [
+        "0x7f98adeead634ae74bbcb75deac1f51f5944d6efce135b7d7feb3cd77e6a6dc6",
+        "0xf9c0dbfef4da5e1b2e693f08c1f615089b04c75a45289cc07c7cc144bd732847"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "SwapOdosV2Hook",
+      "hook_address": "0x38AA8bFD18a6477A51fc9772B9513098E98916C4",
+      "args": {
+        "dst_token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf33",
+      "leaf_hash": "0x7f98adeead634ae74bbcb75deac1f51f5944d6efce135b7d7feb3cd77e6a6dc6",
+      "proof": [
+        "0x5afc84a02cc47adaed4cd1b71f5953350ad4f981d32dcae9749814971b1887a8",
+        "0xf9c0dbfef4da5e1b2e693f08c1f615089b04c75a45289cc07c7cc144bd732847"
+      ]
+    }
+  ]
+}

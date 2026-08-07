@@ -96,3 +96,12 @@ generate:
 	rm -rf contract_bindings/*
 	./lib/v2-core/script/run/retrieve-abis.sh
 	./script/run/generate-contract-bindings.sh
+# ── SuperBank merkle roots (migrated from archived superman repo) ─────────────
+# Usage: make generate-superbank-roots CHAIN_ID=8453 [ENVIRONMENT=prod] [HOOKS="SwapKyberSwapHook ..."]
+.PHONY: generate-superbank-roots
+generate-superbank-roots:
+ifndef CHAIN_ID
+	$(error CHAIN_ID is required. Usage: make generate-superbank-roots CHAIN_ID=8453)
+endif
+	ENVIRONMENT=$${ENVIRONMENT:-prod} python3 script/superbank-roots/generate_superbank_roots.py \
+		--chain-id $(CHAIN_ID) $(if $(HOOKS),--hooks $(HOOKS))

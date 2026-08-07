@@ -1,0 +1,599 @@
+{
+  "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+  "hook_names": [
+    "ApproveAndDeposit5115VaultHook"
+  ],
+  "root": "0xa36ffbd5a07396fd26aaebe8a3f4f0c62d87f0966bdc96c242e2c89ddff90048",
+  "total_leaves": 33,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x0FedbA9178b70e8b54e2Af08eBffcf28A1e5A43B"
+      },
+      "encoded_args": "0x0fedba9178b70e8b54e2af08ebffcf28a1e5a43b",
+      "leaf_hash": "0x177eb5c00ed549b456500c32684d6adf751d94360b3eed364e8e1b4ba7bfab74",
+      "proof": [
+        "0x1fc613731443b9437d0881d9202101c936b588d416b1fe768868afe76709e9e5",
+        "0x0744f0e71f6842b83771cbc13f84bcbeb147830893e2d5291ec706adb24bb6e1",
+        "0xd1a1adcb900877cce25272bf4d6c9784fb33df534ea093616c4ecac03ddd735c",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x972966bCC17f7d818De4F27Dc146Ef539c231BdF"
+      },
+      "encoded_args": "0x972966bcc17f7d818de4f27dc146ef539c231bdf",
+      "leaf_hash": "0x1fc613731443b9437d0881d9202101c936b588d416b1fe768868afe76709e9e5",
+      "proof": [
+        "0x177eb5c00ed549b456500c32684d6adf751d94360b3eed364e8e1b4ba7bfab74",
+        "0x0744f0e71f6842b83771cbc13f84bcbeb147830893e2d5291ec706adb24bb6e1",
+        "0xd1a1adcb900877cce25272bf4d6c9784fb33df534ea093616c4ecac03ddd735c",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      },
+      "encoded_args": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "leaf_hash": "0x23e4dc886da2adcd39abfe6c365741cd31887847bfa2a38a20fb02873197a513",
+      "proof": [
+        "0x2f2487ec4ba951c226aff44b0479099507de4821670f91e15d535b05f390fb6a",
+        "0xd6eeb35f33ff8cd1c1d6da7aec97bb4c9c27a2518d37abea1dd95c378c38cdcb",
+        "0xd1a1adcb900877cce25272bf4d6c9784fb33df534ea093616c4ecac03ddd735c",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+      },
+      "encoded_args": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "leaf_hash": "0x2f2487ec4ba951c226aff44b0479099507de4821670f91e15d535b05f390fb6a",
+      "proof": [
+        "0x23e4dc886da2adcd39abfe6c365741cd31887847bfa2a38a20fb02873197a513",
+        "0xd6eeb35f33ff8cd1c1d6da7aec97bb4c9c27a2518d37abea1dd95c378c38cdcb",
+        "0xd1a1adcb900877cce25272bf4d6c9784fb33df534ea093616c4ecac03ddd735c",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x871aB8E36CaE9AF35c6A3488B049965233DeB7ed"
+      },
+      "encoded_args": "0x871ab8e36cae9af35c6a3488b049965233deb7ed",
+      "leaf_hash": "0x36101b46fbf812ad9abbfa3a9082851abf02020c314b36eac231d99cb98f1e28",
+      "proof": [
+        "0x3ef7e21da8a913a8be978b2fa8544cb5a6279de22b5502773ea2111ed5a8672f",
+        "0xe9e18bd5a1b74563e0a507be221960f9f962229f115c2f064c21c6fd598d90ac",
+        "0x1aa5f6fdffd9766f30457b80cfbc915e9896af5c0f0a50b4a2dc35f44b99ce41",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x54Bf2659B5CdFd86b75920e93C0844c0364F5166"
+      },
+      "encoded_args": "0x54bf2659b5cdfd86b75920e93c0844c0364f5166",
+      "leaf_hash": "0x3ef7e21da8a913a8be978b2fa8544cb5a6279de22b5502773ea2111ed5a8672f",
+      "proof": [
+        "0x36101b46fbf812ad9abbfa3a9082851abf02020c314b36eac231d99cb98f1e28",
+        "0xe9e18bd5a1b74563e0a507be221960f9f962229f115c2f064c21c6fd598d90ac",
+        "0x1aa5f6fdffd9766f30457b80cfbc915e9896af5c0f0a50b4a2dc35f44b99ce41",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xC4924f9E6e1feEa9f44Ed117711Af2ed14600081"
+      },
+      "encoded_args": "0xc4924f9e6e1feea9f44ed117711af2ed14600081",
+      "leaf_hash": "0x4218e34dd117e2d3c9c175be756215a6e8e0b5eb5e019ca6044fa24c7a827bca",
+      "proof": [
+        "0x52260506ef08d83242c980d70f06c50691be607ef76a5f51c0994b902bbe9d33",
+        "0x8e3a4d23907fc6fc3c237b87532583ec2df8b34a78cc126dd7fa22fab7f0bd3a",
+        "0x1aa5f6fdffd9766f30457b80cfbc915e9896af5c0f0a50b4a2dc35f44b99ce41",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      },
+      "encoded_args": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "leaf_hash": "0x52260506ef08d83242c980d70f06c50691be607ef76a5f51c0994b902bbe9d33",
+      "proof": [
+        "0x4218e34dd117e2d3c9c175be756215a6e8e0b5eb5e019ca6044fa24c7a827bca",
+        "0x8e3a4d23907fc6fc3c237b87532583ec2df8b34a78cc126dd7fa22fab7f0bd3a",
+        "0x1aa5f6fdffd9766f30457b80cfbc915e9896af5c0f0a50b4a2dc35f44b99ce41",
+        "0xd770212594a9c8428fead17d7bb9b1755a116a9706dcbfc518b733f7acb29b5a",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
+      },
+      "encoded_args": "0x9d39a5de30e57443bff2a8307a4256c8797a3497",
+      "leaf_hash": "0x52a00e64acb8faf3457f6e0b83b6784091241fa2ba37e6969334b3a1ebb4cc6c",
+      "proof": [
+        "0x52a15377a2e8ab0e19dcf98e75b520bfa79076eae1db1ffa7d6fc323ffc79540",
+        "0x34bda16b66d9bdcbd2399e329f53f851ba7bd3783ec39a0bedd9cf3389feb205",
+        "0x8b9174301bc0d0453fe313831eba251e0c295ffcd320c103bf612f2fd082cc82",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x5d928577454dfb826dd6163c75A487AB96032c2D"
+      },
+      "encoded_args": "0x5d928577454dfb826dd6163c75a487ab96032c2d",
+      "leaf_hash": "0x52a15377a2e8ab0e19dcf98e75b520bfa79076eae1db1ffa7d6fc323ffc79540",
+      "proof": [
+        "0x52a00e64acb8faf3457f6e0b83b6784091241fa2ba37e6969334b3a1ebb4cc6c",
+        "0x34bda16b66d9bdcbd2399e329f53f851ba7bd3783ec39a0bedd9cf3389feb205",
+        "0x8b9174301bc0d0453fe313831eba251e0c295ffcd320c103bf612f2fd082cc82",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf33",
+      "leaf_hash": "0x5513812ded14bc671d771a0effa4f1864e7b7f0c4b461ddbf27039c11d4b3c67",
+      "proof": [
+        "0x5e1363fc55380e250be97ef189fde4d62dfe7654b02f30a8c55194949a6ebc7e",
+        "0x644ca1f80e9d0ce7da3b35ec46f096bf4caf59fc2f3a0a2a66b97a346b0a6d97",
+        "0x8b9174301bc0d0453fe313831eba251e0c295ffcd320c103bf612f2fd082cc82",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x526D0dde8876b6e8Fb40026D62E625273D7f2460"
+      },
+      "encoded_args": "0x526d0dde8876b6e8fb40026d62e625273d7f2460",
+      "leaf_hash": "0x5e1363fc55380e250be97ef189fde4d62dfe7654b02f30a8c55194949a6ebc7e",
+      "proof": [
+        "0x5513812ded14bc671d771a0effa4f1864e7b7f0c4b461ddbf27039c11d4b3c67",
+        "0x644ca1f80e9d0ce7da3b35ec46f096bf4caf59fc2f3a0a2a66b97a346b0a6d97",
+        "0x8b9174301bc0d0453fe313831eba251e0c295ffcd320c103bf612f2fd082cc82",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x2443E846D17a738aE1262702fCE2C4cd7A3E83ea"
+      },
+      "encoded_args": "0x2443e846d17a738ae1262702fce2c4cd7a3e83ea",
+      "leaf_hash": "0x5effa634ea98037447a50a391dfb68117cf886fb263205670addb7b31912a2a1",
+      "proof": [
+        "0x654cdd3277b2b75786fb0e7efa52a898ca2e572ed8ff83b3835669a7f7fb8bfe",
+        "0x66b2a6a9c11f0b61841a25ebe5fe8031eec8d99be7d893392bbdb024741983f7",
+        "0xe49ad2272a77e885b278a1c26be62364b209171053d4063e69367c51f539e08e",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 13,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2"
+      },
+      "encoded_args": "0x58d97b57bb95320f9a05dc918aef65434969c2b2",
+      "leaf_hash": "0x654cdd3277b2b75786fb0e7efa52a898ca2e572ed8ff83b3835669a7f7fb8bfe",
+      "proof": [
+        "0x5effa634ea98037447a50a391dfb68117cf886fb263205670addb7b31912a2a1",
+        "0x66b2a6a9c11f0b61841a25ebe5fe8031eec8d99be7d893392bbdb024741983f7",
+        "0xe49ad2272a77e885b278a1c26be62364b209171053d4063e69367c51f539e08e",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 14,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x8209b01357946A64a0793e9773F6F3Fe5A5F2526"
+      },
+      "encoded_args": "0x8209b01357946a64a0793e9773f6f3fe5a5f2526",
+      "leaf_hash": "0x707e4dd8922e8f4414631dc2ba0131fc3456e18d755823674a95bdac5d1758f5",
+      "proof": [
+        "0x7db39e51097d0d29ad10974ab7fccbef709fe5b50a42e18627cbed34fcfa6c10",
+        "0xd1f757119029e45a95f45aa9adef350651d6db8c6447888cbe8f475da3d1fa88",
+        "0xe49ad2272a77e885b278a1c26be62364b209171053d4063e69367c51f539e08e",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 15,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xcCcc62962d17b8914c62D74FfB843d73B2a3cccC"
+      },
+      "encoded_args": "0xcccc62962d17b8914c62d74ffb843d73b2a3cccc",
+      "leaf_hash": "0x7db39e51097d0d29ad10974ab7fccbef709fe5b50a42e18627cbed34fcfa6c10",
+      "proof": [
+        "0x707e4dd8922e8f4414631dc2ba0131fc3456e18d755823674a95bdac5d1758f5",
+        "0xd1f757119029e45a95f45aa9adef350651d6db8c6447888cbe8f475da3d1fa88",
+        "0xe49ad2272a77e885b278a1c26be62364b209171053d4063e69367c51f539e08e",
+        "0x4cca7cbb22db4a879279b9cd81243fc7ead0c86143f4c673dc6a7a19fb89e448",
+        "0x127bbe15c4291ee1ea6a0769979b88d271c3721b17ad97eeda443fd25571443c",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 16,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x469c74C25c6BDeDFf41aB69370CEEA55f9f64e6d"
+      },
+      "encoded_args": "0x469c74c25c6bdedff41ab69370ceea55f9f64e6d",
+      "leaf_hash": "0x85d94a704f5f3f7135d62ad415926d03b3d98aff95659f6c5ad1c72f9fab886c",
+      "proof": [
+        "0x86191a1771a66d243dc0afa35b44f50d1a4fb647b09f9f1cb5861d85a11ae33d",
+        "0xb54fe29a4baed3642f03cb05e40c9f7e85ba24fb48432dbf0ac2f6b1ac0e955b",
+        "0xb727a845855f922ab6e44677958f5eb5ebd86ec841a295816d4178e1dd879d7f",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 17,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xeF101508bf4DC6CF0f0a0C135f39a41faB4E4389"
+      },
+      "encoded_args": "0xef101508bf4dc6cf0f0a0c135f39a41fab4e4389",
+      "leaf_hash": "0x86191a1771a66d243dc0afa35b44f50d1a4fb647b09f9f1cb5861d85a11ae33d",
+      "proof": [
+        "0x85d94a704f5f3f7135d62ad415926d03b3d98aff95659f6c5ad1c72f9fab886c",
+        "0xb54fe29a4baed3642f03cb05e40c9f7e85ba24fb48432dbf0ac2f6b1ac0e955b",
+        "0xb727a845855f922ab6e44677958f5eb5ebd86ec841a295816d4178e1dd879d7f",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 18,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xcc16Cd49194e7AA3DCa780c742580e2f9b418874"
+      },
+      "encoded_args": "0xcc16cd49194e7aa3dca780c742580e2f9b418874",
+      "leaf_hash": "0x96ba4d058ffa8c16995f3fb4f6237928b865fbf19fbbe30ae0b513c0301f88a8",
+      "proof": [
+        "0x97c19d665f7b552168ab307f01be69c8583905ab54d15da0a671e41abcc5bf1d",
+        "0xbb3bf2de702dfec241f153dec9dcb40de49b0ba9c5a3af599ae9cbffae4def18",
+        "0xb727a845855f922ab6e44677958f5eb5ebd86ec841a295816d4178e1dd879d7f",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 19,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
+      },
+      "encoded_args": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "leaf_hash": "0x97c19d665f7b552168ab307f01be69c8583905ab54d15da0a671e41abcc5bf1d",
+      "proof": [
+        "0x96ba4d058ffa8c16995f3fb4f6237928b865fbf19fbbe30ae0b513c0301f88a8",
+        "0xbb3bf2de702dfec241f153dec9dcb40de49b0ba9c5a3af599ae9cbffae4def18",
+        "0xb727a845855f922ab6e44677958f5eb5ebd86ec841a295816d4178e1dd879d7f",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 20,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
+      },
+      "encoded_args": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+      "leaf_hash": "0xa2b1423db55830115509e7e3c715949236b258c40af9d16a97ae664bd9b93681",
+      "proof": [
+        "0xaa391c001eb12ff0b53b93fab3a05aa861f49dfc56baee030bcdcb721902e722",
+        "0xf0d193159416eea9df333cbb3fd516f20e2cb06b25f0d7bb0ab5aaaee2678229",
+        "0xd752ede367c019e8ddc61cb56364eef769ca3646f19ef5e8282d8569fa3e5e08",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 21,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x215A6a2A0d1c563D0CB55EbD8D126f3Bc0b92CF2"
+      },
+      "encoded_args": "0x215a6a2a0d1c563d0cb55ebd8d126f3bc0b92cf2",
+      "leaf_hash": "0xaa391c001eb12ff0b53b93fab3a05aa861f49dfc56baee030bcdcb721902e722",
+      "proof": [
+        "0xa2b1423db55830115509e7e3c715949236b258c40af9d16a97ae664bd9b93681",
+        "0xf0d193159416eea9df333cbb3fd516f20e2cb06b25f0d7bb0ab5aaaee2678229",
+        "0xd752ede367c019e8ddc61cb56364eef769ca3646f19ef5e8282d8569fa3e5e08",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 22,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x08903411e7a3eB500e30aaC3bdD44775055b8C00"
+      },
+      "encoded_args": "0x08903411e7a3eb500e30aac3bdd44775055b8c00",
+      "leaf_hash": "0xaf2984ebe02429fdbe28b8e8377f445117681eaef74a55e8fa3af91d0f087afc",
+      "proof": [
+        "0xbb30a873064bc912dec3745bcb8662b4ddb101b3acb0c5c073884884d050aef6",
+        "0xe73bd087b323ff8d0fd9e4ec60b03406989f1e2220b5e31210e9d4be83bd34e7",
+        "0xd752ede367c019e8ddc61cb56364eef769ca3646f19ef5e8282d8569fa3e5e08",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 23,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x6B628D0c03ddf16ecA75F4A4977dc3db685555D8"
+      },
+      "encoded_args": "0x6b628d0c03ddf16eca75f4a4977dc3db685555d8",
+      "leaf_hash": "0xbb30a873064bc912dec3745bcb8662b4ddb101b3acb0c5c073884884d050aef6",
+      "proof": [
+        "0xaf2984ebe02429fdbe28b8e8377f445117681eaef74a55e8fa3af91d0f087afc",
+        "0xe73bd087b323ff8d0fd9e4ec60b03406989f1e2220b5e31210e9d4be83bd34e7",
+        "0xd752ede367c019e8ddc61cb56364eef769ca3646f19ef5e8282d8569fa3e5e08",
+        "0x3e3c356bd79a239ec91fd111c8e4befd34819541b13ab5aefe5f6f959d12b816",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 24,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xBa3335588D9403515223F109EdC4eB7269a9Ab5D"
+      },
+      "encoded_args": "0xba3335588d9403515223f109edc4eb7269a9ab5d",
+      "leaf_hash": "0xc8381a5ba82e63bcbe9cb3ef0ef1818dcf8a3e3418f14e628a7b7398807d0998",
+      "proof": [
+        "0xc9dd296bc25b59f16d0e8091369564697042af489944b482a63c473fbacb9335",
+        "0xd5678aba8dedaf09b950d2441db9e46b72145a00369c951c24f42290a70cd980",
+        "0xf4437e0c3359d36255cb9ba320473b6eb0c7fc041e86be68c5ca3750805644d9",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 25,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x38FdF2dBAaE0e1e42499A4C6DFECAE3B5Cb35C59"
+      },
+      "encoded_args": "0x38fdf2dbaae0e1e42499a4c6dfecae3b5cb35c59",
+      "leaf_hash": "0xc9dd296bc25b59f16d0e8091369564697042af489944b482a63c473fbacb9335",
+      "proof": [
+        "0xc8381a5ba82e63bcbe9cb3ef0ef1818dcf8a3e3418f14e628a7b7398807d0998",
+        "0xd5678aba8dedaf09b950d2441db9e46b72145a00369c951c24f42290a70cd980",
+        "0xf4437e0c3359d36255cb9ba320473b6eb0c7fc041e86be68c5ca3750805644d9",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 26,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xE93694da1BEcAACD3cE5E1AEB484D43BEEC3e83b"
+      },
+      "encoded_args": "0xe93694da1becaacd3ce5e1aeb484d43beec3e83b",
+      "leaf_hash": "0xcc9e7115151ef1c747d33adb55c1d113830065dda3335894da703ec2391a3054",
+      "proof": [
+        "0xce0430366d83de9048e49c2741b18dcfbe26d1e8550eb20073fa394541105c00",
+        "0x2eeada00124fb9f5a0742768db5e2010970837b5dfa2dafd66d324e23c88ddf8",
+        "0xf4437e0c3359d36255cb9ba320473b6eb0c7fc041e86be68c5ca3750805644d9",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 27,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x30EA2E13fFcDd9ec18335f4D10181Eb14a6D5498"
+      },
+      "encoded_args": "0x30ea2e13ffcdd9ec18335f4d10181eb14a6d5498",
+      "leaf_hash": "0xce0430366d83de9048e49c2741b18dcfbe26d1e8550eb20073fa394541105c00",
+      "proof": [
+        "0xcc9e7115151ef1c747d33adb55c1d113830065dda3335894da703ec2391a3054",
+        "0x2eeada00124fb9f5a0742768db5e2010970837b5dfa2dafd66d324e23c88ddf8",
+        "0xf4437e0c3359d36255cb9ba320473b6eb0c7fc041e86be68c5ca3750805644d9",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 28,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xa60C325069B2B10BC63926818A4f4320A28b5bba"
+      },
+      "encoded_args": "0xa60c325069b2b10bc63926818a4f4320a28b5bba",
+      "leaf_hash": "0xd14d67fda1d0e0ac28ab53b72c03542279e9d62efad49163eda232eca6d30660",
+      "proof": [
+        "0xe455c881e13ee0050c52958d8261d70b7cb96939b98cabb271b9b136a1521170",
+        "0x0ac8b78862835931abd11f849d4c3f0a353707baaaa81117436b03370ad8b220",
+        "0xce4b4b1c4cbcf9a3c0a7fa5b0dbd7465359c0e3628224fd0f351edd9cdd49fca",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 29,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      },
+      "encoded_args": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "leaf_hash": "0xe455c881e13ee0050c52958d8261d70b7cb96939b98cabb271b9b136a1521170",
+      "proof": [
+        "0xd14d67fda1d0e0ac28ab53b72c03542279e9d62efad49163eda232eca6d30660",
+        "0x0ac8b78862835931abd11f849d4c3f0a353707baaaa81117436b03370ad8b220",
+        "0xce4b4b1c4cbcf9a3c0a7fa5b0dbd7465359c0e3628224fd0f351edd9cdd49fca",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 30,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xE1D9b789da5B5375eACF66f036022B019A2Af307"
+      },
+      "encoded_args": "0xe1d9b789da5b5375eacf66f036022b019a2af307",
+      "leaf_hash": "0xe837ff95e3e20c8eca4402668472bc2b94c9935bfd60efde4991378326d5dae2",
+      "proof": [
+        "0xec9be95c687a98be3092b83ab77f0557e69f28986a7cb4254a2d921832a10e5c",
+        "0x7369c4aa919fd665f8e47c33ce55669878e9150e2d464c9eb59ff2302f30ff79",
+        "0xce4b4b1c4cbcf9a3c0a7fa5b0dbd7465359c0e3628224fd0f351edd9cdd49fca",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 31,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0xb6c0b59AfF5c128AB0631a7CE762a2Abcf926d84"
+      },
+      "encoded_args": "0xb6c0b59aff5c128ab0631a7ce762a2abcf926d84",
+      "leaf_hash": "0xec9be95c687a98be3092b83ab77f0557e69f28986a7cb4254a2d921832a10e5c",
+      "proof": [
+        "0xe837ff95e3e20c8eca4402668472bc2b94c9935bfd60efde4991378326d5dae2",
+        "0x7369c4aa919fd665f8e47c33ce55669878e9150e2d464c9eb59ff2302f30ff79",
+        "0xce4b4b1c4cbcf9a3c0a7fa5b0dbd7465359c0e3628224fd0f351edd9cdd49fca",
+        "0x9a11bc5014d24ff522b3e72161aaa7ca8f51c0e08773b8e9d7692f643c0cd1b3",
+        "0x8794e0bb45746264bf215b14caab252092d80fcdc33c9600e30a45c283d2755e",
+        "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762"
+      ]
+    },
+    {
+      "index": 32,
+      "hook_name": "ApproveAndDeposit5115VaultHook",
+      "hook_address": "0x44c7a40f05771FdAEAee61f36902D95cbf593988",
+      "args": {
+        "token": "0x606B5C773dC4D6E625C411cF60565f8c30C467d2"
+      },
+      "encoded_args": "0x606b5c773dc4d6e625c411cf60565f8c30c467d2",
+      "leaf_hash": "0xf5de4b979a5799eb51e6eaae004b1003f9be36d0d68999946eb6eb99b2673762",
+      "proof": [
+        "0xd74f0811475d143f9d07b70d34bb6e9d942f12c18b204700895c77e34ffd19b1"
+      ]
+    }
+  ]
+}

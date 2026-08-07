@@ -1,0 +1,66 @@
+{
+  "hook_address": "0xcF5419270C9415E44c97E595c505708cfA334C30",
+  "hook_names": [
+    "ApproveAndSwapKyberSwapHook"
+  ],
+  "root": "0xac4a92a3b8b7b71c3d2e7081389c448404980051efdd7cf36f79cf09f7394b8e",
+  "total_leaves": 4,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xcF5419270C9415E44c97E595c505708cfA334C30",
+      "args": {
+        "dst_token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x34571fee8571b9270c9f1cbf4edb91a42c3a7eb0fa5c5f9f3af5c38f54c8da9a",
+      "proof": [
+        "0x4e6e856a74280aa24ffc7141200a7244853efddd4cc65b1dafe7786ea21ceaeb",
+        "0x91bf797ff71011c2df1d9c6639d72c0361318d354837e102544580fde995d2b9"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xcF5419270C9415E44c97E595c505708cfA334C30",
+      "args": {
+        "dst_token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f",
+      "leaf_hash": "0x4e6e856a74280aa24ffc7141200a7244853efddd4cc65b1dafe7786ea21ceaeb",
+      "proof": [
+        "0x34571fee8571b9270c9f1cbf4edb91a42c3a7eb0fa5c5f9f3af5c38f54c8da9a",
+        "0x91bf797ff71011c2df1d9c6639d72c0361318d354837e102544580fde995d2b9"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xcF5419270C9415E44c97E595c505708cfA334C30",
+      "args": {
+        "dst_token": "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
+      },
+      "encoded_args": "0x1d926bbe67425c9f507b9a0e8030eedc7880bf33",
+      "leaf_hash": "0x5ca7cfe345f81c81e7684789059ca0dde0f0dfd95fd4ed5686a10ff7556e3fb2",
+      "proof": [
+        "0xd1247c4a0abbeaabff238768c75bfdc938560867d296501f45b818929b3b033b",
+        "0x0ec749d4b1dca91caab4ea97706aac26cf7cae8a60b6e32f8cb9fcce3a82bf14"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndSwapKyberSwapHook",
+      "hook_address": "0xcF5419270C9415E44c97E595c505708cfA334C30",
+      "args": {
+        "dst_token": "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B"
+      },
+      "encoded_args": "0x5b2193fdc451c1f847be09ca9d13a4bf60f8c86b",
+      "leaf_hash": "0xd1247c4a0abbeaabff238768c75bfdc938560867d296501f45b818929b3b033b",
+      "proof": [
+        "0x5ca7cfe345f81c81e7684789059ca0dde0f0dfd95fd4ed5686a10ff7556e3fb2",
+        "0x0ec749d4b1dca91caab4ea97706aac26cf7cae8a60b6e32f8cb9fcce3a82bf14"
+      ]
+    }
+  ]
+}

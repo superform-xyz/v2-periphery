@@ -1,0 +1,36 @@
+{
+  "chain_id": "999",
+  "environment": "prod",
+  "generated_at": "2026-07-27T10:13:54.282746+00:00",
+  "superbank_address": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+  "hooks": {
+    "0x05c49e05bb8575afdf1142cC95dA6747b069174A": {
+      "names": [
+        "SwapKyberSwapHook"
+      ],
+      "root": "0x5bbbc06ab3786f3ead20492e88ec732a8045e14344b03e9d114c0be75ee2404d",
+      "total_leaves": 2
+    },
+    "0xcF5419270C9415E44c97E595c505708cfA334C30": {
+      "names": [
+        "ApproveAndSwapKyberSwapHook"
+      ],
+      "root": "0xac4a92a3b8b7b71c3d2e7081389c448404980051efdd7cf36f79cf09f7394b8e",
+      "total_leaves": 4
+    },
+    "0xc5147702Cfd4d8ab5F028e57B30253460583b54d": {
+      "names": [
+        "AcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0xa20104149c80c1beb82aaaf68f82c8d0fa2446eb69d8a6726d237a0c3ba82224",
+      "total_leaves": 6
+    },
+    "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe": {
+      "names": [
+        "ApproveAndAcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0x285f976599d07c604e1b13580dc3bbaf43064223e4c5610784b5b1c0b289f3e8",
+      "total_leaves": 6
+    }
+  }
+}

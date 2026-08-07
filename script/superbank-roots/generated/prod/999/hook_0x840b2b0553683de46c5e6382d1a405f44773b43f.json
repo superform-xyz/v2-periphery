@@ -1,0 +1,36 @@
+{
+  "hook_address": "0x840B2b0553683dE46c5e6382D1a405f44773b43F",
+  "hook_names": [
+    "ApproveAndRequestDeposit7540VaultHook"
+  ],
+  "root": "0xb9daa56217d19a0133612db8b8f138337d3cfbaa7e3024354d0092a3c1d9a8a3",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndRequestDeposit7540VaultHook",
+      "hook_address": "0x840B2b0553683dE46c5e6382D1a405f44773b43F",
+      "args": {
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe",
+      "leaf_hash": "0x7eea2c16bd7b3d361e45c514b3c5df19828b347043e6c7bb3195296746baff70",
+      "proof": [
+        "0x9b13517b10310608e1465af89fcb793af7c02b74d70178003466d582ecd118f4"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndRequestDeposit7540VaultHook",
+      "hook_address": "0x840B2b0553683dE46c5e6382D1a405f44773b43F",
+      "args": {
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f",
+      "leaf_hash": "0x9b13517b10310608e1465af89fcb793af7c02b74d70178003466d582ecd118f4",
+      "proof": [
+        "0x7eea2c16bd7b3d361e45c514b3c5df19828b347043e6c7bb3195296746baff70"
+      ]
+    }
+  ]
+}

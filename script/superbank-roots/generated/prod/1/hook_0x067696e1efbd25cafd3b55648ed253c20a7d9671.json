@@ -1,0 +1,66 @@
+{
+  "hook_address": "0x067696e1EfBD25cAfD3B55648ED253C20A7d9671",
+  "hook_names": [
+    "ApproveAndSwapOdosV2Hook"
+  ],
+  "root": "0x3b38bac8a7da233539606418ffab73025f954d02d70bcef5387342b97e0f849f",
+  "total_leaves": 4,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndSwapOdosV2Hook",
+      "hook_address": "0x067696e1EfBD25cAfD3B55648ED253C20A7d9671",
+      "args": {
+        "executor": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D"
+      },
+      "encoded_args": "0xd4f480965d2347d421f1bec7f545682e5ec2151d",
+      "leaf_hash": "0x8e6cd2496aa08c0f882305bdb3ba4a3029bfdd2223402186e296b2a9f6534325",
+      "proof": [
+        "0xa7687b9b43eb4738c858400b8524f2083e219dfa9759b2c316adc7c4e66ce603",
+        "0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndSwapOdosV2Hook",
+      "hook_address": "0x067696e1EfBD25cAfD3B55648ED253C20A7d9671",
+      "args": {
+        "executor": "0x365084B05Fa7d5028346bD21D842eD0601bAB5b8"
+      },
+      "encoded_args": "0x365084b05fa7d5028346bd21d842ed0601bab5b8",
+      "leaf_hash": "0xa7687b9b43eb4738c858400b8524f2083e219dfa9759b2c316adc7c4e66ce603",
+      "proof": [
+        "0x8e6cd2496aa08c0f882305bdb3ba4a3029bfdd2223402186e296b2a9f6534325",
+        "0x0989f1c78721a0312d2bc6e3e333ae1768632886dfad9b446fd1891e8725bfd1"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndSwapOdosV2Hook",
+      "hook_address": "0x067696e1EfBD25cAfD3B55648ED253C20A7d9671",
+      "args": {
+        "executor": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+      },
+      "encoded_args": "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+      "leaf_hash": "0xb9833ecee0050ea0ef8a640aa9376adc68bf099a3be77c3e61b3170f3b627986",
+      "proof": [
+        "0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742",
+        "0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndSwapOdosV2Hook",
+      "hook_address": "0x067696e1EfBD25cAfD3B55648ED253C20A7d9671",
+      "args": {
+        "executor": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5"
+      },
+      "encoded_args": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5",
+      "leaf_hash": "0xd8fbccad6e63e761720571c16c4c5aef5661946b811c75f01df52e9c151e9742",
+      "proof": [
+        "0xb9833ecee0050ea0ef8a640aa9376adc68bf099a3be77c3e61b3170f3b627986",
+        "0x08e7547053a35c0002af11139111611ab418ba0fa7de833c2b089182cd7f4918"
+      ]
+    }
+  ]
+}

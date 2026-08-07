@@ -1,0 +1,116 @@
+{
+  "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+  "hook_names": [
+    "ApproveAndAcrossSendFundsAndExecuteOnDstHook"
+  ],
+  "root": "0x285f976599d07c604e1b13580dc3bbaf43064223e4c5610784b5b1c0b289f3e8",
+  "total_leaves": 6,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630f642ffc3496aca19106bab7a42f1f221a329654fe0000000000000000000000000000000000000000",
+      "leaf_hash": "0x034190cd0922992aee6b139347371e18ce070a404eee2c168d4ed39eb625cd96",
+      "proof": [
+        "0x07cb2597bbc81108b583b997237b4c6864a24060e52f008f8b317dced653d6e6",
+        "0xf9af9ad69d681d92be2c9163c88fb215ca7d4bba77537d82219b70bccbcf8b19",
+        "0xa9772288dc1b80229dfbec0600268224388cb1b4d5d1c497618313ad714fcc0a"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654feb88339cb7199b77e23db6e890353e22632ba630f0000000000000000000000000000000000000000",
+      "leaf_hash": "0x07cb2597bbc81108b583b997237b4c6864a24060e52f008f8b317dced653d6e6",
+      "proof": [
+        "0x034190cd0922992aee6b139347371e18ce070a404eee2c168d4ed39eb625cd96",
+        "0xf9af9ad69d681d92be2c9163c88fb215ca7d4bba77537d82219b70bccbcf8b19",
+        "0xa9772288dc1b80229dfbec0600268224388cb1b4d5d1c497618313ad714fcc0a"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630fb88339cb7199b77e23db6e890353e22632ba630f0000000000000000000000000000000000000000",
+      "leaf_hash": "0x2701dcbd80d4db21bdf4cba4c0d406e66c6c81d8bfcb73572b8225f58116727a",
+      "proof": [
+        "0x2fb8127a963e0fbe201ef7dce370f32e98e87feb236c1d0c70e87fffddf4aa26",
+        "0xd919d47bf0a77257454067e6258a74b663c5cd822c9b4eac140bbe76b42a4e82",
+        "0xa9772288dc1b80229dfbec0600268224388cb1b4d5d1c497618313ad714fcc0a"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654fe642ffc3496aca19106bab7a42f1f221a329654fe0000000000000000000000000000000000000000",
+      "leaf_hash": "0x2fb8127a963e0fbe201ef7dce370f32e98e87feb236c1d0c70e87fffddf4aa26",
+      "proof": [
+        "0x2701dcbd80d4db21bdf4cba4c0d406e66c6c81d8bfcb73572b8225f58116727a",
+        "0xd919d47bf0a77257454067e6258a74b663c5cd822c9b4eac140bbe76b42a4e82",
+        "0xa9772288dc1b80229dfbec0600268224388cb1b4d5d1c497618313ad714fcc0a"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "outputToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15642ffc3496aca19106bab7a42f1f221a329654fe833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000",
+      "leaf_hash": "0xcecf9771038ea45b6f3ff6b249b7b21155d0d7af268a87b3156d9cda315acd7d",
+      "proof": [
+        "0xdfdfb8b32843c1e6ddf8b4b812dcbb51d73449da48e28349a0078191e43fa026",
+        "0x8b2df561ac441bbb7466f319cc957399719d0e9df17661a0a827ebf9e4922b2c"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "ApproveAndAcrossSendFundsAndExecuteOnDstHook",
+      "hook_address": "0x8643A93724F97b60D3d5d64cb44d0F3e012e2CDe",
+      "args": {
+        "recipient": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+        "inputToken": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "outputToken": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "exclusiveRelayer": "0x0000000000000000000000000000000000000000"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15b88339cb7199b77e23db6e890353e22632ba630f833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000",
+      "leaf_hash": "0xdfdfb8b32843c1e6ddf8b4b812dcbb51d73449da48e28349a0078191e43fa026",
+      "proof": [
+        "0xcecf9771038ea45b6f3ff6b249b7b21155d0d7af268a87b3156d9cda315acd7d",
+        "0x8b2df561ac441bbb7466f319cc957399719d0e9df17661a0a827ebf9e4922b2c"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "hook_address": "0x55475fa30E3EEC5996e9eF32B483E30Ed288CcBC",
+  "hook_names": [
+    "BatchTransferHook"
+  ],
+  "root": "0x6e1ab14950ac48bdef1eef477228ba9c6e8f557808ad4a314268be9ad670382b",
+  "total_leaves": 1,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "BatchTransferHook",
+      "hook_address": "0x55475fa30E3EEC5996e9eF32B483E30Ed288CcBC",
+      "args": {
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x6e1ab14950ac48bdef1eef477228ba9c6e8f557808ad4a314268be9ad670382b",
+      "proof": []
+    }
+  ]
+}

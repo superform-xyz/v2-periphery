@@ -1,0 +1,506 @@
+{
+    "_comment": "SuperBank per-hook merkle tree configuration. Each hook gets its own merkle root in SuperGovernor. beneficiary_type: 'superbank' means use the SuperBank contract address.",
+    "superbank_address": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+    "hooks": {
+        "ApproveERC20Hook": {
+            "args": [
+                {
+                    "name": "token",
+                    "type": "token"
+                },
+                {
+                    "name": "spender",
+                    "type": "superbank",
+                    "additionalAddresses": [
+                        "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5",
+                        "0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64",
+                        "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559",
+                        "0x19cEeAd7105607Cd444F5ad10dd51356436095a1"
+                    ]
+                }
+            ]
+        },
+        "TransferERC20Hook": {
+            "args": [
+                {
+                    "name": "token",
+                    "type": "token"
+                },
+                {
+                    "name": "to",
+                    "type": "superbank"
+                }
+            ]
+        },
+        "TransferHook": {
+            "args": [
+                {
+                    "name": "token",
+                    "type": "token"
+                },
+                {
+                    "name": "to",
+                    "type": "superbank"
+                }
+            ]
+        },
+        "BatchTransferHook": {
+            "args": [
+                {
+                    "name": "to",
+                    "type": "superbank"
+                }
+            ]
+        },
+        "SwapOdosV2Hook": {
+            "_comment": "Standardized hook: inspect() returns outputToken. dst_token: USDC (via tag filter) + UP tokens (via additionalAddresses)",
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "filter": {
+                        "tags": ["usdc"],
+                        "excludeTags": ["yo", "cap", "pendle"]
+                    },
+                    "additionalAddresses": [
+                        "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+                        "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B",
+                        "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+                    ]
+                }
+            ]
+        },
+        "ApproveAndSwapOdosV2Hook": {
+            "_comment": "Standardized hook: inspect() returns outputToken. dst_token: USDC (via tag filter) + UP tokens (via additionalAddresses)",
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "filter": {
+                        "tags": ["usdc"],
+                        "excludeTags": ["yo", "cap", "pendle"]
+                    },
+                    "additionalAddresses": [
+                        "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+                        "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B",
+                        "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+                    ]
+                }
+            ]
+        },
+        "ApproveAndSwapOdosV3Hook": {
+            "_comment": "Standardized hook: inspect() returns outputToken. dst_token: USDC (via tag filter) + UP tokens (via additionalAddresses)",
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "filter": {
+                        "tags": ["usdc"],
+                        "excludeTags": ["yo", "cap", "pendle"]
+                    },
+                    "additionalAddresses": [
+                        "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+                        "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B",
+                        "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+                    ]
+                }
+            ]
+        },
+        "SwapKyberSwapHook": {
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "filter": {
+                        "excludeTags": ["governance"]
+                    }
+                }
+            ]
+        },
+        "ApproveAndSwapKyberSwapHook": {
+            "_comment": "dst_token: USDC (via tag filter) + UP tokens (via additionalAddresses)",
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "filter": {
+                        "tags": ["usdc"],
+                        "excludeTags": ["yo", "cap", "pendle"]
+                    },
+                    "additionalAddresses": [
+                        "0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33",
+                        "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B",
+                        "0x642fFC3496AcA19106BAB7A42F1F221a329654fe"
+                    ]
+                }
+            ]
+        },
+        "Deposit4626VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc4626"]
+                    }
+                }
+            ]
+        },
+        "ApproveAndDeposit4626VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc4626"]
+                    }
+                },
+                {
+                    "name": "token",
+                    "type": "token"
+                }
+            ]
+        },
+        "Redeem4626VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc4626"]
+                    }
+                },
+                {
+                    "name": "owner",
+                    "type": "superbank"
+                }
+            ]
+        },
+        "Deposit5115VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc5115"]
+                    }
+                },
+                {
+                    "name": "token",
+                    "type": "token"
+                }
+            ]
+        },
+        "ApproveAndDeposit5115VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc5115"]
+                    }
+                },
+                {
+                    "name": "token",
+                    "type": "token"
+                }
+            ]
+        },
+        "Redeem5115VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc5115"]
+                    }
+                },
+                {
+                    "name": "owner",
+                    "type": "superbank"
+                }
+            ]
+        },
+        "ApproveAndRequestDeposit7540VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc7540"]
+                    }
+                },
+                {
+                    "name": "token",
+                    "type": "token"
+                }
+            ]
+        },
+        "Deposit7540VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc7540"]
+                    }
+                }
+            ]
+        },
+        "RequestRedeem7540VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc7540"]
+                    }
+                }
+            ]
+        },
+        "Redeem7540VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc7540"]
+                    }
+                }
+            ]
+        },
+        "Withdraw7540VaultHook": {
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["erc7540"]
+                    }
+                }
+            ]
+        },
+        "PendleUnifiedHook_Deposit": {
+            "contract_name": "PendleUnifiedHook",
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["pendle", "market"]
+                    }
+                },
+                {
+                    "name": "receiver",
+                    "type": "superbank"
+                },
+                {
+                    "name": "tokenIn",
+                    "type": "token",
+                    "filter": {
+                        "excludeTags": ["governance"]
+                    }
+                },
+                {
+                    "name": "pendleSwap",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["pendle", "swap"]
+                    }
+                },
+                {
+                    "name": "extRouter",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["swap"]
+                    }
+                }
+            ]
+        },
+        "PendleUnifiedHook_Redeem": {
+            "contract_name": "PendleUnifiedHook",
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["pendle", "market"]
+                    }
+                },
+                {
+                    "name": "receiver",
+                    "type": "superbank"
+                },
+                {
+                    "name": "tokenOut",
+                    "type": "token",
+                    "filter": {
+                        "excludeTags": ["governance"]
+                    }
+                },
+                {
+                    "name": "pendleSwap",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["pendle", "swap"]
+                    }
+                },
+                {
+                    "name": "extRouter",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["swap"]
+                    }
+                }
+            ]
+        },
+        "PendleUnifiedHook_RedeemPy": {
+            "contract_name": "PendleUnifiedHook",
+            "args": [
+                {
+                    "name": "yieldSource",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["pendle", "market"]
+                    }
+                },
+                {
+                    "name": "receiver",
+                    "type": "superbank"
+                },
+                {
+                    "name": "pt",
+                    "type": "token",
+                    "filter": {
+                        "tags": ["pt", "pendle"]
+                    }
+                },
+                {
+                    "name": "tokenOut",
+                    "type": "token",
+                    "filter": {
+                        "excludeTags": ["governance"]
+                    }
+                },
+                {
+                    "name": "pendleSwap",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["pendle", "swap"]
+                    }
+                },
+                {
+                    "name": "extRouter",
+                    "type": "contract",
+                    "subtype": "swap",
+                    "filter": {
+                        "tags": ["swap"]
+                    }
+                }
+            ]
+        },
+        "RecordPurchasePendlePTAmortizedOracleHook": {
+            "args": [
+                {
+                    "name": "market",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["pendle", "market"]
+                    }
+                }
+            ]
+        },
+        "RecordRedemptionPendlePTAmortizedOracleHook": {
+            "args": [
+                {
+                    "name": "market",
+                    "type": "yieldSource",
+                    "filter": {
+                        "tags": ["pendle", "market"]
+                    }
+                }
+            ]
+        },
+        "MerklClaimRewardHook": {
+            "args": [
+                {
+                    "name": "feeRecipient",
+                    "type": "feeRecipient",
+                    "filter": {
+                        "tags": ["reward"]
+                    }
+                }
+            ]
+        },
+        "ApproveAndSwapOpenOceanHook": {
+            "_comment": "Standardized hook: inspect() returns outputToken. dst_token: WFLR + SPRK on Flare (no chain-14 tokens in address_registry, so listed explicitly)",
+            "args": [
+                {
+                    "name": "dst_token",
+                    "type": "token",
+                    "additionalAddresses": [
+                        "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d",
+                        "0x657097cC15fdEc9e383dB8628B57eA4a763F2ba0"
+                    ]
+                }
+            ]
+        },
+        "AcrossSendFundsAndExecuteOnDstHook": {
+            "_comment": "outputToken additionalAddresses: Base USDC, Base WETH, Base cbBTC (destination-chain tokens for ETH->Base bridging)",
+            "args": [
+                {
+                    "name": "recipient",
+                    "type": "superbank"
+                },
+                {
+                    "name": "inputToken",
+                    "type": "token"
+                },
+                {
+                    "name": "outputToken",
+                    "type": "token",
+                    "additionalAddresses": [
+                        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                        "0x4200000000000000000000000000000000000006",
+                        "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf"
+                    ]
+                },
+                {
+                    "name": "exclusiveRelayer",
+                    "type": "zero_address"
+                }
+            ]
+        },
+        "ApproveAndAcrossSendFundsAndExecuteOnDstHook": {
+            "_comment": "outputToken additionalAddresses: Base USDC, Base WETH, Base cbBTC (destination-chain tokens for ETH->Base bridging)",
+            "args": [
+                {
+                    "name": "recipient",
+                    "type": "superbank"
+                },
+                {
+                    "name": "inputToken",
+                    "type": "token"
+                },
+                {
+                    "name": "outputToken",
+                    "type": "token",
+                    "additionalAddresses": [
+                        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                        "0x4200000000000000000000000000000000000006",
+                        "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf"
+                    ]
+                },
+                {
+                    "name": "exclusiveRelayer",
+                    "type": "zero_address"
+                }
+            ]
+        }
+    }
+}

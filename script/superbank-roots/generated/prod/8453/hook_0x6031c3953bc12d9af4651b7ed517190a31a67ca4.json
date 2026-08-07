@@ -1,0 +1,229 @@
+{
+  "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+  "hook_names": [
+    "TransferERC20Hook"
+  ],
+  "root": "0x19837d499e22babd0d745b04620f032348043671cd49790fcfc1b6d66d2eb7c8",
+  "total_leaves": 13,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x236aa50979d5f3de3bd1eeb40e81137f22ab794b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x1bb77506d2cfdca799672422287e419f31c943052211be0aa344cbd37adac400",
+      "proof": [
+        "0x1f6c83e92d776b046938a81b5ee5d92740ab6128e3b54592ec29950e5dc88f76",
+        "0x99598178841e09d57ae414886a0f1128ea172b8e6f652e195c702466595d50aa",
+        "0x134c52c64111f1409a670d23cd187a64811759b4618d648533d28b8b502e58a4",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0xf2A69E0191aaD3a7a124397972D0cA0405C1d8d1",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xf2a69e0191aad3a7a124397972d0ca0405c1d8d16fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x1f6c83e92d776b046938a81b5ee5d92740ab6128e3b54592ec29950e5dc88f76",
+      "proof": [
+        "0x1bb77506d2cfdca799672422287e419f31c943052211be0aa344cbd37adac400",
+        "0x99598178841e09d57ae414886a0f1128ea172b8e6f652e195c702466595d50aa",
+        "0x134c52c64111f1409a670d23cd187a64811759b4618d648533d28b8b502e58a4",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 2,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x3A43AEC53490CB9Fa922847385D82fe25d0E9De7",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x3a43aec53490cb9fa922847385d82fe25d0e9de76fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x2f9e91309102b9cff8ea6576fe11cab7f92691e17e9683bef80583929372d738",
+      "proof": [
+        "0x384c515e79a2270a8204cf79c1f4e9f5a39d620fda0d9cbfc29d1818687b56a9",
+        "0x6b948af57663561116ed6d5ea154baf2ca4c40529fa4ee6fcd9fbf72a0f22240",
+        "0x134c52c64111f1409a670d23cd187a64811759b4618d648533d28b8b502e58a4",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 3,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x0EC1292d5cE7220Be4C8e3A16efF7DDD165c9111",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x0ec1292d5ce7220be4c8e3a16eff7ddd165c91116fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x384c515e79a2270a8204cf79c1f4e9f5a39d620fda0d9cbfc29d1818687b56a9",
+      "proof": [
+        "0x2f9e91309102b9cff8ea6576fe11cab7f92691e17e9683bef80583929372d738",
+        "0x6b948af57663561116ed6d5ea154baf2ca4c40529fa4ee6fcd9fbf72a0f22240",
+        "0x134c52c64111f1409a670d23cd187a64811759b4618d648533d28b8b502e58a4",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 4,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x0000000f2eB9f69274678c76222B35eEc7588a65",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x0000000f2eb9f69274678c76222b35eec7588a656fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x3caf0cb024337794b13339b4088dd9f347521fa1c91f56ad49bcb12e6f666182",
+      "proof": [
+        "0x4e7eaf4df790df190f7dcf9cf20e6119248d1f384d9f03f3a1b23e30edc753eb",
+        "0x8b7225ba2361cae99d8192ea567a792daeed1f4092b6e1b319026285831d0f4e",
+        "0x261b1381a9b1a3908f7df8418c850ca3d142ed539e9b2b46795df6ffa71a8396",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 5,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x1A5c5eA50717a2ea0e4F7036FB289349DEaAB58b",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x1a5c5ea50717a2ea0e4f7036fb289349deaab58b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x4e7eaf4df790df190f7dcf9cf20e6119248d1f384d9f03f3a1b23e30edc753eb",
+      "proof": [
+        "0x3caf0cb024337794b13339b4088dd9f347521fa1c91f56ad49bcb12e6f666182",
+        "0x8b7225ba2361cae99d8192ea567a792daeed1f4092b6e1b319026285831d0f4e",
+        "0x261b1381a9b1a3908f7df8418c850ca3d142ed539e9b2b46795df6ffa71a8396",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 6,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x4200000000000000000000000000000000000006",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x42000000000000000000000000000000000000066fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x5903c0526bac1b7a0e46c6c523d3d501349ac3fbd8c6badd09ef94c83728dab5",
+      "proof": [
+        "0x8cf51f677d7c520a7504395cda21518fd878065183a9eeb13d5a1be27e10ee25",
+        "0x3426e2167f5a2f447183d0488d6ffc9707ba3aee1f4143b2f30d1a4578b4c952",
+        "0x261b1381a9b1a3908f7df8418c850ca3d142ed539e9b2b46795df6ffa71a8396",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 7,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x1658a0A2E5D06b0260Cee8339bc08F07E374a5e2",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x1658a0a2e5d06b0260cee8339bc08f07e374a5e26fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x8cf51f677d7c520a7504395cda21518fd878065183a9eeb13d5a1be27e10ee25",
+      "proof": [
+        "0x5903c0526bac1b7a0e46c6c523d3d501349ac3fbd8c6badd09ef94c83728dab5",
+        "0x3426e2167f5a2f447183d0488d6ffc9707ba3aee1f4143b2f30d1a4578b4c952",
+        "0x261b1381a9b1a3908f7df8418c850ca3d142ed539e9b2b46795df6ffa71a8396",
+        "0x06fdec3aa8ac148c16f8e7dad15230210a42f6a9bf48734670aff7f4ff9aafee"
+      ]
+    },
+    {
+      "index": 8,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0x9f4d349ccf8000c198274cee2ba3dafc85f3ddd85d34ac7e57346f82e8b389aa",
+      "proof": [
+        "0xa05ec7f2245c78825c31201aadad929354846e6d28bafeb6fdfd29e677640dc1",
+        "0x48a720235add46431623b96f2f8a20c64dd41de6adeec885814eedbc790b5396",
+        "0xd39db4cb0a668ce527f22f1fe099b999e3479892978989670b8278f1bf9e6f5c",
+        "0xc846f15e3815d14b28a71ea9b1c0015ebb28188ff35453edafe24b079114dde5"
+      ]
+    },
+    {
+      "index": 9,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x833589fcd6edb6e08f4c7c32d4f71b54bda029136fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xa05ec7f2245c78825c31201aadad929354846e6d28bafeb6fdfd29e677640dc1",
+      "proof": [
+        "0x9f4d349ccf8000c198274cee2ba3dafc85f3ddd85d34ac7e57346f82e8b389aa",
+        "0x48a720235add46431623b96f2f8a20c64dd41de6adeec885814eedbc790b5396",
+        "0xd39db4cb0a668ce527f22f1fe099b999e3479892978989670b8278f1bf9e6f5c",
+        "0xc846f15e3815d14b28a71ea9b1c0015ebb28188ff35453edafe24b079114dde5"
+      ]
+    },
+    {
+      "index": 10,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x0177055f7429D3bd6B19f2dd591127DB871A510e",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x0177055f7429d3bd6b19f2dd591127db871a510e6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xb341a4a1c483b30276183e577a835079cbcf60a86558435f4a55ff91df2e65b3",
+      "proof": [
+        "0xbe26ef423fdace669b639017439d3c4484edcd8ce0bfa8f86de323a292867e22",
+        "0xf8462fc636e0c62b40afd67a7dfc4e91737d106df9c42e8e3e1107f64eb1b902",
+        "0xd39db4cb0a668ce527f22f1fe099b999e3479892978989670b8278f1bf9e6f5c",
+        "0xc846f15e3815d14b28a71ea9b1c0015ebb28188ff35453edafe24b079114dde5"
+      ]
+    },
+    {
+      "index": 11,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x5b2193fdc451c1f847be09ca9d13a4bf60f8c86b6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xbe26ef423fdace669b639017439d3c4484edcd8ce0bfa8f86de323a292867e22",
+      "proof": [
+        "0xb341a4a1c483b30276183e577a835079cbcf60a86558435f4a55ff91df2e65b3",
+        "0xf8462fc636e0c62b40afd67a7dfc4e91737d106df9c42e8e3e1107f64eb1b902",
+        "0xd39db4cb0a668ce527f22f1fe099b999e3479892978989670b8278f1bf9e6f5c",
+        "0xc846f15e3815d14b28a71ea9b1c0015ebb28188ff35453edafe24b079114dde5"
+      ]
+    },
+    {
+      "index": 12,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x28888f74ca99924D5a2d48E82BF3D32cC7ec0355",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x28888f74ca99924d5a2d48e82bf3d32cc7ec03556fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd39db4cb0a668ce527f22f1fe099b999e3479892978989670b8278f1bf9e6f5c",
+      "proof": [
+        "0xa30e3c9588ae762858bfe39d8c8f12101c49ae09169a4e4ffc47b4ed54fa2211",
+        "0xc846f15e3815d14b28a71ea9b1c0015ebb28188ff35453edafe24b079114dde5"
+      ]
+    }
+  ]
+}

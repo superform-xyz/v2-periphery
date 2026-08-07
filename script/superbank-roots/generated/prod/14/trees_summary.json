@@ -1,0 +1,15 @@
+{
+  "chain_id": "14",
+  "environment": "prod",
+  "generated_at": "2026-07-29T09:06:19.177768+00:00",
+  "superbank_address": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+  "hooks": {
+    "0x88832253c5BFBD07d37A02E6EDFaa28F6e280227": {
+      "names": [
+        "ApproveAndSwapOpenOceanHook"
+      ],
+      "root": "0x5acc43860cfc8545ae8e8acaee108f5330385af7fec2dae444827016848bfc5a",
+      "total_leaves": 2
+    }
+  }
+}

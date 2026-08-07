@@ -1,0 +1,157 @@
+{
+  "chain_id": "1",
+  "environment": "prod",
+  "generated_at": "2026-07-27T11:45:10.584066+00:00",
+  "superbank_address": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
+  "hooks": {
+    "0x8b789980dc6cC7d88E30C442D704646ff7F6d306": {
+      "names": [
+        "ApproveERC20Hook"
+      ],
+      "root": "0xfa69a2a289b14c7a0b1b34de4e82e0a1d4582e315b301e965b26e432bba0e456",
+      "total_leaves": 165
+    },
+    "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4": {
+      "names": [
+        "TransferERC20Hook"
+      ],
+      "root": "0x44d20a1c6a1c0d254767adf0a1615a451a1641e5ae2facb875d5243554fab1c0",
+      "total_leaves": 33
+    },
+    "0x0d54e1b4060bBD598eE6ec8F7A587fF1789164E9": {
+      "names": [
+        "TransferHook"
+      ],
+      "root": "0xeedf5ef91a2042f57f1a5aa225dade9a09de819f47d174ac0f79a6acebd3605b",
+      "total_leaves": 33
+    },
+    "0x55475fa30E3EEC5996e9eF32B483E30Ed288CcBC": {
+      "names": [
+        "BatchTransferHook"
+      ],
+      "root": "0x6e1ab14950ac48bdef1eef477228ba9c6e8f557808ad4a314268be9ad670382b",
+      "total_leaves": 1
+    },
+    "0x38AA8bFD18a6477A51fc9772B9513098E98916C4": {
+      "names": [
+        "SwapOdosV2Hook"
+      ],
+      "root": "0xae5c137c764da500de1808d3a9a37a4439cb4098db87f0297f9b8313501cb8e5",
+      "total_leaves": 4
+    },
+    "0x3b2dbedf63aB4D5F7652D8845C0EDA1fA42263cd": {
+      "names": [
+        "ApproveAndSwapOdosV2Hook"
+      ],
+      "root": "0x248fc37dcada309d7c32ce5f271c0e67f62d00e0716d9f10a9380f718e5d8800",
+      "total_leaves": 4
+    },
+    "0xb6adcd6E912f8c8F355E9bC970E458B9d6609d0b": {
+      "names": [
+        "ApproveAndSwapOdosV3Hook"
+      ],
+      "root": "0xb7c3a6da27bfb6e789f368a5e1d8f441565b3b5e1a8c82d0a118687858eb6a69",
+      "total_leaves": 4
+    },
+    "0x05c49e05bb8575afdf1142cC95dA6747b069174A": {
+      "names": [
+        "SwapKyberSwapHook"
+      ],
+      "root": "0xf9f7263790313a077bc49c6bf7f4d8d894e02c21a83ed84630348479e914b4fa",
+      "total_leaves": 33
+    },
+    "0xcF5419270C9415E44c97E595c505708cfA334C30": {
+      "names": [
+        "ApproveAndSwapKyberSwapHook"
+      ],
+      "root": "0x89dda69d740e47e63470e89491222f4ad5ebc03b33e6eb28cd2ed95e47e27a47",
+      "total_leaves": 4
+    },
+    "0xa067037B29431C1ff23dEB9b10CC8a1669B0698E": {
+      "names": [
+        "Deposit4626VaultHook"
+      ],
+      "root": "0xcc385e30fa776a6c370290bcb3755df531d710f762ce8e7244b1e27a6b4c5792",
+      "total_leaves": 47
+    },
+    "0xF37535D96712FBaEf6D868e721E7b987ad1E6A86": {
+      "names": [
+        "ApproveAndDeposit4626VaultHook"
+      ],
+      "root": "0x532c161edda19a783cdc1dfcaf910a8c57f088eabb3b75605e38c2e3c3fc8eae",
+      "total_leaves": 1551
+    },
+    "0x5c3edf3F7c43828Bb72a668e2B29f9e2D9Af5A69": {
+      "names": [
+        "Redeem4626VaultHook"
+      ],
+      "root": "0x8f6b59f996e2edd964dfc1fd1599286b0cb9cc92dad957433963e26bd17ac5a0",
+      "total_leaves": 47
+    },
+    "0x32209A2302865784bC1Dc0bd3C55D0A6eB205851": {
+      "names": [
+        "Deposit5115VaultHook"
+      ],
+      "root": "0x54604daa1e5b41e1bf39d2c30c6c1dd76c03c71e46465ca86513ba79483d414e",
+      "total_leaves": 33
+    },
+    "0x44c7a40f05771FdAEAee61f36902D95cbf593988": {
+      "names": [
+        "ApproveAndDeposit5115VaultHook"
+      ],
+      "root": "0xa36ffbd5a07396fd26aaebe8a3f4f0c62d87f0966bdc96c242e2c89ddff90048",
+      "total_leaves": 33
+    },
+    "0x6aB1fD107825F9bB3E079d23508A07486b44e6F5": {
+      "names": [
+        "Redeem5115VaultHook"
+      ],
+      "root": "0xb416784c5343968c3b6b93817f11dd4ef7e56624858669f3f97355572cb7caaf",
+      "total_leaves": 1
+    },
+    "0x840B2b0553683dE46c5e6382D1a405f44773b43F": {
+      "names": [
+        "ApproveAndRequestDeposit7540VaultHook"
+      ],
+      "root": "0xfc5e8e5ef1491915605737a64a7dca8f912cad76128a7f2aa6806ae3a417634b",
+      "total_leaves": 33
+    },
+    "0x433f9A343e4132a294e02D4a09Da4b575EebA9aD": {
+      "names": [
+        "PendleUnifiedHook_Deposit",
+        "PendleUnifiedHook_Redeem",
+        "PendleUnifiedHook_RedeemPy"
+      ],
+      "root": "0x02155f6ea5812ec3f1e0a0d114b290adbd326eba566561ab1a2eb29ea6520296",
+      "total_leaves": 33000
+    },
+    "0x771D4fF615F87eA00488a2dbcb70DF98BDA03FA3": {
+      "names": [
+        "RecordPurchasePendlePTAmortizedOracleHook"
+      ],
+      "root": "0x4e546168daaba1c6ec33532a0cfd6ad8ac4220130e80fe257235d72b660be8ee",
+      "total_leaves": 10
+    },
+    "0xb68a34AF34E64a8b3bB72983088ACeB2fAE326Fc": {
+      "names": [
+        "RecordRedemptionPendlePTAmortizedOracleHook"
+      ],
+      "root": "0x48ad2cb35e1bd2f2dbfa4dfd322b363c159fa68b55633de02272bdb8df1c64f1",
+      "total_leaves": 10
+    },
+    "0xeA1b9ab11EC33F40fB36548cad1032DA9293c5f3": {
+      "names": [
+        "AcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0x8f9ac93ada5514175ee0fa87614a428bd97e0edfbdd6af5b09efc2654c227ded",
+      "total_leaves": 1188
+    },
+    "0xDeF02397EDBF7D0Da1E10fE297362c3aDf358fA1": {
+      "names": [
+        "ApproveAndAcrossSendFundsAndExecuteOnDstHook"
+      ],
+      "root": "0xe9993d523de6c75ebe945a2adfd7646564f799a7f35be10bc1f8bec1ca9c2a26",
+      "total_leaves": 1188
+    }
+  }
+}

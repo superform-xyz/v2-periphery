@@ -1,0 +1,38 @@
+{
+  "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+  "hook_names": [
+    "TransferERC20Hook"
+  ],
+  "root": "0x10a44159c733461d5c94d245edbfeec3873aa5a004021c23e048bb81fae7fb49",
+  "total_leaves": 2,
+  "leaves": [
+    {
+      "index": 0,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0x642fFC3496AcA19106BAB7A42F1F221a329654fe",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0x642ffc3496aca19106bab7a42f1f221a329654fe6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xa75f85651e5c3a219a9d72d5816c4e51b01e7bffb969a1029bd2a63aeed7f043",
+      "proof": [
+        "0xd2686d229ee0ee0f83305f127a907f30fee0a7ae6b80087d9a56f1ade1b405ff"
+      ]
+    },
+    {
+      "index": 1,
+      "hook_name": "TransferERC20Hook",
+      "hook_address": "0x6031c3953BC12D9Af4651B7ed517190A31a67ca4",
+      "args": {
+        "token": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+        "to": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
+      },
+      "encoded_args": "0xb88339cb7199b77e23db6e890353e22632ba630f6fcc6a6a825fc14e6e56fd14978fc6b97acb5d15",
+      "leaf_hash": "0xd2686d229ee0ee0f83305f127a907f30fee0a7ae6b80087d9a56f1ade1b405ff",
+      "proof": [
+        "0xa75f85651e5c3a219a9d72d5816c4e51b01e7bffb969a1029bd2a63aeed7f043"
+      ]
+    }
+  ]
+}
