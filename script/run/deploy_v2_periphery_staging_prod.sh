@@ -402,13 +402,15 @@ LOCKED_BYTECODE_PATH=""
 # Check if arguments are provided
 if [ $# -lt 3 ]; then
     echo -e "${RED}❌ Error: Missing required arguments${NC}"
-    echo -e "${YELLOW}Usage: $0 <environment> <mode> <account>${NC}"
+    echo -e "${YELLOW}Usage: $0 <environment> <mode> <account> [chain_id]${NC}"
     echo -e "${CYAN}  environment: staging or prod${NC}"
     echo -e "${CYAN}  mode: simulate or deploy${NC}"
     echo -e "${CYAN}  account: foundry account name (e.g., v2, deployer, main)${NC}"
+    echo -e "${CYAN}  chain_id: (optional) deploy only to this chain ID (e.g., 4663 for RH)${NC}"
     echo -e "${CYAN}Examples:${NC}"
     echo -e "${CYAN}  $0 staging simulate v2${NC}"
     echo -e "${CYAN}  $0 prod deploy deployer${NC}"
+    echo -e "${CYAN}  $0 prod deploy deployer 4663  # deploy only to RH${NC}"
     echo -e "${CYAN}Available accounts: $(cast wallet list 2>/dev/null | sed 's/ (Local)//' | tr '\n' ' ' || echo 'Run "cast wallet list" to see available accounts')${NC}"
     exit 1
 fi
@@ -416,6 +418,7 @@ fi
 ENVIRONMENT=$1
 MODE=$2
 ACCOUNT=$3
+CHAIN_FILTER=${4:-""}
 
 # Validate environment and source network configuration
 if [ "$ENVIRONMENT" = "staging" ]; then
@@ -442,6 +445,24 @@ if [[ ! -d "$LOCKED_BYTECODE_PATH" ]]; then
 fi
 
 echo -e "${CYAN}✅ Network configuration loaded for $ENVIRONMENT environment${NC}"
+
+# Filter networks if chain_id argument is provided
+if [[ -n "$CHAIN_FILTER" ]]; then
+    FILTERED_NETWORKS=()
+    for network_def in "${NETWORKS[@]}"; do
+        IFS=':' read -r network_id _ _ <<< "$network_def"
+        if [[ "$network_id" == "$CHAIN_FILTER" ]]; then
+            FILTERED_NETWORKS+=("$network_def")
+        fi
+    done
+    if [[ ${#FILTERED_NETWORKS[@]} -eq 0 ]]; then
+        echo -e "${RED}❌ Chain ID $CHAIN_FILTER not found in $ENVIRONMENT network configuration${NC}"
+        exit 1
+    fi
+    NETWORKS=("${FILTERED_NETWORKS[@]}")
+    echo -e "${YELLOW}🔍 Filtered to chain $CHAIN_FILTER only${NC}"
+fi
+
 print_network_info
 
 # Validate account exists in foundry wallet list
@@ -687,7 +708,11 @@ for network_def in "${NETWORKS[@]}"; do
             local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
             local CHAIN_ETHERSCAN_FLAGS=""
             local CHAIN_SLOW_FLAG=""
-            if [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
+            if [ "$network_id" == "4663" ]; then
+                # Robinhood Chain — Blockscout explorer (not on Etherscan V2); Orbit needs --slow
+                CHAIN_ETHERSCAN_FLAGS="--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/"
+                CHAIN_SLOW_FLAG="--slow"
+            elif [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
             else
                 CHAIN_VERIFY_FLAG=""

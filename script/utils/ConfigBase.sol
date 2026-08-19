@@ -75,6 +75,9 @@ abstract contract ConfigBase is Constants {
     /// @notice Gas to WEI oracle on Flare - STAGING
     address internal constant ORACLE_GAS_TO_WEI_FLARE_STAGING = 0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3;
 
+    /// @notice Gas to WEI oracle on RH (SuperformGasOracle - keeper updated)
+    address internal constant ORACLE_GAS_TO_WEI_RH = 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0;
+
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
@@ -86,6 +89,9 @@ abstract contract ConfigBase is Constants {
 
     /// @notice FLR/USD oracle on Flare (FTSOv2 Chainlink adapter - 18 decimals)
     address internal constant ORACLE_FLR_USD_FLARE = 0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697;
+
+    /// @notice ETH/USD oracle on RH (Chainlink - 8 decimals)
+    address internal constant ORACLE_ETH_USD_RH = 0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9;
 
     /// @notice Base Sequencer Uptime Feed (required for SuperOracleL2)
     address internal constant ORACLE_SEQUENCER_UPTIME_BASE = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
@@ -101,6 +107,7 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_HYPEREVM_STAGING = 0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f;
     address internal constant UP_TOKEN_FLARE = 0xe030A89fd2b7f858c8aA47725679CA25D467dFD1;
     address internal constant UP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
+    address internal constant UP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -128,6 +135,9 @@ abstract contract ConfigBase is Constants {
     address internal constant UPKEEP_TOKEN_FLARE = 0xe030A89fd2b7f858c8aA47725679CA25D467dFD1;
     /// @notice UPKEEP_TOKEN on Flare - STAGING
     address internal constant UPKEEP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
+
+    /// @notice UPKEEP_TOKEN on RH (UpOFT)
+    address internal constant UPKEEP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
@@ -170,6 +180,7 @@ abstract contract ConfigBase is Constants {
         chainNames[BNB_CHAIN_ID] = BNB_KEY;
         chainNames[HYPEREVM_CHAIN_ID] = HYPEREVM_KEY;
         chainNames[FLARE_CHAIN_ID] = FLARE_KEY;
+        chainNames[ROBINHOOD_CHAIN_ID] = ROBINHOOD_KEY;
 
         // ===== COMMON CONFIGURATION =====
         if (env == 0) {

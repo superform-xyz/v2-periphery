@@ -20,6 +20,7 @@ NETWORKS=(
     # "480:Worldchain:WORLDCHAIN_MAINNET"
     "999:HyperEVM:HYPEREVM_MAINNET"
     "14:Flare:FLARE_MAINNET"
+    "4663:RH:RH_MAINNET"
 )
 
 # Network name mapping function
@@ -67,6 +68,9 @@ get_network_name() {
             ;;
         14)
             echo "Flare"
+            ;;
+        4663)
+            echo "RH"
             ;;
         *)
             echo "ERROR: Unknown production network ID: $network_id" >&2
@@ -121,6 +125,9 @@ get_rpc_var() {
         14)
             echo "FLARE_MAINNET"
             ;;
+        4663)
+            echo "RH_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
             return 1
@@ -173,6 +180,9 @@ get_rpc_url() {
             ;;
         14)
             echo "$FLARE_MAINNET"
+            ;;
+        4663)
+            echo "$RH_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
@@ -309,6 +319,14 @@ load_rpc_urls_ci() {
         export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
     fi
 
+    echo "  • Loading RH RPC..."
+    if [[ -n "${RH_RPC_URL:-}" ]]; then
+        export RH_MAINNET="$RH_RPC_URL"
+    else
+        echo "  • RH_RPC_URL not set, using default RPC"
+        export RH_MAINNET="https://rpc.mainnet.chain.robinhood.com"
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from environment:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -405,6 +423,15 @@ load_rpc_urls() {
         export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
     else
         export FLARE_MAINNET
+    fi
+
+    echo "  • Loading RH RPC..."
+    RH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/RH_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$RH_MAINNET" ]; then
+        echo "  • RH_RPC_URL not in 1Password, using default RPC"
+        export RH_MAINNET="https://rpc.mainnet.chain.robinhood.com"
+    else
+        export RH_MAINNET
     fi
 
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then

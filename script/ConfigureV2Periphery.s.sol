@@ -236,6 +236,32 @@ contract ConfigureV2Periphery is DeployV2Base {
             }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Flare)");
+        } else if (chainId == ROBINHOOD_CHAIN_ID) {
+            // RH: Both UP and UPKEEP_TOKEN are the UpOFT token
+            address upToken = UP_TOKEN_RH;
+            address upkeepToken = UPKEEP_TOKEN_RH;
+            console2.log("  Chain: RH");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (RH)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (RH)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
         }
@@ -482,6 +508,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 480) return "Worldchain";
         if (chainId == 999) return "HyperEVM";
         if (chainId == 14) return "Flare";
+        if (chainId == 4663) return "RH";
         return "Unknown";
     }
 

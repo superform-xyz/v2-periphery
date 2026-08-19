@@ -103,9 +103,9 @@ fi
 # Load Etherscan V2 API key for verification
 echo -e "${CYAN}   • Loading Etherscan V2 API credentials...${NC}"
 if ! load_etherscan_api_key; then
-    echo -e "${RED}❌ Failed to load Etherscan V2 API key${NC}"
-    echo -e "${RED}   Contract verification will not work without this credential${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠️  Failed to load Etherscan V2 API key${NC}"
+    echo -e "${YELLOW}   Blockscout-only chains (RH, HyperEVM, Flare) can still be verified${NC}"
+    echo -e "${YELLOW}   Etherscan-based chains will fail verification without this credential${NC}"
 fi
 
 echo -e "${GREEN}✅ Configuration loaded successfully${NC}"
@@ -226,6 +226,8 @@ generate_constructor_args() {
     local ORACLE_ETH_USD_BASE="0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"
     local ORACLE_ETH_USD_HYPEREVM="0x017151e74fB3a393673B5B5149F53578c0Fa55B0"
     local ORACLE_FLR_USD_FLARE="0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697"
+    local ORACLE_GAS_TO_WEI_RH="0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0"
+    local ORACLE_ETH_USD_RH="0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9"
 
     # UP Token addresses per chain
     local UP_TOKEN="0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
@@ -234,10 +236,12 @@ generate_constructor_args() {
     local UP_TOKEN_HYPEREVM_STAGING="0x53749a9a8dE9847DAE54E7F432616F2fDfa32B7f"
     local UP_TOKEN_FLARE="0xe030A89fd2b7f858c8aA47725679CA25D467dFD1"
     local UP_TOKEN_FLARE_STAGING="0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5"
+    local UP_TOKEN_RH="0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E"
 
     # LayerZero V2 endpoints
     local LZ_ENDPOINT="0x1a44076050125825900e736c501f859c50fE728c"
     local LZ_ENDPOINT_HYPEREVM="0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9"
+    local LZ_ENDPOINT_RH="0x6F475642a6e85809B1c36Fa62763669b1b48DD5B"
 
     case $contract_name in
         "SuperGovernor")
@@ -328,6 +332,11 @@ generate_constructor_args() {
                         up_token="$UP_TOKEN_FLARE"
                     fi
                     eth_usd_oracle="$ORACLE_FLR_USD_FLARE"
+                    ;;
+                "4663")
+                    gas_oracle="$ORACLE_GAS_TO_WEI_RH"
+                    eth_usd_oracle="$ORACLE_ETH_USD_RH"
+                    up_token="$UP_TOKEN_RH"
                     ;;
                 *)
                     echo ""
@@ -467,6 +476,8 @@ generate_constructor_args() {
             local lz_endpoint="$LZ_ENDPOINT"
             if [ "$chain_id" = "999" ]; then
                 lz_endpoint="$LZ_ENDPOINT_HYPEREVM"
+            elif [ "$chain_id" = "4663" ]; then
+                lz_endpoint="$LZ_ENDPOINT_RH"
             fi
             echo "$(cast abi-encode "constructor(address,address)" "$lz_endpoint" "$DEPLOYER")"
             ;;
@@ -499,6 +510,36 @@ verify_contract() {
     echo -e "${CYAN}      Address: $contract_address${NC}"
     echo -e "${CYAN}      Source: $source_file${NC}"
     echo -e "${CYAN}      Chain ID: $chain_id${NC}"
+
+    # Blockscout verification for chains without Etherscan support
+    if [ "$chain_id" = "4663" ] || [ "$chain_id" = "999" ] || [ "$chain_id" = "14" ]; then
+        local verifier_url=""
+        case $chain_id in
+            "4663") verifier_url="https://robinhoodchain.blockscout.com/api/" ;;
+            "999") verifier_url="https://explorer.hyperliquid.xyz/api/" ;;
+            "14") verifier_url="https://flare-explorer.flare.network/api/" ;;
+        esac
+
+        echo -e "${CYAN}      Using Blockscout verification${NC}"
+
+        local verify_cmd="forge verify-contract \"$contract_address\" \"$source_file:$contract_name\" --rpc-url \"$rpc_url\" --chain \"$chain_id\" --verifier blockscout --verifier-url \"$verifier_url\" --watch"
+
+        if [ -n "$constructor_args" ]; then
+            echo -e "${CYAN}      Constructor args: $constructor_args${NC}"
+            verify_cmd="$verify_cmd --constructor-args \"$constructor_args\""
+        fi
+
+        eval $verify_cmd
+
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}   ✅ $contract_name verified successfully${NC}"
+        else
+            echo -e "${RED}   ❌ $contract_name verification failed${NC}"
+        fi
+
+        echo ""
+        return
+    fi
 
     # Check for Standard JSON Input in locked bytecode directory
     local standard_json_path="${LOCKED_BYTECODE_DIR}/${contract_name}.standard-json-input.json"
