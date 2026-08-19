@@ -64,9 +64,8 @@ abstract contract ConfigBase is Constants {
     address internal constant ORACLE_GAS_TO_ETH = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
 
     /// @notice Basefee gas oracle on Mainnet (BasefeeGasOracle - computed from block.basefee, no keeper)
-    /// @dev Set after running DeployBasefeeGasOracle; address(0) means not yet deployed.
-    ///      Registered for GAS_QUOTE -> WEI_QUOTE under the SUPERFORM provider (additive to Fast Gas).
-    address internal constant ORACLE_BASEFEE_GAS_MAINNET = address(0);
+    /// @dev Registered for GAS_QUOTE -> WEI_QUOTE under the SUPERFORM provider (additive to Fast Gas).
+    address internal constant ORACLE_BASEFEE_GAS_MAINNET = 0xD9f4B84E23742fF126ee0868FE3a3361E08E9c95;
 
     /// @notice Gas to WEI oracle on Base (SuperformGasOracle - keeper updated)
     address internal constant ORACLE_GAS_TO_WEI_BASE = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;

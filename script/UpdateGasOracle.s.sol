@@ -250,14 +250,16 @@ contract UpdateGasOracle is DeployV2Base {
     /// @return hadRole Whether the broadcaster already held the role (skip revoke if so)
     function _ensureOracleManagerRole(SuperGovernor governor) internal returns (bool hadRole) {
         bytes32 role = governor.ORACLE_MANAGER_ROLE();
-        hadRole = governor.hasRole(role, configuration.deployer);
+        address broadcaster = msg.sender;
+        console2.log("Broadcaster:", broadcaster);
+        hadRole = governor.hasRole(role, broadcaster);
         if (!hadRole) {
             require(
-                governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), configuration.deployer),
+                governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), broadcaster),
                 "BROADCASTER_LACKS_ORACLE_MANAGER_AND_ADMIN"
             );
             console2.log("Temporarily granting ORACLE_MANAGER_ROLE to broadcaster");
-            governor.grantRole(role, configuration.deployer);
+            governor.grantRole(role, broadcaster);
         }
     }
 
@@ -265,7 +267,7 @@ contract UpdateGasOracle is DeployV2Base {
     function _restoreOracleManagerRole(SuperGovernor governor, bool hadRole) internal {
         if (!hadRole) {
             console2.log("Revoking temporary ORACLE_MANAGER_ROLE from broadcaster");
-            governor.revokeRole(governor.ORACLE_MANAGER_ROLE(), configuration.deployer);
+            governor.revokeRole(governor.ORACLE_MANAGER_ROLE(), msg.sender);
         }
     }
 
