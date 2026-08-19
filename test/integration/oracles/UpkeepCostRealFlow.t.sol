@@ -309,6 +309,11 @@ contract UpkeepCostRealFlowTest is Test {
     }
 
     /// @notice Grant a SuperGovernor role by writing OZ 5.x AccessControl storage (slot 0) directly
+    /// @dev Why storage manipulation: on a mainnet fork no test account holds ORACLE_MANAGER_ROLE and
+    ///      DEFAULT_ADMIN_ROLE has been renounced on the live governor, so a role cannot be granted
+    ///      through the contract API at all. Slot 0 is where non-upgradeable OZ 5.x AccessControl
+    ///      keeps _roles; if SuperGovernor's inheritance order ever changes, the require below fails
+    ///      loudly rather than silently corrupting state.
     function _grantRoleViaStorage(bytes32 role, address account) internal {
         bytes32 roleSlot = keccak256(abi.encode(role, uint256(0)));
         bytes32 memberSlot = keccak256(abi.encode(account, roleSlot));

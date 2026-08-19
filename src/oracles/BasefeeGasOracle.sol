@@ -108,7 +108,12 @@ contract BasefeeGasOracle is AggregatorV3Interface, AccessControl {
     /// @param multiplierBps_ Initial basefee multiplier in basis points (must be within bounds)
     /// @param priorityFeeWei_ Initial priority fee in wei (must be within bounds)
     /// @param admin_ Receives DEFAULT_ADMIN_ROLE (protocol multisig)
-    /// @param gasManager_ Receives GAS_MANAGER_ROLE (must be a different key than admin_ in production)
+    /// @param gasManager_ Receives GAS_MANAGER_ROLE
+    /// @dev admin_ != gasManager_ is NOT enforced on-chain - it is a deploy-script-only guarantee
+    ///      (DeployBasefeeGasOracle requires it). A direct deployment can collapse both roles onto
+    ///      one key; keep them split in production so a manager-key compromise cannot touch role
+    ///      administration. Note the knob-set events emitted here carry oldValue = 0 (the true
+    ///      prior storage state) - indexers should read constructor emissions as initialization.
     constructor(uint256 multiplierBps_, uint256 priorityFeeWei_, address admin_, address gasManager_) {
         if (admin_ == address(0) || gasManager_ == address(0)) revert ZERO_ADDRESS();
         _setMultiplierBps(multiplierBps_);
