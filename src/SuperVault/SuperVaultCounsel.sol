@@ -11,6 +11,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 // Superform
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ISuperVaultCounsel } from "../interfaces/SuperVault/ISuperVaultCounsel.sol";
+import { IVetoRegistry } from "../interfaces/SuperVault/IVetoRegistry.sol";
 import { ISuperVaultAggregator } from "../interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecutor.sol";
@@ -55,6 +56,12 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice SuperGovernor used for live guardian lookups
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
+    /// @notice Veto-authority registry consulted by veto/canVeto/invalidateAllSessionKeys
+    /// @dev Defaults to SUPER_GOVERNOR when constructed with address(0). Per-instance so veto
+    ///      authority is pluggable (e.g. a Newton attestation shim) without protocol-wide
+    ///      GUARDIAN_ROLE. NOT required equal on migration - guardian-reviewed like any diff.
+    IVetoRegistry public immutable VETO_REGISTRY;
+
     /// @notice The SuperVaultAggregator this Counsel manages the strategy on
     ISuperVaultAggregator public immutable AGGREGATOR;
 
@@ -82,6 +89,12 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice Next proposal id; ids are never reused
     uint256 private _nextProposalId;
 
+    /// @notice Strategy's performance-fee cap, mirrored for propose-time validation
+    uint256 private constant MAX_PERFORMANCE_FEE_BPS = 5100;
+
+    /// @notice Strategy's management (asset-side entry) fee cap, mirrored for propose-time validation
+    uint256 private constant MAX_MANAGEMENT_FEE_BPS = 10_000;
+
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
     //////////////////////////////////////////////////////////////*/
@@ -99,6 +112,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @dev No code-length checks on operator_: Safes may be counterfactual at deploy time
     /// @param operator_ The operator Safe; must be non-zero
     /// @param superGovernor_ SuperGovernor for live isGuardian lookups; must be non-zero
+    /// @param vetoRegistry_ Veto-authority registry; address(0) defaults to superGovernor_
     /// @param aggregator_ The SuperVaultAggregator; must be non-zero
     /// @param strategy_ The managed strategy; must be non-zero
     /// @param executor_ The SuperVaultExecutor session-key module; must be non-zero
@@ -110,6 +124,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     constructor(
         address operator_,
         address superGovernor_,
+        address vetoRegistry_,
         address aggregator_,
         address strategy_,
         address executor_,
@@ -129,6 +144,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
 
         OPERATOR = operator_;
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
+        VETO_REGISTRY = IVetoRegistry(vetoRegistry_ == address(0) ? superGovernor_ : vetoRegistry_);
         AGGREGATOR = ISuperVaultAggregator(aggregator_);
         STRATEGY = ISuperVaultStrategy(strategy_);
         EXECUTOR = ISuperVaultExecutor(executor_);
@@ -185,7 +201,13 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         if (
             address(ISuperVaultCounsel(newCounsel).STRATEGY()) != address(STRATEGY)
                 || address(ISuperVaultCounsel(newCounsel).AGGREGATOR()) != address(AGGREGATOR)
+                || address(ISuperVaultCounsel(newCounsel).SUPER_GOVERNOR()) != address(SUPER_GOVERNOR)
         ) revert INVALID_MIGRATION_TARGET();
+        // SUPER_GOVERNOR equality is a hard invariant: a successor wired to a different governor
+        // has different (possibly fake) veto machinery. EXECUTOR and the timing/bound immutables
+        // are deliberately NOT required equal - changing them is a legitimate use of migration -
+        // but they are interface-exposed so guardians and monitors diff the full successor
+        // config during the 3-day veto window.
 
         Proposal memory p;
         p.actionType = ActionType.CounselMigration;
@@ -241,7 +263,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
 
     /// @inheritdoc ISuperVaultCounsel
     function veto(uint256 id) external {
-        if (!SUPER_GOVERNOR.isGuardian(msg.sender)) revert NOT_GUARDIAN();
+        if (!VETO_REGISTRY.isGuardian(msg.sender)) revert NOT_GUARDIAN();
         ProposalStatus current = state(id);
         if (current != ProposalStatus.Pending && current != ProposalStatus.Ready) {
             revert PROPOSAL_NOT_VETOABLE(id, current);
@@ -280,11 +302,16 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
             // (convenience forward: executeMinUpdateIntervalChange). The aggregator enforces
             // interval < maxStaleness here.
             AGGREGATOR.proposeMinUpdateIntervalChange(address(STRATEGY), p.newMinUpdateInterval);
-        } else {
-            // SecondaryManagerAdd: guardian-reviewed for 3 days; the operator retains
-            // removeSecondaryManager and cancelChangePrimaryManager as standing defenses
-            // against the 7-day replacement path this could otherwise enable.
+        } else if (p.actionType == ActionType.SecondaryManagerAdd) {
+            // Guardian-reviewed for 3 days; the operator retains removeSecondaryManager and
+            // cancelChangePrimaryManager as standing defenses against the 7-day replacement
+            // path this could otherwise enable.
             AGGREGATOR.addSecondaryManager(address(STRATEGY), p.newSecondaryManager);
+        } else {
+            // FeeConfig: starts the strategy's own 1-week fee timelock; the second leg is the
+            // executeVaultFeeConfigUpdate() forward. Total path: 3-day veto + 1-week strategy
+            // timelock (~10 days).
+            STRATEGY.proposeVaultFeeConfigUpdate(p.performanceFeeBps, p.managementFeeBps, p.feeRecipient);
         }
 
         emit ProposalExecuted(id, msg.sender);
@@ -340,9 +367,22 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     )
         external
         onlyOperator
+        returns (uint256 id)
     {
-        emit OperatorActionExecuted(this.proposeVaultFeeConfigUpdate.selector);
-        STRATEGY.proposeVaultFeeConfigUpdate(performanceFeeBps, managementFeeBps, recipient);
+        // Bounds mirror the strategy's own caps so an invalid config fails at propose time,
+        // where the guardian reviews it. The management fee is an ASSET-SIDE ENTRY FEE: up to
+        // 100% of every deposit to an arbitrary recipient - which is exactly why this lever is
+        // veto-gated rather than an immediate forward.
+        if (
+            performanceFeeBps > MAX_PERFORMANCE_FEE_BPS || managementFeeBps > MAX_MANAGEMENT_FEE_BPS
+                || recipient == address(0)
+        ) revert INVALID_FEE_CONFIG(performanceFeeBps, managementFeeBps);
+        Proposal memory p;
+        p.actionType = ActionType.FeeConfig;
+        p.performanceFeeBps = performanceFeeBps;
+        p.managementFeeBps = managementFeeBps;
+        p.feeRecipient = recipient;
+        id = _storeProposal(p);
     }
 
     /// @inheritdoc ISuperVaultCounsel
@@ -481,7 +521,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
 
     /// @inheritdoc ISuperVaultCounsel
     function invalidateAllSessionKeys() external {
-        if (msg.sender != OPERATOR && !SUPER_GOVERNOR.isGuardian(msg.sender)) revert NOT_AUTHORIZED();
+        if (msg.sender != OPERATOR && !VETO_REGISTRY.isGuardian(msg.sender)) revert NOT_AUTHORIZED();
         EXECUTOR.invalidateAllSessionKeys(address(STRATEGY));
         emit AllSessionKeysInvalidated(msg.sender);
     }
@@ -541,7 +581,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
 
     /// @inheritdoc ISuperVaultCounsel
     function canVeto(address account) external view returns (bool) {
-        return SUPER_GOVERNOR.isGuardian(account);
+        return VETO_REGISTRY.isGuardian(account);
     }
 
     /*//////////////////////////////////////////////////////////////

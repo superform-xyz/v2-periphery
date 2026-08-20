@@ -10,7 +10,7 @@
 #
 # PREREQUISITES (per strategy):
 #   - Counsel deployed (deploy_supervault_counsel.sh) and present in the chain
-#     output JSON under .SuperVaultCounsel_<strategy>
+#     output JSON under .SuperVaultCounsel_<strategy> (../deploy/deploy_supervault_counsel_fleet.sh)
 #   - Runbook step 1 already executed by the SuperGovernor msig:
 #       changePrimaryManager(strategy, counsel, feeRecipient)
 #     The script pre-checks this and fails cleanly if the seat is not transferred.
@@ -45,22 +45,15 @@
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
-# Fleet: "CHAIN_ID:STRATEGY:LABEL" (must match deploy_supervault_counsel.sh)
-readonly FLEET=(
-    "1:0x41A9Eb398518D2487301c61D2b33E4e966A9F1DD:SuperUSDC"
-    "1:0x1199a6B2587Ed96446E76Dee3FB660bb8fCfd0b2:SuperETH"
-    "1:0xa96060B0B6907406EdBDf3cCc9438abf0F78Cf83:SuperWBTC"
-    "8453:0x5bE8c059A8E101d24B107aFb5A013feF505280b9:FlagshipUSDC"
-    "8453:0x2787a17fe04C73AD109370C90917d62D1899Eb6A:FlagshipWETH"
-    "8453:0x0c14c751b19D4362f14f4A1D1cB963180B63fB87:FlagshipCBBTC"
-    "8453:0x837F9936D8493d0F867b6fD21128dee410b8B8d3:StocksUSDC"
-    "8453:0xEcb97e12af8C3730a5d8414604910c16E5BAbBc9:SPCX"
-    "8453:0xB80755d52Ae022152fA4606c05bc0e2fdB405De5:TSLA"
-    "8453:0xEF83ABC641B98af01f0652E3Af49a25d65C601A5:NVDA"
-    "14:0x3B5f2031447270b29dda0e78E037D28ba69690DA:BizantineUSDT0"
-    "14:0xA2C060a2aF858Fa1CA0C76588D8478456dd3037F:BizantineFXRP"
+# Chains with a SuperVaultAggregator deployment. Strategies are enumerated ON-CHAIN
+# at runtime (getAllSuperVaultStrategies) - strategies without a deployed+seated
+# Counsel, or whose Counsel has a different operator, are skipped with a log.
+readonly SUPPORTED_CHAINS=(
+    "1:Ethereum"
+    "8453:Base"
+    "14:Flare"
 )
 
 log() {
@@ -99,9 +92,9 @@ source_network_config() {
     local environment=$1
     local network_config_file
     if [ "$environment" = "staging" ]; then
-        network_config_file="$SCRIPT_DIR/networks-staging.sh"
+        network_config_file="$SCRIPT_DIR/../utils/networks-staging.sh"
     else
-        network_config_file="$SCRIPT_DIR/networks-production.sh"
+        network_config_file="$SCRIPT_DIR/../utils/networks-production.sh"
     fi
     if [ ! -f "$network_config_file" ]; then
         log "ERROR" "Network config not found: $network_config_file"
@@ -118,22 +111,33 @@ get_chain_rpc_url() {
     echo "${!rpc_var:-}"
 }
 
-run_for_strategy() {
-    local env=$1 chain_id=$2 strategy=$3 label=$4 mode=$5 account=$6 rpc_url=$7
+run_for_chain() {
+    local env=$1 chain_id=$2 chain_name=$3 mode=$4 account=$5 rpc_url=$6 strategy=$7
 
     log "INFO" "--------------------------------------------"
-    log "INFO" "Strategy: $label ($strategy) on chain $chain_id"
-    log "INFO" "--------------------------------------------"
-
-    local sig
-    if [ "$mode" = "check" ]; then
-        sig="runCheck(uint256,uint64,string,address)"
+    if [ -n "$strategy" ]; then
+        log "INFO" "Chain $chain_name ($chain_id) - single strategy: $strategy"
     else
-        sig="run(uint256,uint64,string,address)"
+        log "INFO" "Chain $chain_name ($chain_id) - ALL registered strategies"
     fi
+    log "INFO" "--------------------------------------------"
 
     local forge_cmd="forge script script/ConfigureSuperVaultCounsel.s.sol:ConfigureSuperVaultCounsel"
-    forge_cmd+=" --sig '$sig' $env $chain_id '\"\"' $strategy"
+    if [ -n "$strategy" ]; then
+        local sig
+        if [ "$mode" = "check" ]; then
+            sig="runCheck(uint256,uint64,string,address)"
+        else
+            sig="run(uint256,uint64,string,address)"
+        fi
+        forge_cmd+=" --sig '$sig' $env $chain_id '\"\"' $strategy"
+    else
+        if [ "$mode" = "check" ]; then
+            log "WARN" "check mode requires a strategy address - skipping chain-wide check"
+            return 0
+        fi
+        forge_cmd+=" --sig 'runAll(uint256,uint64,string)' $env $chain_id '\"\"'"
+    fi
     forge_cmd+=" --rpc-url '$rpc_url' --chain $chain_id"
 
     if [ "$mode" = "execute" ]; then
@@ -146,10 +150,10 @@ run_for_strategy() {
     local exit_code=0
     eval "$forge_cmd" || exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        log "ERROR" "$label ($chain_id) failed with exit code: $exit_code"
+        log "ERROR" "$chain_name ($chain_id) failed with exit code: $exit_code"
         return $exit_code
     fi
-    log "INFO" "$label ($chain_id) $mode successful"
+    log "INFO" "$chain_name ($chain_id) $mode successful"
     return 0
 }
 
@@ -209,26 +213,27 @@ main() {
     [ -n "$target_strategy" ] && log "INFO" "Strategy filter: $target_strategy"
     log "INFO" "============================================"
 
+    if [ -n "$target_strategy" ] && [ -z "$target_chain_id" ]; then
+        log "ERROR" "A strategy filter requires an explicit chain_id"; usage
+    fi
+
     local ok=() failed=() skipped=()
-    for entry in "${FLEET[@]}"; do
-        IFS=':' read -r chain_id strategy label <<< "$entry"
+    for entry in "${SUPPORTED_CHAINS[@]}"; do
+        IFS=':' read -r chain_id chain_name <<< "$entry"
         [ -n "$target_chain_id" ] && [ "$chain_id" != "$target_chain_id" ] && continue
-        if [ -n "$target_strategy" ] && [ "$(echo "$strategy" | tr 'A-F' 'a-f')" != "$(echo "$target_strategy" | tr 'A-F' 'a-f')" ]; then
-            continue
-        fi
 
         local rpc_url
         rpc_url=$(get_chain_rpc_url "$chain_id")
         if [ -z "$rpc_url" ]; then
-            log "WARN" "Skipping $label ($chain_id) - RPC URL not available"
-            skipped+=("$label ($chain_id)")
+            log "WARN" "Skipping $chain_name ($chain_id) - RPC URL not available"
+            skipped+=("$chain_name ($chain_id)")
             continue
         fi
 
-        if run_for_strategy "$env" "$chain_id" "$strategy" "$label" "$mode" "$account" "$rpc_url"; then
-            ok+=("$label ($chain_id)")
+        if run_for_chain "$env" "$chain_id" "$chain_name" "$mode" "$account" "$rpc_url" "$target_strategy"; then
+            ok+=("$chain_name ($chain_id)")
         else
-            failed+=("$label ($chain_id)")
+            failed+=("$chain_name ($chain_id)")
         fi
         log "INFO" ""
     done

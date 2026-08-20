@@ -40,7 +40,7 @@ contract CounselHandler is Test {
     }
 
     function propose(uint256 seed) external {
-        uint256 kind = seed % 6;
+        uint256 kind = seed % 7;
         vm.startPrank(operator);
         if (kind == 0) {
             counsel.proposeYieldSourceAdd(
@@ -62,8 +62,12 @@ contract CounselHandler is Test {
             counsel.proposeGlobalLeavesStatus(leaves, statuses);
         } else if (kind == 4) {
             counsel.proposeMinUpdateInterval(seed % 7 days);
-        } else {
+        } else if (kind == 5) {
             counsel.proposeSecondaryManagerAdd(address(uint160(0x5000 + (seed % 1000))));
+        } else {
+            counsel.proposeVaultFeeConfigUpdate(
+                seed % 5101, seed % 10_001, address(uint160(0x7000 + (seed % 1000)))
+            );
         }
         vm.stopPrank();
         ++ghost_proposed;
@@ -117,6 +121,7 @@ contract SuperVaultCounselInvariantTest is Test {
         counsel = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),

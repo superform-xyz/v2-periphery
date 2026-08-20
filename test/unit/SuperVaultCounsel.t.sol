@@ -323,6 +323,7 @@ contract SuperVaultCounselTest is Test {
         counsel = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -355,6 +356,7 @@ contract SuperVaultCounselTest is Test {
         new SuperVaultCounsel(
             address(0),
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -371,6 +373,7 @@ contract SuperVaultCounselTest is Test {
         new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -384,6 +387,7 @@ contract SuperVaultCounselTest is Test {
         new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -400,6 +404,7 @@ contract SuperVaultCounselTest is Test {
         new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -413,6 +418,7 @@ contract SuperVaultCounselTest is Test {
         new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -470,15 +476,11 @@ contract SuperVaultCounselTest is Test {
     function test_proposeDeviationThreshold_bounds() public {
         vm.startPrank(operator);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, MIN_DEV - 1, MIN_DEV, MAX_DEV
-            )
+            abi.encodeWithSelector(ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, MIN_DEV - 1, MIN_DEV, MAX_DEV)
         );
         counsel.proposeDeviationThreshold(MIN_DEV - 1);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, MAX_DEV + 1, MIN_DEV, MAX_DEV
-            )
+            abi.encodeWithSelector(ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, MAX_DEV + 1, MIN_DEV, MAX_DEV)
         );
         counsel.proposeDeviationThreshold(MAX_DEV + 1);
         // boundaries themselves are valid
@@ -813,15 +815,164 @@ contract SuperVaultCounselTest is Test {
         vm.startPrank(operator);
         counsel.skimPerformanceFee();
         assertTrue(strategy.skimCalled());
-        counsel.proposeVaultFeeConfigUpdate(1000, 50, makeAddr("recipient"));
-        assertEq(strategy.feePerf(), 1000);
-        assertEq(strategy.feeRecipient(), makeAddr("recipient"));
-        counsel.executeVaultFeeConfigUpdate();
-        assertTrue(strategy.feeExecuted());
         counsel.managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction.Propose, 1 hours);
         assertEq(uint8(strategy.lastPPSAction()), uint8(ISuperVaultStrategy.PPSExpirationAction.Propose));
         assertEq(strategy.lastPPSValue(), 1 hours);
         vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    FEE CONFIG (VETO-GATED, P1)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Fee config no longer forwards immediately: it is a veto-gated proposal whose
+    ///         execute pushes the strategy's own 1-week fee timelock (second leg)
+    function test_feeConfig_isVetoGated_twoLeg() public {
+        vm.prank(operator);
+        uint256 id = counsel.proposeVaultFeeConfigUpdate(1000, 50, makeAddr("recipient"));
+
+        // NOT forwarded at propose time
+        assertEq(strategy.feePerf(), 0);
+        assertEq(strategy.feeRecipient(), address(0));
+
+        ISuperVaultCounsel.Proposal memory p = counsel.getProposal(id);
+        assertEq(uint8(p.actionType), uint8(ISuperVaultCounsel.ActionType.FeeConfig));
+        assertEq(p.performanceFeeBps, 1000);
+        assertEq(p.managementFeeBps, 50);
+        assertEq(p.feeRecipient, makeAddr("recipient"));
+
+        // Execute after the window -> pushes the strategy's own fee proposal (leg 1 -> leg 2)
+        vm.warp(block.timestamp + VETO_WINDOW + 1);
+        vm.prank(operator);
+        counsel.execute(id);
+        assertEq(strategy.feePerf(), 1000);
+        assertEq(strategy.feeMgmt(), 50);
+        assertEq(strategy.feeRecipient(), makeAddr("recipient"));
+
+        // Second-leg forward unchanged
+        vm.prank(operator);
+        counsel.executeVaultFeeConfigUpdate();
+        assertTrue(strategy.feeExecuted());
+    }
+
+    /// @notice A guardian can veto a fee-config proposal before execution
+    function test_feeConfig_guardianCanVeto() public {
+        vm.prank(operator);
+        uint256 id = counsel.proposeVaultFeeConfigUpdate(5100, 10_000, makeAddr("rug"));
+
+        vm.prank(guardian);
+        counsel.veto(id);
+
+        vm.warp(block.timestamp + VETO_WINDOW + 1);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Vetoed
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.feePerf(), 0);
+    }
+
+    /// @notice Propose-time bounds mirror the strategy caps; zero recipient rejected
+    function test_feeConfig_boundsValidation() public {
+        vm.startPrank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 5101, 0));
+        counsel.proposeVaultFeeConfigUpdate(5101, 0, makeAddr("recipient"));
+
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 0, 10_001));
+        counsel.proposeVaultFeeConfigUpdate(0, 10_001, makeAddr("recipient"));
+
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 100, 100));
+        counsel.proposeVaultFeeConfigUpdate(100, 100, address(0));
+
+        // exact caps accepted
+        counsel.proposeVaultFeeConfigUpdate(5100, 10_000, makeAddr("recipient"));
+        vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        VETO REGISTRY (P7)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice address(0) registry defaults to the SuperGovernor (backwards-compatible)
+    function test_vetoRegistry_zeroDefaultsToSuperGovernor() public view {
+        assertEq(address(counsel.VETO_REGISTRY()), address(superGovernor));
+        assertTrue(counsel.canVeto(guardian));
+    }
+
+    /// @notice FeeConfig propose is operator-only like every other proposal
+    function test_feeConfig_proposeOnlyOperator() public {
+        address[2] memory badCallers = [attacker, guardian];
+        for (uint256 i; i < 2; ++i) {
+            vm.prank(badCallers[i]);
+            vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
+            counsel.proposeVaultFeeConfigUpdate(100, 100, makeAddr("recipient"));
+        }
+    }
+
+    /// @notice The custom registry also gates the guardian path of invalidateAllSessionKeys
+    function test_vetoRegistry_gatesInvalidateAllSessionKeys() public {
+        MockCounselSuperGovernor registry = new MockCounselSuperGovernor();
+        SuperVaultCounsel c = new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            address(registry),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+        // governor guardian is NOT authorized on this instance
+        vm.prank(guardian);
+        vm.expectRevert(ISuperVaultCounsel.NOT_AUTHORIZED.selector);
+        c.invalidateAllSessionKeys();
+
+        // registry guardian is; operator always is
+        address newtonVetoer = makeAddr("newtonVetoer");
+        registry.setGuardian(newtonVetoer, true);
+        vm.prank(newtonVetoer);
+        c.invalidateAllSessionKeys();
+        assertEq(executor.generation(), 1);
+        vm.prank(operator);
+        c.invalidateAllSessionKeys();
+        assertEq(executor.generation(), 2);
+    }
+
+    /// @notice A custom registry fully replaces the governor for veto authority
+    function test_vetoRegistry_customRegistryDrivesVetoAuth() public {
+        MockCounselSuperGovernor registry = new MockCounselSuperGovernor();
+        SuperVaultCounsel c = new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            address(registry),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+        assertEq(address(c.VETO_REGISTRY()), address(registry));
+        // governor guardian has NO veto power on this instance
+        assertFalse(c.canVeto(guardian));
+
+        address newtonVetoer = makeAddr("newtonVetoer");
+        registry.setGuardian(newtonVetoer, true);
+        assertTrue(c.canVeto(newtonVetoer));
+
+        vm.prank(operator);
+        uint256 id = c.proposeDeviationThreshold(MIN_DEV);
+        vm.prank(guardian);
+        vm.expectRevert(ISuperVaultCounsel.NOT_GUARDIAN.selector);
+        c.veto(id);
+        vm.prank(newtonVetoer);
+        c.veto(id);
+        assertEq(uint8(c.state(id)), uint8(ISuperVaultCounsel.ProposalStatus.Vetoed));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -968,9 +1119,7 @@ contract SuperVaultCounselTest is Test {
             counsel.proposeDeviationThreshold(threshold);
         } else {
             vm.expectRevert(
-                abi.encodeWithSelector(
-                    ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, threshold, MIN_DEV, MAX_DEV
-                )
+                abi.encodeWithSelector(ISuperVaultCounsel.THRESHOLD_OUT_OF_BOUNDS.selector, threshold, MIN_DEV, MAX_DEV)
             );
             counsel.proposeDeviationThreshold(threshold);
         }
@@ -982,8 +1131,7 @@ contract SuperVaultCounselTest is Test {
         uint8 s = uint8(counsel.state(id));
         // stored Pending only ever derives to Pending/Ready/Expired
         assertTrue(
-            s == uint8(ISuperVaultCounsel.ProposalStatus.Pending)
-                || s == uint8(ISuperVaultCounsel.ProposalStatus.Ready)
+            s == uint8(ISuperVaultCounsel.ProposalStatus.Pending) || s == uint8(ISuperVaultCounsel.ProposalStatus.Ready)
                 || s == uint8(ISuperVaultCounsel.ProposalStatus.Expired)
         );
     }
@@ -1092,6 +1240,7 @@ contract SuperVaultCounselTest is Test {
         SuperVaultCounsel counsel2 = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(evilStrategy),
             address(executor),
@@ -1119,6 +1268,7 @@ contract SuperVaultCounselTest is Test {
         SuperVaultCounsel counsel2 = new SuperVaultCounsel(
             operator,
             address(deadRegistry),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -1176,6 +1326,7 @@ contract SuperVaultCounselTest is Test {
         successor = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(strategy),
             address(executor),
@@ -1206,6 +1357,7 @@ contract SuperVaultCounselTest is Test {
         SuperVaultCounsel wrongStrategyCounsel = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(aggregator),
             address(otherStrategy),
             address(executor),
@@ -1223,6 +1375,7 @@ contract SuperVaultCounselTest is Test {
         SuperVaultCounsel wrongAggregatorCounsel = new SuperVaultCounsel(
             operator,
             address(superGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             address(otherAggregator),
             address(strategy),
             address(executor),
@@ -1234,6 +1387,24 @@ contract SuperVaultCounselTest is Test {
         vm.prank(operator);
         vm.expectRevert(ISuperVaultCounsel.INVALID_MIGRATION_TARGET.selector);
         counsel.proposeCounselMigration(address(wrongAggregatorCounsel));
+
+        // successor wired to a DIFFERENT SuperGovernor - fake veto machinery (P3 hardening)
+        MockCounselSuperGovernor otherGovernor = new MockCounselSuperGovernor();
+        SuperVaultCounsel wrongGovernorCounsel = new SuperVaultCounsel(
+            operator,
+            address(otherGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+        vm.prank(operator);
+        vm.expectRevert(ISuperVaultCounsel.INVALID_MIGRATION_TARGET.selector);
+        counsel.proposeCounselMigration(address(wrongGovernorCounsel));
     }
 
     function test_counselMigration_offerSeatsSuccessorAsSecondaryOnly() public {

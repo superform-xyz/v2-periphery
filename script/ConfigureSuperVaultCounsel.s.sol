@@ -76,6 +76,78 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("NEVER call SuperGovernor.freezeManagerTakeover() while a Counsel is enrolled");
     }
 
+    /// @notice Enroll executors for every curated-fleet strategy whose Counsel is deployed and seated
+    /// @dev Iterates the curated fleet from script/utils/counsel-fleet.json ("all strategies" =
+    ///      the curated list, not the full registry; empty list falls back to the registry for
+    ///      staging/test). Per strategy, skips (with a log, not a revert) when: no Counsel in
+    ///      the output JSON, the Counsel is not seated as mainManager yet (runbook step 1
+    ///      pending), or the broadcaster is not that Counsel's operator. Everything else gets
+    ///      enrollExecutor() + invalidateAllSessionKeys().
+    /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
+    /// @param chainId Chain ID
+    /// @param branchName Branch name for vnet deployments (required when env == 1)
+    function runAll(uint256 env, uint64 chainId, string calldata branchName) external broadcast(env) {
+        _validateEnvAndBranchName(env, branchName);
+        _setBaseConfiguration(env, branchName);
+
+        string memory json = vm.readFile(_outputJsonPath(env, chainId, branchName));
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(vm.parseJsonAddress(json, ".SuperVaultAggregator"));
+
+        address[] memory strategies = _readFleetStrategies(env, chainId);
+        if (strategies.length == 0) {
+            console2.log("Fleet list empty for this env/chain - falling back to FULL on-chain registry");
+            strategies = aggregator.getAllSuperVaultStrategies();
+        }
+
+        console2.log("====== Configure SuperVaultCounsel for the curated fleet ======");
+        console2.log("Strategies to process:", strategies.length);
+        console2.log("Broadcaster:", msg.sender);
+        console2.log("");
+
+        uint256 configured;
+        uint256 skipped;
+        for (uint256 i = 0; i < strategies.length; i++) {
+            address strategy = strategies[i];
+            console2.log("--- Strategy:", strategy);
+
+            address counselAddr = _tryResolveCounsel(json, strategy);
+            if (counselAddr == address(0) || counselAddr.code.length == 0) {
+                console2.log("    SKIP: no deployed Counsel in output JSON");
+                skipped++;
+                continue;
+            }
+            SuperVaultCounsel counsel = SuperVaultCounsel(payable(counselAddr));
+            if (aggregator.getMainManager(strategy) != counselAddr) {
+                console2.log("    SKIP: Counsel not seated as mainManager (runbook step 1 pending)");
+                skipped++;
+                continue;
+            }
+            if (counsel.OPERATOR() != msg.sender) {
+                console2.log("    SKIP: broadcaster is not this Counsel's operator:", counsel.OPERATOR());
+                skipped++;
+                continue;
+            }
+
+            address executor = address(counsel.EXECUTOR());
+            if (aggregator.isSecondaryManager(executor, strategy)) {
+                console2.log("    enrollExecutor: already enrolled - skipping call");
+            } else {
+                counsel.enrollExecutor();
+                console2.log("    enrollExecutor: DONE");
+            }
+            counsel.invalidateAllSessionKeys();
+            console2.log("    invalidateAllSessionKeys: DONE");
+            require(aggregator.isSecondaryManager(executor, strategy), "EXECUTOR_ENROLLMENT_FAILED");
+            configured++;
+        }
+
+        console2.log("");
+        console2.log("====== Fleet enrollment complete ======");
+        console2.log("Configured:", configured);
+        console2.log("Skipped:", skipped);
+        console2.log("NEXT: operator runs grantSessionKeysBatch(...) per configured strategy (step 4)");
+    }
+
     /// @notice Read-only enrollment status for one strategy's Counsel
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID
@@ -145,6 +217,24 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         // The Counsel's immutable strategy must match the requested one (guards against a
         // stale/mismatched output-JSON entry)
         require(address(counsel.STRATEGY()) == strategy, "COUNSEL_STRATEGY_MISMATCH");
+    }
+
+    /// @notice Read the curated strategy list for this env+chain from counsel-fleet.json
+    function _readFleetStrategies(uint256 env, uint64 chainId) internal view returns (address[] memory) {
+        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
+        // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
+        string memory key = string(
+            abi.encodePacked(env == 0 ? ".prod" : ".staging", ".strategies.", vm.toString(uint256(chainId)))
+        );
+        require(vm.keyExistsJson(json, key), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
+        return vm.parseJsonAddressArray(json, key);
+    }
+
+    /// @notice Non-reverting Counsel lookup for the fleet path
+    function _tryResolveCounsel(string memory json, address strategy) internal view returns (address) {
+        string memory key = string(abi.encodePacked(".SuperVaultCounsel_", vm.toString(strategy)));
+        if (!vm.keyExistsJson(json, key)) return address(0);
+        return vm.parseJsonAddress(json, key);
     }
 
     /// @notice Path to the chain's output JSON for the given environment

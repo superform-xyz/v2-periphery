@@ -4,12 +4,17 @@
 
 `SuperVaultCounsel` is an immutable, ownerless adapter contract that occupies the SuperVault
 **primary manager / curator** seat on `SuperVaultAggregator`, replacing the SuperGovernor msig in
-that role. It constrains the curator key: the three sharpest levers (yield-source additions,
-strategy-root replacement, PPS deviation-threshold changes) only exist behind a
-propose → 3-day guardian-veto window → execute-before-expiry flow, while day-to-day operations are
-typed, operator-only forwards. There is no generic call path — the adapter's entire authority is
-enumerable from its ABI. The only way to replace the adapter is `SuperGovernor.changePrimaryManager`
-emergency takeover, by design.
+that role. It constrains the curator key: every sharp lever — eight veto-gated action types
+(yield-source additions, strategy-root replacement, PPS deviation-threshold changes, Counsel
+migration offers, global-leaf ban/unban, min-update-interval changes, secondary-manager
+additions, vault fee-config updates) — only exists behind a propose → 3-day guardian-veto window → execute-before-expiry
+flow, while day-to-day operations are typed, operator-only forwards. There is no generic call
+path — the adapter's entire authority is enumerable from its ABI. Replacement has two paths:
+`SuperGovernor.changePrimaryManager` emergency takeover (instant, msig-only), or propose-and-accept
+migration (a matured `CounselMigration` proposal seats the successor as SECONDARY only; the
+successor itself calls `acceptCounselSeat()`, gated per-strategy by the aggregator's
+secondary-only rule, then the aggregator's 7-day manager-change timelock runs with
+`cancelChangePrimaryManager()` still available).
 
 One Counsel instance is bound to exactly one strategy; all counterparty addresses and timing
 parameters are immutable from the constructor.
@@ -27,7 +32,9 @@ bypass by adding a secondary manager who later ejects the primary
 (`proposeChangePrimaryManager`, secondary-only, `_MANAGER_CHANGE_TIMELOCK = 7 days`).
 
 The Counsel closes all of these: sensitive actions become vetoable by any live guardian for 3 days,
-the secondary-manager bypass is closed by omission, and everything else the curator seat can do is
+secondary-manager additions are veto-gated (with the residual risk that a seated secondary can
+later call `proposeChangePrimaryManager` — see Attack Surface), and everything else the curator
+seat can do is
 reduced to an enumerable typed surface.
 
 ## Architecture
@@ -91,18 +98,34 @@ None ──propose──▶ Pending ──veto (any live guardian, ANY time befo
 
 ```solidity
 enum ProposalStatus { None, Pending, Ready, Executed, Vetoed, Expired } // Ready/Expired derived only
-enum ActionType     { YieldSourceAdd, StrategyRoot, DeviationThreshold }
+enum ActionType {
+    YieldSourceAdd,      // 0: strategy.manageYieldSource(source, oracle, Add)
+    StrategyRoot,        // 1: aggregator.proposeStrategyHooksRoot(strategy, root)
+    DeviationThreshold,  // 2: aggregator.updateDeviationThreshold(strategy, newThreshold)
+    CounselMigration,    // 3: aggregator.addSecondaryManager(strategy, newCounsel) — the "offer"
+    GlobalLeavesStatus,  // 4: aggregator.changeGlobalLeavesStatus(leaves, statuses, strategy)
+    MinUpdateInterval,   // 5: aggregator.proposeMinUpdateIntervalChange(strategy, interval) — two-leg
+    SecondaryManagerAdd  // 6: aggregator.addSecondaryManager(strategy, manager)
+}
 
 struct Proposal {
     uint64  proposedAt;   // packed with status + actionType in one slot
     ProposalStatus status; // stored subset: None/Pending/Executed/Vetoed
     ActionType actionType;
     // typed payload (separate slots):
-    address source;        // YieldSourceAdd
-    address oracle;        // YieldSourceAdd
-    bytes32 root;          // StrategyRoot
-    bytes32 manifestHash;  // StrategyRoot
-    uint256 newThreshold;  // DeviationThreshold
+    address source;              // YieldSourceAdd
+    address oracle;              // YieldSourceAdd
+    bytes32 root;                // StrategyRoot
+    bytes32 manifestHash;        // StrategyRoot
+    uint256 newThreshold;        // DeviationThreshold
+    address newCounsel;          // CounselMigration
+    bytes32[] leaves;            // GlobalLeavesStatus
+    bool[] statuses;             // GlobalLeavesStatus
+    uint256 newMinUpdateInterval; // MinUpdateInterval
+    address newSecondaryManager; // SecondaryManagerAdd
+    uint256 performanceFeeBps;   // FeeConfig (cap 5100 = 51%)
+    uint256 managementFeeBps;    // FeeConfig (asset-side ENTRY fee, cap 10_000 = 100%)
+    address feeRecipient;        // FeeConfig
 }
 mapping(uint256 id => Proposal) internal _proposals;
 uint256 internal _nextProposalId;
@@ -117,6 +140,12 @@ uint256 internal _nextProposalId;
 | `proposeYieldSourceAdd(address source, address oracle)` | `STRATEGY.manageYieldSource(source, oracle, YieldSourceAction.Add)` | `source != 0`, `oracle != 0` |
 | `proposeStrategyRoot(bytes32 root, bytes32 manifestHash)` | `AGGREGATOR.proposeStrategyHooksRoot(STRATEGY, root)` | `root != 0`, `manifestHash != 0` |
 | `proposeDeviationThreshold(uint256 newThreshold)` | `AGGREGATOR.updateDeviationThreshold(STRATEGY, newThreshold)` | `MIN_DEVIATION_THRESHOLD <= newThreshold <= MAX_DEVIATION_THRESHOLD` |
+| `proposeCounselMigration(address newCounsel)` | `AGGREGATOR.addSecondaryManager(STRATEGY, newCounsel)` — offer only; seat moves via successor's `acceptCounselSeat()` + aggregator 7-day timelock | live contract, `!= this`, successor `STRATEGY()`/`AGGREGATOR()`/`SUPER_GOVERNOR()` match (P3 hardening: governor equality is the fake-veto-machinery invariant; EXECUTOR + timing/bounds exposed via interface getters for diffing, not required equal) |
+| `proposeGlobalLeavesStatus(bytes32[] leaves, bool[] statuses)` | `AGGREGATOR.changeGlobalLeavesStatus(leaves, statuses, STRATEGY)` | non-empty, equal lengths |
+| `proposeMinUpdateInterval(uint256 interval)` | `AGGREGATOR.proposeMinUpdateIntervalChange(STRATEGY, interval)` — two-leg; aggregator enforces `interval < maxStaleness` and runs its own parameter timelock (second-leg forwards: `executeMinUpdateIntervalChange` / `cancelMinUpdateIntervalChange`) | none at propose (guardian reviews value) |
+| `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` | `STRATEGY.proposeVaultFeeConfigUpdate(...)` — two-leg; the strategy's own 1-week fee timelock follows (second-leg forward: `executeVaultFeeConfigUpdate`) | perf <= 5100, mgmt <= 10_000, recipient != 0 (strategy caps mirrored) |
+| `proposeSecondaryManagerAdd(address manager)` | `AGGREGATOR.addSecondaryManager(STRATEGY, manager)` | `manager != 0`; NOTE: a seated secondary can later `proposeChangePrimaryManager` — treat as adapter-escape authorization (~10 days) |
+| `acceptCounselSeat(address feeRecipient)` (not a proposal — successor-side claim) | `AGGREGATOR.proposeChangePrimaryManager(STRATEGY, address(this), feeRecipient)` | operator-only; `feeRecipient != 0`; aggregator's secondary-only gate restricts it to the offered contract |
 | `veto(uint256 id)` | — (terminal state write) | caller passes `SUPER_GOVERNOR.isGuardian(msg.sender)` **live**; proposal Pending/Ready |
 | `execute(uint256 id)` | exact stored args, per actionType | operator-only; inside `[proposedAt+VETO_WINDOW, proposedAt+EXPIRY)`; status Pending (not vetoed/executed) |
 
@@ -142,10 +171,18 @@ Notes:
 - `fulfillCancelRedeemRequests(address[] calldata controllers)`
 - `skimPerformanceFee()` — strategy blocks it for 12h post-unpause
 - `removeYieldSource(address source)` — `YieldSourceAction.Remove` hard-coded; structurally cannot
-  Add or UpdateOracle
+  Add or UpdateOracle. **Runbook rule (oracle/source swaps)**: removal is pure registry deletion
+  with NO occupancy check — removing a source that still holds assets drops it from the
+  validators' valuation set for >= 3 days (the replacement's veto window) -> PPS deviation ->
+  likely auto-pause, which also blocks new redeem requests. Sequence swaps as: propose+execute
+  the ADD of the replacement first, unwind the old source to ~zero via `executeHooks`, and only
+  then remove — or knowingly accept the pause as deliberate friction.
 - `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` /
   `executeVaultFeeConfigUpdate()` — rides the strategy's own `PROPOSAL_TIMELOCK = 1 weeks`;
-  **documented risk acceptance**: no guardian veto on fees (perf fee cap 5100 bps = 51%)
+  **documented risk acceptance (decision P1 pending)**: no guardian veto on fees. Scope is larger
+  than the perf cap suggests: perf fee <= 5100 bps (51%) AND the management fee is an ASSET-SIDE
+  ENTRY FEE capped at 10_000 bps (100%), payable to an arbitrary recipient, overwrite-only (no
+  cancel endpoint). Adding `ActionType.FeeConfig` to the veto machinery is the open alternative.
 - `managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction action, uint256 staleness)` —
   strategy bounds 1 minute..1 week, own 1-week timelock
 
@@ -186,10 +223,12 @@ Notes:
 
 ### Deliberately absent (no code path)
 
-`manageYieldSource(UpdateOracle)`, `manageYieldSources` batch, `changeGlobalLeavesStatus`,
-min-update-interval propose/cancel, `addSecondaryManager` (except the hard-coded `enrollExecutor`),
-`proposeChangePrimaryManager`, generic `execute(target, bytes)`, fallback, delegatecall, approvals,
-owner/admin/setters. Parameters excluded from the surface can only change via SuperGovernor takeover.
+`manageYieldSource(UpdateOracle)`, `manageYieldSources` batch, arbitrary-target
+`proposeChangePrimaryManager` (only the structurally self-targeted `acceptCounselSeat` exists),
+generic `execute(target, bytes)`, fallback, delegatecall, approvals, owner/admin/setters.
+(`changeGlobalLeavesStatus`, min-update-interval, and `addSecondaryManager` are NOT absent — they
+shipped as veto-gated ActionTypes 4-6.) Parameters excluded from the surface can only change via
+SuperGovernor takeover.
 
 ## Attack Surface Analysis
 
@@ -255,7 +294,8 @@ owner/admin/setters. Parameters excluded from the surface can only change via Su
 ## Acceptance Criteria
 
 ### Functional
-- [ ] All three veto-gated flows work end-to-end against fork-tested aggregator/strategy: propose →
+- [ ] All eight veto-gated flows (plus the migration accept and fee/min-interval second legs) work end-to-end against
+  fork-tested aggregator/strategy: propose →
   window → execute lands the exact stored args; vetoed and expired proposals can never execute
 - [ ] `veto` succeeds for any live guardian at any point before execution, including the Ready
   period; reverts for non-guardians and on terminal proposals
@@ -333,8 +373,16 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
             STRATEGY.manageYieldSource(p.source, p.oracle, ISuperVaultStrategy.YieldSourceAction.Add);
         } else if (p.actionType == ActionType.StrategyRoot) {
             AGGREGATOR.proposeStrategyHooksRoot(address(STRATEGY), p.root); // aggregator 15-min fuse follows
-        } else {
+        } else if (p.actionType == ActionType.DeviationThreshold) {
             AGGREGATOR.updateDeviationThreshold(address(STRATEGY), p.newThreshold);
+        } else if (p.actionType == ActionType.CounselMigration) {
+            AGGREGATOR.addSecondaryManager(address(STRATEGY), p.newCounsel); // offer only
+        } else if (p.actionType == ActionType.GlobalLeavesStatus) {
+            AGGREGATOR.changeGlobalLeavesStatus(p.leaves, p.statuses, address(STRATEGY));
+        } else if (p.actionType == ActionType.MinUpdateInterval) {
+            AGGREGATOR.proposeMinUpdateIntervalChange(address(STRATEGY), p.newMinUpdateInterval); // 2nd leg follows
+        } else {
+            AGGREGATOR.addSecondaryManager(address(STRATEGY), p.newSecondaryManager);
         }
         emit ProposalExecuted(id, msg.sender);
     }

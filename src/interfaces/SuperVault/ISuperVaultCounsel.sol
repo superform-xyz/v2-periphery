@@ -2,6 +2,8 @@
 pragma solidity 0.8.30;
 
 // Superform
+import { ISuperGovernor } from "../ISuperGovernor.sol";
+import { IVetoRegistry } from "./IVetoRegistry.sol";
 import { ISuperVaultStrategy } from "./ISuperVaultStrategy.sol";
 import { ISuperVaultExecutor } from "./ISuperVaultExecutor.sol";
 import { ISuperVaultAggregator } from "./ISuperVaultAggregator.sol";
@@ -61,6 +63,11 @@ interface ISuperVaultCounsel {
     /// @notice Thrown when a global-leaves proposal has empty or length-mismatched arrays
     error INVALID_LEAVES();
 
+    /// @notice Thrown when a proposed fee config exceeds the strategy caps or has a zero recipient
+    /// @param performanceFeeBps The proposed performance fee
+    /// @param managementFeeBps The proposed management (entry) fee
+    error INVALID_FEE_CONFIG(uint256 performanceFeeBps, uint256 managementFeeBps);
+
     /*//////////////////////////////////////////////////////////////
                                 ENUMS
     //////////////////////////////////////////////////////////////*/
@@ -86,7 +93,8 @@ interface ISuperVaultCounsel {
         CounselMigration, // 3: aggregator.addSecondaryManager(strategy, newCounsel) — the "offer"
         GlobalLeavesStatus, // 4: aggregator.changeGlobalLeavesStatus(leaves, statuses, strategy)
         MinUpdateInterval, // 5: aggregator.proposeMinUpdateIntervalChange(strategy, interval) — two-leg
-        SecondaryManagerAdd // 6: aggregator.addSecondaryManager(strategy, manager)
+        SecondaryManagerAdd, // 6: aggregator.addSecondaryManager(strategy, manager)
+        FeeConfig // 7: strategy.proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient) — two-leg
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -122,6 +130,13 @@ interface ISuperVaultCounsel {
         uint256 newMinUpdateInterval;
         /// @notice SecondaryManagerAdd: the manager to seat as secondary
         address newSecondaryManager;
+        /// @notice FeeConfig: performance fee in bps (strategy cap: 5100 = 51%)
+        uint256 performanceFeeBps;
+        /// @notice FeeConfig: management fee in bps - an ASSET-SIDE ENTRY FEE (strategy cap:
+        ///         10_000 = 100% of every deposit)
+        uint256 managementFeeBps;
+        /// @notice FeeConfig: the fee recipient
+        address feeRecipient;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -278,16 +293,26 @@ interface ISuperVaultCounsel {
     /// @param source The yield source to remove
     function removeYieldSource(address source) external;
 
-    /// @notice Propose a vault fee-config update (rides the strategy's own 1-week timelock; not
-    ///         guardian-vetoable — documented risk acceptance)
+    /// @notice Propose a vault fee-config update — VETO-GATED (ActionType.FeeConfig)
+    /// @dev Two-leg: after the 3-day guardian window, execute(id) pushes
+    ///      strategy.proposeVaultFeeConfigUpdate, whose own 1-week timelock then runs;
+    ///      executeVaultFeeConfigUpdate() is the second-leg forward. Bounds mirrored from the
+    ///      strategy at propose time: perf <= 5100 bps, mgmt (asset-side ENTRY fee) <= 10_000 bps,
+    ///      recipient non-zero.
+    /// @param performanceFeeBps Performance fee in bps
+    /// @param managementFeeBps Management (entry) fee in bps
+    /// @param recipient The fee recipient
+    /// @return id The proposal id
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
         address recipient
     )
-        external;
+        external
+        returns (uint256 id);
 
-    /// @notice Execute a matured vault fee-config update on the strategy
+    /// @notice Execute a matured vault fee-config update on the strategy (second leg of the
+    ///         veto-gated FeeConfig flow, after the strategy's own 1-week timelock)
     function executeVaultFeeConfigUpdate() external;
 
     /// @notice Manage the strategy's PPS expiration threshold (strategy-side 1-week timelock)
@@ -403,4 +428,39 @@ interface ISuperVaultCounsel {
 
     /// @notice The operator Safe (immutable)
     function OPERATOR() external view returns (address);
+
+    /// @notice The SuperGovernor used for live guardian lookups (immutable)
+    /// @dev Also used by a predecessor Counsel to validate migration-target veto machinery:
+    ///      a successor pointing at a different superGovernor_ has different (possibly fake)
+    ///      guardians, so proposeCounselMigration requires equality
+    function SUPER_GOVERNOR() external view returns (ISuperGovernor);
+
+    /// @notice The veto-authority registry consulted by veto/canVeto/invalidateAllSessionKeys
+    ///         (immutable; defaults to SUPER_GOVERNOR when constructed with address(0))
+    /// @dev Per-instance so veto authority is pluggable (e.g. a Newton attestation shim) without
+    ///      granting protocol-wide GUARDIAN_ROLE. Deliberately NOT required equal on migration -
+    ///      a registry change is guardian-reviewed during the veto window like any successor diff.
+    function VETO_REGISTRY() external view returns (IVetoRegistry);
+
+    /// @notice The keeper session-key executor (immutable)
+    /// @dev Exposed so monitors and guardians can diff a migration successor's full wiring;
+    ///      deliberately NOT required equal at propose time (migrating to a new executor
+    ///      version is a legitimate use of the migration path - guardians review the diff)
+    function EXECUTOR() external view returns (ISuperVaultExecutor);
+
+    /// @notice Guardian veto window in seconds (immutable)
+    /// @dev Exposed for successor-config diffing during migration review
+    function VETO_WINDOW() external view returns (uint256);
+
+    /// @notice Proposal expiry from proposedAt in seconds (immutable)
+    /// @dev Exposed for successor-config diffing during migration review
+    function EXPIRY() external view returns (uint256);
+
+    /// @notice Immutable floor for proposeDeviationThreshold
+    /// @dev Exposed for successor-config diffing during migration review
+    function MIN_DEVIATION_THRESHOLD() external view returns (uint256);
+
+    /// @notice Immutable ceiling for proposeDeviationThreshold
+    /// @dev Exposed for successor-config diffing during migration review
+    function MAX_DEVIATION_THRESHOLD() external view returns (uint256);
 }

@@ -77,6 +77,7 @@ contract SuperVaultCounselForkTest is Test {
         counsel = new SuperVaultCounsel(
             operator,
             address(counselGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             AGGREGATOR,
             USDC_STRATEGY,
             address(executor),
@@ -483,6 +484,7 @@ contract SuperVaultCounselForkTest is Test {
         successor = new SuperVaultCounsel(
             successorOperator,
             address(counselGovernor),
+            address(0), // vetoRegistry: defaults to superGovernor
             AGGREGATOR,
             USDC_STRATEGY,
             address(executor),
