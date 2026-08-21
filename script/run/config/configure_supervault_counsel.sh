@@ -54,6 +54,7 @@ readonly SUPPORTED_CHAINS=(
     "1:Ethereum"
     "8453:Base"
     "14:Flare"
+    "4663:RH"
 )
 
 log() {
@@ -237,6 +238,11 @@ main() {
         fi
         log "INFO" ""
     done
+
+    if [ -n "$target_chain_id" ] && [ ${#ok[@]} -eq 0 ] && [ ${#failed[@]} -eq 0 ] && [ ${#skipped[@]} -eq 0 ]; then
+        log "ERROR" "Chain $target_chain_id is not in SUPPORTED_CHAINS - nothing was run"
+        exit 1
+    fi
 
     log "INFO" "============================================"
     log "INFO" "Summary"

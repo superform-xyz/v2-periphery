@@ -76,6 +76,7 @@ readonly SUPPORTED_CHAINS=(
     "1:Ethereum"
     "8453:Base"
     "14:Flare"
+    "4663:RH"
 )
 
 log() {
@@ -155,8 +156,10 @@ run_for_chain() {
 
     if [ "$mode" = "execute" ]; then
         forge_cmd+=" --account $account --broadcast"
-        # Etherscan verification only where supported (not HyperEVM/Flare)
-        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
+        # Etherscan verification only where supported (not HyperEVM/Flare); RH uses Blockscout
+        if [ "$chain_id" = "4663" ]; then
+            forge_cmd+=" --verify --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/"
+        elif [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ]; then
             forge_cmd+=" --verify --etherscan-api-key ${ETHERSCANV2_API_KEY:-} --verifier etherscan"
         fi
     elif [ "$mode" = "simulate" ]; then
@@ -259,6 +262,11 @@ main() {
         fi
         log "INFO" ""
     done
+
+    if [ -n "$target_chain_id" ] && [ ${#ok[@]} -eq 0 ] && [ ${#failed[@]} -eq 0 ] && [ ${#skipped[@]} -eq 0 ]; then
+        log "ERROR" "Chain $target_chain_id is not in SUPPORTED_CHAINS - nothing was run"
+        exit 1
+    fi
 
     log "INFO" "============================================"
     log "INFO" "Summary"

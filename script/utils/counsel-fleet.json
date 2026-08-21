@@ -65,6 +65,14 @@
           "strategy": "0xA2C060a2aF858Fa1CA0C76588D8478456dd3037F",
           "label": "BizantineFXRP"
         }
+      ],
+      "4663": [
+        {
+          "strategy": "0xC2a5A2F441c71c4Aa011bfD9bb65A0FFaD070dF7",
+          "label": "TestNVDA-RH",
+          "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+          "vetoRegistry": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
+        }
       ]
     }
   },
@@ -78,7 +86,8 @@
     "strategies": {
       "1": [],
       "8453": [],
-      "14": []
+      "14": [],
+      "4663": []
     }
   },
   "_entryFormat": {
