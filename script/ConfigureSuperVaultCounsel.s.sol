@@ -220,14 +220,23 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice Read the curated strategy list for this env+chain from counsel-fleet.json
-    function _readFleetStrategies(uint256 env, uint64 chainId) internal view returns (address[] memory) {
+    ///         (per-strategy entry objects; only the .strategy field is needed here)
+    function _readFleetStrategies(uint256 env, uint64 chainId) internal view returns (address[] memory strategies) {
         string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
         // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
-        string memory key = string(
-            abi.encodePacked(env == 0 ? ".prod" : ".staging", ".strategies.", vm.toString(uint256(chainId)))
-        );
-        require(vm.keyExistsJson(json, key), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
-        return vm.parseJsonAddressArray(json, key);
+        string memory base =
+            string(abi.encodePacked(env == 0 ? ".prod" : ".staging", ".strategies.", vm.toString(uint256(chainId))));
+        require(vm.keyExistsJson(json, base), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
+
+        uint256 n;
+        while (vm.keyExistsJson(json, string(abi.encodePacked(base, "[", vm.toString(n), "]")))) {
+            n++;
+        }
+        strategies = new address[](n);
+        for (uint256 i = 0; i < n; i++) {
+            strategies[i] =
+                vm.parseJsonAddress(json, string(abi.encodePacked(base, "[", vm.toString(i), "]", ".strategy")));
+        }
     }
 
     /// @notice Non-reverting Counsel lookup for the fleet path

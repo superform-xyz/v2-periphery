@@ -811,6 +811,36 @@ contract SuperVaultCounselTest is Test {
         vm.stopPrank();
     }
 
+    /// @notice Redemption-fulfillment forwards relay to the strategy (previously uncovered)
+    function test_fulfillForwards() public {
+        address[] memory controllers = new address[](2);
+        controllers[0] = makeAddr("c1");
+        controllers[1] = makeAddr("c2");
+        uint256[] memory assetsOut = new uint256[](2);
+
+        vm.prank(attacker);
+        vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
+        counsel.fulfillRedeemRequests(controllers, assetsOut);
+        vm.prank(attacker);
+        vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
+        counsel.fulfillCancelRedeemRequests(controllers);
+
+        vm.startPrank(operator);
+        counsel.fulfillRedeemRequests(controllers, assetsOut);
+        assertEq(strategy.lastControllers(0), controllers[0]);
+        assertEq(strategy.lastControllers(1), controllers[1]);
+        counsel.fulfillCancelRedeemRequests(controllers);
+        assertEq(strategy.lastControllers(1), controllers[1]);
+        vm.stopPrank();
+    }
+
+    /// @notice The zero-oracle disjunct of proposeYieldSourceAdd (zero-source already covered)
+    function test_proposeYieldSourceAdd_zeroOracleRejected() public {
+        vm.prank(operator);
+        vm.expectRevert(ISuperVaultCounsel.ZERO_ADDRESS.selector);
+        counsel.proposeYieldSourceAdd(makeAddr("source"), address(0));
+    }
+
     function test_strategyForwards() public {
         vm.startPrank(operator);
         counsel.skimPerformanceFee();

@@ -22,8 +22,10 @@ import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecuto
 ///         Every sharp curator lever — yield-source additions, strategy hooks-root replacement,
 ///         PPS deviation-threshold changes, global-leaf ban/unban, min-update-interval changes,
 ///         secondary-manager additions, and Counsel migration offers — exists only behind a
-///         propose → guardian-veto-window → execute flow. Any live SuperGovernor guardian can
-///         veto up to the moment of execution. Day-to-day operations are typed, operator-only
+///         propose → guardian-veto-window → execute flow. Any address the VETO_REGISTRY reports
+///         as guardian (SuperGovernor guardians by default) can veto up to the moment of
+///         execution; the hard guarantee is the Pending window — once Ready, execute-vs-veto is
+///         a mempool race. Day-to-day operations are typed, operator-only
 ///         forwards; there is no generic call path, no owner, no upgradeability.
 /// @dev One instance per strategy; all counterparties and timing immutable from the constructor.
 ///      Replacement paths (two, both heavily guarded):
@@ -31,12 +33,19 @@ import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecuto
 ///        2. Propose-and-accept migration: this Counsel's operator queues
 ///           proposeCounselMigration(newCounsel) (3-day guardian veto window), which on execute
 ///           seats the successor as SECONDARY manager only; the successor must then itself call
-///           acceptCounselSeat() (structurally restricted to the offered contract by the
-///           aggregator's secondary-only gate), starting the aggregator's 7-day manager-change
-///           timelock, during which the current operator can still cancelChangePrimaryManager().
+///           acceptCounselSeat() (the aggregator's secondary-only gate restricts WHO MAY CALL
+///           proposeChangePrimaryManager to seated secondaries — but a seated secondary may name
+///           an ARBITRARY newManager, so guardian review of the offered contract's code during
+///           the veto window is load-bearing, not a formality), starting the aggregator's 7-day
+///           manager-change timelock, during which the current operator can still
+///           cancelChangePrimaryManager(). The final executeChangePrimaryManager is
+///           PERMISSIONLESS and the matured proposal never expires — execute it promptly.
 ///      OPERATIONAL INVARIANTS (runbook):
 ///        - Never call SuperGovernor.freezeManagerTakeover() while a Counsel is enrolled — it is
-///          permanent and removes the only adapter-replacement path.
+///          permanent; combined with a lost or hostile operator it permanently orphans the seat
+///          (migration is operator-gated; takeover would be the only other path).
+///        - A stale secondary (unaccepted migration offer or old SecondaryManagerAdd) is a
+///          standing 7-day takeover path — remove offers that are not promptly accepted.
 ///        - Enrollment sequence: takeover/create → enrollExecutor() → invalidateAllSessionKeys()
 ///          → grantSessionKeysBatch(...). Session keys from a prior tenure silently revive on
 ///          reinstatement unless invalidated.
@@ -53,7 +62,9 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice The operator Safe: proposer, executor of matured proposals, and day-to-day caller
     address public immutable OPERATOR;
 
-    /// @notice SuperGovernor used for live guardian lookups
+    /// @notice The protocol SuperGovernor. Never called for veto auth directly; it is (a) the
+    ///         default VETO_REGISTRY when the constructor receives address(0) and (b) the
+    ///         migration-equality anchor in proposeCounselMigration
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
     /// @notice Veto-authority registry consulted by veto/canVeto/invalidateAllSessionKeys
@@ -111,7 +122,8 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice Deploy the Counsel with its full, final configuration — nothing is settable later
     /// @dev No code-length checks on operator_: Safes may be counterfactual at deploy time
     /// @param operator_ The operator Safe; must be non-zero
-    /// @param superGovernor_ SuperGovernor for live isGuardian lookups; must be non-zero
+    /// @param superGovernor_ The protocol SuperGovernor (default veto registry + migration
+    ///        anchor); must be non-zero
     /// @param vetoRegistry_ Veto-authority registry; address(0) defaults to superGovernor_
     /// @param aggregator_ The SuperVaultAggregator; must be non-zero
     /// @param strategy_ The managed strategy; must be non-zero
@@ -203,11 +215,12 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
                 || address(ISuperVaultCounsel(newCounsel).AGGREGATOR()) != address(AGGREGATOR)
                 || address(ISuperVaultCounsel(newCounsel).SUPER_GOVERNOR()) != address(SUPER_GOVERNOR)
         ) revert INVALID_MIGRATION_TARGET();
-        // SUPER_GOVERNOR equality is a hard invariant: a successor wired to a different governor
-        // has different (possibly fake) veto machinery. EXECUTOR and the timing/bound immutables
-        // are deliberately NOT required equal - changing them is a legitimate use of migration -
-        // but they are interface-exposed so guardians and monitors diff the full successor
-        // config during the 3-day veto window.
+        // SUPER_GOVERNOR equality anchors the successor to the real protocol governor, but note
+        // these are view calls on attacker-supplied code (any contract can echo the addresses)
+        // and the successor's ACTUAL veto authority is its own VETO_REGISTRY, deliberately not
+        // required equal. The predicates narrow the space; guardian review of the successor's
+        // code and full config (EXECUTOR, VETO_REGISTRY, timing/bounds - all interface-exposed)
+        // during the veto window is the real defense.
 
         Proposal memory p;
         p.actionType = ActionType.CounselMigration;
@@ -303,9 +316,10 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
             // interval < maxStaleness here.
             AGGREGATOR.proposeMinUpdateIntervalChange(address(STRATEGY), p.newMinUpdateInterval);
         } else if (p.actionType == ActionType.SecondaryManagerAdd) {
-            // Guardian-reviewed for 3 days; the operator retains removeSecondaryManager and
-            // cancelChangePrimaryManager as standing defenses against the 7-day replacement
-            // path this could otherwise enable.
+            // Guardian-reviewed for the veto window; a seated secondary can later propose an
+            // ARBITRARY primary-manager change, so the operator retains removeSecondaryManager
+            // and cancelChangePrimaryManager as standing defenses against the 7-day replacement
+            // path this enables. Remove secondaries that no longer need the seat.
             AGGREGATOR.addSecondaryManager(address(STRATEGY), p.newSecondaryManager);
         } else {
             // FeeConfig: starts the strategy's own 1-week fee timelock; the second leg is the
@@ -322,8 +336,9 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuperVaultCounsel
-    /// @dev Relays exact msg.value — never resident balance; refunds from the strategy land on
-    ///      this contract and are recoverable via sweepNative()
+    /// @dev Relays exact msg.value — never resident balance. NOTE: the strategy does NOT refund
+    ///      leftover msg.value (only hook executions that explicitly pay this contract land on
+    ///      receive()); overpaid ETH remains in the strategy — size msg.value exactly
     function executeHooks(ISuperVaultStrategy.ExecuteArgs calldata args) external payable onlyOperator nonReentrant {
         emit OperatorActionExecuted(this.executeHooks.selector);
         STRATEGY.executeHooks{ value: msg.value }(args);
@@ -547,8 +562,8 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         emit NativeSwept(balance);
     }
 
-    /// @notice Accepts ETH refunds from strategy hook execution and upkeep withdrawals; recover
-    ///         via sweepNative()
+    /// @notice Accepts ETH that hook executions explicitly send here; recover via sweepNative().
+    ///         (Upkeep withdrawals arrive as the ERC20 UPKEEP_TOKEN — recover via sweepERC20.)
     receive() external payable { }
 
     /*//////////////////////////////////////////////////////////////

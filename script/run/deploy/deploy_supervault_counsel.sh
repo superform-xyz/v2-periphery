@@ -202,7 +202,7 @@ main() {
         log "ERROR" "Invalid environment: $environment"; exit 1
     fi
     if [ "$mode" != "simulate" ] && [ "$mode" != "execute" ] && [ "$mode" != "check" ]; then
-        log "ERROR" "Invalid mode: $mode"; exit 1
+        log "ERROR" "Invalid mode: $mode (valid: simulate | execute | check)"; exit 1
     fi
     if [ "$mode" = "execute" ] && [ -z "$account" ]; then
         log "ERROR" "Account name is required for execute mode"; usage

@@ -31,7 +31,7 @@ interface ISuperVaultCounsel {
     /// @notice Thrown when a caller other than the immutable operator invokes an operator function
     error NOT_OPERATOR();
 
-    /// @notice Thrown when veto is called by an address that is not a live SuperGovernor guardian
+    /// @notice Thrown when veto is called by an address the VETO_REGISTRY does not report as guardian
     error NOT_GUARDIAN();
 
     /// @notice Thrown when invalidateAllSessionKeys is called by neither the operator nor a guardian
@@ -57,7 +57,7 @@ interface ISuperVaultCounsel {
     error INVALID_ROOT();
 
     /// @notice Thrown when a proposed successor Counsel is invalid (zero, self, codeless, or
-    ///         wired to a different strategy/aggregator)
+    ///         wired to a different strategy, aggregator, or SuperGovernor)
     error INVALID_MIGRATION_TARGET();
 
     /// @notice Thrown when a global-leaves proposal has empty or length-mismatched arrays
@@ -145,7 +145,9 @@ interface ISuperVaultCounsel {
 
     /// @notice Emitted when a veto-gated proposal is created
     /// @dev Emits the full stored proposal so monitors can evaluate it without an eth_call;
-    ///      vetoDeadline and expiry are absolute timestamps so monitors need no chain constants
+    ///      vetoDeadline and expiry are absolute timestamps so monitors need no chain constants.
+    ///      NOTE: veto remains valid AFTER vetoDeadline (until execution or expiry); the field
+    ///      marks when the proposal becomes executable, i.e. the end of the guaranteed window
     event ProposalCreated(
         uint256 indexed id,
         ActionType indexed actionType,
@@ -261,7 +263,7 @@ interface ISuperVaultCounsel {
     /// @return id The monotonic proposal id
     function proposeSecondaryManagerAdd(address manager) external returns (uint256 id);
 
-    /// @notice Permanently cancel a proposal; callable by any live SuperGovernor guardian at any
+    /// @notice Permanently cancel a proposal; callable by any VETO_REGISTRY guardian at any
     ///         time before execution — including the whole Ready period (no front-run window)
     /// @param id The proposal id to veto
     function veto(uint256 id) external;
@@ -294,7 +296,7 @@ interface ISuperVaultCounsel {
     function removeYieldSource(address source) external;
 
     /// @notice Propose a vault fee-config update — VETO-GATED (ActionType.FeeConfig)
-    /// @dev Two-leg: after the 3-day guardian window, execute(id) pushes
+    /// @dev Two-leg: after the guardian veto window (3 days in production), execute(id) pushes
     ///      strategy.proposeVaultFeeConfigUpdate, whose own 1-week timelock then runs;
     ///      executeVaultFeeConfigUpdate() is the second-leg forward. Bounds mirrored from the
     ///      strategy at propose time: perf <= 5100 bps, mgmt (asset-side ENTRY fee) <= 10_000 bps,
@@ -386,7 +388,7 @@ interface ISuperVaultCounsel {
     /// @notice Batch-revoke keeper session keys on the executor
     function revokeSessionKeysBatch(address[] calldata sessionKeys) external;
 
-    /// @notice Invalidate all session keys via generation bump; operator OR any live guardian
+    /// @notice Invalidate all session keys via generation bump; operator OR any VETO_REGISTRY guardian
     /// @dev MUST be called at every (re-)enrollment: keys granted in a prior tenure silently
     ///      revive if this contract is reinstated as mainManager
     function invalidateAllSessionKeys() external;
@@ -415,7 +417,7 @@ interface ISuperVaultCounsel {
     /// @notice The next proposal id to be assigned (== number of proposals ever created)
     function nextProposalId() external view returns (uint256);
 
-    /// @notice Whether an address may currently veto (live SuperGovernor.isGuardian lookup)
+    /// @notice Whether an address may currently veto (live VETO_REGISTRY.isGuardian lookup)
     function canVeto(address account) external view returns (bool);
 
     /// @notice The single strategy this Counsel manages (immutable)
@@ -429,7 +431,7 @@ interface ISuperVaultCounsel {
     /// @notice The operator Safe (immutable)
     function OPERATOR() external view returns (address);
 
-    /// @notice The SuperGovernor used for live guardian lookups (immutable)
+    /// @notice The protocol SuperGovernor (default veto registry + migration anchor; immutable)
     /// @dev Also used by a predecessor Counsel to validate migration-target veto machinery:
     ///      a successor pointing at a different superGovernor_ has different (possibly fake)
     ///      guardians, so proposeCounselMigration requires equality

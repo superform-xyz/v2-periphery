@@ -49,6 +49,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @param branchName Branch name for vnet deployments (required when env == 1)
     /// @param operator The operator Safe (proposer + executor + day-to-day); must be non-zero
     /// @param strategy The SuperVaultStrategy this Counsel will manage; must be non-zero
+    /// @param vetoRegistry Veto-authority registry; address(0) defaults to the SuperGovernor
     /// @param minDeviationThreshold Immutable floor for proposeDeviationThreshold
     /// @param maxDeviationThreshold Immutable ceiling for proposeDeviationThreshold
     function run(
@@ -57,6 +58,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         string calldata branchName,
         address operator,
         address strategy,
+        address vetoRegistry,
         uint256 minDeviationThreshold,
         uint256 maxDeviationThreshold
     )
@@ -65,12 +67,12 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
-        // Ad-hoc path: vetoRegistry defaults to the SuperGovernor (contract-side fallback)
         DeployParams memory p;
         p.env = env;
         p.chainId = chainId;
         p.operator = operator;
         p.strategy = strategy;
+        p.vetoRegistry = vetoRegistry;
         p.minDev = minDeviationThreshold;
         p.maxDev = maxDeviationThreshold;
         _deploy(p, branchName);
@@ -92,36 +94,46 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        DeployParams memory p;
-        p.env = env;
-        p.chainId = chainId;
-        address[] memory strategies;
-        (p.operator, p.minDev, p.maxDev, strategies, p.vetoRegistry) = _readFleetConfig(env, chainId);
+        FleetEntry[] memory entries = _readFleetEntries(env, chainId);
 
         (, address aggregator,) = _resolveAddresses(env, chainId, branchName);
         address[] memory registry = ISuperVaultAggregator(aggregator).getAllSuperVaultStrategies();
 
-        if (strategies.length == 0) {
+        if (entries.length == 0) {
             console2.log("Fleet list empty for this env/chain - falling back to FULL on-chain registry");
-            strategies = registry;
+            string memory json =
+                vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
+            (address dOp, address dVr, uint256 dMin, uint256 dMax) =
+                _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
+            entries = new FleetEntry[](registry.length);
+            for (uint256 i = 0; i < registry.length; i++) {
+                entries[i] =
+                    FleetEntry({ strategy: registry[i], operator: dOp, vetoRegistry: dVr, minDev: dMin, maxDev: dMax });
+            }
         }
-        require(strategies.length > 0, "NO_STRATEGIES_CONFIGURED_OR_REGISTERED");
+        require(entries.length > 0, "NO_STRATEGIES_CONFIGURED_OR_REGISTERED");
 
         console2.log("====== Deploying SuperVaultCounsel fleet ======");
-        console2.log("Operator (from counsel-fleet.json):", p.operator);
-        console2.log("Veto registry (0 = SuperGovernor default):", p.vetoRegistry);
-        console2.log("Deviation bounds:", p.minDev, p.maxDev);
-        console2.log("Strategies to process:", strategies.length);
+        console2.log("Strategies to process:", entries.length);
         console2.log("");
 
+        DeployParams memory p;
+        p.env = env;
+        p.chainId = chainId;
         uint256 deployedCount;
         uint256 skippedCount;
-        for (uint256 i = 0; i < strategies.length; i++) {
-            console2.log("--- Strategy", i + 1, "of", strategies.length);
-            require(_inRegistry(registry, strategies[i]), "FLEET_STRATEGY_NOT_IN_AGGREGATOR_REGISTRY");
-            p.strategy = strategies[i];
+        for (uint256 i = 0; i < entries.length; i++) {
+            console2.log("--- Strategy", i + 1, "of", entries.length);
+            require(_inRegistry(registry, entries[i].strategy), "FLEET_STRATEGY_NOT_IN_AGGREGATOR_REGISTRY");
+            p.strategy = entries[i].strategy;
+            p.operator = _resolveOperator(entries[i].operator);
+            p.vetoRegistry = entries[i].vetoRegistry;
+            p.minDev = entries[i].minDev;
+            p.maxDev = entries[i].maxDev;
+            console2.log("    operator:", p.operator);
+            console2.log("    vetoRegistry (0 = SuperGovernor default):", p.vetoRegistry);
             if (_isCounselDeployed(p, branchName)) {
-                console2.log("Counsel already deployed for", strategies[i], "- skipping");
+                console2.log("Counsel already deployed for", entries[i].strategy, "- skipping");
                 skippedCount++;
                 continue;
             }
@@ -143,12 +155,17 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     function runOne(uint256 env, uint64 chainId, string calldata branchName, address strategy) external broadcast(env) {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
+        FleetEntry memory e = _fleetEntryFor(env, chainId, strategy);
         DeployParams memory p;
         p.env = env;
         p.chainId = chainId;
         p.strategy = strategy;
-        (p.operator, p.minDev, p.maxDev,, p.vetoRegistry) = _readFleetConfig(env, chainId);
+        p.operator = _resolveOperator(e.operator);
+        p.vetoRegistry = e.vetoRegistry;
+        p.minDev = e.minDev;
+        p.maxDev = e.maxDev;
         console2.log("Operator (from counsel-fleet.json):", p.operator);
+        console2.log("Veto registry (0 = SuperGovernor default):", p.vetoRegistry);
         _deploy(p, branchName);
     }
 
@@ -160,11 +177,15 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     function runCheckOne(uint256 env, uint64 chainId, string calldata branchName, address strategy) external {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
+        FleetEntry memory e = _fleetEntryFor(env, chainId, strategy);
         DeployParams memory p;
         p.env = env;
         p.chainId = chainId;
         p.strategy = strategy;
-        (p.operator, p.minDev, p.maxDev,, p.vetoRegistry) = _readFleetConfig(env, chainId);
+        p.operator = _resolveOperator(e.operator);
+        p.vetoRegistry = e.vetoRegistry;
+        p.minDev = e.minDev;
+        p.maxDev = e.maxDev;
         _check(p, branchName);
     }
 
@@ -201,7 +222,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice Shared check implementation (vetoRegistry participates in the CREATE2 address)
-    function _check(DeployParams memory p, string calldata branchName) internal {
+    function _check(DeployParams memory p, string calldata branchName) internal view {
         (p.superGovernor, p.aggregator, p.executor) = _resolveAddresses(p.env, uint64(p.chainId), branchName);
 
         console2.log("====== SuperVaultCounsel Deployment Check ======");
@@ -452,46 +473,115 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice Read operator, deviation bounds, and the curated strategy list from counsel-fleet.json
-    function _readFleetConfig(
-        uint256 env,
-        uint64 chainId
+    /// @notice One resolved fleet entry: per-strategy config with env defaults applied
+    struct FleetEntry {
+        address strategy;
+        address operator;
+        address vetoRegistry;
+        uint256 minDev;
+        uint256 maxDev;
+    }
+
+    /// @notice Read the environment defaults from counsel-fleet.json
+    function _readFleetDefaults(
+        string memory json,
+        string memory envKey
     )
         internal
-        view
-        returns (
-            address operator,
-            uint256 minDev,
-            uint256 maxDev,
-            address[] memory strategies,
-            address fleetVetoRegistry
-        )
+        pure
+        returns (address dOperator, address dVetoRegistry, uint256 dMinDev, uint256 dMaxDev)
     {
+        string memory d = string(abi.encodePacked(envKey, ".defaults"));
+        dOperator = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".operator")));
+        dVetoRegistry = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".vetoRegistry")));
+        dMinDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".minDeviationThreshold")));
+        dMaxDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".maxDeviationThreshold")));
+    }
+
+    /// @notice Resolve an operator: zero means "not set" - allowed with a placeholder in
+    ///         simulation, hard-rejected on any broadcast (it is immutable per Counsel)
+    function _resolveOperator(address operator) internal view returns (address) {
+        if (operator != address(0)) return operator;
+        require(
+            !vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) && !vm.isContext(VmSafe.ForgeContext.ScriptResume),
+            "OPERATOR_NOT_SET_IN_COUNSEL_FLEET_JSON_REQUIRED_FOR_BROADCAST"
+        );
+        address placeholder = address(uint160(uint256(keccak256("COUNSEL_SIMULATION_OPERATOR_PLACEHOLDER"))));
+        console2.log("[WARNING] operator not set in counsel-fleet.json - SIMULATION placeholder:", placeholder);
+        console2.log("[WARNING] computed Counsel addresses will differ from the real deployment");
+        return placeholder;
+    }
+
+    /// @notice Read the per-strategy fleet entries for env+chain, applying defaults for any
+    ///         field an entry omits (operator / vetoRegistry / min-/maxDeviationThreshold)
+    function _readFleetEntries(uint256 env, uint64 chainId) internal view returns (FleetEntry[] memory entries) {
         string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
         // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
         string memory envKey = env == 0 ? ".prod" : ".staging";
+        (address dOperator, address dVetoRegistry, uint256 dMinDev, uint256 dMaxDev) = _readFleetDefaults(json, envKey);
 
-        operator = vm.parseJsonAddress(json, string(abi.encodePacked(envKey, ".operator")));
-        {
-            string memory vrKey = string(abi.encodePacked(envKey, ".vetoRegistry"));
-            fleetVetoRegistry = vm.keyExistsJson(json, vrKey) ? vm.parseJsonAddress(json, vrKey) : address(0);
-        }
-        if (operator == address(0)) {
-            // Simulation runs may proceed with a placeholder operator; any BROADCAST requires
-            // the real operator Safe to be set in counsel-fleet.json (it is immutable per Counsel).
-            require(
-                !vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) && !vm.isContext(VmSafe.ForgeContext.ScriptResume),
-                "OPERATOR_NOT_SET_IN_COUNSEL_FLEET_JSON_REQUIRED_FOR_BROADCAST"
-            );
-            operator = address(uint160(uint256(keccak256("COUNSEL_SIMULATION_OPERATOR_PLACEHOLDER"))));
-            console2.log("[WARNING] operator not set in counsel-fleet.json - SIMULATION placeholder:", operator);
-            console2.log("[WARNING] computed Counsel addresses will differ from the real deployment");
-        }
-        minDev = vm.parseJsonUint(json, string(abi.encodePacked(envKey, ".minDeviationThreshold")));
-        maxDev = vm.parseJsonUint(json, string(abi.encodePacked(envKey, ".maxDeviationThreshold")));
+        string memory base = string(abi.encodePacked(envKey, ".strategies.", vm.toString(uint256(chainId))));
+        require(vm.keyExistsJson(json, base), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
 
-        string memory strategiesKey = string(abi.encodePacked(envKey, ".strategies.", vm.toString(uint256(chainId))));
-        require(vm.keyExistsJson(json, strategiesKey), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
-        strategies = vm.parseJsonAddressArray(json, strategiesKey);
+        uint256 n;
+        while (vm.keyExistsJson(json, string(abi.encodePacked(base, "[", vm.toString(n), "]")))) {
+            n++;
+        }
+
+        entries = new FleetEntry[](n);
+        for (uint256 i = 0; i < n; i++) {
+            string memory e = string(abi.encodePacked(base, "[", vm.toString(i), "]"));
+            entries[i].strategy = vm.parseJsonAddress(json, string(abi.encodePacked(e, ".strategy")));
+            entries[i].operator = _entryAddr(json, e, ".operator", dOperator);
+            entries[i].vetoRegistry = _entryAddr(json, e, ".vetoRegistry", dVetoRegistry);
+            entries[i].minDev = _entryUint(json, e, ".minDeviationThreshold", dMinDev);
+            entries[i].maxDev = _entryUint(json, e, ".maxDeviationThreshold", dMaxDev);
+        }
+    }
+
+    /// @notice Entry-level address override; a present, non-zero value wins over the default
+    function _entryAddr(
+        string memory json,
+        string memory entryPath,
+        string memory field,
+        address dflt
+    )
+        internal
+        view
+        returns (address)
+    {
+        string memory k = string(abi.encodePacked(entryPath, field));
+        if (!vm.keyExistsJson(json, k)) return dflt;
+        address v = vm.parseJsonAddress(json, k);
+        return v == address(0) ? dflt : v;
+    }
+
+    /// @notice Entry-level uint override; a present value wins over the default
+    function _entryUint(
+        string memory json,
+        string memory entryPath,
+        string memory field,
+        uint256 dflt
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        string memory k = string(abi.encodePacked(entryPath, field));
+        return vm.keyExistsJson(json, k) ? vm.parseJsonUint(json, k) : dflt;
+    }
+
+    /// @notice Resolve the fleet entry for one strategy; falls back to env defaults (with a log)
+    ///         when the strategy is not in the curated list
+    function _fleetEntryFor(uint256 env, uint64 chainId, address strategy) internal view returns (FleetEntry memory e) {
+        FleetEntry[] memory entries = _readFleetEntries(env, chainId);
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].strategy == strategy) return entries[i];
+        }
+        console2.log("Strategy not in counsel-fleet.json - using environment defaults");
+        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
+        (e.operator, e.vetoRegistry, e.minDev, e.maxDev) = _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
+        e.strategy = strategy;
     }
 
     /// @notice Whether a strategy is present in the aggregator's registry

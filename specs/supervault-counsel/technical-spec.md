@@ -26,7 +26,7 @@ or coerced curator key can, in a single transaction: add a malicious yield sourc
 (`manageYieldSource` is **immediate, no timelock** — `SuperVaultStrategy.sol:462`), disable the PPS
 deviation defense entirely (`updateDeviationThreshold` is **immediate and unbounded** —
 `SuperVaultAggregator.sol:525`; `type(uint256).max` disables the check at `_forwardPPS`, line 1279),
-or push a hostile strategy hooks-root behind only a 15-minute aggregator timelock
+or push a hostile strategy hooks-root behind only the aggregator's hooks-root timelock (mutable, 15-minute default, settable to zero by SUPER_GOVERNOR_ROLE)
 (`_hooksRootUpdateTimelock`, `SuperVaultAggregator.sol:78`). It can also open the 7-day replacement
 bypass by adding a secondary manager who later ejects the primary
 (`proposeChangePrimaryManager`, secondary-only, `_MANAGER_CHANGE_TIMELOCK = 7 days`).
@@ -44,12 +44,19 @@ reduced to an enumerable typed surface.
 | Actor | Identity | Authority |
 |---|---|---|
 | **Operator** | Immutable address (a Safe); **also the proposer** — one key | `propose*`, `execute(id)`, all day-to-day forwards, session-key management |
-| **Guardian(s)** | Any address where `SUPER_GOVERNOR.isGuardian(addr)` is true **at call time** | `veto(id)`, `invalidateAllSessionKeys()` — no positive writes |
-| **SuperGovernor msig** | Root authority | Guardian role grant/revoke; `changePrimaryManager` takeover (the sole adapter-replacement path) |
+| **Guardian(s)** | Any address where `VETO_REGISTRY.isGuardian(addr)` is true **at call time** (registry defaults to SuperGovernor; pluggable per instance, e.g. a Newton attestation shim) | `veto(id)`, `invalidateAllSessionKeys()` — no positive writes |
+| **SuperGovernor msig** | Root authority | Guardian role grant/revoke; `changePrimaryManager` takeover (the emergency replacement path; propose-and-accept migration is the second path) |
 | **Keepers** | Session keys on `SuperVaultExecutor`, granted by the Counsel | Permission-scoped strategy ops (unchanged from today) |
 | **Anyone** | — | `sweepERC20`/`sweepNative` (destination hard-coded to Operator) |
 
 ### Immutables (constructor)
+
+> **P7 addition**: `VETO_REGISTRY` (IVetoRegistry) — the veto-authority lookup consulted by
+> `veto`/`canVeto`/`invalidateAllSessionKeys`. Constructor arg; `address(0)` defaults to
+> `SUPER_GOVERNOR`. Per-instance so veto authority is pluggable (e.g. a Newton attestation shim)
+> without protocol-wide GUARDIAN_ROLE. Deliberately NOT required equal at migration — a registry
+> change is guardian-reviewed during the veto window. `SUPER_GOVERNOR` itself is never called for
+> veto auth; it remains the default registry and the migration-equality anchor.
 
 ```solidity
 address        public immutable OPERATOR;          // Safe; proposer + executor + day-to-day
@@ -105,7 +112,8 @@ enum ActionType {
     CounselMigration,    // 3: aggregator.addSecondaryManager(strategy, newCounsel) — the "offer"
     GlobalLeavesStatus,  // 4: aggregator.changeGlobalLeavesStatus(leaves, statuses, strategy)
     MinUpdateInterval,   // 5: aggregator.proposeMinUpdateIntervalChange(strategy, interval) — two-leg
-    SecondaryManagerAdd  // 6: aggregator.addSecondaryManager(strategy, manager)
+    SecondaryManagerAdd, // 6: aggregator.addSecondaryManager(strategy, manager)
+    FeeConfig            // 7: strategy.proposeVaultFeeConfigUpdate(perf, mgmt, recipient) — two-leg
 }
 
 struct Proposal {
@@ -159,7 +167,7 @@ Notes:
   outside the immutable bounds requires replacing the Counsel via takeover.
 - **Strategy-root two-leg flow**: the Counsel's 3-day window guards the Counsel-internal proposal;
   `execute(id)` then calls `AGGREGATOR.proposeStrategyHooksRoot`, which starts the aggregator's own
-  15-minute timelock, after which `AGGREGATOR.executeStrategyHooksRootUpdate` is **permissionless**.
+  timelock (mutable; 15-minute default), after which `AGGREGATOR.executeStrategyHooksRootUpdate` is **permissionless**.
   The Counsel window is the real defense; the aggregator timelock is a second, shorter fuse. Nothing
   at the Counsel layer can stop the second leg once pushed — by design.
 
@@ -177,12 +185,11 @@ Notes:
   likely auto-pause, which also blocks new redeem requests. Sequence swaps as: propose+execute
   the ADD of the replacement first, unwind the old source to ~zero via `executeHooks`, and only
   then remove — or knowingly accept the pause as deliberate friction.
-- `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` /
-  `executeVaultFeeConfigUpdate()` — rides the strategy's own `PROPOSAL_TIMELOCK = 1 weeks`;
-  **documented risk acceptance (decision P1 pending)**: no guardian veto on fees. Scope is larger
-  than the perf cap suggests: perf fee <= 5100 bps (51%) AND the management fee is an ASSET-SIDE
-  ENTRY FEE capped at 10_000 bps (100%), payable to an arbitrary recipient, overwrite-only (no
-  cancel endpoint). Adding `ActionType.FeeConfig` to the veto machinery is the open alternative.
+- `executeVaultFeeConfigUpdate()` — second leg of the veto-gated FeeConfig flow. **P1 FIXED**:
+  `proposeVaultFeeConfigUpdate` is now `ActionType.FeeConfig` — 3-day guardian veto, then the
+  strategy's own `PROPOSAL_TIMELOCK = 1 weeks` (~10 days total). Scope that motivated the fix:
+  perf fee <= 5100 bps (51%) AND the management fee is an ASSET-SIDE ENTRY FEE capped at
+  10_000 bps (100%), payable to an arbitrary recipient.
 - `managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction action, uint256 staleness)` —
   strategy bounds 1 minute..1 week, own 1-week timelock
 
@@ -213,7 +220,7 @@ Notes:
 
 ### Housekeeping
 
-- `sweepERC20(IERC20 token)` — permissionless; SafeERC20 `safeTransfer` of full live balance to
+- `sweepERC20(address token)` — permissionless; SafeERC20 `safeTransfer` of full live balance to
   `OPERATOR`; no amount/destination params; balance-snapshot pattern (fee-on-transfer tolerant;
   EOA token address reverts cleanly via SafeERC20's code check)
 - `sweepNative()` — permissionless; `Address.sendValue(payable(OPERATOR), address(this).balance)`
@@ -265,8 +272,8 @@ SuperGovernor takeover.
   root whose manifest is unpublished or non-reproducing. On-chain binding is infeasible for opaque roots.
 - [x] Deviation-threshold bounds (immutable floor/ceiling) — honest-but-wrong and
   disable-the-defense proposals both blocked at propose time (§39.3; Compound-62/Resolv precedent)
-- [ ] **Fee-config veto exclusion (named residual risk)**: up to 51% perf fee behind only the
-  strategy's 1-week timelock, no guardian veto — kept per scope decision, requires pod-leader sign-off
+- [x] **Fee-config veto exclusion — RESOLVED**: fee updates are veto-gated (`ActionType.FeeConfig`,
+  3-day guardian window + the strategy's 1-week timelock); propose-time bounds mirror the strategy caps
 - [ ] Guardian rotation mid-window changes the effective veto set (live semantics, documented);
   guardian-role events are first-class pager alerts
 
@@ -418,7 +425,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     }
 
     // ── housekeeping ──
-    function sweepERC20(IERC20 token) external { token.safeTransfer(OPERATOR, token.balanceOf(address(this))); }
+    function sweepERC20(address token) external { IERC20(token).safeTransfer(OPERATOR, IERC20(token).balanceOf(address(this))); }
     function sweepNative() external { Address.sendValue(payable(OPERATOR), address(this).balance); }
     receive() external payable { }
 }
