@@ -1,11 +1,12 @@
 {
   "_comment": "Curated SuperVaultCounsel fleet configuration - the source of truth for 'all strategies' (NOT the full aggregator registry, which includes third-party/test vaults). Per environment: 'defaults' (operator Safe, veto registry, deviation bounds) plus per-chain arrays of per-strategy entries. Every entry may override any default (operator / vetoRegistry / minDeviationThreshold / maxDeviationThreshold) - omitted fields fall back to the environment defaults. Every listed strategy is validated against the on-chain aggregator registry at run time. If a chain's list is EMPTY, runAll falls back to the full on-chain registry using the defaults (intended for staging/test environments only).",
   "_operatorNote": "prod defaults.operator MUST be set to the real operator Safe before any prod BROADCAST (simulate works with a placeholder; address(0) reverts only on broadcast). Per-strategy operator overrides let partner fleets (e.g. Bizantine on Flare) use a different Safe.",
-  "_vetoRegistryNote": "address(0) = veto authority defaults to SuperGovernor.isGuardian; set per-strategy to a custom IVetoRegistry (e.g. Newton attestation shim) to plug per-instance veto authority.",
+  "_vetoNote": "Veto authority, resolved per strategy: (1) vetoGuardians (address array, EOAs fine) - the deploy script AUTO-DEPLOYS a per-strategy SuperVaultVetoRegistry with exactly this guardian set (CREATE2, salt SuperVaultVetoRegistry_<strategy>, saved to output JSON as SuperVaultVetoRegistry_<strategy>) and wires it into the Counsel; (2) vetoRegistry - an ALREADY-DEPLOYED custom IVetoRegistry contract (e.g. Newton attestation shim), used directly, codeless addresses are rejected; (3) neither / zeros - the Counsel falls back to SuperGovernor.isGuardian. Setting both vetoGuardians and vetoRegistry (at the same level) is a config error. An explicit entry-level value suppresses the other inherited default. The resolved registry address participates in the Counsel's CREATE2 address.",
   "prod": {
     "defaults": {
       "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
-      "vetoRegistry": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+      "vetoRegistry": "0x0000000000000000000000000000000000000000",
+      "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"],
       "minDeviationThreshold": "1000000000000000",
       "maxDeviationThreshold": "990000000000000000"
     },
@@ -53,7 +54,7 @@
           "strategy": "0xEF83ABC641B98af01f0652E3Af49a25d65C601A5",
           "label": "NVDA",
           "operator": "0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC",
-          "vetoRegistry": "0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F"
+          "vetoGuardians": ["0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F"]
         }
       ],
       "14": [
@@ -71,7 +72,7 @@
           "strategy": "0xC2a5A2F441c71c4Aa011bfD9bb65A0FFaD070dF7",
           "label": "TestNVDA-RH",
           "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
-          "vetoRegistry": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
+          "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"]
         }
       ]
     }
@@ -80,6 +81,7 @@
     "defaults": {
       "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
       "vetoRegistry": "0x0000000000000000000000000000000000000000",
+      "vetoGuardians": [],
       "minDeviationThreshold": "1000000000000000",
       "maxDeviationThreshold": "990000000000000000"
     },
@@ -94,7 +96,8 @@
     "strategy": "REQUIRED - the SuperVaultStrategy address",
     "label": "optional human-readable name (ignored by scripts)",
     "operator": "OPTIONAL override - operator Safe for this strategy only; omitted or 0x0 falls back to defaults.operator",
-    "vetoRegistry": "OPTIONAL override - IVetoRegistry for this strategy only (e.g. Newton shim); omitted or 0x0 falls back to defaults.vetoRegistry",
+    "vetoGuardians": "OPTIONAL override - guardian address array for this strategy's auto-deployed SuperVaultVetoRegistry (see _vetoNote); omitted or empty falls back to defaults",
+    "vetoRegistry": "OPTIONAL override - already-deployed custom IVetoRegistry CONTRACT for this strategy (see _vetoNote); mutually exclusive with vetoGuardians; omitted or 0x0 falls back to defaults",
     "minDeviationThreshold": "OPTIONAL override; omitted falls back to defaults",
     "maxDeviationThreshold": "OPTIONAL override; omitted falls back to defaults"
   }

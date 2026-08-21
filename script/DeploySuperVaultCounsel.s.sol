@@ -3,6 +3,7 @@ pragma solidity >=0.8.30;
 
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { SuperVaultCounsel } from "../src/SuperVault/SuperVaultCounsel.sol";
+import { SuperVaultVetoRegistry } from "../src/SuperVault/SuperVaultVetoRegistry.sol";
 import { ISuperVaultAggregator } from "../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
 import { VmSafe } from "forge-std/Vm.sol";
@@ -33,6 +34,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @notice Contract key for SuperVaultCounsel bytecode artifacts
     string internal constant COUNSEL_KEY = "SuperVaultCounsel";
 
+    /// @notice Contract key for SuperVaultVetoRegistry bytecode artifacts
+    string internal constant REGISTRY_KEY = "SuperVaultVetoRegistry";
+
     /// @notice Guardian veto window (spec-pinned)
     uint256 internal constant VETO_WINDOW = 3 days;
 
@@ -49,7 +53,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @param branchName Branch name for vnet deployments (required when env == 1)
     /// @param operator The operator Safe (proposer + executor + day-to-day); must be non-zero
     /// @param strategy The SuperVaultStrategy this Counsel will manage; must be non-zero
-    /// @param vetoRegistry Veto-authority registry; address(0) defaults to the SuperGovernor
+    /// @param vetoRegistry Pre-deployed IVetoRegistry CONTRACT; address(0) defaults to the
+    ///        SuperGovernor. For EOA guardians use the fleet config's vetoGuardians (runOne/runAll)
     /// @param minDeviationThreshold Immutable floor for proposeDeviationThreshold
     /// @param maxDeviationThreshold Immutable ceiling for proposeDeviationThreshold
     function run(
@@ -101,15 +106,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
 
         if (entries.length == 0) {
             console2.log("Fleet list empty for this env/chain - falling back to FULL on-chain registry");
-            string memory json =
-                vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
-            (address dOp, address dVr, uint256 dMin, uint256 dMax) =
-                _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
-            entries = new FleetEntry[](registry.length);
-            for (uint256 i = 0; i < registry.length; i++) {
-                entries[i] =
-                    FleetEntry({ strategy: registry[i], operator: dOp, vetoRegistry: dVr, minDev: dMin, maxDev: dMax });
-            }
+            entries = _fleetFromRegistry(env, registry);
         }
         require(entries.length > 0, "NO_STRATEGIES_CONFIGURED_OR_REGISTERED");
 
@@ -128,10 +125,11 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             p.strategy = entries[i].strategy;
             p.operator = _resolveOperator(entries[i].operator);
             p.vetoRegistry = entries[i].vetoRegistry;
+            p.vetoGuardians = entries[i].vetoGuardians;
             p.minDev = entries[i].minDev;
             p.maxDev = entries[i].maxDev;
             console2.log("    operator:", p.operator);
-            console2.log("    vetoRegistry (0 = SuperGovernor default):", p.vetoRegistry);
+            _logVetoConfig(p);
             if (_isCounselDeployed(p, branchName)) {
                 console2.log("Counsel already deployed for", entries[i].strategy, "- skipping");
                 skippedCount++;
@@ -162,10 +160,11 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.strategy = strategy;
         p.operator = _resolveOperator(e.operator);
         p.vetoRegistry = e.vetoRegistry;
+        p.vetoGuardians = e.vetoGuardians;
         p.minDev = e.minDev;
         p.maxDev = e.maxDev;
         console2.log("Operator (from counsel-fleet.json):", p.operator);
-        console2.log("Veto registry (0 = SuperGovernor default):", p.vetoRegistry);
+        _logVetoConfig(p);
         _deploy(p, branchName);
     }
 
@@ -184,6 +183,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.strategy = strategy;
         p.operator = _resolveOperator(e.operator);
         p.vetoRegistry = e.vetoRegistry;
+        p.vetoGuardians = e.vetoGuardians;
         p.minDev = e.minDev;
         p.maxDev = e.maxDev;
         _check(p, branchName);
@@ -230,11 +230,18 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         console2.log("Environment:", p.env);
         console2.log("Strategy:", p.strategy);
         console2.log("Operator:", p.operator);
-        console2.log("");
+        _logVetoConfig(p);
 
-        address counselAddr = _computeAddress(p);
+        address counselAddr = _computeAddress(p); // resolves p.vetoRegistry to its registry
         bool isDeployed = counselAddr.code.length > 0;
 
+        if (p.vetoRegistry != address(0)) {
+            console2.log("Veto registry (resolved):", p.vetoRegistry);
+            console2.log("Registry is deployed:", p.vetoRegistry.code.length > 0);
+        } else {
+            console2.log("Veto registry (resolved): SuperGovernor default");
+        }
+        console2.log("");
         console2.log("Computed address:", counselAddr);
         console2.log("Is deployed:", isDeployed);
 
@@ -312,7 +319,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         address superGovernor;
         address aggregator;
         address executor;
-        address vetoRegistry; // address(0) = default to superGovernor (contract-side fallback)
+        address vetoRegistry; // pre-deployed IVetoRegistry contract; address(0) = SuperGovernor fallback
+        address[] vetoGuardians; // non-empty = auto-deploy a per-strategy SuperVaultVetoRegistry with this set
     }
 
     /// @notice Internal deployment function (params pre-built by the caller)
@@ -321,6 +329,11 @@ contract DeploySuperVaultCounsel is DeployV2Base {
 
         _logDeployHeader(p);
         _validateParams(p);
+
+        // Resolve the veto authority: a vetoGuardians batch auto-deploys a per-strategy
+        // SuperVaultVetoRegistry; a vetoRegistry must be an already-deployed contract; zero
+        // falls through to the Counsel's SuperGovernor default.
+        p.vetoRegistry = _resolveOrDeployVetoRegistry(p, branchName);
 
         // Per-strategy salt: each strategy gets its own deterministic Counsel address
         address counselAddr = __deployContract(
@@ -382,6 +395,72 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         require(bytecode.length > 0, "BYTECODE_NOT_FOUND");
     }
 
+    /// @notice Get SuperVaultVetoRegistry bytecode from environment-specific artifacts
+    function _getRegistryBytecode(uint256 env) internal view returns (bytes memory bytecode) {
+        bytecode = __getBytecode(REGISTRY_KEY, env);
+        require(bytecode.length > 0, "REGISTRY_BYTECODE_NOT_FOUND");
+    }
+
+    /// @notice Resolve the veto-registry address a deployment with these params will use,
+    ///         WITHOUT deploying anything: a vetoGuardians batch maps to its per-strategy
+    ///         registry's deterministic CREATE2 address; a vetoRegistry contract passes
+    ///         through (codeless addresses are rejected - use vetoGuardians for EOAs).
+    function _predictVetoRegistry(DeployParams memory p) internal view returns (address) {
+        if (p.vetoGuardians.length > 0) {
+            require(p.vetoRegistry == address(0), "AMBIGUOUS_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH");
+            return DeterministicDeployerLib.computeAddress(
+                _registryCreationCode(p.env, p.vetoGuardians), __getSalt(_registrySaltName(p.strategy))
+            );
+        }
+        if (p.vetoRegistry != address(0)) {
+            require(p.vetoRegistry.code.length > 0, "VETO_REGISTRY_MUST_BE_A_CONTRACT_USE_VETO_GUARDIANS_FOR_EOAS");
+        }
+        return p.vetoRegistry;
+    }
+
+    /// @notice Deploy-time veto resolution: deploys the per-strategy registry when a
+    ///         vetoGuardians batch is configured, probes every guardian, and records the
+    ///         registry in the output JSON under "SuperVaultVetoRegistry_<strategy>"
+    function _resolveOrDeployVetoRegistry(DeployParams memory p, string calldata branchName) internal returns (address) {
+        if (p.vetoGuardians.length > 0) {
+            require(p.vetoRegistry == address(0), "AMBIGUOUS_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH");
+            address registryAddr = __deployContract(
+                REGISTRY_KEY,
+                p.chainId,
+                __getSalt(_registrySaltName(p.strategy)),
+                _registryCreationCode(p.env, p.vetoGuardians)
+            );
+            for (uint256 i = 0; i < p.vetoGuardians.length; i++) {
+                require(SuperVaultVetoRegistry(registryAddr).isGuardian(p.vetoGuardians[i]), "REGISTRY_PROBE_FAILED");
+            }
+            _writeAddressJson(p.env, uint64(p.chainId), REGISTRY_KEY, registryAddr, p.strategy, branchName);
+            return registryAddr;
+        }
+        if (p.vetoRegistry != address(0)) {
+            require(p.vetoRegistry.code.length > 0, "VETO_REGISTRY_MUST_BE_A_CONTRACT_USE_VETO_GUARDIANS_FOR_EOAS");
+        }
+        return p.vetoRegistry;
+    }
+
+    /// @notice CREATE2 creation code for a per-strategy registry with a fixed guardian batch
+    function _registryCreationCode(uint256 env, address[] memory guardians) internal view returns (bytes memory) {
+        return abi.encodePacked(_getRegistryBytecode(env), abi.encode(guardians));
+    }
+
+    /// @notice Log the resolved veto configuration for one deployment
+    function _logVetoConfig(DeployParams memory p) internal pure {
+        if (p.vetoGuardians.length > 0) {
+            console2.log("    veto: per-strategy registry, guardians:", p.vetoGuardians.length);
+            for (uint256 i = 0; i < p.vetoGuardians.length; i++) {
+                console2.log("      guardian:", p.vetoGuardians[i]);
+            }
+        } else if (p.vetoRegistry != address(0)) {
+            console2.log("    veto: custom registry contract:", p.vetoRegistry);
+        } else {
+            console2.log("    veto: SuperGovernor default");
+        }
+    }
+
     /// @notice ABI-encode the Counsel constructor args in declaration order
     function _encodeConstructorArgs(DeployParams memory p) internal pure returns (bytes memory) {
         return abi.encode(
@@ -426,12 +505,26 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     )
         internal
     {
+        _writeAddressJson(env, chainId, COUNSEL_KEY, counselAddr, strategy, branchName);
+    }
+
+    /// @notice Merge an address into {ChainName}-latest.json under "<contractKey>_<strategy>"
+    function _writeAddressJson(
+        uint256 env,
+        uint64 chainId,
+        string memory contractKey,
+        address addr,
+        address strategy,
+        string calldata branchName
+    )
+        internal
+    {
         string memory outputPath = _outputJsonPath(env, chainId, branchName);
-        string memory key = string(abi.encodePacked(".SuperVaultCounsel_", vm.toString(strategy)));
-        vm.writeJson(vm.toString(counselAddr), outputPath, key);
+        string memory key = string(abi.encodePacked(".", contractKey, "_", vm.toString(strategy)));
+        vm.writeJson(vm.toString(addr), outputPath, key);
 
         console2.log("");
-        console2.log("SuperVaultCounsel merged into:", outputPath);
+        console2.log(string(abi.encodePacked(contractKey, " merged into:")), outputPath);
         console2.log("Under key:", key);
     }
 
@@ -472,12 +565,18 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         return string(abi.encodePacked(COUNSEL_KEY, "_", vm.toString(strategy)));
     }
 
+    /// @notice Per-strategy salt name for the strategy's SuperVaultVetoRegistry
+    function _registrySaltName(address strategy) internal pure returns (string memory) {
+        return string(abi.encodePacked(REGISTRY_KEY, "_", vm.toString(strategy)));
+    }
+
     /// @notice Read operator, deviation bounds, and the curated strategy list from counsel-fleet.json
     /// @notice One resolved fleet entry: per-strategy config with env defaults applied
     struct FleetEntry {
         address strategy;
         address operator;
         address vetoRegistry;
+        address[] vetoGuardians;
         uint256 minDev;
         uint256 maxDev;
     }
@@ -488,12 +587,24 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         string memory envKey
     )
         internal
-        pure
-        returns (address dOperator, address dVetoRegistry, uint256 dMinDev, uint256 dMaxDev)
+        view
+        returns (
+            address dOperator,
+            address dVetoRegistry,
+            address[] memory dVetoGuardians,
+            uint256 dMinDev,
+            uint256 dMaxDev
+        )
     {
         string memory d = string(abi.encodePacked(envKey, ".defaults"));
         dOperator = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".operator")));
         dVetoRegistry = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".vetoRegistry")));
+        string memory gk = string(abi.encodePacked(d, ".vetoGuardians"));
+        dVetoGuardians = vm.keyExistsJson(json, gk) ? vm.parseJsonAddressArray(json, gk) : new address[](0);
+        require(
+            !(dVetoGuardians.length > 0 && dVetoRegistry != address(0)),
+            "AMBIGUOUS_DEFAULT_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH"
+        );
         dMinDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".minDeviationThreshold")));
         dMaxDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".maxDeviationThreshold")));
     }
@@ -518,7 +629,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
         // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
         string memory envKey = env == 0 ? ".prod" : ".staging";
-        (address dOperator, address dVetoRegistry, uint256 dMinDev, uint256 dMaxDev) = _readFleetDefaults(json, envKey);
+        (address dOperator, address dVetoRegistry, address[] memory dVetoGuardians, uint256 dMinDev, uint256 dMaxDev) =
+            _readFleetDefaults(json, envKey);
 
         string memory base = string(abi.encodePacked(envKey, ".strategies.", vm.toString(uint256(chainId))));
         require(vm.keyExistsJson(json, base), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
@@ -533,7 +645,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             string memory e = string(abi.encodePacked(base, "[", vm.toString(i), "]"));
             entries[i].strategy = vm.parseJsonAddress(json, string(abi.encodePacked(e, ".strategy")));
             entries[i].operator = _entryAddr(json, e, ".operator", dOperator);
-            entries[i].vetoRegistry = _entryAddr(json, e, ".vetoRegistry", dVetoRegistry);
+            (entries[i].vetoRegistry, entries[i].vetoGuardians) =
+                _entryVetoConfig(json, e, dVetoRegistry, dVetoGuardians);
             entries[i].minDev = _entryUint(json, e, ".minDeviationThreshold", dMinDev);
             entries[i].maxDev = _entryUint(json, e, ".maxDeviationThreshold", dMaxDev);
         }
@@ -571,6 +684,55 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         return vm.keyExistsJson(json, k) ? vm.parseJsonUint(json, k) : dflt;
     }
 
+    /// @notice Resolve an entry's veto configuration. An explicit entry-level vetoGuardians
+    ///         array or vetoRegistry contract wins outright (and suppresses the other
+    ///         inherited default); with neither present the environment defaults apply.
+    function _entryVetoConfig(
+        string memory json,
+        string memory entryPath,
+        address dVetoRegistry,
+        address[] memory dVetoGuardians
+    )
+        internal
+        view
+        returns (address vetoRegistry, address[] memory vetoGuardians)
+    {
+        string memory gk = string(abi.encodePacked(entryPath, ".vetoGuardians"));
+        string memory rk = string(abi.encodePacked(entryPath, ".vetoRegistry"));
+        bool hasGuardians = vm.keyExistsJson(json, gk) && vm.parseJsonAddressArray(json, gk).length > 0;
+        bool hasRegistry = vm.keyExistsJson(json, rk) && vm.parseJsonAddress(json, rk) != address(0);
+        require(!(hasGuardians && hasRegistry), "AMBIGUOUS_ENTRY_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH");
+        if (hasGuardians) return (address(0), vm.parseJsonAddressArray(json, gk));
+        if (hasRegistry) return (vm.parseJsonAddress(json, rk), new address[](0));
+        return (dVetoRegistry, dVetoGuardians);
+    }
+
+    /// @notice Build fleet entries from the full on-chain registry using environment defaults
+    ///         (runAll fallback when the curated list is empty)
+    function _fleetFromRegistry(
+        uint256 env,
+        address[] memory registry
+    )
+        internal
+        view
+        returns (FleetEntry[] memory entries)
+    {
+        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
+        (address dOp, address dVr, address[] memory dVg, uint256 dMin, uint256 dMax) =
+            _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
+        entries = new FleetEntry[](registry.length);
+        for (uint256 i = 0; i < registry.length; i++) {
+            entries[i] = FleetEntry({
+                strategy: registry[i],
+                operator: dOp,
+                vetoRegistry: dVr,
+                vetoGuardians: dVg,
+                minDev: dMin,
+                maxDev: dMax
+            });
+        }
+    }
+
     /// @notice Resolve the fleet entry for one strategy; falls back to env defaults (with a log)
     ///         when the strategy is not in the curated list
     function _fleetEntryFor(uint256 env, uint64 chainId, address strategy) internal view returns (FleetEntry memory e) {
@@ -580,7 +742,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         }
         console2.log("Strategy not in counsel-fleet.json - using environment defaults");
         string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
-        (e.operator, e.vetoRegistry, e.minDev, e.maxDev) = _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
+        (e.operator, e.vetoRegistry, e.vetoGuardians, e.minDev, e.maxDev) =
+            _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
         e.strategy = strategy;
     }
 
@@ -599,7 +762,10 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice Compute the deterministic address for a strategy's Counsel
+    /// @dev Resolves the veto authority to its registry address first — a bare guardian in the
+    ///      fleet config participates in the Counsel's CREATE2 address via its deployed registry
     function _computeAddress(DeployParams memory p) internal view returns (address) {
+        p.vetoRegistry = _predictVetoRegistry(p);
         return DeterministicDeployerLib.computeAddress(
             abi.encodePacked(_getCounselBytecode(p.env), _encodeConstructorArgs(p)), __getSalt(_saltName(p.strategy))
         );

@@ -142,7 +142,19 @@ run_for_chain() {
     forge_cmd+=" --rpc-url '$rpc_url' --chain $chain_id"
 
     if [ "$mode" = "execute" ]; then
-        forge_cmd+=" --account $account --broadcast"
+        # forge does not reliably infer the script sender from --account, leaving
+        # msg.sender as the foundry DefaultSender and tripping the operator gate.
+        # Resolve the keystore address explicitly (prompts for the password once here).
+        local sender="${OPERATOR:-}"
+        if [ -z "$sender" ]; then
+            log "INFO" "Resolving sender address from keystore account '$account'..."
+            sender=$(cast wallet address --account "$account") || {
+                log "ERROR" "Could not resolve address for account '$account'"
+                return 1
+            }
+        fi
+        log "INFO" "Broadcast sender: $sender"
+        forge_cmd+=" --account $account --sender $sender --broadcast"
     elif [ "$mode" = "simulate" ]; then
         forge_cmd+=" --sender $OPERATOR"
     fi
