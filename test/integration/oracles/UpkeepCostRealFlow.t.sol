@@ -69,6 +69,11 @@ contract UpkeepCostRealFlowTest is Test {
 
     function setUp() public {
         vm.createSelectFork(vm.envString("ETHEREUM_RPC_URL"));
+        // Back off the chain tip: forking at "latest" against a load-balanced RPC can pin a
+        // lagging block while feeds' updatedAt come from head, underflowing SuperOracle's
+        // staleness check (block.timestamp - updatedAt). 32 blocks is within every full
+        // node's recent-state window, so no archive access is needed.
+        vm.rollFork(block.number - 32);
 
         governor = SuperGovernor(SUPER_GOVERNOR);
         superOracle = SuperOracle(SUPER_ORACLE);
