@@ -278,6 +278,15 @@ contract CrossChainPositionRegistry {
         }
     }
 
+    /// @notice Last oracle-reported value of a position (0 if not Active/WindingDown).
+    /// @dev Used by the AUM oracle's per-position deviation check (SEC-14).
+    function positionValue(bytes32 positionId) external view returns (uint256) {
+        CrossChainPosition memory pos = positions[positionId];
+        return (pos.status == PositionStatus.Active || pos.status == PositionStatus.WindingDown)
+            ? pos.lastReportedValue
+            : 0;
+    }
+
     /// @notice Cap-facing exposure: confirmed positions PLUS in-flight bridged-but-unconfirmed
     ///         capital (SEC-3). This is what validateAllocation must use as the numerator so
     ///         pipelined bridges in the async window cannot each pass against a stale zero.
@@ -367,35 +376,48 @@ contract CrossChainAUMOracle is EIP712 {
 
     // --- Types ---
 
-    /// @dev The quorum signs PER-POSITION values; the aggregate is DERIVED on-chain as their
-    ///      sum. This keeps the registry's per-position values and the cached aggregate
-    ///      consistent by construction (one signed payload, one write path) and gives the cap
-    ///      guard the per-chain granularity its checks require.
+    /// @dev The quorum signs PER-POSITION values AND the hub-chain assets; the cross-chain
+    ///      aggregate is DERIVED on-chain as sum(values). This keeps the registry's per-position
+    ///      values and the cached aggregate consistent by construction (one signed payload, one
+    ///      write path), gives the cap guard per-chain granularity, and (SEC-7) provides the cap
+    ///      DENOMINATOR from the same internally-consistent snapshot rather than a live on-chain
+    ///      read that could be flash-manipulated.
+    ///
+    ///      DENOMINATION (SEC-14): `values[]` and `hubAssets` are ALWAYS hub-asset-denominated
+    ///      at hub-asset decimals. Every off-chain decimal/FX conversion from the spoke asset is
+    ///      the signers' responsibility and is committed to in the typed data; on-chain code
+    ///      never re-derives units, so the quorum owns unit correctness.
     struct AUMReport {
         uint256 totalCrossChainAssets;  // Derived on-chain: sum(values) of last accepted report
+        uint256 hubAssets;              // SEC-7: signed hub-chain assets (hub-asset decimals)
         uint256 timestamp;
         uint256 nonce;
     }
 
     struct AUMOracleConfig {
-        uint256 maxStaleness;        // Max age of AUM data before blocking (0 = unconfigured -> everything blocked)
-        uint256 minUpdateInterval;   // Rate limiting
-        uint256 deviationThreshold;  // Max relative change of the AGGREGATE per update (1e18 scale)
+        uint256 maxStaleness;                 // Max age of AUM data before blocking (0 = unconfigured -> everything blocked)
+        uint256 minUpdateInterval;            // Rate limiting
+        uint256 deviationThreshold;           // Max relative change of the AGGREGATE per update (1e18 scale)
+        uint256 perPositionDeviationThreshold;// SEC-14: max relative change of ANY single position (1e18)
+        uint256 consistencyToleranceBps;      // SEC-8: max |PPS*supply - totalAssets| / totalAssets, in bps
     }
 
     // --- Storage ---
 
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
+    // hubAssets is signed (SEC-7); values are hub-asset-denominated (SEC-14)
     bytes32 public constant UPDATE_AUM_TYPEHASH = keccak256(
-        "UpdateAUM(address strategy,bytes32 positionIdsHash,bytes32 valuesHash,uint256 timestamp,uint256 nonce)"
+        "UpdateAUM(address strategy,bytes32 positionIdsHash,bytes32 valuesHash,uint256 hubAssets,uint256 timestamp,uint256 nonce)"
     );
 
     // Hard bounds: even ORACLE_MANAGER_ROLE cannot set degenerate config values
     uint256 public constant MIN_MAX_STALENESS = 10 minutes;
     uint256 public constant MAX_MAX_STALENESS = 24 hours;
-    uint256 public constant MAX_DEVIATION_THRESHOLD = 0.5e18; // 50%
-    uint256 public constant MIN_UPDATE_INTERVAL = 1 minutes;  // rate-limiter floor (SEC-15)
+    uint256 public constant MAX_DEVIATION_THRESHOLD = 0.5e18;         // 50% (aggregate)
+    uint256 public constant MAX_POSITION_DEVIATION_THRESHOLD = 0.75e18;// 75% (per-position, SEC-14)
+    uint256 public constant MIN_UPDATE_INTERVAL = 1 minutes;         // rate-limiter floor (SEC-15)
+    uint256 public constant MAX_CONSISTENCY_TOLERANCE_BPS = 500;      // 5% PPS<->AUM band ceiling (SEC-8)
 
     /// @dev strategy => latest accepted report (aggregate cache)
     mapping(address => AUMReport) public latestReport;
@@ -430,6 +452,15 @@ contract CrossChainAUMOracle is EIP712 {
         if (config.minUpdateInterval < MIN_UPDATE_INTERVAL || config.minUpdateInterval >= config.maxStaleness) {
             revert INVALID_CONFIG();
         }
+        // SEC-14: per-position bound must be set and no looser than the per-position ceiling.
+        if (
+            config.perPositionDeviationThreshold == 0
+                || config.perPositionDeviationThreshold > MAX_POSITION_DEVIATION_THRESHOLD
+        ) revert INVALID_CONFIG();
+        // SEC-8: consistency band must be set and no looser than the ceiling (0 would disable it).
+        if (config.consistencyToleranceBps == 0 || config.consistencyToleranceBps > MAX_CONSISTENCY_TOLERANCE_BPS) {
+            revert INVALID_CONFIG();
+        }
 
         configs[strategy] = config;
         emit AUMOracleConfigUpdated(strategy, config.maxStaleness, config.minUpdateInterval, config.deviationThreshold);
@@ -449,6 +480,7 @@ contract CrossChainAUMOracle is EIP712 {
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
+        uint256 hubAssets,          // SEC-7: signed hub-chain assets, hub-asset decimals
         uint256 timestamp,
         bytes[] calldata proofs
     ) external {
@@ -464,6 +496,7 @@ contract CrossChainAUMOracle is EIP712 {
             strategy,
             keccak256(abi.encodePacked(positionIds)),
             keccak256(abi.encodePacked(values)),
+            hubAssets,
             timestamp,
             noncePerStrategy[strategy]
         )));
@@ -512,6 +545,54 @@ contract CrossChainAUMOracle is EIP712 {
                 emit AUMDeviationExceeded(strategy, current.totalCrossChainAssets, total);
                 return; // Soft fail: no state update, but the nonce IS consumed (step 4)
             }
+        } else {
+            // SEC-16: zero-crossing (first report / post-full-exit) has no prior aggregate to
+            // bound against, so anchor it to actually-bridged capital. bridgedOut at this point
+            // reflects the in-flight amount these first positions correspond to (it is
+            // decremented only during the sync loop below). A report claiming materially more
+            // AUM than was ever bridged out is rejected - the largest single-step lever at
+            // bootstrap is capped rather than unbounded.
+            uint256 anchor = registry.bridgedOut(strategy);
+            if (total > anchor + (anchor * config.deviationThreshold) / 1e18) {
+                emit AUMDeviationExceeded(strategy, 0, total);
+                return; // soft fail, nonce consumed
+            }
+        }
+
+        // 6b. SEC-14: per-position deviation. Catches value-shifting between positions/chains
+        //     that leaves the aggregate unchanged (A:0, B:A+B) and so passes the aggregate check
+        //     while freeing per-chain cap headroom. A single position moving more than the
+        //     per-position bound soft-fails the WHOLE report (keeping aggregate == sum of applied
+        //     values); legitimate large single-position swings use the SEC-13 forced-update path.
+        for (uint256 i; i < positionIds.length; i++) {
+            uint256 prev = registry.positionValue(positionIds[i]); // 0 for a new/Pending position
+            if (prev > 0) {
+                uint256 d = values[i] > prev ? values[i] - prev : prev - values[i];
+                if ((d * 1e18) / prev > config.perPositionDeviationThreshold) {
+                    emit PositionDeviationExceeded(strategy, positionIds[i], prev, values[i]);
+                    return; // soft fail, nonce consumed
+                }
+            }
+        }
+
+        // 6c. SEC-8: PPS<->AUM consistency band. Both feeds come from one off-chain service;
+        //     bind them on-chain so a stale/diverging PPS cannot be arbitraged against fresh AUM
+        //     (or vice-versa). totalAssets = signed hubAssets + cross-chain aggregate.
+        uint256 totalAssets = hubAssets + total;
+        {
+            // pps: the strategy's stored PPS from the existing SuperVaultAggregator pipeline;
+            // supply: the SuperVault share totalSupply. Both are reads of existing state - the
+            // exact getters are wired at implementation time (aggregator PPS store + vault).
+            uint256 pps = _storedPPS(strategy);
+            uint256 supply = _vaultTotalSupply(strategy);
+            uint256 impliedAssets = (pps * supply) / 1e18;              // PPS is 1e18-scaled
+            if (impliedAssets > 0) {
+                uint256 d = totalAssets > impliedAssets ? totalAssets - impliedAssets : impliedAssets - totalAssets;
+                if ((d * 10_000) / impliedAssets > config.consistencyToleranceBps) {
+                    emit PPSConsistencyBreached(strategy, impliedAssets, totalAssets);
+                    return; // soft fail, nonce consumed - forces PPS and AUM to be reported together
+                }
+            }
         }
 
         // 7. Single write path: sync every position (see syncPositionFromReport rules)
@@ -519,9 +600,10 @@ contract CrossChainAUMOracle is EIP712 {
             registry.syncPositionFromReport(strategy, positionIds[i], values[i], timestamp);
         }
 
-        // 8. Update aggregate cache
+        // 8. Update aggregate + hub-assets cache (one consistent snapshot)
         latestReport[strategy] = AUMReport({
             totalCrossChainAssets: total,
+            hubAssets: hubAssets,
             timestamp: timestamp,
             nonce: usedNonce
         });
@@ -533,14 +615,19 @@ contract CrossChainAUMOracle is EIP712 {
     function isAUMFresh(address strategy) external view returns (bool) {
         AUMReport memory report = latestReport[strategy];
         AUMOracleConfig memory config = configs[strategy];
+        if (config.maxStaleness == 0 || report.timestamp == 0) return false; // fail-safe
         return block.timestamp - report.timestamp <= config.maxStaleness;
     }
 
-    /// @notice Get total AUM (hub + cross-chain) for cap calculation
+    /// @notice Total AUM (hub + cross-chain) for cap calculation
+    /// @dev SEC-7: hubAssets comes from the SAME quorum-signed, deviation-checked report as the
+    ///      cross-chain aggregate - NOT a live on-chain balance read. This makes the cap
+    ///      denominator flash-loan-robust (a donation/flash-deposit cannot inflate it mid-tx)
+    ///      and keeps numerator and denominator on one internally consistent snapshot. There is
+    ///      no `_getHubChainAssets` on-chain reader.
     function getTotalAUM(address strategy) external view returns (uint256) {
-        // Hub chain assets queried on-chain + cross-chain from oracle
-        uint256 hubAssets = _getHubChainAssets(strategy);
-        return hubAssets + latestReport[strategy].totalCrossChainAssets;
+        AUMReport memory r = latestReport[strategy];
+        return r.hubAssets + r.totalCrossChainAssets;
     }
 }
 ```
@@ -571,9 +658,17 @@ contract CrossChainAUMOracle is EIP712 {
 - All PPS-path validation properties replicated: timestamp checks, monotonicity, rate limiting, deviation threshold
 - Soft-fail on deviation (emit + return, nonce still consumed) to prevent oracle DoS without enabling replay
 - AUM freshness check usable by other contracts (consumed by the cap guard)
-- `_getHubChainAssets` (used by `getTotalAUM`) must be pinned down at implementation time: it
-  must read the strategy's on-chain asset accounting in a flash-loan-robust way (oracle/PPS
-  derived, not raw spot balances), or the cap denominator becomes manipulable
+- **Signed hub assets (SEC-7)**: `hubAssets` is part of the quorum-signed report, so
+  `getTotalAUM`'s denominator comes from the same deviation-checked snapshot as the numerator -
+  no live on-chain balance read to flash-manipulate, and numerator/denominator stay consistent
+- **Per-position deviation (SEC-14)** alongside the aggregate one: catches value-shifting
+  between positions/chains that leaves the sum unchanged; `values[]`/`hubAssets` are normatively
+  hub-asset-denominated (units are the quorum's responsibility, committed in the typed data)
+- **PPS<->AUM consistency band (SEC-8)**: `forwardAUM` binds `hubAssets + aggregate` to
+  `PPS x totalSupply` within `consistencyToleranceBps`, so the two feeds cannot diverge into a
+  stale-PPS redemption arbitrage; a breach soft-fails, forcing PPS and AUM to be reported together
+- **Zero-crossing anchor (SEC-16)**: first/post-full-exit reports (no prior aggregate) are
+  bounded against cumulative `bridgedOut`, capping the single-step lever at bootstrap
 
 #### Phase 3: CrossChainPositionCapGuard
 
@@ -863,8 +958,12 @@ The off-chain PPS oracle aggregation service extends to:
 2. Compute `totalAssets = hubChainAssets + sum(crossChainPositionValues)`
 3. Compute `PPS = totalAssets / totalSupply`
 4. Submit via existing `forwardPPS()` (no contract changes)
-5. Separately submit the per-position AUM report via `forwardAUM(positionIds[], values[], ...)`
-   (new endpoint; must cover every non-Exited position - see completeness rule)
+5. Submit the per-position AUM report via `forwardAUM(positionIds[], values[], hubAssets, ...)`
+   (new endpoint; must cover every non-Exited position - completeness rule). CRITICAL (SEC-8):
+   `forwardAUM` enforces `|PPS x totalSupply - (hubAssets + sum(values))| <=
+   consistencyToleranceBps`, so the AUM report MUST be submitted with (or immediately after) a
+   PPS update reflecting the same `totalAssets` - the two feeds can no longer drift apart.
+   `hubAssets` and every `values[]` entry are hub-asset-denominated at hub decimals (SEC-14).
 
 #### 4. Cross-Chain Deposits
 No changes needed. Existing flow:
@@ -903,23 +1002,22 @@ oracle/quorum layer was found sound (EIP-712 domain separation, per-strategy non
 on soft-fail, ascending-unique signers, unconfigured-strategy fail-safe). The **cap subsystem
 was the break**: it is defended against check *omission* but was not, as first specified,
 defended against the manager owning the controls the check reads. Each finding below has been
-folded into the design above (SEC-tag comments) except where marked OPEN — those require a
-threat-model decision or an aggregator change and are called out explicitly.
+folded into the design above (SEC-tag comments) or, for SEC-1, closed by a configuration
+invariant. **Only SEC-10 and SEC-13 remain OPEN** (a decision or an aggregator change).
 
 Status legend: RESOLVED (design updated above) / OPEN (decision or external change needed).
 
 ### CRITICAL
 
-- **SEC-1 — "Only bridging leaf" is not on-chain-enforceable. [OPEN — decision required]**
+- **SEC-1 — "Only bridging leaf" is not on-chain-enforceable. [RESOLVED by configuration]**
   Raw Across/deBridge hooks are globally registered; a main manager authors their own strategy
-  root and can place a raw bridge leaf in it, bridging directly and never touching
-  CapGuardedBridgeHook. `validateHooks` accepts a hook in the global OR strategy root, so
-  off-chain root-lint cannot stop it. Fully bypasses caps → 100% of a capped vault cross-chain.
-  *Candidate mitigations (pick one, all have trade-offs):* (a) do NOT globally register raw
-  bridge hooks on any chain hosting a cross-chain strategy (loses raw bridging there);
-  (b) make the raw bridge hooks themselves cap-aware; (c) add on-chain strategy-root screening
-  for bridge-subtype hooks (requires an aggregator change, which the "no core changes"
-  constraint forbids). Until one is chosen, the cap system is advisory against a rogue manager.
+  root and could place a raw bridge leaf in it, bridging directly and never touching
+  CapGuardedBridgeHook. *Chosen resolution:* a **deployment/configuration invariant** - on any
+  chain hosting a cross-chain strategy, governance registers ONLY `CapGuardedBridgeHook`, never
+  the raw bridge hooks. `executeHooks` checks `isHookRegistered` (global) before the leaf, so a
+  raw bridge leaf in a manager root has no registered hook to resolve to and cannot execute.
+  See "SEC-1 resolution" below for the runbook/assertion/monitoring requirements and the caveat
+  if raw bridging is ever needed on that chain for other products.
 
 - **SEC-2 — Manager sets their own cap value. [RESOLVED]** `setCapConfig` was manager-settable,
   immediate, up to 100%. Now split: tightening is manager-allowed; loosening (raise BPS, raise
@@ -952,17 +1050,17 @@ Status legend: RESOLVED (design updated above) / OPEN (decision or external chan
   position may not sit WindingDown past `MAX_WINDDOWN_DURATION` without a forced report. Closes
   the "funds home but still counted / funds remote but deregistered" windows.
 
-- **SEC-7 — `_getHubChainAssets` (cap denominator) unspecified. [OPEN — must define]** Must NOT
-  read spot balances or one-block-manipulable exchange rates (flash-inflatable denominator).
-  Recommended: include a quorum-signed `hubAssets` field in the same AUM report (one internally
-  consistent snapshot), or derive as `lastPPS × totalSupply − crossChainAggregate` (note the
-  PPS-lag coupling with SEC-8).
+- **SEC-7 — Cap denominator (`hubAssets`) integrity. [RESOLVED]** `hubAssets` is now a
+  quorum-signed field in the AUM report (added to `AUMReport` and `UPDATE_AUM_TYPEHASH`), and
+  `getTotalAUM` returns `hubAssets + crossChainAggregate` from that one deviation-checked
+  snapshot. There is no on-chain `_getHubChainAssets` reader, so the denominator cannot be
+  flash-inflated by a same-tx donation/deposit, and numerator/denominator stay consistent.
 
-- **SEC-8 — PPS and AUM are two unreconciled feeds → redemption arbitrage. [OPEN — must add
-  check]** On a large remote P&L event the public `AUMUpdated`/`AUMDeviationExceeded` events
-  signal exactly when PPS is stale, enabling front-run redeem/deposit at the mispriced PPS.
-  Recommended: enforce `|PPS·totalSupply − getTotalAUM| ≤ tolerance` on-chain at `forwardPPS`
-  time for cross-chain strategies, and/or a shared report timestamp across both submissions.
+- **SEC-8 — PPS<->AUM divergence arbitrage. [RESOLVED]** `forwardAUM` now enforces an on-chain
+  consistency band: `|PPS x totalSupply - (hubAssets + aggregate)| / impliedAssets <=
+  consistencyToleranceBps` (config-bounded to <=5%). A breach soft-fails the report, so AUM
+  cannot be accepted while it disagrees with PPS - the two feeds must move together, closing the
+  stale-PPS redemption/deposit arbitrage window.
 
 - **SEC-9 — Registrar-driven unbounded set → gas DoS + report-griefing. [RESOLVED]**
   `MAX_POSITIONS_PER_STRATEGY` cap, eviction of Invalidated/Exited from the set, and
@@ -986,26 +1084,40 @@ Status legend: RESOLVED (design updated above) / OPEN (decision or external chan
   Recommended: on repeated deviation breaches trip a circuit breaker (pause / block redemptions)
   instead of silently returning, plus an ORACLE_MANAGER-gated, still-quorum-signed forced-update
   path so catastrophic losses can be booked promptly.
-- **SEC-14 — `values[]` denomination/decimals undefined; per-chain value-shift passes under the
-  aggregate-only deviation check. [OPEN — must specify]** State normatively that `values[]` are
-  hub-asset-denominated at hub decimals (in the typed-data signers commit to), and add a
-  per-position deviation bound alongside the aggregate one.
+- **SEC-14 — `values[]` denomination + per-chain value-shift. [RESOLVED]** The report struct
+  and typehash now normatively fix `values[]`/`hubAssets` as hub-asset-denominated at hub
+  decimals (units are the quorum's committed responsibility). A `perPositionDeviationThreshold`
+  (config-bounded to <=75%) is checked per position in `forwardAUM`; a single position moving
+  beyond it soft-fails the whole report, catching value-shifting (A:0, B:A+B) that the
+  aggregate check misses. Legit large single-position swings use the SEC-13 forced-update path.
 - **SEC-15 — `minUpdateInterval` had no lower bound. [RESOLVED]** Added `MIN_UPDATE_INTERVAL`.
-- **SEC-16 — Deviation check disarmed whenever the last aggregate is 0 (bootstrap / post-full-
-  exit). [OPEN — bound it]** Anchor first/zero-crossing reports against an independent bound
-  (e.g. cumulative `bridgedOut`), so a compromised quorum's largest single-step lever is capped.
+- **SEC-16 — Deviation check disarmed at zero-crossings. [RESOLVED]** `forwardAUM` now anchors
+  first/post-full-exit reports (no prior aggregate) against cumulative `bridgedOut` - a report
+  claiming materially more AUM than was ever bridged out is rejected, capping the bootstrap lever.
 - **SEC-17 — Phase-4 hook pseudocode used the wrong execution model. [RESOLVED]** Corrected to
   `build(prevHook, account, data)` returning `Execution[]`, strategy from `account`, cap check
   as Execution[0]. (Also documents why `build()` being `view` forces the SEC-3 accumulator
   through a registry call rather than in-hook state.)
 
+### SEC-1 resolution — CONFIGURATION invariant (not a code change)
+SEC-1 is closed operationally, not in these contracts: on any chain hosting a cross-chain
+strategy, governance MUST NOT `registerHook` the raw Across/deBridge bridge hooks - only
+`CapGuardedBridgeHook` is registered. Because `executeHooks` checks `isHookRegistered` (global)
+before validating the leaf, a raw bridge leaf placed in a manager-authored strategy root simply
+fails to execute - there is no registered raw bridge hook for it to resolve to. This also
+defangs SEC-10's worst case (a malicious strategy root cannot reach a raw bridge). Requirements:
+(1) deployment runbook + on-chain assertion that no raw bridge hook is registered on cross-chain
+host chains; (2) monitoring alert if one ever is; (3) if raw bridging is needed on that chain
+for other products, this invariant does not hold and SEC-1 must instead use cap-aware bridge
+hooks or on-chain root screening (aggregator change).
+
 ### Open items summary (require a decision before build)
-SEC-1 (raw-bridge exclusivity), SEC-7 (hub-assets source), SEC-8 (PPS↔AUM consistency check),
-SEC-10 (root-proposal authority / per-strategy timelock), SEC-13 (loss-booking circuit
-breaker), SEC-14 (`values[]` denomination), SEC-16 (zero-crossing anchor). SEC-1 and SEC-10
-are the load-bearing ones: without one of their mitigations, a rogue main manager can still
-move ~100% of a capped vault cross-chain, and the atomic-hook guarantee is limited to
-preventing *ordering* bypass only.
+Remaining OPEN: **SEC-10** (root-proposal authority - largely mitigated by the SEC-1
+configuration invariant above, but a governor-gate or per-strategy timelock is still the robust
+fix) and **SEC-13** (loss-booking circuit breaker + forced-update path for a real >50% drawdown;
+SEC-14's per-position bound also depends on this override for legit large single-position moves).
+All other findings (SEC-1..9, 11, 12, 14, 15, 16, 17) are resolved in-design or by the SEC-1
+configuration invariant.
 
 ## Attack Surface Analysis
 
@@ -1032,13 +1144,14 @@ preventing *ordering* bypass only.
 - [x] Config gating: `setAUMOracleConfig` (ORACLE_MANAGER_ROLE + hard bounds); `setCapConfig` split - tighten=manager, loosen=governor+timelock (SEC-2)
 - [x] Registrar appointment: GOVERNOR/ORACLE_MANAGER-gated, not manager-alone (SEC-4)
 - [x] Position confirmation: Pending -> Active via first quorum-signed inclusion, with 2-hour invalidation timeout for unconfirmed claims
-- [ ] **OPEN SEC-1/SEC-10**: raw bridge hooks are globally registered and a manager authors their own strategy root, so "only bridging leaf" is not on-chain-enforceable and the guardian window is a global 15-min timelock - see Security Findings
+- [x] SEC-1 (config): raw bridge hooks are NOT registered on cross-chain host chains, so a raw bridge leaf in a manager root fails isHookRegistered and cannot execute
+- [ ] **OPEN SEC-10**: defence-in-depth - gate cross-chain root proposals behind GOVERNOR_ROLE / per-strategy timelock (global 15-min timelock cannot be raised per-strategy)
 
 ### DeFi Interaction Risks
-- [x] Flash loan: Cap denominator uses oracle AUM, not spot balances - CONTINGENT on `_getHubChainAssets` (SEC-7, OPEN) being oracle/PPS-derived
+- [x] Flash loan: Cap denominator is the signed `hubAssets` field (SEC-7), not a spot balance read - not flash-inflatable
 - [x] MEV/sandwich: AUM updates are M-of-N signed, not mempool-visible single-key txs
 - [x] In-flight exposure counted toward caps via `bridgedOut` accumulator (SEC-3)
-- [ ] **OPEN SEC-8**: PPS and AUM are two feeds from one service - add on-chain consistency band to prevent stale-PPS redemption arbitrage
+- [x] SEC-8: `forwardAUM` enforces an on-chain PPS<->AUM consistency band, so a stale-PPS redemption cannot be arbitraged against fresh AUM
 - [x] First depositor: Existing SuperVault mitigations apply (oracle-driven PPS, not balance-derived)
 
 ### Exploit Precedent Check
@@ -1072,18 +1185,18 @@ preventing *ordering* bypass only.
 - [ ] Stale AUM data blocks new cross-chain deployments (fail-safe)
 - [ ] All new contracts registered in SuperGovernor address registry
 - [ ] Cap enforcement is atomic in CapGuardedBridgeHook (validate + bridge in one hook); validated amount == bridged amount even under usePrevHookAmount (SEC-5)
-- [ ] **OPEN SEC-1**: choose and implement raw-bridge-exclusivity mitigation (deploy-time exclusion / cap-aware bridge hooks / on-chain root screening) - off-chain lint alone is insufficient
-- [ ] **OPEN SEC-10**: cross-chain strategy root proposals gated by GOVERNOR_ROLE or a per-strategy timelock (global timelock cannot be raised per-strategy)
-- [ ] **OPEN SEC-7**: `_getHubChainAssets` defined against a flash-loan-robust source (signed hubAssets field or PPS-derived)
-- [ ] **OPEN SEC-8**: on-chain PPS<->AUM consistency band for cross-chain strategies
-- [ ] **OPEN SEC-13**: circuit breaker + governance-gated forced-update path so a real >50% loss can be booked
-- [ ] **OPEN SEC-14**: `values[]` normatively hub-asset-denominated at hub decimals + per-position deviation bound
-- [ ] **OPEN SEC-16**: zero-crossing/first report anchored against an independent bound
+- [ ] SEC-7: cap denominator (`hubAssets`) is a signed field of the AUM report; getTotalAUM uses that snapshot, no on-chain balance read
+- [ ] SEC-8: `forwardAUM` enforces the PPS<->AUM consistency band (soft-fail on breach)
+- [ ] SEC-14: `values[]`/`hubAssets` hub-asset-denominated (typehash); per-position deviation bound enforced
+- [ ] SEC-16: first/zero-crossing reports anchored against cumulative `bridgedOut`
+- [ ] **SEC-1 (config invariant)**: deployment asserts + monitors that NO raw bridge hook is `registerHook`ed on any cross-chain host chain; only CapGuardedBridgeHook is
+- [ ] **OPEN SEC-10**: cross-chain strategy root proposals gated by GOVERNOR_ROLE or a per-strategy timelock (defence-in-depth; SEC-1 config already blocks the raw-bridge path)
+- [ ] **OPEN SEC-13**: circuit breaker + governance-gated forced-update path so a real >50% loss can be booked (also unblocks SEC-14's legit large single-position moves)
 - [ ] Cross-chain deposits work via existing SuperExecutor flow (no changes)
 - [ ] Withdrawals work via existing ERC7540 async flow (no changes)
 
 ### Non-Functional Requirements
-- [ ] No modifications to existing SuperVault, SuperVaultStrategy, SuperVaultAggregator - NOTE: the strongest SEC-1/SEC-10 mitigations (on-chain root screening, per-strategy hooks-root timelock) would require an aggregator change; if the no-core-changes constraint is kept, SEC-1 must be handled by deploy-time exclusion of raw bridge hooks + governor-gated root proposals instead
+- [ ] No modifications to existing SuperVault, SuperVaultStrategy, SuperVaultAggregator - upheld: SEC-1 is closed by a deployment/configuration invariant (don't register raw bridge hooks on cross-chain host chains), no core change needed. Only the OPEN SEC-10 robust fix (per-strategy hooks-root timelock / on-chain root screening) would require an aggregator change; the governor-gate alternative does not
 - [ ] Gas-efficient: packed storage, EnumerableSet for O(1) lookups
 - [ ] AUM deviation check soft-fails (emit + return, nonce consumed); cap enforcement in CapGuardedBridgeHook hard-reverts by design (the revert IS the enforcement)
 
@@ -1121,16 +1234,16 @@ preventing *ordering* bypass only.
 |---|---|---|---|---|
 | False position registration inflates PPS | Position Registration | Low | Critical | Registration is single-key (registrar) but harmless alone: positions enter AUM only via quorum-signed reports (implicit confirmation) |
 | AUM oracle compromise | Oracle | Low | Critical | M-of-N quorum + deviation threshold + staleness checks |
-| Cap bypass via flash loan | Flash Loan | Medium | High | Oracle-reported AUM (not on-chain balances) for cap denominator - CONTINGENT on SEC-7 (`_getHubChainAssets`) |
+| Cap bypass via flash loan | Flash Loan | Medium | High | SEC-7: denominator is the signed `hubAssets` field, not a spot balance - not flash-inflatable |
 | Bridge fill failure | Cross-Chain | Medium | Medium | Pending status, no AUM impact until confirmed |
 | Double-counting during position exit | Vault Accounting | Medium | High | SEC-6: deregister requires oracle-confirmed ~0 value + hub reconciliation; MAX_WINDDOWN_DURATION bounds the window |
 | Registrar key compromise | Access Control | Low | High | SEC-4/9: appointment governor-gated, exit oracle-confirmed, phantom-position DoS bounded; registrar SHOULD be a multisig |
 | Stale position data after liquidation | Oracle | Medium | High | SEC-13 (OPEN): deviation soft-fail currently BLOCKS booking a >50% loss - needs circuit breaker + forced-update path |
-| **Rogue manager bridges via raw bridge leaf in own strategy root** | Access Control | **Medium** | **Critical** | **SEC-1 (OPEN)**: atomic hook prevents ordering bypass only; raw bridge hooks are globally registered and reachable via a manager-authored strategy root - off-chain lint insufficient, needs deploy-time exclusion / cap-aware bridge hooks / on-chain root screening |
+| Rogue manager bridges via raw bridge leaf in own strategy root | Access Control | Medium | Critical | SEC-1 (config invariant): raw bridge hooks are NOT registered on cross-chain host chains, so the leaf fails isHookRegistered; deploy-time assertion + monitoring enforce it |
 | Rogue manager raises own cap | Access Control | Medium | Critical | SEC-2: cap loosening is governor+timelock, tightening only for manager |
 | Cap overshoot via pipelined in-flight bridges | Cross-Chain | Medium | High | SEC-3: `bridgedOut` accumulator counts bridged-but-unconfirmed capital in the numerator |
 | usePrevHookAmount desyncs validated vs bridged amount | Access Control | Medium | High | SEC-5: hook re-derives and validates the exact dynamic amount; amount source pinned in leaf |
-| PPS/AUM divergence redemption arbitrage | Oracle | Medium | High | SEC-8 (OPEN): add on-chain PPS<->AUM consistency band |
+| PPS/AUM divergence redemption arbitrage | Oracle | Medium | High | SEC-8: `forwardAUM` enforces an on-chain PPS<->AUM consistency band (soft-fail on breach) |
 | Guardian veto too slow / global timelock | Access Control | Medium | High | SEC-10 (OPEN): governor-gate cross-chain root proposals or per-strategy timelock |
 | Oracle omits losing positions from report | Oracle | Medium | High | Completeness check: report must cover every open position or revert |
 | Manager loosens AUM staleness/deviation config | Access Control | Low | High | Config is ORACLE_MANAGER_ROLE-gated (not manager) with hard min/max bounds incl. minUpdateInterval floor (SEC-15) |
@@ -1171,14 +1284,17 @@ script/
   operationally via `setAddress()` (SUPER_GOVERNOR_ROLE) - see Integration Point 1.
 
 ### Deployment / Onboarding Order (per strategy)
+0. **SEC-1 chain invariant (once per chain):** assert that NO raw Across/deBridge bridge hook is
+   `registerHook`ed on this chain; register ONLY `CapGuardedBridgeHook`. Wire a monitoring alert
+   on `HookRegistered` for any raw bridge subtype. This is what makes cap enforcement binding.
 1. Deploy the four contracts; register the three registry keys in SuperGovernor
 2. Register `CapGuardedBridgeHook` via the standard hook lifecycle (`registerHook`)
-3. `setAUMOracleConfig` (ORACLE_MANAGER_ROLE) -- until this is set, `isAUMFresh` is false and
-   all cross-chain deployments are blocked (fail-safe default)
-4. `setCapConfig` (primary manager or governor)
+3. `setAUMOracleConfig` (ORACLE_MANAGER_ROLE, all fields incl. perPositionDeviationThreshold +
+   consistencyToleranceBps) -- until set, `isAUMFresh` is false and all deployments are blocked
+4. `setCapConfig`: initial caps + per-chain allowlist. Loosening later is governor-timelocked
 5. Propose + execute the strategy hooks root containing the CapGuardedBridgeHook leaf
-   (root lint verifies no raw bridge hook leaves)
-6. Set the per-strategy registrar in CrossChainPositionRegistry
+   (root lint verifies no raw bridge hook leaves; ideally governor-gated per SEC-10)
+6. Set the per-strategy registrar (GOVERNOR/ORACLE_MANAGER-gated, SEC-4) in the registry
 
 ## Future Considerations
 

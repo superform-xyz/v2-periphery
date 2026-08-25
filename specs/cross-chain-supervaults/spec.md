@@ -6,19 +6,14 @@
 - Linear Issue: N/A
 - Interview Date: 2026-08-25
 - Status: [x] Draft / [ ] Ready for Review / [ ] Approved
-- Security: adversarial review 2026-08-25 — 17 findings; RESOLVED items folded into technical-spec, **7 OPEN items require decisions before build** (see below)
+- Security: adversarial review 2026-08-25 — 17 findings; 15 RESOLVED in-design or by the SEC-1 configuration invariant, **2 OPEN** (see below)
 
-> ### ⚠ Open Security Decisions (blocking build)
-> From the adversarial review (full detail in [technical-spec.md](./technical-spec.md#security-findings--required-mitigations)):
-> - **SEC-1 (Critical)** — "only bridging leaf" is not on-chain-enforceable: a rogue manager can bridge via a raw bridge leaf in their own strategy root. Pick a mitigation (deploy-time exclusion of raw bridge hooks / cap-aware bridge hooks / on-chain root screening).
-> - **SEC-10 (High)** — guardian veto window is a global 15-min timelock; gate cross-chain root proposals behind GOVERNOR_ROLE or add a per-strategy timelock (aggregator change).
-> - **SEC-7** — define `_getHubChainAssets` (cap denominator) against a flash-loan-robust source.
-> - **SEC-8** — add on-chain PPS↔AUM consistency band.
-> - **SEC-13** — deviation soft-fail currently blocks booking a real >50% loss; add circuit breaker + forced-update path.
-> - **SEC-14** — specify `values[]` denomination + per-position deviation bound.
-> - **SEC-16** — anchor zero-crossing/first AUM report.
+> ### ⚠ Open Security Decisions
+> Full detail in [technical-spec.md](./technical-spec.md#security-findings--required-mitigations). SEC-1, SEC-7, SEC-8, SEC-14, SEC-16 are now RESOLVED (SEC-1 by a configuration invariant; SEC-7/8/14/16 folded into `forwardAUM` — signed `hubAssets` denominator, PPS↔AUM consistency band, per-position deviation bound, zero-crossing anchor). Remaining:
+> - **SEC-10 (High)** — guardian veto window is a global 15-min timelock. Largely mitigated by the SEC-1 config invariant (a raw bridge leaf in a manager root can't execute), but a governor-gate on cross-chain root proposals or a per-strategy timelock is still the robust fix (aggregator change).
+> - **SEC-13 (Med-High)** — deviation soft-fail currently blocks booking a real >50% loss; needs a circuit breaker + governance-gated forced-update path (also unblocks SEC-14's legit large single-position moves).
 >
-> Until SEC-1 and SEC-10 are resolved, the cap system does NOT bind a rogue/compromised main manager.
+> SEC-1 is closed operationally: on any chain hosting a cross-chain strategy, register ONLY CapGuardedBridgeHook — never the raw bridge hooks — so a raw bridge leaf in a manager-authored root fails `isHookRegistered` and cannot execute.
 
 ## Summary
 
@@ -93,7 +88,7 @@ Spoke Chains:
 | Contract | Key Functions |
 |---|---|
 | CrossChainPositionRegistry | `registerPosition()`, `syncPositionFromReport()` (onlyAUMOracle - single oracle write path), `beginPositionExit()`, `deregisterPosition()`, `getCrossChainAUM()`, `getChainExposure()` |
-| CrossChainAUMOracle | `forwardAUM(positionIds[], values[], ...)` (quorum-signed, complete reports), `setAUMOracleConfig()` (ORACLE_MANAGER_ROLE), `isAUMFresh()`, `getTotalAUM()` |
+| CrossChainAUMOracle | `forwardAUM(positionIds[], values[], hubAssets, ...)` (quorum-signed, complete reports; signed hubAssets denominator + PPS↔AUM band + per-position deviation), `setAUMOracleConfig()` (ORACLE_MANAGER_ROLE), `isAUMFresh()`, `getTotalAUM()` |
 | CrossChainPositionCapGuard | `validateAllocation()` (view), `setCapConfig()` (manager-or-governor) |
 | CapGuardedBridgeHook | atomic `validateAllocation` + bridge send; `inspect()` pins (guard, bridge target, chainId) in the Merkle leaf |
 
@@ -151,7 +146,7 @@ Spoke Chains:
 ## Risks & Mitigations
 | Risk | Category | Likelihood | Impact | Mitigation | Precedent |
 |------|----------|------------|--------|------------|-----------|
-| **Rogue manager bridges via raw bridge leaf in own strategy root** | Access Control | **Medium** | **Critical** | **OPEN (SEC-1)**: atomic hook stops ordering bypass only; raw bridge hooks are globally registered - needs deploy-time exclusion / cap-aware bridge hooks / on-chain root screening. See technical-spec Security Findings | - |
+| Rogue manager bridges via raw bridge leaf in own strategy root | Access Control | Medium | Critical | SEC-1 (config invariant): raw bridge hooks NOT registered on cross-chain host chains → leaf fails isHookRegistered. See technical-spec Security Findings | - |
 | Rogue manager raises own cap | Access Control | Medium | Critical | SEC-2: cap loosening governor+timelocked | - |
 | Cap overshoot via pipelined in-flight bridges | Cross-Chain | Medium | High | SEC-3: bridgedOut accumulator counts in-flight capital | - |
 | False position registration inflates PPS | Position Registration | Low | Critical | Positions enter AUM only via quorum-signed reports (implicit confirmation); registrar SHOULD be multisig | Wormhole 2022 - $320M |
