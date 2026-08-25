@@ -6,12 +6,11 @@
 - Linear Issue: N/A
 - Interview Date: 2026-08-25
 - Status: [x] Draft / [ ] Ready for Review / [ ] Approved
-- Security: adversarial review 2026-08-25 — 17 findings; 15 RESOLVED in-design or by the SEC-1 configuration invariant, **2 OPEN** (see below)
+- Security: adversarial review 2026-08-25 — 17 findings; 16 RESOLVED in-design or by the SEC-1 configuration invariant, **1 OPEN** (SEC-10)
 
 > ### ⚠ Open Security Decisions
-> Full detail in [technical-spec.md](./technical-spec.md#security-findings--required-mitigations). SEC-1, SEC-7, SEC-8, SEC-14, SEC-16 are now RESOLVED (SEC-1 by a configuration invariant; SEC-7/8/14/16 folded into `forwardAUM` — signed `hubAssets` denominator, PPS↔AUM consistency band, per-position deviation bound, zero-crossing anchor). Remaining:
-> - **SEC-10 (High)** — guardian veto window is a global 15-min timelock. Largely mitigated by the SEC-1 config invariant (a raw bridge leaf in a manager root can't execute), but a governor-gate on cross-chain root proposals or a per-strategy timelock is still the robust fix (aggregator change).
-> - **SEC-13 (Med-High)** — deviation soft-fail currently blocks booking a real >50% loss; needs a circuit breaker + governance-gated forced-update path (also unblocks SEC-14's legit large single-position moves).
+> Full detail in [technical-spec.md](./technical-spec.md#security-findings--required-mitigations). SEC-1, SEC-7, SEC-8, SEC-13, SEC-14, SEC-16 are RESOLVED. SEC-13 (deviation soft-fail deadlock on a >50% loss) is now closed by a per-strategy circuit breaker (trips → isAUMFresh false + alert) plus a dual-gated `forceAUMUpdate` (validator quorum AND ORACLE_MANAGER, distinct typehash) that skips only the deviation check but stays bound to PPS via the SEC-8 consistency band — a recovery path, not a bypass. Remaining:
+> - **SEC-10 (High)** — guardian veto window is a global 15-min timelock. Largely mitigated by the SEC-1 config invariant (a raw bridge leaf in a manager root can't execute). Robust fix: gate cross-chain strategy root proposals behind GOVERNOR_ROLE (no core change), or a per-strategy hooks-root timelock (aggregator change).
 >
 > SEC-1 is closed operationally: on any chain hosting a cross-chain strategy, register ONLY CapGuardedBridgeHook — never the raw bridge hooks — so a raw bridge leaf in a manager-authored root fails `isHookRegistered` and cannot execute.
 
@@ -19,11 +18,12 @@
 
 Enable SuperVaults to deploy yield across multiple chains while maintaining all accounting and share management on a single hub chain (per-vault). Four new composable contracts (CrossChainPositionRegistry, CrossChainAUMOracle, CrossChainPositionCapGuard, CapGuardedBridgeHook) extend the existing SuperVault system without modifying any core contracts. CapGuardedBridgeHook is the ONLY authorized bridging leaf for cross-chain strategies: it performs the cap check and the bridge send atomically in one hook, so the check cannot be omitted from a hook chain. Cross-chain deposits reuse the existing SuperExecutor intent flow, withdrawals use the existing ERC7540 async redemption path, and PPS updates use the existing `forwardPPS()` oracle pipeline.
 
-The architecture is generic but the first implementation targets the FXRP vault on Flare with Stellar yield sources managed externally by Bizantine. Key use cases include singular stock products bridging to find best yield, basis trades on HyperCore, and carry/leverage strategies.
+**CONSTRAINED DESTINATION MODEL (defining decision, Ronny 2026-08-25):** on a destination chain, bridged capital may ONLY (a) sit idle in a hub escrow, or (b) be deposited into an APPROVED destination SuperVault (hub holds its shares). No arbitrary strategy execution on the destination - complex strategy lives inside that vault. This prevents the hub from drifting into un-unwindable multi-leg positions and eliminates the per-operation cross-chain harness explosion. Multi-chain is supported via a governance-approved `(chainId, superVault)` allowlist. Key use case: a hub vault allocating to best-yield SuperVaults across chains.
 
 ## Requirements
 
 ### Functional
+0. CONSTRAINED destinations: a position is only Idle (hub escrow) or SuperVault (approved (chainId, vault) shares); no arbitrary-protocol positions; destination allowlist fails closed; approve is governor+timelock
 1. Track cross-chain positions with full lifecycle (Pending -> Active -> WindingDown -> Exited) via CrossChainPositionRegistry
 2. Accept quorum-signed PER-POSITION AUM reports (positionIds[], values[]) via CrossChainAUMOracle; aggregate derived on-chain; a report must cover every non-Exited position (completeness rule)
 3. Enforce cross-chain allocation caps (global BPS + per-chain) atomically via CapGuardedBridgeHook (cap policy views/config live in CrossChainPositionCapGuard)
@@ -57,19 +57,20 @@ Hub Chain (per-vault):
       |                          the ONLY authorized bridging leaf
   SuperVaultAggregator [UNCHANGED]  -- stores PPS
 
-Spoke Chains:
-  Existing SuperDestinationExecutor [UNCHANGED]
-  (raw Across/deBridge hook leaves are NEVER approved for
-   cross-chain-enabled strategies - root hygiene invariant)
+Destination Chains (many, approved (chainId, superVault)):
+  ONLY: idle hold (hub escrow) OR deposit into an APPROVED SuperVault
+  Existing SuperDestinationExecutor [UNCHANGED] runs the deposit
+  (raw bridge hooks NOT registered on cross-chain host chains - SEC-1)
 ```
 
 ### Data Model
 
 **CrossChainPosition:**
-- chainId, targetProtocol, targetAsset, deployedAmount
-- lastReportedValue, lastReportTimestamp
-- status (Pending/Active/WindingDown/Exited)
-- registeredAt (for timeout)
+- chainId, kind (Idle | SuperVault), destinationVault (address(0) for Idle)
+- deployedAmount (asset), sharesHeld (dest-vault shares; 0 for Idle)
+- lastReportedValue (SuperVault: shares x destPPS), lastReportTimestamp
+- status (Pending/Active/WindingDown/Exited/Invalidated)
+- registeredAt (for timeout), salt (unique id)
 
 **AUMReport (signed payload is per-position; struct below is the on-chain aggregate cache):**
 - signed: positionIds[], values[], timestamp, nonce
@@ -79,7 +80,8 @@ Spoke Chains:
 - maxStaleness, minUpdateInterval, deviationThreshold
 
 **CapConfig:**
-- maxCrossChainBps (global), perChainCap mapping
+- maxCrossChainBps (global), perChainCap + chainEnabled mapping
+- approvedDestinationVault[(chainId,vault)] allowlist + idleHoldEnabled[chainId] (constrained model)
 
 ### API Changes
 
@@ -87,10 +89,10 @@ Spoke Chains:
 
 | Contract | Key Functions |
 |---|---|
-| CrossChainPositionRegistry | `registerPosition()`, `syncPositionFromReport()` (onlyAUMOracle - single oracle write path), `beginPositionExit()`, `deregisterPosition()`, `getCrossChainAUM()`, `getChainExposure()` |
-| CrossChainAUMOracle | `forwardAUM(positionIds[], values[], hubAssets, ...)` (quorum-signed, complete reports; signed hubAssets denominator + PPS↔AUM band + per-position deviation), `setAUMOracleConfig()` (ORACLE_MANAGER_ROLE), `isAUMFresh()`, `getTotalAUM()` |
-| CrossChainPositionCapGuard | `validateAllocation()` (view), `setCapConfig()` (manager-or-governor) |
-| CapGuardedBridgeHook | atomic `validateAllocation` + bridge send; `inspect()` pins (guard, bridge target, chainId) in the Merkle leaf |
+| CrossChainPositionRegistry | `registerPosition(kind, destinationVault, ...)`, `syncPositionFromReport()` (onlyAUMOracle - single write path), `beginPositionExit()`, `deregisterPosition()`, `getCrossChainAUM()`, `getEffectiveChainExposure()` |
+| CrossChainAUMOracle | `forwardAUM(positionIds[], values[], hubAssets, ...)` (quorum-signed, complete reports; SuperVault value = shares x destPPS; signed hubAssets denominator + PPS↔AUM band + per-position deviation), `setAUMOracleConfig()` (ORACLE_MANAGER_ROLE), `isAUMFresh()`, `getTotalAUM()` |
+| CrossChainPositionCapGuard | `validateAllocation(strategy, chainId, destinationVault, amount)` (view), `setCapConfig()` (tighten=mgr / loosen=gov+timelock), `setApprovedDestination()` (approve=gov+timelock), `isApprovedDestination()` |
+| CapGuardedBridgeHook | atomic cap+allowlist check + constrained bridge (approved-vault deposit or idle-hold only); `inspect()` pins (guard, destinationVault, chainId, usePrevHookAmount) in the leaf |
 
 **SuperGovernor additions:**
 - `CROSS_CHAIN_POSITION_REGISTRY` address key
