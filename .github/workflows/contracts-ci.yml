@@ -212,8 +212,8 @@ jobs:
 
       - name: "Run smoke tests"
         run: |
-          chmod +x ./script/run/smoke_test_v2_periphery.sh
-          ./script/run/smoke_test_v2_periphery.sh prod
+          chmod +x ./script/run/test/smoke_test_v2_periphery.sh
+          ./script/run/test/smoke_test_v2_periphery.sh prod
 
       - name: "Add smoke test summary"
         run: |
@@ -290,7 +290,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: "Make deploy script executable"
-        run: chmod +x ./script/run/deploy_v2_vnet_s3.sh
+        run: chmod +x ./script/run/deploy/deploy_v2_vnet_s3.sh
 
       - name: Get branch name and commit hash
         id: branch-info
@@ -299,7 +299,7 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: "Run deploy script"
-        run: ./script/run/deploy_v2_vnet_s3.sh "$BRANCH_NAME"
+        run: ./script/run/deploy/deploy_v2_vnet_s3.sh "$BRANCH_NAME"
         env:
           TENDERLY_ACCESS_KEY: ${{ secrets.TENDERLY_ACCESS_KEY }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}

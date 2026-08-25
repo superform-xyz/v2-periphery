@@ -1,0 +1,104 @@
+{
+  "_comment": "Curated SuperVaultCounsel fleet configuration - the source of truth for 'all strategies' (NOT the full aggregator registry, which includes third-party/test vaults). Per environment: 'defaults' (operator Safe, veto registry, deviation bounds) plus per-chain arrays of per-strategy entries. Every entry may override any default (operator / vetoRegistry / minDeviationThreshold / maxDeviationThreshold) - omitted fields fall back to the environment defaults. Every listed strategy is validated against the on-chain aggregator registry at run time. If a chain's list is EMPTY, runAll falls back to the full on-chain registry using the defaults (intended for staging/test environments only).",
+  "_operatorNote": "prod defaults.operator MUST be set to the real operator Safe before any prod BROADCAST (simulate works with a placeholder; address(0) reverts only on broadcast). Per-strategy operator overrides let partner fleets (e.g. Bizantine on Flare) use a different Safe.",
+  "_vetoNote": "Veto authority, resolved per strategy: (1) vetoGuardians (address array, EOAs fine) - the deploy script AUTO-DEPLOYS a per-strategy SuperVaultVetoRegistry with exactly this guardian set (CREATE2, salt SuperVaultVetoRegistry_<strategy>, saved to output JSON as SuperVaultVetoRegistry_<strategy>) and wires it into the Counsel; (2) vetoRegistry - an ALREADY-DEPLOYED custom IVetoRegistry contract (e.g. Newton attestation shim), used directly, codeless addresses are rejected; (3) neither / zeros - the Counsel falls back to SuperGovernor.isGuardian. Setting both vetoGuardians and vetoRegistry (at the same level) is a config error. An explicit entry-level value suppresses the other inherited default. The resolved registry address participates in the Counsel's CREATE2 address.",
+  "prod": {
+    "defaults": {
+      "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+      "vetoRegistry": "0x0000000000000000000000000000000000000000",
+      "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"],
+      "minDeviationThreshold": "1000000000000000",
+      "maxDeviationThreshold": "990000000000000000"
+    },
+    "strategies": {
+      "1": [
+        {
+          "strategy": "0x41A9Eb398518D2487301c61D2b33E4e966A9F1DD",
+          "label": "SuperUSDC"
+        },
+        {
+          "strategy": "0x1199a6B2587Ed96446E76Dee3FB660bb8fCfd0b2",
+          "label": "SuperETH"
+        },
+        {
+          "strategy": "0xa96060B0B6907406EdBDf3cCc9438abf0F78Cf83",
+          "label": "SuperWBTC"
+        }
+      ],
+      "8453": [
+        {
+          "strategy": "0x5bE8c059A8E101d24B107aFb5A013feF505280b9",
+          "label": "FlagshipUSDC"
+        },
+        {
+          "strategy": "0x2787a17fe04C73AD109370C90917d62D1899Eb6A",
+          "label": "FlagshipWETH"
+        },
+        {
+          "strategy": "0x0c14c751b19D4362f14f4A1D1cB963180B63fB87",
+          "label": "FlagshipCBBTC"
+        },
+        {
+          "strategy": "0x837F9936D8493d0F867b6fD21128dee410b8B8d3",
+          "label": "StocksUSDC"
+        },
+        {
+          "strategy": "0xEcb97e12af8C3730a5d8414604910c16E5BAbBc9",
+          "label": "SPCX"
+        },
+        {
+          "strategy": "0xB80755d52Ae022152fA4606c05bc0e2fdB405De5",
+          "label": "TSLA"
+        },
+        {
+          "strategy": "0xEF83ABC641B98af01f0652E3Af49a25d65C601A5",
+          "label": "NVDA",
+          "operator": "0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC",
+          "vetoGuardians": ["0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F"]
+        }
+      ],
+      "14": [
+        {
+          "strategy": "0x3B5f2031447270b29dda0e78E037D28ba69690DA",
+          "label": "BizantineUSDT0"
+        },
+        {
+          "strategy": "0xA2C060a2aF858Fa1CA0C76588D8478456dd3037F",
+          "label": "BizantineFXRP"
+        }
+      ],
+      "4663": [
+        {
+          "strategy": "0xC2a5A2F441c71c4Aa011bfD9bb65A0FFaD070dF7",
+          "label": "TestNVDA-RH",
+          "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+          "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"]
+        }
+      ]
+    }
+  },
+  "staging": {
+    "defaults": {
+      "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
+      "vetoRegistry": "0x0000000000000000000000000000000000000000",
+      "vetoGuardians": [],
+      "minDeviationThreshold": "1000000000000000",
+      "maxDeviationThreshold": "990000000000000000"
+    },
+    "strategies": {
+      "1": [],
+      "8453": [],
+      "14": [],
+      "4663": []
+    }
+  },
+  "_entryFormat": {
+    "strategy": "REQUIRED - the SuperVaultStrategy address",
+    "label": "optional human-readable name (ignored by scripts)",
+    "operator": "OPTIONAL override - operator Safe for this strategy only; omitted or 0x0 falls back to defaults.operator",
+    "vetoGuardians": "OPTIONAL override - guardian address array for this strategy's auto-deployed SuperVaultVetoRegistry (see _vetoNote); omitted or empty falls back to defaults",
+    "vetoRegistry": "OPTIONAL override - already-deployed custom IVetoRegistry CONTRACT for this strategy (see _vetoNote); mutually exclusive with vetoGuardians; omitted or 0x0 falls back to defaults",
+    "minDeviationThreshold": "OPTIONAL override; omitted falls back to defaults",
+    "maxDeviationThreshold": "OPTIONAL override; omitted falls back to defaults"
+  }
+}
