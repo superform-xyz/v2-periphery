@@ -1269,6 +1269,28 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("  Status: NOT INITIALIZED (keeper needs to set price)");
                 console2.log("  [WARNING] GAS oracle not ready - run keeper to initialize");
             }
+
+            // On mainnet, also verify the BasefeeGasOracle registration under the SUPERFORM
+            // provider (additive migration off the deprecated Chainlink Fast Gas feed)
+            if (chainId == MAINNET_CHAIN_ID) {
+                try oracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM) returns (
+                    address superformGasFeed
+                ) {
+                    console2.log("  SUPERFORM provider gas feed:", superformGasFeed);
+                    if (ORACLE_BASEFEE_GAS_MAINNET != address(0)) {
+                        require(
+                            superformGasFeed == ORACLE_BASEFEE_GAS_MAINNET,
+                            "SMOKE_TEST_FAILED: SUPERFORM gas feed is not BasefeeGasOracle"
+                        );
+                        console2.log("  BasefeeGasOracle registration: VALID");
+                    }
+                } catch {
+                    if (ORACLE_BASEFEE_GAS_MAINNET != address(0)) {
+                        revert("SMOKE_TEST_FAILED: BasefeeGasOracle not registered under SUPERFORM provider");
+                    }
+                    console2.log("  SUPERFORM provider gas feed: NOT REGISTERED (migration pending)");
+                }
+            }
         }
 
         // 3. Verify UP -> USD feed
