@@ -12,11 +12,11 @@
 > Full detail in [technical-spec.md](./technical-spec.md#security-findings--required-mitigations). SEC-1, SEC-7, SEC-8, SEC-13, SEC-14, SEC-16 are RESOLVED. SEC-13 (deviation soft-fail deadlock on a >50% loss) is now closed by a per-strategy circuit breaker (trips → isAUMFresh false + alert) plus a dual-gated `forceAUMUpdate` (validator quorum AND ORACLE_MANAGER, distinct typehash) that skips only the deviation check but stays bound to PPS via the SEC-8 consistency band — a recovery path, not a bypass. Remaining:
 > - **SEC-10 (High)** — guardian veto window is a global 15-min timelock. Largely mitigated by the SEC-1 config invariant (a raw bridge leaf in a manager root can't execute). Robust fix: gate cross-chain strategy root proposals behind GOVERNOR_ROLE (no core change), or a per-strategy hooks-root timelock (aggregator change).
 >
-> SEC-1 is closed operationally: on any chain hosting a cross-chain strategy, register ONLY CapGuardedBridgeHook — never the raw bridge hooks — so a raw bridge leaf in a manager-authored root fails `isHookRegistered` and cannot execute.
+> SEC-1 is closed operationally: on any chain hosting a cross-chain strategy, register ONLY the SuperVault*CapBridgeHook variants — never the raw bridge hooks — so a raw bridge leaf in a manager-authored root fails `isHookRegistered` and cannot execute.
 
 ## Summary
 
-Enable SuperVaults to deploy yield across multiple chains while maintaining all accounting and share management on a single hub chain (per-vault). Four new composable contracts (CrossChainPositionRegistry, CrossChainAUMOracle, CrossChainPositionCapGuard, CapGuardedBridgeHook) extend the existing SuperVault system without modifying any core contracts. CapGuardedBridgeHook is the ONLY authorized bridging leaf for cross-chain strategies: it performs the cap check and the bridge send atomically in one hook, so the check cannot be omitted from a hook chain. Cross-chain deposits reuse the existing SuperExecutor intent flow, withdrawals use the existing ERC7540 async redemption path, and PPS updates use the existing `forwardPPS()` oracle pipeline.
+Enable SuperVaults to deploy yield across multiple chains while maintaining all accounting and share management on a single hub chain (per-vault). Three new core contracts (CrossChainPositionRegistry, CrossChainAUMOracle, CrossChainPositionCapGuard) plus a family of per-protocol bridge hooks (SuperVault*CapBridgeHook — Across/deBridge/Relay/...) extend the existing SuperVault system without modifying any core contracts. The SuperVault*CapBridgeHook variants are the ONLY authorized bridging leaves for cross-chain strategies: each is at core a bridge hook that also performs the cap check + bridge send atomically in one hook, so the check cannot be omitted from a hook chain. Cross-chain deposits reuse the existing SuperExecutor intent flow, withdrawals use the existing ERC7540 async redemption path, and PPS updates use the existing `forwardPPS()` oracle pipeline.
 
 **CONSTRAINED DESTINATION MODEL (defining decision, Ronny 2026-08-25):** on a destination chain, bridged capital may ONLY (a) sit idle in a hub escrow, or (b) be deposited into an APPROVED destination SuperVault (hub holds its shares). No arbitrary strategy execution on the destination - complex strategy lives inside that vault. This prevents the hub from drifting into un-unwindable multi-leg positions and eliminates the per-operation cross-chain harness explosion. Multi-chain is supported via a governance-approved `(chainId, superVault)` allowlist. Key use case: a hub vault allocating to best-yield SuperVaults across chains.
 
@@ -26,7 +26,7 @@ Enable SuperVaults to deploy yield across multiple chains while maintaining all 
 0. CONSTRAINED destinations: a position is only Idle (hub escrow) or SuperVault (approved (chainId, vault) shares); no arbitrary-protocol positions; destination allowlist fails closed; approve is governor+timelock
 1. Track cross-chain positions with full lifecycle (Pending -> Active -> WindingDown -> Exited) via CrossChainPositionRegistry
 2. Accept quorum-signed PER-POSITION AUM reports (positionIds[], values[]) via CrossChainAUMOracle; aggregate derived on-chain; a report must cover every non-Exited position (completeness rule)
-3. Enforce cross-chain allocation caps (global BPS + per-chain) atomically via CapGuardedBridgeHook (cap policy views/config live in CrossChainPositionCapGuard)
+3. Enforce cross-chain allocation caps (global BPS + per-chain) atomically via SuperVaultCapBridgeHook (cap policy views/config live in CrossChainPositionCapGuard)
 4. Reject cross-chain deployments when AUM data is stale (fail-safe); unconfigured strategies (zero maxStaleness) are blocked by default
 5. Auto-invalidate unconfirmed positions after timeout (2 hours); confirmation is implicit - Pending -> Active on first inclusion in a quorum-signed report
 6. AUM oracle integrity config (`setAUMOracleConfig`) gated to ORACLE_MANAGER_ROLE with hard bounds (NOT the strategy manager)
@@ -52,7 +52,7 @@ Hub Chain (per-vault):
       |
   CrossChainPositionCapGuard [NEW]  -- cap policy (views + config)
       |
-  CapGuardedBridgeHook [NEW]  -- atomic: cap check + bridge send;
+  SuperVaultCapBridgeHook [NEW]  -- atomic: cap check + bridge send;
       |                          wraps Across V3 / deBridge [EXISTING];
       |                          the ONLY authorized bridging leaf
   SuperVaultAggregator [UNCHANGED]  -- stores PPS
@@ -92,7 +92,7 @@ Destination Chains (many, approved (chainId, superVault)):
 | CrossChainPositionRegistry | `registerPosition(kind, destinationVault, ...)`, `syncPositionFromReport()` (onlyAUMOracle - single write path), `beginPositionExit()`, `deregisterPosition()`, `getCrossChainAUM()`, `getEffectiveChainExposure()` |
 | CrossChainAUMOracle | `forwardAUM(positionIds[], values[], hubAssets, ...)` (quorum-signed, complete reports; SuperVault value = shares x destPPS; signed hubAssets denominator + PPS↔AUM band + per-position deviation), `setAUMOracleConfig()` (ORACLE_MANAGER_ROLE), `isAUMFresh()`, `getTotalAUM()` |
 | CrossChainPositionCapGuard | `validateAllocation(strategy, chainId, destinationVault, amount)` (view), `setCapConfig()` (tighten=mgr / loosen=gov+timelock), `setApprovedDestination()` (approve=gov+timelock), `isApprovedDestination()` |
-| CapGuardedBridgeHook | atomic cap+allowlist check + constrained bridge (approved-vault deposit or idle-hold only); `inspect()` pins (guard, destinationVault, chainId, usePrevHookAmount) in the leaf |
+| SuperVault*CapBridgeHook (family: Across/deBridge/Relay/...) | abstract base `SuperVaultCapBridgeHook` does the atomic cap+allowlist check + constrained bridge (approved-vault deposit or idle-hold only) + `inspect()` (pins guard, destinationVault, chainId, usePrevHookAmount); per-protocol subclasses implement the bridge send |
 
 **SuperGovernor additions:**
 - `CROSS_CHAIN_POSITION_REGISTRY` address key
@@ -118,14 +118,14 @@ Destination Chains (many, approved (chainId, superVault)):
 
 ### Phase 3: Cap Enforcement
 - [ ] Implement CrossChainPositionCapGuard (policy views + config) with global + per-chain caps
-- [ ] Implement CapGuardedBridgeHook: atomic cap check + bridge send in one hook (the only bridging leaf); reverts on cap breach or stale AUM
+- [ ] Implement SuperVaultCapBridgeHook (abstract base) + per-protocol subclasses (SuperVaultAcrossCapBridgeHook, ...): atomic cap check + bridge send in one hook (the only bridging leaves); revert on cap breach or stale AUM
 - [ ] Add root-lint to root-generation tooling: reject raw bridge hook leaves for cross-chain strategies
 - [ ] Add AUM freshness gate (stale data blocks deployments)
-- [ ] Unit tests for cap guard and CapGuardedBridgeHook
+- [ ] Unit tests for cap guard and SuperVaultCapBridgeHook
 
 ### Phase 4: Integration & Testing
-- [ ] Register new contracts in SuperGovernor; register CapGuardedBridgeHook via hook lifecycle (`registerHook` + root proposal)
-- [ ] Per-strategy onboarding order: registry keys -> `setAUMOracleConfig` -> `setCapConfig` -> approve CapGuardedBridgeHook leaf -> set registrar
+- [ ] Register new contracts in SuperGovernor; register SuperVaultCapBridgeHook via hook lifecycle (`registerHook` + root proposal)
+- [ ] Per-strategy onboarding order: registry keys -> `setAUMOracleConfig` -> `setCapConfig` -> approve SuperVaultCapBridgeHook leaf -> set registrar
 - [ ] Fork tests with simulated cross-chain messaging
 - [ ] Invariant tests (positions <= AUM, caps always respected)
 - [ ] Fuzz tests for cap boundary conditions
@@ -138,8 +138,8 @@ Destination Chains (many, approved (chainId, superVault)):
 - [ ] Coordinate with Bizantine on Stellar yield source parameters
 
 ## Test Plan
-- [ ] Unit tests for: CrossChainPositionRegistry, CrossChainAUMOracle, CrossChainPositionCapGuard, CapGuardedBridgeHook
-- [ ] Negative tests for: incomplete AUM reports revert, unconfigured strategy blocked, hook chain without CapGuardedBridgeHook cannot bridge (no raw bridge leaves in roots)
+- [ ] Unit tests for: CrossChainPositionRegistry, CrossChainAUMOracle, CrossChainPositionCapGuard, SuperVaultCapBridgeHook
+- [ ] Negative tests for: incomplete AUM reports revert, unconfigured strategy blocked, hook chain without SuperVaultCapBridgeHook cannot bridge (no raw bridge leaves in roots)
 - [ ] Fork tests for: full cross-chain deposit/bridge/register/update flow
 - [ ] Invariant tests for: position count <= AUM, cap never exceeded, PPS * supply ~= AUM
 - [ ] Fuzz tests for: cap enforcement boundaries, AUM deviation checks
@@ -158,7 +158,7 @@ Destination Chains (many, approved (chainId, superVault)):
 | Double-counting during position exit | Vault Accounting | Medium | High | Atomic deregistration on bridge callback | - |
 | Stale position data after remote liquidation | Oracle | Medium | High | AUM deviation threshold flags large drops | - |
 | Registrar key compromise | Access Control | Low | High | Multi-sig/quorum for registrar role | Multichain 2023 - $130M |
-| Manager omits cap check from hook chain | Access Control | Medium | Critical | Atomic CapGuardedBridgeHook - the only bridging leaf contains the check | - |
+| Manager omits cap check from hook chain | Access Control | Medium | Critical | Atomic SuperVaultCapBridgeHook - the only bridging leaf contains the check | - |
 | Raw bridge hook leaf added via manager root proposal | Access Control | Low | Critical | Guardian veto + automated root lint | - |
 | Oracle omits losing positions from report | Oracle | Medium | High | Completeness check (report must cover all non-Exited positions) | - |
 | Manager loosens AUM staleness/deviation config | Access Control | Medium | High | Config is ORACLE_MANAGER_ROLE-gated with hard bounds | - |

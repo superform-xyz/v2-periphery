@@ -24,19 +24,19 @@ Currently, SuperVaults can only deploy capital on the same chain where the vault
 
 ## Proposed Solution
 
-A composable extension to the existing SuperVault system with four new contracts:
+A composable extension to the existing SuperVault system with three new contracts plus a family of per-protocol bridge hooks:
 
 1. **CrossChainPositionRegistry** - Tracks cross-chain positions, each typed IDLE (bridged asset held on the destination) or SUPERVAULT (shares of an approved destination vault). Privileged registrar + oracle confirmation.
 2. **CrossChainAUMOracle** - Receives per-position value reports for cap enforcement, independent of PPS oracle. For SUPERVAULT positions the reported value is anchored to the destination vault's own canonical PPS (shares x destinationPPS), not a bespoke valuation.
 3. **CrossChainPositionCapGuard** - Cap policy (view checks + config) over an allowlist of approved `(chainId, superVault)` destinations (multi-chain).
-4. **CapGuardedBridgeHook** - The ONLY authorized cross-chain bridge hook: atomically checks caps + bridges, and constrains the destination action to an approved-vault deposit or idle-hold.
+4. **SuperVaultCapBridgeHook family** - The ONLY authorized cross-chain bridge hooks: at core a bridge hook (per protocol) that also enforces the cap, atomically checking caps + bridging in one hook and constraining the destination action to an approved-vault deposit or idle-hold. An abstract base `SuperVaultCapBridgeHook` holds the shared cap/allowlist/accounting logic; concrete subclasses `SuperVaultAcrossCapBridgeHook`, `SuperVaultDeBridgeCapBridgeHook`, `SuperVaultRelayCapBridgeHook`, ... implement the protocol-specific bridge send.
 
 These contracts compose with the existing system:
 - SuperVault + SuperVaultStrategy remain untouched
 - The DESTINATION-chain deposit reuses the existing SuperExecutor / SuperDestinationExecutor deposit flow into the approved destination SuperVault (no new destination machinery)
 - PPS updates use existing `SuperVaultAggregator.forwardPPS()` (hub oracle values cross-chain positions via the destination vault's PPS)
 - Async redemptions use existing ERC7540 flow; a hub redemption exceeding the idle buffer bridges back (inheriting the destination vault's async-redeem latency - the idle buffer covers the gap)
-- Bridge hooks (Across V3, deBridge) are already implemented and wrapped by CapGuardedBridgeHook
+- Bridge hooks (Across V3, deBridge) are already implemented and wrapped by SuperVaultCapBridgeHook
 
 ## Technical Approach
 
@@ -58,7 +58,7 @@ These contracts compose with the existing system:
     |                                                          |
     +---------------------------+------------------------------+
                                 |
-                    CapGuardedBridgeHook [NEW]
+                    SuperVaultCapBridgeHook [NEW]
                     (atomic: cap check + bridge send;
                     wraps Across V3 / deBridge [EXISTING])
                                 |
@@ -95,7 +95,7 @@ These contracts compose with the existing system:
 
 #### Cross-Chain Deployment (Hub -> Destination vault)
 ```
-1. Manager submits executeHooks() with CapGuardedBridgeHook calldata naming an
+1. Manager submits executeHooks() with SuperVaultCapBridgeHook calldata naming an
    APPROVED (destinationChainId, destinationSuperVault) destination
 2. Inside that hook (atomic): CrossChainPositionCapGuard.validateAllocation()
    checks (a) the destination is an approved (chainId, vault) pair and
@@ -192,7 +192,7 @@ contract CrossChainPositionRegistry {
     ///      control of the party the caps bound. Registrar SHOULD be a multisig.
     mapping(address => address) public registrars;
 
-    /// @dev strategy => amount bridged out via CapGuardedBridgeHook but not yet reflected in an
+    /// @dev strategy => amount bridged out via SuperVaultCapBridgeHook but not yet reflected in an
     ///      Active position (SEC-3). The hook increments this at send time; syncPositionFrom
     ///      Report decrements it when a Pending position first goes Active (funded), and the
     ///      2h timeout path decrements it on Invalidation. Counted in the cap numerator so
@@ -228,7 +228,7 @@ contract CrossChainPositionRegistry {
     ///
     ///      CONSTRAINED MODEL: a SuperVault position MUST name an APPROVED (chainId,
     ///      destinationVault) pair - the registrar cannot register a position against an
-    ///      unapproved vault (checked via CapGuardedPositionCapGuard's allowlist). An Idle
+    ///      unapproved vault (checked via CrossChainPositionCapGuard's allowlist). An Idle
     ///      position has destinationVault == address(0) and sharesHeld == 0.
     function registerPosition(
         address strategy,
@@ -764,7 +764,7 @@ contract CrossChainAUMOracle is EIP712 {
   compromised oracle-manager key (mirrors BasefeeGasOracle's MIN/MAX_MULTIPLIER_BPS pattern)
 - **Unconfigured strategy = fail-safe**: zero `maxStaleness` makes `isAUMFresh` return false,
   blocking all cross-chain deployments until onboarding is complete. Onboarding order:
-  register contracts -> `setAUMOracleConfig` -> `setCapConfig` -> approve CapGuardedBridgeHook leaf
+  register contracts -> `setAUMOracleConfig` -> `setCapConfig` -> approve SuperVaultCapBridgeHook leaf
 - All PPS-path validation properties replicated: timestamp checks, monotonicity, rate limiting, deviation threshold
 - Soft-fail on deviation (emit + return, nonce still consumed) to prevent oracle DoS without enabling replay
 - AUM freshness check usable by other contracts (consumed by the cap guard)
@@ -797,7 +797,7 @@ contract CrossChainAUMOracle is EIP712 {
 #### Phase 3: CrossChainPositionCapGuard
 
 Cap policy contract (view checks + cap configuration), invoked atomically by
-CapGuardedBridgeHook (Phase 4) — never wired into `executeHooks()` directly.
+SuperVaultCapBridgeHook (Phase 4) — never wired into `executeHooks()` directly.
 
 ```solidity
 // SPDX-License-Identifier: BUSL-1.1
@@ -864,7 +864,7 @@ contract CrossChainPositionCapGuard {
 
     /// @notice Validate a cross-chain deployment against caps; reverts with a typed error
     ///         on any violation (no bool return - the revert reason is the diagnostic)
-    /// @dev Called by CapGuardedBridgeHook atomically before the bridge send; the hook
+    /// @dev Called by SuperVaultCapBridgeHook atomically before the bridge send; the hook
     ///      propagates the revert, aborting the entire executeHooks() batch
     function validateAllocation(
         address strategy,
@@ -960,7 +960,7 @@ contract CrossChainPositionCapGuard {
 
 **Key Design Decisions:**
 - Pure validation contract (view functions for cap checks); the enforcing caller is
-  `CapGuardedBridgeHook`, which reverts the whole `executeHooks()` batch on a false return
+  `SuperVaultCapBridgeHook`, which reverts the whole `executeHooks()` batch on a false return
 - Uses AUM oracle data (not on-chain balances) to prevent flash loan manipulation
 - Requires fresh AUM data -- stale data blocks all cross-chain deployments (fail-safe)
 - Per-chain caps provide granular risk control (`registry.getChainExposure`)
@@ -970,10 +970,24 @@ contract CrossChainPositionCapGuard {
 - Cap LIMITS (`setCapConfig`) are the strategy manager's risk dials (manager-or-governor);
   oracle INTEGRITY parameters (`setAUMOracleConfig`) are deliberately not (ORACLE_MANAGER_ROLE)
 
-#### Phase 4: CapGuardedBridgeHook
+#### Phase 4: SuperVaultCapBridgeHook family (one per bridge protocol)
 
 The enforcement adapter: the only leaf that can move funds cross-chain, containing the cap
-check and the bridge send in one atomic execution (rationale in Integration Point 2).
+check and the bridge send in one atomic execution (rationale in Integration Point 2). At its
+core each of these IS a bridge hook (like the existing Across/deBridge hooks) that additionally
+enforces the cross-chain cap; the cap is behaviour, not the name.
+
+Because each bridge protocol has its own calldata/quote shape, this is a small FAMILY: an
+abstract base `SuperVaultCapBridgeHook` holds the shared cap check, destination-allowlist check,
+in-flight `bridgedOut` accounting, and `inspect()`; concrete per-protocol subclasses implement
+only the protocol-specific bridge send:
+
+- `SuperVaultAcrossCapBridgeHook`   (wraps Across V3)
+- `SuperVaultDeBridgeCapBridgeHook` (wraps deBridge)
+- `SuperVaultRelayCapBridgeHook`    (wraps Relay)
+- ...one per supported bridge
+
+Shown below as the base; a concrete subclass overrides only `_emitBridgeSend(...)`.
 
 ```solidity
 // SPDX-License-Identifier: BUSL-1.1
@@ -981,7 +995,10 @@ pragma solidity ^0.8.23;
 
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 
-contract CapGuardedBridgeHook /* is BaseHook, ISuperHookInspector */ {
+/// @dev Abstract base: shared cap + allowlist + in-flight accounting for every per-protocol
+///      capped bridge hook. Concrete subclasses (SuperVaultAcrossCapBridgeHook, ...) implement
+///      the protocol-specific bridge send only.
+abstract contract SuperVaultCapBridgeHook /* is BaseHook, ISuperHookInspector */ {
 
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
@@ -1077,7 +1094,7 @@ Implementation note: `ISuperGovernor` exposes `ORACLE_MANAGER_ROLE()`, `getAddre
 `isValidator`, `getPPSOracleQuorum` but NOT `hasRole` - role checks in the new contracts
 must cast to OZ `IAccessControl` (or add `hasRole` to the interface).
 
-#### 2. executeHooks() Cap Check Integration: CapGuardedBridgeHook (atomic)
+#### 2. executeHooks() Cap Check Integration: SuperVaultCapBridgeHook (atomic)
 
 **Why not a standalone pre-bridge check hook:** the Merkle hook validation layer
 (`SuperVaultAggregator.validateHooks`, `src/SuperVault/SuperVaultAggregator.sol:1151`)
@@ -1086,7 +1103,7 @@ sequence. "Hook A must appear before hook B" is not expressible, so a manager co
 `executeHooks()` containing only the (individually authorized) raw bridge hook and skip the
 cap check entirely. A separate guard hook is enforceable only by convention.
 
-**Design: one hook that checks and bridges atomically.** `CapGuardedBridgeHook` (via its
+**Design: one hook that checks and bridges atomically.** `SuperVaultCapBridgeHook` (via its
 `build()` returning an `Execution[]` the strategy runs in order):
 
 1. Resolves `strategy` from the `account` build parameter (SEC-17), never from `hookData`, so
@@ -1115,7 +1132,7 @@ EITHER the global root OR the strategy's own manager-authored root (`validateHoo
 `SuperVaultAggregator.sol:1151`). The raw Across/deBridge hooks are already globally
 registered for existing single-chain flows. So a malicious/compromised main manager simply
 proposes a strategy root containing a leaf for the RAW bridge hook and bridges directly,
-never touching CapGuardedBridgeHook or the cap guard. Off-chain root-lint + monitoring cannot
+never touching SuperVaultCapBridgeHook or the cap guard. Off-chain root-lint + monitoring cannot
 stop an on-chain manager-authored root. The atomic hook adds a *safe* way to bridge; it does
 not remove the *unsafe* ones. This is the headline residual risk - see Security Findings
 SEC-1 for the three candidate mitigations (deploy-time exclusion of raw bridge hooks on
@@ -1198,8 +1215,8 @@ Status legend: RESOLVED (design updated above) / OPEN (decision or external chan
 - **SEC-1 — "Only bridging leaf" is not on-chain-enforceable. [RESOLVED by configuration]**
   Raw Across/deBridge hooks are globally registered; a main manager authors their own strategy
   root and could place a raw bridge leaf in it, bridging directly and never touching
-  CapGuardedBridgeHook. *Chosen resolution:* a **deployment/configuration invariant** - on any
-  chain hosting a cross-chain strategy, governance registers ONLY `CapGuardedBridgeHook`, never
+  SuperVaultCapBridgeHook. *Chosen resolution:* a **deployment/configuration invariant** - on any
+  chain hosting a cross-chain strategy, governance registers ONLY `SuperVaultCapBridgeHook`, never
   the raw bridge hooks. `executeHooks` checks `isHookRegistered` (global) before the leaf, so a
   raw bridge leaf in a manager root has no registered hook to resolve to and cannot execute.
   See "SEC-1 resolution" below for the runbook/assertion/monitoring requirements and the caveat
@@ -1294,7 +1311,7 @@ Status legend: RESOLVED (design updated above) / OPEN (decision or external chan
 ### SEC-1 resolution — CONFIGURATION invariant (not a code change)
 SEC-1 is closed operationally, not in these contracts: on any chain hosting a cross-chain
 strategy, governance MUST NOT `registerHook` the raw Across/deBridge bridge hooks - only
-`CapGuardedBridgeHook` is registered. Because `executeHooks` checks `isHookRegistered` (global)
+`SuperVaultCapBridgeHook` is registered. Because `executeHooks` checks `isHookRegistered` (global)
 before validating the leaf, a raw bridge leaf placed in a manager-authored strategy root simply
 fails to execute - there is no registered raw bridge hook for it to resolve to. This also
 defangs SEC-10's worst case (a malicious strategy root cannot reach a raw bridge). Requirements:
@@ -1382,12 +1399,12 @@ single-position moves.
 - [ ] `setCapConfig` loosening is governor+timelock; tightening is manager (SEC-2)
 - [ ] Stale AUM data blocks new cross-chain deployments (fail-safe)
 - [ ] All new contracts registered in SuperGovernor address registry
-- [ ] Cap enforcement is atomic in CapGuardedBridgeHook (validate + bridge in one hook); validated amount == bridged amount even under usePrevHookAmount (SEC-5)
+- [ ] Cap enforcement is atomic in SuperVaultCapBridgeHook (validate + bridge in one hook); validated amount == bridged amount even under usePrevHookAmount (SEC-5)
 - [ ] SEC-7: cap denominator (`hubAssets`) is a signed field of the AUM report; getTotalAUM uses that snapshot, no on-chain balance read
 - [ ] SEC-8: `forwardAUM` enforces the PPS<->AUM consistency band (soft-fail on breach)
 - [ ] SEC-14: `values[]`/`hubAssets` hub-asset-denominated (typehash); per-position deviation bound enforced
 - [ ] SEC-16: first/zero-crossing reports anchored against cumulative `bridgedOut`
-- [ ] **SEC-1 (config invariant)**: deployment asserts + monitors that NO raw bridge hook is `registerHook`ed on any cross-chain host chain; only CapGuardedBridgeHook is
+- [ ] **SEC-1 (config invariant)**: deployment asserts + monitors that NO raw bridge hook is `registerHook`ed on any cross-chain host chain; only the SuperVault*CapBridgeHook variants are
 - [ ] **OPEN SEC-10**: cross-chain strategy root proposals gated by GOVERNOR_ROLE or a per-strategy timelock (defence-in-depth; SEC-1 config already blocks the raw-bridge path)
 - [ ] SEC-13: repeated deviation/consistency soft-fails trip the circuit breaker (isAUMFresh false + AUMBreakerTripped event); `forceAUMUpdate` (quorum + ORACLE_MANAGER, distinct typehash, still SEC-8-bound) books the move and clears the breaker
 - [ ] Cross-chain deposits work via existing SuperExecutor flow (no changes)
@@ -1396,7 +1413,7 @@ single-position moves.
 ### Non-Functional Requirements
 - [ ] No modifications to existing SuperVault, SuperVaultStrategy, SuperVaultAggregator - upheld: SEC-1 is closed by a deployment/configuration invariant (don't register raw bridge hooks on cross-chain host chains), no core change needed. Only the OPEN SEC-10 robust fix (per-strategy hooks-root timelock / on-chain root screening) would require an aggregator change; the governor-gate alternative does not
 - [ ] Gas-efficient: packed storage, EnumerableSet for O(1) lookups
-- [ ] AUM deviation check soft-fails (emit + return, nonce consumed); cap enforcement in CapGuardedBridgeHook hard-reverts by design (the revert IS the enforcement)
+- [ ] AUM deviation check soft-fails (emit + return, nonce consumed); cap enforcement in SuperVaultCapBridgeHook hard-reverts by design (the revert IS the enforcement)
 
 ### Security Requirements
 - [ ] Multi-oracle quorum for AUM updates (not single-key)
@@ -1455,10 +1472,14 @@ single-position moves.
 ```
 src/
   CrossChain/
-    CrossChainPositionRegistry.sol     # Position tracking
-    CrossChainAUMOracle.sol            # Per-position AUM reports with quorum
-    CrossChainPositionCapGuard.sol     # Cap policy (views + config)
-    CapGuardedBridgeHook.sol           # Atomic cap check + bridge send (the only bridging leaf)
+    CrossChainPositionRegistry.sol       # Position tracking
+    CrossChainAUMOracle.sol              # Per-position AUM reports with quorum
+    CrossChainPositionCapGuard.sol       # Cap policy (views + config)
+    hooks/
+      SuperVaultCapBridgeHook.sol        # Abstract base: cap + allowlist + bridgedOut + inspect
+      SuperVaultAcrossCapBridgeHook.sol  # Concrete: Across V3 bridge send
+      SuperVaultDeBridgeCapBridgeHook.sol# Concrete: deBridge bridge send
+      SuperVaultRelayCapBridgeHook.sol   # Concrete: Relay bridge send
   interfaces/
     CrossChain/
       ICrossChainPositionRegistry.sol
@@ -1469,7 +1490,8 @@ test/
     CrossChainPositionRegistry.t.sol
     CrossChainAUMOracle.t.sol
     CrossChainPositionCapGuard.t.sol
-    CapGuardedBridgeHook.t.sol
+    SuperVaultCapBridgeHook.t.sol        # Shared base behaviour (cap, allowlist, bridgedOut)
+    SuperVaultAcrossCapBridgeHook.t.sol  # Per-protocol send + end-to-end
   fork/
     CrossChainIntegration.t.sol
   recon/
@@ -1484,16 +1506,17 @@ script/
   operationally via `setAddress()` (SUPER_GOVERNOR_ROLE) - see Integration Point 1.
 
 ### Deployment / Onboarding Order (per strategy)
-0. **SEC-1 chain invariant (once per chain):** assert that NO raw Across/deBridge bridge hook is
-   `registerHook`ed on this chain; register ONLY `CapGuardedBridgeHook`. Wire a monitoring alert
-   on `HookRegistered` for any raw bridge subtype. This is what makes cap enforcement binding.
-1. Deploy the four contracts; register the three registry keys in SuperGovernor
-2. Register `CapGuardedBridgeHook` via the standard hook lifecycle (`registerHook`)
+0. **SEC-1 chain invariant (once per chain):** assert that NO raw Across/deBridge/Relay bridge
+   hook is `registerHook`ed on this chain; register ONLY the SuperVault*CapBridgeHook variants.
+   Wire a monitoring alert on `HookRegistered` for any raw bridge subtype. This is what makes
+   cap enforcement binding.
+1. Deploy the three core contracts + the SuperVault*CapBridgeHook variants needed; register the three registry keys in SuperGovernor
+2. Register each `SuperVault*CapBridgeHook` variant via the standard hook lifecycle (`registerHook`)
 3. `setAUMOracleConfig` (ORACLE_MANAGER_ROLE, all fields incl. perPositionDeviationThreshold,
    consistencyToleranceBps, maxConsecutiveDeviationBreaches) -- until set, `isAUMFresh` is false
    and all deployments are blocked
 4. `setCapConfig`: initial caps + per-chain allowlist. Loosening later is governor-timelocked
-5. Propose + execute the strategy hooks root containing the CapGuardedBridgeHook leaf
+5. Propose + execute the strategy hooks root containing the SuperVaultCapBridgeHook leaf
    (root lint verifies no raw bridge hook leaves; ideally governor-gated per SEC-10)
 6. Set the per-strategy registrar (GOVERNOR/ORACLE_MANAGER-gated, SEC-4) in the registry
 
