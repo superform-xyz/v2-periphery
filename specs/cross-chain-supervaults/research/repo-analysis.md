@@ -145,6 +145,10 @@ superVault = VAULT_IMPLEMENTATION.cloneDeterministic(vars.salt);
 - Registrar role gated by SuperGovernor
 - Pause/unpause per position
 - Position lifecycle: Register -> Pending -> Confirmed -> Active -> Winding Down -> Exited
+  > **SUPERSEDED**: adopted enum is Pending/Active/WindingDown/Exited - no separate
+  > `Confirmed` state; Pending -> Active happens on first inclusion in a quorum-signed
+  > AUM report. Cap enforcement is atomic in CapGuardedBridgeHook, not a pre-execution
+  > guard (see technical-spec.md).
 
 ### CrossChainAUMOracle
 - Extends SuperOracleBase + forwardPPS pattern

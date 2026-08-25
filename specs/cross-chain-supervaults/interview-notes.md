@@ -137,6 +137,11 @@ Enable SuperVaults to accept deposits from any chain and deploy yield across cha
 2. **CrossChainAUMOracle** (or extension to SuperVaultAggregator) - Receives AUM feed for cap enforcement
 3. **Position cap guard** - Hook validation layer that checks cross-chain allocation caps
 
+> **UPDATE (2026-08-25)**: scope is now FOUR contracts - cap enforcement moved into an
+> atomic `CapGuardedBridgeHook` (cap check + bridge send in one hook; the only authorized
+> bridging leaf), because the Merkle hook validation layer cannot enforce hook ordering.
+> The cap guard is policy views/config only. See technical-spec.md.
+
 ## Existing Infra Reused (No Changes)
 - SuperExecutor + bridge hooks for cross-chain deposits
 - SuperDestinationExecutor for receiving bridged deposits

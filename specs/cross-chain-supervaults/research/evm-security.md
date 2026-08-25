@@ -117,6 +117,11 @@
 ## 4. Recommended Security Patterns
 
 ### 4.1 Timelocks on Position Registration
+> **SUPERSEDED**: the adopted design has no `proposePosition`/`confirmPosition` timelock pair.
+> Confirmation is implicit - Pending -> Active on first inclusion in a quorum-signed AUM
+> report (`registry.syncPositionFromReport`), with `POSITION_CONFIRMATION_TIMEOUT` (2h)
+> invalidating unconfirmed positions. See technical-spec.md Phase 1/2.
+
 Two-phase registration mirroring existing patterns:
 - `proposePosition()` with POSITION_REGISTRATION_DELAY (30 min suggested)
 - `confirmPosition()` after timelock expires
@@ -129,6 +134,12 @@ Two-phase registration mirroring existing patterns:
 - Ascending unique signer validation (prevents duplicates)
 
 ### 4.3 Position Cap Enforcement at Hook Level
+> **SUPERSEDED**: enforcement is atomic inside `CapGuardedBridgeHook` (cap check + bridge
+> send in ONE hook - the only authorized bridging leaf); no `executeHooks()` /
+> `_processSingleHookExecution()` / SuperVaultStrategy changes. See technical-spec.md
+> Integration Point 2. The per-batch concern is addressed because each bridge send
+> individually re-checks caps against current registry exposure.
+
 - Must be enforced **per-batch** (entire `executeHooks()` call), not per-hook
 - Use post-execution cross-chain allocation (including all bridge hooks in batch)
 - Must extend `_processSingleHookExecution()` (line 753) to block calls to CrossChainPositionRegistry and CrossChainAUMOracle in addition to aggregator
@@ -181,6 +192,10 @@ Two-phase registration mirroring existing patterns:
 - Double-count during deregistration race condition
 
 ## 6. Critical Findings Summary
+
+> **NOTE**: items 2 and 6 are SUPERSEDED by the adopted design (see notes in 4.1/4.3):
+> cap enforcement is atomic in CapGuardedBridgeHook (no executeHooks changes), and there is
+> no registration timelock (implicit confirmation via signed reports + Pending timeout).
 
 ### Must Implement Before Launch
 1. Multi-oracle quorum for position registration (not single key)

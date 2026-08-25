@@ -54,6 +54,8 @@ struct CrossChainPosition {
 - **Pattern C (Hybrid - Recommended):** Regular push updates + pull-based verification on demand + emergency circuit breaker on staleness
 
 ### Position Lifecycle with Confirmation
+> **NOTE**: adopted design differs - no separate `Confirmed` state; Pending -> Active on
+> first inclusion in a quorum-signed per-position AUM report (see technical-spec.md).
 ```
 Register -> Pending -> Confirmed -> Active -> Winding Down -> Exited
               ^             ^
@@ -77,6 +79,7 @@ If position caps depend on totalAssets, and totalAssets depends on PPS oracle, c
 
 **Solution:** Separate AUM oracle feed for cap enforcement, independent of PPS oracle:
 - **AUM Oracle (for caps):** Reports totalCrossChainAssets, can be slightly stale (hourly acceptable)
+  (adopted design: the quorum signs PER-POSITION values; the aggregate is derived on-chain - see technical-spec.md)
 - **PPS Oracle (for pricing):** Reports pricePerShare, must be fresh (per strategy's ppsExpiration)
 
 ### Multi-Source Aggregation
