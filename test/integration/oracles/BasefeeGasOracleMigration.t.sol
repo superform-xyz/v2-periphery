@@ -34,6 +34,9 @@ contract BasefeeGasOracleMigrationTest is Test {
     address constant CHAINLINK_GAS_ORACLE = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C;
     address constant CHAINLINK_ETH_USD_ORACLE = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
+    // The BasefeeGasOracle deployed & registered on mainnet by the real migration (execute 2026-08-31)
+    address constant DEPLOYED_BASEFEE_GAS_ORACLE = 0xD9f4B84E23742fF126ee0868FE3a3361E08E9c95;
+
     // Synthetic pair addresses (must match SuperGovernor)
     address constant GAS_QUOTE = address(uint160(uint256(keccak256("GAS_QUOTE"))));
     address constant WEI_QUOTE = address(uint160(uint256(keccak256("WEI_QUOTE"))));
@@ -100,10 +103,23 @@ contract BasefeeGasOracleMigrationTest is Test {
 
     /// @notice Full governance flow: additive registration under SUPERFORM, CHAINLINK slot untouched
     function test_MigrationFlow_RegistersUnderSuperformProvider() public {
-        // Pre-state: CHAINLINK serves the pair, SUPERFORM slot is empty (reverts NO_ORACLES_CONFIGURED)
+        // CHAINLINK always serves the pair. The SUPERFORM slot is state-dependent: empty before the
+        // real mainnet migration (reverts NO_ORACLES_CONFIGURED), populated after (execute broadcast
+        // 2026-08-31). This test still exercises the full queue -> timelock -> execute mechanics with
+        // a freshly deployed oracle, overwriting whatever the live slot holds on the fork.
         assertEq(superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_CHAINLINK), CHAINLINK_GAS_ORACLE);
-        vm.expectRevert(ISuperOracle.NO_ORACLES_CONFIGURED.selector);
-        superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM);
+        address existingSuperformFeed = _superformSlotOrZero();
+        if (existingSuperformFeed == address(0)) {
+            vm.expectRevert(ISuperOracle.NO_ORACLES_CONFIGURED.selector);
+            superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM);
+        } else {
+            // Live migration already executed: the slot must be the deployed BasefeeGasOracle
+            assertEq(
+                existingSuperformFeed,
+                DEPLOYED_BASEFEE_GAS_ORACLE,
+                "live SUPERFORM slot must be the deployed BasefeeGasOracle"
+            );
+        }
 
         _queueRegistration();
 
@@ -227,6 +243,17 @@ contract BasefeeGasOracleMigrationTest is Test {
         bytes32 memberSlot = keccak256(abi.encode(account, roleSlot));
         vm.store(address(governor), memberSlot, bytes32(uint256(1)));
         require(governor.hasRole(role, account), "Failed to grant role via storage");
+    }
+
+    /// @dev Returns the feed registered under the SUPERFORM provider for the gas pair, or
+    ///      address(0) if the slot is unconfigured (getOracleAddress reverts NO_ORACLES_CONFIGURED).
+    ///      Lets the migration flow adapt to the live lifecycle stage (pre- vs post-execute).
+    function _superformSlotOrZero() internal view returns (address feed) {
+        try superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM) returns (address a) {
+            feed = a;
+        } catch {
+            feed = address(0);
+        }
     }
 
     function _queueRegistration() internal {
