@@ -15,6 +15,19 @@
 | P2 Medium | 3 | No |
 | P3 Low | 4 (+ best-practices set) | No |
 
+## Remediation status (2026-08-25)
+Fixes applied to `SuperVaultAcrossCapBridgeHook.sol` (the review target) + new test `test/unit/hooks/bridges/SuperVaultAcrossCapBridgeHook.t.sol` (8 passing):
+- **P1-1 FIXED** — hook now resolves cap guard + registry from `SUPER_GOVERNOR.getAddress(...)` at execution (same keys the periphery uses); constructor takes `superGovernor_` instead of the two immutables. Migration test proves exposure follows the governor pointer.
+- **P2-2 FIXED** — full-width `destinationChainId` validated; `> type(uint64).max` reverts `DATA_NOT_VALID`.
+- **P3-1 FIXED (test half)** — offset-equivalence test asserts the hook validates exactly the tuple the parent bridges (both amount branches). Constants left local because the parent is locked bytecode (can't share its private constants without re-locking it).
+- **P3-2 FIXED** — explicit `data.length < 269` typed-error guard in `_preExecute`.
+- **P3-3 / P3-4 FIXED (documented)** — idle-hold unreachability and Across refund/depositor behavior now in NatSpec.
+- **P1-3 documented, NOT code-fixable here** — machine-enforcement belongs at the executor/validator layer, not this hook; NatSpec states it as a monitored governance invariant.
+
+Already fixed on disk by a prior periphery hardening pass (verified, no action): best-practices event + interface for `setBridgeHookAuthorization`; `2 hours` duplication (now reads `POSITION_CONFIRMATION_TIMEOUT()`); P2-1 misleading NatSpec (now honestly documents the consistency band is inert until `_impliedAssets` is wired); P1-2 partially mitigated by new `invalidateExpiredPending` + clamped `_releaseBridgedOut`.
+
+Still open (need periphery-author design decisions, not touched): **P1-2** residual (link each `recordBridgedOut` to a position id so a missing/lagging registration cannot strand or under-count exposure) and **P2-1** (wire `_impliedAssets` to a PPS source to activate the consistency-band backstop before mainnet).
+
 ## Verdict
 **FAIL** — 3 blocking (P1) findings. None is a classic "drain in one tx" bug; all three are ways the cap silently stops binding (bypass) or permanently over-counts (DoS). The mechanical core of the hook is correct: offsets, amount resolution, rollback atomicity, and access control all verified clean.
 
