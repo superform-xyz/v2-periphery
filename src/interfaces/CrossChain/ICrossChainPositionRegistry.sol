@@ -28,16 +28,45 @@ interface ICrossChainPositionRegistry {
         SuperVault // Deposited into an approved destination SuperVault; hub holds its shares
     }
 
+    /// @notice Lifecycle of a bridge reservation (K1: the single object binding a cap-hook send to
+    ///         a position lifecycle)
+    /// @dev Open       — minted by the cap hook at send time; counted as in-flight exposure
+    ///      Consumed   — bound to exactly one Pending position; still counted
+    ///      Released   — uncounted (reservation expiry, or its position was invalidated); may be
+    ///                   re-consumed by a late registration (a slow fill that lands after a
+    ///                   timeout), which re-counts it
+    ///      Settled    — its position was oracle-confirmed; terminal, never re-consumable
+    enum ReservationStatus {
+        None,
+        Open,
+        Consumed,
+        Released,
+        Settled
+    }
+
+    /// @notice A cap-hook-minted reservation of in-flight bridged exposure
+    struct BridgeReservation {
+        address strategy;
+        uint64 chainId; // canonical EVM destination chain id
+        address destinationVault; // economic destination (address(0) = idle-hold)
+        uint256 amount; // exact amount the cap hook validated and the bridge sent
+        uint256 createdAt;
+        ReservationStatus status;
+        bytes32 positionId; // set when consumed
+    }
+
     /// @notice A tracked cross-chain position
     /// @param chainId Destination chain id
     /// @param kind Idle or SuperVault
     /// @param destinationVault Approved destination SuperVault (address(0) for Idle)
-    /// @param deployedAmount Asset amount bridged out (hub-asset decimals)
+    /// @param deployedAmount Asset amount bridged out (hub-asset decimals; always the consumed
+    ///        reservation's amount — never registrar-supplied)
     /// @param sharesHeld Destination-vault shares held (0 for Idle)
     /// @param lastReportedValue Last oracle-reported value (SuperVault: shares * destPPS)
     /// @param lastReportTimestamp When the value was last reported
     /// @param registeredAt Registration timestamp (drives the confirmation timeout)
     /// @param status Current lifecycle status
+    /// @param reservationId The consumed bridge reservation this position reconciles against (K1)
     struct CrossChainPosition {
         address strategy; // owner strategy (bound at registration; checked on every oracle sync)
         uint64 chainId;
@@ -49,6 +78,7 @@ interface ICrossChainPositionRegistry {
         uint256 lastReportTimestamp;
         uint256 registeredAt;
         PositionStatus status;
+        bytes32 reservationId;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -67,7 +97,16 @@ interface ICrossChainPositionRegistry {
     event PositionDeregistered(address indexed strategy, bytes32 indexed positionId);
     event PositionInvalidated(address indexed strategy, bytes32 indexed positionId);
     event RegistrarUpdated(address indexed strategy, address indexed registrar);
-    event BridgedOutRecorded(address indexed strategy, uint64 indexed chainId, uint256 amount);
+    event BridgedOutRecorded(
+        address indexed strategy,
+        uint64 indexed chainId,
+        address indexed destinationVault,
+        uint256 amount,
+        bytes32 reservationId
+    );
+    event ReservationConsumed(bytes32 indexed reservationId, bytes32 indexed positionId, bool recounted);
+    event ReservationSettled(bytes32 indexed reservationId, bytes32 indexed positionId);
+    event ReservationReleased(bytes32 indexed reservationId);
     event BridgeHookAuthorizationUpdated(address indexed hook, bool authorized);
 
     /*//////////////////////////////////////////////////////////////
@@ -87,18 +126,24 @@ interface ICrossChainPositionRegistry {
     error DESTINATION_NOT_APPROVED();
     error POSITION_NOT_DRAINED();
     error POSITION_NOT_EXPIRED();
+    error POSITION_STRATEGY_MISMATCH();
+    error RESERVATION_NOT_CONSUMABLE();
+    error RESERVATION_KIND_MISMATCH();
+    error RESERVATION_NOT_EXPIRED();
 
     /*//////////////////////////////////////////////////////////////
                               REGISTRAR WRITES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Register a new cross-chain position (registrar only). Starts Pending.
+    /// @notice Register a new cross-chain position (registrar only). Starts Pending. K1: consumes
+    ///         exactly one bridge reservation — the destination chain, vault and deployed amount
+    ///         are taken FROM the reservation the cap hook minted, never supplied by the registrar.
+    ///         A Released reservation (timed out, then the fill landed late) may be consumed too;
+    ///         doing so re-counts its exposure so landed capital is never untracked.
     function registerPosition(
         address strategy,
-        uint64 chainId,
+        bytes32 reservationId,
         PositionKind kind,
-        address destinationVault,
-        uint256 deployedAmount,
         uint256 sharesHeld
     )
         external
@@ -122,14 +167,39 @@ interface ICrossChainPositionRegistry {
     /// @notice Single oracle write path: sync one position from a quorum-signed AUM report
     /// @dev onlyAUMOracle. Pending+nonzero -> Active; Pending+timeout -> Invalidated;
     ///      Active/WindingDown -> value update; Exited/Invalidated -> skipped (no revert).
-    function syncPositionFromReport(address strategy, bytes32 positionId, uint256 value, uint256 timestamp) external;
+    /// @return acceptedValue The value actually booked into AUM (0 when the entry was skipped), so
+    ///         the oracle caches only registry-accepted totals (B2)
+    function syncPositionFromReport(
+        address strategy,
+        bytes32 positionId,
+        uint256 value,
+        uint256 timestamp
+    )
+        external
+        returns (uint256 acceptedValue);
 
     /*//////////////////////////////////////////////////////////////
                                HOOK WRITE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Record in-flight bridged-but-unconfirmed exposure (capped-bridge-hook only)
-    function recordBridgedOut(address strategy, uint64 chainId, uint256 amount) external;
+    /// @notice Record in-flight bridged-but-unconfirmed exposure (capped-bridge-hook only). K1:
+    ///         mints a reservation bound to the exact (strategy, canonical chain, destination
+    ///         vault, amount) tuple the hook validated; one registration consumes it, and
+    ///         confirmation/invalidation/expiry reconcile that same reservation.
+    function recordBridgedOut(
+        address strategy,
+        uint64 chainId,
+        address destinationVault,
+        uint256 amount
+    )
+        external
+        returns (bytes32 reservationId);
+
+    /// @notice Permissionless release of an Open reservation past the reservation timeout (the
+    ///         bridge never filled / refunded on origin): uncounts its in-flight exposure. If the
+    ///         fill lands later, the registrar can still consume the Released reservation, which
+    ///         re-counts it (K1: no uncounted landed capital).
+    function releaseExpiredReservation(bytes32 reservationId) external;
 
     /*//////////////////////////////////////////////////////////////
                               GOVERNANCE
@@ -146,7 +216,10 @@ interface ICrossChainPositionRegistry {
     //////////////////////////////////////////////////////////////*/
 
     function POSITION_CONFIRMATION_TIMEOUT() external view returns (uint256);
+    function RESERVATION_TIMEOUT() external view returns (uint256);
+    function MAX_POSITIONS_PER_STRATEGY() external view returns (uint256);
     function positions(bytes32 positionId) external view returns (CrossChainPosition memory);
+    function reservations(bytes32 reservationId) external view returns (BridgeReservation memory);
     function registrars(address strategy) external view returns (address);
     function authorizedBridgeHook(address hook) external view returns (bool);
     function bridgedOut(address strategy) external view returns (uint256);

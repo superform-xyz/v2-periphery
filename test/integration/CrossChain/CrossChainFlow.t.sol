@@ -137,24 +137,27 @@ contract CrossChainFlowTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_FullLifecycle_BridgeRegisterConfirmValidate() public {
-        // 1. Hook records in-flight bridge; cap guard sees the exposure immediately (SEC-3).
+        // 1. Hook mints the reservation; cap guard sees the exposure immediately (SEC-3/K1).
         vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
         assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18);
 
-        // 2. Registrar registers the (approved) SuperVault position.
+        // 2. Registrar registers the position by consuming that exact reservation (K1).
         vm.prank(registrar);
         bytes32 id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 100e18, 95e18
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
         );
 
         // 3. Quorum report confirms it: Pending -> Active, in-flight released, AUM cached.
-        //    hubAssets 900 so total AUM = 900 + 100 = 1000.
+        //    hubAssets 900 so total AUM = 900 + 100 = 1000. (B2: a Pending position is only
+        //    reportable by a report timestamped strictly after registration.)
+        vm.warp(block.timestamp + 1);
         _forwardAUM(id, 100e18, 900e18, false);
         assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
         assertEq(registry.bridgedOut(strategy), 0, "in-flight released on confirm");
         assertEq(oracle.getTotalAUM(strategy), 1000e18);
         assertTrue(oracle.isAUMFresh(strategy));
+        _assertAccountingConsistent();
 
         // 4. Cap guard now validates against real confirmed exposure (100) and real AUM (1000):
         //    a further 500 -> 600 <= 70% of 1000, and per-chain 600 <= 800.
@@ -168,11 +171,12 @@ contract CrossChainFlowTest is Test {
     function test_BreakerBlocksCapThenForceRecovers() public {
         // Register + confirm a position at value 100 (AUM 1000).
         vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
         vm.prank(registrar);
         bytes32 id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 100e18, 95e18
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
         );
+        vm.warp(block.timestamp + 1);
         _forwardAUM(id, 100e18, 900e18, false);
         guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18); // ok
 
@@ -193,23 +197,34 @@ contract CrossChainFlowTest is Test {
         assertFalse(oracle.aumBreakerTripped(strategy));
         assertEq(oracle.getTotalAUM(strategy), 910e18);
         guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18); // ok again
+        _assertAccountingConsistent();
     }
 
     function test_UnconfirmedPositionDoesNotCountTowardCap() public {
         // Register but never confirm: Pending is not counted by getCrossChainAUM, but its
         // in-flight bridgedOut IS (so caps still bind during the async window).
         vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
         vm.prank(registrar);
-        registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 100e18, 95e18
-        );
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
         // Cover the Pending position with value 0 (stays Pending) plus hubAssets so a report commits.
+        vm.warp(block.timestamp + 1);
         _reportPendingZero();
 
         // getCrossChainAUM = 0 (nothing Active), but effective exposure includes the 100 in-flight.
         assertEq(registry.getCrossChainAUM(strategy), 0);
         assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18);
+        _assertAccountingConsistent();
+    }
+
+    /// B2.RR6 (PR336 review): after every accepted report the cached aggregate must equal what the
+    /// registry actually accepted - the cap numerator and denominator derive from one snapshot.
+    function _assertAccountingConsistent() internal view {
+        assertEq(
+            oracle.latestReport(strategy).totalCrossChainAssets,
+            registry.getCrossChainAUM(strategy),
+            "cached cross-chain total != registry-accepted AUM"
+        );
     }
 
     function _reportPendingZero() internal {

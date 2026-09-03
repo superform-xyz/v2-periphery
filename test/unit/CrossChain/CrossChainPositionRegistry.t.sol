@@ -44,61 +44,90 @@ contract CrossChainPositionRegistryTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                              REGISTRATION
+                              HELPERS (K1)
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Mint a cap-hook reservation for `strategy` (the K1 precondition of any registration).
+    function _reserve(uint64 chainId, address vault, uint256 amount) internal returns (bytes32 reservationId) {
+        return _reserveFor(strategy, chainId, vault, amount);
+    }
+
+    function _reserveFor(
+        address strategy_,
+        uint64 chainId,
+        address vault,
+        uint256 amount
+    )
+        internal
+        returns (bytes32 reservationId)
+    {
+        vm.prank(bridgeHook);
+        reservationId = registry.recordBridgedOut(strategy_, chainId, vault, amount);
+    }
+
     function _registerSuperVault(uint256 amount, uint256 shares) internal returns (bytes32 id) {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, amount);
         vm.prank(registrar);
         id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, amount, shares
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, shares
         );
     }
+
+    function _sync(bytes32 id, uint256 value) internal {
+        vm.prank(aumOracle);
+        registry.syncPositionFromReport(strategy, id, value, block.timestamp);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              REGISTRATION
+    //////////////////////////////////////////////////////////////*/
 
     function test_RegisterSuperVault_StartsPending() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
         ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(id);
         assertEq(uint256(p.status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
         assertEq(p.destinationVault, destVault);
-        assertEq(p.deployedAmount, 100e18);
+        assertEq(p.deployedAmount, 100e18, "deployedAmount = reservation amount, never registrar-supplied");
         assertEq(p.sharesHeld, 95e18);
         assertEq(registry.getPositionIds(strategy).length, 1);
     }
 
     function test_RegisterIdle_OK() public {
+        bytes32 reservationId = _reserve(CHAIN_A, address(0), 50e18);
         vm.prank(registrar);
-        bytes32 id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.Idle, address(0), 50e18, 0
-        );
+        bytes32 id =
+            registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.Idle, 0);
         assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.positions(id).deployedAmount, 50e18);
     }
 
     function test_Register_RevertUnauthorizedRegistrar() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 1e18);
         vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_REGISTRAR.selector);
-        registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 1e18, 1e18
-        );
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 1e18);
     }
 
     function test_Register_RevertUnapprovedVault() public {
+        // The reservation names an (unapproved) CHAIN_B destination; registration re-checks the
+        // allowlist so an approval revoked between send and registration blocks the position.
+        bytes32 reservationId = _reserve(CHAIN_B, destVault, 1e18);
         vm.prank(registrar);
         vm.expectRevert(ICrossChainPositionRegistry.DESTINATION_NOT_APPROVED.selector);
-        registry.registerPosition(
-            strategy, CHAIN_B, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 1e18, 1e18
-        );
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 1e18);
     }
 
     function test_Register_RevertSuperVaultWithZeroShares() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 1e18);
         vm.prank(registrar);
-        vm.expectRevert(ICrossChainPositionRegistry.INVALID_KIND_CONFIG.selector);
-        registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 1e18, 0
-        );
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_KIND_MISMATCH.selector);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 0);
     }
 
-    function test_Register_RevertIdleWithVault() public {
+    function test_Register_RevertIdleKindOnVaultReservation() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 1e18);
         vm.prank(registrar);
-        vm.expectRevert(ICrossChainPositionRegistry.INVALID_KIND_CONFIG.selector);
-        registry.registerPosition(strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.Idle, destVault, 1e18, 0);
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_KIND_MISMATCH.selector);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.Idle, 0);
     }
 
     function test_Register_SaltedIdsAreUnique() public {
@@ -113,21 +142,118 @@ contract CrossChainPositionRegistryTest is Test {
         for (uint256 i; i < max; ++i) {
             _registerSuperVault(1e18, 1e18);
         }
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 1e18);
         vm.prank(registrar);
         vm.expectRevert(ICrossChainPositionRegistry.MAX_POSITIONS_REACHED.selector);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 1e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       RESERVATION LIFECYCLE (K1)
+    //////////////////////////////////////////////////////////////*/
+
+    function test_Reservation_RevertRegisterWithUnknownReservation() public {
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_CONSUMABLE.selector);
         registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 1e18, 1e18
+            strategy, keccak256("no-such-reservation"), ICrossChainPositionRegistry.PositionKind.SuperVault, 1e18
         );
+    }
+
+    function test_Reservation_RevertDoubleConsume() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 10e18);
+        vm.prank(registrar);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 10e18);
+        // A second registration cannot bind the same reservation.
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_CONSUMABLE.selector);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 10e18);
+    }
+
+    function test_Reservation_ForeignStrategyCannotConsume() public {
+        // Strategy B's registrar cannot consume A's reservation, even for B.
+        address strategyB = makeAddr("strategyB");
+        address registrarB = makeAddr("registrarB");
+        registry.setRegistrar(strategyB, registrarB);
+        capGuard.setApproved(strategyB, CHAIN_A, destVault, true);
+
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 10e18); // owned by A
+        vm.prank(registrarB);
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_CONSUMABLE.selector);
+        registry.registerPosition(strategyB, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 10e18);
+    }
+
+    function test_Reservation_ExpiredReleasePermissionless() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 100e18);
+        assertEq(registry.bridgedOut(strategy), 100e18);
+
+        // Not expired yet.
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_EXPIRED.selector);
+        registry.releaseExpiredReservation(reservationId);
+
+        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+        registry.releaseExpiredReservation(reservationId); // permissionless
+        assertEq(registry.bridgedOut(strategy), 0, "expired reservation uncounted");
+        assertEq(
+            uint256(registry.reservations(reservationId).status),
+            uint256(ICrossChainPositionRegistry.ReservationStatus.Released)
+        );
+    }
+
+    /// K1: a fill that lands AFTER the reservation timed out and was released is still trackable —
+    /// consuming the Released reservation re-counts it, so landed capital is never invisible.
+    function test_Reservation_LateFillReconsumesReleasedReservation() public {
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 100e18);
+        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+        registry.releaseExpiredReservation(reservationId);
+        assertEq(registry.bridgedOut(strategy), 0);
+
+        // The slow bridge fills later; registrar registers against the SAME reservation.
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        assertEq(registry.bridgedOut(strategy), 100e18, "re-consume re-counts the exposure");
+
+        // Confirmation settles the same reservation terminally.
+        _sync(id, 100e18);
+        assertEq(registry.bridgedOut(strategy), 0);
+        assertEq(
+            uint256(registry.reservations(reservationId).status),
+            uint256(ICrossChainPositionRegistry.ReservationStatus.Settled)
+        );
+    }
+
+    function test_Reservation_SettledNeverReconsumable() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+        bytes32 reservationId = registry.positions(id).reservationId;
+        _sync(id, 100e18); // confirm -> Settled
+
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_CONSUMABLE.selector);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
+    }
+
+    /// K1: after a POSITION invalidation (registered but never confirmed) the reservation is
+    /// Released, so a late fill can still be registered against it.
+    function test_Reservation_ReconsumableAfterPositionInvalidation() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+        bytes32 reservationId = registry.positions(id).reservationId;
+        vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
+        registry.invalidateExpiredPending(strategy, id);
+        assertEq(registry.bridgedOut(strategy), 0);
+
+        vm.prank(registrar);
+        bytes32 id2 = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        assertTrue(id2 != id, "fresh position id");
+        assertEq(registry.bridgedOut(strategy), 100e18, "re-counted until confirmed");
     }
 
     /*//////////////////////////////////////////////////////////////
                            ORACLE SYNC / LIFECYCLE
     //////////////////////////////////////////////////////////////*/
-
-    function _sync(bytes32 id, uint256 value) internal {
-        vm.prank(aumOracle);
-        registry.syncPositionFromReport(strategy, id, value, block.timestamp);
-    }
 
     function test_Sync_RevertNotOracle() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
@@ -207,23 +333,83 @@ contract CrossChainPositionRegistryTest is Test {
         assertEq(registry.getPositionIds(strategy).length, 0);
     }
 
+    /// B3 (PR336 review): a registrar authorized for strategy A must not be able to transition a
+    /// position owned by strategy B, even by passing A to the auth modifier.
+    function test_BeginExit_RevertForeignStrategyPosition() public {
+        // Strategy B with its own registrar and an Active position.
+        address strategyB = makeAddr("strategyB");
+        address registrarB = makeAddr("registrarB");
+        registry.setRegistrar(strategyB, registrarB);
+        capGuard.setApproved(strategyB, CHAIN_A, destVault, true);
+        bytes32 resB = _reserveFor(strategyB, CHAIN_A, destVault, 100e18);
+        vm.prank(registrarB);
+        bytes32 idB =
+            registry.registerPosition(strategyB, resB, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
+        vm.prank(aumOracle);
+        registry.syncPositionFromReport(strategyB, idB, 100e18, block.timestamp); // Active
+
+        // Registrar A passes its own strategy but B's position id.
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.POSITION_STRATEGY_MISMATCH.selector);
+        registry.beginPositionExit(strategy, idB);
+
+        // And the reverse direction is equally rejected.
+        bytes32 idA = _registerSuperVault(100e18, 95e18);
+        _sync(idA, 100e18); // Active
+        vm.prank(registrarB);
+        vm.expectRevert(ICrossChainPositionRegistry.POSITION_STRATEGY_MISMATCH.selector);
+        registry.beginPositionExit(strategyB, idA);
+    }
+
+    /// B3: cross-strategy deregistration must revert (no Exited tombstones in another strategy's
+    /// live set, no slot consumption).
+    function test_Deregister_RevertForeignStrategyPosition() public {
+        address strategyB = makeAddr("strategyB");
+        address registrarB = makeAddr("registrarB");
+        registry.setRegistrar(strategyB, registrarB);
+        capGuard.setApproved(strategyB, CHAIN_A, destVault, true);
+        bytes32 resB = _reserveFor(strategyB, CHAIN_A, destVault, 100e18);
+        vm.prank(registrarB);
+        bytes32 idB =
+            registry.registerPosition(strategyB, resB, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
+        vm.prank(aumOracle);
+        registry.syncPositionFromReport(strategyB, idB, 100e18, block.timestamp); // Active
+        vm.prank(registrarB);
+        registry.beginPositionExit(strategyB, idB);
+        vm.prank(aumOracle);
+        registry.syncPositionFromReport(strategyB, idB, 0, block.timestamp); // drained
+
+        // Registrar A cannot deregister B's drained position through its own authorization.
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.POSITION_STRATEGY_MISMATCH.selector);
+        registry.deregisterPosition(strategy, idB);
+
+        // B's set is intact and B's registrar can still complete the exit.
+        assertEq(registry.getPositionIds(strategyB).length, 1);
+        vm.prank(registrarB);
+        registry.deregisterPosition(strategyB, idB);
+        assertEq(registry.getPositionIds(strategyB).length, 0);
+    }
+
     /*//////////////////////////////////////////////////////////////
                            BRIDGED-OUT ACCOUNTING
     //////////////////////////////////////////////////////////////*/
 
     function test_BridgedOut_RecordRequiresAuthorizedHook() public {
         vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_BRIDGE_HOOK.selector);
-        registry.recordBridgedOut(strategy, CHAIN_A, 10e18);
+        registry.recordBridgedOut(strategy, CHAIN_A, destVault, 10e18);
     }
 
     function test_BridgedOut_CountedInEffectiveExposureThenReleasedOnConfirm() public {
-        vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
+        bytes32 reservationId = _reserve(CHAIN_A, destVault, 100e18);
         assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18);
         assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 100e18);
 
-        bytes32 id = _registerSuperVault(100e18, 95e18);
-        _sync(id, 101e18); // Pending -> Active releases the in-flight reservation
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        _sync(id, 101e18); // Pending -> Active settles the reservation
 
         assertEq(registry.bridgedOut(strategy), 0, "in-flight released on confirmation");
         // Effective exposure now reflects the confirmed value only (no double count).
@@ -232,42 +418,26 @@ contract CrossChainPositionRegistryTest is Test {
     }
 
     function test_BridgedOut_ReleaseIsChainIsolated() public {
-        // P2-2: releasing a CHAIN_A position must not touch CHAIN_B's in-flight reservation.
+        // Settling a CHAIN_A position must not touch CHAIN_B's in-flight reservation.
         capGuard.setApproved(strategy, CHAIN_B, destVault, true);
-        vm.startPrank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
-        registry.recordBridgedOut(strategy, CHAIN_B, 100e18);
-        vm.stopPrank();
+        bytes32 resA = _reserve(CHAIN_A, destVault, 100e18);
+        _reserve(CHAIN_B, destVault, 100e18);
         assertEq(registry.bridgedOut(strategy), 200e18);
 
-        bytes32 idA = _registerSuperVault(100e18, 95e18); // CHAIN_A
-        _sync(idA, 100e18); // confirm -> releases CHAIN_A's 100
+        vm.prank(registrar);
+        bytes32 idA =
+            registry.registerPosition(strategy, resA, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
+        _sync(idA, 100e18); // confirm -> settles CHAIN_A's reservation only
 
         assertEq(registry.bridgedOutByChain(strategy, CHAIN_A), 0, "A released");
         assertEq(registry.bridgedOutByChain(strategy, CHAIN_B), 100e18, "B untouched");
         assertEq(registry.bridgedOut(strategy), 100e18, "global == sum(per-chain)");
     }
 
-    function test_BridgedOut_ReleaseClampedToChainOutstanding() public {
-        // P2-2: a position whose deployedAmount exceeds its chain's outstanding in-flight releases
-        // only the outstanding amount (no underflow, no consuming another dimension).
-        vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
-        vm.prank(registrar);
-        bytes32 id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 200e18, 95e18
-        );
-        _sync(id, 100e18); // deployedAmount 200 > outstanding 100 -> release clamps to 100
-        assertEq(registry.bridgedOut(strategy), 0);
-        assertEq(registry.bridgedOutByChain(strategy, CHAIN_A), 0);
-    }
-
     function test_BridgedOut_ReleasedOnInvalidation() public {
-        vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
         bytes32 id = _registerSuperVault(100e18, 95e18);
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
-        _sync(id, 0); // timed out -> Invalidated, releases reservation
+        _sync(id, 0); // timed out -> Invalidated, releases the reservation
         assertEq(registry.bridgedOut(strategy), 0);
     }
 
@@ -276,8 +446,6 @@ contract CrossChainPositionRegistryTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_InvalidateExpiredPending_ReleasesAndEvicts() public {
-        vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
         bytes32 id = _registerSuperVault(100e18, 95e18);
 
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
@@ -334,10 +502,10 @@ contract CrossChainPositionRegistryTest is Test {
         bytes32 idA = _registerSuperVault(100e18, 95e18);
         _sync(idA, 100e18);
         // position on CHAIN_B
+        bytes32 resB = _reserve(CHAIN_B, destVault, 40e18);
         vm.prank(registrar);
-        bytes32 idB = registry.registerPosition(
-            strategy, CHAIN_B, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 40e18, 40e18
-        );
+        bytes32 idB =
+            registry.registerPosition(strategy, resB, ICrossChainPositionRegistry.PositionKind.SuperVault, 40e18);
         _sync(idB, 40e18);
 
         assertEq(registry.getChainExposure(strategy, CHAIN_A), 100e18);

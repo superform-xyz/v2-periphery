@@ -16,6 +16,9 @@ interface ICrossChainPositionCapGuard {
     event DestinationApprovalUpdated(
         address indexed strategy, uint64 indexed chainId, address indexed destinationVault, bool approved
     );
+    event DestinationAdapterUpdated(uint64 indexed chainId, address indexed adapter, bool approved);
+    event DestinationHooksUpdated(uint64 indexed chainId, address approveHook, address depositHook);
+    event EidChainIdUpdated(uint32 indexed eid, uint64 chainId);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -71,6 +74,23 @@ interface ICrossChainPositionCapGuard {
     ///         for the primary manager or governor.
     function setApprovedDestination(address strategy, uint64 chainId, address destinationVault, bool approved) external;
 
+    /// @notice Approve/revoke a destination TRANSPORT adapter (AcrossV3Adapter / DebridgeAdapter /
+    ///         StargateAdapter deployment on `chainId`). The cap hooks require the bridge transport
+    ///         receiver to be an approved adapter — the adapter is never the economic destination
+    ///         (B1). GOVERNOR_ROLE-only.
+    function setDestinationAdapter(uint64 chainId, address adapter, bool approved) external;
+
+    /// @notice Pin the canonical destination hook pair for `chainId`: the ApproveERC20Hook and the
+    ///         Deposit4626VaultHook deployments a capped bridge's destination action must use
+    ///         (exactly [approve, deposit]) — anything else is an untyped destination action and
+    ///         is rejected by the cap hooks (B1). GOVERNOR_ROLE-only.
+    function setDestinationHooks(uint64 chainId, address approveHook, address depositHook) external;
+
+    /// @notice Map a LayerZero endpoint id to its canonical EVM chain id (e.g. 30184 -> 8453), so
+    ///         Stargate exposure shares the same per-chain cap namespace as Across/deBridge (B4).
+    ///         chainId == 0 unmaps (fail closed). GOVERNOR_ROLE-only.
+    function setEidChainId(uint32 eid, uint64 chainId) external;
+
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/
@@ -89,4 +109,14 @@ interface ICrossChainPositionCapGuard {
     function maxCrossChainBps(address strategy) external view returns (uint256);
     function perChainCap(address strategy, uint64 chainId) external view returns (uint256);
     function chainEnabled(address strategy, uint64 chainId) external view returns (bool);
+
+    /// @notice Whether `adapter` is an approved transport adapter for `chainId` (cap-hook read)
+    function isApprovedAdapter(uint64 chainId, address adapter) external view returns (bool);
+
+    /// @notice The canonical destination hook pair for `chainId` (cap-hook read); (0,0) = unset,
+    ///         which blocks every VAULT_DEPOSIT destination action for that chain
+    function destinationHooks(uint64 chainId) external view returns (address approveHook, address depositHook);
+
+    /// @notice Canonical EVM chain id for a LayerZero endpoint id; 0 = unmapped (cap-hook read)
+    function chainIdForEid(uint32 eid) external view returns (uint64);
 }

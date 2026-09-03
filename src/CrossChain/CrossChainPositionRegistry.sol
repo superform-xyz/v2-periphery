@@ -25,6 +25,10 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     /// @notice Max time a Pending position may exist before it can be invalidated
     uint256 public constant POSITION_CONFIRMATION_TIMEOUT = 2 hours;
 
+    /// @notice Max time an unconsumed (never-registered) reservation stays counted before it can
+    ///         be released permissionlessly (K1)
+    uint256 public constant RESERVATION_TIMEOUT = 2 hours;
+
     /// @notice Hard cap on live positions per strategy - bounds every full-set loop (SEC-9)
     uint256 public constant MAX_POSITIONS_PER_STRATEGY = 64;
 
@@ -49,6 +53,13 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
 
     /// @dev strategy => monotonic salt for unique position ids (SEC-12)
     mapping(address => uint256) private _positionSalt;
+
+    /// @dev K1: reservationId => reservation; the single ledger binding a cap-hook send to one
+    ///      position lifecycle. `bridgedOut`/`bridgedOutByChain` are pure aggregates over counted
+    ///      (Open/Consumed) reservations — every increment/decrement is an exact reservation
+    ///      amount, so the counters can never drift or need clamping.
+    mapping(bytes32 => BridgeReservation) private _reservations;
+    uint256 private _reservationSalt;
 
     /// @dev strategy => in-flight bridged-but-unconfirmed exposure (SEC-3)
     mapping(address => uint256) public bridgedOut;
@@ -92,31 +103,42 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICrossChainPositionRegistry
+    /// @dev K1: the registrar names a reservation, not a destination — chain, vault and amount all
+    ///      come from what the cap hook validated at send time. One reservation, one position.
     function registerPosition(
         address strategy,
-        uint64 chainId,
+        bytes32 reservationId,
         PositionKind kind,
-        address destinationVault,
-        uint256 deployedAmount,
         uint256 sharesHeld
     )
         external
         onlyRegistrar(strategy)
         returns (bytes32 positionId)
     {
-        // Constrained model: SuperVault kind must name an approved (chain, vault); Idle must be
-        // an enabled escrow with no vault/shares.
+        BridgeReservation storage res = _reservations[reservationId];
+        if (res.strategy != strategy) revert RESERVATION_NOT_CONSUMABLE();
+        // Open = normal flow. Released = the reservation timed out (or its position was
+        // invalidated) and the fill landed late: consuming re-counts it, so landed capital is
+        // never untracked. Consumed/Settled reservations are never re-bindable.
+        if (res.status != ReservationStatus.Open && res.status != ReservationStatus.Released) {
+            revert RESERVATION_NOT_CONSUMABLE();
+        }
+
+        uint64 chainId = res.chainId;
+        address destinationVault = res.destinationVault;
+
+        // The declared kind must match the reservation's destination shape.
+        if (kind == PositionKind.SuperVault) {
+            if (destinationVault == address(0) || sharesHeld == 0) revert RESERVATION_KIND_MISMATCH();
+        } else {
+            if (destinationVault != address(0) || sharesHeld != 0) revert RESERVATION_KIND_MISMATCH();
+        }
+
+        // Constrained model: the destination must still be approved at registration time (an
+        // approval revoked between send and registration blocks the position).
         ICrossChainPositionCapGuard capGuard =
             ICrossChainPositionCapGuard(SUPER_GOVERNOR.getAddress(CROSS_CHAIN_CAP_GUARD));
-        if (kind == PositionKind.SuperVault) {
-            if (destinationVault == address(0) || sharesHeld == 0) revert INVALID_KIND_CONFIG();
-            if (!capGuard.isApprovedDestination(strategy, chainId, destinationVault)) {
-                revert DESTINATION_NOT_APPROVED();
-            }
-        } else {
-            if (destinationVault != address(0) || sharesHeld != 0) revert INVALID_KIND_CONFIG();
-            if (!capGuard.isApprovedDestination(strategy, chainId, address(0))) revert DESTINATION_NOT_APPROVED();
-        }
+        if (!capGuard.isApprovedDestination(strategy, chainId, destinationVault)) revert DESTINATION_NOT_APPROVED();
 
         EnumerableSet.Bytes32Set storage set = _strategyPositions[strategy];
         if (set.length() >= MAX_POSITIONS_PER_STRATEGY) revert MAX_POSITIONS_REACHED();
@@ -126,26 +148,36 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         uint256 salt = _positionSalt[strategy]++;
         positionId = keccak256(abi.encode(strategy, chainId, destinationVault, salt));
 
+        bool recounted = res.status == ReservationStatus.Released;
+        if (recounted) _countReservation(res);
+        res.status = ReservationStatus.Consumed;
+        res.positionId = positionId;
+
         _positions[positionId] = CrossChainPosition({
             strategy: strategy,
             chainId: chainId,
             kind: kind,
             destinationVault: destinationVault,
-            deployedAmount: deployedAmount,
+            deployedAmount: res.amount,
             sharesHeld: sharesHeld,
             lastReportedValue: 0,
             lastReportTimestamp: 0,
             registeredAt: block.timestamp,
-            status: PositionStatus.Pending
+            status: PositionStatus.Pending,
+            reservationId: reservationId
         });
         set.add(positionId);
 
+        emit ReservationConsumed(reservationId, positionId, recounted);
         emit PositionRegistered(strategy, positionId, chainId, kind, destinationVault);
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
     function beginPositionExit(address strategy, bytes32 positionId) external onlyRegistrar(strategy) {
         CrossChainPosition storage pos = _positions[positionId];
+        // B3: the modifier authorizes the caller for `strategy`; the position must actually be
+        // owned by that strategy, or one registrar could mutate another strategy's lifecycle.
+        if (pos.strategy != strategy) revert POSITION_STRATEGY_MISMATCH();
         if (pos.status != PositionStatus.Active) revert INVALID_POSITION_STATUS();
         pos.status = PositionStatus.WindingDown;
         emit PositionExitStarted(strategy, positionId);
@@ -156,6 +188,8 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     ///      (confirmed drain), not on the registrar's say-so alone.
     function deregisterPosition(address strategy, bytes32 positionId) external onlyRegistrar(strategy) {
         CrossChainPosition storage pos = _positions[positionId];
+        // B3: same ownership binding as beginPositionExit - removal must target the owner's set.
+        if (pos.strategy != strategy) revert POSITION_STRATEGY_MISMATCH();
         if (pos.status != PositionStatus.WindingDown) revert INVALID_POSITION_STATUS();
         if (pos.lastReportedValue != 0) revert POSITION_NOT_DRAINED();
 
@@ -169,6 +203,8 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICrossChainPositionRegistry
+    /// @dev B2: returns the value actually booked into AUM (0 when the entry is skipped), so the
+    ///      oracle can cache an aggregate equal to what the registry accepted, never the raw sum.
     function syncPositionFromReport(
         address strategy,
         bytes32 positionId,
@@ -177,44 +213,49 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     )
         external
         onlyAUMOracle
+        returns (uint256 acceptedValue)
     {
         CrossChainPosition storage pos = _positions[positionId];
 
         // P2-3: the position must belong to `strategy`. A None/foreign id (strategy == 0 or a
         // different strategy) is skipped, never reverted, so a stray id in a report cannot corrupt
-        // another strategy's value nor brick the report (SEC-9).
-        if (pos.strategy != strategy) return;
+        // another strategy's value nor brick the report (SEC-9). The oracle's canonical-set
+        // validation rejects such ids up front; this is defense in depth.
+        if (pos.strategy != strategy) return 0;
 
         PositionStatus status = pos.status;
 
-        // Exited/Invalidated: skip, never revert - a position that exited between off-chain signing
-        // and on-chain submission must not brick the whole report (SEC-9).
+        // Exited/Invalidated: skip, never revert (SEC-9 defense in depth - the oracle's
+        // canonical-set validation already rejects these ids).
         if (status == PositionStatus.Exited || status == PositionStatus.Invalidated) {
-            return;
+            return 0;
         }
 
         if (status == PositionStatus.Pending) {
             if (block.timestamp > pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) {
-                // Timed out: never entered AUM. Release its in-flight reservation and evict.
+                // Timed out: never entered AUM. Release its reservation (re-consumable if the
+                // fill lands even later) and evict.
                 pos.status = PositionStatus.Invalidated;
-                _releaseBridgedOut(strategy, pos.chainId, pos.deployedAmount);
+                _releasePositionReservation(pos.reservationId);
                 _strategyPositions[strategy].remove(positionId);
                 emit PositionInvalidated(strategy, positionId);
-                return;
+                return 0;
             }
             if (value == 0) {
                 // Signers attest "not yet verified" - stays Pending (positive confirmation only).
-                return;
+                return 0;
             }
-            // First funded inclusion = confirmation. Hand off in-flight -> counted exposure.
+            // First funded inclusion = confirmation. Settle the reservation: in-flight ->
+            // counted exposure, terminally reconciled (K1).
             pos.status = PositionStatus.Active;
-            _releaseBridgedOut(strategy, pos.chainId, pos.deployedAmount);
+            _settlePositionReservation(pos.reservationId, positionId);
         }
 
         // Active/WindingDown (and just-confirmed): update value.
         pos.lastReportedValue = value;
         pos.lastReportTimestamp = timestamp;
         emit PositionSynced(positionId, pos.status, value, timestamp);
+        return value;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -222,26 +263,55 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICrossChainPositionRegistry
-    function recordBridgedOut(address strategy, uint64 chainId, uint256 amount) external {
+    function recordBridgedOut(
+        address strategy,
+        uint64 chainId,
+        address destinationVault,
+        uint256 amount
+    )
+        external
+        returns (bytes32 reservationId)
+    {
         if (!authorizedBridgeHook[msg.sender]) revert UNAUTHORIZED_BRIDGE_HOOK();
-        bridgedOut[strategy] += amount;
-        bridgedOutByChain[strategy][chainId] += amount;
-        emit BridgedOutRecorded(strategy, chainId, amount);
+        if (amount == 0) revert RESERVATION_NOT_CONSUMABLE();
+
+        reservationId = keccak256(abi.encode(strategy, chainId, destinationVault, amount, _reservationSalt++));
+        BridgeReservation storage res = _reservations[reservationId];
+        res.strategy = strategy;
+        res.chainId = chainId;
+        res.destinationVault = destinationVault;
+        res.amount = amount;
+        res.createdAt = block.timestamp;
+        res.status = ReservationStatus.Open;
+
+        _countReservation(res);
+        emit BridgedOutRecorded(strategy, chainId, destinationVault, amount, reservationId);
+    }
+
+    /// @inheritdoc ICrossChainPositionRegistry
+    function releaseExpiredReservation(bytes32 reservationId) external {
+        BridgeReservation storage res = _reservations[reservationId];
+        if (res.status != ReservationStatus.Open) revert RESERVATION_NOT_CONSUMABLE();
+        if (block.timestamp <= res.createdAt + RESERVATION_TIMEOUT) revert RESERVATION_NOT_EXPIRED();
+
+        res.status = ReservationStatus.Released;
+        _uncountReservation(res);
+        emit ReservationReleased(reservationId);
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
     /// @dev P2-1: permissionless cleanup for a Pending position that timed out without confirming
-    ///      (e.g. a failed bridge). Releases its in-flight reservation and evicts it, so a
-    ///      never-confirmed bridge cannot permanently reserve cap headroom or a position slot. The
-    ///      oracle's completeness rule stops requiring expired Pending positions, so without this
-    ///      they would otherwise never be cleaned up.
+    ///      (e.g. a failed bridge). Releases its reservation and evicts it, so a never-confirmed
+    ///      bridge cannot permanently reserve cap headroom or a position slot. The oracle's
+    ///      completeness rule stops requiring expired Pending positions, so without this they
+    ///      would otherwise never be cleaned up.
     function invalidateExpiredPending(address strategy, bytes32 positionId) external {
         CrossChainPosition storage pos = _positions[positionId];
         if (pos.strategy != strategy || pos.status != PositionStatus.Pending) revert INVALID_POSITION_STATUS();
         if (block.timestamp <= pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) revert POSITION_NOT_EXPIRED();
 
         pos.status = PositionStatus.Invalidated;
-        _releaseBridgedOut(strategy, pos.chainId, pos.deployedAmount);
+        _releasePositionReservation(pos.reservationId);
         _strategyPositions[strategy].remove(positionId);
         emit PositionInvalidated(strategy, positionId);
     }
@@ -273,6 +343,11 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     /// @inheritdoc ICrossChainPositionRegistry
     function positions(bytes32 positionId) external view returns (CrossChainPosition memory) {
         return _positions[positionId];
+    }
+
+    /// @inheritdoc ICrossChainPositionRegistry
+    function reservations(bytes32 reservationId) external view returns (BridgeReservation memory) {
+        return _reservations[reservationId];
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
@@ -330,15 +405,34 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                               INTERNAL
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Release an in-flight reservation. P2-2: clamp the global and per-chain decrements by a
-    ///      SINGLE value (bounded by the per-chain outstanding, which is <= the global), so the two
-    ///      counters can never diverge and a position on one chain can never consume another chain's
-    ///      reservation. (Residual: positions sharing the same (strategy, chainId) still draw from a
-    ///      common per-chain pool - acceptable, as they share one cap dimension.)
-    function _releaseBridgedOut(address strategy, uint64 chainId, uint256 amount) internal {
-        uint256 chainOutstanding = bridgedOutByChain[strategy][chainId];
-        uint256 release = amount > chainOutstanding ? chainOutstanding : amount;
-        bridgedOutByChain[strategy][chainId] = chainOutstanding - release;
-        bridgedOut[strategy] -= release; // release <= chainOutstanding <= bridgedOut[strategy]
+    /// @dev Count a reservation into the in-flight aggregates. Every counted reservation is
+    ///      uncounted exactly once (settle/release), so the K1 accounting is exact — no clamping
+    ///      (the pre-K1 P2-2 clamp) is needed or wanted.
+    function _countReservation(BridgeReservation storage res) internal {
+        bridgedOut[res.strategy] += res.amount;
+        bridgedOutByChain[res.strategy][res.chainId] += res.amount;
+    }
+
+    /// @dev Uncount a reservation from the in-flight aggregates (exact inverse of _count).
+    function _uncountReservation(BridgeReservation storage res) internal {
+        bridgedOut[res.strategy] -= res.amount;
+        bridgedOutByChain[res.strategy][res.chainId] -= res.amount;
+    }
+
+    /// @dev Terminal reconciliation: the position this reservation funded was oracle-confirmed.
+    function _settlePositionReservation(bytes32 reservationId, bytes32 positionId) internal {
+        BridgeReservation storage res = _reservations[reservationId];
+        res.status = ReservationStatus.Settled;
+        _uncountReservation(res);
+        emit ReservationSettled(reservationId, positionId);
+    }
+
+    /// @dev Non-terminal release: the position this reservation funded was invalidated before
+    ///      confirmation. The reservation may be re-consumed by a later registration (late fill).
+    function _releasePositionReservation(bytes32 reservationId) internal {
+        BridgeReservation storage res = _reservations[reservationId];
+        res.status = ReservationStatus.Released;
+        _uncountReservation(res);
+        emit ReservationReleased(reservationId);
     }
 }

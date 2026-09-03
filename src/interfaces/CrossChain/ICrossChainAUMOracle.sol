@@ -60,6 +60,9 @@ interface ICrossChainAUMOracle {
     error RATE_LIMITED();
     error DATA_TOO_STALE();
     error INCOMPLETE_REPORT();
+    error UNSORTED_REPORT();
+    error UNKNOWN_POSITION_ID();
+    error REPORT_TOO_LARGE();
 
     /*//////////////////////////////////////////////////////////////
                                FUNCTIONS

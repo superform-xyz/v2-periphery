@@ -40,9 +40,26 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         mapping(uint64 => bool) idleHoldEnabled; // per-chain idle-hold escrow allowlist
     }
 
+    /// @notice Canonical destination hook pair per chain (B1: the ONLY hooks a capped bridge's
+    ///         destination action may execute — exactly [approve, deposit])
+    struct DestinationHooks {
+        address approveHook;
+        address depositHook;
+    }
+
     ISuperGovernor public immutable SUPER_GOVERNOR;
 
     mapping(address => CapConfig) private _caps;
+
+    /// @dev B1: chain => approved transport adapters (the bridge receivers that forward to
+    ///      SuperDestinationExecutor); global infra config, not a per-strategy risk dial
+    mapping(uint64 => mapping(address => bool)) public isApprovedAdapter;
+
+    /// @dev B1: chain => canonical destination hook pair
+    mapping(uint64 => DestinationHooks) private _destinationHooks;
+
+    /// @dev B4: LayerZero endpoint id => canonical EVM chain id (0 = unmapped, fail closed)
+    mapping(uint32 => uint64) public chainIdForEid;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -156,6 +173,30 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         emit DestinationApprovalUpdated(strategy, chainId, destinationVault, approved);
     }
 
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setDestinationAdapter(uint64 chainId, address adapter, bool approved) external {
+        _requireGovernor(msg.sender);
+        if (adapter == address(0)) revert ZERO_ADDRESS();
+        isApprovedAdapter[chainId][adapter] = approved;
+        emit DestinationAdapterUpdated(chainId, adapter, approved);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    /// @dev Setting either hook to zero blocks every VAULT_DEPOSIT action for the chain (the cap
+    ///      hooks fail closed on an unset pair); idle-hold actions are unaffected.
+    function setDestinationHooks(uint64 chainId, address approveHook, address depositHook) external {
+        _requireGovernor(msg.sender);
+        _destinationHooks[chainId] = DestinationHooks({ approveHook: approveHook, depositHook: depositHook });
+        emit DestinationHooksUpdated(chainId, approveHook, depositHook);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setEidChainId(uint32 eid, uint64 chainId) external {
+        _requireGovernor(msg.sender);
+        chainIdForEid[eid] = chainId;
+        emit EidChainIdUpdated(eid, chainId);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/
@@ -188,6 +229,12 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     /// @inheritdoc ICrossChainPositionCapGuard
     function chainEnabled(address strategy, uint64 chainId) external view returns (bool) {
         return _caps[strategy].chainEnabled[chainId];
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function destinationHooks(uint64 chainId) external view returns (address approveHook, address depositHook) {
+        DestinationHooks storage hooks = _destinationHooks[chainId];
+        return (hooks.approveHook, hooks.depositHook);
     }
 
     /*//////////////////////////////////////////////////////////////

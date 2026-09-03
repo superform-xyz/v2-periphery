@@ -162,4 +162,53 @@ contract CrossChainPositionCapGuardTest is Test {
         vm.expectRevert(ICrossChainPositionCapGuard.LENGTH_MISMATCH.selector);
         guard.setCapConfig(strategy, CAP_70, chains, caps, en);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                  DESTINATION TRANSPORT POLICY (B1/B4)
+    //////////////////////////////////////////////////////////////*/
+
+    function test_SetDestinationAdapter_GovernorOnly() public {
+        address adapter = makeAddr("adapter");
+        guard.setDestinationAdapter(CHAIN_A, adapter, true);
+        assertTrue(guard.isApprovedAdapter(CHAIN_A, adapter));
+        assertFalse(guard.isApprovedAdapter(CHAIN_B, adapter), "per-chain scoped");
+
+        guard.setDestinationAdapter(CHAIN_A, adapter, false);
+        assertFalse(guard.isApprovedAdapter(CHAIN_A, adapter));
+
+        vm.prank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setDestinationAdapter(CHAIN_A, adapter, true);
+    }
+
+    function test_SetDestinationHooks_GovernorOnly() public {
+        address approveHook = makeAddr("dstApproveHook");
+        address depositHook = makeAddr("dstDepositHook");
+        guard.setDestinationHooks(CHAIN_A, approveHook, depositHook);
+        (address a, address d) = guard.destinationHooks(CHAIN_A);
+        assertEq(a, approveHook);
+        assertEq(d, depositHook);
+
+        // Unsetting (0,0) blocks VAULT_DEPOSIT destination actions for the chain (fail closed).
+        guard.setDestinationHooks(CHAIN_A, address(0), address(0));
+        (a, d) = guard.destinationHooks(CHAIN_A);
+        assertEq(a, address(0));
+
+        vm.prank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setDestinationHooks(CHAIN_A, approveHook, depositHook);
+    }
+
+    function test_SetEidChainId_GovernorOnly() public {
+        guard.setEidChainId(30_184, 8453); // Base EID -> Base chain id
+        assertEq(guard.chainIdForEid(30_184), 8453);
+        assertEq(guard.chainIdForEid(30_101), 0, "unmapped EID stays 0 (fail closed)");
+
+        guard.setEidChainId(30_184, 0); // unmap
+        assertEq(guard.chainIdForEid(30_184), 0);
+
+        vm.prank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setEidChainId(30_184, 8453);
+    }
 }

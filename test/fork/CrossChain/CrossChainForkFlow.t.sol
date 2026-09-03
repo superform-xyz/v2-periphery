@@ -132,17 +132,19 @@ contract CrossChainForkFlowTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_FullFlow() public {
-        // 1. in-flight bridge recorded
+        // 1. in-flight bridge recorded (K1: mints a reservation)
         vm.prank(bridgeHook);
-        registry.recordBridgedOut(strategy, CHAIN_A, 100e18);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
 
-        // 2. register approved SuperVault position
+        // 2. register approved SuperVault position by consuming the reservation
         vm.prank(registrar);
         bytes32 id = registry.registerPosition(
-            strategy, CHAIN_A, ICrossChainPositionRegistry.PositionKind.SuperVault, destVault, 100e18, 95e18
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
         );
 
         // 3. quorum-signed report (uses REAL isValidator + getPPSOracleQuorum) confirms it
+        //    (B2: a Pending position is only reportable strictly after registration)
+        vm.warp(block.timestamp + 1);
         _forwardAUM(id, 100e18, 900e18);
         assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
         assertEq(oracle.getTotalAUM(strategy), 1000e18);

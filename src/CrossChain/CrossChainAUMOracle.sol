@@ -124,7 +124,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         AUMOracleConfig memory config = _configs[strategy];
         uint256 usedNonce =
             _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, false);
-        if (!_coversAllOpenPositions(strategy, positionIds, timestamp)) revert INCOMPLETE_REPORT();
+        _validateReportSet(strategy, positionIds, timestamp);
 
         // Derive aggregate on-chain.
         uint256 total = _sum(values);
@@ -169,8 +169,8 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
-        emit AUMUpdated(strategy, total, timestamp);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, hubAssets, timestamp, usedNonce);
+        emit AUMUpdated(strategy, committed, timestamp);
     }
 
     /// @inheritdoc ICrossChainAUMOracle
@@ -193,7 +193,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         AUMOracleConfig memory config = _configs[strategy];
         uint256 usedNonce =
             _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, true);
-        if (!_coversAllOpenPositions(strategy, positionIds, timestamp)) revert INCOMPLETE_REPORT();
+        _validateReportSet(strategy, positionIds, timestamp);
 
         uint256 total = _sum(values);
 
@@ -203,8 +203,8 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
-        emit AUMForceUpdated(strategy, total, timestamp);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, hubAssets, timestamp, usedNonce);
+        emit AUMForceUpdated(strategy, committed, timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -335,33 +335,42 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         }
     }
 
-    /// @dev The report must cover every Active/WindingDown position plus every non-expired
-    ///      Pending position registered before `timestamp` (SEC-9/SEC-14 completeness).
-    function _coversAllOpenPositions(
-        address strategy,
-        bytes32[] calldata positionIds,
-        uint256 timestamp
-    )
-        internal
-        view
-        returns (bool)
-    {
+    /// @dev B2: the submitted id set must EQUAL the canonical required set - strictly ascending
+    ///      (no duplicates), every id owned by `strategy` and in the reportable status/time domain
+    ///      (no extras), and every required position covered (SEC-9/SEC-14 completeness). This
+    ///      guarantees the summed aggregate only contains entries the registry will accept.
+    ///      A position that exits/expires between off-chain signing and submission now reverts the
+    ///      report; the corrected set must be re-signed under the same (unconsumed) nonce.
+    function _validateReportSet(address strategy, bytes32[] calldata positionIds, uint256 timestamp) internal view {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
-        bytes32[] memory ids = registry.getPositionIds(strategy);
+        uint256 len = positionIds.length;
+        if (len > registry.MAX_POSITIONS_PER_STRATEGY()) revert REPORT_TOO_LARGE();
         // P3-6: read the timeout from the registry (single source of truth) rather than a literal.
         uint256 timeout = registry.POSITION_CONFIRMATION_TIMEOUT();
-        uint256 len = ids.length;
+
+        bytes32 prev;
         for (uint256 i; i < len; ++i) {
-            if (_positionRequired(registry, ids[i], timestamp, timeout) && !_contains(positionIds, ids[i])) {
-                return false;
+            bytes32 id = positionIds[i];
+            if (i > 0 && id <= prev) revert UNSORTED_REPORT();
+            prev = id;
+            if (!_positionRequired(registry, strategy, id, timestamp, timeout)) revert UNKNOWN_POSITION_ID();
+        }
+
+        bytes32[] memory ids = registry.getPositionIds(strategy);
+        uint256 openLen = ids.length;
+        for (uint256 i; i < openLen; ++i) {
+            if (_positionRequired(registry, strategy, ids[i], timestamp, timeout) && !_contains(positionIds, ids[i])) {
+                revert INCOMPLETE_REPORT();
             }
         }
-        return true;
     }
 
-    /// @dev Whether a position must be covered by a report timestamped at `timestamp`.
+    /// @dev Whether a position must be covered by a report for `strategy` timestamped at
+    ///      `timestamp`. Foreign/None/Exited/Invalidated ids are never required (and, via
+    ///      _validateReportSet, never accepted).
     function _positionRequired(
         ICrossChainPositionRegistry registry,
+        address strategy,
         bytes32 id,
         uint256 timestamp,
         uint256 timeout
@@ -371,6 +380,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         returns (bool)
     {
         ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(id);
+        if (p.strategy != strategy) return false;
         if (
             p.status == ICrossChainPositionRegistry.PositionStatus.Active
                 || p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown
@@ -423,25 +433,28 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     }
 
     /// @dev Push every reported value to the registry (single write path) and cache the report,
-    ///      clearing the breaker (the feed is healthy again).
+    ///      clearing the breaker (the feed is healthy again). B2: the cached aggregate is the sum
+    ///      of what the registry ACCEPTED, never the raw submitted sum, so the cap denominator and
+    ///      the registry numerator always derive from the same per-position snapshot.
     function _syncAndCommit(
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
-        uint256 total,
         uint256 hubAssets,
         uint256 timestamp,
         uint256 usedNonce
     )
         internal
+        returns (uint256 committed)
     {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
         for (uint256 i; i < len; ++i) {
-            registry.syncPositionFromReport(strategy, positionIds[i], values[i], timestamp);
+            committed += registry.syncPositionFromReport(strategy, positionIds[i], values[i], timestamp);
         }
-        _latestReport[strategy] =
-            AUMReport({ totalCrossChainAssets: total, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce });
+        _latestReport[strategy] = AUMReport({
+            totalCrossChainAssets: committed, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce
+        });
         consecutiveBreaches[strategy] = 0;
         if (aumBreakerTripped[strategy]) {
             aumBreakerTripped[strategy] = false;

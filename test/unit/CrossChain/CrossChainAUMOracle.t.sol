@@ -57,6 +57,8 @@ contract CrossChainAUMOracleTest is Test {
         }
 
         _setDefaultConfig();
+        // B2: the oracle validates position ownership; mock positions must carry the strategy.
+        registry.setDefaultStrategy(strategy);
         // In reality the bridged-out capital is recorded before the first report; set it high so
         // the SEC-16 zero-crossing anchor admits bootstrap reports in these oracle-focused tests.
         registry.setBridgedOut(strategy, 1_000_000e18);
@@ -474,6 +476,162 @@ contract CrossChainAUMOracleTest is Test {
         assertEq(oracle.getTotalAUM(strategy), 10e18, "loss booked");
         assertFalse(oracle.aumBreakerTripped(strategy), "breaker cleared");
         assertTrue(oracle.isAUMFresh(strategy));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                   B2: CANONICAL REPORT SET (PR336 review)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Two-id signed report against the current nonce.
+    function _report2(
+        bytes32 idA,
+        bytes32 idB,
+        uint256 valA,
+        uint256 valB,
+        uint256 hubAssets,
+        uint256 ts,
+        bool isForce
+    )
+        internal
+        view
+        returns (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs)
+    {
+        ids = new bytes32[](2);
+        vals = new uint256[](2);
+        (ids[0], ids[1]) = (idA, idB);
+        (vals[0], vals[1]) = (valA, valB);
+        proofs = _proofs(_digest(ids, vals, hubAssets, ts, oracle.noncePerStrategy(strategy), isForce), 2);
+    }
+
+    /// @dev Sort so reports satisfy the strict-ascending rule; values travel with their id.
+    function _ascending(
+        bytes32 a,
+        bytes32 b,
+        uint256 va,
+        uint256 vb
+    )
+        internal
+        pure
+        returns (bytes32, bytes32, uint256, uint256)
+    {
+        return a < b ? (a, b, va, vb) : (b, a, vb, va);
+    }
+
+    /// B2.RR1: an extra id the registry has never seen (with nonzero value) must revert - it can
+    /// no longer inflate the cached aggregate while the registry skips it.
+    function test_ForwardAUM_RevertExtraUnknownId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, keccak256("fakeId"), 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 0, "no cached aggregate change");
+    }
+
+    /// B2.RR2: an id owned by a different strategy must revert.
+    function test_ForwardAUM_RevertForeignStrategyId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        bytes32 idForeign = keccak256("foreignPos");
+        registry.addPositionFor(
+            makeAddr("otherStrategy"),
+            idForeign,
+            ICrossChainPositionRegistry.PositionStatus.Active,
+            block.timestamp - 1,
+            50e18
+        );
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idForeign, 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2.RR3: a duplicated active id must revert (strict ascending order forbids it).
+    function test_ForwardAUM_RevertDuplicateId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) =
+            _report2(idA, idA, 50e18, 50e18, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNSORTED_REPORT.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2: two valid ids in descending order must revert (canonical ordering).
+    function test_ForwardAUM_RevertUnsortedIds() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        bytes32 idB = keccak256("pos2");
+        registry.addPosition(idB, ICrossChainPositionRegistry.PositionStatus.Active, block.timestamp - 1, 50e18);
+        uint256 ts = block.timestamp;
+        (bytes32 lo, bytes32 hi, uint256 vLo, uint256 vHi) = _ascending(idA, idB, 100e18, 50e18);
+        // deliberately submit descending
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(hi, lo, vHi, vLo, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNSORTED_REPORT.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2.RR4: an Exited id (late inclusion) with nonzero value must revert.
+    function test_ForwardAUM_RevertExitedId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        bytes32 idExited = keccak256("exitedPos");
+        registry.addPosition(idExited, ICrossChainPositionRegistry.PositionStatus.Exited, block.timestamp - 1, 0);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idExited, 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2.RR4: an expired Pending id must revert (it can only be invalidated, not reported).
+    function test_ForwardAUM_RevertExpiredPendingId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        bytes32 idExpired = keccak256("expiredPending");
+        registry.addPosition(
+            idExpired, ICrossChainPositionRegistry.PositionStatus.Pending, block.timestamp - 3 hours, 0
+        );
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idExpired, 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2.RR5: a Pending position registered AT/AFTER the report timestamp cannot be confirmed
+    /// by that report.
+    function test_ForwardAUM_RevertPendingRegisteredAfterReportTimestamp() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        bytes32 idLate = keccak256("latePending");
+        registry.addPosition(idLate, ICrossChainPositionRegistry.PositionStatus.Pending, ts, 0);
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idLate, 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2.MR1.T5: a report longer than the registry position bound must revert.
+    function test_ForwardAUM_RevertReportTooLarge() public {
+        uint256 n = 65; // MAX_POSITIONS_PER_STRATEGY = 64
+        bytes32[] memory ids = new bytes32[](n);
+        uint256[] memory vals = new uint256[](n);
+        for (uint256 i; i < n; ++i) {
+            ids[i] = bytes32(i + 1); // ascending
+            vals[i] = 1e18;
+        }
+        uint256 ts = block.timestamp;
+        bytes[] memory proofs = _proofs(_digest(ids, vals, 0, ts, 0, false), 2);
+        vm.expectRevert(ICrossChainAUMOracle.REPORT_TOO_LARGE.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// B2: the force path enforces the same canonical-set rules.
+    function test_ForceUpdate_RevertExtraUnknownId() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, keccak256("fakeId"), 100e18, 50e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, true);
+        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
     }
 
     function test_ForceUpdate_NormalSigNotAcceptedAsForce() public {
