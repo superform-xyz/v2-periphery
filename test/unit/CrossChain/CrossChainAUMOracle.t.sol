@@ -8,19 +8,27 @@ import { ICrossChainAUMOracle } from "../../../src/interfaces/CrossChain/ICrossC
 import { ICrossChainPositionRegistry } from "../../../src/interfaces/CrossChain/ICrossChainPositionRegistry.sol";
 import { MockGovernorLite } from "./mocks/MockGovernorLite.sol";
 import { MockRegistryLite } from "./mocks/MockRegistryLite.sol";
+import { MockAggregatorLite, MockStrategyWithVault, MockVaultLite } from "./mocks/MockCapGuardDeps.sol";
 
 contract CrossChainAUMOracleTest is Test {
     CrossChainAUMOracle internal oracle;
     MockGovernorLite internal governor;
     MockRegistryLite internal registry;
+    MockAggregatorLite internal aggregator;
+    MockStrategyWithVault internal strategyMock;
+    MockVaultLite internal vault;
 
-    address internal strategy = makeAddr("strategy");
+    /// @dev K2: the strategy is a contract exposing getVaultInfo() -> vault.totalAssets(), the
+    ///      implied-assets source. vault.totalAssets defaults to 0 = source unavailable (SEC-8
+    ///      band inactive on the normal path; forceAUMUpdate blocked until a test sets it).
+    address internal strategy;
 
     // validators (sorted by address at setUp)
     uint256[] internal pks;
     address[] internal signers;
 
     bytes32 internal constant CROSS_CHAIN_POSITION_REGISTRY = keccak256("CROSS_CHAIN_POSITION_REGISTRY");
+    bytes32 internal constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
     bytes32 internal constant UPDATE_AUM_TYPEHASH = keccak256(
         "UpdateAUM(address strategy,bytes32 positionIdsHash,bytes32 valuesHash,uint256 hubAssets,uint256 timestamp,uint256 nonce)"
     );
@@ -31,9 +39,15 @@ contract CrossChainAUMOracleTest is Test {
     function setUp() public {
         governor = new MockGovernorLite();
         registry = new MockRegistryLite();
+        aggregator = new MockAggregatorLite();
+        strategyMock = new MockStrategyWithVault();
+        vault = new MockVaultLite();
+        strategyMock.setVault(address(vault));
+        strategy = address(strategyMock);
         oracle = new CrossChainAUMOracle(address(governor), "SuperformCrossChainAUM", "1");
 
         governor.setAddress(CROSS_CHAIN_POSITION_REGISTRY, address(registry));
+        governor.setAddress(SUPER_VAULT_AGGREGATOR, address(aggregator));
         governor.grantRole(governor.ORACLE_MANAGER_ROLE(), address(this));
 
         // 3 validators, quorum 2, sorted ascending by address
@@ -384,7 +398,9 @@ contract CrossChainAUMOracleTest is Test {
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 100e18, ts, false);
         oracle.forwardAUM(strategy, ids, vals, 100e18, ts, proofs); // seed hubAssets = 100
 
-        // force a large hubAssets move (100 -> 500, >50%) - deviation skipped, commits.
+        // force a large hubAssets move (100 -> 500, >50%) - deviation skipped, commits. K2: force
+        // needs a live, consistent PPS backstop.
+        vault.setTotalAssets(600e18);
         vm.warp(block.timestamp + 2 minutes);
         ts = block.timestamp;
         (ids, vals, proofs) = _report(id, 100e18, 500e18, ts, true);
@@ -467,7 +483,9 @@ contract CrossChainAUMOracleTest is Test {
         _softFail(id, 300e18);
         assertTrue(oracle.aumBreakerTripped(strategy));
 
-        // force-book a real >50% drawdown to 10 (deviation skipped; consistency band disabled)
+        // force-book a real >50% drawdown to 10. K2: the PPS backstop must be live and must AGREE
+        // with the forced report (implied ~= hub + total).
+        vault.setTotalAssets(10e18);
         vm.warp(block.timestamp + 2 minutes);
         uint256 ts = block.timestamp;
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 10e18, 0, ts, true);
@@ -632,6 +650,87 @@ contract CrossChainAUMOracleTest is Test {
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, true);
         vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
         oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                 K2: PPS x SUPPLY BACKSTOP (PR336 review)
+    //////////////////////////////////////////////////////////////*/
+
+    /// K2: with no live implied-assets source the SEC-8 band would be vacuous, so force recovery
+    /// is hard-blocked (quorum + manager cannot force an arbitrary report).
+    function test_ForceUpdate_RevertWithoutPPSSource() public {
+        bytes32 id = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        // vault.totalAssets is 0 by default = no source.
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, true);
+        vm.expectRevert(ICrossChainAUMOracle.FORCE_REQUIRES_PPS_SOURCE.selector);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// K2: a STALE PPS is not a backstop — force recovery is blocked until the PPS feed recovers.
+    function test_ForceUpdate_RevertWhenPPSStale() public {
+        bytes32 id = _oneActivePosition(100e18);
+        vault.setTotalAssets(100e18);
+        aggregator.setPPSStale(strategy, true);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, true);
+        vm.expectRevert(ICrossChainAUMOracle.FORCE_REQUIRES_PPS_SOURCE.selector);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// K2.RT1: a 10x forced AUM jump inconsistent with the stored PPS must FAIL (soft-fail, no
+    /// commit, breach recorded); the same update passes only after a matching PPS update.
+    function test_ForceUpdate_TenXJumpBlockedUntilPPSMatches() public {
+        bytes32 id = _oneActivePosition(100e18);
+        vault.setTotalAssets(100e18); // stored PPS x supply says the strategy is worth 100
+        _seedActiveAggregate(id, 100e18); // committed aggregate 100 (consistent with implied)
+
+        // Force a 10x jump to 1000 while implied stays 100 -> SEC-8 breach, not booked.
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 1000e18, 0, ts, true);
+        vm.expectEmit(true, false, false, true);
+        emit ICrossChainAUMOracle.PPSConsistencyBreached(strategy, 100e18, 1000e18);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "10x force must not book against stale PPS");
+        assertEq(oracle.consecutiveBreaches(strategy), 1, "breach must be recorded");
+
+        // The PPS oracle catches up (implied 1000) -> the same magnitude update now books.
+        vault.setTotalAssets(1000e18);
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 1000e18, 0, ts, true);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 1000e18, "force books once PPS agrees");
+    }
+
+    /// K2: the band also gates the NORMAL path when the source is live — a report inside the
+    /// deviation bands but outside the PPS band soft-fails.
+    function test_ForwardAUM_ConsistencyBreachSoftFails() public {
+        bytes32 id = _oneActivePosition(100e18);
+        vault.setTotalAssets(200e18); // implied says 200
+        _seedActiveAggregateExpectBreach(id, 100e18); // 100 vs implied 200 -> band breach
+
+        assertEq(oracle.getTotalAUM(strategy), 0, "not committed");
+        assertEq(oracle.consecutiveBreaches(strategy), 1);
+    }
+
+    /// K2: a normal report consistent with the live PPS source commits.
+    function test_ForwardAUM_CommitsWithinConsistencyBand() public {
+        bytes32 id = _oneActivePosition(100e18);
+        vault.setTotalAssets(100e18); // implied == reported (hub 0 + total 100)
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "consistent report commits");
+    }
+
+    function _seedActiveAggregateExpectBreach(bytes32 id, uint256 value) internal {
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, value, 0, ts, false);
+        vm.expectEmit(true, false, false, true);
+        emit ICrossChainAUMOracle.PPSConsistencyBreached(strategy, vault.totalAssets(), value);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
     }
 
     function test_ForceUpdate_NormalSigNotAcceptedAsForce() public {

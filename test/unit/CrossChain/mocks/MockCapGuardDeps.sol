@@ -45,9 +45,10 @@ contract MockRegistryExposureLite {
     }
 }
 
-/// @notice Settable aggregator stand-in (isMainManager only).
+/// @notice Settable aggregator stand-in (isMainManager + isPPSStale for the K2 backstop).
 contract MockAggregatorLite {
     mapping(bytes32 => bool) internal _mm;
+    mapping(address => bool) public isPPSStale;
 
     function setMainManager(address m, address s, bool ok) external {
         _mm[keccak256(abi.encode(m, s))] = ok;
@@ -55,5 +56,31 @@ contract MockAggregatorLite {
 
     function isMainManager(address m, address s) external view returns (bool) {
         return _mm[keccak256(abi.encode(m, s))];
+    }
+
+    function setPPSStale(address s, bool stale) external {
+        isPPSStale[s] = stale;
+    }
+}
+
+/// @notice K2 fixtures: a strategy exposing getVaultInfo and a vault exposing totalAssets — the
+///         PPS x supply implied-assets source the AUM oracle reads.
+contract MockVaultLite {
+    uint256 public totalAssets;
+
+    function setTotalAssets(uint256 v) external {
+        totalAssets = v;
+    }
+}
+
+contract MockStrategyWithVault {
+    address public vaultAddr;
+
+    function setVault(address v) external {
+        vaultAddr = v;
+    }
+
+    function getVaultInfo() external view returns (address vault, address asset, uint8 vaultDecimals) {
+        return (vaultAddr, address(0), 18);
     }
 }

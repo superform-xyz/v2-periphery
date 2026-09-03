@@ -10,7 +10,11 @@ import { ICrossChainPositionRegistry } from "../../../src/interfaces/CrossChain/
 import { ICrossChainAUMOracle } from "../../../src/interfaces/CrossChain/ICrossChainAUMOracle.sol";
 import { ICrossChainPositionCapGuard } from "../../../src/interfaces/CrossChain/ICrossChainPositionCapGuard.sol";
 import { MockGovernorLite } from "../../unit/CrossChain/mocks/MockGovernorLite.sol";
-import { MockAggregatorLite } from "../../unit/CrossChain/mocks/MockCapGuardDeps.sol";
+import {
+    MockAggregatorLite,
+    MockStrategyWithVault,
+    MockVaultLite
+} from "../../unit/CrossChain/mocks/MockCapGuardDeps.sol";
 
 /// @notice End-to-end integration of the three cross-chain contracts wired together via a lite
 ///         SuperGovernor (roles/validators/registry) and a lite aggregator (isMainManager). Every
@@ -22,7 +26,12 @@ contract CrossChainFlowTest is Test {
     MockGovernorLite internal governor;
     MockAggregatorLite internal aggregator;
 
-    address internal strategy = makeAddr("strategy");
+    MockStrategyWithVault internal strategyMock;
+    MockVaultLite internal strategyVault;
+    /// @dev K2: the strategy is a contract exposing getVaultInfo() -> vault.totalAssets() (the
+    ///      implied-assets source); totalAssets defaults to 0 so the SEC-8 band stays inactive
+    ///      except where a test arms it.
+    address internal strategy;
     address internal registrar = makeAddr("registrar");
     address internal manager = makeAddr("manager");
     address internal bridgeHook = makeAddr("bridgeHook");
@@ -43,6 +52,10 @@ contract CrossChainFlowTest is Test {
     function setUp() public {
         governor = new MockGovernorLite();
         aggregator = new MockAggregatorLite();
+        strategyMock = new MockStrategyWithVault();
+        strategyVault = new MockVaultLite();
+        strategyMock.setVault(address(strategyVault));
+        strategy = address(strategyMock);
         registry = new CrossChainPositionRegistry(address(governor));
         oracle = new CrossChainAUMOracle(address(governor), "SuperformCrossChainAUM", "1");
         guard = new CrossChainPositionCapGuard(address(governor));
@@ -191,7 +204,9 @@ contract CrossChainFlowTest is Test {
         vm.expectRevert(ICrossChainPositionCapGuard.AUM_DATA_STALE.selector);
         guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
 
-        // Force-book a real >50% drawdown to 10; breaker clears; cap guard works again.
+        // Force-book a real >50% drawdown to 10; breaker clears; cap guard works again. K2: the
+        // force path requires a live, consistent PPS backstop (implied ~= hub 900 + total 10).
+        strategyVault.setTotalAssets(910e18);
         vm.warp(block.timestamp + 2 minutes);
         _forwardAUM(id, 10e18, 900e18, true);
         assertFalse(oracle.aumBreakerTripped(strategy));

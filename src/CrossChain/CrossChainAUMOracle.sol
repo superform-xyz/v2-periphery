@@ -48,6 +48,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     );
 
     bytes32 private constant CROSS_CHAIN_POSITION_REGISTRY = keccak256("CROSS_CHAIN_POSITION_REGISTRY");
+    bytes32 private constant SUPER_VAULT_AGGREGATOR = keccak256("SUPER_VAULT_AGGREGATOR");
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -131,9 +132,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         AUMReport memory current = _latestReport[strategy];
 
         // P2-4: bound the signed hubAssets too - it feeds getTotalAUM (the cap denominator) but is
-        // otherwise unconstrained (the SEC-8 band that would sanity-check it is disabled until
-        // _impliedAssets is wired). A single inflated hubAssets would otherwise enlarge cap
-        // headroom unchecked. Bootstrap (current.hubAssets == 0) is exempt (trusted one-time setup).
+        // otherwise unconstrained when the SEC-8 band is inactive (no live PPS source). A single
+        // inflated hubAssets would otherwise enlarge cap headroom unchecked. Bootstrap
+        // (current.hubAssets == 0) is exempt (trusted one-time setup).
         if (current.hubAssets > 0 && _relDiff(hubAssets, current.hubAssets) > config.deviationThreshold) {
             emit AUMDeviationExceeded(strategy, current.hubAssets, hubAssets);
             _recordDeviationBreach(strategy, config);
@@ -176,6 +177,8 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     /// @inheritdoc ICrossChainAUMOracle
     /// @dev SEC-13 recovery: dual-gated (quorum in proofs AND ORACLE_MANAGER submitter), skips
     ///      ONLY the deviation checks, STILL enforces the SEC-8 consistency band, clears breaker.
+    ///      K2: unavailable/stale PPS source -> force recovery is BLOCKED (the band is the only
+    ///      bound left on this path, so it must be live).
     function forceAUMUpdate(
         address strategy,
         bytes32[] calldata positionIds,
@@ -196,6 +199,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         _validateReportSet(strategy, positionIds, timestamp);
 
         uint256 total = _sum(values);
+
+        // K2: force recovery is ONLY available while the PPS x supply backstop is live — with no
+        // implied-assets source the SEC-8 band would be vacuous and quorum + ORACLE_MANAGER could
+        // force an arbitrary complete report and clear the breaker unchecked (PR #336 review K2).
+        if (_impliedAssets(strategy) == 0) revert FORCE_REQUIRES_PPS_SOURCE();
 
         // Deviation checks SKIPPED. Consistency band STILL enforced (the backstop).
         if (_consistencyBreach(strategy, hubAssets + total, config.consistencyToleranceBps)) {
@@ -412,8 +420,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         return false;
     }
 
-    /// @dev SEC-8 band. Returns true (breach) when PPS and AUM disagree beyond tolerance.
-    ///      `_impliedAssets` returns 0 until the PPS source is wired, disabling the band.
+    /// @dev SEC-8 band. Returns true (breach) when PPS and AUM disagree beyond tolerance. An
+    ///      unavailable implied-assets source (0) leaves the band inactive on the NORMAL path
+    ///      (deviation checks still bind there); the FORCE path hard-requires the source (K2).
     function _consistencyBreach(address strategy, uint256 totalAssets, uint256 toleranceBps) internal returns (bool) {
         uint256 implied = _impliedAssets(strategy);
         if (implied == 0) return false;
@@ -424,12 +433,32 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         return false;
     }
 
-    /// @dev PPS x totalSupply for `strategy`, hub-asset-denominated. Returns 0 to disable the
-    ///      SEC-8 band until the exact PPS scale / vault totalSupply source is wired in a
-    ///      follow-up (see technical-spec.md - "wired at implementation time").
+    /// @dev K2: PPS x totalSupply for `strategy`, hub-asset-denominated. The strategy's SuperVault
+    ///      computes exactly this as `totalAssets()` (totalSupply x storedPPS / 10^assetDecimals,
+    ///      the PPS the ECDSA PPS-oracle quorum attested via the aggregator), so read it there:
+    ///      strategy.getVaultInfo() -> vault -> vault.totalAssets().
+    ///
+    ///      Returns 0 — "no reliable source" — when any of the following holds, each read via a
+    ///      tolerant staticcall so a non-SuperVault strategy can never brick a report:
+    ///      - no aggregator registered, or the strategy does not expose getVaultInfo();
+    ///      - the aggregator marks the strategy's PPS STALE (a stale PPS is not a backstop);
+    ///      - the vault/totalAssets read fails or is zero (pre-seed vault).
+    ///      A 0 result leaves the SEC-8 band inactive on the normal path and BLOCKS forceAUMUpdate.
     function _impliedAssets(address strategy) internal view virtual returns (uint256) {
-        strategy;
-        return 0;
+        address aggregator = SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR);
+        if (aggregator == address(0)) return 0;
+
+        (bool ok, bytes memory ret) = strategy.staticcall(abi.encodeWithSignature("getVaultInfo()"));
+        if (!ok || ret.length < 96) return 0;
+        (address vault,,) = abi.decode(ret, (address, address, uint8));
+        if (vault == address(0)) return 0;
+
+        (ok, ret) = aggregator.staticcall(abi.encodeWithSignature("isPPSStale(address)", strategy));
+        if (!ok || ret.length < 32 || abi.decode(ret, (bool))) return 0;
+
+        (ok, ret) = vault.staticcall(abi.encodeWithSignature("totalAssets()"));
+        if (!ok || ret.length < 32) return 0;
+        return abi.decode(ret, (uint256));
     }
 
     /// @dev Push every reported value to the registry (single write path) and cache the report,

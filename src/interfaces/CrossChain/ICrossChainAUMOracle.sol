@@ -63,6 +63,7 @@ interface ICrossChainAUMOracle {
     error UNSORTED_REPORT();
     error UNKNOWN_POSITION_ID();
     error REPORT_TOO_LARGE();
+    error FORCE_REQUIRES_PPS_SOURCE();
 
     /*//////////////////////////////////////////////////////////////
                                FUNCTIONS

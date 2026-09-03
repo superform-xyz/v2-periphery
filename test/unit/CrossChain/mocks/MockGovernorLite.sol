@@ -52,4 +52,14 @@ contract MockGovernorLite {
     function getPPSOracleQuorum() external view returns (uint256) {
         return _quorum;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                       HOOKS-ROOT VETO (K3 screener)
+    //////////////////////////////////////////////////////////////*/
+
+    mapping(address => bool) public strategyVetoed;
+
+    function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external {
+        strategyVetoed[strategy] = vetoed;
+    }
 }
