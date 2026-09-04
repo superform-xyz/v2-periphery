@@ -733,6 +733,47 @@ contract CrossChainAUMOracleTest is Test {
         oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
     }
 
+    /*//////////////////////////////////////////////////////////////
+              R2-AUM1: hubAssets ZERO-CROSSING (review round 2)
+    //////////////////////////////////////////////////////////////*/
+
+    /// R2-AUM1: after the one-time bootstrap, a zero-to-positive hubAssets transition with NO live
+    /// PPS backstop must soft-fail — it would otherwise enlarge the cap denominator unbounded.
+    function test_ForwardAUM_ZeroToPositiveHubAssetsBlockedWithoutPPS() public {
+        bytes32 id = _oneActivePosition(100e18);
+        // Bootstrap commit with hubAssets = 0 (legitimate fully-deployed state).
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18);
+
+        // Next report claims a huge hubAssets while the PPS source is unavailable -> soft-fail.
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 100e18, 1_000_000e18, ts, false);
+        vm.expectEmit(true, false, false, true);
+        emit ICrossChainAUMOracle.AUMDeviationExceeded(strategy, 0, 1_000_000e18);
+        oracle.forwardAUM(strategy, ids, vals, 1_000_000e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "inflated zero-crossing hubAssets must not commit");
+        assertEq(oracle.consecutiveBreaches(strategy), 1, "breach recorded");
+    }
+
+    /// R2-AUM1: the same transition IS allowed when the PPS backstop is live and agrees.
+    function test_ForwardAUM_ZeroToPositiveHubAssetsCommitsWithLivePPS() public {
+        bytes32 id = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+
+        // Hub receives 40 back; implied assets agree (140) -> commits despite the zero-crossing.
+        vault.setTotalAssets(140e18);
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 100e18, 40e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 40e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 140e18, "PPS-backed zero-crossing commits");
+    }
+
     function test_ForceUpdate_NormalSigNotAcceptedAsForce() public {
         // A signature over the UPDATE (non-force) typehash must not satisfy forceAUMUpdate.
         bytes32 id = _oneActivePosition(100e18);

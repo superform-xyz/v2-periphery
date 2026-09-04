@@ -156,6 +156,16 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         console2.logBytes(abi.encodeCall(CrossChainHooksRootScreener.setScreenedStrategy, (strategy, true)));
     }
 
+    /// @notice Calldata for clearing one reviewed strategy hooks root (R2-K3 default-deny): for a
+    ///         SCREENED strategy every proposed root must have its full leaf set published and
+    ///         governance-reviewed, then cleared here BEFORE the timelock elapses — otherwise
+    ///         anyone can veto the strategy via `enforceProposalClearance`. This is the standing
+    ///         operational rule for every root update of a cap-enabled strategy.
+    function printRootClearance(address strategy, bytes32 root) external pure {
+        console2.log("-> screener.setRootClearance(strategy, root, true)  [GOVERNOR_ROLE] (K3 default-deny)");
+        console2.logBytes(abi.encodeCall(CrossChainHooksRootScreener.setRootClearance, (strategy, root, true)));
+    }
+
     /*//////////////////////////////////////////////////////////////
                           INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/

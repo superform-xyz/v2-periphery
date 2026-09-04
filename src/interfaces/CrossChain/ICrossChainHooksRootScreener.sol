@@ -16,6 +16,7 @@ interface ICrossChainHooksRootScreener {
 
     event BannedHookUpdated(address indexed hook, bool banned);
     event ScreenedStrategyUpdated(address indexed strategy, bool screened);
+    event RootClearanceUpdated(address indexed strategy, bytes32 indexed root, bool cleared);
     event RootVetoed(
         address indexed strategy,
         bytes32 indexed root,
@@ -23,6 +24,8 @@ interface ICrossChainHooksRootScreener {
         bool proposedRoot,
         address challenger
     );
+    event GlobalRootVetoed(bytes32 indexed root, address indexed bannedHook, bool proposedRoot, address challenger);
+    event UnclearedProposalVetoed(address indexed strategy, bytes32 indexed root, address challenger);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -34,6 +37,7 @@ interface ICrossChainHooksRootScreener {
     error STRATEGY_NOT_SCREENED();
     error NO_ROOT();
     error INVALID_PROOF();
+    error ROOT_CLEARED();
 
     /*//////////////////////////////////////////////////////////////
                               GOVERNANCE
@@ -45,6 +49,12 @@ interface ICrossChainHooksRootScreener {
 
     /// @notice Enroll/unenroll a cap-enabled strategy under screening. GOVERNOR_ROLE-only.
     function setScreenedStrategy(address strategy, bool screened) external;
+
+    /// @notice Clear (or un-clear) an exact root hash for a screened strategy after governance has
+    ///         reviewed its PUBLISHED leaf set (R2-K3 failure mode 2: an opaque root the manager
+    ///         withholds leaves for must be default-DENIED, not default-allowed). Only cleared
+    ///         roots survive `enforceProposalClearance`. GOVERNOR_ROLE-only.
+    function setRootClearance(address strategy, bytes32 root, bool cleared) external;
 
     /*//////////////////////////////////////////////////////////////
                             PERMISSIONLESS
@@ -64,10 +74,29 @@ interface ICrossChainHooksRootScreener {
     )
         external;
 
+    /// @notice Prove that the GLOBAL hooks root (proposed when `proposedRoot`, active otherwise)
+    ///         contains a banned hook's leaf, and veto the global root on-chain (R2-K3 failure
+    ///         mode 1: the global root authorizes hooks for EVERY strategy, so a banned raw
+    ///         value-exit leaf in it bypasses per-strategy screening). Permissionless.
+    function challengeGlobalRoot(
+        address hook,
+        bytes calldata hookArgs,
+        bytes32[] calldata proof,
+        bool proposedRoot
+    )
+        external;
+
+    /// @notice Default-deny for opaque strategy roots (R2-K3 failure mode 2): if a screened
+    ///         strategy has a PROPOSED hooks root that governance has not explicitly cleared
+    ///         (leaf set published + reviewed), anyone may veto the strategy immediately —
+    ///         closing the withhold-the-leaves / race-the-timelock path. Permissionless.
+    function enforceProposalClearance(address strategy) external;
+
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/
 
     function bannedHook(address hook) external view returns (bool);
     function screenedStrategy(address strategy) external view returns (bool);
+    function clearedRoot(address strategy, bytes32 root) external view returns (bool);
 }

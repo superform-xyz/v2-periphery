@@ -58,8 +58,13 @@ contract MockGovernorLite {
     //////////////////////////////////////////////////////////////*/
 
     mapping(address => bool) public strategyVetoed;
+    bool public globalVetoed;
 
     function setStrategyHooksRootVetoStatus(address strategy, bool vetoed) external {
         strategyVetoed[strategy] = vetoed;
+    }
+
+    function setGlobalHooksRootVetoStatus(bool vetoed) external {
+        globalVetoed = vetoed;
     }
 }

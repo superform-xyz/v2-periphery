@@ -45,6 +45,9 @@ contract CrossChainHooksRootScreener is ICrossChainHooksRootScreener {
     /// @inheritdoc ICrossChainHooksRootScreener
     mapping(address => bool) public screenedStrategy;
 
+    /// @inheritdoc ICrossChainHooksRootScreener
+    mapping(address => mapping(bytes32 => bool)) public clearedRoot;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -72,6 +75,14 @@ contract CrossChainHooksRootScreener is ICrossChainHooksRootScreener {
         if (strategy == address(0)) revert ZERO_ADDRESS();
         screenedStrategy[strategy] = screened;
         emit ScreenedStrategyUpdated(strategy, screened);
+    }
+
+    /// @inheritdoc ICrossChainHooksRootScreener
+    function setRootClearance(address strategy, bytes32 root, bool cleared) external {
+        _requireGovernor(msg.sender);
+        if (strategy == address(0) || root == bytes32(0)) revert ZERO_ADDRESS();
+        clearedRoot[strategy][root] = cleared;
+        emit RootClearanceUpdated(strategy, root, cleared);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -109,6 +120,60 @@ contract CrossChainHooksRootScreener is ICrossChainHooksRootScreener {
         // idempotent-safe here; the aggregator no-ops event-wise on an unchanged status.)
         SUPER_GOVERNOR.setStrategyHooksRootVetoStatus(strategy, true);
         emit RootVetoed(strategy, root, hook, proposedRoot, msg.sender);
+    }
+
+    /// @inheritdoc ICrossChainHooksRootScreener
+    /// @dev R2-K3 failure mode 1: `validateHook` authorizes through the GLOBAL root before the
+    ///      strategy root, so a banned leaf there bypasses every per-strategy defense. The global
+    ///      root is governance-proposed (leaf sets published with each proposal), so its openings
+    ///      are always constructible — a provably-banned leaf lets ANYONE veto it. The global veto
+    ///      halts hook execution protocol-wide until governance re-proposes a clean root: drastic,
+    ///      and exactly the correct fail-safe for a value-exit leaf reachable by every strategy.
+    function challengeGlobalRoot(
+        address hook,
+        bytes calldata hookArgs,
+        bytes32[] calldata proof,
+        bool proposedRoot
+    )
+        external
+    {
+        if (!bannedHook[hook]) revert HOOK_NOT_BANNED();
+
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR));
+
+        bytes32 root;
+        if (proposedRoot) {
+            (root,) = aggregator.getProposedGlobalHooksRoot();
+        } else {
+            root = aggregator.getGlobalHooksRoot();
+        }
+        if (root == bytes32(0)) revert NO_ROOT();
+
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(hook, hookArgs))));
+        if (!MerkleProof.verify(proof, root, leaf)) revert INVALID_PROOF();
+
+        SUPER_GOVERNOR.setGlobalHooksRootVetoStatus(true);
+        emit GlobalRootVetoed(root, hook, proposedRoot, msg.sender);
+    }
+
+    /// @inheritdoc ICrossChainHooksRootScreener
+    /// @dev R2-K3 failure mode 2: a proposed root is only a bytes32 commitment — a manager can
+    ///      withhold its leaf set, making `challengeRoot` unconstructible during the timelock.
+    ///      Default-deny inverts the burden: for a SCREENED strategy, any proposed root that
+    ///      governance has not explicitly cleared (i.e. whose leaf set was published and reviewed)
+    ///      is vetoable by anyone, immediately. The veto blocks ALL hook execution for the
+    ///      strategy until the human guardian lifts it after clearance — an opaque root can never
+    ///      ride the timelock into an executable state.
+    function enforceProposalClearance(address strategy) external {
+        if (!screenedStrategy[strategy]) revert STRATEGY_NOT_SCREENED();
+
+        ISuperVaultAggregator aggregator = ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR));
+        (bytes32 root,) = aggregator.getProposedStrategyHooksRoot(strategy);
+        if (root == bytes32(0)) revert NO_ROOT();
+        if (clearedRoot[strategy][root]) revert ROOT_CLEARED();
+
+        SUPER_GOVERNOR.setStrategyHooksRootVetoStatus(strategy, true);
+        emit UnclearedProposalVetoed(strategy, root, msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////

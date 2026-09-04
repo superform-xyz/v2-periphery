@@ -29,6 +29,15 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     ///         be released permissionlessly (K1)
     uint256 public constant RESERVATION_TIMEOUT = 2 hours;
 
+    /// @notice R2-B1/K1: minimum first-report value, as a fraction of the reservation's
+    ///         deployedAmount, for a Pending position to CONFIRM (and settle its reservation).
+    ///         Prevents a partial destination execution (e.g. deposit 1 of a bridged 100) from
+    ///         retiring the full 100-unit reservation on any non-zero report: below the threshold
+    ///         the position stays Pending (still counted as in-flight) until it either reports a
+    ///         near-full value or times out and is invalidated for reconciliation. 90% leaves
+    ///         room for bridge relayer fees/slippage; both are bounded well under 10% in practice.
+    uint256 public constant MIN_CONFIRMATION_BPS = 9000;
+
     /// @notice Hard cap on live positions per strategy - bounds every full-set loop (SEC-9)
     uint256 public constant MAX_POSITIONS_PER_STRATEGY = 64;
 
@@ -241,12 +250,15 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                 emit PositionInvalidated(strategy, positionId);
                 return 0;
             }
-            if (value == 0) {
-                // Signers attest "not yet verified" - stays Pending (positive confirmation only).
+            if (value * 10_000 < pos.deployedAmount * MIN_CONFIRMATION_BPS) {
+                // Signers attest zero ("not yet verified") or a value far below the reservation
+                // (partial destination execution, R2-B1/K1): stays Pending, reservation stays
+                // counted. Positive, near-full confirmation only - an arbitrarily small first
+                // value must never settle the full reservation.
                 return 0;
             }
-            // First funded inclusion = confirmation. Settle the reservation: in-flight ->
-            // counted exposure, terminally reconciled (K1).
+            // First near-full funded inclusion = confirmation. Settle the reservation:
+            // in-flight -> counted exposure, terminally reconciled (K1).
             pos.status = PositionStatus.Active;
             _settlePositionReservation(pos.reservationId, positionId);
         }

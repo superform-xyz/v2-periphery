@@ -11,6 +11,8 @@ import { MockGovernorLite } from "./mocks/MockGovernorLite.sol";
 contract MockAggregatorRoots {
     mapping(address => bytes32) public activeRoot;
     mapping(address => bytes32) public proposedRoot;
+    bytes32 public globalRoot;
+    bytes32 public proposedGlobalRoot;
 
     function setActiveRoot(address strategy, bytes32 root) external {
         activeRoot[strategy] = root;
@@ -20,12 +22,28 @@ contract MockAggregatorRoots {
         proposedRoot[strategy] = root;
     }
 
+    function setGlobalRoot(bytes32 root) external {
+        globalRoot = root;
+    }
+
+    function setProposedGlobalRoot(bytes32 root) external {
+        proposedGlobalRoot = root;
+    }
+
     function getStrategyHooksRoot(address strategy) external view returns (bytes32) {
         return activeRoot[strategy];
     }
 
     function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32, uint256) {
         return (proposedRoot[strategy], block.timestamp + 1 days);
+    }
+
+    function getGlobalHooksRoot() external view returns (bytes32) {
+        return globalRoot;
+    }
+
+    function getProposedGlobalHooksRoot() external view returns (bytes32, uint256) {
+        return (proposedGlobalRoot, block.timestamp + 1 days);
     }
 }
 
@@ -149,6 +167,85 @@ contract CrossChainHooksRootScreenerTest is Test {
         screener.challengeRoot(
             strategy, rawBridgeHook, abi.encodePacked(makeAddr("differentArgs")), _bannedProof(), true
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              GLOBAL-ROOT CHALLENGE (R2-K3 failure mode 1)
+    //////////////////////////////////////////////////////////////*/
+
+    /// R2-K3: the global root authorizes hooks for EVERY strategy — a banned leaf provable in it
+    /// lets anyone veto the global root itself.
+    function test_ChallengeGlobalRoot_ActiveVetoes() public {
+        aggregator.setGlobalRoot(root);
+        vm.prank(makeAddr("anyWatcher"));
+        screener.challengeGlobalRoot(rawBridgeHook, _bannedArgs(), _bannedProof(), false);
+        assertTrue(governor.globalVetoed(), "global root must be vetoed");
+    }
+
+    function test_ChallengeGlobalRoot_ProposedVetoes() public {
+        aggregator.setProposedGlobalRoot(root);
+        screener.challengeGlobalRoot(rawBridgeHook, _bannedArgs(), _bannedProof(), true);
+        assertTrue(governor.globalVetoed());
+    }
+
+    function test_ChallengeGlobalRoot_RevertBadProof() public {
+        aggregator.setGlobalRoot(root);
+        bytes32[] memory badProof = new bytes32[](1);
+        badProof[0] = keccak256("not-in-tree");
+        vm.expectRevert(ICrossChainHooksRootScreener.INVALID_PROOF.selector);
+        screener.challengeGlobalRoot(rawBridgeHook, _bannedArgs(), badProof, false);
+    }
+
+    function test_ChallengeGlobalRoot_RevertUnbannedHook() public {
+        aggregator.setGlobalRoot(root);
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = bannedLeaf;
+        vm.expectRevert(ICrossChainHooksRootScreener.HOOK_NOT_BANNED.selector);
+        screener.challengeGlobalRoot(goodHook, abi.encodePacked(makeAddr("adapter")), proof, false);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+            DEFAULT-DENY ROOT CLEARANCE (R2-K3 failure mode 2)
+    //////////////////////////////////////////////////////////////*/
+
+    /// R2-K3: an opaque proposed root (leaf set withheld, unchallengeable) is default-DENIED —
+    /// anyone can veto a screened strategy whose pending root governance has not cleared.
+    function test_EnforceProposalClearance_VetoesUnclearedRoot() public {
+        aggregator.setProposedRoot(strategy, keccak256("opaque-root-no-leaves-published"));
+        vm.prank(makeAddr("anyWatcher"));
+        screener.enforceProposalClearance(strategy);
+        assertTrue(governor.strategyVetoed(strategy), "uncleared opaque proposal must be vetoable");
+    }
+
+    function test_EnforceProposalClearance_ClearedRootSurvives() public {
+        bytes32 goodRoot = keccak256("reviewed-and-published-root");
+        aggregator.setProposedRoot(strategy, goodRoot);
+        screener.setRootClearance(strategy, goodRoot, true); // governance reviewed the leaf set
+
+        vm.expectRevert(ICrossChainHooksRootScreener.ROOT_CLEARED.selector);
+        screener.enforceProposalClearance(strategy);
+        assertFalse(governor.strategyVetoed(strategy), "cleared root must not be vetoable this way");
+    }
+
+    function test_EnforceProposalClearance_RevertNoProposal() public {
+        vm.expectRevert(ICrossChainHooksRootScreener.NO_ROOT.selector);
+        screener.enforceProposalClearance(strategy);
+    }
+
+    function test_EnforceProposalClearance_RevertNotScreened() public {
+        address other = makeAddr("otherStrategy");
+        aggregator.setProposedRoot(other, keccak256("whatever"));
+        vm.expectRevert(ICrossChainHooksRootScreener.STRATEGY_NOT_SCREENED.selector);
+        screener.enforceProposalClearance(other);
+    }
+
+    function test_SetRootClearance_GovernorOnly() public {
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainHooksRootScreener.UNAUTHORIZED.selector);
+        screener.setRootClearance(strategy, keccak256("r"), true);
+
+        screener.setRootClearance(strategy, keccak256("r"), true);
+        assertTrue(screener.clearedRoot(strategy, keccak256("r")));
     }
 
     /*//////////////////////////////////////////////////////////////

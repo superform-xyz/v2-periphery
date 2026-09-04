@@ -224,6 +224,29 @@ contract CrossChainPositionRegistryTest is Test {
         );
     }
 
+    /// R2-B1/K1: a partial destination execution must NOT settle the full reservation — the first
+    /// report must be >= MIN_CONFIRMATION_BPS of the reservation's deployedAmount to confirm.
+    function test_Reservation_PartialFirstReportDoesNotSettle() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+
+        // A 1-unit first value (the R2-B1 trace: deposit 1 of a bridged 100) does not confirm.
+        _sync(id, 1e18);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.bridgedOut(strategy), 100e18, "full reservation must stay counted");
+        assertEq(registry.getCrossChainAUM(strategy), 0, "unconfirmed value not booked");
+
+        // 89% is still below the 90% floor.
+        _sync(id, 89e18);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.bridgedOut(strategy), 100e18);
+
+        // A near-full value (>= 90% of 100) confirms and settles.
+        _sync(id, 95e18);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        assertEq(registry.bridgedOut(strategy), 0, "reservation settles only on near-full confirmation");
+        assertEq(registry.getCrossChainAUM(strategy), 95e18);
+    }
+
     function test_Reservation_SettledNeverReconsumable() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
         bytes32 reservationId = registry.positions(id).reservationId;

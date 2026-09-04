@@ -62,6 +62,12 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     mapping(address => uint256) public consecutiveBreaches;
     mapping(address => bool) public aumBreakerTripped;
 
+    /// @dev R2-AUM1: true once ANY report has been committed for the strategy. The hubAssets
+    ///      bootstrap exemption keys on this flag, not on `current.hubAssets == 0` — a zero hub
+    ///      balance is a legitimate steady state (fully deployed cross-chain) and must not
+    ///      re-arm the unbounded first-report exemption.
+    mapping(address => bool) public reportBootstrapped;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -133,10 +139,20 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
 
         // P2-4: bound the signed hubAssets too - it feeds getTotalAUM (the cap denominator) but is
         // otherwise unconstrained when the SEC-8 band is inactive (no live PPS source). A single
-        // inflated hubAssets would otherwise enlarge cap headroom unchecked. Bootstrap
-        // (current.hubAssets == 0) is exempt (trusted one-time setup).
-        if (current.hubAssets > 0 && _relDiff(hubAssets, current.hubAssets) > config.deviationThreshold) {
-            emit AUMDeviationExceeded(strategy, current.hubAssets, hubAssets);
+        // inflated hubAssets would otherwise enlarge cap headroom unchecked.
+        if (current.hubAssets > 0) {
+            if (_relDiff(hubAssets, current.hubAssets) > config.deviationThreshold) {
+                emit AUMDeviationExceeded(strategy, current.hubAssets, hubAssets);
+                _recordDeviationBreach(strategy, config);
+                return;
+            }
+        } else if (reportBootstrapped[strategy] && hubAssets > 0 && _impliedAssets(strategy) == 0) {
+            // R2-AUM1: only the strategy's true FIRST report is a trusted bootstrap. A later
+            // zero-to-positive hubAssets transition (hub was legitimately empty) is unbounded by
+            // the deviation check (prev == 0), so it may only commit while the PPS x supply
+            // backstop is LIVE (the SEC-8 band below then constrains the total). With no live
+            // source it soft-fails instead of enlarging the cap denominator unchecked.
+            emit AUMDeviationExceeded(strategy, 0, hubAssets);
             _recordDeviationBreach(strategy, config);
             return;
         }
@@ -484,6 +500,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         _latestReport[strategy] = AUMReport({
             totalCrossChainAssets: committed, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce
         });
+        reportBootstrapped[strategy] = true; // R2-AUM1: the bootstrap exemption is one-time
         consecutiveBreaches[strategy] = 0;
         if (aumBreakerTripped[strategy]) {
             aumBreakerTripped[strategy] = false;

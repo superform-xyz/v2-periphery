@@ -217,6 +217,7 @@ interface ICrossChainPositionRegistry {
 
     function POSITION_CONFIRMATION_TIMEOUT() external view returns (uint256);
     function RESERVATION_TIMEOUT() external view returns (uint256);
+    function MIN_CONFIRMATION_BPS() external view returns (uint256);
     function MAX_POSITIONS_PER_STRATEGY() external view returns (uint256);
     function positions(bytes32 positionId) external view returns (CrossChainPosition memory);
     function reservations(bytes32 reservationId) external view returns (BridgeReservation memory);
