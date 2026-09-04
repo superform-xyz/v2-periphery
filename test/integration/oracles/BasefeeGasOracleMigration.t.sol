@@ -100,10 +100,17 @@ contract BasefeeGasOracleMigrationTest is Test {
 
     /// @notice Full governance flow: additive registration under SUPERFORM, CHAINLINK slot untouched
     function test_MigrationFlow_RegistersUnderSuperformProvider() public {
-        // Pre-state: CHAINLINK serves the pair, SUPERFORM slot is empty (reverts NO_ORACLES_CONFIGURED)
+        // Pre-state: CHAINLINK serves the pair. The SUPERFORM slot was empty when this rehearsal
+        // was written, but the migration has since been executed on mainnet — tolerate both fork
+        // states (empty slot: original rehearsal; populated slot: re-registration must still be
+        // additive and timelocked).
         assertEq(superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_CHAINLINK), CHAINLINK_GAS_ORACLE);
-        vm.expectRevert(ISuperOracle.NO_ORACLES_CONFIGURED.selector);
-        superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM);
+        try superOracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM) returns (address pre) {
+            assertTrue(pre != address(0), "populated SUPERFORM slot must hold a live oracle");
+        } catch (bytes memory reason) {
+            // Slot still empty on this fork: the only acceptable revert is NO_ORACLES_CONFIGURED.
+            assertEq(bytes4(reason), ISuperOracle.NO_ORACLES_CONFIGURED.selector, "unexpected pre-state revert");
+        }
 
         _queueRegistration();
 
