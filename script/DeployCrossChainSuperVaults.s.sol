@@ -146,6 +146,31 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         }
     }
 
+    /// @notice Calldata for pinning one approved destination vault's asset (R3-RF3) — required for
+    ///         every vault approved via setApprovedDestination, or its deposits fail closed.
+    function printVaultAsset(uint64 chainId, address vault, address asset) external pure {
+        console2.log("-> capGuard.setDestinationVaultAsset(chainId, vault, asset)  [GOVERNOR_ROLE] (R3-RF3)");
+        console2.logBytes(abi.encodeCall(CrossChainPositionCapGuard.setDestinationVaultAsset, (chainId, vault, asset)));
+    }
+
+    /// @notice Calldata pair for one Stargate route (R3-RF1): the destination token the source
+    ///         pool delivers on the chain, plus the global min-delivery ratio (set once; 9900 =
+    ///         minAmountLD must be >= 99% of amountLD).
+    function printStargateRoute(
+        address srcPool,
+        uint64 chainId,
+        address dstToken,
+        uint256 minDeliveryBps
+    )
+        external
+        pure
+    {
+        console2.log("-> capGuard.setStargateRoute(srcPool, chainId, dstToken)  [GOVERNOR_ROLE] (R3-RF1)");
+        console2.logBytes(abi.encodeCall(CrossChainPositionCapGuard.setStargateRoute, (srcPool, chainId, dstToken)));
+        console2.log("-> capGuard.setStargateMinDeliveryBps(bps)  [GOVERNOR_ROLE] (R3-RF1, once)");
+        console2.logBytes(abi.encodeCall(CrossChainPositionCapGuard.setStargateMinDeliveryBps, (minDeliveryBps)));
+    }
+
     /// @notice Calldata pair for onboarding one strategy (steps 10-11); destination approvals and
     ///         cap limits (steps 12-13) are per-destination follow-ups, and the AUM oracle config
     ///         (step 14) is an ORACLE_MANAGER_ROLE action outside the Safe.
@@ -156,11 +181,13 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         console2.logBytes(abi.encodeCall(CrossChainHooksRootScreener.setScreenedStrategy, (strategy, true)));
     }
 
-    /// @notice Calldata for clearing one reviewed strategy hooks root (R2-K3 default-deny): for a
-    ///         SCREENED strategy every proposed root must have its full leaf set published and
-    ///         governance-reviewed, then cleared here BEFORE the timelock elapses — otherwise
-    ///         anyone can veto the strategy via `enforceProposalClearance`. This is the standing
-    ///         operational rule for every root update of a cap-enabled strategy.
+    /// @notice Calldata for clearing one reviewed strategy hooks root (R2-K3 default-deny).
+    ///         ORDERING RULE (R3-PF3): publish + review + CLEAR the root BEFORE the manager
+    ///         proposes it. Once an uncleared proposal exists, (a) after the grace period anyone
+    ///         may veto the whole strategy, and (b) if nobody vetoes before the timelock elapses
+    ///         the root ACTIVATES unscreened — the deployed aggregator does not consult the
+    ///         screener. Watcher liveness during every proposal window is part of the trust
+    ///         model until the next aggregator release enforces clearance in-path.
     function printRootClearance(address strategy, bytes32 root) external pure {
         console2.log("-> screener.setRootClearance(strategy, root, true)  [GOVERNOR_ROLE] (K3 default-deny)");
         console2.logBytes(abi.encodeCall(CrossChainHooksRootScreener.setRootClearance, (strategy, root, true)));

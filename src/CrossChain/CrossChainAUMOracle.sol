@@ -68,6 +68,12 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      re-arm the unbounded first-report exemption.
     mapping(address => bool) public reportBootstrapped;
 
+    /// @dev R4 (P1): wall-clock time of the last COMMITTED report. The signed-timestamp rate
+    ///      limit alone would let a compromised quorum ladder many minUpdateInterval-spaced
+    ///      reports into a single block, compounding the deviation band arbitrarily fast in real
+    ///      time (1.5^n in one block). Commits are therefore paced in wall-clock time as well.
+    mapping(address => uint256) public lastCommitAt;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -86,6 +92,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         if (!IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.ORACLE_MANAGER_ROLE(), msg.sender)) {
             revert UNAUTHORIZED_CONFIG();
         }
+        if (strategy == address(0)) revert ZERO_ADDRESS();
         if (config.maxStaleness < MIN_MAX_STALENESS || config.maxStaleness > MAX_MAX_STALENESS) {
             revert INVALID_CONFIG();
         }
@@ -157,21 +164,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        // Aggregate deviation / zero-crossing anchor.
-        if (current.totalCrossChainAssets > 0) {
-            if (_relDiff(total, current.totalCrossChainAssets) > config.deviationThreshold) {
-                emit AUMDeviationExceeded(strategy, current.totalCrossChainAssets, total);
-                _recordDeviationBreach(strategy, config);
-                return;
-            }
-        } else {
-            // SEC-16: anchor a bootstrap/zero-crossing report to actually-bridged capital.
-            uint256 anchor = ICrossChainPositionRegistry(_registry()).bridgedOut(strategy);
-            if (total > anchor + (anchor * config.deviationThreshold) / 1e18) {
-                emit AUMDeviationExceeded(strategy, 0, total);
-                _recordDeviationBreach(strategy, config);
-                return;
-            }
+        // Aggregate deviation with lifecycle-aware anchoring (R4, generalizes SEC-16).
+        if (_aggregateBreach(strategy, positionIds, values, total, current.totalCrossChainAssets, config)) {
+            emit AUMDeviationExceeded(strategy, current.totalCrossChainAssets, total);
+            _recordDeviationBreach(strategy, config);
+            return;
         }
 
         // SEC-14: per-position deviation.
@@ -180,9 +177,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        // SEC-8: PPS<->AUM consistency band.
+        // SEC-8: PPS<->AUM consistency band. R4: soft-fail WITHOUT feeding the breaker — a
+        // consistency divergence is attacker-inducible (any depositor can move vault.totalAssets
+        // between report signing and submission), so it must not be able to trip the breaker;
+        // persistent divergence still fails safe through report staleness.
         if (_consistencyBreach(strategy, hubAssets + total, config.consistencyToleranceBps)) {
-            _recordDeviationBreach(strategy, config);
             return;
         }
 
@@ -221,9 +220,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         // force an arbitrary complete report and clear the breaker unchecked (PR #336 review K2).
         if (_impliedAssets(strategy) == 0) revert FORCE_REQUIRES_PPS_SOURCE();
 
-        // Deviation checks SKIPPED. Consistency band STILL enforced (the backstop).
+        // Deviation checks SKIPPED. Consistency band STILL enforced (the backstop). R4: like the
+        // normal path, a consistency soft-fail does not feed the breaker (attacker-inducible).
         if (_consistencyBreach(strategy, hubAssets + total, config.consistencyToleranceBps)) {
-            _recordDeviationBreach(strategy, config);
             return;
         }
 
@@ -316,6 +315,10 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         if (d.timestamp <= lastTs) revert STALE_UPDATE();
         if (d.timestamp - lastTs < config.minUpdateInterval) revert RATE_LIMITED();
         if (block.timestamp - d.timestamp > config.maxStaleness) revert DATA_TOO_STALE();
+        // R4 (P1): the interval must also elapse in WALL-CLOCK time since the last commit —
+        // signed timestamps alone are attacker-chosen and allow same-block report ladders.
+        uint256 lastCommit = lastCommitAt[strategy];
+        if (lastCommit != 0 && block.timestamp < lastCommit + config.minUpdateInterval) revert RATE_LIMITED();
 
         // Consume nonce for any quorum-valid submission (soft-fails included).
         usedNonce = noncePerStrategy[strategy]++;
@@ -369,35 +372,43 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
         if (len > registry.MAX_POSITIONS_PER_STRATEGY()) revert REPORT_TOO_LARGE();
-        // P3-6: read the timeout from the registry (single source of truth) rather than a literal.
-        uint256 timeout = registry.POSITION_CONFIRMATION_TIMEOUT();
 
         bytes32 prev;
         for (uint256 i; i < len; ++i) {
             bytes32 id = positionIds[i];
             if (i > 0 && id <= prev) revert UNSORTED_REPORT();
             prev = id;
-            if (!_positionRequired(registry, strategy, id, timestamp, timeout)) revert UNKNOWN_POSITION_ID();
+            if (!_positionRequired(registry, strategy, id, timestamp)) {
+                // R4 liveness: a position that flipped to a TERMINAL state between off-chain
+                // signing and submission (deregistered exit, expired Pending invalidated — incl.
+                // by an invalidateExpiredPending front-run) is tolerated, not reverted: the
+                // registry safely skips terminal ids (books 0), so the report can still commit
+                // without a full re-sign. Foreign/unknown ids still hard-revert.
+                ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(id);
+                if (
+                    p.strategy != strategy
+                        || (p.status != ICrossChainPositionRegistry.PositionStatus.Exited
+                            && p.status != ICrossChainPositionRegistry.PositionStatus.Invalidated)
+                ) revert UNKNOWN_POSITION_ID();
+            }
         }
 
         bytes32[] memory ids = registry.getPositionIds(strategy);
         uint256 openLen = ids.length;
         for (uint256 i; i < openLen; ++i) {
-            if (_positionRequired(registry, strategy, ids[i], timestamp, timeout) && !_contains(positionIds, ids[i])) {
+            if (_positionRequired(registry, strategy, ids[i], timestamp) && !_contains(positionIds, ids[i])) {
                 revert INCOMPLETE_REPORT();
             }
         }
     }
 
     /// @dev Whether a position must be covered by a report for `strategy` timestamped at
-    ///      `timestamp`. Foreign/None/Exited/Invalidated ids are never required (and, via
-    ///      _validateReportSet, never accepted).
+    ///      `timestamp`. Foreign/None/Exited/Invalidated ids are never required.
     function _positionRequired(
         ICrossChainPositionRegistry registry,
         address strategy,
         bytes32 id,
-        uint256 timestamp,
-        uint256 timeout
+        uint256 timestamp
     )
         internal
         view
@@ -409,9 +420,52 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             p.status == ICrossChainPositionRegistry.PositionStatus.Active
                 || p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown
         ) return true;
-        // Non-expired Pending registered before the report timestamp.
-        return p.status == ICrossChainPositionRegistry.PositionStatus.Pending && p.registeredAt < timestamp
-            && block.timestamp <= p.registeredAt + timeout;
+        // R4: a Pending position registered before the report timestamp is ALWAYS required —
+        // while unexpired it must be watched, and after expiry it must STILL be covered so that
+        // (a) a late landing can confirm through the report path (R3-PF1) and (b) a zero report
+        // auto-invalidates it inside the same commit. Without this, an expired never-observed
+        // Pending could not appear in any report and a late-landing fill would stay invisible.
+        return p.status == ICrossChainPositionRegistry.PositionStatus.Pending && p.registeredAt < timestamp;
+    }
+
+    /// @dev R4 lifecycle-aware aggregate band (generalizes SEC-16 to every report, not only
+    ///      zero-crossings). UPWARD: the raw total is bounded by the committed cache PLUS capital
+    ///      currently in flight (Open/Consumed reservations), grown by the threshold — a
+    ///      confirming position's value is backed 1:1 by its still-counted reservation at
+    ///      validation time (settlement happens inside the commit), so a legitimate landing of
+    ///      any size never breaches. DOWNWARD: bounded by the cache minus the previously
+    ///      committed value of WindingDown positions this report drains to zero (the expected
+    ///      terminal report of an exit), grown by the threshold.
+    function _aggregateBreach(
+        address strategy,
+        bytes32[] calldata positionIds,
+        uint256[] calldata values,
+        uint256 total,
+        uint256 cache,
+        AUMOracleConfig memory config
+    )
+        internal
+        view
+        returns (bool)
+    {
+        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+
+        uint256 upperBase = cache + registry.bridgedOut(strategy);
+        if (total > upperBase + (upperBase * config.deviationThreshold) / 1e18) return true;
+
+        uint256 drained;
+        uint256 len = positionIds.length;
+        for (uint256 i; i < len; ++i) {
+            if (
+                values[i] == 0
+                    && registry.positions(positionIds[i]).status
+                        == ICrossChainPositionRegistry.PositionStatus.WindingDown
+            ) {
+                drained += registry.positionValue(positionIds[i]);
+            }
+        }
+        uint256 lowerBase = cache > drained ? cache - drained : 0;
+        return total < lowerBase - (lowerBase * config.deviationThreshold) / 1e18;
     }
 
     /// @dev True if any covered position moves more than the per-position bound.
@@ -429,6 +483,15 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         for (uint256 i; i < len; ++i) {
             uint256 prev = registry.positionValue(positionIds[i]);
             if (prev > 0 && _relDiff(values[i], prev) > threshold) {
+                // R4: a WindingDown position draining to ZERO is the expected terminal report of
+                // an exit (double-gated: the registrar began the exit AND a quorum signed the
+                // zero), not a market move. Without this carve-out no exit could ever complete
+                // through the report path — a zero report is definitionally a 100% deviation.
+                if (
+                    values[i] == 0
+                        && registry.positions(positionIds[i]).status
+                            == ICrossChainPositionRegistry.PositionStatus.WindingDown
+                ) continue;
                 emit PositionDeviationExceeded(strategy, positionIds[i], prev, values[i]);
                 return true;
             }
@@ -500,6 +563,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         _latestReport[strategy] = AUMReport({
             totalCrossChainAssets: committed, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce
         });
+        lastCommitAt[strategy] = block.timestamp; // R4: wall-clock commit pacing
         reportBootstrapped[strategy] = true; // R2-AUM1: the bootstrap exemption is one-time
         consecutiveBreaches[strategy] = 0;
         if (aumBreakerTripped[strategy]) {

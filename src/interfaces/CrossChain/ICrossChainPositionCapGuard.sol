@@ -19,6 +19,9 @@ interface ICrossChainPositionCapGuard {
     event DestinationAdapterUpdated(uint64 indexed chainId, address indexed adapter, bool approved);
     event DestinationHooksUpdated(uint64 indexed chainId, address approveHook, address depositHook);
     event EidChainIdUpdated(uint32 indexed eid, uint64 chainId);
+    event DestinationVaultAssetUpdated(uint64 indexed chainId, address indexed vault, address asset);
+    event StargateRouteUpdated(address indexed srcPool, uint64 indexed chainId, address dstToken);
+    event StargateMinDeliveryBpsUpdated(uint256 bps);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -91,6 +94,24 @@ interface ICrossChainPositionCapGuard {
     ///         chainId == 0 unmaps (fail closed). GOVERNOR_ROLE-only.
     function setEidChainId(uint32 eid, uint64 chainId) external;
 
+    /// @notice Pin the asset of an approved destination vault (R3-RF3): the cap hooks require a
+    ///         VAULT_DEPOSIT action's token to equal this, so an output-token / vault-asset
+    ///         mismatch can never reach a destination revert that strands delivered funds.
+    ///         asset == address(0) unpins (fails closed for that vault). GOVERNOR_ROLE-only.
+    function setDestinationVaultAsset(uint64 chainId, address vault, address asset) external;
+
+    /// @notice Pin the destination-side token a Stargate source pool delivers on `chainId`
+    ///         (R3-RF1: the OFT destination token is not hub-derivable, so governance supplies
+    ///         it and the cap hook binds the action token to it, fail closed when unset).
+    ///         GOVERNOR_ROLE-only.
+    function setStargateRoute(address srcPool, uint64 chainId, address dstToken) external;
+
+    /// @notice Hard minimum-delivery ratio for Stargate sends (R3-RF1): minAmountLD must be at
+    ///         least `bps` of amountLD, bounding the caller-chosen slippage margin — and with it
+    ///         the maximum untracked delivery surplus — in code. Bounded to [9000, 10000];
+    ///         0 = unset (Stargate sends fail closed). GOVERNOR_ROLE-only.
+    function setStargateMinDeliveryBps(uint256 bps) external;
+
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
     //////////////////////////////////////////////////////////////*/
@@ -119,4 +140,13 @@ interface ICrossChainPositionCapGuard {
 
     /// @notice Canonical EVM chain id for a LayerZero endpoint id; 0 = unmapped (cap-hook read)
     function chainIdForEid(uint32 eid) external view returns (uint64);
+
+    /// @notice The pinned asset of an approved destination vault; 0 = unpinned (cap-hook read)
+    function destinationVaultAsset(uint64 chainId, address vault) external view returns (address);
+
+    /// @notice The destination token a Stargate source pool delivers on a chain; 0 = unmapped
+    function stargateDstToken(address srcPool, uint64 chainId) external view returns (address);
+
+    /// @notice Minimum minAmountLD/amountLD ratio for Stargate sends in bps; 0 = unset
+    function stargateMinDeliveryBps() external view returns (uint256);
 }

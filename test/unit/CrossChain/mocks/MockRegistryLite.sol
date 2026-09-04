@@ -70,6 +70,10 @@ contract MockRegistryLite {
         bridgedOut[strategy] = v;
     }
 
+    function setStatus(bytes32 id, R.PositionStatus status) external {
+        _pos[id].status = status;
+    }
+
     function getPositionIds(address) external view returns (bytes32[] memory) {
         return _ids;
     }

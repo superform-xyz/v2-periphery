@@ -61,6 +61,15 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     /// @dev B4: LayerZero endpoint id => canonical EVM chain id (0 = unmapped, fail closed)
     mapping(uint32 => uint64) public chainIdForEid;
 
+    /// @dev R3-RF3: (chainId, vault) => pinned vault asset (0 = unpinned, fail closed)
+    mapping(uint64 => mapping(address => address)) public destinationVaultAsset;
+
+    /// @dev R3-RF1: (stargate src pool, chainId) => delivered destination token (0 = unmapped)
+    mapping(address => mapping(uint64 => address)) public stargateDstToken;
+
+    /// @dev R3-RF1: hard minimum minAmountLD/amountLD ratio for Stargate sends (0 = unset)
+    uint256 public stargateMinDeliveryBps;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -127,6 +136,7 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     )
         external
     {
+        if (strategy == address(0)) revert ZERO_ADDRESS();
         if (chainIds.length != chainCaps.length || chainIds.length != chainEnabled_.length) revert LENGTH_MISMATCH();
         if (maxCrossChainBps_ > BPS_PRECISION) revert INVALID_CAP();
 
@@ -162,6 +172,7 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     {
         // Approving (enabling) is a loosening action -> governor-only (SEC-2). Revoking may also
         // be done by the primary manager (de-risk).
+        if (strategy == address(0)) revert ZERO_ADDRESS();
         if (approved) _requireGovernor(msg.sender);
         else _requireManagerOrGovernor(strategy, msg.sender);
 
@@ -195,6 +206,30 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         _requireGovernor(msg.sender);
         chainIdForEid[eid] = chainId;
         emit EidChainIdUpdated(eid, chainId);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setDestinationVaultAsset(uint64 chainId, address vault, address asset) external {
+        _requireGovernor(msg.sender);
+        if (vault == address(0)) revert ZERO_ADDRESS();
+        destinationVaultAsset[chainId][vault] = asset;
+        emit DestinationVaultAssetUpdated(chainId, vault, asset);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setStargateRoute(address srcPool, uint64 chainId, address dstToken) external {
+        _requireGovernor(msg.sender);
+        if (srcPool == address(0)) revert ZERO_ADDRESS();
+        stargateDstToken[srcPool][chainId] = dstToken;
+        emit StargateRouteUpdated(srcPool, chainId, dstToken);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setStargateMinDeliveryBps(uint256 bps) external {
+        _requireGovernor(msg.sender);
+        if (bps != 0 && (bps < 9000 || bps > BPS_PRECISION)) revert INVALID_CAP();
+        stargateMinDeliveryBps = bps;
+        emit StargateMinDeliveryBpsUpdated(bps);
     }
 
     /*//////////////////////////////////////////////////////////////

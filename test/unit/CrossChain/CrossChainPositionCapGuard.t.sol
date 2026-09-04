@@ -199,6 +199,33 @@ contract CrossChainPositionCapGuardTest is Test {
         guard.setDestinationHooks(CHAIN_A, approveHook, depositHook);
     }
 
+    function test_SetVaultAssetAndStargateRoute_GovernorOnly() public {
+        address asset = makeAddr("asset");
+        address pool = makeAddr("srcPool");
+
+        guard.setDestinationVaultAsset(CHAIN_A, destVault, asset);
+        assertEq(guard.destinationVaultAsset(CHAIN_A, destVault), asset);
+        guard.setStargateRoute(pool, CHAIN_A, asset);
+        assertEq(guard.stargateDstToken(pool, CHAIN_A), asset);
+        guard.setStargateMinDeliveryBps(9900);
+        assertEq(guard.stargateMinDeliveryBps(), 9900);
+
+        // Ratio is bounded to [9000, 10000] (0 = unset allowed).
+        vm.expectRevert(ICrossChainPositionCapGuard.INVALID_CAP.selector);
+        guard.setStargateMinDeliveryBps(8000);
+        guard.setStargateMinDeliveryBps(0);
+        assertEq(guard.stargateMinDeliveryBps(), 0);
+
+        vm.startPrank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setDestinationVaultAsset(CHAIN_A, destVault, asset);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setStargateRoute(pool, CHAIN_A, asset);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setStargateMinDeliveryBps(9900);
+        vm.stopPrank();
+    }
+
     function test_SetEidChainId_GovernorOnly() public {
         guard.setEidChainId(30_184, 8453); // Base EID -> Base chain id
         assertEq(guard.chainIdForEid(30_184), 8453);

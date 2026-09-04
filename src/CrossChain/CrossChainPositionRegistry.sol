@@ -4,11 +4,11 @@ pragma solidity 0.8.30;
 // External
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 // Superform
 import { ISuperGovernor } from "../interfaces/ISuperGovernor.sol";
 import { ICrossChainPositionRegistry } from "../interfaces/CrossChain/ICrossChainPositionRegistry.sol";
-import { ICrossChainPositionCapGuard } from "../interfaces/CrossChain/ICrossChainPositionCapGuard.sol";
 
 /// @title CrossChainPositionRegistry
 /// @author Superform Labs
@@ -38,11 +38,19 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     ///         room for bridge relayer fees/slippage; both are bounded well under 10% in practice.
     uint256 public constant MIN_CONFIRMATION_BPS = 9000;
 
+    /// @notice R4: maximum first-report value, as a fraction of the reservation's deployedAmount,
+    ///         for a Pending position to CONFIRM. Without a ceiling, `prev == 0` skips the oracle's
+    ///         per-position deviation band, so a compromised quorum could confirm a position at
+    ///         many multiples of what was actually bridged (headroom/AUM manufacturing). 110%
+    ///         admits benign over-delivery (e.g. a relayer filling above the requested minimum);
+    ///         anything further out of band is recorded as an observation and stays Pending until
+    ///         governance reconciles it.
+    uint256 public constant MAX_CONFIRMATION_BPS = 11_000;
+
     /// @notice Hard cap on live positions per strategy - bounds every full-set loop (SEC-9)
     uint256 public constant MAX_POSITIONS_PER_STRATEGY = 64;
 
     bytes32 private constant CROSS_CHAIN_AUM_ORACLE = keccak256("CROSS_CHAIN_AUM_ORACLE");
-    bytes32 private constant CROSS_CHAIN_CAP_GUARD = keccak256("CROSS_CHAIN_CAP_GUARD");
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -73,6 +81,11 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     /// @dev strategy => in-flight bridged-but-unconfirmed exposure (SEC-3)
     mapping(address => uint256) public bridgedOut;
     mapping(address => mapping(uint64 => uint256)) public bridgedOutByChain;
+
+    /// @dev R4: strategy => number of Open (not-yet-consumed) reservations. Together with the live
+    ///      position set this upper-bounds the strategy's future position count, so recordBridgedOut
+    ///      can refuse a send that provably could never be registered (MAX_POSITIONS_PER_STRATEGY).
+    mapping(address => uint256) public openReservationCount;
 
     /// @dev hook => whether it may record in-flight exposure (governor-managed allowlist)
     mapping(address => bool) public authorizedBridgeHook;
@@ -143,11 +156,13 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
             if (destinationVault != address(0) || sharesHeld != 0) revert RESERVATION_KIND_MISMATCH();
         }
 
-        // Constrained model: the destination must still be approved at registration time (an
-        // approval revoked between send and registration blocks the position).
-        ICrossChainPositionCapGuard capGuard =
-            ICrossChainPositionCapGuard(SUPER_GOVERNOR.getAddress(CROSS_CHAIN_CAP_GUARD));
-        if (!capGuard.isApprovedDestination(strategy, chainId, destinationVault)) revert DESTINATION_NOT_APPROVED();
+        // R4: deliberately NO destination-approval re-check here. The reservation IS the proof
+        // that the cap hook validated the destination at send time — by registration time the
+        // capital has already left the hub, so refusing to track it would only push REAL landed
+        // exposure off-book (revoke destination between send and registration -> registration
+        // reverts -> reservation permissionlessly released -> exposure reads 0 while funds sit
+        // deployed). An approval revocation stops NEW sends at the cap hook; landed fills must
+        // always be bookable.
 
         EnumerableSet.Bytes32Set storage set = _strategyPositions[strategy];
         if (set.length() >= MAX_POSITIONS_PER_STRATEGY) revert MAX_POSITIONS_REACHED();
@@ -159,6 +174,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
 
         bool recounted = res.status == ReservationStatus.Released;
         if (recounted) _countReservation(res);
+        else --openReservationCount[strategy]; // Open -> Consumed (Released was already un-counted)
         res.status = ReservationStatus.Consumed;
         res.positionId = positionId;
 
@@ -241,29 +257,52 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         }
 
         if (status == PositionStatus.Pending) {
-            if (block.timestamp > pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) {
-                // Timed out: never entered AUM. Release its reservation (re-consumable if the
-                // fill lands even later) and evict.
+            // R3-PF1/R4: a first report confirms only inside the [floor, ceiling] band around the
+            // reservation amount - even after the timeout (a late but full landing must be
+            // bookable, mirroring the reservation re-consume philosophy). The strict `value > 0`
+            // keeps a 1-wei reservation (whose floor rounds to 0) from "confirming" on a zero
+            // report; the ceiling keeps a quorum from manufacturing AUM through an unbounded
+            // first value (prev == 0 skips the oracle's per-position deviation band).
+            if (
+                value > 0 && value >= Math.mulDiv(pos.deployedAmount, MIN_CONFIRMATION_BPS, 10_000)
+                    && value <= Math.mulDiv(pos.deployedAmount, MAX_CONFIRMATION_BPS, 10_000)
+            ) {
+                pos.status = PositionStatus.Active;
+                // fall through to the value update below (which also settles the reservation)
+            } else if (value > 0) {
+                // R3-PF1: a positive out-of-band value (below floor OR above ceiling) means
+                // capital LANDED but not as reserved. Record the observation and stay Pending
+                // with the FULL reservation still counted - the landed value must never become
+                // invisible, and invalidation is barred once any positive value was observed.
+                // Resolution: a later in-band report confirms, or governance explicitly
+                // reconciles the delivery (reconcileUnderDeliveredPosition).
+                pos.lastReportedValue = value;
+                pos.lastReportTimestamp = timestamp;
+                emit PendingValueObserved(strategy, positionId, value);
+                return 0;
+            } else if (block.timestamp > pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT && pos.lastReportedValue == 0)
+            {
+                // Timed out with NO value ever observed: never entered AUM. Release its
+                // reservation (re-consumable if the fill lands even later) and evict.
                 pos.status = PositionStatus.Invalidated;
                 _releasePositionReservation(pos.reservationId);
                 _strategyPositions[strategy].remove(positionId);
                 emit PositionInvalidated(strategy, positionId);
                 return 0;
-            }
-            if (value * 10_000 < pos.deployedAmount * MIN_CONFIRMATION_BPS) {
-                // Signers attest zero ("not yet verified") or a value far below the reservation
-                // (partial destination execution, R2-B1/K1): stays Pending, reservation stays
-                // counted. Positive, near-full confirmation only - an arbitrarily small first
-                // value must never settle the full reservation.
+            } else {
+                // Zero value, not yet expired (or landed value already observed): stays Pending.
                 return 0;
             }
-            // First near-full funded inclusion = confirmation. Settle the reservation:
-            // in-flight -> counted exposure, terminally reconciled (K1).
-            pos.status = PositionStatus.Active;
-            _settlePositionReservation(pos.reservationId, positionId);
         }
 
-        // Active/WindingDown (and just-confirmed): update value.
+        // Active/WindingDown (and just-confirmed): update value. R4: the reservation settles on
+        // the first COMMITTED report that books the position - normal confirmations settle right
+        // here in the confirming call, while a governance-reconciled position (Active with a still
+        // Consumed reservation) keeps its reservation counted until this point, so the oracle's
+        // in-flight anchor covers its value for the report that first books it.
+        if (_reservations[pos.reservationId].status == ReservationStatus.Consumed) {
+            _settlePositionReservation(pos.reservationId, positionId);
+        }
         pos.lastReportedValue = value;
         pos.lastReportTimestamp = timestamp;
         emit PositionSynced(positionId, pos.status, value, timestamp);
@@ -285,7 +324,14 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         returns (bytes32 reservationId)
     {
         if (!authorizedBridgeHook[msg.sender]) revert UNAUTHORIZED_BRIDGE_HOOK();
+        if (strategy == address(0)) revert ZERO_ADDRESS();
         if (amount == 0) revert RESERVATION_NOT_CONSUMABLE();
+        // R4: refuse a send that provably could never be registered — live positions plus Open
+        // reservations already upper-bound the future position set at MAX_POSITIONS_PER_STRATEGY.
+        // Failing here (before funds move) beats stranding a landed fill behind MAX_POSITIONS_REACHED.
+        if (_strategyPositions[strategy].length() + openReservationCount[strategy] >= MAX_POSITIONS_PER_STRATEGY) {
+            revert MAX_POSITIONS_REACHED();
+        }
 
         reservationId = keccak256(abi.encode(strategy, chainId, destinationVault, amount, _reservationSalt++));
         BridgeReservation storage res = _reservations[reservationId];
@@ -297,6 +343,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         res.status = ReservationStatus.Open;
 
         _countReservation(res);
+        ++openReservationCount[strategy];
         emit BridgedOutRecorded(strategy, chainId, destinationVault, amount, reservationId);
     }
 
@@ -308,6 +355,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
 
         res.status = ReservationStatus.Released;
         _uncountReservation(res);
+        --openReservationCount[res.strategy];
         emit ReservationReleased(reservationId);
     }
 
@@ -321,11 +369,38 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         CrossChainPosition storage pos = _positions[positionId];
         if (pos.strategy != strategy || pos.status != PositionStatus.Pending) revert INVALID_POSITION_STATUS();
         if (block.timestamp <= pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) revert POSITION_NOT_EXPIRED();
+        // R3-PF1: once any positive destination value has been observed, capital LANDED - a
+        // wall-clock timeout must not uncount it. Only reconcileUnderDeliveredPosition (trusted,
+        // governance) or a later >= floor confirmation can resolve such a position.
+        if (pos.lastReportedValue != 0) revert POSITION_HAS_LANDED_VALUE();
 
         pos.status = PositionStatus.Invalidated;
         _releasePositionReservation(pos.reservationId);
         _strategyPositions[strategy].remove(positionId);
         emit PositionInvalidated(strategy, positionId);
+    }
+
+    /// @inheritdoc ICrossChainPositionRegistry
+    /// @dev R3-PF1: the EXPLICIT trusted reconciliation for an out-of-band delivery — a Pending
+    ///      position past its timeout whose observed value is positive but outside the
+    ///      confirmation band. Governance (not the registrar, not a wall clock) accepts the
+    ///      difference between the reservation and the observed value as bridge loss/fees (or
+    ///      over-delivery) and confirms the position at its observed value.
+    ///      R4: the reservation is deliberately NOT settled here — it stays Consumed (counted)
+    ///      until the next committed oracle report books the position (syncPositionFromReport
+    ///      settles it inside that commit). Settling in a standalone governance tx would remove
+    ///      the value from the oracle's in-flight anchor before any report has booked it, wedging
+    ///      every subsequent honest report into the deviation breaker. Until that first commit the
+    ///      position's value is conservatively double-counted in cap-facing exposure (reservation
+    ///      + reported value) — fail-safe for caps, resolved by the next report.
+    function reconcileUnderDeliveredPosition(address strategy, bytes32 positionId) external onlyGovernor {
+        CrossChainPosition storage pos = _positions[positionId];
+        if (pos.strategy != strategy || pos.status != PositionStatus.Pending) revert INVALID_POSITION_STATUS();
+        if (block.timestamp <= pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) revert POSITION_NOT_EXPIRED();
+        if (pos.lastReportedValue == 0) revert POSITION_NOT_DRAINED();
+
+        pos.status = PositionStatus.Active;
+        emit PositionReconciledUnderDelivery(strategy, positionId, pos.lastReportedValue, pos.deployedAmount);
     }
 
     /*//////////////////////////////////////////////////////////////

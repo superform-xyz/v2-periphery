@@ -422,6 +422,9 @@ contract CrossChainAUMOracleTest is Test {
     function test_Deviation_SoftFailConsumesNonceAndDoesNotUpdate() public {
         bytes32 id = _oneActivePosition(100e18);
         _seedActiveAggregate(id, 100e18); // aggregate = 100
+        // R4: the aggregate upper bound now includes in-flight reservations; zero them so this
+        // test exercises the pure cache-anchored deviation band (all capital settled).
+        registry.setBridgedOut(strategy, 0);
         uint256 nonceBefore = oracle.noncePerStrategy(strategy);
 
         // propose 300 (>50% jump) -> soft fail
@@ -457,6 +460,87 @@ contract CrossChainAUMOracleTest is Test {
         uint256 ts = block.timestamp;
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, value, 0, ts, false);
         oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                 R4: LIFECYCLE-AWARE BANDS + WALL-CLOCK PACING
+    //////////////////////////////////////////////////////////////*/
+
+    /// R4-P1 (mutation-killer): signed timestamps alone must not pace commits — a second report
+    /// in the SAME block with a signed timestamp a full interval later must revert RATE_LIMITED.
+    /// Without the wall-clock check a compromised quorum ladders the deviation band arbitrarily
+    /// fast in real time (1.5^n in one block).
+    function test_R4_WallClockRateLimitBlocksSameBlockLadder() public {
+        bytes32 id = _oneActivePosition(100e18);
+        _seedActiveAggregate(id, 100e18);
+
+        // The ladder attack signs BACKDATED timestamps minUpdateInterval apart (all <=
+        // block.timestamp, so every signed-time check passes) and submits them in one block.
+        vm.warp(block.timestamp + 10 minutes);
+        uint256 base = oracle.latestReport(strategy).timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 140e18, 0, base + 61, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, base + 61, proofs); // commit #2 (this block)
+
+        // Rung #2 of the ladder, same block: signed ts another interval later, wall clock did
+        // not move — must be blocked.
+        (ids, vals, proofs) = _report(id, 190e18, 0, base + 122, false);
+        vm.expectRevert(ICrossChainAUMOracle.RATE_LIMITED.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, base + 122, proofs);
+    }
+
+    /// R4-P1 (exit livelock fix): a WindingDown position draining to ZERO commits — no
+    /// per-position breach, no aggregate breach — so deregistration is reachable via the normal
+    /// report path.
+    function test_R4_WindingDownDrainToZeroCommits() public {
+        bytes32 id = _oneActivePosition(100e18);
+        _seedActiveAggregate(id, 100e18);
+        registry.setBridgedOut(strategy, 0); // all settled
+        registry.setStatus(id, ICrossChainPositionRegistry.PositionStatus.WindingDown);
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 0, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+
+        assertEq(oracle.getTotalAUM(strategy), 0, "drain-to-zero committed");
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "no breach for an expected drain");
+        assertTrue(oracle.isAUMFresh(strategy), "feed stays healthy through an exit");
+    }
+
+    /// R4-P1: an ACTIVE position reported at zero still breaches (the carve-out is WD-only).
+    function test_R4_ActivePositionZeroReportStillBreaches() public {
+        bytes32 id = _oneActivePosition(100e18);
+        _seedActiveAggregate(id, 100e18);
+        registry.setBridgedOut(strategy, 0);
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 0, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs); // soft-fail
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "not committed");
+        assertEq(oracle.consecutiveBreaches(strategy), 1, "active-to-zero is a breach");
+    }
+
+    /// R4-P1 (confirmation blockade fix, mutation-killer): a confirming landing LARGER than the
+    /// deviation band around the committed cache commits, because the upper bound includes the
+    /// still-counted in-flight reservation backing it.
+    function test_R4_LargeConfirmationCommitsAgainstInFlightAnchor() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        _seedActiveAggregate(idA, 100e18); // cache = 100
+        // A second bridge of 100 is in flight (reservation counted), landing now.
+        registry.setBridgedOut(strategy, 100e18);
+        bytes32 idNew = keccak256("bigLanding");
+        registry.addPosition(idNew, ICrossChainPositionRegistry.PositionStatus.Pending, block.timestamp, 0);
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idNew, 100e18, 95e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        // raw total 195 vs cache 100 = 95% jump — would breach a cache-only band (<= 50%); the
+        // in-flight anchor (100 + 100) * 1.5 = 300 admits it.
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 195e18, "large landing booked, capital on-book");
+        assertEq(oracle.consecutiveBreaches(strategy), 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -588,20 +672,37 @@ contract CrossChainAUMOracleTest is Test {
         oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
     }
 
-    /// B2.RR4: an Exited id (late inclusion) with nonzero value must revert.
-    function test_ForwardAUM_RevertExitedId() public {
+    /// B2.RR4/R4: an Exited id that slipped into a signed report (terminal flip between signing
+    /// and submission) is TOLERATED — the registry books 0 for it, the report still commits.
+    function test_R4_ExitedIdToleratedAndSkipped() public {
         bytes32 idA = _oneActivePosition(100e18);
         bytes32 idExited = keccak256("exitedPos");
         registry.addPosition(idExited, ICrossChainPositionRegistry.PositionStatus.Exited, block.timestamp - 1, 0);
         uint256 ts = block.timestamp;
-        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idExited, 100e18, 50e18);
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idExited, 100e18, 0);
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
-        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "only the live position is booked");
+        assertFalse(registry.wasSynced(idExited), "terminal id skipped, not booked");
+    }
+
+    /// R4 (PF1 mutation-killer): an expired never-observed Pending is REQUIRED — a report that
+    /// omits it must revert INCOMPLETE_REPORT (previously it was unreportable, making the
+    /// registry's late-confirm branch unreachable through the oracle).
+    function test_R4_ExpiredPendingOmissionRevertsIncomplete() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        bytes32 idExpired = keccak256("expiredPending");
+        registry.addPosition(
+            idExpired, ICrossChainPositionRegistry.PositionStatus.Pending, block.timestamp - 3 hours, 0
+        );
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(idA, 100e18, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.INCOMPLETE_REPORT.selector);
         oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
     }
 
-    /// B2.RR4: an expired Pending id must revert (it can only be invalidated, not reported).
-    function test_ForwardAUM_RevertExpiredPendingId() public {
+    /// R4 (PF1): a late landing on an expired Pending confirms THROUGH the oracle report path.
+    function test_R4_ExpiredPendingLateValueConfirmsThroughReport() public {
         bytes32 idA = _oneActivePosition(100e18);
         bytes32 idExpired = keccak256("expiredPending");
         registry.addPosition(
@@ -610,8 +711,9 @@ contract CrossChainAUMOracleTest is Test {
         uint256 ts = block.timestamp;
         (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idExpired, 100e18, 50e18);
         (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
-        vm.expectRevert(ICrossChainAUMOracle.UNKNOWN_POSITION_ID.selector);
         oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 150e18, "late landing booked");
+        assertTrue(registry.wasSynced(idExpired), "expired Pending synced through the report");
     }
 
     /// B2.RR5: a Pending position registered AT/AFTER the report timestamp cannot be confirmed
@@ -693,7 +795,8 @@ contract CrossChainAUMOracleTest is Test {
         emit ICrossChainAUMOracle.PPSConsistencyBreached(strategy, 100e18, 1000e18);
         oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
         assertEq(oracle.getTotalAUM(strategy), 100e18, "10x force must not book against stale PPS");
-        assertEq(oracle.consecutiveBreaches(strategy), 1, "breach must be recorded");
+        // R4: a consistency soft-fail is attacker-inducible, so it no longer feeds the breaker.
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "consistency breach must NOT feed the breaker");
 
         // The PPS oracle catches up (implied 1000) -> the same magnitude update now books.
         vault.setTotalAssets(1000e18);
@@ -712,7 +815,8 @@ contract CrossChainAUMOracleTest is Test {
         _seedActiveAggregateExpectBreach(id, 100e18); // 100 vs implied 200 -> band breach
 
         assertEq(oracle.getTotalAUM(strategy), 0, "not committed");
-        assertEq(oracle.consecutiveBreaches(strategy), 1);
+        // R4: attacker-inducible (any depositor moves totalAssets), so no breaker feed.
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "consistency breach must NOT feed the breaker");
     }
 
     /// K2: a normal report consistent with the live PPS source commits.

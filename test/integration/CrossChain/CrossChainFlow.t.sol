@@ -232,6 +232,99 @@ contract CrossChainFlowTest is Test {
         _assertAccountingConsistent();
     }
 
+    /// R4-P1 (exit livelock, real stack): a full exit must complete through NORMAL quorum
+    /// reports — WindingDown -> drain-to-zero report commits (no breach, no breaker, no force
+    /// path) -> deregisterPosition frees the slot. Before R4 a zero report was definitionally a
+    /// 100% deviation, so this path was unroutable and every exit leaked a position slot.
+    function test_R4_FullExit_DrainToZeroDeregistersThroughNormalReports() public {
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        vm.warp(block.timestamp + 1);
+        _forwardAUM(id, 100e18, 900e18, false); // confirm at 100
+
+        vm.prank(registrar);
+        registry.beginPositionExit(strategy, id);
+
+        // Destination drained; honest quorum reports zero. Must COMMIT, not soft-fail.
+        vm.warp(block.timestamp + 2 minutes);
+        _forwardAUM(id, 0, 1000e18, false); // capital returned to hub: hub 1000, cross-chain 0
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "drain must not breach");
+        assertFalse(oracle.aumBreakerTripped(strategy));
+        assertEq(oracle.getTotalAUM(strategy), 1000e18, "hub-only AUM after drain");
+        _assertAccountingConsistent();
+
+        // Oracle-confirmed zero -> deregistration works and the slot is freed.
+        vm.prank(registrar);
+        registry.deregisterPosition(strategy, id);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Exited));
+        assertEq(registry.getPositionIds(strategy).length, 0, "slot freed - exits must not leak slots");
+    }
+
+    /// R4-P1 (confirmation blockade, real stack): a second bridge LARGER than the deviation band
+    /// around the committed cross-chain total must still confirm — its still-counted reservation
+    /// anchors the aggregate band. Before R4 the confirming report could never commit and the
+    /// landed capital fell off-book at reservation expiry.
+    function test_R4_LargeSecondBridgeConfirmsAndStaysOnBook() public {
+        // First position: confirm 100 (committed cross-chain total = 100).
+        vm.prank(bridgeHook);
+        bytes32 res1 = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        vm.prank(registrar);
+        bytes32 id1 =
+            registry.registerPosition(strategy, res1, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18);
+        vm.warp(block.timestamp + 1);
+        _forwardAUM(id1, 100e18, 900e18, false);
+
+        // Second bridge: 200 — a 190% raw-total jump once it lands (cache-only band <= 50%).
+        vm.prank(bridgeHook);
+        bytes32 res2 = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18);
+        vm.prank(registrar);
+        bytes32 id2 =
+            registry.registerPosition(strategy, res2, ICrossChainPositionRegistry.PositionKind.SuperVault, 190e18);
+
+        vm.warp(block.timestamp + 2 minutes);
+        (bytes32 lo, bytes32 hi) = id1 < id2 ? (id1, id2) : (id2, id1);
+        bytes32[] memory ids = new bytes32[](2);
+        ids[0] = lo;
+        ids[1] = hi;
+        uint256[] memory vals = new uint256[](2);
+        vals[0] = lo == id1 ? 100e18 : 190e18;
+        vals[1] = hi == id2 ? 190e18 : 100e18;
+        _forwardMany(ids, vals, 700e18, false);
+
+        assertEq(uint256(registry.positions(id2).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        assertEq(registry.bridgedOut(strategy), 0, "both reservations settled");
+        assertEq(registry.getCrossChainAUM(strategy), 290e18, "landed capital on-book");
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "legitimate landing must not breach");
+        _assertAccountingConsistent();
+    }
+
+    function _forwardMany(bytes32[] memory ids, uint256[] memory vals, uint256 hubAssets, bool isForce) internal {
+        uint256 ts = block.timestamp;
+        bytes32 structHash = keccak256(
+            abi.encode(
+                isForce ? FORCE_UPDATE_AUM_TYPEHASH : UPDATE_AUM_TYPEHASH,
+                strategy,
+                keccak256(abi.encodePacked(ids)),
+                keccak256(abi.encodePacked(vals)),
+                hubAssets,
+                ts,
+                oracle.noncePerStrategy(strategy)
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", oracle.domainSeparator(), structHash));
+        bytes[] memory proofs = new bytes[](2);
+        for (uint256 i; i < 2; ++i) {
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(pks[i], digest);
+            proofs[i] = abi.encodePacked(r, s, v);
+        }
+        if (isForce) oracle.forceAUMUpdate(strategy, ids, vals, hubAssets, ts, proofs);
+        else oracle.forwardAUM(strategy, ids, vals, hubAssets, ts, proofs);
+    }
+
     /// B2.RR6 (PR336 review): after every accepted report the cached aggregate must equal what the
     /// registry actually accepted - the cap numerator and denominator derive from one snapshot.
     function _assertAccountingConsistent() internal view {

@@ -20,6 +20,7 @@ contract MockAggregatorRoots {
 
     function setProposedRoot(address strategy, bytes32 root) external {
         proposedRoot[strategy] = root;
+        proposedAt = block.timestamp;
     }
 
     function setGlobalRoot(bytes32 root) external {
@@ -35,7 +36,7 @@ contract MockAggregatorRoots {
     }
 
     function getProposedStrategyHooksRoot(address strategy) external view returns (bytes32, uint256) {
-        return (proposedRoot[strategy], block.timestamp + 1 days);
+        return (proposedRoot[strategy], proposedAt + timelock);
     }
 
     function getGlobalHooksRoot() external view returns (bytes32) {
@@ -44,6 +45,22 @@ contract MockAggregatorRoots {
 
     function getProposedGlobalHooksRoot() external view returns (bytes32, uint256) {
         return (proposedGlobalRoot, block.timestamp + 1 days);
+    }
+
+    uint256 public proposedAt;
+
+    function markProposedNow() external {
+        proposedAt = block.timestamp;
+    }
+
+    uint256 public timelock = 1 days;
+
+    function setTimelock(uint256 t) external {
+        timelock = t;
+    }
+
+    function getHooksRootUpdateTimelock() external view returns (uint256) {
+        return timelock;
     }
 }
 
@@ -237,6 +254,99 @@ contract CrossChainHooksRootScreenerTest is Test {
         aggregator.setProposedRoot(other, keccak256("whatever"));
         vm.expectRevert(ICrossChainHooksRootScreener.STRATEGY_NOT_SCREENED.selector);
         screener.enforceProposalClearance(other);
+    }
+
+    /// R3-PF3: within the clearance grace period nobody can veto — governance's window to land
+    /// the clearance for a benign root. After it elapses, default-deny resumes.
+    function test_EnforceProposalClearance_GracePeriodBlocksThenAllows() public {
+        screener.setClearanceGracePeriod(1 hours);
+        aggregator.setProposedRoot(strategy, keccak256("pending-review"));
+
+        vm.expectRevert(ICrossChainHooksRootScreener.PROPOSAL_IN_GRACE_PERIOD.selector);
+        screener.enforceProposalClearance(strategy);
+
+        vm.warp(block.timestamp + 1 hours + 1);
+        screener.enforceProposalClearance(strategy);
+        assertTrue(governor.strategyVetoed(strategy));
+    }
+
+    function test_SetClearanceGracePeriod_Bounded() public {
+        // R4: distinct error for the bounds (previously reused UNAUTHORIZED, so this test could
+        // not distinguish a missing role check from a bounds check).
+        vm.expectRevert(ICrossChainHooksRootScreener.INVALID_GRACE_PERIOD.selector);
+        screener.setClearanceGracePeriod(1 days + 1);
+        screener.setClearanceGracePeriod(30 minutes);
+        assertEq(screener.clearanceGracePeriod(), 30 minutes);
+    }
+
+    function test_R4_SetClearanceGracePeriod_RevertNonGovernor() public {
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainHooksRootScreener.UNAUTHORIZED.selector);
+        screener.setClearanceGracePeriod(30 minutes);
+    }
+
+    /// R4-P1: the grace period must be strictly below the aggregator's root-update timelock —
+    /// grace >= timelock makes the default-deny enforcement window empty (the uncleared root
+    /// activates before anyone may veto).
+    function test_R4_SetClearanceGracePeriod_RevertAtOrAboveTimelock() public {
+        // Mock aggregator timelock is 1 days.
+        vm.expectRevert(ICrossChainHooksRootScreener.INVALID_GRACE_PERIOD.selector);
+        screener.setClearanceGracePeriod(1 days);
+        screener.setClearanceGracePeriod(1 days - 1);
+        assertEq(screener.clearanceGracePeriod(), 1 days - 1);
+    }
+
+    /// R4-P1: if the timelock SHRINKS below an already-configured grace period, enforcement must
+    /// fail toward enforceability — the grace is clamped to zero rather than leaving the
+    /// default-deny window empty.
+    function test_R4_Enforce_GraceClampedWhenTimelockShrinks() public {
+        screener.setClearanceGracePeriod(30 minutes);
+        aggregator.setProposedRoot(strategy, keccak256("uncleared"));
+        aggregator.markProposedNow();
+        aggregator.setTimelock(10 minutes); // now grace (30m) >= timelock (10m)
+
+        // No wait at all: the clamp zeroes the grace so default-deny can still fire in-window.
+        screener.enforceProposalClearance(strategy);
+        assertTrue(governor.strategyVetoed(strategy));
+    }
+
+    /// R4-P2: unbans and no-ops must NOT bump the policy epoch — clearances reviewed under a
+    /// STRICTER ban list stay valid, so routine list maintenance cannot be used to shove every
+    /// screened strategy into the uncleared-proposal veto window.
+    function test_R4_UnbanDoesNotInvalidateClearances() public {
+        bytes32 goodRoot = keccak256("reviewed-root");
+        aggregator.setProposedRoot(strategy, goodRoot);
+        screener.setRootClearance(strategy, goodRoot, true);
+        uint256 epoch = screener.banPolicyEpoch();
+
+        screener.setBannedHook(rawBridgeHook, false); // unban: policy relaxes
+        assertEq(screener.banPolicyEpoch(), epoch, "unban must not bump the epoch");
+        assertTrue(screener.clearedRoot(strategy, goodRoot), "clearance survives an unban");
+
+        screener.setBannedHook(makeAddr("someOtherHook"), false); // no-op unban
+        assertEq(screener.banPolicyEpoch(), epoch, "no-op must not bump the epoch");
+
+        screener.setBannedHook(rawBridgeHook, true); // re-ban already-unbanned: NEW ban -> bump
+        assertEq(screener.banPolicyEpoch(), epoch + 1);
+        assertFalse(screener.clearedRoot(strategy, goodRoot), "new ban invalidates clearances");
+
+        screener.setBannedHook(rawBridgeHook, true); // no-op re-ban: no bump
+        assertEq(screener.banPolicyEpoch(), epoch + 1);
+    }
+
+    /// R3: a clearance must not outlive the ban policy it was reviewed under — any ban-list
+    /// change invalidates all prior clearances.
+    function test_RootClearance_InvalidatedByBanPolicyChange() public {
+        bytes32 goodRoot = keccak256("reviewed-root");
+        aggregator.setProposedRoot(strategy, goodRoot);
+        screener.setRootClearance(strategy, goodRoot, true);
+        assertTrue(screener.clearedRoot(strategy, goodRoot));
+
+        screener.setBannedHook(makeAddr("newlyBannedHook"), true); // policy epoch bump
+        assertFalse(screener.clearedRoot(strategy, goodRoot), "clearance must not survive a policy change");
+
+        screener.enforceProposalClearance(strategy); // now vetoable again
+        assertTrue(governor.strategyVetoed(strategy));
     }
 
     function test_SetRootClearance_GovernorOnly() public {

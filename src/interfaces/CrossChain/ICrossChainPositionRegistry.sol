@@ -107,6 +107,10 @@ interface ICrossChainPositionRegistry {
     event ReservationConsumed(bytes32 indexed reservationId, bytes32 indexed positionId, bool recounted);
     event ReservationSettled(bytes32 indexed reservationId, bytes32 indexed positionId);
     event ReservationReleased(bytes32 indexed reservationId);
+    event PendingValueObserved(address indexed strategy, bytes32 indexed positionId, uint256 value);
+    event PositionReconciledUnderDelivery(
+        address indexed strategy, bytes32 indexed positionId, uint256 observedValue, uint256 reservedAmount
+    );
     event BridgeHookAuthorizationUpdated(address indexed hook, bool authorized);
 
     /*//////////////////////////////////////////////////////////////
@@ -118,18 +122,15 @@ interface ICrossChainPositionRegistry {
     error UNAUTHORIZED_AUM_ORACLE();
     error UNAUTHORIZED_BRIDGE_HOOK();
     error UNAUTHORIZED_CONFIG();
-    error INVALID_MAINNET_CHAIN();
     error MAX_POSITIONS_REACHED();
-    error POSITION_NOT_FOUND();
     error INVALID_POSITION_STATUS();
-    error INVALID_KIND_CONFIG();
-    error DESTINATION_NOT_APPROVED();
     error POSITION_NOT_DRAINED();
     error POSITION_NOT_EXPIRED();
     error POSITION_STRATEGY_MISMATCH();
     error RESERVATION_NOT_CONSUMABLE();
     error RESERVATION_KIND_MISMATCH();
     error RESERVATION_NOT_EXPIRED();
+    error POSITION_HAS_LANDED_VALUE();
 
     /*//////////////////////////////////////////////////////////////
                               REGISTRAR WRITES
@@ -140,6 +141,9 @@ interface ICrossChainPositionRegistry {
     ///         are taken FROM the reservation the cap hook minted, never supplied by the registrar.
     ///         A Released reservation (timed out, then the fill landed late) may be consumed too;
     ///         doing so re-counts its exposure so landed capital is never untracked.
+    ///         R4: deliberately does NOT re-check destination approval — the reservation is the
+    ///         send-time approval proof, and by registration time the capital has already left the
+    ///         hub; refusing to track a landed fill would only push real exposure off-book.
     function registerPosition(
         address strategy,
         bytes32 reservationId,
@@ -156,17 +160,37 @@ interface ICrossChainPositionRegistry {
     ///         report to value it at ~0 (oracle-confirmed drain).
     function deregisterPosition(address strategy, bytes32 positionId) external;
 
-    /// @notice Permissionless cleanup of a Pending position past the confirmation timeout: releases
-    ///         its in-flight reservation and evicts it (P2-1).
+    /// @notice Permissionless cleanup of a Pending position past the confirmation timeout that has
+    ///         NEVER shown a positive value: releases its in-flight reservation and evicts it
+    ///         (P2-1). Reverts once any positive value was observed (R3-PF1: landed capital must
+    ///         not be uncounted by a wall clock).
     function invalidateExpiredPending(address strategy, bytes32 positionId) external;
+
+    /// @notice Trusted governance reconciliation for an expired Pending position with a positive
+    ///         but out-of-band observed value: confirms it at that value, explicitly accepting the
+    ///         difference as bridge loss / over-delivery (R3-PF1). R4: the reservation stays
+    ///         Consumed (counted) until the next committed oracle report books the position —
+    ///         settling in a standalone tx would remove the value from the oracle's in-flight
+    ///         anchor before any report contains it.
+    function reconcileUnderDeliveredPosition(address strategy, bytes32 positionId) external;
 
     /*//////////////////////////////////////////////////////////////
                                ORACLE WRITE
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Single oracle write path: sync one position from a quorum-signed AUM report
-    /// @dev onlyAUMOracle. Pending+nonzero -> Active; Pending+timeout -> Invalidated;
-    ///      Active/WindingDown -> value update; Exited/Invalidated -> skipped (no revert).
+    /// @dev onlyAUMOracle. Normative Pending lifecycle (R3-PF1/R4):
+    ///      - value in [MIN_CONFIRMATION_BPS, MAX_CONFIRMATION_BPS] of deployedAmount (and > 0)
+    ///        -> Active + reservation settled (allowed even after the confirmation timeout: a
+    ///        late full landing books);
+    ///      - other positive value (below floor OR above ceiling) -> observation recorded, stays
+    ///        Pending, reservation stays counted; the position can then never be invalidated by
+    ///        the wall clock - only a later in-band report or governance
+    ///        reconcileUnderDeliveredPosition resolves it;
+    ///      - value == 0 past the timeout with NO prior observation -> Invalidated + released.
+    ///      Active/WindingDown -> value update (a still-Consumed reservation — the reconcile
+    ///      path — settles on this first committed booking); Exited/Invalidated -> skipped
+    ///      (no revert).
     /// @return acceptedValue The value actually booked into AUM (0 when the entry was skipped), so
     ///         the oracle caches only registry-accepted totals (B2)
     function syncPositionFromReport(
@@ -218,7 +242,12 @@ interface ICrossChainPositionRegistry {
     function POSITION_CONFIRMATION_TIMEOUT() external view returns (uint256);
     function RESERVATION_TIMEOUT() external view returns (uint256);
     function MIN_CONFIRMATION_BPS() external view returns (uint256);
+    function MAX_CONFIRMATION_BPS() external view returns (uint256);
     function MAX_POSITIONS_PER_STRATEGY() external view returns (uint256);
+
+    /// @notice Number of Open (recorded but not yet consumed/released) reservations per strategy;
+    ///         with the live position set this bounds recordBridgedOut (R4)
+    function openReservationCount(address strategy) external view returns (uint256);
     function positions(bytes32 positionId) external view returns (CrossChainPosition memory);
     function reservations(bytes32 reservationId) external view returns (BridgeReservation memory);
     function registrars(address strategy) external view returns (address);

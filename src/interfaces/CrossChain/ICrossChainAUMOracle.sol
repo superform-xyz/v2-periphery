@@ -96,6 +96,10 @@ interface ICrossChainAUMOracle {
     function latestReport(address strategy) external view returns (AUMReport memory);
     function configs(address strategy) external view returns (AUMOracleConfig memory);
     function noncePerStrategy(address strategy) external view returns (uint256);
+
+    /// @notice Wall-clock time of the strategy's last COMMITTED report (R4: commits are paced in
+    ///         real time as well as signed time — same-block report ladders are impossible)
+    function lastCommitAt(address strategy) external view returns (uint256);
     function consecutiveBreaches(address strategy) external view returns (uint256);
     function aumBreakerTripped(address strategy) external view returns (bool);
 }
