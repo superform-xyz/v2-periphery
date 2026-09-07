@@ -88,10 +88,24 @@ contract MockRegistryLite {
             (p.status == R.PositionStatus.Active || p.status == R.PositionStatus.WindingDown) ? p.lastReportedValue : 0;
     }
 
+    /// @dev R5: force a specific booked value for one id, simulating a registry whose commit
+    ///      disagrees with the oracle's validated candidate (must trip VALIDATION_COMMIT_MISMATCH).
+    mapping(bytes32 => bool) public syncOverridden;
+    mapping(bytes32 => uint256) public syncOverrideValue;
+
+    function setSyncOverride(bytes32 id, uint256 value) external {
+        syncOverridden[id] = true;
+        syncOverrideValue[id] = value;
+    }
+
     function syncPositionFromReport(address strategy, bytes32 id, uint256 value, uint256) external returns (uint256) {
         // Mirror the real registry's accept/skip semantics closely enough for B2 tests.
         R.CrossChainPosition storage p = _pos[id];
         if (p.strategy != strategy) return 0;
+        if (syncOverridden[id]) {
+            wasSynced[id] = true;
+            return syncOverrideValue[id];
+        }
         if (p.status == R.PositionStatus.Exited || p.status == R.PositionStatus.Invalidated) return 0;
         if (p.status == R.PositionStatus.Pending && value == 0) return 0;
         if (p.status == R.PositionStatus.Pending) p.status = R.PositionStatus.Active;

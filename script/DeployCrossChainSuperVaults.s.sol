@@ -37,8 +37,9 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///        8.  capGuard.setDestinationHooks(chainId, approveHook, depositHook)
 ///        9.  capGuard.setEidChainId(eid, chainId)                     Stargate routes only (B4)
 ///        9b. capGuard.setStargateRoute(srcPool, chainId, dstToken)    Stargate routes only (R3-RF1)
-///        9c. capGuard.setStargateMinDeliveryBps(10_000)               once; only full delivery is
-///            accepted (R4-F3)
+///        9c. capGuard.setStargateMinDeliveryBps(10_000)               once; route enable switch —
+///            the core hook itself requires minAmountLD == amountLD AND an exact quoteOFT
+///            (fee OR reward state fails closed at send time, R4-F3 / R4-P1)
 ///        Then per approved (chain, vault) route (use printVaultAsset):
 ///        9d. capGuard.setDestinationVaultAsset(chainId, vault, asset) REQUIRED or every deposit
 ///            fails closed. R4 activation rule: asset must be the destination representation of

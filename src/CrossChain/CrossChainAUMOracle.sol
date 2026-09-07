@@ -188,7 +188,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        uint256 committed = _syncAndCommit(strategy, positionIds, values, hubAssets, timestamp, usedNonce);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
         emit AUMUpdated(strategy, committed, timestamp);
     }
 
@@ -230,7 +230,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        uint256 committed = _syncAndCommit(strategy, positionIds, values, hubAssets, timestamp, usedNonce);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
         emit AUMForceUpdated(strategy, committed, timestamp);
     }
 
@@ -371,9 +371,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      and every required position covered (SEC-9/SEC-14 completeness). Terminal (Exited/
     ///      Invalidated) strategy-owned ids are TOLERATED for sign-vs-submit races, but their
     ///      values are excluded from every validation total via _candidateTotal (R4-F1), so the
-    ///      validated aggregate equals what the registry will accept. The one documented,
-    ///      conservative divergence: an out-of-band Pending value passes validation but books 0 -
-    ///      its FULL reservation stays counted, so cap-facing exposure is only ever overstated.
+    ///      validated aggregate equals what the registry will accept. R5: that equality is now
+    ///      exact and hard-asserted at commit (VALIDATION_COMMIT_MISMATCH) - an out-of-band
+    ///      Pending observation is BOOKED by the registry (with its excess over the reservation
+    ///      counted in cap exposure), so no supplied non-terminal value can pass validation and
+    ///      then vanish from, or be understated in, the published snapshot.
     function _validateReportSet(address strategy, bytes32[] calldata positionIds, uint256 timestamp) internal view {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
@@ -550,10 +552,18 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      clearing the breaker (the feed is healthy again). B2: the cached aggregate is the sum
     ///      of what the registry ACCEPTED, never the raw submitted sum, so the cap denominator and
     ///      the registry numerator always derive from the same per-position snapshot.
+    ///      R5 snapshot invariant: the booked sum must EQUAL `validatedTotal` — the candidate every
+    ///      security band (aggregate, per-position, PPS consistency) was computed over. The
+    ///      registry books every non-terminal supplied value (including out-of-band Pending
+    ///      observations, whose excess it counts in cap exposure) and the candidate excludes the
+    ///      terminal ids the registry skips, so equality holds by construction; a divergence
+    ///      means a validated-vs-published mismatch and the whole report reverts instead of
+    ///      renewing AUM freshness on a snapshot nobody validated.
     function _syncAndCommit(
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
+        uint256 validatedTotal,
         uint256 hubAssets,
         uint256 timestamp,
         uint256 usedNonce
@@ -566,6 +576,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         for (uint256 i; i < len; ++i) {
             committed += registry.syncPositionFromReport(strategy, positionIds[i], values[i], timestamp);
         }
+        if (committed != validatedTotal) revert VALIDATION_COMMIT_MISMATCH();
         _latestReport[strategy] = AUMReport({
             totalCrossChainAssets: committed, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce
         });
@@ -596,7 +607,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      races) are skipped by the registry during commit, so they must be skipped here too:
     ///      otherwise a quorum could pad the aggregate/consistency checks with a terminal id's
     ///      caller-supplied value and commit a much lower live total, silently reopening cap
-    ///      headroom (validation-vs-commit mismatch).
+    ///      headroom (validation-vs-commit mismatch). R5: this is the EXACT total the registry
+    ///      books (every other admitted id books its supplied value), and _syncAndCommit reverts
+    ///      if the registry ever disagrees.
     function _candidateTotal(
         bytes32[] calldata positionIds,
         uint256[] calldata values

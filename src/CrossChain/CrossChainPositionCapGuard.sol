@@ -250,14 +250,16 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     }
 
     /// @inheritdoc ICrossChainPositionCapGuard
-    /// @dev R4-F3: cap-enabled Stargate routes must guarantee FULL delivery (bps == 10_000, i.e.
-    ///      encoded minAmountLD == encoded amountLD) or stay unset (0 = Stargate disabled,
-    ///      fail-closed). Any laxer ratio leaves an actual-delivery remainder (credited minus
-    ///      action amount) that the destination executes/reports around but the reservation
-    ///      settlement never books — repeated sends could recycle that slice of cap headroom.
-    ///      Consequence: only fee-less Stargate routes (credited == amountLD) are usable for
-    ///      cap-enabled sends; a route whose pool charges a fee reverts at the Stargate slippage
-    ///      check instead of under-delivering.
+    /// @dev R4-F3: cap-enabled Stargate routes must guarantee FULL delivery (bps == 10_000) or
+    ///      stay unset (0 = Stargate disabled, fail-closed). Any laxer ratio leaves an
+    ///      actual-delivery remainder (credited minus action amount) that the destination
+    ///      executes/reports around but the reservation settlement never books — repeated sends
+    ///      could recycle that slice of cap headroom. R4-P1: this setter is the route ENABLE
+    ///      switch; exactness itself is enforced by the core cap hook, which requires the encoded
+    ///      minAmountLD to EQUAL amountLD and quotes the pool (quoteOFT) at send time, failing
+    ///      closed unless amountSentLD == amountReceivedLD == amount — so both a fee state AND a
+    ///      Stargate V2 reward state (credit above the amount) revert before any approval/send.
+    ///      Consequence: only routes in an exact-delivery state are usable for cap-enabled sends.
     function setStargateMinDeliveryBps(uint256 bps) external {
         _requireGovernor(msg.sender);
         if (bps != 0 && bps != BPS_PRECISION) revert INVALID_CAP();

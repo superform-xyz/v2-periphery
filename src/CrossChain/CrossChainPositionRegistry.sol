@@ -87,6 +87,15 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     ///      can refuse a send that provably could never be registered (MAX_POSITIONS_PER_STRATEGY).
     mapping(address => uint256) public openReservationCount;
 
+    /// @dev R5: positive excess of a Pending position's OBSERVED (out-of-band) destination value
+    ///      over its still-counted reservation, aggregated per strategy and per chain. A counted
+    ///      reservation is a conservative exposure proxy only while reservation >= observed value;
+    ///      once a quorum reports a HIGHER destination value, cap-facing exposure must count
+    ///      max(reservation, observed) = reservation + this excess, or an above-ceiling first
+    ///      report would be stored but economically invisible to both cap checks.
+    mapping(address => uint256) public pendingObservedExcess;
+    mapping(address => mapping(uint64 => uint256)) public pendingObservedExcessByChain;
+
     /// @dev hook => whether it may record in-flight exposure (governor-managed allowlist)
     mapping(address => bool) public authorizedBridgeHook;
 
@@ -228,8 +237,12 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICrossChainPositionRegistry
-    /// @dev B2: returns the value actually booked into AUM (0 when the entry is skipped), so the
-    ///      oracle can cache an aggregate equal to what the registry accepted, never the raw sum.
+    /// @dev B2/R5: returns the value actually booked into the oracle's committed aggregate, so the
+    ///      oracle can cache exactly what the registry accepted. For every id the oracle's
+    ///      canonical-set validation admits, the booked value EQUALS the supplied value except for
+    ///      terminal ids (which book 0 and which the oracle excludes from its candidate total) —
+    ///      the oracle hard-asserts that equality at commit (VALIDATION_COMMIT_MISMATCH), so the
+    ///      validated snapshot and the published snapshot can never diverge.
     function syncPositionFromReport(
         address strategy,
         bytes32 positionId,
@@ -268,6 +281,9 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                     && value <= Math.mulDiv(pos.deployedAmount, MAX_CONFIRMATION_BPS, 10_000)
             ) {
                 pos.status = PositionStatus.Active;
+                // R5: a prior above-ceiling observation's excess leaves the numerator here — the
+                // confirmed value is booked through positionValue from now on.
+                _setPendingExcess(pos, 0);
                 // fall through to the value update below (which also settles the reservation)
             } else if (value > 0) {
                 // R3-PF1: a positive out-of-band value (below floor OR above ceiling) means
@@ -276,10 +292,17 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                 // invisible, and invalidation is barred once any positive value was observed.
                 // Resolution: a later in-band report confirms, or governance explicitly
                 // reconciles the delivery (reconcileUnderDeliveredPosition).
+                // R5: the observation is BOOKED into the committed aggregate (returned) so the
+                // oracle's validated candidate equals its committed total, and any excess over
+                // the reservation is counted in cap-facing exposure — a first report above the
+                // ceiling can never be stored yet invisible to the caps. Below the floor the
+                // reservation (>= observed) remains the conservative numerator; the denominator
+                // still books the true landed value.
+                _setPendingExcess(pos, value);
                 pos.lastReportedValue = value;
                 pos.lastReportTimestamp = timestamp;
                 emit PendingValueObserved(strategy, positionId, value);
-                return 0;
+                return value;
             } else if (block.timestamp > pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT && pos.lastReportedValue == 0)
             {
                 // Timed out with NO value ever observed: never entered AUM. Release its
@@ -399,6 +422,10 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         if (block.timestamp <= pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) revert POSITION_NOT_EXPIRED();
         if (pos.lastReportedValue == 0) revert POSITION_NOT_DRAINED();
 
+        // R5: once Active the observed value is booked through positionValue, so its Pending
+        // excess leaves the numerator (the still-Consumed reservation keeps the temporary
+        // conservative double-count described above until the first committing report).
+        _setPendingExcess(pos, 0);
         pos.status = PositionStatus.Active;
         emit PositionReconciledUnderDelivery(strategy, positionId, pos.lastReportedValue, pos.deployedAmount);
     }
@@ -479,13 +506,16 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
+    /// @dev R5: + the positive Pending observed excess, so every Pending position contributes
+    ///      max(counted reservation, observed destination value).
     function getEffectiveCrossChainExposure(address strategy) external view returns (uint256) {
-        return getCrossChainAUM(strategy) + bridgedOut[strategy];
+        return getCrossChainAUM(strategy) + bridgedOut[strategy] + pendingObservedExcess[strategy];
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
     function getEffectiveChainExposure(address strategy, uint64 chainId) external view returns (uint256) {
-        return getChainExposure(strategy, chainId) + bridgedOutByChain[strategy][chainId];
+        return getChainExposure(strategy, chainId) + bridgedOutByChain[strategy][chainId]
+            + pendingObservedExcessByChain[strategy][chainId];
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -504,6 +534,27 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     function _uncountReservation(BridgeReservation storage res) internal {
         bridgedOut[res.strategy] -= res.amount;
         bridgedOutByChain[res.strategy][res.chainId] -= res.amount;
+    }
+
+    /// @dev R5: re-point a Pending position's contribution to the observed-excess aggregates from
+    ///      its CURRENT observation (lastReportedValue, still unmodified by the caller) to
+    ///      `newObserved`. Pass 0 when the position leaves the observed-Pending state (in-band
+    ///      confirmation or governance reconciliation), so the excess is added and removed exactly
+    ///      once per observation lifecycle — no clamping needed.
+    function _setPendingExcess(CrossChainPosition storage pos, uint256 newObserved) internal {
+        uint256 deployed = pos.deployedAmount;
+        uint256 oldExcess = pos.lastReportedValue > deployed ? pos.lastReportedValue - deployed : 0;
+        uint256 newExcess = newObserved > deployed ? newObserved - deployed : 0;
+        if (newExcess == oldExcess) return;
+        if (newExcess > oldExcess) {
+            uint256 delta = newExcess - oldExcess;
+            pendingObservedExcess[pos.strategy] += delta;
+            pendingObservedExcessByChain[pos.strategy][pos.chainId] += delta;
+        } else {
+            uint256 delta = oldExcess - newExcess;
+            pendingObservedExcess[pos.strategy] -= delta;
+            pendingObservedExcessByChain[pos.strategy][pos.chainId] -= delta;
+        }
     }
 
     /// @dev Terminal reconciliation: the position this reservation funded was oracle-confirmed.

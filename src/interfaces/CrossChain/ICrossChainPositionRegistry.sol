@@ -254,6 +254,12 @@ interface ICrossChainPositionRegistry {
     function authorizedBridgeHook(address hook) external view returns (bool);
     function bridgedOut(address strategy) external view returns (uint256);
     function bridgedOutByChain(address strategy, uint64 chainId) external view returns (uint256);
+
+    /// @notice R5: positive excess of Pending positions' observed destination values over their
+    ///         counted reservations (global / per chain) — counted in cap-facing exposure so a
+    ///         Pending position contributes max(reservation, observed value)
+    function pendingObservedExcess(address strategy) external view returns (uint256);
+    function pendingObservedExcessByChain(address strategy, uint64 chainId) external view returns (uint256);
     function getPositionIds(address strategy) external view returns (bytes32[] memory);
     function positionValue(bytes32 positionId) external view returns (uint256);
 
@@ -263,9 +269,11 @@ interface ICrossChainPositionRegistry {
     /// @notice Confirmed value of Active/WindingDown positions on one destination chain
     function getChainExposure(address strategy, uint64 chainId) external view returns (uint256);
 
-    /// @notice Cap-facing exposure = confirmed AUM + in-flight bridgedOut (SEC-3)
+    /// @notice Cap-facing exposure = confirmed AUM + in-flight bridgedOut (SEC-3) + Pending
+    ///         observed excess (R5)
     function getEffectiveCrossChainExposure(address strategy) external view returns (uint256);
 
     /// @notice Per-chain cap-facing exposure = confirmed chain exposure + in-flight to that chain
+    ///         + Pending observed excess on that chain (R5)
     function getEffectiveChainExposure(address strategy, uint64 chainId) external view returns (uint256);
 }

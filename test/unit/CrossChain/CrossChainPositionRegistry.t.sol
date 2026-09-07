@@ -330,6 +330,65 @@ contract CrossChainPositionRegistryTest is Test {
         assertEq(uint256(registry.positions(id2).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
     }
 
+    /// R5-P1: an out-of-band observation is BOOKED (returned to the oracle, so the validated and
+    /// committed totals agree) and its excess over the reservation is counted in cap-facing
+    /// exposure — a Pending position always contributes max(reservation, observed value).
+    function test_R5_OverCeilingObservationCountsInEffectiveExposure() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+
+        vm.prank(aumOracle);
+        uint256 booked = registry.syncPositionFromReport(strategy, id, 111e18, block.timestamp);
+        assertEq(booked, 111e18, "observation is booked into the committed aggregate");
+        assertEq(registry.pendingObservedExcess(strategy), 11e18);
+        assertEq(registry.pendingObservedExcessByChain(strategy, CHAIN_A), 11e18);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 111e18, "exposure must be >= observed");
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 111e18, "chain exposure must be >= observed");
+        assertEq(registry.bridgedOut(strategy), 100e18, "reservation still counted");
+        assertEq(registry.getCrossChainAUM(strategy), 0, "still Pending: not in confirmed AUM");
+
+        // A new observation RE-POINTS the excess (never accumulates); a smaller one shrinks it.
+        _sync(id, 130e18);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 130e18);
+        _sync(id, 120e18);
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 120e18);
+
+        // Below the floor the reservation (>= observed) stays the conservative numerator; the
+        // landed value is still booked so the denominator is the true AUM.
+        vm.prank(aumOracle);
+        booked = registry.syncPositionFromReport(strategy, id, 50e18, block.timestamp);
+        assertEq(booked, 50e18, "below-floor observation is booked too");
+        assertEq(registry.pendingObservedExcess(strategy), 0, "no excess below the reservation");
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18, "reservation remains the numerator");
+
+        // In-band confirmation removes the excess and settles the reservation exactly once.
+        _sync(id, 140e18);
+        assertEq(registry.pendingObservedExcess(strategy), 40e18);
+        _sync(id, 105e18); // inside [90%, 110%] -> Active
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        assertEq(registry.pendingObservedExcess(strategy), 0, "excess removed on confirmation");
+        assertEq(registry.pendingObservedExcessByChain(strategy, CHAIN_A), 0);
+        assertEq(registry.bridgedOut(strategy), 0, "reservation settled");
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 105e18, "confirmed value only");
+    }
+
+    /// R5-P1: governance reconciliation of an above-ceiling landing moves the value from the
+    /// Pending excess into the confirmed position value — the excess is never double-counted.
+    function test_R5_ReconcileAboveCeilingClearsExcess() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+        _sync(id, 140e18);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 140e18);
+
+        vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
+        registry.reconcileUnderDeliveredPosition(strategy, id);
+        assertEq(registry.pendingObservedExcess(strategy), 0, "excess cleared on reconcile");
+        assertEq(registry.pendingObservedExcessByChain(strategy, CHAIN_A), 0);
+        // Documented R4 window: confirmed value (140) + still-Consumed reservation (100) until the
+        // first committing report settles it - conservative, never under.
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 240e18, "conservative until first commit");
+        _sync(id, 140e18);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 140e18, "settled by the first commit");
+    }
+
     /// R4: a 1-wei reservation's floor rounds to 0 — a ZERO-value report must not "confirm" it.
     function test_R4_Sync_OneWeiReservationZeroReportDoesNotConfirm() public {
         bytes32 id = _registerSuperVault(1, 1);

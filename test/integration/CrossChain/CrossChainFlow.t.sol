@@ -232,6 +232,105 @@ contract CrossChainFlowTest is Test {
         _assertAccountingConsistent();
     }
 
+    /*//////////////////////////////////////////////////////////////
+                R5: ABOVE-CEILING PENDING OBSERVATION (REAL STACK)
+    //////////////////////////////////////////////////////////////*/
+
+    /// R5-P1 (reviewer round-5 trace, real stack): a first report ABOVE the 110% confirmation
+    /// ceiling must (a) be counted in cap exposure at its observed value and (b) be published in
+    /// the same snapshot it was validated in. Reserve 100, observe 140 with hub 900 and a live
+    /// 1040 PPS backstop: exposure = 140 (not the 100 reservation), published AUM = 1040, so the
+    /// 80 allocation that previously passed both caps now reverts on both.
+    function test_R5_AboveCeilingObservationCountsInCapExposure() public {
+        _setCapConfig(2000, 180e18, true); // 20% global, 180 on chain A
+        strategyVault.setTotalAssets(1000e18); // live PPS x supply backstop
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false); // committed: hub 1000, cc 0
+        assertEq(oracle.getTotalAUM(strategy), 1000e18);
+
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+
+        // The destination appreciates to 140 before its first report; hub holds 900 after the send.
+        vm.warp(block.timestamp + 2 minutes);
+        strategyVault.setTotalAssets(1040e18);
+        _forwardAUM(id, 140e18, 900e18, false);
+
+        // Validated snapshot == published snapshot: the 140 is booked, freshness is renewed on a
+        // total inside the PPS band, and the position stays Pending (ceiling) with its
+        // reservation retained.
+        assertEq(oracle.getTotalAUM(strategy), 1040e18, "published total is the validated total");
+        assertTrue(oracle.isAUMFresh(strategy));
+        _assertPublishedSnapshotWithinPPSBand();
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.bridgedOut(strategy), 100e18, "reservation retained above the ceiling");
+        assertEq(registry.pendingObservedExcess(strategy), 40e18);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 140e18, "exposure must be >= observed value");
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 140e18);
+
+        // The reviewer's allocation of 80: 140 + 80 = 220 > 20% of 1040 (208) -> global cap binds.
+        vm.expectRevert(ICrossChainPositionCapGuard.CROSS_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 80e18);
+        // Per-chain binds on its own: with the global cap lifted, 220 > 180 still reverts...
+        _setCapConfig(10_000, 180e18, true);
+        vm.expectRevert(ICrossChainPositionCapGuard.PER_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 80e18);
+        // ...while an allocation that truly fits (140 + 40 = 180) passes.
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 40e18);
+    }
+
+    /// R5-P1: reservation 100, chain cap 105, observation 111 -> a single extra unit reverts.
+    function test_R5_AboveCeilingObservationBindsChainCapByOneUnit() public {
+        _setCapConfig(10_000, 105e18, true);
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        vm.warp(block.timestamp + 2 minutes);
+        _forwardAUM(id, 111e18, 900e18, false);
+
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 111e18);
+        vm.expectRevert(ICrossChainPositionCapGuard.PER_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1);
+    }
+
+    /// R5-P1: forceAUMUpdate validates the same candidate and commits through the same path, so
+    /// the published snapshot equals the validated one there too.
+    function test_R5_ForcePathPublishesValidatedSnapshot() public {
+        strategyVault.setTotalAssets(1000e18);
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+        );
+        vm.warp(block.timestamp + 2 minutes);
+        strategyVault.setTotalAssets(1040e18);
+        _forwardAUM(id, 140e18, 900e18, true); // force path (ORACLE_MANAGER + quorum, live PPS)
+
+        assertEq(oracle.getTotalAUM(strategy), 1040e18, "force path publishes the validated total");
+        _assertPublishedSnapshotWithinPPSBand();
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 140e18);
+    }
+
+    /// @dev R5 regression 4: the EXACT committed snapshot (not merely the pre-commit candidate)
+    ///      satisfies the configured PPS consistency band.
+    function _assertPublishedSnapshotWithinPPSBand() internal view {
+        uint256 published = oracle.getTotalAUM(strategy);
+        uint256 implied = strategyVault.totalAssets();
+        uint256 diff = published > implied ? published - implied : implied - published;
+        assertLe(diff * 10_000 / implied, 100, "published snapshot outside the PPS band");
+    }
+
     /// R4-P1 (exit livelock, real stack): a full exit must complete through NORMAL quorum
     /// reports — WindingDown -> drain-to-zero report commits (no breach, no breaker, no force
     /// path) -> deregisterPosition frees the slot. Before R4 a zero report was definitionally a

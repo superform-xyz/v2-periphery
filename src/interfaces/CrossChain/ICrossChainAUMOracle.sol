@@ -64,6 +64,10 @@ interface ICrossChainAUMOracle {
     error UNKNOWN_POSITION_ID();
     error REPORT_TOO_LARGE();
     error FORCE_REQUIRES_PPS_SOURCE();
+    /// @notice R5: the total the registry booked during commit differs from the candidate total
+    ///         every security band validated — the report is rejected rather than publishing a
+    ///         fresh snapshot that was never validated
+    error VALIDATION_COMMIT_MISMATCH();
 
     /*//////////////////////////////////////////////////////////////
                                FUNCTIONS

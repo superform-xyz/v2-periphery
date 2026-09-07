@@ -728,6 +728,23 @@ contract CrossChainAUMOracleTest is Test {
         assertFalse(registry.wasSynced(idT), "terminal id books nothing");
     }
 
+    /// R5: the commit hard-asserts that the registry booked EXACTLY the validated candidate total.
+    /// A registry that books a different total (simulated) reverts the whole report instead of
+    /// publishing a fresh snapshot nobody validated.
+    function test_R5_CommitMismatchRevertsInsteadOfPublishing() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        _seedActiveAggregate(idA, 100e18);
+        registry.setBridgedOut(strategy, 0);
+        registry.setSyncOverride(idA, 90e18); // registry "books" 90 for a validated 100
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(idA, 100e18, 0, ts, false);
+        vm.expectRevert(ICrossChainAUMOracle.VALIDATION_COMMIT_MISMATCH.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "nothing published");
+    }
+
     /// R4 (PF1 mutation-killer): an expired never-observed Pending is REQUIRED — a report that
     /// omits it must revert INCOMPLETE_REPORT (previously it was unreportable, making the
     /// registry's late-confirm branch unreachable through the oracle).
