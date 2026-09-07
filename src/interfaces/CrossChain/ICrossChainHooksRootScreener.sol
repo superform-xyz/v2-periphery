@@ -22,10 +22,12 @@ pragma solidity 0.8.30;
 ///         boundary — a compromised main manager who proposes an opaque raw-hook root and whose
 ///         timelock elapses with NO watcher transaction landing can execute the raw hook. This
 ///         acceptance carries an ACTIVATION PREREQUISITE: cap-enabled (screened) strategies must
-///         not be onboarded until (1) redundant watcher services monitoring every proposal are
-///         live and alerting, (2) the clearance grace period is configured below the aggregator
-///         timelock, and (3) every raw value-exit hook is banned here AND absent from the global
-///         root. See the deploy script's runbook step for the checklist.
+///         not be onboarded until (1) at least TWO independent watcher services monitoring every
+///         proposal are live, alerting, and demonstrably able to land a veto transaction within
+///         hooksRootTimelock, (2) the clearance grace period is configured below the aggregator
+///         timelock, (3) every raw value-exit hook is banned here AND absent from the global
+///         root, and (4) the acceptance is signed off by an accountable risk owner, with name/role
+///         and date recorded in the deployment record. See the deploy script's runbook.
 interface ICrossChainHooksRootScreener {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

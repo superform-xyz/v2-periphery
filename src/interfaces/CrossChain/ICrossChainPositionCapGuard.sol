@@ -23,6 +23,8 @@ interface ICrossChainPositionCapGuard {
     event StargateRouteUpdated(address indexed srcPool, uint64 indexed chainId, address dstToken);
     event StargateMinDeliveryBpsUpdated(uint256 bps);
     event StrategyHubAssetUpdated(address indexed strategy, address asset);
+    event StrategyDestinationAssetUpdated(address indexed strategy, uint64 indexed chainId, address asset);
+    event StargateFeeLibUpdated(address indexed pool, address feeLib);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -115,12 +117,27 @@ interface ICrossChainPositionCapGuard {
     ///         closed when unpinned). address(0) unpins. GOVERNOR_ROLE-only.
     function setStrategyHubAsset(address strategy, address asset) external;
 
-    /// @notice Hard minimum-delivery ratio for Stargate sends (R3-RF1 / R4-F3): minAmountLD must
-    ///         be at least `bps` of amountLD. R4-F3 locks cap-enabled routes to FULL delivery —
-    ///         only 10_000 (minAmountLD == amountLD, so the credited amount can never exceed the
-    ///         destination action's accounted amount) or 0 = unset (Stargate sends fail closed)
-    ///         are accepted. A laxer ratio would leave a credited-minus-action remainder that the
-    ///         reservation settlement never books. GOVERNOR_ROLE-only.
+    /// @notice Pin the ONLY destination token the cap hook family may route `strategy`'s capital
+    ///         into on `chainId` — the destination representation of its hub asset (R5-H, the
+    ///         address-level destination half of the same-asset invariant; the core cap hooks bind
+    ///         the typed destination action's token to this at send time, fail closed when
+    ///         unpinned). address(0) unpins. GOVERNOR_ROLE-only.
+    function setStrategyDestinationAsset(address strategy, uint64 chainId, address asset) external;
+
+    /// @notice Pin the fee library a Stargate `pool` was reviewed with (R4-P1 trust residual): the
+    ///         core Stargate cap hook compares the pool's live `getAddressConfig().feeLib` to this
+    ///         at send time and fails closed on mismatch, so a fee-library rotation by Stargate
+    ///         governance can never silently change the quote/send equivalence the exact-delivery
+    ///         check relies on. address(0) unpins (Stargate sends for that pool fail closed).
+    ///         GOVERNOR_ROLE-only.
+    function setStargateFeeLib(address pool, address feeLib) external;
+
+    /// @notice Stargate route ENABLE switch (R3-RF1 / R4-F3 / R4-P1): 10_000 enables cap-enabled
+    ///         Stargate sends, 0 disables them (fail closed); nothing else is accepted. Exactness is
+    ///         NOT derived from this value — the core hook requires the encoded minAmountLD to
+    ///         EQUAL amountLD and quotes the pool at send time (quoteOFT), reverting unless
+    ///         amountSentLD == amountReceivedLD == amount, so a fee state AND a reward state (credit
+    ///         above the amount) both fail closed before any approval or send. GOVERNOR_ROLE-only.
     function setStargateMinDeliveryBps(uint256 bps) external;
 
     /*//////////////////////////////////////////////////////////////
@@ -161,4 +178,6 @@ interface ICrossChainPositionCapGuard {
     /// @notice Minimum minAmountLD/amountLD ratio for Stargate sends in bps; 0 = unset
     function stargateMinDeliveryBps() external view returns (uint256);
     function strategyHubAsset(address strategy) external view returns (address);
+    function strategyDestinationAsset(address strategy, uint64 chainId) external view returns (address);
+    function stargateFeeLib(address pool) external view returns (address);
 }

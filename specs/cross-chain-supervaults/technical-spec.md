@@ -244,6 +244,12 @@ contract CrossChainPositionRegistry {
         // ... require live-position count < MAX; create position with Pending status
     }
 
+    /// AS-BUILT NOTE (review rounds 3-5; the ICrossChainPositionRegistry NatSpec is normative):
+    ///   confirmation requires value within [90%, 110%] of deployedAmount; a positive value outside
+    ///   that band is an OBSERVATION - booked into the committed aggregate, position stays Pending,
+    ///   reservation stays counted, excess over the reservation counted in cap exposure; only a
+    ///   never-observed Pending invalidates on timeout; the oracle hard-asserts committed ==
+    ///   validated total; permissionless reservation release is a per-hook governance opt-in.
     /// @notice Single oracle write path: sync one position from a quorum-signed AUM report
     /// @dev Called by CrossChainAUMOracle.forwardAUM() for every position in the report.
     ///      - Pending, value > 0, within POSITION_CONFIRMATION_TIMEOUT of registeredAt:

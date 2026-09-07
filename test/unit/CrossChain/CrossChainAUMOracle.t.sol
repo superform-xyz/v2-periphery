@@ -745,6 +745,31 @@ contract CrossChainAUMOracleTest is Test {
         assertEq(oracle.getTotalAUM(strategy), 100e18, "nothing published");
     }
 
+    /// R5-H: an out-of-band Pending observation is BOOKED, so it is also the per-position anchor
+    /// for the next report — an observed-Pending value can no longer move freely until
+    /// confirmation (its anchor used to be 0 while Pending).
+    function test_R5H_ObservedPendingIsPerPositionAnchored() public {
+        bytes32 idP = keccak256("observedPending");
+        registry.addPosition(idP, ICrossChainPositionRegistry.PositionStatus.Pending, block.timestamp - 1, 140e18);
+        registry.setBridgedOut(strategy, 100e18); // its reservation is still counted
+
+        // 140 -> 30 is a 78.6% move: above the 75% per-position bound -> soft-fail.
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(idP, 30e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.consecutiveBreaches(strategy), 1, "observed-Pending must be per-position bounded");
+        assertFalse(registry.wasSynced(idP), "breach must not commit");
+
+        // 140 -> 40 (71.4%) is inside the bound and commits.
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(idP, 40e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "in-bound move commits");
+        assertTrue(registry.wasSynced(idP));
+    }
+
     /// R4 (PF1 mutation-killer): an expired never-observed Pending is REQUIRED — a report that
     /// omits it must revert INCOMPLETE_REPORT (previously it was unreportable, making the
     /// registry's late-confirm branch unreachable through the oracle).

@@ -29,6 +29,11 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///            aggregator's hooks-root timelock or the setter reverts, R4-P1)
 ///        Then per bridge protocol (use printHookAuthorization / printBanRawHook):
 ///        5.  registry.setBridgeHookAuthorization(capHook, true)       per SuperVault*CapBridgeHook
+///        5b. registry.setBridgeHookPermissionlessRelease(hook, true)   ONLY for the Across cap hook
+///            (its fills cannot land after RESERVATION_TIMEOUT: the hook bounds fillDeadlineOffset
+///            to it). deBridge (no order deadline) and Stargate (retryable LZ delivery) stay
+///            governor-release-only, or a manager could recycle cap headroom through the release
+///            window (R5-H)
 ///        6.  screener.setBannedHook(rawHook, true)                    per raw bridge/transfer hook
 ///            (R4-F2 ORDER RULE: remove the raw leaf from the GLOBAL root BEFORE banning, or the
 ///            ban makes the global root permissionlessly vetoable protocol-wide)
@@ -40,6 +45,9 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///        9c. capGuard.setStargateMinDeliveryBps(10_000)               once; route enable switch —
 ///            the core hook itself requires minAmountLD == amountLD AND an exact quoteOFT
 ///            (fee OR reward state fails closed at send time, R4-F3 / R4-P1)
+///        9c'. capGuard.setStargateFeeLib(srcPool, feeLib)              per Stargate pool: the fee
+///            library the route was reviewed with (pool.getAddressConfig().feeLib); a rotation by
+///            Stargate governance then fails closed until re-reviewed (R4-P1 trust residual)
 ///        Then per approved (chain, vault) route (use printVaultAsset):
 ///        9d. capGuard.setDestinationVaultAsset(chainId, vault, asset) REQUIRED or every deposit
 ///            fails closed. R4 activation rule: asset must be the destination representation of
@@ -49,6 +57,10 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///        10. registry.setRegistrar(strategy, registrar)
 ///        10b. capGuard.setStrategyHubAsset(strategy, hubAsset)        (R4 same-asset invariant,
 ///            hub side; the core cap hooks bind the bridged input token to this)
+///        10c. capGuard.setStrategyDestinationAsset(strategy, chainId, dstAsset)  per destination
+///            chain: the destination representation of the hub asset (R5-H, address-level
+///            destination half; the core cap hooks bind the typed action's token to this). Only
+///            EQUAL DECIMALS of this fixed (hubAsset, dstAsset) pair remains a review-time check.
 ///        11. screener.setScreenedStrategy(strategy, true)
 ///        12. capGuard.setApprovedDestination(strategy, chainId, vault, true)   per destination
 ///        13. capGuard.setCapConfig(strategy, maxBps, chainIds, caps, enabled)
@@ -57,8 +69,12 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///        15. screener.setRootClearance(strategy, root, true)          clear BEFORE proposing
 ///
 ///      R4-F2 ACTIVATION PREREQUISITE (formal risk acceptance — see ICrossChainHooksRootScreener):
-///      do NOT onboard a cap-enabled strategy (steps 10-14) until redundant root-proposal watcher
-///      services are live and alerting; until the next aggregator release, screener enforcement
+///      do NOT onboard a cap-enabled strategy (steps 10-14) until (a) the acceptance is signed off
+///      by an accountable risk owner (name/role + date recorded alongside this deployment's
+///      addresses), (b) at least TWO independent root-proposal watcher services are live, alerting,
+///      and demonstrably able to land a veto transaction within hooksRootTimelock, and (c) the
+///      composed report -> registry -> oracle -> cap-guard test suites are green at the exact
+///      merge heads of both repos; until the next aggregator release, screener enforcement
 ///      requires a watcher transaction landing inside the timelock window.
 ///
 ///      ACTIVATION INVARIANT: steps 1-4 MUST land before any cap hook is included in a strategy
@@ -176,11 +192,10 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
     }
 
     /// @notice Calldata pair for one Stargate route (R3-RF1): the destination token the source
-    ///         pool delivers on the chain, plus the global min-delivery ratio (set once).
-    ///         R4-F3: the setter only accepts 10_000 (FULL delivery: minAmountLD == amountLD) —
-    ///         cap-enabled Stargate routes must be fee-less so the credited amount can never
-    ///         exceed the action-accounted amount; a partial ratio would leave an unbooked
-    ///         delivery remainder.
+    ///         pool delivers on the chain, plus the global route enable switch (set once; only
+    ///         10_000 or 0). R4-F3 / R4-P1: exactness is NOT derived from the ratio — the core hook
+    ///         requires minAmountLD == amountLD and quotes the pool at send time, failing closed
+    ///         for fee AND reward states; the pool's fee library must also be pinned (step 9c').
     function printStargateRoute(
         address srcPool,
         uint64 chainId,

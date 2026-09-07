@@ -53,6 +53,7 @@ interface ICrossChainPositionRegistry {
         uint256 createdAt;
         ReservationStatus status;
         bytes32 positionId; // set when consumed
+        address hook; // R5-H: the authorized cap hook that recorded it (drives release authority)
     }
 
     /// @notice A tracked cross-chain position
@@ -112,6 +113,9 @@ interface ICrossChainPositionRegistry {
         address indexed strategy, bytes32 indexed positionId, uint256 observedValue, uint256 reservedAmount
     );
     event BridgeHookAuthorizationUpdated(address indexed hook, bool authorized);
+    /// @notice R5-H: whether reservations recorded by `hook` may be released PERMISSIONLESSLY after
+    ///         RESERVATION_TIMEOUT (only for bridges whose fill cannot land after that window)
+    event BridgeHookPermissionlessReleaseUpdated(address indexed hook, bool permissionless);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -131,6 +135,9 @@ interface ICrossChainPositionRegistry {
     error RESERVATION_KIND_MISMATCH();
     error RESERVATION_NOT_EXPIRED();
     error POSITION_HAS_LANDED_VALUE();
+    /// @notice R5-H: the reservation's hook is not flagged for permissionless release and the
+    ///         caller is not the governor
+    error RELEASE_REQUIRES_GOVERNOR();
 
     /*//////////////////////////////////////////////////////////////
                               REGISTRAR WRITES
@@ -184,15 +191,19 @@ interface ICrossChainPositionRegistry {
     ///        -> Active + reservation settled (allowed even after the confirmation timeout: a
     ///        late full landing books);
     ///      - other positive value (below floor OR above ceiling) -> observation recorded, stays
-    ///        Pending, reservation stays counted; the position can then never be invalidated by
-    ///        the wall clock - only a later in-band report or governance
-    ///        reconcileUnderDeliveredPosition resolves it;
+    ///        Pending, reservation stays counted, and (R5) the value is BOOKED - returned to the
+    ///        oracle's committed aggregate - with any excess over the reservation counted in
+    ///        pendingObservedExcess so cap-facing exposure is max(reservation, observed); the
+    ///        position can then never be invalidated by the wall clock - only a later in-band
+    ///        report or governance reconcileUnderDeliveredPosition resolves it;
     ///      - value == 0 past the timeout with NO prior observation -> Invalidated + released.
     ///      Active/WindingDown -> value update (a still-Consumed reservation — the reconcile
     ///      path — settles on this first committed booking); Exited/Invalidated -> skipped
     ///      (no revert).
-    /// @return acceptedValue The value actually booked into AUM (0 when the entry was skipped), so
-    ///         the oracle caches only registry-accepted totals (B2)
+    /// @return acceptedValue The value booked into the oracle's committed aggregate: the supplied
+    ///         value for every non-terminal entry (Pending zero books 0), 0 only for terminal
+    ///         Exited/Invalidated ids. The oracle hard-asserts its validated candidate equals the
+    ///         sum of these (B2 / R5 VALIDATION_COMMIT_MISMATCH)
     function syncPositionFromReport(
         address strategy,
         bytes32 positionId,
@@ -235,6 +246,15 @@ interface ICrossChainPositionRegistry {
     /// @notice Authorize/deauthorize a capped bridge hook to record in-flight exposure (GOVERNOR_ROLE)
     function setBridgeHookAuthorization(address hook, bool authorized) external;
 
+    /// @notice R5-H: allow ANYONE to release `hook`'s expired Open reservations. Set ONLY for hooks
+    ///         whose bridge provably cannot deliver after RESERVATION_TIMEOUT (Across: the cap hook
+    ///         bounds fillDeadlineOffset to that timeout). Bridges whose fills can land later
+    ///         (deBridge orders have no deadline; LayerZero/Stargate messages can be retried) stay
+    ///         governor-release-only — otherwise a manager could send, wait for the permissionless
+    ///         release, send again, and have the first fill land afterwards: cap headroom recycled
+    ///         through a trusted-registrar re-consume window. GOVERNOR_ROLE-only.
+    function setBridgeHookPermissionlessRelease(address hook, bool permissionless) external;
+
     /*//////////////////////////////////////////////////////////////
                               VIEWS
     //////////////////////////////////////////////////////////////*/
@@ -252,6 +272,7 @@ interface ICrossChainPositionRegistry {
     function reservations(bytes32 reservationId) external view returns (BridgeReservation memory);
     function registrars(address strategy) external view returns (address);
     function authorizedBridgeHook(address hook) external view returns (bool);
+    function permissionlessRelease(address hook) external view returns (bool);
     function bridgedOut(address strategy) external view returns (uint256);
     function bridgedOutByChain(address strategy, uint64 chainId) external view returns (uint256);
 

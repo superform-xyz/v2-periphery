@@ -249,6 +249,33 @@ contract CrossChainPositionCapGuardTest is Test {
         guard.setStrategyHubAsset(strategy, hubAsset);
     }
 
+    /// R5-H / R4-P1: per-strategy destination-asset pin and per-pool Stargate fee-library pin —
+    /// governor-only, zero-key guarded, unpinnable.
+    function test_R5H_SetStrategyDestinationAssetAndStargateFeeLib_GovernorOnly() public {
+        address dstAsset = makeAddr("dstUSDC");
+        address pool = makeAddr("stargatePool");
+        address feeLib = makeAddr("feeLibV1");
+
+        guard.setStrategyDestinationAsset(strategy, CHAIN_A, dstAsset);
+        assertEq(guard.strategyDestinationAsset(strategy, CHAIN_A), dstAsset);
+        guard.setStrategyDestinationAsset(strategy, CHAIN_A, address(0));
+        assertEq(guard.strategyDestinationAsset(strategy, CHAIN_A), address(0));
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setStrategyDestinationAsset(address(0), CHAIN_A, dstAsset);
+
+        guard.setStargateFeeLib(pool, feeLib);
+        assertEq(guard.stargateFeeLib(pool), feeLib);
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setStargateFeeLib(address(0), feeLib);
+
+        vm.startPrank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setStrategyDestinationAsset(strategy, CHAIN_A, dstAsset);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setStargateFeeLib(pool, feeLib);
+        vm.stopPrank();
+    }
+
     function test_SetEidChainId_GovernorOnly() public {
         guard.setEidChainId(30_184, 8453); // Base EID -> Base chain id
         assertEq(guard.chainIdForEid(30_184), 8453);

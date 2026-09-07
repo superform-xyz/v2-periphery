@@ -457,26 +457,49 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         returns (bool)
     {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+        (uint256 drained, uint256 overlap) = _anchorAdjustments(registry, positionIds, values);
 
-        uint256 upperBase = cache + registry.bridgedOut(strategy);
+        // R5-H: an observed Pending position's booked value sits in `cache` while its reservation
+        // is still in bridgedOut - subtract the overlap so the upper anchor is not loose by up to
+        // the reservation for as long as the position stays Pending.
+        uint256 inFlight = registry.bridgedOut(strategy);
+        uint256 upperBase = cache + (inFlight > overlap ? inFlight - overlap : 0);
         if (total > upperBase + (upperBase * config.deviationThreshold) / 1e18) return true;
 
-        uint256 drained;
-        uint256 len = positionIds.length;
-        for (uint256 i; i < len; ++i) {
-            if (
-                values[i] == 0
-                    && registry.positions(positionIds[i]).status
-                        == ICrossChainPositionRegistry.PositionStatus.WindingDown
-            ) {
-                drained += registry.positionValue(positionIds[i]);
-            }
-        }
         uint256 lowerBase = cache > drained ? cache - drained : 0;
         return total < lowerBase - (lowerBase * config.deviationThreshold) / 1e18;
     }
 
-    /// @dev True if any covered position moves more than the per-position bound.
+    /// @dev Anchor adjustments for _aggregateBreach (split out to keep the stack shallow):
+    ///      `drained` = previously committed value of WindingDown positions this report drains to
+    ///      zero (the expected terminal report of an exit); `overlap` = for every observed Pending
+    ///      position, the part of its counted reservation already represented by its booked
+    ///      observation, min(reservation, observed) (R5-H).
+    function _anchorAdjustments(
+        ICrossChainPositionRegistry registry,
+        bytes32[] calldata positionIds,
+        uint256[] calldata values
+    )
+        internal
+        view
+        returns (uint256 drained, uint256 overlap)
+    {
+        uint256 len = positionIds.length;
+        for (uint256 i; i < len; ++i) {
+            ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(positionIds[i]);
+            if (p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown) {
+                if (values[i] == 0) drained += p.lastReportedValue;
+            } else if (p.status == ICrossChainPositionRegistry.PositionStatus.Pending && p.lastReportedValue > 0) {
+                overlap += p.lastReportedValue < p.deployedAmount ? p.lastReportedValue : p.deployedAmount;
+            }
+        }
+    }
+
+    /// @dev True if any covered position moves more than the per-position bound. R5-H: the anchor
+    ///      is the position's last BOOKED value - a confirmed (Active/WindingDown) value or an
+    ///      out-of-band Pending observation (booked since R5) - so an observed-Pending value is
+    ///      bounded exactly like a confirmed one instead of floating freely until confirmation. A
+    ///      never-observed Pending (prev == 0) is bounded by the aggregate band's in-flight anchor.
     function _perPositionBreach(
         address strategy,
         bytes32[] calldata positionIds,
@@ -489,17 +512,17 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
         for (uint256 i; i < len; ++i) {
-            uint256 prev = registry.positionValue(positionIds[i]);
+            ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(positionIds[i]);
+            bool live = p.status == ICrossChainPositionRegistry.PositionStatus.Active
+                || p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown
+                || p.status == ICrossChainPositionRegistry.PositionStatus.Pending;
+            uint256 prev = live ? p.lastReportedValue : 0;
             if (prev > 0 && _relDiff(values[i], prev) > threshold) {
                 // R4: a WindingDown position draining to ZERO is the expected terminal report of
                 // an exit (double-gated: the registrar began the exit AND a quorum signed the
                 // zero), not a market move. Without this carve-out no exit could ever complete
                 // through the report path — a zero report is definitionally a 100% deviation.
-                if (
-                    values[i] == 0
-                        && registry.positions(positionIds[i]).status
-                            == ICrossChainPositionRegistry.PositionStatus.WindingDown
-                ) continue;
+                if (values[i] == 0 && p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown) continue;
                 emit PositionDeviationExceeded(strategy, positionIds[i], prev, values[i]);
                 return true;
             }

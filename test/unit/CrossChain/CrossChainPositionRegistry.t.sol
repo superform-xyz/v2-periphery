@@ -37,6 +37,7 @@ contract CrossChainPositionRegistryTest is Test {
 
         registry.setRegistrar(strategy, registrar);
         registry.setBridgeHookAuthorization(bridgeHook, true);
+        registry.setBridgeHookPermissionlessRelease(bridgeHook, true); // R5-H: Across-like (deadline-bounded)
 
         // Approve a SuperVault destination and an idle-hold escrow on CHAIN_A.
         capGuard.setApproved(strategy, CHAIN_A, destVault, true);
@@ -216,6 +217,39 @@ contract CrossChainPositionRegistryTest is Test {
             uint256(registry.reservations(reservationId).status),
             uint256(ICrossChainPositionRegistry.ReservationStatus.Released)
         );
+    }
+
+    /// R5-H: expired reservations are permissionlessly releasable ONLY for hooks flagged by
+    /// governance (bridges that cannot fill after the timeout); every other hook's reservations
+    /// release through governance, so a manager cannot recycle cap headroom by letting an open
+    /// order / retryable message outlive the wall-clock release.
+    function test_R5H_ReleaseIsGovernorOnlyUnlessHookFlagged() public {
+        address deBridgeLikeHook = makeAddr("deBridgeCapHook");
+        registry.setBridgeHookAuthorization(deBridgeLikeHook, true);
+        vm.prank(deBridgeLikeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+        assertEq(registry.reservations(reservationId).hook, deBridgeLikeHook, "reservation remembers its hook");
+        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainPositionRegistry.RELEASE_REQUIRES_GOVERNOR.selector);
+        registry.releaseExpiredReservation(reservationId);
+        assertEq(registry.bridgedOut(strategy), 100e18, "still counted");
+
+        registry.releaseExpiredReservation(reservationId); // this test contract is governor
+        assertEq(registry.bridgedOut(strategy), 0);
+
+        // Flagging is governor-only; once flagged, anyone may release.
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.setBridgeHookPermissionlessRelease(deBridgeLikeHook, true);
+        registry.setBridgeHookPermissionlessRelease(deBridgeLikeHook, true);
+        vm.prank(deBridgeLikeHook);
+        bytes32 second = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 50e18);
+        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+        vm.prank(makeAddr("rando"));
+        registry.releaseExpiredReservation(second);
+        assertEq(registry.bridgedOut(strategy), 0);
     }
 
     /// K1: a fill that lands AFTER the reservation timed out and was released is still trackable —

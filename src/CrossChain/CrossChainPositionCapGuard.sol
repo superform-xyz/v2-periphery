@@ -78,6 +78,20 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     ///      setDestinationVaultAsset / setStargateRoute docs.
     mapping(address => address) public strategyHubAsset;
 
+    /// @dev R5-H (same-asset invariant, destination half made address-level): strategy => chain =>
+    ///      the ONLY destination token the cap hooks may route that strategy's capital into on that
+    ///      chain - the destination representation of its hub asset (0 = unpinned, fail closed).
+    ///      Together with strategyHubAsset this turns the "same asset on both sides" rule into two
+    ///      governance-pinned addresses per strategy and chain instead of a per-route review; only
+    ///      the equal-decimals property of that fixed pair remains a review-time check.
+    mapping(address => mapping(uint64 => address)) public strategyDestinationAsset;
+
+    /// @dev R4-P1 (Stargate exact-delivery trust residual): pool => the fee library the cap hook
+    ///      was reviewed against. The hook's runtime quoteOFT/send equivalence holds only while the
+    ///      pool's fee library prices both paths identically and ignores the sender; a rotation by
+    ///      Stargate governance fails closed at send time until re-reviewed here (0 = unpinned).
+    mapping(address => address) public stargateFeeLib;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -239,6 +253,22 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         if (strategy == address(0)) revert ZERO_ADDRESS();
         strategyHubAsset[strategy] = asset;
         emit StrategyHubAssetUpdated(strategy, asset);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setStrategyDestinationAsset(address strategy, uint64 chainId, address asset) external {
+        _requireGovernor(msg.sender);
+        if (strategy == address(0)) revert ZERO_ADDRESS();
+        strategyDestinationAsset[strategy][chainId] = asset;
+        emit StrategyDestinationAssetUpdated(strategy, chainId, asset);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    function setStargateFeeLib(address pool, address feeLib) external {
+        _requireGovernor(msg.sender);
+        if (pool == address(0)) revert ZERO_ADDRESS();
+        stargateFeeLib[pool] = feeLib;
+        emit StargateFeeLibUpdated(pool, feeLib);
     }
 
     /// @inheritdoc ICrossChainPositionCapGuard
