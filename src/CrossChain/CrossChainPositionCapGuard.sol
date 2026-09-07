@@ -70,6 +70,14 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     /// @dev R3-RF1: hard minimum minAmountLD/amountLD ratio for Stargate sends (0 = unset)
     uint256 public stargateMinDeliveryBps;
 
+    /// @dev R4 (same-asset invariant, hub-verifiable half): strategy => the ONLY input token the
+    ///      cap hooks may bridge for it — the strategy's hub denomination asset (0 = unpinned,
+    ///      fail closed once the core-side binding consumes this). The destination half of the
+    ///      invariant (destinationVaultAsset / stargateDstToken must be the same asset with EQUAL
+    ///      decimals) is not machine-checkable cross-chain and is a route-activation rule: see
+    ///      setDestinationVaultAsset / setStargateRoute docs.
+    mapping(address => address) public strategyHubAsset;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -209,11 +217,28 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     }
 
     /// @inheritdoc ICrossChainPositionCapGuard
+    /// @dev R4 route-activation rule (same-asset invariant, destination half): the pinned asset
+    ///      MUST be the destination-chain representation of the strategy's hub asset with EQUAL
+    ///      decimals. This is not machine-checkable cross-chain — reject any cross-token or
+    ///      decimal-changing route at review time, or the delivery floor and the cap's amount
+    ///      accounting become dimensionally invalid.
     function setDestinationVaultAsset(uint64 chainId, address vault, address asset) external {
         _requireGovernor(msg.sender);
         if (vault == address(0)) revert ZERO_ADDRESS();
         destinationVaultAsset[chainId][vault] = asset;
         emit DestinationVaultAssetUpdated(chainId, vault, asset);
+    }
+
+    /// @inheritdoc ICrossChainPositionCapGuard
+    /// @dev R4 (same-asset invariant, hub-verifiable half): pins the only input token the cap
+    ///      hook family may bridge for `strategy`. The core-side cap hooks bind their decoded
+    ///      input token to this value at send time (fail closed when unpinned), so a cross-token
+    ///      source leg can never mint a reservation denominated in the wrong unit.
+    function setStrategyHubAsset(address strategy, address asset) external {
+        _requireGovernor(msg.sender);
+        if (strategy == address(0)) revert ZERO_ADDRESS();
+        strategyHubAsset[strategy] = asset;
+        emit StrategyHubAssetUpdated(strategy, asset);
     }
 
     /// @inheritdoc ICrossChainPositionCapGuard
@@ -225,9 +250,17 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     }
 
     /// @inheritdoc ICrossChainPositionCapGuard
+    /// @dev R4-F3: cap-enabled Stargate routes must guarantee FULL delivery (bps == 10_000, i.e.
+    ///      encoded minAmountLD == encoded amountLD) or stay unset (0 = Stargate disabled,
+    ///      fail-closed). Any laxer ratio leaves an actual-delivery remainder (credited minus
+    ///      action amount) that the destination executes/reports around but the reservation
+    ///      settlement never books — repeated sends could recycle that slice of cap headroom.
+    ///      Consequence: only fee-less Stargate routes (credited == amountLD) are usable for
+    ///      cap-enabled sends; a route whose pool charges a fee reverts at the Stargate slippage
+    ///      check instead of under-delivering.
     function setStargateMinDeliveryBps(uint256 bps) external {
         _requireGovernor(msg.sender);
-        if (bps != 0 && (bps < 9000 || bps > BPS_PRECISION)) revert INVALID_CAP();
+        if (bps != 0 && bps != BPS_PRECISION) revert INVALID_CAP();
         stargateMinDeliveryBps = bps;
         emit StargateMinDeliveryBpsUpdated(bps);
     }

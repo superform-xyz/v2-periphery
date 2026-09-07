@@ -207,10 +207,16 @@ contract CrossChainPositionCapGuardTest is Test {
         assertEq(guard.destinationVaultAsset(CHAIN_A, destVault), asset);
         guard.setStargateRoute(pool, CHAIN_A, asset);
         assertEq(guard.stargateDstToken(pool, CHAIN_A), asset);
-        guard.setStargateMinDeliveryBps(9900);
-        assertEq(guard.stargateMinDeliveryBps(), 9900);
+        guard.setStargateMinDeliveryBps(10_000);
+        assertEq(guard.stargateMinDeliveryBps(), 10_000);
 
-        // Ratio is bounded to [9000, 10000] (0 = unset allowed).
+        // R4-F3: cap-enabled Stargate routes must guarantee FULL delivery - only 10_000 or
+        // 0 (= unset, fail closed) are accepted. Any partial-delivery ratio would leave a
+        // credited-minus-action remainder the reservation settlement never books.
+        vm.expectRevert(ICrossChainPositionCapGuard.INVALID_CAP.selector);
+        guard.setStargateMinDeliveryBps(9900);
+        vm.expectRevert(ICrossChainPositionCapGuard.INVALID_CAP.selector);
+        guard.setStargateMinDeliveryBps(9000);
         vm.expectRevert(ICrossChainPositionCapGuard.INVALID_CAP.selector);
         guard.setStargateMinDeliveryBps(8000);
         guard.setStargateMinDeliveryBps(0);
@@ -222,8 +228,25 @@ contract CrossChainPositionCapGuardTest is Test {
         vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
         guard.setStargateRoute(pool, CHAIN_A, asset);
         vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
-        guard.setStargateMinDeliveryBps(9900);
+        guard.setStargateMinDeliveryBps(10_000);
         vm.stopPrank();
+    }
+
+    /// R4 (same-asset invariant, hub half): the pinned hub asset is what the core cap hooks bind
+    /// their bridged input token to; governor-only, zero-strategy guarded, unpinnable.
+    function test_R4_SetStrategyHubAsset_GovernorOnly() public {
+        address hubAsset = makeAddr("hubUSDC");
+        guard.setStrategyHubAsset(strategy, hubAsset);
+        assertEq(guard.strategyHubAsset(strategy), hubAsset);
+        guard.setStrategyHubAsset(strategy, address(0)); // unpin
+        assertEq(guard.strategyHubAsset(strategy), address(0));
+
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setStrategyHubAsset(address(0), hubAsset);
+
+        vm.prank(manager);
+        vm.expectRevert(ICrossChainPositionCapGuard.UNAUTHORIZED.selector);
+        guard.setStrategyHubAsset(strategy, hubAsset);
     }
 
     function test_SetEidChainId_GovernorOnly() public {

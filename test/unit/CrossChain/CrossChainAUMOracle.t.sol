@@ -686,6 +686,48 @@ contract CrossChainAUMOracleTest is Test {
         assertFalse(registry.wasSynced(idExited), "terminal id skipped, not booked");
     }
 
+    /// R4-F1 (reviewer round-4 numerical trace): a terminal id's caller-supplied value must NOT
+    /// pad the validation bands. Live position drops 100 -> 25 while a terminal id carries 75:
+    /// the candidate total is 25 (75% aggregate drop), so the report must SOFT-FAIL — not pass
+    /// validation at a padded 100 and then commit 25 (which would silently reopen cap headroom).
+    function test_R4F1_TerminalValueCannotPadValidation() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        _seedActiveAggregate(idA, 100e18); // committed cache = 100
+        registry.setBridgedOut(strategy, 0); // all settled - cache-anchored band
+        bytes32 idT = keccak256("terminalPad");
+        registry.addPosition(idT, ICrossChainPositionRegistry.PositionStatus.Exited, block.timestamp - 1, 0);
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idT, 25e18, 75e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "padded report must not commit");
+        assertEq(oracle.consecutiveBreaches(strategy), 1, "must soft-fail as an aggregate breach");
+        assertFalse(registry.wasSynced(idT));
+    }
+
+    /// R4-F1: a nonzero value on a tolerated terminal id is EXCLUDED from validation, and the
+    /// rest of the (honest) report still commits — validation total == committed total.
+    function test_R4F1_TerminalValueExcludedHonestReportCommits() public {
+        bytes32 idA = _oneActivePosition(100e18);
+        _seedActiveAggregate(idA, 100e18);
+        registry.setBridgedOut(strategy, 0);
+        bytes32 idT = keccak256("terminalJunk");
+        registry.addPosition(idT, ICrossChainPositionRegistry.PositionStatus.Invalidated, block.timestamp - 1, 0);
+
+        vm.warp(block.timestamp + 2 minutes);
+        uint256 ts = block.timestamp;
+        (bytes32 i0, bytes32 i1, uint256 v0, uint256 v1) = _ascending(idA, idT, 100e18, 75e18);
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report2(i0, i1, v0, v1, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+
+        assertEq(oracle.getTotalAUM(strategy), 100e18, "live value commits, terminal junk ignored");
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "no breach - candidate total was honest");
+        assertFalse(registry.wasSynced(idT), "terminal id books nothing");
+    }
+
     /// R4 (PF1 mutation-killer): an expired never-observed Pending is REQUIRED — a report that
     /// omits it must revert INCOMPLETE_REPORT (previously it was unreportable, making the
     /// registry's late-confirm branch unreachable through the oracle).

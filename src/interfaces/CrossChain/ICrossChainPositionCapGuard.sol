@@ -22,6 +22,7 @@ interface ICrossChainPositionCapGuard {
     event DestinationVaultAssetUpdated(uint64 indexed chainId, address indexed vault, address asset);
     event StargateRouteUpdated(address indexed srcPool, uint64 indexed chainId, address dstToken);
     event StargateMinDeliveryBpsUpdated(uint256 bps);
+    event StrategyHubAssetUpdated(address indexed strategy, address asset);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -103,13 +104,23 @@ interface ICrossChainPositionCapGuard {
     /// @notice Pin the destination-side token a Stargate source pool delivers on `chainId`
     ///         (R3-RF1: the OFT destination token is not hub-derivable, so governance supplies
     ///         it and the cap hook binds the action token to it, fail closed when unset).
-    ///         GOVERNOR_ROLE-only.
+    ///         R4 route-activation rule: the pinned token MUST be the destination representation
+    ///         of the strategy's hub asset with EQUAL decimals (same-asset invariant; not
+    ///         machine-checkable cross-chain — enforce at route review). GOVERNOR_ROLE-only.
     function setStargateRoute(address srcPool, uint64 chainId, address dstToken) external;
 
-    /// @notice Hard minimum-delivery ratio for Stargate sends (R3-RF1): minAmountLD must be at
-    ///         least `bps` of amountLD, bounding the caller-chosen slippage margin — and with it
-    ///         the maximum untracked delivery surplus — in code. Bounded to [9000, 10000];
-    ///         0 = unset (Stargate sends fail closed). GOVERNOR_ROLE-only.
+    /// @notice Pin the ONLY input token the cap hook family may bridge for `strategy` — its hub
+    ///         denomination asset (R4, hub-verifiable half of the same-asset invariant; the
+    ///         core-side cap hooks bind their decoded input token to this at send time, fail
+    ///         closed when unpinned). address(0) unpins. GOVERNOR_ROLE-only.
+    function setStrategyHubAsset(address strategy, address asset) external;
+
+    /// @notice Hard minimum-delivery ratio for Stargate sends (R3-RF1 / R4-F3): minAmountLD must
+    ///         be at least `bps` of amountLD. R4-F3 locks cap-enabled routes to FULL delivery —
+    ///         only 10_000 (minAmountLD == amountLD, so the credited amount can never exceed the
+    ///         destination action's accounted amount) or 0 = unset (Stargate sends fail closed)
+    ///         are accepted. A laxer ratio would leave a credited-minus-action remainder that the
+    ///         reservation settlement never books. GOVERNOR_ROLE-only.
     function setStargateMinDeliveryBps(uint256 bps) external;
 
     /*//////////////////////////////////////////////////////////////
@@ -149,4 +160,5 @@ interface ICrossChainPositionCapGuard {
 
     /// @notice Minimum minAmountLD/amountLD ratio for Stargate sends in bps; 0 = unset
     function stargateMinDeliveryBps() external view returns (uint256);
+    function strategyHubAsset(address strategy) external view returns (address);
 }

@@ -140,8 +140,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, false);
         _validateReportSet(strategy, positionIds, timestamp);
 
-        // Derive aggregate on-chain.
-        uint256 total = _sum(values);
+        // Derive the aggregate on-chain. R4-F1: the CANDIDATE total (terminal entries excluded)
+        // — every security band below must be computed over exactly what the registry can book,
+        // or a tolerated terminal id's caller-supplied value could pad validation and vanish at
+        // commit (cap-headroom reopening).
+        uint256 total = _candidateTotal(positionIds, values);
         AUMReport memory current = _latestReport[strategy];
 
         // P2-4: bound the signed hubAssets too - it feeds getTotalAUM (the cap denominator) but is
@@ -213,7 +216,8 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, true);
         _validateReportSet(strategy, positionIds, timestamp);
 
-        uint256 total = _sum(values);
+        // R4-F1: candidate total (terminal entries excluded) — see forwardAUM.
+        uint256 total = _candidateTotal(positionIds, values);
 
         // K2: force recovery is ONLY available while the PPS x supply backstop is live — with no
         // implied-assets source the SEC-8 band would be vacuous and quorum + ORACLE_MANAGER could
@@ -363,11 +367,13 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     }
 
     /// @dev B2: the submitted id set must EQUAL the canonical required set - strictly ascending
-    ///      (no duplicates), every id owned by `strategy` and in the reportable status/time domain
-    ///      (no extras), and every required position covered (SEC-9/SEC-14 completeness). This
-    ///      guarantees the summed aggregate only contains entries the registry will accept.
-    ///      A position that exits/expires between off-chain signing and submission now reverts the
-    ///      report; the corrected set must be re-signed under the same (unconsumed) nonce.
+    ///      (no duplicates), every id owned by `strategy` and in the reportable status/time domain,
+    ///      and every required position covered (SEC-9/SEC-14 completeness). Terminal (Exited/
+    ///      Invalidated) strategy-owned ids are TOLERATED for sign-vs-submit races, but their
+    ///      values are excluded from every validation total via _candidateTotal (R4-F1), so the
+    ///      validated aggregate equals what the registry will accept. The one documented,
+    ///      conservative divergence: an out-of-band Pending value passes validation but books 0 -
+    ///      its FULL reservation stays counted, so cap-facing exposure is only ever overstated.
     function _validateReportSet(address strategy, bytes32[] calldata positionIds, uint256 timestamp) internal view {
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
@@ -585,10 +591,31 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         return SUPER_GOVERNOR.getAddress(CROSS_CHAIN_POSITION_REGISTRY);
     }
 
-    function _sum(uint256[] calldata xs) internal pure returns (uint256 s) {
-        uint256 len = xs.length;
+    /// @dev R4-F1: the candidate aggregate used by EVERY validation band. Entries whose position
+    ///      is already terminal (Exited/Invalidated - tolerated in the set for sign-vs-submit
+    ///      races) are skipped by the registry during commit, so they must be skipped here too:
+    ///      otherwise a quorum could pad the aggregate/consistency checks with a terminal id's
+    ///      caller-supplied value and commit a much lower live total, silently reopening cap
+    ///      headroom (validation-vs-commit mismatch).
+    function _candidateTotal(
+        bytes32[] calldata positionIds,
+        uint256[] calldata values
+    )
+        internal
+        view
+        returns (uint256 s)
+    {
+        // Ownership of every id was already enforced by _validateReportSet before any total is
+        // computed; only the terminal-status skip matters here.
+        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+        uint256 len = positionIds.length;
         for (uint256 i; i < len; ++i) {
-            s += xs[i];
+            ICrossChainPositionRegistry.PositionStatus status = registry.positions(positionIds[i]).status;
+            if (
+                status == ICrossChainPositionRegistry.PositionStatus.Exited
+                    || status == ICrossChainPositionRegistry.PositionStatus.Invalidated
+            ) continue;
+            s += values[i];
         }
     }
 

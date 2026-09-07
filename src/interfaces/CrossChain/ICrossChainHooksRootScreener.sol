@@ -16,6 +16,16 @@ pragma solidity 0.8.30;
 ///         SuperVaultAggregator release. Operational rules that make the window small: clear
 ///         every root BEFORE proposing it; never keep raw value-exit leaves in the global root;
 ///         run redundant watchers.
+///
+///         FORMAL RISK ACCEPTANCE (R4-F2): until that aggregator release ships, Superform
+///         accepts the trusted, AVAILABILITY-CRITICAL watcher as part of the cap security
+///         boundary — a compromised main manager who proposes an opaque raw-hook root and whose
+///         timelock elapses with NO watcher transaction landing can execute the raw hook. This
+///         acceptance carries an ACTIVATION PREREQUISITE: cap-enabled (screened) strategies must
+///         not be onboarded until (1) redundant watcher services monitoring every proposal are
+///         live and alerting, (2) the clearance grace period is configured below the aggregator
+///         timelock, and (3) every raw value-exit hook is banned here AND absent from the global
+///         root. See the deploy script's runbook step for the checklist.
 interface ICrossChainHooksRootScreener {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

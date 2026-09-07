@@ -21,23 +21,44 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///          <env> <chainId> <superGovernor> --rpc-url ... --broadcast
 ///
 ///      GOVERNANCE BOOTSTRAP ORDER (Safe txs; calldata printed by this script):
-///        1. superGovernor.setAddress(CROSS_CHAIN_POSITION_REGISTRY, registry)
-///        2. superGovernor.setAddress(CROSS_CHAIN_AUM_ORACLE, oracle)
-///        3. superGovernor.setAddress(CROSS_CHAIN_CAP_GUARD, capGuard)
-///        4. superGovernor.grantRole(GUARDIAN_ROLE, screener)          (K3 veto authority)
+///        1.  superGovernor.setAddress(CROSS_CHAIN_POSITION_REGISTRY, registry)
+///        2.  superGovernor.setAddress(CROSS_CHAIN_AUM_ORACLE, oracle)
+///        3.  superGovernor.setAddress(CROSS_CHAIN_CAP_GUARD, capGuard)
+///        4.  superGovernor.grantRole(GUARDIAN_ROLE, screener)         (K3 veto authority)
+///        4b. screener.setClearanceGracePeriod(period)                 (R3-PF3; MUST be < the
+///            aggregator's hooks-root timelock or the setter reverts, R4-P1)
 ///        Then per bridge protocol (use printHookAuthorization / printBanRawHook):
-///        5. registry.setBridgeHookAuthorization(capHook, true)        per SuperVault*CapBridgeHook
-///        6. screener.setBannedHook(rawHook, true)                     per raw bridge/transfer hook
+///        5.  registry.setBridgeHookAuthorization(capHook, true)       per SuperVault*CapBridgeHook
+///        6.  screener.setBannedHook(rawHook, true)                    per raw bridge/transfer hook
+///            (R4-F2 ORDER RULE: remove the raw leaf from the GLOBAL root BEFORE banning, or the
+///            ban makes the global root permissionlessly vetoable protocol-wide)
 ///        Then per destination chain (use printDestinationPolicy):
-///        7. capGuard.setDestinationAdapter(chainId, adapter, true)    per bridge adapter deployment
-///        8. capGuard.setDestinationHooks(chainId, approveHook, depositHook)
-///        9. capGuard.setEidChainId(eid, chainId)                      Stargate routes only (B4)
+///        7.  capGuard.setDestinationAdapter(chainId, adapter, true)   per bridge adapter deployment
+///        8.  capGuard.setDestinationHooks(chainId, approveHook, depositHook)
+///        9.  capGuard.setEidChainId(eid, chainId)                     Stargate routes only (B4)
+///        9b. capGuard.setStargateRoute(srcPool, chainId, dstToken)    Stargate routes only (R3-RF1)
+///        9c. capGuard.setStargateMinDeliveryBps(10_000)               once; only full delivery is
+///            accepted (R4-F3)
+///        Then per approved (chain, vault) route (use printVaultAsset):
+///        9d. capGuard.setDestinationVaultAsset(chainId, vault, asset) REQUIRED or every deposit
+///            fails closed. R4 activation rule: asset must be the destination representation of
+///            the strategy's hub asset with EQUAL decimals (same-asset invariant; reject any
+///            cross-token/decimal-changing route at review).
 ///        Then per strategy (use printStrategyOnboarding):
 ///        10. registry.setRegistrar(strategy, registrar)
+///        10b. capGuard.setStrategyHubAsset(strategy, hubAsset)        (R4 same-asset invariant,
+///            hub side; the core cap hooks bind the bridged input token to this)
 ///        11. screener.setScreenedStrategy(strategy, true)
 ///        12. capGuard.setApprovedDestination(strategy, chainId, vault, true)   per destination
 ///        13. capGuard.setCapConfig(strategy, maxBps, chainIds, caps, enabled)
 ///        14. oracle.setAUMOracleConfig(strategy, config)              (ORACLE_MANAGER_ROLE, not Safe)
+///        Then per root proposal (use printRootClearance; ongoing operations):
+///        15. screener.setRootClearance(strategy, root, true)          clear BEFORE proposing
+///
+///      R4-F2 ACTIVATION PREREQUISITE (formal risk acceptance — see ICrossChainHooksRootScreener):
+///      do NOT onboard a cap-enabled strategy (steps 10-14) until redundant root-proposal watcher
+///      services are live and alerting; until the next aggregator release, screener enforcement
+///      requires a watcher transaction landing inside the timelock window.
 ///
 ///      ACTIVATION INVARIANT: steps 1-4 MUST land before any cap hook is included in a strategy
 ///      root — a cap hook whose SuperGovernor keys resolve to address(0) reverts every execution
@@ -154,8 +175,11 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
     }
 
     /// @notice Calldata pair for one Stargate route (R3-RF1): the destination token the source
-    ///         pool delivers on the chain, plus the global min-delivery ratio (set once; 9900 =
-    ///         minAmountLD must be >= 99% of amountLD).
+    ///         pool delivers on the chain, plus the global min-delivery ratio (set once).
+    ///         R4-F3: the setter only accepts 10_000 (FULL delivery: minAmountLD == amountLD) —
+    ///         cap-enabled Stargate routes must be fee-less so the credited amount can never
+    ///         exceed the action-accounted amount; a partial ratio would leave an unbooked
+    ///         delivery remainder.
     function printStargateRoute(
         address srcPool,
         uint64 chainId,
@@ -174,9 +198,11 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
     /// @notice Calldata pair for onboarding one strategy (steps 10-11); destination approvals and
     ///         cap limits (steps 12-13) are per-destination follow-ups, and the AUM oracle config
     ///         (step 14) is an ORACLE_MANAGER_ROLE action outside the Safe.
-    function printStrategyOnboarding(address strategy, address registrar) external pure {
+    function printStrategyOnboarding(address strategy, address registrar, address hubAsset) external pure {
         console2.log("-> registry.setRegistrar(strategy, registrar)  [GOVERNOR_ROLE]");
         console2.logBytes(abi.encodeCall(CrossChainPositionRegistry.setRegistrar, (strategy, registrar)));
+        console2.log("-> capGuard.setStrategyHubAsset(strategy, hubAsset)  [GOVERNOR_ROLE] (R4 same-asset)");
+        console2.logBytes(abi.encodeCall(CrossChainPositionCapGuard.setStrategyHubAsset, (strategy, hubAsset)));
         console2.log("-> screener.setScreenedStrategy(strategy, true)  [GOVERNOR_ROLE] (K3)");
         console2.logBytes(abi.encodeCall(CrossChainHooksRootScreener.setScreenedStrategy, (strategy, true)));
     }
