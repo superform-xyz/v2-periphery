@@ -461,7 +461,7 @@ contract CrossChainAUMOracle is EIP712 {
 
     // Hard bounds: even ORACLE_MANAGER_ROLE cannot set degenerate config values
     uint256 public constant MIN_MAX_STALENESS = 10 minutes;
-    uint256 public constant MAX_MAX_STALENESS = 24 hours;
+    uint256 public constant MAX_MAX_STALENESS = 4 hours; // as built (R7): two reservation/confirmation cycles
     uint256 public constant MAX_DEVIATION_THRESHOLD = 0.5e18;         // 50% (aggregate)
     uint256 public constant MAX_POSITION_DEVIATION_THRESHOLD = 0.75e18;// 75% (per-position, SEC-14)
     uint256 public constant MIN_UPDATE_INTERVAL = 1 minutes;         // rate-limiter floor (SEC-15)

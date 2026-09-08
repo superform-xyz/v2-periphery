@@ -41,9 +41,10 @@ interface ICrossChainPositionCapGuard {
     error CHAIN_NOT_ENABLED();
     error DESTINATION_VAULT_NOT_APPROVED();
     error IDLE_HOLD_NOT_ENABLED();
-    /// @notice R7: the registry's cap-facing exposure is below the oracle's committed cross-chain
-    ///         total - impossible by construction unless the registry address-book key was
-    ///         rotated mid-flight (orphaned positions); allocations fail closed
+    /// @notice R7: the resolved registry is not the one the oracle's latest committed report was
+    ///         booked against (address-book rotation without a re-seeded report), or its
+    ///         cap-facing exposure is below the committed cross-chain total (impossible by
+    ///         construction on one ledger); allocations fail closed
     error REGISTRY_ORACLE_DESYNC();
 
     /*//////////////////////////////////////////////////////////////

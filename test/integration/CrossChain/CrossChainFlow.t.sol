@@ -326,8 +326,8 @@ contract CrossChainFlowTest is Test {
             R6: TIME ALONE NEVER UNCOUNTS LANDED CAPITAL (REAL STACK)
     //////////////////////////////////////////////////////////////*/
 
-    /// R6-P1 (reviewer round-6 trace, real stack): AUM 1,000, 20% global cap, 200 chain cap, 24h
-    /// staleness. A legitimate 200 lands and is registered; >2h pass with no positive report. The
+    /// R6-P1 (reviewer round-6 trace, real stack): AUM 1,000, 20% global cap, 200 chain cap, 4h
+    /// staleness (the code ceiling). A legitimate 200 lands and is registered; >2h pass with no positive report. The
     /// old wall-clock paths let anyone invalidate the position, reset exposure to 0 and reuse the
     /// headroom under the still-fresh snapshot (true exposure 400 = 40%). Now: a non-governor
     /// cannot invalidate, a zero report past the timeout keeps the reservation counted, and the
@@ -359,7 +359,7 @@ contract CrossChainFlowTest is Test {
 
         // 3-4. >2h reporting delay; anyone tries to erase the landed capital.
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
-        assertTrue(oracle.isAUMFresh(strategy), "snapshot still fresh under the 24h window");
+        assertTrue(oracle.isAUMFresh(strategy), "snapshot still fresh under the 4h ceiling");
         vm.prank(makeAddr("anyone"));
         vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
         registry.invalidateExpiredPending(strategy, id);
@@ -450,6 +450,61 @@ contract CrossChainFlowTest is Test {
         _forwardAUM(id, 200e18, 800e18, false);
         assertEq(oracle.latestReport(strategy).totalCrossChainAssets, 200e18, "landed capital committed");
         assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                R7: REGISTRY ROTATION FAILS CLOSED UNTIL RE-SEEDED
+    //////////////////////////////////////////////////////////////*/
+
+    /// R7 (reviewer round-7 counterexample): rotating CROSS_CHAIN_POSITION_REGISTRY while the old
+    /// registry holds an OPEN reservation (committed cross-chain total 0) must not reopen
+    /// headroom - an amount comparison passes 0 < 0, so the identity handshake is what fails
+    /// closed until a fresh quorum-signed report is committed under the new registry.
+    function test_R7_RegistryRotationWithOpenReservationFailsClosed() public {
+        _setCapConfig(2000, 200e18, true);
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false); // hub 1,000 / cc 0
+        vm.prank(bridgeHook);
+        registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18); // Open in registry A
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18);
+
+        CrossChainPositionRegistry registryB = new CrossChainPositionRegistry(address(governor));
+        governor.setAddress(keccak256("CROSS_CHAIN_POSITION_REGISTRY"), address(registryB));
+        assertEq(registryB.getEffectiveCrossChainExposure(strategy), 0, "orphaned ledger reads 0");
+
+        vm.expectRevert(ICrossChainPositionCapGuard.REGISTRY_ORACLE_DESYNC.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 200e18);
+    }
+
+    /// R7: same with the old registry holding a ZERO-VALUED Pending position (registered, not yet
+    /// reported) - committed total is still 0, identity still fails closed.
+    function test_R7_RegistryRotationWithZeroValuedPendingFailsClosed() public {
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18);
+        vm.prank(registrar);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 190e18);
+
+        CrossChainPositionRegistry registryB = new CrossChainPositionRegistry(address(governor));
+        governor.setAddress(keccak256("CROSS_CHAIN_POSITION_REGISTRY"), address(registryB));
+        vm.expectRevert(ICrossChainPositionCapGuard.REGISTRY_ORACLE_DESYNC.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1);
+    }
+
+    /// R7: the sanctioned migration path - after governance re-points the registry, a fresh
+    /// quorum-signed report committed under the NEW registry (its required set: the migrated
+    /// positions; here none) re-arms allocations. The re-seed is an explicit quorum attestation,
+    /// never a silent consequence of the rotation.
+    function test_R7_RegistryRotationReseededByFreshReportReArms() public {
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+        CrossChainPositionRegistry registryB = new CrossChainPositionRegistry(address(governor));
+        governor.setAddress(keccak256("CROSS_CHAIN_POSITION_REGISTRY"), address(registryB));
+        vm.expectRevert(ICrossChainPositionCapGuard.REGISTRY_ORACLE_DESYNC.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
+
+        vm.warp(block.timestamp + 2 minutes);
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false); // seed under registry B
+        assertEq(oracle.reportRegistry(strategy), address(registryB), "handshake re-armed by the seed report");
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
     }
 
     /// @dev R5 regression 4: the EXACT committed snapshot (not merely the pre-commit candidate)

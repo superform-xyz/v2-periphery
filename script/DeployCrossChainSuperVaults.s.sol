@@ -22,6 +22,10 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///
 ///      GOVERNANCE BOOTSTRAP ORDER (Safe txs; calldata printed by this script):
 ///        1.  superGovernor.setAddress(CROSS_CHAIN_POSITION_REGISTRY, registry)
+///            ROTATION RULE (R7): re-pointing this key later fails closed for EVERY strategy until
+///            a fresh quorum-signed report is committed under the new registry (identity
+///            handshake). Never rotate without first migrating all old global AND per-chain
+///            exposure; the seed report is the quorum's attestation that the new ledger is complete.
 ///        2.  superGovernor.setAddress(CROSS_CHAIN_AUM_ORACLE, oracle)
 ///        3.  superGovernor.setAddress(CROSS_CHAIN_CAP_GUARD, capGuard)
 ///        4.  superGovernor.grantRole(GUARDIAN_ROLE, screener)         (K3 veto authority)

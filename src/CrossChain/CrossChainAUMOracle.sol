@@ -76,6 +76,15 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      time (1.5^n in one block). Commits are therefore paced in wall-clock time as well.
     mapping(address => uint256) public lastCommitAt;
 
+    /// @dev R7 identity handshake: the registry address the latest COMMITTED report was validated
+    ///      and booked against. The cap guard requires the currently resolved registry to equal
+    ///      this, so a SuperGovernor address-book rotation of the registry fails closed for every
+    ///      strategy until a fresh quorum-signed report is committed under the new registry (i.e.
+    ///      after governance has migrated the old global AND per-chain exposure). An amount
+    ///      comparison alone cannot catch a rotation while the old registry holds only Open or
+    ///      zero-valued Pending exposure (committed cross-chain total 0).
+    mapping(address => address) public reportRegistry;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -174,7 +183,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
                     current.hubAssets + current.totalCrossChainAssets,
                     config.deviationThreshold
                 )) {
-                emit AUMDeviationExceeded(strategy, current.hubAssets, hubAssets);
+                emit PublishedTotalDeviationExceeded(
+                    strategy, current.hubAssets + current.totalCrossChainAssets, hubAssets + total
+                );
                 return;
             }
         } else if (reportBootstrapped[strategy] && hubAssets > 0 && _impliedAssets(strategy) == 0) {
@@ -657,6 +668,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             nonce: noncePerStrategy[strategy] - 1
         });
         lastCommitAt[strategy] = block.timestamp; // R4: wall-clock commit pacing
+        reportRegistry[strategy] = address(registry); // R7: identity the guard must match
         reportBootstrapped[strategy] = true; // R2-AUM1: the bootstrap exemption is one-time
         consecutiveBreaches[strategy] = 0;
         if (aumBreakerTripped[strategy]) {

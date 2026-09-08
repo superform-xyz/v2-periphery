@@ -46,6 +46,7 @@ contract CrossChainPositionCapGuardTest is Test {
 
         aum.setFresh(strategy, true);
         aum.setTotal(strategy, 1000e18);
+        aum.setReportRegistry(strategy, address(registry)); // R7: latest report booked against this registry
     }
 
     function _setConfig(uint256 bps, uint64 chainId, uint256 cap, bool enabled) internal {
@@ -66,9 +67,19 @@ contract CrossChainPositionCapGuardTest is Test {
         guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18); // 10% <= 70%, chain cap ok
     }
 
-    /// R7: the registry's cap-facing exposure can only fall below the oracle's committed
-    /// cross-chain total if the registry/oracle address-book key was rotated mid-flight (orphaned
-    /// positions) - allocations must fail closed instead of reopening headroom.
+    /// R7 identity handshake: a registry that is not the one the latest report was booked against
+    /// fails closed even when every amount is consistent (e.g. old ledger held only Open or
+    /// zero-valued Pending exposure, committed total 0).
+    function test_R7_RevertIf_RegistryIdentityMismatch() public {
+        aum.setReportRegistry(strategy, makeAddr("previousRegistry"));
+        vm.expectRevert(ICrossChainPositionCapGuard.REGISTRY_ORACLE_DESYNC.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
+        aum.setReportRegistry(strategy, address(registry)); // re-seeded under the resolved registry
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
+    }
+
+    /// R7 defense in depth: the registry's cap-facing exposure can only fall below the oracle's
+    /// committed cross-chain total on a ledger mismatch - allocations must fail closed.
     function test_R7_RevertIf_RegistryOracleDesync() public {
         registry.setEff(strategy, 100e18);
         aum.setCommittedCrossChain(strategy, 100e18); // equal: fine

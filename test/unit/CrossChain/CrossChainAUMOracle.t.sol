@@ -270,7 +270,7 @@ contract CrossChainAUMOracleTest is Test {
         ts = block.timestamp;
         (ids, vals, proofs) = _report(id, 100e18, 201e18, ts, false);
         vm.expectEmit(true, false, false, true);
-        emit ICrossChainAUMOracle.AUMDeviationExceeded(strategy, 100e18, 201e18);
+        emit ICrossChainAUMOracle.PublishedTotalDeviationExceeded(strategy, 200e18, 301e18);
         oracle.forwardAUM(strategy, ids, vals, 201e18, ts, proofs);
         assertEq(oracle.getTotalAUM(strategy), 200e18, "inflated published total rejected");
         assertEq(oracle.consecutiveBreaches(strategy), 0, "hub band never feeds the breaker");

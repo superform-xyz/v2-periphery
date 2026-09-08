@@ -9,6 +9,12 @@ contract MockAumOracleLite {
     mapping(address => uint256) public total;
     /// @dev R7: committed cross-chain total the guard's desync tripwire compares against
     mapping(address => uint256) public committedCrossChain;
+    /// @dev R7: registry identity the latest report was booked against
+    mapping(address => address) public reportRegistry;
+
+    function setReportRegistry(address s, address r) external {
+        reportRegistry[s] = r;
+    }
 
     function setCommittedCrossChain(address s, uint256 v) external {
         committedCrossChain[s] = v;

@@ -139,14 +139,20 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
 
         // 3. Global cap - numerator includes in-flight bridged-but-unconfirmed exposure (SEC-3).
         uint256 effectiveExposure = registry.getEffectiveCrossChainExposure(strategy);
-        // R7 desync tripwire: after every commit the registry's cap-facing exposure is >= the
-        // oracle's committed cross-chain total by construction (every booked unit is matched by a
-        // confirmed value, a counted reservation or the observed excess). The only way the
-        // inequality can break is a SuperGovernor address-book rotation of the REGISTRY mid-flight
-        // (an oracle rotation zeroes latestReport and fails closed through isAUMFresh instead),
-        // which would otherwise silently reopen headroom against orphaned positions - fail closed
-        // instead of trusting a numerator from a different ledger.
-        if (effectiveExposure < aumOracle.latestReport(strategy).totalCrossChainAssets) {
+        // R7 registry identity handshake: the registry this numerator comes from must be the one
+        // the oracle's latest committed report was booked against. A SuperGovernor address-book
+        // rotation of the registry therefore fails closed for the strategy until a fresh
+        // quorum-signed report is committed under the new registry (after governance migrated the
+        // old global AND per-chain exposure) - an orphaned ledger can never silently reopen
+        // headroom, even when the old registry held only Open or zero-valued Pending exposure.
+        // (An oracle rotation zeroes latestReport and fails closed through isAUMFresh instead.)
+        // Defense in depth: after every commit exposure >= committed cross-chain total by
+        // construction (every booked unit is matched by a confirmed value, a counted reservation
+        // or the observed excess), so a violation is a ledger mismatch as well.
+        if (
+            address(registry) != aumOracle.reportRegistry(strategy)
+                || effectiveExposure < aumOracle.latestReport(strategy).totalCrossChainAssets
+        ) {
             revert REGISTRY_ORACLE_DESYNC();
         }
         uint256 newCrossChain = effectiveExposure + amount;

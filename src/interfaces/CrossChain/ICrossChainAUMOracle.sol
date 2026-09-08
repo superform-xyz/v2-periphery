@@ -35,6 +35,11 @@ interface ICrossChainAUMOracle {
     event AUMUpdated(address indexed strategy, uint256 totalCrossChainAssets, uint256 timestamp);
     event AUMForceUpdated(address indexed strategy, uint256 totalCrossChainAssets, uint256 timestamp);
     event AUMDeviationExceeded(address indexed strategy, uint256 previous, uint256 proposed);
+    /// @notice R7: the published total (hubAssets + cross-chain) moved above the lifecycle-aware
+    ///         band; carries the compared totals so a double-booking soft-fail is diagnosable
+    event PublishedTotalDeviationExceeded(
+        address indexed strategy, uint256 previousPublished, uint256 proposedPublished
+    );
     event PositionDeviationExceeded(address indexed strategy, bytes32 indexed positionId, uint256 prev, uint256 next);
     event PPSConsistencyBreached(address indexed strategy, uint256 impliedAssets, uint256 totalAssets);
     event AUMBreakerTripped(address indexed strategy, uint256 consecutiveBreaches);
@@ -104,6 +109,10 @@ interface ICrossChainAUMOracle {
 
     /// @notice EIP-712 domain separator of this oracle (chainId + verifyingContract bound)
     function domainSeparator() external view returns (bytes32);
+
+    /// @notice R7: the registry the latest committed report was booked against - the cap guard
+    ///         fails closed while the resolved registry differs (rotation without a re-seed)
+    function reportRegistry(address strategy) external view returns (address);
     function configs(address strategy) external view returns (AUMOracleConfig memory);
     function noncePerStrategy(address strategy) external view returns (uint256);
 
