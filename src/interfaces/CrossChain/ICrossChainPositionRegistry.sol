@@ -19,7 +19,7 @@ interface ICrossChainPositionRegistry {
         Active, // Included (funded) in a signed report, counted in AUM
         WindingDown, // Being unwound, assets returning to hub (still counted in AUM)
         Exited, // Fully exited, no longer tracked
-        Invalidated // Pending position not confirmed within the timeout - never entered AUM
+        Invalidated // Pending position resolved by governance as never landed (after the timeout)
     }
 
     /// @notice The only two things bridged capital may become on a destination chain
@@ -32,9 +32,9 @@ interface ICrossChainPositionRegistry {
     ///         a position lifecycle)
     /// @dev Open       — minted by the cap hook at send time; counted as in-flight exposure
     ///      Consumed   — bound to exactly one Pending position; still counted
-    ///      Released   — uncounted (reservation expiry, or its position was invalidated); may be
-    ///                   re-consumed by a late registration (a slow fill that lands after a
-    ///                   timeout), which re-counts it
+    ///      Released   — uncounted by a GOVERNANCE resolution after the timeout (release, or its
+    ///                   position was invalidated; R6: never by the wall clock); may be re-consumed
+    ///                   by a late registration (a slow fill), which re-counts it
     ///      Settled    — its position was oracle-confirmed; terminal, never re-consumable
     enum ReservationStatus {
         None,
@@ -53,7 +53,7 @@ interface ICrossChainPositionRegistry {
         uint256 createdAt;
         ReservationStatus status;
         bytes32 positionId; // set when consumed
-        address hook; // R5-H: the authorized cap hook that recorded it (drives release authority)
+        address hook; // the authorized cap hook that recorded it (provenance for off-chain attestation)
     }
 
     /// @notice A tracked cross-chain position
@@ -113,9 +113,6 @@ interface ICrossChainPositionRegistry {
         address indexed strategy, bytes32 indexed positionId, uint256 observedValue, uint256 reservedAmount
     );
     event BridgeHookAuthorizationUpdated(address indexed hook, bool authorized);
-    /// @notice R5-H: whether reservations recorded by `hook` may be released PERMISSIONLESSLY after
-    ///         RESERVATION_TIMEOUT (only for bridges whose fill cannot land after that window)
-    event BridgeHookPermissionlessReleaseUpdated(address indexed hook, bool permissionless);
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -135,9 +132,6 @@ interface ICrossChainPositionRegistry {
     error RESERVATION_KIND_MISMATCH();
     error RESERVATION_NOT_EXPIRED();
     error POSITION_HAS_LANDED_VALUE();
-    /// @notice R5-H: the reservation's hook is not flagged for permissionless release and the
-    ///         caller is not the governor
-    error RELEASE_REQUIRES_GOVERNOR();
 
     /*//////////////////////////////////////////////////////////////
                               REGISTRAR WRITES
@@ -146,8 +140,9 @@ interface ICrossChainPositionRegistry {
     /// @notice Register a new cross-chain position (registrar only). Starts Pending. K1: consumes
     ///         exactly one bridge reservation — the destination chain, vault and deployed amount
     ///         are taken FROM the reservation the cap hook minted, never supplied by the registrar.
-    ///         A Released reservation (timed out, then the fill landed late) may be consumed too;
-    ///         doing so re-counts its exposure so landed capital is never untracked.
+    ///         A Released reservation (governance-released after the timeout, then the fill
+    ///         landed late) may be consumed too; doing so re-counts its exposure so landed capital
+    ///         is never untracked.
     ///         R4: deliberately does NOT re-check destination approval — the reservation is the
     ///         send-time approval proof, and by registration time the capital has already left the
     ///         hub; refusing to track a landed fill would only push real exposure off-book.
@@ -167,10 +162,13 @@ interface ICrossChainPositionRegistry {
     ///         report to value it at ~0 (oracle-confirmed drain).
     function deregisterPosition(address strategy, bytes32 positionId) external;
 
-    /// @notice Permissionless cleanup of a Pending position past the confirmation timeout that has
-    ///         NEVER shown a positive value: releases its in-flight reservation and evicts it
-    ///         (P2-1). Reverts once any positive value was observed (R3-PF1: landed capital must
-    ///         not be uncounted by a wall clock).
+    /// @notice GOVERNANCE resolution (R6, GOVERNOR_ROLE-only) of a Pending position past the
+    ///         confirmation timeout that has NEVER shown a positive value: releases its in-flight
+    ///         reservation and evicts it, after governance has verified off-chain that the fill
+    ///         never landed / was refunded. Never permissionless: registration follows fill
+    ///         detection by the registrar, so "no positive report yet" is a reporting delay, not
+    ///         proof of non-landing — a wall clock must never uncount it. Reverts once any positive
+    ///         value was observed (R3-PF1).
     function invalidateExpiredPending(address strategy, bytes32 positionId) external;
 
     /// @notice Trusted governance reconciliation for an expired Pending position with a positive
@@ -196,7 +194,9 @@ interface ICrossChainPositionRegistry {
     ///        pendingObservedExcess so cap-facing exposure is max(reservation, observed); the
     ///        position can then never be invalidated by the wall clock - only a later in-band
     ///        report or governance reconcileUnderDeliveredPosition resolves it;
-    ///      - value == 0 past the timeout with NO prior observation -> Invalidated + released.
+    ///      - value == 0 -> stays Pending with its reservation counted, expired or not (R6: the
+    ///        report path never uncounts on a wall clock; a genuinely never-landed position is
+    ///        resolved by governance via invalidateExpiredPending).
     ///      Active/WindingDown -> value update (a still-Consumed reservation — the reconcile
     ///      path — settles on this first committed booking); Exited/Invalidated -> skipped
     ///      (no revert).
@@ -220,7 +220,7 @@ interface ICrossChainPositionRegistry {
     /// @notice Record in-flight bridged-but-unconfirmed exposure (capped-bridge-hook only). K1:
     ///         mints a reservation bound to the exact (strategy, canonical chain, destination
     ///         vault, amount) tuple the hook validated; one registration consumes it, and
-    ///         confirmation/invalidation/expiry reconcile that same reservation.
+    ///         confirmation, or a governance invalidation/release, reconcile that same reservation.
     function recordBridgedOut(
         address strategy,
         uint64 chainId,
@@ -230,10 +230,13 @@ interface ICrossChainPositionRegistry {
         external
         returns (bytes32 reservationId);
 
-    /// @notice Permissionless release of an Open reservation past the reservation timeout (the
-    ///         bridge never filled / refunded on origin): uncounts its in-flight exposure. If the
-    ///         fill lands later, the registrar can still consume the Released reservation, which
-    ///         re-counts it (K1: no uncounted landed capital).
+    /// @notice Release of an Open reservation past the reservation timeout, GOVERNOR_ROLE-only
+    ///         (R6): an affirmative attestation that the bridge never filled / refunded on origin,
+    ///         made after verifying the bridge-side state. Expiry alone never uncounts — a wall
+    ///         clock cannot tell "never filled" from "filled but not yet registered" — and the
+    ///         registrar, which can withhold registration, must never hold a unilateral way to
+    ///         reduce exposure. If a fill nevertheless lands later, the registrar can still consume
+    ///         the Released reservation, which re-counts it (K1: no uncounted landed capital).
     function releaseExpiredReservation(bytes32 reservationId) external;
 
     /*//////////////////////////////////////////////////////////////
@@ -245,15 +248,6 @@ interface ICrossChainPositionRegistry {
 
     /// @notice Authorize/deauthorize a capped bridge hook to record in-flight exposure (GOVERNOR_ROLE)
     function setBridgeHookAuthorization(address hook, bool authorized) external;
-
-    /// @notice R5-H: allow ANYONE to release `hook`'s expired Open reservations. Set ONLY for hooks
-    ///         whose bridge provably cannot deliver after RESERVATION_TIMEOUT (Across: the cap hook
-    ///         bounds fillDeadlineOffset to that timeout). Bridges whose fills can land later
-    ///         (deBridge orders have no deadline; LayerZero/Stargate messages can be retried) stay
-    ///         governor-release-only — otherwise a manager could send, wait for the permissionless
-    ///         release, send again, and have the first fill land afterwards: cap headroom recycled
-    ///         through a trusted-registrar re-consume window. GOVERNOR_ROLE-only.
-    function setBridgeHookPermissionlessRelease(address hook, bool permissionless) external;
 
     /*//////////////////////////////////////////////////////////////
                               VIEWS
@@ -272,7 +266,6 @@ interface ICrossChainPositionRegistry {
     function reservations(bytes32 reservationId) external view returns (BridgeReservation memory);
     function registrars(address strategy) external view returns (address);
     function authorizedBridgeHook(address hook) external view returns (bool);
-    function permissionlessRelease(address hook) external view returns (bool);
     function bridgedOut(address strategy) external view returns (uint256);
     function bridgedOutByChain(address strategy, uint64 chainId) external view returns (uint256);
 

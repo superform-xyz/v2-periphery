@@ -187,7 +187,7 @@ contract CrossChainPositionRegistry {
     mapping(bytes32 => CrossChainPosition) public positions;
 
     /// @dev strategy => registrar address (role-based). SEC-4: appointment is GOVERNOR/
-    ///      ORACLE_MANAGER co-approved, NOT the primary manager alone - the registrar controls
+    ///      GOVERNOR_ROLE-only (SEC-4), NOT the primary manager alone - the registrar controls
     ///      the cap numerator and the un-quorumed exit path, so it must not be under the sole
     ///      control of the party the caps bound. Registrar SHOULD be a multisig.
     mapping(address => address) public registrars;
@@ -195,12 +195,12 @@ contract CrossChainPositionRegistry {
     /// @dev strategy => amount bridged out via SuperVaultCapBridgeHook but not yet reflected in an
     ///      Active position (SEC-3). The hook increments this at send time; syncPositionFrom
     ///      Report decrements it when a Pending position first goes Active (funded), and the
-    ///      2h timeout path decrements it on Invalidation. Counted in the cap numerator so
+    ///      governance invalidation (never a wall clock) decrements it. Counted in the cap numerator so
     ///      in-flight capital is never invisible.
     mapping(address => uint256) public bridgedOut;               // strategy => in-flight amount
     mapping(address => mapping(uint64 => uint256)) public bridgedOutByChain;
 
-    /// @dev Maximum time a Pending position can exist before auto-invalidation
+    /// @dev Minimum age of a never-observed Pending position before GOVERNANCE may invalidate it (R6)
     uint256 public constant POSITION_CONFIRMATION_TIMEOUT = 2 hours;
 
     /// @dev Hard cap on live positions per strategy (SEC-9 DoS): bounds every full-set loop
@@ -248,8 +248,10 @@ contract CrossChainPositionRegistry {
     ///   confirmation requires value within [90%, 110%] of deployedAmount; a positive value outside
     ///   that band is an OBSERVATION - booked into the committed aggregate, position stays Pending,
     ///   reservation stays counted, excess over the reservation counted in cap exposure; only a
-    ///   never-observed Pending invalidates on timeout; the oracle hard-asserts committed ==
-    ///   validated total; permissionless reservation release is a per-hook governance opt-in.
+    ///   time alone NEVER uncounts exposure: an expired never-observed Pending is invalidated only
+    ///   by governance and an expired Open reservation is released only by governance
+    ///   (affirmative no-fill/refund attestation); the oracle hard-asserts committed ==
+    ///   validated total.
     /// @notice Single oracle write path: sync one position from a quorum-signed AUM report
     /// @dev Called by CrossChainAUMOracle.forwardAUM() for every position in the report.
     ///      - Pending, value > 0, within POSITION_CONFIRMATION_TIMEOUT of registeredAt:
@@ -531,7 +533,7 @@ contract CrossChainAUMOracle is EIP712 {
 
     /// @notice Submit a quorum-signed PER-POSITION AUM report
     /// @dev Follows ECDSAPPSOracle validation pattern. The report must be COMPLETE: it must
-    ///      cover every Active/WindingDown position plus every non-expired Pending position
+    ///      cover every Active/WindingDown position plus every Pending position (expired included, R4)
     ///      REGISTERED BEFORE the report timestamp, so (a) the off-chain service cannot
     ///      silently drop a losing position to dodge the deviation check, and (b) a
     ///      registration landing between off-chain signing and on-chain submission cannot
@@ -584,7 +586,7 @@ contract CrossChainAUMOracle is EIP712 {
         //    soft-fails below - so a rejected signed payload can never be replayed later
         uint256 usedNonce = noncePerStrategy[strategy]++;
 
-        // 5. Completeness check: every Active/WindingDown position, plus every non-expired
+        // 5. Completeness check: every Active/WindingDown position, plus every (expired included, R4)
         //    Pending position registered before `timestamp`, must be covered by the report
         ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(
             SUPER_GOVERNOR.getAddress(keccak256("CROSS_CHAIN_POSITION_REGISTRY"))
@@ -1356,7 +1358,7 @@ single-position moves.
 - [x] Flash-loan resistant: Cap enforcement uses oracle-reported AUM, not on-chain balances
 
 ### Access Control & Upgrades
-- [x] Config gating: `setAUMOracleConfig` (ORACLE_MANAGER_ROLE + hard bounds); `setCapConfig` split - tighten=manager, loosen=governor+timelock (SEC-2)
+- [x] Config gating: `setAUMOracleConfig` (ORACLE_MANAGER_ROLE + hard bounds); `setCapConfig` split - tighten=manager, loosen=governor-only (SEC-2; timelock is a documented follow-up)
 - [x] Registrar appointment: GOVERNOR/ORACLE_MANAGER-gated, not manager-alone (SEC-4)
 - [x] Position confirmation: Pending -> Active via first quorum-signed inclusion, with 2-hour invalidation timeout for unconfirmed claims
 - [x] SEC-1 (config): raw bridge hooks are NOT registered on cross-chain host chains, so a raw bridge leaf in a manager root fails isHookRegistered and cannot execute
@@ -1383,7 +1385,7 @@ single-position moves.
 ### Functional Requirements
 - [ ] Constrained destination model: a position is ONLY Idle (hub escrow) or SuperVault (approved destination vault shares); no arbitrary-protocol positions exist
 - [ ] Destination allowlist: SuperVault positions and bridge sends require an approved (chainId, destinationVault) pair; idle-hold requires an enabled escrow; both fail closed
-- [ ] `setApprovedDestination` loosening (approve) is governor+timelock; revoke is manager (SEC-2 authority split)
+- [ ] `setApprovedDestination` loosening (approve) is governor-only (timelock is a documented follow-up); revoke is manager (SEC-2 authority split)
 - [ ] SuperVault position value is reported as `sharesHeld x destinationVault.PPS` (anchored to the destination vault's canonical PPS), not a bespoke valuation
 - [ ] The bridge hook only emits a destination message that is an approved-vault deposit or an idle-hold transfer (no arbitrary destination calldata)
 - [ ] Multi-chain: a strategy may hold positions across many approved (chainId, vault) destinations simultaneously
@@ -1393,16 +1395,16 @@ single-position moves.
 - [ ] positionId carries a per-strategy salt; in-set ids cannot be overwritten/resurrected (SEC-12)
 - [ ] Live positions per strategy bounded by MAX_POSITIONS_PER_STRATEGY; Invalidated/Exited evicted from the set (SEC-9)
 - [ ] Positions are confirmed (Pending -> Active) by first inclusion in a quorum-signed AUM report
-- [ ] Unconfirmed positions auto-invalidate after timeout (2 hours)
+- [x] Never-observed Pending positions are invalidated ONLY by governance after the timeout (R6: time alone never uncounts)
 - [ ] CrossChainAUMOracle receives quorum-signed PER-POSITION reports; the aggregate is derived on-chain as their sum
-- [ ] Reports are complete: a submission missing any Active/WindingDown position, or any non-expired Pending position registered before the report timestamp, reverts (INCOMPLETE_REPORT)
+- [ ] Reports are complete: a submission missing any Active/WindingDown position, or any Pending position (expired included, R4) registered before the report timestamp, reverts (INCOMPLETE_REPORT)
 - [ ] Pending -> Active requires a NONZERO reported value; signers attest 0 for unverified positions (stays Pending); expired Pending positions transition to Invalidated
 - [ ] AUM oracle validates: timestamp monotonicity, staleness, rate limiting, deviation threshold (on the aggregate)
 - [ ] `setAUMOracleConfig` is ORACLE_MANAGER_ROLE-gated with hard bounds on all parameters
 - [ ] Unconfigured strategies (zero maxStaleness) block all cross-chain deployments (fail-safe default)
 - [ ] Global cap numerator includes in-flight/Pending exposure via `bridgedOut` (getEffectiveCrossChainExposure), not just Active/WindingDown (SEC-3)
 - [ ] Per-chain cap fails CLOSED: unlisted destination chain is blocked, not unlimited (SEC-11)
-- [ ] `setCapConfig` loosening is governor+timelock; tightening is manager (SEC-2)
+- [ ] `setCapConfig` loosening is governor-only (timelock is a documented follow-up); tightening is manager (SEC-2)
 - [ ] Stale AUM data blocks new cross-chain deployments (fail-safe)
 - [ ] All new contracts registered in SuperGovernor address registry
 - [ ] Cap enforcement is atomic in SuperVaultCapBridgeHook (validate + bridge in one hook); validated amount == bridged amount even under usePrevHookAmount (SEC-5)
@@ -1463,7 +1465,7 @@ single-position moves.
 | Registrar key compromise | Access Control | Low | High | SEC-4/9: appointment governor-gated, exit oracle-confirmed, phantom-position DoS bounded; registrar SHOULD be a multisig |
 | Stale position data after liquidation | Oracle | Medium | High | SEC-13: circuit breaker trips on repeated soft-fails (blocks deployments + alerts); `forceAUMUpdate` books the loss, gated by quorum + ORACLE_MANAGER and still bound to PPS via SEC-8 |
 | Rogue manager bridges via raw bridge leaf in own strategy root | Access Control | Medium | Critical | SEC-1 (config invariant): raw bridge hooks are NOT registered on cross-chain host chains, so the leaf fails isHookRegistered; deploy-time assertion + monitoring enforce it |
-| Rogue manager raises own cap | Access Control | Medium | Critical | SEC-2: cap loosening is governor+timelock, tightening only for manager |
+| Rogue manager raises own cap | Access Control | Medium | Critical | SEC-2: cap loosening is governor-only (timelock is a documented follow-up), tightening only for manager |
 | Cap overshoot via pipelined in-flight bridges | Cross-Chain | Medium | High | SEC-3: `bridgedOut` accumulator counts bridged-but-unconfirmed capital in the numerator |
 | usePrevHookAmount desyncs validated vs bridged amount | Access Control | Medium | High | SEC-5: hook re-derives and validates the exact dynamic amount; amount source pinned in leaf |
 | PPS/AUM divergence redemption arbitrage | Oracle | Medium | High | SEC-8: `forwardAUM` enforces an on-chain PPS<->AUM consistency band (soft-fail on breach) |

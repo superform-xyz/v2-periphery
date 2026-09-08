@@ -28,7 +28,7 @@ Enable SuperVaults to deploy yield across multiple chains while maintaining all 
 2. Accept quorum-signed PER-POSITION AUM reports (positionIds[], values[]) via CrossChainAUMOracle; aggregate derived on-chain; a report must cover every non-Exited position (completeness rule)
 3. Enforce cross-chain allocation caps (global BPS + per-chain) atomically via SuperVaultCapBridgeHook (cap policy views/config live in CrossChainPositionCapGuard)
 4. Reject cross-chain deployments when AUM data is stale (fail-safe); unconfigured strategies (zero maxStaleness) are blocked by default
-5. Auto-invalidate unconfirmed positions after timeout (2 hours); confirmation is implicit - Pending -> Active on first inclusion in a quorum-signed report
+5. Never-observed Pending positions are resolved by governance after the timeout (2 hours) - time alone never uncounts exposure (R6); confirmation = first quorum-signed report inside the [90%, 110%] band
 6. AUM oracle integrity config (`setAUMOracleConfig`) gated to ORACLE_MANAGER_ROLE with hard bounds (NOT the strategy manager)
 7. No raw Across/deBridge hook leaves in any root of a cross-chain-enabled strategy (root-generation lint + guardian veto)
 8. Support cross-chain deposits via existing SuperExecutor intent flow (no changes)
@@ -103,9 +103,9 @@ Destination Chains (many, approved (chainId, superVault)):
 
 ### Phase 1: Core Position Tracking
 - [ ] Implement CrossChainPositionRegistry with position lifecycle
-- [ ] Implement registrar role management (per-strategy, set by primary manager)
+- [x] Implement registrar role management (per-strategy, set by GOVERNOR_ROLE - SEC-4)
 - [ ] Position confirmation is implicit: Pending -> Active on first inclusion in a quorum-signed AUM report via `registry.syncPositionFromReport()` (no separate confirm tx)
-- [ ] Add position timeout auto-invalidation
+- [x] Governance-only invalidation of never-observed Pending positions after the timeout (R6)
 - [ ] Unit tests for registry
 
 ### Phase 2: AUM Oracle

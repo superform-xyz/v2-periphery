@@ -261,14 +261,58 @@ contract CrossChainAUMOracleTest is Test {
         oracle.forwardAUM(strategy, ids, vals, 100e18, ts, proofs);
         assertEq(oracle.getTotalAUM(strategy), 200e18);
 
-        // P2-4: hubAssets jumps 100 -> 300 (>50%) while the position value is unchanged -> soft-fail.
+        // P2-4 / R7: the PUBLISHED TOTAL (hub + cross-chain) is bounded by (prevTotal + inFlight)
+        // * 1.5 = 300 with nothing in flight: hub 100 -> 201 (total 301) soft-fails WITHOUT
+        // feeding the breaker (user-inducible, like the consistency band); exactly at the bound
+        // (hub 200, total 300) commits.
+        registry.setBridgedOut(strategy, 0);
         vm.warp(block.timestamp + 2 minutes);
         ts = block.timestamp;
-        (ids, vals, proofs) = _report(id, 100e18, 300e18, ts, false);
+        (ids, vals, proofs) = _report(id, 100e18, 201e18, ts, false);
         vm.expectEmit(true, false, false, true);
-        emit ICrossChainAUMOracle.AUMDeviationExceeded(strategy, 100e18, 300e18);
-        oracle.forwardAUM(strategy, ids, vals, 300e18, ts, proofs);
-        assertEq(oracle.getTotalAUM(strategy), 200e18, "inflated hubAssets rejected");
+        emit ICrossChainAUMOracle.AUMDeviationExceeded(strategy, 100e18, 201e18);
+        oracle.forwardAUM(strategy, ids, vals, 201e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 200e18, "inflated published total rejected");
+        assertEq(oracle.consecutiveBreaches(strategy), 0, "hub band never feeds the breaker");
+
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 100e18, 200e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 200e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 300e18, "exactly at the bound commits");
+
+        // R7: a DOWNWARD hub move of any size is the expected result of a cap-hook send (the hub
+        // shrinks by the reserved amount) and only shrinks the denominator -> commits normally.
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 100e18, 10e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 10e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 110e18, "downward hub move commits through the normal path");
+    }
+
+    /// R7 (reviewer-style regression): the hub dimension must not widen the per-report denominator
+    /// envelope. hub 5,000 / cross-chain 5,000, nothing in flight: a report booking 15,000 into the
+    /// hub while keeping 7,500 cross-chain passes each dimension's OWN 1.5x bound but not the
+    /// published-total bound (22,500 > 15,000) -> soft-fail. Booking the same capital once
+    /// (hub 10,000, cross-chain 5,000 = 15,000) commits.
+    function test_R7_HubAndCrossChainCannotBothBookTheSameCapital() public {
+        bytes32 id = _oneActivePosition(5000e18);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 5000e18, 5000e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 5000e18, ts, proofs);
+        registry.setBridgedOut(strategy, 0);
+
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 7500e18, 15_000e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 15_000e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 10_000e18, "double-booked capital must not publish");
+
+        vm.warp(block.timestamp + 2 minutes);
+        ts = block.timestamp;
+        (ids, vals, proofs) = _report(id, 5000e18, 10_000e18, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 10_000e18, ts, proofs);
+        assertEq(oracle.getTotalAUM(strategy), 15_000e18, "the 1.5x envelope itself still commits");
     }
 
     function test_ForwardAUM_HubAssetsWithinBoundCommits() public {

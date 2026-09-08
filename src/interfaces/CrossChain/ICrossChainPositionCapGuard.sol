@@ -41,6 +41,10 @@ interface ICrossChainPositionCapGuard {
     error CHAIN_NOT_ENABLED();
     error DESTINATION_VAULT_NOT_APPROVED();
     error IDLE_HOLD_NOT_ENABLED();
+    /// @notice R7: the registry's cap-facing exposure is below the oracle's committed cross-chain
+    ///         total - impossible by construction unless the registry address-book key was
+    ///         rotated mid-flight (orphaned positions); allocations fail closed
+    error REGISTRY_ORACLE_DESYNC();
 
     /*//////////////////////////////////////////////////////////////
                               ENFORCEMENT
@@ -175,7 +179,8 @@ interface ICrossChainPositionCapGuard {
     /// @notice The destination token a Stargate source pool delivers on a chain; 0 = unmapped
     function stargateDstToken(address srcPool, uint64 chainId) external view returns (address);
 
-    /// @notice Minimum minAmountLD/amountLD ratio for Stargate sends in bps; 0 = unset
+    /// @notice Stargate route enable switch: 10_000 = enabled, 0 = disabled (fail closed). Exactness is
+    ///         enforced by the core hook (minAmountLD == amountLD + runtime quoteOFT), not by this value
     function stargateMinDeliveryBps() external view returns (uint256);
     function strategyHubAsset(address strategy) external view returns (address);
     function strategyDestinationAsset(address strategy, uint64 chainId) external view returns (address);

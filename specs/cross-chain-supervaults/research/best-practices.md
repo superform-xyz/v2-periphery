@@ -63,7 +63,7 @@ Register -> Pending -> Confirmed -> Active -> Winding Down -> Exited
          Manager        AUM Oracle
         (on-chain)     (off-chain)
 ```
-Position registered but not confirmed within timeout should be auto-invalidated.
+Position registered but never observed: kept counted; resolved ONLY by governance after the timeout (as built, R6 - time alone never uncounts).
 
 ## 3. Oracle Patterns for Multi-Chain AUM
 

@@ -31,7 +31,9 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     //////////////////////////////////////////////////////////////*/
 
     uint256 public constant MIN_MAX_STALENESS = 10 minutes;
-    uint256 public constant MAX_MAX_STALENESS = 24 hours;
+    /// @dev R7: a snapshot must not outlive two reservation/confirmation cycles (2 x 2h) - a longer
+    ///      freshness window let one stale denominator back many allocation cycles.
+    uint256 public constant MAX_MAX_STALENESS = 4 hours;
     uint256 public constant MAX_DEVIATION_THRESHOLD = 0.5e18; // 50% (aggregate)
     uint256 public constant MAX_POSITION_DEVIATION_THRESHOLD = 0.75e18; // 75% (per-position)
     uint256 public constant MIN_UPDATE_INTERVAL = 1 minutes;
@@ -150,10 +152,29 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         // P2-4: bound the signed hubAssets too - it feeds getTotalAUM (the cap denominator) but is
         // otherwise unconstrained when the SEC-8 band is inactive (no live PPS source). A single
         // inflated hubAssets would otherwise enlarge cap headroom unchecked.
+        // R7 (lifecycle-aware, like _aggregateBreach): only an UPWARD move of the PUBLISHED TOTAL
+        // (hubAssets + candidate cross-chain) can open headroom, so that is what is banded - against
+        // the previously committed total plus in-flight reservations (minus the observed-Pending
+        // overlap), grown by θ. A downward hub move is the expected result of every cap-hook send
+        // (the hub shrinks by exactly the reserved amount while the reservation enters in-flight),
+        // an exit returns capital hub-ward with the cross-chain side shrinking by the same amount,
+        // and a deposit up to θ of AUM commits - all through the normal path - while the
+        // denominator envelope per report stays exactly the pre-R7 (1 + θ)·(total + in-flight):
+        // a quorum cannot book value into the hub AND keep it cross-chain in the same report.
+        // Downward moves are deliberately unbounded (quorum-trusted, denominator-shrinking only).
+        // Soft-fails WITHOUT feeding the breaker: a large deposit is user-inducible (same
+        // reasoning as the consistency band).
         if (current.hubAssets > 0) {
-            if (_relDiff(hubAssets, current.hubAssets) > config.deviationThreshold) {
+            if (_publishedTotalBreach(
+                    strategy,
+                    positionIds,
+                    values,
+                    total,
+                    hubAssets,
+                    current.hubAssets + current.totalCrossChainAssets,
+                    config.deviationThreshold
+                )) {
                 emit AUMDeviationExceeded(strategy, current.hubAssets, hubAssets);
-                _recordDeviationBreach(strategy, config);
                 return;
             }
         } else if (reportBootstrapped[strategy] && hubAssets > 0 && _impliedAssets(strategy) == 0) {
@@ -389,7 +410,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             if (!_positionRequired(registry, strategy, id, timestamp)) {
                 // R4 liveness: a position that flipped to a TERMINAL state between off-chain
                 // signing and submission (deregistered exit, expired Pending invalidated — incl.
-                // by an invalidateExpiredPending front-run) is tolerated, not reverted: the
+                // by a governance invalidation landing first) is tolerated, not reverted: the
                 // registry safely skips terminal ids (books 0), so the report can still commit
                 // without a full re-sign. Foreign/unknown ids still hard-revert.
                 ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(id);
@@ -429,10 +450,10 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
                 || p.status == ICrossChainPositionRegistry.PositionStatus.WindingDown
         ) return true;
         // R4: a Pending position registered before the report timestamp is ALWAYS required —
-        // while unexpired it must be watched, and after expiry it must STILL be covered so that
-        // (a) a late landing can confirm through the report path (R3-PF1) and (b) a zero report
-        // auto-invalidates it inside the same commit. Without this, an expired never-observed
-        // Pending could not appear in any report and a late-landing fill would stay invisible.
+        // while unexpired it must be watched, and after expiry it must STILL be covered so that a
+        // late landing can confirm through the report path (R3-PF1). R6: an expired Pending that
+        // keeps reporting zero simply stays Pending with its reservation counted (never uncounted
+        // by a wall clock); governance resolves a genuinely never-landed position.
         return p.status == ICrossChainPositionRegistry.PositionStatus.Pending && p.registeredAt < timestamp;
     }
 
@@ -468,6 +489,29 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
 
         uint256 lowerBase = cache > drained ? cache - drained : 0;
         return total < lowerBase - (lowerBase * config.deviationThreshold) / 1e18;
+    }
+
+    /// @dev R7: the published-total band. hubAssets + candidate total must not exceed
+    ///      (prevTotal + inFlight - overlap)·(1 + θ) - the same envelope the aggregate band grants
+    ///      the cross-chain side alone, so adding the hub dimension cannot widen it (see forwardAUM).
+    function _publishedTotalBreach(
+        address strategy,
+        bytes32[] calldata positionIds,
+        uint256[] calldata values,
+        uint256 total,
+        uint256 hubAssets,
+        uint256 prevTotal,
+        uint256 threshold
+    )
+        internal
+        view
+        returns (bool)
+    {
+        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+        (, uint256 overlap) = _anchorAdjustments(registry, positionIds, values);
+        uint256 inFlight = registry.bridgedOut(strategy);
+        uint256 anchor = prevTotal + (inFlight > overlap ? inFlight - overlap : 0);
+        return hubAssets + total > anchor + (anchor * threshold) / 1e18;
     }
 
     /// @dev Anchor adjustments for _aggregateBreach (split out to keep the stack shallow):
@@ -550,7 +594,8 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///
     ///      Returns 0 — "no reliable source" — when any of the following holds, each read via a
     ///      tolerant staticcall so a non-SuperVault strategy can never brick a report:
-    ///      - no aggregator registered, or the strategy does not expose getVaultInfo();
+    ///      - the strategy does not expose getVaultInfo() (an UNSET aggregator key makes
+    ///        SuperGovernor.getAddress revert, i.e. reports fail closed, not tolerant);
     ///      - the aggregator marks the strategy's PPS STALE (a stale PPS is not a backstop);
     ///      - the vault/totalAssets read fails or is zero (pre-seed vault).
     ///      A 0 result leaves the SEC-8 band inactive on the normal path and BLOCKS forceAUMUpdate.

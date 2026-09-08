@@ -66,6 +66,18 @@ contract CrossChainPositionCapGuardTest is Test {
         guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18); // 10% <= 70%, chain cap ok
     }
 
+    /// R7: the registry's cap-facing exposure can only fall below the oracle's committed
+    /// cross-chain total if the registry/oracle address-book key was rotated mid-flight (orphaned
+    /// positions) - allocations must fail closed instead of reopening headroom.
+    function test_R7_RevertIf_RegistryOracleDesync() public {
+        registry.setEff(strategy, 100e18);
+        aum.setCommittedCrossChain(strategy, 100e18); // equal: fine
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
+        aum.setCommittedCrossChain(strategy, 100e18 + 1); // committed > exposure: impossible unless desynced
+        vm.expectRevert(ICrossChainPositionCapGuard.REGISTRY_ORACLE_DESYNC.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
+    }
+
     function test_Validate_RevertUnapprovedVault() public {
         vm.expectRevert(ICrossChainPositionCapGuard.DESTINATION_VAULT_NOT_APPROVED.selector);
         guard.validateAllocation(strategy, CHAIN_A, makeAddr("otherVault"), 1e18);

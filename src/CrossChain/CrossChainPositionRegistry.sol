@@ -22,11 +22,14 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Max time a Pending position may exist before it can be invalidated
+    /// @notice Minimum age of a never-observed Pending position before GOVERNANCE may invalidate it
+    ///         (R6: time alone never uncounts - expiry only makes the trusted resolution eligible)
     uint256 public constant POSITION_CONFIRMATION_TIMEOUT = 2 hours;
 
-    /// @notice Max time an unconsumed (never-registered) reservation stays counted before it can
-    ///         be released permissionlessly (K1)
+    /// @notice Minimum age of an unconsumed (never-registered) reservation before GOVERNANCE may
+    ///         release it with a no-fill/refund attestation (K1 / R6). Also the upper bound the
+    ///         Across cap hook imposes on fillDeadlineOffset, so no Across fill can land after a
+    ///         reservation became releasable.
     uint256 public constant RESERVATION_TIMEOUT = 2 hours;
 
     /// @notice R2-B1/K1: minimum first-report value, as a fraction of the reservation's
@@ -34,7 +37,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     ///         Prevents a partial destination execution (e.g. deposit 1 of a bridged 100) from
     ///         retiring the full 100-unit reservation on any non-zero report: below the threshold
     ///         the position stays Pending (still counted as in-flight) until it either reports a
-    ///         near-full value or times out and is invalidated for reconciliation. 90% leaves
+    ///         near-full value or governance explicitly reconciles/invalidates it. 90% leaves
     ///         room for bridge relayer fees/slippage; both are bounded well under 10% in practice.
     uint256 public constant MIN_CONFIRMATION_BPS = 9000;
 
@@ -96,11 +99,6 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     mapping(address => uint256) public pendingObservedExcess;
     mapping(address => mapping(uint64 => uint256)) public pendingObservedExcessByChain;
 
-    /// @dev R5-H: hook => its expired Open reservations may be released by anyone. Only for bridges
-    ///      that provably cannot deliver after RESERVATION_TIMEOUT; every other hook's reservations
-    ///      release through governance, which verifies the bridge-side state first.
-    mapping(address => bool) public permissionlessRelease;
-
     /// @dev hook => whether it may record in-flight exposure (governor-managed allowlist)
     mapping(address => bool) public authorizedBridgeHook;
 
@@ -153,7 +151,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     {
         BridgeReservation storage res = _reservations[reservationId];
         if (res.strategy != strategy) revert RESERVATION_NOT_CONSUMABLE();
-        // Open = normal flow. Released = the reservation timed out (or its position was
+        // Open = normal flow. Released = governance released it after the timeout (or its position was
         // invalidated) and the fill landed late: consuming re-counts it, so landed capital is
         // never untracked. Consumed/Settled reservations are never re-bindable.
         if (res.status != ReservationStatus.Open && res.status != ReservationStatus.Released) {
@@ -174,7 +172,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         // that the cap hook validated the destination at send time — by registration time the
         // capital has already left the hub, so refusing to track it would only push REAL landed
         // exposure off-book (revoke destination between send and registration -> registration
-        // reverts -> reservation permissionlessly released -> exposure reads 0 while funds sit
+        // reverts -> reservation stranded until a governance release -> exposure reads 0 while funds sit
         // deployed). An approval revocation stops NEW sends at the cap hook; landed fills must
         // always be bookable.
 
@@ -309,17 +307,11 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
                 pos.lastReportTimestamp = timestamp;
                 emit PendingValueObserved(strategy, positionId, value);
                 return value;
-            } else if (block.timestamp > pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT && pos.lastReportedValue == 0)
-            {
-                // Timed out with NO value ever observed: never entered AUM. Release its
-                // reservation (re-consumable if the fill lands even later) and evict.
-                pos.status = PositionStatus.Invalidated;
-                _releasePositionReservation(pos.reservationId);
-                _strategyPositions[strategy].remove(positionId);
-                emit PositionInvalidated(strategy, positionId);
-                return 0;
             } else {
-                // Zero value, not yet expired (or landed value already observed): stays Pending.
+                // Zero value: stays Pending with its reservation counted - expired or not. R6: a
+                // zero report past the timeout is NOT evidence the fill never landed (registration
+                // followed fill detection), so the report path never uncounts it; only governance
+                // (invalidateExpiredPending) resolves a genuinely never-landed position.
                 return 0;
             }
         }
@@ -367,7 +359,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         res.strategy = strategy;
         res.chainId = chainId;
         res.destinationVault = destinationVault;
-        res.hook = msg.sender; // R5-H: release authority follows the recording hook's bridge semantics
+        res.hook = msg.sender; // provenance: which cap hook minted it (evidence routing for the governance attestation)
         res.amount = amount;
         res.createdAt = block.timestamp;
         res.status = ReservationStatus.Open;
@@ -378,17 +370,20 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
-    /// @dev R5-H: permissionless ONLY when the recording hook is flagged (its bridge cannot fill
-    ///      after the timeout); otherwise governor-only, so a manager cannot recycle cap headroom by
-    ///      letting an open order/retryable message outlive the wall-clock release.
-    function releaseExpiredReservation(bytes32 reservationId) external {
+    /// @dev R6: TIME ALONE NEVER UNCOUNTS EXPOSURE. Expiry only opens the door; the release itself is
+    ///      an affirmative no-fill/refund attestation by GOVERNANCE after verifying the bridge-side
+    ///      state (Across: deposit expired past its <= RESERVATION_TIMEOUT deadline and refunded on
+    ///      origin; deBridge: order cancelled by the account's order authority or provably
+    ///      unfilled; Stargate: message verified not delivered). Neither a wall clock nor the
+    ///      registrar may do it: a clock cannot distinguish "never filled" from "filled but not yet
+    ///      registered", and the registrar - which can withhold registration - must never gain a
+    ///      unilateral way to reduce exposure (withhold, release, let the manager resend, register
+    ///      late = headroom recycling). A wrong attestation is bounded: a late fill still
+    ///      re-consumes the Released reservation (K1), so the worst case is a transient window.
+    function releaseExpiredReservation(bytes32 reservationId) external onlyGovernor {
         BridgeReservation storage res = _reservations[reservationId];
         if (res.status != ReservationStatus.Open) revert RESERVATION_NOT_CONSUMABLE();
         if (block.timestamp <= res.createdAt + RESERVATION_TIMEOUT) revert RESERVATION_NOT_EXPIRED();
-        if (
-            !permissionlessRelease[res.hook]
-                && !IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.GOVERNOR_ROLE(), msg.sender)
-        ) revert RELEASE_REQUIRES_GOVERNOR();
 
         res.status = ReservationStatus.Released;
         _uncountReservation(res);
@@ -397,12 +392,15 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     }
 
     /// @inheritdoc ICrossChainPositionRegistry
-    /// @dev P2-1: permissionless cleanup for a Pending position that timed out without confirming
-    ///      (e.g. a failed bridge). Releases its reservation and evicts it, so a never-confirmed
-    ///      bridge cannot permanently reserve cap headroom or a position slot. The oracle's
-    ///      completeness rule stops requiring expired Pending positions, so without this they
-    ///      would otherwise never be cleaned up.
-    function invalidateExpiredPending(address strategy, bytes32 positionId) external {
+    /// @dev R6: GOVERNANCE-ONLY trusted resolution (was permissionless, P2-1). A registered Pending
+    ///      position is a fill the registrar already DETECTED - "no positive oracle observation
+    ///      within the timeout" is a reporting delay, not evidence that the capital never landed.
+    ///      Letting a wall clock release its reservation let anyone erase landed exposure and,
+    ///      with a still-fresh AUM snapshot, reuse the same cap headroom. Governance invalidates
+    ///      only after verifying the fill never happened / was refunded; the position and its
+    ///      counted reservation otherwise stay on the book (the oracle keeps requiring it in every
+    ///      report, so a late landing can still confirm through the report path).
+    function invalidateExpiredPending(address strategy, bytes32 positionId) external onlyGovernor {
         CrossChainPosition storage pos = _positions[positionId];
         if (pos.strategy != strategy || pos.status != PositionStatus.Pending) revert INVALID_POSITION_STATUS();
         if (block.timestamp <= pos.registeredAt + POSITION_CONFIRMATION_TIMEOUT) revert POSITION_NOT_EXPIRED();
@@ -462,13 +460,6 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
         if (hook == address(0)) revert ZERO_ADDRESS();
         authorizedBridgeHook[hook] = authorized;
         emit BridgeHookAuthorizationUpdated(hook, authorized);
-    }
-
-    /// @inheritdoc ICrossChainPositionRegistry
-    function setBridgeHookPermissionlessRelease(address hook, bool permissionless) external onlyGovernor {
-        if (hook == address(0)) revert ZERO_ADDRESS();
-        permissionlessRelease[hook] = permissionless;
-        emit BridgeHookPermissionlessReleaseUpdated(hook, permissionless);
     }
 
     /*//////////////////////////////////////////////////////////////

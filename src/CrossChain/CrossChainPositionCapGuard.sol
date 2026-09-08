@@ -67,15 +67,15 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
     /// @dev R3-RF1: (stargate src pool, chainId) => delivered destination token (0 = unmapped)
     mapping(address => mapping(uint64 => address)) public stargateDstToken;
 
-    /// @dev R3-RF1: hard minimum minAmountLD/amountLD ratio for Stargate sends (0 = unset)
+    /// @dev Stargate route enable switch (R3-RF1 -> R4-P1): 10_000 = enabled, 0 = disabled (fail
+    ///      closed); exactness is enforced by the core hook, never derived from this ratio
     uint256 public stargateMinDeliveryBps;
 
     /// @dev R4 (same-asset invariant, hub-verifiable half): strategy => the ONLY input token the
     ///      cap hooks may bridge for it — the strategy's hub denomination asset (0 = unpinned,
-    ///      fail closed once the core-side binding consumes this). The destination half of the
-    ///      invariant (destinationVaultAsset / stargateDstToken must be the same asset with EQUAL
-    ///      decimals) is not machine-checkable cross-chain and is a route-activation rule: see
-    ///      setDestinationVaultAsset / setStargateRoute docs.
+    ///      fail closed once the core-side binding consumes this). The destination half is pinned
+    ///      per strategy and chain by strategyDestinationAsset (R5-H); only EQUAL DECIMALS of that
+    ///      fixed (hub asset, destination asset) pair remains a route-activation review check.
     mapping(address => address) public strategyHubAsset;
 
     /// @dev R5-H (same-asset invariant, destination half made address-level): strategy => chain =>
@@ -135,7 +135,18 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         if (totalAUM == 0) revert ZERO_TOTAL_AUM();
 
         // 3. Global cap - numerator includes in-flight bridged-but-unconfirmed exposure (SEC-3).
-        uint256 newCrossChain = registry.getEffectiveCrossChainExposure(strategy) + amount;
+        uint256 effectiveExposure = registry.getEffectiveCrossChainExposure(strategy);
+        // R7 desync tripwire: after every commit the registry's cap-facing exposure is >= the
+        // oracle's committed cross-chain total by construction (every booked unit is matched by a
+        // confirmed value, a counted reservation or the observed excess). The only way the
+        // inequality can break is a SuperGovernor address-book rotation of the REGISTRY mid-flight
+        // (an oracle rotation zeroes latestReport and fails closed through isAUMFresh instead),
+        // which would otherwise silently reopen headroom against orphaned positions - fail closed
+        // instead of trusting a numerator from a different ledger.
+        if (effectiveExposure < aumOracle.latestReport(strategy).totalCrossChainAssets) {
+            revert REGISTRY_ORACLE_DESYNC();
+        }
+        uint256 newCrossChain = effectiveExposure + amount;
         if (newCrossChain * BPS_PRECISION > totalAUM * caps.maxCrossChainBps) revert CROSS_CHAIN_CAP_EXCEEDED();
 
         // 4. Per-chain cap - fail closed (SEC-11).

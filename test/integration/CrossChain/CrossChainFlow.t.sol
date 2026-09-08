@@ -322,6 +322,136 @@ contract CrossChainFlowTest is Test {
         assertEq(registry.getEffectiveCrossChainExposure(strategy), 140e18);
     }
 
+    /*//////////////////////////////////////////////////////////////
+            R6: TIME ALONE NEVER UNCOUNTS LANDED CAPITAL (REAL STACK)
+    //////////////////////////////////////////////////////////////*/
+
+    /// R6-P1 (reviewer round-6 trace, real stack): AUM 1,000, 20% global cap, 200 chain cap, 24h
+    /// staleness. A legitimate 200 lands and is registered; >2h pass with no positive report. The
+    /// old wall-clock paths let anyone invalidate the position, reset exposure to 0 and reuse the
+    /// headroom under the still-fresh snapshot (true exposure 400 = 40%). Now: a non-governor
+    /// cannot invalidate, a zero report past the timeout keeps the reservation counted, and the
+    /// second 200 reverts on both caps.
+    function test_R6_RegisteredPendingIsNeverUncountedByWallClock() public {
+        _setCapConfig(2000, 200e18, true); // 20% global, 200 on chain A
+        oracle.setAUMOracleConfig(
+            strategy,
+            ICrossChainAUMOracle.AUMOracleConfig({
+                maxStaleness: 4 hours, // MAX_MAX_STALENESS (R7); still fresh after the 2h+ delay of the trace
+                minUpdateInterval: 1 minutes,
+                deviationThreshold: 0.5e18,
+                perPositionDeviationThreshold: 0.75e18,
+                consistencyToleranceBps: 100,
+                maxConsecutiveDeviationBreaches: 2
+            })
+        );
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false); // fresh snapshot: AUM 1,000
+
+        // 1-2. A legitimate 200 passes both caps, lands, and is registered (fill detected).
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 200e18);
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 190e18
+        );
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18);
+
+        // 3-4. >2h reporting delay; anyone tries to erase the landed capital.
+        vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
+        assertTrue(oracle.isAUMFresh(strategy), "snapshot still fresh under the 24h window");
+        vm.prank(makeAddr("anyone"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.invalidateExpiredPending(strategy, id);
+        vm.prank(makeAddr("anyone"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector); // governance-only (and Consumed
+        // anyway)
+        registry.releaseExpiredReservation(reservationId);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18, "wall clock cannot uncount");
+
+        // A zero report past the timeout (the quorum has not observed it yet) must NOT release the
+        // Consumed reservation either.
+        _forwardAUM(id, 0, 1000e18, false); // hub reported unchanged: keeps the published 1,000 denominator of the
+        // trace
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.bridgedOut(strategy), 200e18, "zero report keeps the reservation counted");
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 200e18);
+
+        // 6. The second 200 reverts on the global cap (200 + 200 > 20% of 1,000)...
+        vm.expectRevert(ICrossChainPositionCapGuard.CROSS_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 200e18);
+        // ...and, with the global cap lifted, on the chain cap (400 > 200).
+        _setCapConfig(10_000, 200e18, true);
+        vm.expectRevert(ICrossChainPositionCapGuard.PER_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 200e18);
+
+        // The late landing still confirms through the normal report path and settles.
+        vm.warp(block.timestamp + 2 minutes);
+        _forwardAUM(id, 200e18, 1000e18, false);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        assertEq(registry.bridgedOut(strategy), 0);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18);
+    }
+
+    /// R6 (reviewer's Open-Across variant): even a governance release followed by a late fill can
+    /// never let a second allocation slip through for long — the late registration re-consumes the
+    /// Released reservation, re-counting it EXACTLY once and re-arming both caps. (A release while
+    /// a fill actually landed is a wrong attestation; the window it opens is transient and closes
+    /// on registration — the runbook's evidence requirements exist to make it not happen at all.)
+    function test_R6_GovernanceReleaseThenLateFillRecountsOnce() public {
+        _setCapConfig(2000, 200e18, true);
+        oracle.setAUMOracleConfig(
+            strategy,
+            ICrossChainAUMOracle.AUMOracleConfig({
+                maxStaleness: 4 hours, // MAX_MAX_STALENESS (R7); the snapshot must still be fresh after the 2h release
+                // window
+                minUpdateInterval: 1 minutes,
+                deviationThreshold: 0.5e18,
+                perPositionDeviationThreshold: 0.75e18,
+                consistencyToleranceBps: 100,
+                maxConsecutiveDeviationBreaches: 2
+            })
+        );
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18);
+        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+        registry.releaseExpiredReservation(reservationId); // governance attests no-fill
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 0);
+
+        // The fill had in fact landed; the registrar registers it against the Released reservation.
+        vm.prank(registrar);
+        registry.registerPosition(strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 190e18);
+        assertEq(registry.bridgedOut(strategy), 200e18, "re-counted exactly once");
+        assertEq(registry.getEffectiveChainExposure(strategy, CHAIN_A), 200e18);
+
+        vm.expectRevert(ICrossChainPositionCapGuard.CROSS_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 200e18);
+    }
+
+    /// R6-P1 regression 4: a terminal invalidation cannot front-run a valid report — only
+    /// governance can invalidate, so the report commits the landed 200.
+    function test_R6_InvalidationCannotFrontRunReport() public {
+        _forwardMany(new bytes32[](0), new uint256[](0), 1000e18, false);
+        vm.prank(bridgeHook);
+        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 200e18);
+        vm.prank(registrar);
+        bytes32 id = registry.registerPosition(
+            strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 190e18
+        );
+        vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
+
+        // Front-run attempt by anyone in the same block as the report: reverts.
+        vm.prank(makeAddr("frontrunner"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.invalidateExpiredPending(strategy, id);
+
+        _forwardAUM(id, 200e18, 800e18, false);
+        assertEq(oracle.latestReport(strategy).totalCrossChainAssets, 200e18, "landed capital committed");
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 200e18);
+    }
+
     /// @dev R5 regression 4: the EXACT committed snapshot (not merely the pre-commit candidate)
     ///      satisfies the configured PPS consistency band.
     function _assertPublishedSnapshotWithinPPSBand() internal view {

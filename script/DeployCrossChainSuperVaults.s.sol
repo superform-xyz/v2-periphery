@@ -29,11 +29,14 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///            aggregator's hooks-root timelock or the setter reverts, R4-P1)
 ///        Then per bridge protocol (use printHookAuthorization / printBanRawHook):
 ///        5.  registry.setBridgeHookAuthorization(capHook, true)       per SuperVault*CapBridgeHook
-///        5b. registry.setBridgeHookPermissionlessRelease(hook, true)   ONLY for the Across cap hook
-///            (its fills cannot land after RESERVATION_TIMEOUT: the hook bounds fillDeadlineOffset
-///            to it). deBridge (no order deadline) and Stargate (retryable LZ delivery) stay
-///            governor-release-only, or a manager could recycle cap headroom through the release
-///            window (R5-H)
+///            R6 UNCOUNT RULE: time alone never reduces cap exposure, and no single off-chain
+///            actor may. An expired Open reservation is released ONLY by governance after
+///            verifying the bridge-side no-fill/refund state; an expired never-observed Pending
+///            position is invalidated ONLY by governance. Runbook: the governance resolution SLA
+///            and the evidence recorded per reservation id (Across: deposit expired past its
+///            <= 2h deadline + refunded on origin; deBridge: order cancelled by the account's
+///            order authority, destination tx hash; Stargate: LayerZero message verified not
+///            delivered) must be documented before onboarding.
 ///        6.  screener.setBannedHook(rawHook, true)                    per raw bridge/transfer hook
 ///            (R4-F2 ORDER RULE: remove the raw leaf from the GLOBAL root BEFORE banning, or the
 ///            ban makes the global root permissionlessly vetoable protocol-wide)
@@ -65,6 +68,8 @@ import { ISuperGovernor } from "../src/interfaces/ISuperGovernor.sol";
 ///        12. capGuard.setApprovedDestination(strategy, chainId, vault, true)   per destination
 ///        13. capGuard.setCapConfig(strategy, maxBps, chainIds, caps, enabled)
 ///        14. oracle.setAUMOracleConfig(strategy, config)              (ORACLE_MANAGER_ROLE, not Safe)
+///            R7: maxStaleness is capped at 4h in code (2 x the reservation/confirmation cycle) - set it
+///            near the actual reporting cadence, never at the ceiling
 ///        Then per root proposal (use printRootClearance; ongoing operations):
 ///        15. screener.setRootClearance(strategy, root, true)          clear BEFORE proposing
 ///

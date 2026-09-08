@@ -37,7 +37,6 @@ contract CrossChainPositionRegistryTest is Test {
 
         registry.setRegistrar(strategy, registrar);
         registry.setBridgeHookAuthorization(bridgeHook, true);
-        registry.setBridgeHookPermissionlessRelease(bridgeHook, true); // R5-H: Across-like (deadline-bounded)
 
         // Approve a SuperVault destination and an idle-hold escrow on CHAIN_A.
         capGuard.setApproved(strategy, CHAIN_A, destVault, true);
@@ -111,7 +110,7 @@ contract CrossChainPositionRegistryTest is Test {
     function test_R4_Register_RevokedDestinationStillRegisters() public {
         // R4 regression: the reservation IS the send-time approval proof. An approval revoked
         // between send and registration must NOT block booking the landed fill — refusing would
-        // push real deployed capital off-book once the reservation is permissionlessly released.
+        // push real deployed capital off-book if the reservation were ever released.
         bytes32 reservationId = _reserve(CHAIN_B, destVault, 1e18);
         vm.prank(registrar);
         bytes32 id = registry.registerPosition(
@@ -202,54 +201,62 @@ contract CrossChainPositionRegistryTest is Test {
         registry.registerPosition(strategyB, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 10e18);
     }
 
-    function test_Reservation_ExpiredReleasePermissionless() public {
+    /// R6: expiry only opens the door — the release is an affirmative no-fill attestation by
+    /// GOVERNANCE. Neither a wall clock nor the registrar (which can withhold registration) may
+    /// uncount exposure.
+    function test_Reservation_ExpiredReleaseRequiresGovernance() public {
         bytes32 reservationId = _reserve(CHAIN_A, destVault, 100e18);
         assertEq(registry.bridgedOut(strategy), 100e18);
 
-        // Not expired yet.
+        // Not expired yet (even for governance).
         vm.expectRevert(ICrossChainPositionRegistry.RESERVATION_NOT_EXPIRED.selector);
         registry.releaseExpiredReservation(reservationId);
 
         vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
-        registry.releaseExpiredReservation(reservationId); // permissionless
-        assertEq(registry.bridgedOut(strategy), 0, "expired reservation uncounted");
+        // Expired, but neither a random caller nor the registrar can uncount it.
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.releaseExpiredReservation(reservationId);
+        vm.prank(registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.releaseExpiredReservation(reservationId);
+        assertEq(registry.bridgedOut(strategy), 100e18, "time alone never uncounts");
+
+        registry.releaseExpiredReservation(reservationId); // governance attests: no fill / refunded
+        assertEq(registry.bridgedOut(strategy), 0, "expired reservation uncounted by governance");
         assertEq(
             uint256(registry.reservations(reservationId).status),
             uint256(ICrossChainPositionRegistry.ReservationStatus.Released)
         );
     }
 
-    /// R5-H: expired reservations are permissionlessly releasable ONLY for hooks flagged by
-    /// governance (bridges that cannot fill after the timeout); every other hook's reservations
-    /// release through governance, so a manager cannot recycle cap headroom by letting an open
-    /// order / retryable message outlive the wall-clock release.
-    function test_R5H_ReleaseIsGovernorOnlyUnlessHookFlagged() public {
-        address deBridgeLikeHook = makeAddr("deBridgeCapHook");
-        registry.setBridgeHookAuthorization(deBridgeLikeHook, true);
-        vm.prank(deBridgeLikeHook);
-        bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
-        assertEq(registry.reservations(reservationId).hook, deBridgeLikeHook, "reservation remembers its hook");
-        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
+    /// R6: the Consumed/Pending uncount invariant is bridge-agnostic — reservations from an
+    /// Across-, a deBridge- and a Stargate-like cap hook all stay counted past the timeout on a
+    /// zero report and cannot be invalidated by anyone but governance. The reservation records its
+    /// hook only as provenance for the governance attestation.
+    function test_R6_ConsumedPendingInvariantIsBridgeAgnostic() public {
+        string[3] memory names = ["acrossCapHook", "deBridgeCapHook", "stargateCapHook"];
+        for (uint256 i; i < 3; ++i) {
+            address hookI = makeAddr(names[i]);
+            registry.setBridgeHookAuthorization(hookI, true);
+            vm.prank(hookI);
+            bytes32 reservationId = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 100e18);
+            assertEq(registry.reservations(reservationId).hook, hookI, "reservation remembers its hook");
+            vm.prank(registrar);
+            bytes32 id = registry.registerPosition(
+                strategy, reservationId, ICrossChainPositionRegistry.PositionKind.SuperVault, 95e18
+            );
+            vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
 
-        vm.prank(makeAddr("rando"));
-        vm.expectRevert(ICrossChainPositionRegistry.RELEASE_REQUIRES_GOVERNOR.selector);
-        registry.releaseExpiredReservation(reservationId);
-        assertEq(registry.bridgedOut(strategy), 100e18, "still counted");
-
-        registry.releaseExpiredReservation(reservationId); // this test contract is governor
-        assertEq(registry.bridgedOut(strategy), 0);
-
-        // Flagging is governor-only; once flagged, anyone may release.
-        vm.prank(makeAddr("rando"));
-        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
-        registry.setBridgeHookPermissionlessRelease(deBridgeLikeHook, true);
-        registry.setBridgeHookPermissionlessRelease(deBridgeLikeHook, true);
-        vm.prank(deBridgeLikeHook);
-        bytes32 second = registry.recordBridgedOut(strategy, CHAIN_A, destVault, 50e18);
-        vm.warp(block.timestamp + registry.RESERVATION_TIMEOUT() + 1);
-        vm.prank(makeAddr("rando"));
-        registry.releaseExpiredReservation(second);
-        assertEq(registry.bridgedOut(strategy), 0);
+            vm.prank(makeAddr("rando"));
+            vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+            registry.invalidateExpiredPending(strategy, id);
+            _sync(id, 0);
+            assertEq(
+                uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending)
+            );
+            assertEq(registry.bridgedOut(strategy), 100e18 * (i + 1), "every bridge's landed capital stays counted");
+        }
     }
 
     /// K1: a fill that lands AFTER the reservation timed out and was released is still trackable —
@@ -523,15 +530,22 @@ contract CrossChainPositionRegistryTest is Test {
         assertEq(registry.getCrossChainAUM(strategy), 0);
     }
 
-    function test_Sync_PendingPastTimeoutInvalidatesAndEvicts() public {
-        // R3-PF1: only a NEVER-observed (zero-value) expired Pending invalidates.
+    /// R6: a zero report past the timeout is NOT evidence the fill never landed (registration
+    /// followed fill detection) — the position stays Pending, its reservation stays counted, and
+    /// it stays in the set (still required in every report so a late landing can confirm).
+    function test_R6_Sync_PendingPastTimeoutZeroStaysPendingAndCounted() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
         _sync(id, 0);
-        assertEq(
-            uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Invalidated)
-        );
-        assertEq(registry.getPositionIds(strategy).length, 0, "evicted from set");
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        assertEq(registry.getPositionIds(strategy).length, 1, "not evicted");
+        assertEq(registry.bridgedOut(strategy), 100e18, "reservation still counted");
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18, "exposure never drops on a wall clock");
+
+        // A late landing still confirms through the normal report path.
+        _sync(id, 100e18);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        assertEq(registry.bridgedOut(strategy), 0, "settled on confirmation");
     }
 
     /// R3-PF1: a late but FULL landing confirms even after the timeout — landed capital books
@@ -692,22 +706,35 @@ contract CrossChainPositionRegistryTest is Test {
         assertEq(registry.bridgedOut(strategy), 100e18, "global == sum(per-chain)");
     }
 
-    function test_BridgedOut_ReleasedOnInvalidation() public {
+    /// R6: a zero sync past the timeout keeps the reservation counted; only the governance
+    /// invalidation (an affirmative never-landed resolution) releases it.
+    function test_BridgedOut_ReleasedOnGovernanceInvalidationOnly() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
-        _sync(id, 0); // timed out -> Invalidated, releases the reservation
-        assertEq(registry.bridgedOut(strategy), 0);
+        _sync(id, 0);
+        assertEq(registry.bridgedOut(strategy), 100e18, "a zero report never releases the reservation");
+        registry.invalidateExpiredPending(strategy, id); // governor
+        assertEq(registry.bridgedOut(strategy), 0, "released by the governance resolution");
     }
 
     /*//////////////////////////////////////////////////////////////
-                       EXPIRED-PENDING CLEANUP (P2-1)
+             EXPIRED-PENDING GOVERNANCE RESOLUTION (P2-1 / R6)
     //////////////////////////////////////////////////////////////*/
 
+    /// R6: invalidation is a GOVERNANCE resolution (never permissionless, never the wall clock).
     function test_InvalidateExpiredPending_ReleasesAndEvicts() public {
         bytes32 id = _registerSuperVault(100e18, 95e18);
 
         vm.warp(block.timestamp + registry.POSITION_CONFIRMATION_TIMEOUT() + 1);
-        registry.invalidateExpiredPending(strategy, id); // permissionless
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.invalidateExpiredPending(strategy, id);
+        vm.prank(registrar); // even the registrar cannot: it registered the fill it detected
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_CONFIG.selector);
+        registry.invalidateExpiredPending(strategy, id);
+        assertEq(registry.getEffectiveCrossChainExposure(strategy), 100e18, "time alone never uncounts");
+
+        registry.invalidateExpiredPending(strategy, id); // this test contract is governor
 
         assertEq(
             uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Invalidated)

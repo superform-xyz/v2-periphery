@@ -1,10 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.30;
 
-/// @notice Settable AUM-oracle stand-in for cap-guard tests (isAUMFresh + getTotalAUM).
+import { ICrossChainAUMOracle } from "../../../../src/interfaces/CrossChain/ICrossChainAUMOracle.sol";
+
+/// @notice Settable AUM-oracle stand-in for cap-guard tests (isAUMFresh + getTotalAUM + latestReport).
 contract MockAumOracleLite {
     mapping(address => bool) public fresh;
     mapping(address => uint256) public total;
+    /// @dev R7: committed cross-chain total the guard's desync tripwire compares against
+    mapping(address => uint256) public committedCrossChain;
+
+    function setCommittedCrossChain(address s, uint256 v) external {
+        committedCrossChain[s] = v;
+    }
+
+    function latestReport(address s) external view returns (ICrossChainAUMOracle.AUMReport memory r) {
+        r.totalCrossChainAssets = committedCrossChain[s];
+        r.hubAssets = total[s] > committedCrossChain[s] ? total[s] - committedCrossChain[s] : 0;
+    }
 
     function setFresh(address s, bool f) external {
         fresh[s] = f;

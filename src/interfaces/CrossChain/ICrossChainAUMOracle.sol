@@ -98,6 +98,12 @@ interface ICrossChainAUMOracle {
     function isAUMFresh(address strategy) external view returns (bool);
     function getTotalAUM(address strategy) external view returns (uint256);
     function latestReport(address strategy) external view returns (AUMReport memory);
+
+    /// @notice R2-AUM1: whether the strategy's one-time trusted bootstrap report has been committed
+    function reportBootstrapped(address strategy) external view returns (bool);
+
+    /// @notice EIP-712 domain separator of this oracle (chainId + verifyingContract bound)
+    function domainSeparator() external view returns (bytes32);
     function configs(address strategy) external view returns (AUMOracleConfig memory);
     function noncePerStrategy(address strategy) external view returns (uint256);
 
