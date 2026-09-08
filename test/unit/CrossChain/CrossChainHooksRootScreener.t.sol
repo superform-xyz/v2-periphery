@@ -169,6 +169,25 @@ contract CrossChainHooksRootScreenerTest is Test {
         screener.challengeRoot(strategy, rawBridgeHook, _bannedArgs(), _bannedProof(), true);
     }
 
+    function test_ChallengeGlobalRoot_RevertIf_NoRoot() public {
+        vm.expectRevert(ICrossChainHooksRootScreener.NO_ROOT.selector);
+        screener.challengeGlobalRoot(rawBridgeHook, _bannedArgs(), _bannedProof(), true);
+    }
+
+    /// Zero-key guards on the constructor and governance setters.
+    function test_ZeroAddressGuards() public {
+        vm.expectRevert(ICrossChainHooksRootScreener.ZERO_ADDRESS.selector);
+        new CrossChainHooksRootScreener(address(0));
+        vm.expectRevert(ICrossChainHooksRootScreener.ZERO_ADDRESS.selector);
+        screener.setBannedHook(address(0), true);
+        vm.expectRevert(ICrossChainHooksRootScreener.ZERO_ADDRESS.selector);
+        screener.setScreenedStrategy(address(0), true);
+        vm.expectRevert(ICrossChainHooksRootScreener.ZERO_ADDRESS.selector);
+        screener.setRootClearance(address(0), bytes32(uint256(1)), true);
+        vm.expectRevert(ICrossChainHooksRootScreener.ZERO_ADDRESS.selector);
+        screener.setRootClearance(strategy, bytes32(0), true);
+    }
+
     function test_RevertIf_BadProof() public {
         aggregator.setProposedRoot(strategy, root);
         bytes32[] memory badProof = new bytes32[](1);

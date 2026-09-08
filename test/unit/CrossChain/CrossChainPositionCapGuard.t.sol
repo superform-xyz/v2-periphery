@@ -78,6 +78,44 @@ contract CrossChainPositionCapGuardTest is Test {
         guard.validateAllocation(strategy, CHAIN_A, destVault, 1e18);
     }
 
+    /// Boundary: both cap checks are strict '>' - exactly AT the cap passes, one wei over reverts.
+    function test_Validate_ExactlyAtGlobalCapPasses() public {
+        registry.setEff(strategy, 600e18); // 600 + 100 = 700 == 70% of 1000
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18);
+        vm.expectRevert(ICrossChainPositionCapGuard.CROSS_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18 + 1);
+    }
+
+    function test_Validate_ExactlyAtChainCapPasses() public {
+        registry.setEffChain(strategy, CHAIN_A, 400e18); // chain cap 500
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18);
+        vm.expectRevert(ICrossChainPositionCapGuard.PER_CHAIN_CAP_EXCEEDED.selector);
+        guard.validateAllocation(strategy, CHAIN_A, destVault, 100e18 + 1);
+    }
+
+    /// Every zero-key guard on the constructor and setters.
+    function test_ZeroAddressGuards() public {
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        new CrossChainPositionCapGuard(address(0));
+
+        uint64[] memory chains = new uint64[](1);
+        chains[0] = CHAIN_A;
+        uint256[] memory caps = new uint256[](1);
+        caps[0] = 1e18;
+        bool[] memory en = new bool[](1);
+        en[0] = true;
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setCapConfig(address(0), CAP_70, chains, caps, en);
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setApprovedDestination(address(0), CHAIN_A, destVault, true);
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setDestinationAdapter(CHAIN_A, address(0), true);
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setDestinationVaultAsset(CHAIN_A, address(0), makeAddr("asset"));
+        vm.expectRevert(ICrossChainPositionCapGuard.ZERO_ADDRESS.selector);
+        guard.setStargateRoute(address(0), CHAIN_A, makeAddr("dstToken"));
+    }
+
     function test_Validate_RevertUnapprovedVault() public {
         vm.expectRevert(ICrossChainPositionCapGuard.DESTINATION_VAULT_NOT_APPROVED.selector);
         guard.validateAllocation(strategy, CHAIN_A, makeAddr("otherVault"), 1e18);

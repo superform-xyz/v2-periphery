@@ -65,6 +65,10 @@ contract CrossChainHooksRootScreener is ICrossChainHooksRootScreener {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Upper bound on the clearance grace period (it must in any case stay below the
+    ///         aggregator's hooks-root timelock, checked in setClearanceGracePeriod)
+    uint256 public constant MAX_CLEARANCE_GRACE_PERIOD = 1 days;
+
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
@@ -95,7 +99,7 @@ contract CrossChainHooksRootScreener is ICrossChainHooksRootScreener {
     ///         (R4-P1: the production timelock defaults to 15 minutes).
     function setClearanceGracePeriod(uint256 period) external {
         _requireGovernor(msg.sender);
-        if (period > 1 days) revert INVALID_GRACE_PERIOD();
+        if (period > MAX_CLEARANCE_GRACE_PERIOD) revert INVALID_GRACE_PERIOD();
         ISuperVaultAggregator aggregator = ISuperVaultAggregator(SUPER_GOVERNOR.getAddress(SUPER_VAULT_AGGREGATOR));
         if (address(aggregator) != address(0) && period >= aggregator.getHooksRootUpdateTimelock()) {
             revert INVALID_GRACE_PERIOD();

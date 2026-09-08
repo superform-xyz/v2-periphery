@@ -259,6 +259,71 @@ contract CrossChainPositionRegistryTest is Test {
         }
     }
 
+    /// Boundary: the confirmation band is inclusive at both ends (90% and 110% confirm).
+    function test_Sync_ConfirmsExactlyAtFloorAndCeiling() public {
+        bytes32 idFloor = _registerSuperVault(100e18, 95e18);
+        _sync(idFloor, 90e18);
+        assertEq(
+            uint256(registry.positions(idFloor).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active)
+        );
+        bytes32 idCeil = _registerSuperVault(100e18, 95e18);
+        _sync(idCeil, 110e18);
+        assertEq(uint256(registry.positions(idCeil).status), uint256(ICrossChainPositionRegistry.PositionStatus.Active));
+        // One wei outside either end stays Pending (observed).
+        bytes32 idLow = _registerSuperVault(100e18, 95e18);
+        _sync(idLow, 90e18 - 1);
+        assertEq(uint256(registry.positions(idLow).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending));
+        bytes32 idHigh = _registerSuperVault(100e18, 95e18);
+        _sync(idHigh, 110e18 + 1);
+        assertEq(
+            uint256(registry.positions(idHigh).status), uint256(ICrossChainPositionRegistry.PositionStatus.Pending)
+        );
+    }
+
+    /// positionValue() and the AUM/exposure views: Pending -> 0, Active -> value, WindingDown ->
+    /// STILL the value (still counted in AUM), Exited -> 0.
+    function test_PositionValue_AndViews_ByStatus() public {
+        bytes32 id = _registerSuperVault(100e18, 95e18);
+        assertEq(registry.positionValue(id), 0, "Pending is not booked");
+        _sync(id, 100e18);
+        assertEq(registry.positionValue(id), 100e18, "Active books its value");
+        vm.prank(registrar);
+        registry.beginPositionExit(strategy, id);
+        assertEq(
+            uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.WindingDown)
+        );
+        assertEq(registry.positionValue(id), 100e18, "WindingDown still counts");
+        assertEq(registry.getCrossChainAUM(strategy), 100e18, "WindingDown still in AUM");
+        assertEq(registry.getChainExposure(strategy, CHAIN_A), 100e18, "WindingDown still in chain exposure");
+        _sync(id, 0); // drained
+        vm.prank(registrar);
+        registry.deregisterPosition(strategy, id);
+        assertEq(uint256(registry.positions(id).status), uint256(ICrossChainPositionRegistry.PositionStatus.Exited));
+        assertEq(registry.positionValue(id), 0, "Exited books nothing");
+        assertEq(registry.getCrossChainAUM(strategy), 0);
+    }
+
+    /// Revoking a hook's authorization blocks further reservations (not only the authorize path).
+    function test_RecordBridgedOut_RevertRevokedHook() public {
+        registry.setBridgeHookAuthorization(bridgeHook, false);
+        vm.prank(bridgeHook);
+        vm.expectRevert(ICrossChainPositionRegistry.UNAUTHORIZED_BRIDGE_HOOK.selector);
+        registry.recordBridgedOut(strategy, CHAIN_A, destVault, 1e18);
+    }
+
+    /// Zero-key guards on the constructor and governance setters.
+    function test_ZeroAddressGuards() public {
+        vm.expectRevert(ICrossChainPositionRegistry.ZERO_ADDRESS.selector);
+        new CrossChainPositionRegistry(address(0));
+        vm.expectRevert(ICrossChainPositionRegistry.ZERO_ADDRESS.selector);
+        registry.setRegistrar(address(0), registrar);
+        vm.expectRevert(ICrossChainPositionRegistry.ZERO_ADDRESS.selector);
+        registry.setRegistrar(strategy, address(0));
+        vm.prank(bridgeHook);
+        vm.expectRevert(ICrossChainPositionRegistry.ZERO_ADDRESS.selector);
+        registry.recordBridgedOut(address(0), CHAIN_A, destVault, 1e18);
+    }
+
     /// K1: a fill that lands AFTER the reservation timed out and was released is still trackable —
     /// consuming the Released reservation re-counts it, so landed capital is never invisible.
     function test_Reservation_LateFillReconsumesReleasedReservation() public {

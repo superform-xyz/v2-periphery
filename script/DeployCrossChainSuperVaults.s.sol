@@ -122,10 +122,13 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         _deploy(env, chainId, superGovernor);
     }
 
-    /// @notice Verify a deployment and report the live bootstrap state (address-book keys, roles)
+    /// @notice Verify a deployment and report the live bootstrap state of runbook steps 1-4 ONLY
+    ///         (address-book keys + the screener's GUARDIAN_ROLE). Per-bridge, per-chain and
+    ///         per-strategy configuration (steps 5-15) is NOT verified here - a clean check means
+    ///         "safe to start wiring", not "deployment complete" (everything unset fails closed).
     function runCheck(uint256 env, uint64 chainId, address superGovernor) external {
         _setBaseConfiguration(env, "");
-        console2.log("====== CrossChain SuperVaults Deployment Check ======");
+        console2.log("====== CrossChain SuperVaults Deployment Check (bootstrap steps 1-4 ONLY) ======");
         console2.log("Chain ID:", chainId);
         console2.log("SuperGovernor:", superGovernor);
 
@@ -146,6 +149,9 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         bool screenerIsGuardian = governor.hasRole(governor.GUARDIAN_ROLE(), screener);
         console2.log("Screener holds GUARDIAN_ROLE:", screenerIsGuardian);
         if (!screenerIsGuardian) console2.log("  [PENDING] grantRole(GUARDIAN_ROLE, screener) not landed");
+        console2.log(
+            "NOTE: steps 5-15 (hooks, destination policy, strategy onboarding, root clearance) are not checked here."
+        );
         console2.log("====== Check Complete ======");
     }
 
@@ -210,6 +216,7 @@ contract DeployCrossChainSuperVaults is DeployV2Base {
         external
         pure
     {
+        require(minDeliveryBps == 0 || minDeliveryBps == 10_000, "stargateMinDeliveryBps must be 0 or 10_000");
         console2.log("-> capGuard.setStargateRoute(srcPool, chainId, dstToken)  [GOVERNOR_ROLE] (R3-RF1)");
         console2.logBytes(abi.encodeCall(CrossChainPositionCapGuard.setStargateRoute, (srcPool, chainId, dstToken)));
         console2.log("-> capGuard.setStargateMinDeliveryBps(bps)  [GOVERNOR_ROLE] (R3-RF1, once)");

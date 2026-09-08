@@ -138,15 +138,15 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     {
         if (positionIds.length != values.length) revert LENGTH_MISMATCH();
         AUMOracleConfig memory config = _configs[strategy];
-        uint256 usedNonce =
-            _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, false);
-        _validateReportSet(strategy, positionIds, timestamp);
+        _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, false);
+        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+        _validateReportSet(registry, strategy, positionIds, timestamp);
 
         // Derive the aggregate on-chain. R4-F1: the CANDIDATE total (terminal entries excluded)
         // — every security band below must be computed over exactly what the registry can book,
         // or a tolerated terminal id's caller-supplied value could pad validation and vanish at
         // commit (cap-headroom reopening).
-        uint256 total = _candidateTotal(positionIds, values);
+        uint256 total = _candidateTotal(registry, positionIds, values);
         AUMReport memory current = _latestReport[strategy];
 
         // P2-4: bound the signed hubAssets too - it feeds getTotalAUM (the cap denominator) but is
@@ -166,11 +166,11 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         // reasoning as the consistency band).
         if (current.hubAssets > 0) {
             if (_publishedTotalBreach(
+                    registry,
                     strategy,
                     positionIds,
                     values,
-                    total,
-                    hubAssets,
+                    hubAssets + total,
                     current.hubAssets + current.totalCrossChainAssets,
                     config.deviationThreshold
                 )) {
@@ -189,14 +189,14 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         }
 
         // Aggregate deviation with lifecycle-aware anchoring (R4, generalizes SEC-16).
-        if (_aggregateBreach(strategy, positionIds, values, total, current.totalCrossChainAssets, config)) {
+        if (_aggregateBreach(registry, strategy, positionIds, values, total, current.totalCrossChainAssets, config)) {
             emit AUMDeviationExceeded(strategy, current.totalCrossChainAssets, total);
             _recordDeviationBreach(strategy, config);
             return;
         }
 
         // SEC-14: per-position deviation.
-        if (_perPositionBreach(strategy, positionIds, values, config.perPositionDeviationThreshold)) {
+        if (_perPositionBreach(registry, strategy, positionIds, values, config.perPositionDeviationThreshold)) {
             _recordDeviationBreach(strategy, config);
             return;
         }
@@ -209,7 +209,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp);
         emit AUMUpdated(strategy, committed, timestamp);
     }
 
@@ -233,12 +233,12 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         }
         if (positionIds.length != values.length) revert LENGTH_MISMATCH();
         AUMOracleConfig memory config = _configs[strategy];
-        uint256 usedNonce =
-            _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, true);
-        _validateReportSet(strategy, positionIds, timestamp);
+        _verifyAndConsume(strategy, _bundle(positionIds, values, hubAssets, timestamp), proofs, config, true);
+        // (no cached registry local here: the force path is one slot short of the stack limit)
+        _validateReportSet(ICrossChainPositionRegistry(_registry()), strategy, positionIds, timestamp);
 
         // R4-F1: candidate total (terminal entries excluded) — see forwardAUM.
-        uint256 total = _candidateTotal(positionIds, values);
+        uint256 total = _candidateTotal(ICrossChainPositionRegistry(_registry()), positionIds, values);
 
         // K2: force recovery is ONLY available while the PPS x supply backstop is live — with no
         // implied-assets source the SEC-8 band would be vacuous and quorum + ORACLE_MANAGER could
@@ -251,7 +251,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
             return;
         }
 
-        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp, usedNonce);
+        uint256 committed = _syncAndCommit(strategy, positionIds, values, total, hubAssets, timestamp);
         emit AUMForceUpdated(strategy, committed, timestamp);
     }
 
@@ -397,8 +397,15 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      Pending observation is BOOKED by the registry (with its excess over the reservation
     ///      counted in cap exposure), so no supplied non-terminal value can pass validation and
     ///      then vanish from, or be understated in, the published snapshot.
-    function _validateReportSet(address strategy, bytes32[] calldata positionIds, uint256 timestamp) internal view {
-        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
+    function _validateReportSet(
+        ICrossChainPositionRegistry registry,
+        address strategy,
+        bytes32[] calldata positionIds,
+        uint256 timestamp
+    )
+        internal
+        view
+    {
         uint256 len = positionIds.length;
         if (len > registry.MAX_POSITIONS_PER_STRATEGY()) revert REPORT_TOO_LARGE();
 
@@ -466,6 +473,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      committed value of WindingDown positions this report drains to zero (the expected
     ///      terminal report of an exit), grown by the threshold.
     function _aggregateBreach(
+        ICrossChainPositionRegistry registry,
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
@@ -477,7 +485,6 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         view
         returns (bool)
     {
-        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         (uint256 drained, uint256 overlap) = _anchorAdjustments(registry, positionIds, values);
 
         // R5-H: an observed Pending position's booked value sits in `cache` while its reservation
@@ -491,15 +498,15 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         return total < lowerBase - (lowerBase * config.deviationThreshold) / 1e18;
     }
 
-    /// @dev R7: the published-total band. hubAssets + candidate total must not exceed
+    /// @dev R7: the published-total band. `published` (hubAssets + candidate total) must not exceed
     ///      (prevTotal + inFlight - overlap)·(1 + θ) - the same envelope the aggregate band grants
     ///      the cross-chain side alone, so adding the hub dimension cannot widen it (see forwardAUM).
     function _publishedTotalBreach(
+        ICrossChainPositionRegistry registry,
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
-        uint256 total,
-        uint256 hubAssets,
+        uint256 published,
         uint256 prevTotal,
         uint256 threshold
     )
@@ -507,11 +514,10 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         view
         returns (bool)
     {
-        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         (, uint256 overlap) = _anchorAdjustments(registry, positionIds, values);
         uint256 inFlight = registry.bridgedOut(strategy);
         uint256 anchor = prevTotal + (inFlight > overlap ? inFlight - overlap : 0);
-        return hubAssets + total > anchor + (anchor * threshold) / 1e18;
+        return published > anchor + (anchor * threshold) / 1e18;
     }
 
     /// @dev Anchor adjustments for _aggregateBreach (split out to keep the stack shallow):
@@ -545,6 +551,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      bounded exactly like a confirmed one instead of floating freely until confirmation. A
     ///      never-observed Pending (prev == 0) is bounded by the aggregate band's in-flight anchor.
     function _perPositionBreach(
+        ICrossChainPositionRegistry registry,
         address strategy,
         bytes32[] calldata positionIds,
         uint256[] calldata values,
@@ -553,7 +560,6 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         internal
         returns (bool)
     {
-        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
         for (uint256 i; i < len; ++i) {
             ICrossChainPositionRegistry.CrossChainPosition memory p = registry.positions(positionIds[i]);
@@ -633,8 +639,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         uint256[] calldata values,
         uint256 validatedTotal,
         uint256 hubAssets,
-        uint256 timestamp,
-        uint256 usedNonce
+        uint256 timestamp
     )
         internal
         returns (uint256 committed)
@@ -646,7 +651,10 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
         }
         if (committed != validatedTotal) revert VALIDATION_COMMIT_MISMATCH();
         _latestReport[strategy] = AUMReport({
-            totalCrossChainAssets: committed, hubAssets: hubAssets, timestamp: timestamp, nonce: usedNonce
+            totalCrossChainAssets: committed,
+            hubAssets: hubAssets,
+            timestamp: timestamp,
+            nonce: noncePerStrategy[strategy] - 1
         });
         lastCommitAt[strategy] = block.timestamp; // R4: wall-clock commit pacing
         reportBootstrapped[strategy] = true; // R2-AUM1: the bootstrap exemption is one-time
@@ -679,6 +687,7 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     ///      books (every other admitted id books its supplied value), and _syncAndCommit reverts
     ///      if the registry ever disagrees.
     function _candidateTotal(
+        ICrossChainPositionRegistry registry,
         bytes32[] calldata positionIds,
         uint256[] calldata values
     )
@@ -688,7 +697,6 @@ contract CrossChainAUMOracle is ICrossChainAUMOracle, EIP712 {
     {
         // Ownership of every id was already enforced by _validateReportSet before any total is
         // computed; only the terminal-status skip matters here.
-        ICrossChainPositionRegistry registry = ICrossChainPositionRegistry(_registry());
         uint256 len = positionIds.length;
         for (uint256 i; i < len; ++i) {
             ICrossChainPositionRegistry.PositionStatus status = registry.positions(positionIds[i]).status;

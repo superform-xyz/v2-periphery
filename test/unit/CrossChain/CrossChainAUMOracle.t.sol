@@ -814,6 +814,112 @@ contract CrossChainAUMOracleTest is Test {
         assertTrue(registry.wasSynced(idP));
     }
 
+    function test_ForwardAUM_RevertLengthMismatch() public {
+        bytes32[] memory ids = new bytes32[](1);
+        uint256[] memory vals = new uint256[](2);
+        vm.expectRevert(ICrossChainAUMOracle.LENGTH_MISMATCH.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, block.timestamp, new bytes[](0));
+    }
+
+    function test_ForwardAUM_RevertZeroProofs() public {
+        bytes32 id = _oneActivePosition(100e18);
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = id;
+        uint256[] memory vals = new uint256[](1);
+        vals[0] = 100e18;
+        vm.expectRevert(ICrossChainAUMOracle.ZERO_LENGTH_ARRAY.selector);
+        oracle.forwardAUM(strategy, ids, vals, 0, block.timestamp, new bytes[](0));
+    }
+
+    /// Every INVALID_CONFIG branch of setAUMOracleConfig.
+    function test_SetConfig_RevertEveryBound() public {
+        // NB: memory-struct assignment copies the POINTER, so every case starts from a fresh base.
+        ICrossChainAUMOracle.AUMOracleConfig memory c;
+        c = _baseConfig();
+        c.maxStaleness = oracle.MIN_MAX_STALENESS() - 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.maxStaleness = oracle.MAX_MAX_STALENESS() + 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.deviationThreshold = 0;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.deviationThreshold = oracle.MAX_DEVIATION_THRESHOLD() + 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.perPositionDeviationThreshold = 0;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.perPositionDeviationThreshold = oracle.MAX_POSITION_DEVIATION_THRESHOLD() + 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.consistencyToleranceBps = 0;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.consistencyToleranceBps = oracle.MAX_CONSISTENCY_TOLERANCE_BPS() + 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.maxConsecutiveDeviationBreaches = 0;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.maxConsecutiveDeviationBreaches = oracle.MAX_CONSECUTIVE_BREACHES() + 1;
+        _expectInvalidConfig(c);
+        c = _baseConfig();
+        c.minUpdateInterval = c.maxStaleness; // must be strictly below maxStaleness
+        _expectInvalidConfig(c);
+        oracle.setAUMOracleConfig(strategy, _baseConfig()); // the base itself is valid
+    }
+
+    function _baseConfig() internal pure returns (ICrossChainAUMOracle.AUMOracleConfig memory) {
+        return ICrossChainAUMOracle.AUMOracleConfig({
+            maxStaleness: 1 hours,
+            minUpdateInterval: 1 minutes,
+            deviationThreshold: 0.5e18,
+            perPositionDeviationThreshold: 0.75e18,
+            consistencyToleranceBps: 100,
+            maxConsecutiveDeviationBreaches: 2
+        });
+    }
+
+    function _expectInvalidConfig(ICrossChainAUMOracle.AUMOracleConfig memory c) internal {
+        vm.expectRevert(ICrossChainAUMOracle.INVALID_CONFIG.selector);
+        oracle.setAUMOracleConfig(strategy, c);
+    }
+
+    /// The force path enforces the same report-size cap.
+    function test_ForceAUMUpdate_RevertReportTooLarge() public {
+        uint256 n = 65;
+        bytes32[] memory ids = new bytes32[](n);
+        uint256[] memory vals = new uint256[](n);
+        for (uint256 i; i < n; ++i) {
+            ids[i] = bytes32(i + 1);
+            vals[i] = 1e18;
+        }
+        uint256 ts = block.timestamp;
+        bytes[] memory proofs = _proofs(_digest(ids, vals, 0, ts, 0, true), 2);
+        vm.expectRevert(ICrossChainAUMOracle.REPORT_TOO_LARGE.selector);
+        oracle.forceAUMUpdate(strategy, ids, vals, 0, ts, proofs);
+    }
+
+    /// Freshness flips false purely from the wall clock, with no new report.
+    function test_IsAUMFresh_ExpiresOnWallClock() public {
+        bytes32 id = _oneActivePosition(100e18);
+        uint256 ts = block.timestamp;
+        (bytes32[] memory ids, uint256[] memory vals, bytes[] memory proofs) = _report(id, 100e18, 0, ts, false);
+        oracle.forwardAUM(strategy, ids, vals, 0, ts, proofs);
+        assertTrue(oracle.isAUMFresh(strategy));
+        vm.warp(ts + 1 hours); // == maxStaleness: still fresh at the boundary
+        assertTrue(oracle.isAUMFresh(strategy));
+        vm.warp(ts + 1 hours + 1);
+        assertFalse(oracle.isAUMFresh(strategy), "stale after maxStaleness with no new report");
+    }
+
+    function test_Constructor_RevertZeroGovernor() public {
+        vm.expectRevert(ICrossChainAUMOracle.ZERO_ADDRESS.selector);
+        new CrossChainAUMOracle(address(0), "SuperformCrossChainAUM", "1");
+    }
+
     /// R4 (PF1 mutation-killer): an expired never-observed Pending is REQUIRED — a report that
     /// omits it must revert INCOMPLETE_REPORT (previously it was unreportable, making the
     /// registry's late-confirm branch unreachable through the oracle).

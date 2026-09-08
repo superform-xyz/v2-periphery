@@ -53,6 +53,9 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     /// @notice Hard cap on live positions per strategy - bounds every full-set loop (SEC-9)
     uint256 public constant MAX_POSITIONS_PER_STRATEGY = 64;
 
+    /// @notice Basis-point denominator for the confirmation band
+    uint256 public constant BPS_PRECISION = 10_000;
+
     bytes32 private constant CROSS_CHAIN_AUM_ORACLE = keccak256("CROSS_CHAIN_AUM_ORACLE");
 
     /*//////////////////////////////////////////////////////////////
@@ -61,6 +64,10 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
 
     /// @notice SuperGovernor - source of roles and contract-registry lookups
     ISuperGovernor public immutable SUPER_GOVERNOR;
+
+    /// @dev GOVERNOR_ROLE id cached at construction (a constant on SuperGovernor) so governor-gated
+    ///      paths do not pay an external call per invocation just to learn the role id
+    bytes32 private immutable GOVERNOR_ROLE_ID;
 
     /// @dev strategy => set of live position ids (Invalidated/Exited are evicted)
     mapping(address => EnumerableSet.Bytes32Set) private _strategyPositions;
@@ -109,6 +116,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     constructor(address superGovernor_) {
         if (superGovernor_ == address(0)) revert ZERO_ADDRESS();
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
+        GOVERNOR_ROLE_ID = ISuperGovernor(superGovernor_).GOVERNOR_ROLE();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -126,7 +134,7 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
     }
 
     modifier onlyGovernor() {
-        if (!IAccessControl(address(SUPER_GOVERNOR)).hasRole(SUPER_GOVERNOR.GOVERNOR_ROLE(), msg.sender)) {
+        if (!IAccessControl(address(SUPER_GOVERNOR)).hasRole(GOVERNOR_ROLE_ID, msg.sender)) {
             revert UNAUTHORIZED_CONFIG();
         }
         _;
@@ -281,8 +289,8 @@ contract CrossChainPositionRegistry is ICrossChainPositionRegistry {
             // settling its reservation - the observed value itself is booked (R5) and matched
             // 1:1 in cap exposure through the observed excess, so it can never open headroom.
             if (
-                value > 0 && value >= Math.mulDiv(pos.deployedAmount, MIN_CONFIRMATION_BPS, 10_000)
-                    && value <= Math.mulDiv(pos.deployedAmount, MAX_CONFIRMATION_BPS, 10_000)
+                value > 0 && value >= Math.mulDiv(pos.deployedAmount, MIN_CONFIRMATION_BPS, BPS_PRECISION)
+                    && value <= Math.mulDiv(pos.deployedAmount, MAX_CONFIRMATION_BPS, BPS_PRECISION)
             ) {
                 pos.status = PositionStatus.Active;
                 // R5: a prior above-ceiling observation's excess leaves the numerator here — the

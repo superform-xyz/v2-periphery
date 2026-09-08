@@ -123,6 +123,9 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         } else if (!caps.approvedDestinationVault[destinationChainId][destinationVault]) {
             revert DESTINATION_VAULT_NOT_APPROVED();
         }
+        // Per-chain allowlist (SEC-11, fail closed) - a cheap SLOAD, checked before any external
+        // round-trip so a disabled chain fails fast.
+        if (!caps.chainEnabled[destinationChainId]) revert CHAIN_NOT_ENABLED();
 
         ICrossChainAUMOracle aumOracle = ICrossChainAUMOracle(SUPER_GOVERNOR.getAddress(CROSS_CHAIN_AUM_ORACLE));
         ICrossChainPositionRegistry registry =
@@ -149,8 +152,7 @@ contract CrossChainPositionCapGuard is ICrossChainPositionCapGuard {
         uint256 newCrossChain = effectiveExposure + amount;
         if (newCrossChain * BPS_PRECISION > totalAUM * caps.maxCrossChainBps) revert CROSS_CHAIN_CAP_EXCEEDED();
 
-        // 4. Per-chain cap - fail closed (SEC-11).
-        if (!caps.chainEnabled[destinationChainId]) revert CHAIN_NOT_ENABLED();
+        // 4. Per-chain cap (the chain itself was allowlisted above).
         uint256 chainExposure = registry.getEffectiveChainExposure(strategy, destinationChainId) + amount;
         if (chainExposure > caps.perChainCap[destinationChainId]) revert PER_CHAIN_CAP_EXCEEDED();
     }
