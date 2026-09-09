@@ -5,8 +5,10 @@
 ###################################################################################
 #
 # Runs the post-seating enrollment for SuperVaultCounsel on each strategy:
-#   2. counsel.enrollExecutor()            (seating wiped all secondary managers)
-#   3. counsel.invalidateAllSessionKeys()  (kills keys from any prior tenure)
+#   2. counsel.invalidateAllSessionKeys()  (FIRST: kills keys from any prior tenure - they
+#                                           revive with the seat and must be dead before
+#                                           the executor regains manager powers)
+#   3. counsel.enrollExecutor()            (seating wiped all secondary managers)
 #
 # PREREQUISITES (per strategy):
 #   - Counsel deployed (deploy_supervault_counsel.sh) and present in the chain

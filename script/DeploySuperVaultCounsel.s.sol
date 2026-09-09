@@ -22,8 +22,10 @@ import { console2 } from "forge-std/console2.sol";
 ///        0. Audit the strategy's secondary-manager list is clean BEFORE enrollment
 ///           (a hostile pre-existing secondary can race proposeChangePrimaryManager).
 ///        1. SuperGovernor msig: changePrimaryManager(strategy, counsel, feeRecipient)
-///        2. Operator: counsel.enrollExecutor()            (enrollment wiped all secondaries)
-///        3. Operator or guardian: counsel.invalidateAllSessionKeys()
+///        2. Operator or guardian: counsel.invalidateAllSessionKeys()  (FIRST: a reinstated
+///           Counsel's old grants revive with the seat; the executor must not regain
+///           manager powers while a stale key can still use them)
+///        3. Operator: counsel.enrollExecutor()            (enrollment wiped all secondaries)
 ///        4. Operator: counsel.grantSessionKeysBatch(...)  (re-onboard keepers)
 ///      NEVER call SuperGovernor.freezeManagerTakeover() while a Counsel is enrolled — it is
 ///      permanent and removes the only adapter-replacement path.
@@ -233,19 +235,20 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         console2.log("Operator:", p.operator);
         _logVetoConfig(p);
 
-        address counselAddr = _computeAddress(p); // resolves p.vetoRegistry to its registry
+        address counselAddr = _computeAddress(p);
         bool isDeployed = counselAddr.code.length > 0;
+        address resolvedRegistry = _predictVetoRegistry(p); // predicted, p is left untouched
 
-        if (p.vetoRegistry != address(0)) {
-            console2.log("Veto registry (resolved):", p.vetoRegistry);
-            console2.log("Registry is deployed:", p.vetoRegistry.code.length > 0);
+        if (resolvedRegistry != address(0)) {
+            console2.log("Veto registry (resolved):", resolvedRegistry);
+            console2.log("Registry is deployed:", resolvedRegistry.code.length > 0);
         } else {
             console2.log("Veto registry (resolved): SuperGovernor default");
         }
         // Separation-of-powers pre-flight (the deploy path REQUIREs this; surface it here so
         // runCheckOne catches a guardian/operator overlap before any broadcast). A not-yet-deployed
         // auto registry is predicted, so only probe a veto authority that already has code.
-        address guardianSource = p.vetoRegistry == address(0) ? p.superGovernor : p.vetoRegistry;
+        address guardianSource = resolvedRegistry == address(0) ? p.superGovernor : resolvedRegistry;
         if (guardianSource.code.length > 0) {
             bool operatorIsGuardian = IVetoRegistry(guardianSource).isGuardian(p.operator);
             console2.log("Operator is a veto guardian (MUST be false):", operatorIsGuardian);
@@ -361,7 +364,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             COUNSEL_KEY,
             p.chainId,
             __getSalt(_saltName(p.strategy)),
-            abi.encodePacked(_getCounselBytecode(p.env), _encodeConstructorArgs(p))
+            abi.encodePacked(_getCounselBytecode(p.env), _encodeConstructorArgs(p, p.vetoRegistry))
         );
 
         _verifyDeployment(p, counselAddr);
@@ -380,8 +383,10 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         console2.log("NEXT STEPS (enrollment runbook):");
         console2.log("  0. Audit strategy secondary-manager list is clean");
         console2.log("  1. SuperGovernor msig: changePrimaryManager(strategy, counsel, feeRecipient)");
-        console2.log("  2. Operator: counsel.enrollExecutor()");
-        console2.log("  3. Operator/guardian: counsel.invalidateAllSessionKeys()");
+        console2.log(
+            "  2. Operator/guardian: counsel.invalidateAllSessionKeys()  (FIRST - stale keys revive with the seat)"
+        );
+        console2.log("  3. Operator: counsel.enrollExecutor()");
         console2.log("  4. Operator: counsel.grantSessionKeysBatch(...)");
         console2.log("  NEVER freezeManagerTakeover() while a Counsel is enrolled");
     }
@@ -486,11 +491,13 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice ABI-encode the Counsel constructor args in declaration order
-    function _encodeConstructorArgs(DeployParams memory p) internal pure returns (bytes memory) {
+    /// @param vetoRegistry The RESOLVED veto registry (deployed or predicted) — passed explicitly
+    ///        so address prediction never has to write it back into the shared params struct
+    function _encodeConstructorArgs(DeployParams memory p, address vetoRegistry) internal pure returns (bytes memory) {
         return abi.encode(
             p.operator,
             p.superGovernor,
-            p.vetoRegistry,
+            vetoRegistry,
             p.aggregator,
             p.strategy,
             p.executor,
@@ -782,11 +789,16 @@ contract DeploySuperVaultCounsel is DeployV2Base {
 
     /// @notice Compute the deterministic address for a strategy's Counsel
     /// @dev Resolves the veto authority to its registry address first — a bare guardian in the
-    ///      fleet config participates in the Counsel's CREATE2 address via its deployed registry
+    ///      fleet config participates in the Counsel's CREATE2 address via its deployed registry.
+    ///      MUST NOT mutate `p`: runAll passes the same memory struct to the already-deployed
+    ///      pre-check and then to _deploy, and a `view` modifier does not protect memory
+    ///      arguments. Writing the predicted registry into p.vetoRegistry here made a valid
+    ///      vetoGuardians entry look like "both guardians AND registry set" and fail the
+    ///      AMBIGUOUS_VETO_CONFIG check at deploy time (review round 8, P2-1).
     function _computeAddress(DeployParams memory p) internal view returns (address) {
-        p.vetoRegistry = _predictVetoRegistry(p);
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(_getCounselBytecode(p.env), _encodeConstructorArgs(p)), __getSalt(_saltName(p.strategy))
+            abi.encodePacked(_getCounselBytecode(p.env), _encodeConstructorArgs(p, _predictVetoRegistry(p))),
+            __getSalt(_saltName(p.strategy))
         );
     }
 }

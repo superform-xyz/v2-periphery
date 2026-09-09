@@ -390,6 +390,72 @@ contract SuperVaultCounselForkTest is Test {
         assertFalse(executor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
     }
 
+    /// Review round 8 (P2-2): the enrollment order matters. Seating wipes the executor from the
+    /// secondary set, which is the only thing keeping a reinstated Counsel's revived stale keys
+    /// inert. Enrolling the executor BEFORE invalidating re-arms those keys for the gap between
+    /// the two transactions; this test shows a stale key pausing the real strategy in that gap.
+    function test_Fork_Reinstatement_EnrollBeforeInvalidate_LetsStaleKeyAct() public {
+        _enrollCounsel();
+        vm.startPrank(operator);
+        counsel.enrollExecutor();
+        counsel.grantSessionKey(sessionKey, block.timestamp + 30 days, _permAll());
+        vm.stopPrank();
+
+        // seat moves away and back without a generation bump
+        vm.prank(PROD_SUPER_GOVERNOR);
+        aggregator.changePrimaryManager(USDC_STRATEGY, MAIN_MANAGER, MAIN_MANAGER);
+        _enrollCounsel();
+        assertEq(aggregator.getSecondaryManagers(USDC_STRATEGY).length, 0, "seating wiped the executor");
+
+        // revived key is valid but inert: the executor is not a manager
+        assertTrue(executor.isSessionKeyValid(USDC_STRATEGY, sessionKey));
+        vm.prank(sessionKey);
+        vm.expectRevert();
+        executor.pauseStrategy(USDC_STRATEGY);
+
+        // WRONG order: enroll first -> the stale key can act before invalidation lands
+        vm.prank(operator);
+        counsel.enrollExecutor();
+        vm.prank(sessionKey);
+        executor.pauseStrategy(USDC_STRATEGY);
+        assertTrue(aggregator.isStrategyPaused(USDC_STRATEGY), "stale key paused the strategy");
+    }
+
+    /// The prescribed order — invalidateAllSessionKeys() then enrollExecutor() — leaves no gap:
+    /// invalidation needs only primary-manager authority (not executor enrollment), and after it
+    /// the revived key is dead before the executor regains manager powers.
+    function test_Fork_Reinstatement_InvalidateBeforeEnroll_BlocksStaleKey() public {
+        _enrollCounsel();
+        vm.startPrank(operator);
+        counsel.enrollExecutor();
+        counsel.grantSessionKey(sessionKey, block.timestamp + 30 days, _permAll());
+        vm.stopPrank();
+
+        vm.prank(PROD_SUPER_GOVERNOR);
+        aggregator.changePrimaryManager(USDC_STRATEGY, MAIN_MANAGER, MAIN_MANAGER);
+        _enrollCounsel();
+        assertTrue(executor.isSessionKeyValid(USDC_STRATEGY, sessionKey), "stale key revived with the seat");
+
+        // RIGHT order: invalidate (works without executor enrollment), then enroll
+        vm.startPrank(operator);
+        counsel.invalidateAllSessionKeys();
+        assertFalse(executor.isSessionKeyValid(USDC_STRATEGY, sessionKey), "dead before enrollment");
+        counsel.enrollExecutor();
+        vm.stopPrank();
+
+        vm.prank(sessionKey);
+        vm.expectRevert(ISuperVaultExecutor.SESSION_KEY_GENERATION_MISMATCH.selector);
+        executor.pauseStrategy(USDC_STRATEGY);
+        assertFalse(aggregator.isStrategyPaused(USDC_STRATEGY), "strategy untouched");
+
+        // fresh grant after the runbook works as intended
+        vm.prank(operator);
+        counsel.grantSessionKey(sessionKey, block.timestamp + 30 days, _permAll());
+        vm.prank(sessionKey);
+        executor.pauseStrategy(USDC_STRATEGY);
+        assertTrue(aggregator.isStrategyPaused(USDC_STRATEGY));
+    }
+
     /*//////////////////////////////////////////////////////////////
         GLOBAL LEAVES / MIN INTERVAL / SECONDARY ADD (veto-gated)
     //////////////////////////////////////////////////////////////*/
@@ -523,10 +589,10 @@ contract SuperVaultCounselForkTest is Test {
         assertFalse(aggregator.isMainManager(address(counsel), USDC_STRATEGY));
         assertEq(aggregator.getSecondaryManagers(USDC_STRATEGY).length, 0); // wiped as usual
 
-        // successor runs the enrollment runbook and is fully operational
+        // successor runs the enrollment runbook (invalidate first, then enroll) and is operational
         vm.startPrank(operator2);
-        successor.enrollExecutor();
         successor.invalidateAllSessionKeys();
+        successor.enrollExecutor();
         successor.pauseStrategy();
         successor.unpauseStrategy();
         vm.stopPrank();

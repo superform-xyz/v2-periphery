@@ -286,8 +286,11 @@ SuperGovernor takeover.
   permanent and removes the only adapter-replacement path
 - Audit the secondary-manager list clean **before** enrollment (a hostile pre-existing secondary
   can race `proposeChangePrimaryManager` during rollout)
-- Enrollment sequence: takeover/create → `enrollExecutor()` → `invalidateAllSessionKeys()` →
-  `grantSessionKeysBatch(...)`
+- Enrollment sequence: takeover/create → `invalidateAllSessionKeys()` → `enrollExecutor()` →
+  `grantSessionKeysBatch(...)`. Invalidate BEFORE enrolling: the executor validates grants against
+  the current primary manager + key generation and a manager change does not bump the generation,
+  so a Counsel reinstated at the same address revives its previous tenure's unexpired keys; the
+  seating-time wipe of the executor from the secondary set is what keeps them inert until then.
 - Monitoring: page all guardians on `ProposalCreated` (minutes, not hours — 3-day budget);
   page on SuperGovernor guardian-role events; heartbeat `isGuardian` checks; guardians submit
   vetoes via private relay (Flashbots Protect) per runbook
@@ -475,8 +478,8 @@ event AllSessionKeysInvalidated(address indexed caller);
 
 ### Phase 3: Ops & rollout
 - [ ] Guardian runbook (private-relay veto path, pager wiring, isGuardian heartbeats)
-- [ ] Enrollment runbook (secondary-list audit → takeover → enrollExecutor →
-  invalidateAllSessionKeys → grant keys), never-freeze policy
+- [ ] Enrollment runbook (secondary-list audit → takeover → invalidateAllSessionKeys →
+  enrollExecutor → grant keys), never-freeze policy
 - [ ] v2-monitoring config for ProposalCreated / guardian-role events
 - [ ] Deployment script + per-chain instance wiring
 

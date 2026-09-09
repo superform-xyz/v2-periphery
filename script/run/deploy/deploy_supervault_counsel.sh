@@ -56,7 +56,7 @@
 # Post-Deployment Steps (ENROLLMENT RUNBOOK - order matters):
 #   0. Audit the strategy's secondary-manager list is clean BEFORE enrollment
 #   1. SuperGovernor msig: changePrimaryManager(strategy, counsel, feeRecipient)
-#   2-3. ../config/configure_supervault_counsel.sh (enrollExecutor + invalidateAllSessionKeys)
+#   2-3. ../config/configure_supervault_counsel.sh (invalidateAllSessionKeys, THEN enrollExecutor)
 #   4. Operator: counsel.grantSessionKeysBatch(...) (re-onboard keepers)
 #   NEVER call SuperGovernor.freezeManagerTakeover() while a Counsel is enrolled.
 #

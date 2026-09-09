@@ -10,8 +10,14 @@ import { console2 } from "forge-std/console2.sol";
 /// @notice Post-seating enrollment script for SuperVaultCounsel — runs steps 2 and 3 of the
 ///         enrollment runbook AFTER the SuperGovernor msig has executed
 ///         changePrimaryManager(strategy, counsel, feeRecipient):
-///           2. counsel.enrollExecutor()           (re-adds the executor the seating wiped)
-///           3. counsel.invalidateAllSessionKeys() (kills any keys from a prior tenure)
+///           2. counsel.invalidateAllSessionKeys() (kills any keys from a prior tenure)
+///           3. counsel.enrollExecutor()           (re-adds the executor the seating wiped)
+///         ORDER MATTERS: the executor validates grants against the current primary manager and
+///         its key generation, and a manager change does not bump the generation, so a Counsel
+///         reinstated at the SAME address revives every unexpired key from its previous tenure.
+///         Seating wipes the executor from the secondary set, which is what keeps those revived
+///         keys inert; enrolling the executor before invalidating them re-arms them for the
+///         gap between the two (separately mined) transactions. Invalidate first.
 /// @dev The broadcaster MUST be the Counsel's OPERATOR (both calls are operator-gated; this
 ///      script pre-checks and reverts early otherwise). Step 4 — grantSessionKeysBatch to
 ///      re-onboard keepers — carries keeper-specific permission payloads and is deliberately
@@ -53,19 +59,20 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("Broadcaster:", msg.sender);
         require(msg.sender == operator, "BROADCASTER_IS_NOT_COUNSEL_OPERATOR");
 
-        // Step 2: re-enroll the executor (seating wiped all secondary managers)
-        if (aggregator.isSecondaryManager(executor, strategy)) {
-            console2.log("[Step 2] Executor already enrolled as secondary manager - skipping");
-        } else {
-            console2.log("[Step 2] Calling enrollExecutor()...");
-            counsel.enrollExecutor();
-            console2.log("[Step 2] DONE");
-        }
-
-        // Step 3: invalidate any session keys surviving from a prior tenure
-        console2.log("[Step 3] Calling invalidateAllSessionKeys()...");
+        // Step 2: invalidate any session keys surviving from a prior tenure — BEFORE the
+        // executor regains manager powers (a reinstated Counsel's old grants revive with the seat)
+        console2.log("[Step 2] Calling invalidateAllSessionKeys()...");
         counsel.invalidateAllSessionKeys();
-        console2.log("[Step 3] DONE");
+        console2.log("[Step 2] DONE");
+
+        // Step 3: re-enroll the executor (seating wiped all secondary managers)
+        if (aggregator.isSecondaryManager(executor, strategy)) {
+            console2.log("[Step 3] Executor already enrolled as secondary manager - skipping");
+        } else {
+            console2.log("[Step 3] Calling enrollExecutor()...");
+            counsel.enrollExecutor();
+            console2.log("[Step 3] DONE");
+        }
 
         // Post-verify
         require(aggregator.isSecondaryManager(executor, strategy), "EXECUTOR_ENROLLMENT_FAILED");
@@ -82,7 +89,8 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
     ///      staging/test). Per strategy, skips (with a log, not a revert) when: no Counsel in
     ///      the output JSON, the Counsel is not seated as mainManager yet (runbook step 1
     ///      pending), or the broadcaster is not that Counsel's operator. Everything else gets
-    ///      enrollExecutor() + invalidateAllSessionKeys().
+    ///      invalidateAllSessionKeys() then enrollExecutor() (in that order — see the contract
+    ///      NatSpec).
     /// @param env Environment (0 = prod, 1 = vnet, 2 = staging)
     /// @param chainId Chain ID
     /// @param branchName Branch name for vnet deployments (required when env == 1)
@@ -129,14 +137,16 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
             }
 
             address executor = address(counsel.EXECUTOR());
+            // invalidate FIRST: stale keys from a prior tenure revive with the seat and must be
+            // dead before the executor regains manager powers
+            counsel.invalidateAllSessionKeys();
+            console2.log("    invalidateAllSessionKeys: DONE");
             if (aggregator.isSecondaryManager(executor, strategy)) {
                 console2.log("    enrollExecutor: already enrolled - skipping call");
             } else {
                 counsel.enrollExecutor();
                 console2.log("    enrollExecutor: DONE");
             }
-            counsel.invalidateAllSessionKeys();
-            console2.log("    invalidateAllSessionKeys: DONE");
             require(aggregator.isSecondaryManager(executor, strategy), "EXECUTOR_ENROLLMENT_FAILED");
             configured++;
         }

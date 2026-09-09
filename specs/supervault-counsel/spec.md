@@ -121,7 +121,8 @@ executor — the Counsel is enrolled purely as aggregator `mainManager` data.
 - [ ] Guardian runbook (veto during Pending via private relay, pagers, isGuardian heartbeats;
       treat any SecondaryManagerAdd as "authorize adapter escape in ~10 days"; page on
       PrimaryManagerChangeProposed), enrollment runbook (secondary-audit → takeover →
-      enrollExecutor → invalidateAllSessionKeys → grant keys), yield-source swap runbook
+      invalidateAllSessionKeys → enrollExecutor → grant keys; invalidate first because a
+      reinstated Counsel's stale keys revive with the seat), yield-source swap runbook
       (add replacement → unwind old to ~zero → remove; removal is registry deletion with no
       occupancy check), never-freeze policy, v2-monitoring config, deployment script
 
