@@ -248,8 +248,10 @@ interface ISuperVaultCounsel {
     /// @dev Operator-only. Succeeds only while this Counsel holds a secondary-manager seat
     ///      (i.e., a predecessor's migration offer matured un-vetoed). Starts the aggregator's
     ///      7-day manager-change timelock; completion via the aggregator's permissionless
-    ///      executeChangePrimaryManager wipes all secondaries — run the enrollment runbook after
-    ///      (enrollExecutor, invalidateAllSessionKeys, re-grant keys).
+    ///      executeChangePrimaryManager wipes all secondaries — run the enrollment runbook after,
+    ///      in this order: invalidateAllSessionKeys (stale keys from any prior tenure revive with
+    ///      the seat and are only inert while the executor is not a secondary), then
+    ///      enrollExecutor, then re-grant keys.
     /// @param feeRecipient The fee recipient the aggregator force-sets on the strategy at handover
     function acceptCounselSeat(address feeRecipient) external;
 

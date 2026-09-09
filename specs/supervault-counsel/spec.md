@@ -115,7 +115,7 @@ executor — the Counsel is enrolled purely as aggregator `mainManager` data.
 
 ### Phase 2: Tests
 - [ ] Unit auth-matrix + boundary + race tests; invariant/fuzz suite; fork integration
-      (enrollment → enrollExecutor → session keys → keeper round-trip; root two-leg; upkeep → sweep)
+      (enrollment → invalidateAllSessionKeys → enrollExecutor → session keys → keeper round-trip; root two-leg; upkeep → sweep)
 
 ### Phase 3: Ops & rollout
 - [ ] Guardian runbook (veto during Pending via private relay, pagers, isGuardian heartbeats;

@@ -180,7 +180,10 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         address mainManager = aggregator.getMainManager(strategy);
         console2.log("[Step 1] mainManager:", mainManager);
         console2.log("[Step 1] Counsel seated as primary:", mainManager == address(counsel));
-        console2.log("[Step 2] Executor enrolled as secondary:", aggregator.isSecondaryManager(executor, strategy));
+        console2.log("[Step 3] Executor enrolled as secondary:", aggregator.isSecondaryManager(executor, strategy));
+        console2.log(
+            "[Step 2] invalidateAllSessionKeys leaves no on-chain flag to read - see the executor's AllSessionKeysInvalidated events"
+        );
 
         address[] memory secondaries = aggregator.getSecondaryManagers(strategy);
         console2.log("Secondary managers (audit - runbook step 0):", secondaries.length);

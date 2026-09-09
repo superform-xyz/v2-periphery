@@ -48,9 +48,11 @@ import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecuto
 ///          (migration is operator-gated; takeover would be the only other path).
 ///        - A stale secondary (unaccepted migration offer or old SecondaryManagerAdd) is a
 ///          standing 7-day takeover path — remove offers that are not promptly accepted.
-///        - Enrollment sequence: takeover/create → enrollExecutor() → invalidateAllSessionKeys()
-///          → grantSessionKeysBatch(...). Session keys from a prior tenure silently revive on
-///          reinstatement unless invalidated.
+///        - Enrollment sequence: takeover/create → invalidateAllSessionKeys() → enrollExecutor()
+///          → grantSessionKeysBatch(...), IN THAT ORDER. Session keys from a prior tenure
+///          silently revive on reinstatement (a manager change does not bump the executor's key
+///          generation); only the executor's absence from the secondary set keeps them inert, so
+///          they must be invalidated BEFORE the executor regains manager powers.
 ///        - The strategy-root manifest MUST be published to an append-only channel before
 ///          proposeStrategyRoot; guardians veto any root whose manifest is unpublished or does
 ///          not reproduce the root (the hash binding is evidentiary, not cryptographic).

@@ -472,7 +472,7 @@ event AllSessionKeysInvalidated(address indexed caller);
 - [ ] Unit: state machine, auth matrix (operator/guardian/anon × every function), boundaries,
   same-block races, bounds predicates, sweep behavior (incl. FOT/no-return/EOA tokens)
 - [ ] Invariant/fuzz suite per Acceptance Criteria
-- [ ] Fork integration: enrollment via mock takeover → enrollExecutor → session keys → keeper
+- [ ] Fork integration: enrollment via mock takeover → invalidateAllSessionKeys → enrollExecutor → session keys → keeper
   round-trip; strategy-root two-leg flow; withdraw-upkeep → sweep flow; guardian rotation via
   the real SuperGovernor role machinery
 
