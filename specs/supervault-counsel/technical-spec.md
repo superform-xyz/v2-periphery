@@ -78,16 +78,18 @@ setters, no proxy, no fallback, no delegatecall, no approvals.
 ### Proposal state machine
 
 ```
-None ──propose──▶ Pending ──veto (any live guardian, ANY time before execution)──▶ Vetoed (terminal)
+None ──propose──▶ Pending ──veto (any live guardian, ANY time while Pending/Ready)──▶ Vetoed (terminal)
                      │
+                     ├─ single-slot type && a NEWER proposal of that type exists ⇒ Superseded (derived, terminal;
+                     │        checked first — takes precedence over Ready/Expired)
                      ├─ t ∈ [proposedAt+VETO_WINDOW, proposedAt+EXPIRY) ⇒ Ready (derived)
                      │        └──execute (operator)──▶ Executed (terminal)
                      └─ t ≥ proposedAt+EXPIRY ⇒ Expired (derived, terminal)
 ```
 
-- **Stored** statuses: `None / Pending / Executed / Vetoed`. **`Ready` and `Expired` are derived**
-  in the `state(id)` view from `proposedAt` — never written by a keeper (OZ Governor pattern;
-  eliminates "nobody poked the state" bugs).
+- **Stored** statuses: `None / Pending / Executed / Vetoed`. **`Ready`, `Expired` and `Superseded`
+  are derived** in the `state(id)` view from `proposedAt` and the per-type supersession epoch —
+  never written by a keeper (OZ Governor pattern; eliminates "nobody poked the state" bugs).
 - Boundary semantics (half-open, tested explicitly):
   executable iff `block.timestamp >= proposedAt + VETO_WINDOW && block.timestamp < proposedAt + EXPIRY`.
 - **Veto-until-execution**: `veto(id)` succeeds any time `state(id)` is `Pending` or `Ready` —
@@ -95,6 +97,8 @@ None ──propose──▶ Pending ──veto (any live guardian, ANY time befo
   CANCELLER_ROLE, MetaMorpho guardian revoke, Compound admin cancel).
 - Same-block race: veto-then-execute reverts the execute; execute-then-veto reverts the veto.
   Both orderings deterministic; no interleaving can produce both succeeding.
+- Supersession epoch (single-slot types: StrategyRoot, DeviationThreshold, MinUpdateInterval, FeeConfig, CounselMigration, GlobalLeavesStatus — every leaf is its own ban/unban slot, so batch all desired leaf changes into one proposal): proposing a new value makes every older still-pending proposal of that type terminally `Superseded` (derived in `state()`: not executable, not vetoable; `ProposalSuperseded(id, byId, actionType)` emitted iff the predecessor was still live, i.e. Pending or Ready; `latestProposalIdOfType(type)` exposes the epoch). Closes the rollback where a compromised operator executes a matured, guardian-tolerated stale value within its 7-day expiry after a newer value was executed. Vetoing the newer proposal does NOT resurrect the older one (the epoch is monotonic); a superseded value comes back only through a fresh proposal and full window. Set-membership additions (YieldSourceAdd, SecondaryManagerAdd) are order-independent and idempotent-revert at the target, so they are not superseded. Guardian monitors should re-target review from `id` to `byId` on every `ProposalSuperseded`.
+- Separation of powers: the constructor reverts `OPERATOR_IS_GUARDIAN` if the resolved veto registry reports the operator as a guardian, and `VETO_REGISTRY_NOT_A_CONTRACT` if the resolved registry has no code (an EOA/counterfactual registry could never veto); a registry whose lookup reverts is still tolerated at construction (documented dead-registry semantics). The deploy script mirrors both checks against the resolved veto authority (custom registry, auto-deployed registry, or the SuperGovernor fallback). The guardian veto is the only independent brake on the operator, so the roles must never coincide (address-level guard, deploy-time only: a mutable registry that later grants the operator guardian status is an off-chain monitoring requirement; organizational independence is a governance requirement).
 - Proposal ids: `uint256` monotonic nonce (`_nextProposalId++`), never reused. Full args stored in
   the proposal struct (Governor Bravo / MetaMorpho precedent) — `execute(id)` takes only the id, so
   argument mutation is structurally impossible and vetoed content cannot be revived under the same id.
@@ -104,7 +108,7 @@ None ──propose──▶ Pending ──veto (any live guardian, ANY time befo
 ### Storage
 
 ```solidity
-enum ProposalStatus { None, Pending, Ready, Executed, Vetoed, Expired } // Ready/Expired derived only
+enum ProposalStatus { None, Pending, Ready, Executed, Vetoed, Expired, Superseded } // Ready/Expired/Superseded derived only
 enum ActionType {
     YieldSourceAdd,      // 0: strategy.manageYieldSource(source, oracle, Add)
     StrategyRoot,        // 1: aggregator.proposeStrategyHooksRoot(strategy, root)
@@ -154,8 +158,8 @@ uint256 internal _nextProposalId;
 | `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` | `STRATEGY.proposeVaultFeeConfigUpdate(...)` — two-leg; the strategy's own 1-week fee timelock follows (second-leg forward: `executeVaultFeeConfigUpdate`) | perf <= 5100, mgmt <= 10_000, recipient != 0 (strategy caps mirrored) |
 | `proposeSecondaryManagerAdd(address manager)` | `AGGREGATOR.addSecondaryManager(STRATEGY, manager)` | `manager != 0`; NOTE: a seated secondary can later `proposeChangePrimaryManager` — treat as adapter-escape authorization (~10 days) |
 | `acceptCounselSeat(address feeRecipient)` (not a proposal — successor-side claim) | `AGGREGATOR.proposeChangePrimaryManager(STRATEGY, address(this), feeRecipient)` | operator-only; `feeRecipient != 0`; aggregator's secondary-only gate restricts it to the offered contract |
-| `veto(uint256 id)` | — (terminal state write) | caller passes `SUPER_GOVERNOR.isGuardian(msg.sender)` **live**; proposal Pending/Ready |
-| `execute(uint256 id)` | exact stored args, per actionType | operator-only; inside `[proposedAt+VETO_WINDOW, proposedAt+EXPIRY)`; status Pending (not vetoed/executed) |
+| `veto(uint256 id)` | — (terminal state write) | caller passes `VETO_REGISTRY.isGuardian(msg.sender)` **live** (SuperGovernor by default); proposal Pending/Ready (not Superseded/Expired) |
+| `execute(uint256 id)` | exact stored args, per actionType | operator-only; inside `[proposedAt+VETO_WINDOW, proposedAt+EXPIRY)`; `state(id) == Ready` (not vetoed/executed/expired/superseded — for single-slot types the id must still be `latestProposalIdOfType`) |
 
 Notes:
 - Batches are decomposed to singles — there is deliberately no `manageYieldSources` path.
@@ -305,14 +309,16 @@ SuperGovernor takeover.
   fork-tested aggregator/strategy: propose →
   window → execute lands the exact stored args; vetoed and expired proposals can never execute
 - [ ] `veto` succeeds for any live guardian at any point before execution, including the Ready
-  period; reverts for non-guardians and on terminal proposals
+  period; reverts for non-guardians and on terminal proposals (incl. Superseded)
+- [ ] For every single-slot type only `latestProposalIdOfType` can execute; a stale matured
+  proposal can never overwrite a newer value, and vetoing the newer one does not revive the older
 - [ ] All operator forwards succeed for `OPERATOR` and revert for anyone else; guardian can call
   only `veto` and `invalidateAllSessionKeys`
 - [ ] `enrollExecutor()` re-adds the executor after a takeover-enrollment; keepers function end-to-end
   (session key granted by Counsel → executor → strategy call succeeds)
 - [ ] Sweeps deliver full balances to `OPERATOR` from any caller; `executeWithdrawUpkeep` funds
   landing on the Counsel are sweepable
-- [ ] `state(id)` derives Ready/Expired correctly at every boundary
+- [ ] `state(id)` derives Ready/Expired/Superseded correctly at every boundary (Superseded first)
 
 ### Security
 - [ ] All Attack Surface items addressed or explicitly signed off (manifest equivocation,
@@ -397,6 +403,7 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     function state(uint256 id) public view returns (ProposalStatus) {
         Proposal memory p = _proposals[id];
         if (p.status == ProposalStatus.Pending) {
+            if (_isSingleSlot(p.actionType) && _latestByType[p.actionType] != id + 1) return ProposalStatus.Superseded;
             if (block.timestamp >= uint256(p.proposedAt) + EXPIRY) return ProposalStatus.Expired;
             if (block.timestamp >= uint256(p.proposedAt) + VETO_WINDOW) return ProposalStatus.Ready;
         }

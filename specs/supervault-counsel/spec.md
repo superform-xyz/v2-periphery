@@ -18,10 +18,10 @@ aggregator's own timelock), secondary-manager additions, and vault fee-config up
 via the strategy's own 1-week timelock; perf <=51%, entry fee <=100%, bounds mirrored at propose
 time) — exists only behind a
 propose → 3-day guardian-veto window → execute inside `[proposedAt+3d, proposedAt+7d)` flow.
-Any live `SuperGovernor.isGuardian` address can veto up to the moment of execution (the hard
+Any live `SuperGovernor.isGuardian` address can veto until execution, expiry or supersession (the hard
 guarantee is the 3-day Pending window; once Ready, execute-vs-veto is a mempool race the operator
 wins if first — guardians veto during Pending, via private relay); `execute(id)` is operator-only
-and forwards exact stored args (monotonic ids, no replay, no arg mutation). Everything else the
+and forwards exact stored args (monotonic ids, no replay, no arg mutation; a newer proposal of a single-slot type - root, deviation threshold, min interval, fee config, migration, global leaves status (per-leaf slots) - SUPERSEDES older pending ones, so a stale matured proposal can never roll back a newer executed value). Everything else the
 seat requires is a typed, operator-only forward; there is no generic call path, no owner, no
 upgradeability. Replacement has two paths: `SuperGovernor.changePrimaryManager` takeover
 (instant, msig-only), or the propose-and-accept migration — a matured `CounselMigration` proposal
@@ -47,7 +47,7 @@ replacement bypass).
    `proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient)` (two-leg: execute starts the
    strategy's own 1-week fee timelock; bounds perf <=5100 bps / mgmt <=10_000 bps / non-zero
    recipient mirrored at propose time)
-   → `veto(id)` (any live guardian, until execution, terminal) / `execute(id)` (operator-only,
+   → `veto(id)` (any live guardian, until execution / expiry / supersession, terminal) / `execute(id)` (operator-only,
    exact stored args, half-open window) / derived expiry. Plus `acceptCounselSeat(feeRecipient)`:
    the successor-side claim of a migration offer (operator-only; aggregator's secondary-only gate
    makes it structurally self-targeted).
@@ -85,7 +85,7 @@ lookup consulted by veto/canVeto/invalidateAllSessionKeys; constructor arg, addr
 SUPER_GOVERNOR — per-instance so veto authority is pluggable, e.g. a Newton attestation shim,
 without protocol-wide GUARDIAN_ROLE; P7), `AGGREGATOR`, `STRATEGY`, `EXECUTOR`, `VETO_WINDOW = 3 days`,
 `EXPIRY = 7 days`, `MIN/MAX_DEVIATION_THRESHOLD`. Proposal state machine:
-None → Pending → {Vetoed | Executed | Expired}, with Ready/Expired derived in the `state(id)` view
+None → Pending → {Vetoed | Executed | Expired | Superseded}, with Ready/Expired/Superseded derived in the `state(id)` view
 (never stored). Two flows are two-leg: strategy-root (`execute(id)` pushes
 `aggregator.proposeStrategyHooksRoot`, then the aggregator's own 15-minute timelock +
 permissionless execute) and min-update-interval (`execute(id)` pushes

@@ -4,6 +4,7 @@ pragma solidity >=0.8.30;
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { SuperVaultCounsel } from "../src/SuperVault/SuperVaultCounsel.sol";
 import { SuperVaultVetoRegistry } from "../src/SuperVault/SuperVaultVetoRegistry.sol";
+import { IVetoRegistry } from "../src/interfaces/SuperVault/IVetoRegistry.sol";
 import { ISuperVaultAggregator } from "../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { DeterministicDeployerLib } from "lib/v2-core/src/vendor/nexus/DeterministicDeployerLib.sol";
 import { VmSafe } from "forge-std/Vm.sol";
@@ -241,6 +242,17 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         } else {
             console2.log("Veto registry (resolved): SuperGovernor default");
         }
+        // Separation-of-powers pre-flight (the deploy path REQUIREs this; surface it here so
+        // runCheckOne catches a guardian/operator overlap before any broadcast). A not-yet-deployed
+        // auto registry is predicted, so only probe a veto authority that already has code.
+        address guardianSource = p.vetoRegistry == address(0) ? p.superGovernor : p.vetoRegistry;
+        if (guardianSource.code.length > 0) {
+            bool operatorIsGuardian = IVetoRegistry(guardianSource).isGuardian(p.operator);
+            console2.log("Operator is a veto guardian (MUST be false):", operatorIsGuardian);
+            if (operatorIsGuardian) console2.log("WARNING: deploy will revert OPERATOR_IS_GUARDIAN");
+        } else {
+            console2.log("Veto authority not yet deployed - operator/guardian overlap checked at deploy");
+        }
         console2.log("");
         console2.log("Computed address:", counselAddr);
         console2.log("Is deployed:", isDeployed);
@@ -335,6 +347,15 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         // falls through to the Counsel's SuperGovernor default.
         p.vetoRegistry = _resolveOrDeployVetoRegistry(p, branchName);
 
+        // Separation of powers (mirrors the constructor's OPERATOR_IS_GUARDIAN guard so the
+        // misconfiguration fails in simulation with a readable reason): the guardian veto is the
+        // only independent brake on the operator, so the operator must not be a guardian of the
+        // resolved registry (auto-deployed batch, custom registry, or the SuperGovernor fallback —
+        // a zero vetoRegistry means the Counsel will consult SuperGovernor.isGuardian, so probe that).
+        address guardianSource = p.vetoRegistry == address(0) ? p.superGovernor : p.vetoRegistry;
+        require(guardianSource.code.length > 0, "VETO_AUTHORITY_HAS_NO_CODE");
+        require(!IVetoRegistry(guardianSource).isGuardian(p.operator), "OPERATOR_MUST_NOT_BE_A_VETO_GUARDIAN");
+
         // Per-strategy salt: each strategy gets its own deterministic Counsel address
         address counselAddr = __deployContract(
             COUNSEL_KEY,
@@ -421,7 +442,10 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @notice Deploy-time veto resolution: deploys the per-strategy registry when a
     ///         vetoGuardians batch is configured, probes every guardian, and records the
     ///         registry in the output JSON under "SuperVaultVetoRegistry_<strategy>"
-    function _resolveOrDeployVetoRegistry(DeployParams memory p, string calldata branchName) internal returns (address) {
+    function _resolveOrDeployVetoRegistry(DeployParams memory p, string calldata branchName)
+        internal
+        returns (address)
+    {
         if (p.vetoGuardians.length > 0) {
             require(p.vetoRegistry == address(0), "AMBIGUOUS_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH");
             address registryAddr = __deployContract(
@@ -723,12 +747,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         entries = new FleetEntry[](registry.length);
         for (uint256 i = 0; i < registry.length; i++) {
             entries[i] = FleetEntry({
-                strategy: registry[i],
-                operator: dOp,
-                vetoRegistry: dVr,
-                vetoGuardians: dVg,
-                minDev: dMin,
-                maxDev: dMax
+                strategy: registry[i], operator: dOp, vetoRegistry: dVr, vetoGuardians: dVg, minDev: dMin, maxDev: dMax
             });
         }
     }

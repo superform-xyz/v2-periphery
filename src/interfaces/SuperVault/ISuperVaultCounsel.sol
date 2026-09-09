@@ -28,6 +28,13 @@ interface ISuperVaultCounsel {
     /// @notice Thrown when constructor timing or bounds configuration is invalid
     error INVALID_CONFIG();
 
+    /// @notice Thrown when the operator is itself a member of the veto registry - the guardian
+    ///         veto is the only independent brake on the operator, so the roles must not coincide
+    error OPERATOR_IS_GUARDIAN();
+
+    /// @notice The resolved veto registry has no code, so it could never veto anything
+    error VETO_REGISTRY_NOT_A_CONTRACT();
+
     /// @notice Thrown when a caller other than the immutable operator invokes an operator function
     error NOT_OPERATOR();
 
@@ -73,16 +80,19 @@ interface ISuperVaultCounsel {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Lifecycle status of a proposal
-    /// @dev None MUST stay first so unset mapping slots decode to None. Ready and Expired are
-    ///      derived from timestamps in state() and are never written to storage; the stored
-    ///      subset is None/Pending/Executed/Vetoed.
+    /// @dev None MUST stay first so unset mapping slots decode to None. Ready, Expired and
+    ///      Superseded are derived in state() from a stored Pending and are never written to
+    ///      storage; the stored subset is None/Pending/Executed/Vetoed. Superseded takes
+    ///      precedence over Ready/Expired. Superseded was appended last (index 6) so existing
+    ///      consumers' values are unchanged; PROPOSAL_NOT_READY / PROPOSAL_NOT_VETOABLE may carry it.
     enum ProposalStatus {
         None, // 0: does not exist
         Pending, // 1: proposed, veto window running (stored)
         Ready, // 2: window passed un-vetoed, executable (derived)
         Executed, // 3: executed (stored, terminal)
         Vetoed, // 4: vetoed by a guardian (stored, terminal)
-        Expired // 5: not executed before expiry (derived, terminal)
+        Expired, // 5: not executed before expiry (derived, terminal)
+        Superseded // 6: a newer proposal of the same single-slot type exists (derived, terminal)
     }
 
     /// @notice The veto-gated action types
@@ -146,7 +156,7 @@ interface ISuperVaultCounsel {
     /// @notice Emitted when a veto-gated proposal is created
     /// @dev Emits the full stored proposal so monitors can evaluate it without an eth_call;
     ///      vetoDeadline and expiry are absolute timestamps so monitors need no chain constants.
-    ///      NOTE: veto remains valid AFTER vetoDeadline (until execution or expiry); the field
+    ///      NOTE: veto remains valid AFTER vetoDeadline (until execution, expiry or supersession); the field
     ///      marks when the proposal becomes executable, i.e. the end of the guaranteed window
     event ProposalCreated(
         uint256 indexed id,
@@ -159,6 +169,16 @@ interface ISuperVaultCounsel {
 
     /// @notice Emitted when a guardian vetoes a proposal (terminal)
     event ProposalVetoed(uint256 indexed id, address indexed guardian);
+
+    /// @notice Emitted when a newer proposal of the same single-slot type supersedes a still-live
+    ///         (Pending or Ready) older one (the older id can no longer execute or be vetoed; its
+    ///         value may be re-proposed afresh through a full veto window)
+    /// @dev Not emitted when the previous latest was already Executed, Vetoed or Expired: nothing
+    ///      live changed. Monitors should re-target review from `id` to `byId`.
+    /// @param id The superseded (older) proposal id
+    /// @param byId The new latest proposal id of that type
+    /// @param actionType The single-slot action type shared by both proposals
+    event ProposalSuperseded(uint256 indexed id, uint256 indexed byId, ActionType indexed actionType);
 
     /// @notice Emitted when the operator executes a matured proposal (terminal)
     event ProposalExecuted(uint256 indexed id, address indexed executor);
@@ -264,12 +284,14 @@ interface ISuperVaultCounsel {
     function proposeSecondaryManagerAdd(address manager) external returns (uint256 id);
 
     /// @notice Permanently cancel a proposal; callable by any VETO_REGISTRY guardian at any
-    ///         time before execution — including the whole Ready period (no front-run window)
+    ///         time before execution — including the whole Ready period (no front-run window) —
+    ///         unless the proposal has expired or been superseded (both already terminal)
     /// @param id The proposal id to veto
     function veto(uint256 id) external;
 
     /// @notice Execute a matured proposal; operator-only; forwards the exact stored args
-    /// @dev Executable iff block.timestamp ∈ [proposedAt + VETO_WINDOW, proposedAt + EXPIRY)
+    /// @dev Executable iff block.timestamp ∈ [proposedAt + VETO_WINDOW, proposedAt + EXPIRY) and,
+    ///      for single-slot types, iff `id` is still `latestProposalIdOfType(actionType)`
     /// @param id The proposal id to execute
     function execute(uint256 id) external;
 
@@ -408,7 +430,8 @@ interface ISuperVaultCounsel {
                                 VIEWS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Derived lifecycle status of a proposal (Ready/Expired computed from timestamps)
+    /// @notice Derived lifecycle status of a proposal (Superseded from the per-type epoch,
+    ///         Ready/Expired from timestamps; Superseded takes precedence)
     function state(uint256 id) external view returns (ProposalStatus);
 
     /// @notice Full stored proposal struct
@@ -427,6 +450,14 @@ interface ISuperVaultCounsel {
     /// @notice The aggregator this Counsel operates on (immutable)
     /// @dev Also used by a predecessor Counsel to validate migration-target wiring
     function AGGREGATOR() external view returns (ISuperVaultAggregator);
+
+    /// @notice The latest proposal id of a single-slot action type (the supersession epoch): only
+    ///         this id of that type can still execute; older pending ones report Superseded.
+    ///         For set-membership types this is unused (exists = false).
+    /// @param actionType The action type to query
+    /// @return exists Whether any proposal of a single-slot type has been created
+    /// @return id The latest proposal id of that type (0 when exists is false)
+    function latestProposalIdOfType(ActionType actionType) external view returns (bool exists, uint256 id);
 
     /// @notice The operator Safe (immutable)
     function OPERATOR() external view returns (address);

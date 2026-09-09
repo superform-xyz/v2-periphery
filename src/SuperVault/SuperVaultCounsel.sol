@@ -23,9 +23,11 @@ import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecuto
 ///         PPS deviation-threshold changes, global-leaf ban/unban, min-update-interval changes,
 ///         secondary-manager additions, and Counsel migration offers — exists only behind a
 ///         propose → guardian-veto-window → execute flow. Any address the VETO_REGISTRY reports
-///         as guardian (SuperGovernor guardians by default) can veto up to the moment of
-///         execution; the hard guarantee is the Pending window — once Ready, execute-vs-veto is
-///         a mempool race. Day-to-day operations are typed, operator-only
+///         as guardian (SuperGovernor guardians by default) can veto until execution, expiry or
+///         supersession; the hard guarantee is the Pending window — once Ready, execute-vs-veto
+///         is a mempool race. Single-slot actions carry a supersession epoch: only the LATEST
+///         proposal of such a type can ever execute, so a stale matured proposal can never roll
+///         back a newer value. Day-to-day operations are typed, operator-only
 ///         forwards; there is no generic call path, no owner, no upgradeability.
 /// @dev One instance per strategy; all counterparties and timing immutable from the constructor.
 ///      Replacement paths (two, both heavily guarded):
@@ -100,6 +102,18 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice Next proposal id; ids are never reused
     uint256 private _nextProposalId;
 
+    /// @notice Supersession epoch per single-slot action type: (latest proposal id of that type) + 1,
+    ///         0 = none yet
+    /// @dev A single-slot action (strategy root, deviation threshold, min update interval, fee
+    ///      config, counsel migration, global leaves status — each leaf is a single slot) has
+    ///      exactly one live value per target slot, so an OLDER still-pending proposal must never
+    ///      be executable after a NEWER one was proposed: otherwise a compromised operator could
+    ///      execute a matured, guardian-tolerated stale value within its expiry and roll back the
+    ///      value the guardians actually reviewed last. Proposing a new value therefore supersedes
+    ///      every older pending proposal of the same type; a superseded value can always be
+    ///      re-proposed through a fresh veto window.
+    mapping(ActionType actionType => uint256 latestIdPlusOne) private _latestByType;
+
     /// @notice Strategy's performance-fee cap, mirrored for propose-time validation
     uint256 private constant MAX_PERFORMANCE_FEE_BPS = 5100;
 
@@ -120,11 +134,15 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deploy the Counsel with its full, final configuration — nothing is settable later
-    /// @dev No code-length checks on operator_: Safes may be counterfactual at deploy time
-    /// @param operator_ The operator Safe; must be non-zero
+    /// @dev No code-length checks on operator_: Safes may be counterfactual at deploy time. The
+    ///      resolved veto registry (vetoRegistry_, or superGovernor_ when zero) MUST be a contract
+    ///      (VETO_REGISTRY_NOT_A_CONTRACT otherwise) and MUST NOT report operator_ as a guardian
+    ///      (OPERATOR_IS_GUARDIAN); a registry whose isGuardian lookup reverts is tolerated at
+    ///      construction (documented dead-registry semantics: veto path dead, operator paths live).
+    /// @param operator_ The operator Safe; must be non-zero and must not be a veto guardian
     /// @param superGovernor_ The protocol SuperGovernor (default veto registry + migration
     ///        anchor); must be non-zero
-    /// @param vetoRegistry_ Veto-authority registry; address(0) defaults to superGovernor_
+    /// @param vetoRegistry_ Veto-authority registry contract; address(0) defaults to superGovernor_
     /// @param aggregator_ The SuperVaultAggregator; must be non-zero
     /// @param strategy_ The managed strategy; must be non-zero
     /// @param executor_ The SuperVaultExecutor session-key module; must be non-zero
@@ -157,6 +175,20 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         OPERATOR = operator_;
         SUPER_GOVERNOR = ISuperGovernor(superGovernor_);
         VETO_REGISTRY = IVetoRegistry(vetoRegistry_ == address(0) ? superGovernor_ : vetoRegistry_);
+        // Separation of powers: the guardian veto is the ONLY independent brake on the operator
+        // (the aggregator's own timelock is short and permissionless), so an operator that can
+        // veto its own proposals - or is the sole guardian - turns the 3-day window into a mere
+        // delay. Address-level only (a Safe with the same signers elsewhere is a governance
+        // question), but it rules out the trivial misconfiguration at deploy time. A registry
+        // whose lookup REVERTS is the documented dead-registry case (veto path dead, operator
+        // paths live - an off-chain monitoring requirement, and the deploy script rejects it
+        // outright); it is not treated as an answer here. A CODELESS registry (an EOA or a
+        // counterfactual address) is rejected with a readable error rather than the opaque
+        // ABI-decode revert a try/catch would otherwise surface: it could never veto anything.
+        if (address(VETO_REGISTRY).code.length == 0) revert VETO_REGISTRY_NOT_A_CONTRACT();
+        try IVetoRegistry(address(VETO_REGISTRY)).isGuardian(operator_) returns (bool operatorIsGuardian) {
+            if (operatorIsGuardian) revert OPERATOR_IS_GUARDIAN();
+        } catch { }
         AGGREGATOR = ISuperVaultAggregator(aggregator_);
         STRATEGY = ISuperVaultStrategy(strategy_);
         EXECUTOR = ISuperVaultExecutor(executor_);
@@ -571,17 +603,29 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuperVaultCounsel
-    /// @dev Ready and Expired are derived: executable iff
+    /// @dev Superseded, Ready and Expired are derived from a stored Pending; Superseded takes
+    ///      precedence over the timestamp states (a superseded id stays Superseded forever instead
+    ///      of flipping to Expired). Executable iff not superseded and
     ///      block.timestamp ∈ [proposedAt + VETO_WINDOW, proposedAt + EXPIRY)
     function state(uint256 id) public view returns (ProposalStatus) {
         Proposal storage p = _proposals[id];
         ProposalStatus stored = p.status;
         if (stored == ProposalStatus.Pending) {
+            // A newer proposal of the same single-slot type supersedes this one (terminal).
+            if (_isSingleSlot(p.actionType) && _latestByType[p.actionType] != id + 1) {
+                return ProposalStatus.Superseded;
+            }
             uint256 proposedAt = p.proposedAt;
             if (block.timestamp >= proposedAt + EXPIRY) return ProposalStatus.Expired;
             if (block.timestamp >= proposedAt + VETO_WINDOW) return ProposalStatus.Ready;
         }
         return stored;
+    }
+
+    /// @inheritdoc ISuperVaultCounsel
+    function latestProposalIdOfType(ActionType actionType) external view returns (bool exists, uint256 id) {
+        uint256 v = _latestByType[actionType];
+        return (v != 0, v == 0 ? 0 : v - 1);
     }
 
     /// @inheritdoc ISuperVaultCounsel
@@ -603,6 +647,19 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
                             INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Single-slot action types: exactly one live value per target slot, so ordering matters
+    ///      and an older pending proposal must not be able to overwrite a newer one. Global leaves
+    ///      status is included because every leaf is its own ban/unban slot — two pending batches
+    ///      touching the same leaf would otherwise re-open the rollback class (batch all desired
+    ///      leaf changes into one proposal). Set-membership additions (yield source add, secondary
+    ///      manager add) are order-independent and idempotent-revert at the target, so they are
+    ///      not superseded.
+    function _isSingleSlot(ActionType actionType) internal pure returns (bool) {
+        return actionType == ActionType.StrategyRoot || actionType == ActionType.DeviationThreshold
+            || actionType == ActionType.MinUpdateInterval || actionType == ActionType.FeeConfig
+            || actionType == ActionType.CounselMigration || actionType == ActionType.GlobalLeavesStatus;
+    }
+
     /// @notice Assign the next monotonic id, stamp and store the proposal, emit ProposalCreated
     /// @param p The proposal with actionType and payload fields populated
     /// @return id The assigned proposal id
@@ -611,6 +668,21 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         p.proposedAt = SafeCast.toUint64(block.timestamp);
         p.status = ProposalStatus.Pending;
         _proposals[id] = p;
+
+        // Supersession epoch for single-slot types: the previous latest, if still live (Pending or
+        // Ready), is now terminally Superseded (reported by state(); never executable, no longer
+        // vetoable). The live check runs BEFORE the epoch moves so state(prev) still resolves by
+        // timestamp; an already-expired predecessor gets no event (nothing live changed).
+        if (_isSingleSlot(p.actionType)) {
+            uint256 prevPlusOne = _latestByType[p.actionType];
+            if (prevPlusOne != 0) {
+                ProposalStatus prevState = state(prevPlusOne - 1);
+                if (prevState == ProposalStatus.Pending || prevState == ProposalStatus.Ready) {
+                    emit ProposalSuperseded(prevPlusOne - 1, id, p.actionType);
+                }
+            }
+            _latestByType[p.actionType] = id + 1;
+        }
 
         emit ProposalCreated(id, p.actionType, msg.sender, p, block.timestamp + VETO_WINDOW, block.timestamp + EXPIRY);
     }

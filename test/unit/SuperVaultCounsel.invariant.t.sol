@@ -65,9 +65,7 @@ contract CounselHandler is Test {
         } else if (kind == 5) {
             counsel.proposeSecondaryManagerAdd(address(uint160(0x5000 + (seed % 1000))));
         } else {
-            counsel.proposeVaultFeeConfigUpdate(
-                seed % 5101, seed % 10_001, address(uint160(0x7000 + (seed % 1000)))
-            );
+            counsel.proposeVaultFeeConfigUpdate(seed % 5101, seed % 10_001, address(uint160(0x7000 + (seed % 1000))));
         }
         vm.stopPrank();
         ++ghost_proposed;
@@ -148,6 +146,27 @@ contract SuperVaultCounselInvariantTest is Test {
             }
             if (vetoed) {
                 assertEq(uint8(s), uint8(ISuperVaultCounsel.ProposalStatus.Vetoed));
+            }
+        }
+    }
+
+    /// @notice Supersession: a proposal reported Superseded was never executed, and for every
+    ///         single-slot type at most ONE proposal is ever executable at a time (the latest); an
+    ///         older proposal of a single-slot type can never have been executed AFTER a newer one
+    ///         of the same type was proposed (no rollback via a stale matured proposal).
+    function invariant_supersededNeverExecutedAndLatestOnly() public view {
+        uint256 next = counsel.nextProposalId();
+        for (uint256 id; id < next; ++id) {
+            ISuperVaultCounsel.ProposalStatus s = counsel.state(id);
+            if (s == ISuperVaultCounsel.ProposalStatus.Superseded) {
+                assertFalse(handler.ghost_wasExecuted(id), "superseded proposal was executed");
+                (bool exists, uint256 latest) = counsel.latestProposalIdOfType(counsel.getProposal(id).actionType);
+                assertTrue(exists && latest > id, "superseded proposal must be older than the epoch");
+            }
+            if (s == ISuperVaultCounsel.ProposalStatus.Ready) {
+                ISuperVaultCounsel.ActionType t = counsel.getProposal(id).actionType;
+                (bool exists, uint256 latest) = counsel.latestProposalIdOfType(t);
+                if (exists) assertEq(latest, id, "a Ready single-slot proposal must be the latest of its type");
             }
         }
     }

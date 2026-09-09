@@ -2,11 +2,12 @@
   "_comment": "Curated SuperVaultCounsel fleet configuration - the source of truth for 'all strategies' (NOT the full aggregator registry, which includes third-party/test vaults). Per environment: 'defaults' (operator Safe, veto registry, deviation bounds) plus per-chain arrays of per-strategy entries. Every entry may override any default (operator / vetoRegistry / minDeviationThreshold / maxDeviationThreshold) - omitted fields fall back to the environment defaults. Every listed strategy is validated against the on-chain aggregator registry at run time. If a chain's list is EMPTY, runAll falls back to the full on-chain registry using the defaults (intended for staging/test environments only).",
   "_operatorNote": "prod defaults.operator MUST be set to the real operator Safe before any prod BROADCAST (simulate works with a placeholder; address(0) reverts only on broadcast). Per-strategy operator overrides let partner fleets (e.g. Bizantine on Flare) use a different Safe.",
   "_vetoNote": "Veto authority, resolved per strategy: (1) vetoGuardians (address array, EOAs fine) - the deploy script AUTO-DEPLOYS a per-strategy SuperVaultVetoRegistry with exactly this guardian set (CREATE2, salt SuperVaultVetoRegistry_<strategy>, saved to output JSON as SuperVaultVetoRegistry_<strategy>) and wires it into the Counsel; (2) vetoRegistry - an ALREADY-DEPLOYED custom IVetoRegistry contract (e.g. Newton attestation shim), used directly, codeless addresses are rejected; (3) neither / zeros - the Counsel falls back to SuperGovernor.isGuardian. Setting both vetoGuardians and vetoRegistry (at the same level) is a config error. An explicit entry-level value suppresses the other inherited default. The resolved registry address participates in the Counsel's CREATE2 address.",
+  "_guardianIndependenceNote": "The operator MUST NOT be a veto guardian (the Counsel constructor and the deploy script both reject it): the guardian veto is the only independent brake on the operator, so operator == sole guardian turns the 3-day window into a mere delay. prod defaults therefore no longer name the operator Safe as guardian - set an organizationally independent guardian set (or a custom vetoRegistry) per environment/strategy before any prod BROADCAST; with neither set, the Counsel falls back to SuperGovernor.isGuardian (protocol GUARDIAN_ROLE holders), which must not include the operator Safe either.",
   "prod": {
     "defaults": {
       "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
       "vetoRegistry": "0x0000000000000000000000000000000000000000",
-      "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"],
+      "vetoGuardians": [],
       "minDeviationThreshold": "1000000000000000",
       "maxDeviationThreshold": "990000000000000000"
     },
@@ -72,7 +73,8 @@
           "strategy": "0xC2a5A2F441c71c4Aa011bfD9bb65A0FFaD070dF7",
           "label": "TestNVDA-RH",
           "operator": "0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8",
-          "vetoGuardians": ["0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"]
+          "vetoGuardians": ["0x22BC97cFac64D6d9BCaDF5dC36e4D01Db9e929c5"],
+          "_note": "Test deployment. The earlier Counsel (0x7b0D...) was deployed with operator == sole guardian, which the constructor and deploy script now reject; the guardian is a separate address so the redeploy gets a new registry + Counsel address (CREATE2 includes the registry) and must be re-seated."
         }
       ]
     }

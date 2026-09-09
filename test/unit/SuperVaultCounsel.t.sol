@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, Vm } from "forge-std/Test.sol";
 
 import { SuperVaultCounsel } from "../../src/SuperVault/SuperVaultCounsel.sol";
 import { ISuperVaultCounsel } from "../../src/interfaces/SuperVault/ISuperVaultCounsel.sol";
@@ -1159,7 +1159,8 @@ contract SuperVaultCounselTest is Test {
         uint256 id = _proposeAdd();
         vm.warp(uint256(warpTo) < block.timestamp ? block.timestamp : uint256(warpTo));
         uint8 s = uint8(counsel.state(id));
-        // stored Pending only ever derives to Pending/Ready/Expired
+        // stored Pending of a set-membership type (no supersession epoch) only ever derives to
+        // Pending/Ready/Expired
         assertTrue(
             s == uint8(ISuperVaultCounsel.ProposalStatus.Pending) || s == uint8(ISuperVaultCounsel.ProposalStatus.Ready)
                 || s == uint8(ISuperVaultCounsel.ProposalStatus.Expired)
@@ -1613,5 +1614,272 @@ contract SuperVaultCounselTest is Test {
         assertEq(p.newThreshold, 5e17);
         assertEq(p.source, address(0));
         assertEq(p.root, bytes32(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+            SEPARATION OF POWERS: OPERATOR MUST NOT BE A GUARDIAN
+    //////////////////////////////////////////////////////////////*/
+
+    /// The guardian veto is the only independent brake on the operator; an operator that is
+    /// itself a guardian (worse: the sole guardian) turns the veto window into a mere delay.
+    function test_Constructor_RevertIf_OperatorIsGuardian() public {
+        superGovernor.setGuardian(operator, true);
+        vm.expectRevert(ISuperVaultCounsel.OPERATOR_IS_GUARDIAN.selector);
+        new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            address(0),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+            SUPERSESSION: NO ROLLBACK VIA A STALE MATURED PROPOSAL
+    //////////////////////////////////////////////////////////////*/
+
+    /// Proposing a newer root supersedes the older still-pending one: it can never execute (so a
+    /// compromised operator cannot roll the strategy back to a stale, guardian-tolerated root
+    /// within its expiry) and is no longer vetoable (nothing left to veto).
+    function test_Supersession_OlderRootCannotExecuteAfterNewerProposed() public {
+        bytes32 r1 = bytes32(uint256(0xa1));
+        bytes32 r2 = bytes32(uint256(0xa2));
+        vm.startPrank(operator);
+        uint256 idOld = counsel.proposeStrategyRoot(r1, bytes32(uint256(1)));
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultCounsel.ProposalSuperseded(idOld, idOld + 1, ISuperVaultCounsel.ActionType.StrategyRoot);
+        uint256 idNew = counsel.proposeStrategyRoot(r2, bytes32(uint256(2)));
+        vm.stopPrank();
+
+        (bool exists, uint256 latest) = counsel.latestProposalIdOfType(ISuperVaultCounsel.ActionType.StrategyRoot);
+        assertTrue(exists);
+        assertEq(latest, idNew);
+        assertEq(uint8(counsel.state(idOld)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded));
+        assertEq(uint8(counsel.state(idNew)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+
+        vm.warp(block.timestamp + VETO_WINDOW);
+        assertEq(uint8(counsel.state(idOld)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded), "never Ready");
+        assertEq(uint8(counsel.state(idNew)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, idOld, ISuperVaultCounsel.ProposalStatus.Superseded
+            )
+        );
+        counsel.execute(idOld);
+        vm.prank(guardian);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_VETOABLE.selector, idOld, ISuperVaultCounsel.ProposalStatus.Superseded
+            )
+        );
+        counsel.veto(idOld);
+
+        vm.prank(operator);
+        counsel.execute(idNew);
+        assertEq(aggregator.lastRoot(), r2);
+    }
+
+    /// The rollback trace: the newer root executes first, then the operator tries the stale one.
+    function test_Supersession_StaleRootCannotOverwriteExecutedNewerRoot() public {
+        bytes32 r1 = bytes32(uint256(0xb1));
+        bytes32 r2 = bytes32(uint256(0xb2));
+        vm.startPrank(operator);
+        uint256 idOld = counsel.proposeStrategyRoot(r1, bytes32(uint256(1)));
+        uint256 idNew = counsel.proposeStrategyRoot(r2, bytes32(uint256(2)));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        counsel.execute(idNew);
+        assertEq(aggregator.lastRoot(), r2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, idOld, ISuperVaultCounsel.ProposalStatus.Superseded
+            )
+        );
+        counsel.execute(idOld);
+        vm.stopPrank();
+        assertEq(aggregator.lastRoot(), r2, "no rollback to the stale root");
+    }
+
+    /// Supersession removes the stale path, not the capability: re-proposing the old value opens
+    /// a fresh veto window that the guardians review again.
+    function test_Supersession_ReproposalGoesThroughFreshWindow() public {
+        bytes32 r1 = bytes32(uint256(0xc1));
+        bytes32 r2 = bytes32(uint256(0xc2));
+        vm.startPrank(operator);
+        counsel.proposeStrategyRoot(r1, bytes32(uint256(1)));
+        uint256 idNew = counsel.proposeStrategyRoot(r2, bytes32(uint256(2)));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        counsel.execute(idNew);
+        uint256 idAgain = counsel.proposeStrategyRoot(r1, bytes32(uint256(1))); // fresh proposal of r1
+        assertEq(uint8(counsel.state(idAgain)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+        vm.stopPrank();
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(idAgain);
+        assertEq(aggregator.lastRoot(), r1, "re-proposed root executes after its own window");
+    }
+
+    /// Every single-slot type is superseded (deviation threshold shown); set-membership additions
+    /// are order-independent and are NOT (two yield-source adds both stay executable).
+    function test_Supersession_AppliesToSingleSlotTypesOnly() public {
+        vm.startPrank(operator);
+        uint256 t1 = counsel.proposeDeviationThreshold(MIN_DEV + 1);
+        uint256 t2 = counsel.proposeDeviationThreshold(MIN_DEV + 2);
+        uint256 y1 = counsel.proposeYieldSourceAdd(makeAddr("src1"), makeAddr("oracle1"));
+        uint256 y2 = counsel.proposeYieldSourceAdd(makeAddr("src2"), makeAddr("oracle2"));
+        vm.stopPrank();
+        vm.warp(block.timestamp + VETO_WINDOW);
+        assertEq(uint8(counsel.state(t1)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded));
+        assertEq(uint8(counsel.state(t2)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+        assertEq(uint8(counsel.state(y1)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+        assertEq(uint8(counsel.state(y2)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+        (bool exists,) = counsel.latestProposalIdOfType(ISuperVaultCounsel.ActionType.YieldSourceAdd);
+        assertFalse(exists, "set-membership types carry no supersession epoch");
+    }
+
+    /// Vetoing the NEWER proposal must not resurrect the superseded older one: the epoch still
+    /// points at the vetoed id, so the older value can only come back through a fresh proposal.
+    function test_Supersession_VetoOfNewerDoesNotResurrectOlder() public {
+        vm.startPrank(operator);
+        uint256 idOld = counsel.proposeStrategyRoot(bytes32(uint256(0xd1)), bytes32(uint256(1)));
+        uint256 idNew = counsel.proposeStrategyRoot(bytes32(uint256(0xd2)), bytes32(uint256(2)));
+        vm.stopPrank();
+        vm.prank(guardian);
+        counsel.veto(idNew);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        assertEq(uint8(counsel.state(idNew)), uint8(ISuperVaultCounsel.ProposalStatus.Vetoed));
+        assertEq(uint8(counsel.state(idOld)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded), "stays dead");
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, idOld, ISuperVaultCounsel.ProposalStatus.Superseded
+            )
+        );
+        counsel.execute(idOld);
+        assertEq(aggregator.lastRoot(), bytes32(0), "no root ever applied");
+    }
+
+    /// ProposalSuperseded fires only when the previous latest was still live (Pending/Ready):
+    /// an Executed predecessor keeps reporting Executed and gets no event; neither does an
+    /// Expired one (nothing live changed).
+    function test_Supersession_NoEventWhenPreviousIsExecutedOrExpired() public {
+        vm.startPrank(operator);
+        uint256 idA = counsel.proposeStrategyRoot(bytes32(uint256(0xe1)), bytes32(uint256(1)));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        counsel.execute(idA);
+        vm.recordLogs();
+        uint256 idB = counsel.proposeStrategyRoot(bytes32(uint256(0xe2)), bytes32(uint256(2)));
+        _assertNoSupersededLog();
+        assertEq(uint8(counsel.state(idA)), uint8(ISuperVaultCounsel.ProposalStatus.Executed), "Executed is stored");
+        assertEq(uint8(counsel.state(idB)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+
+        // idB expires unexecuted; a further proposal supersedes nothing live -> no event, and the
+        // expired id reports Superseded thereafter (precedence over Expired, both terminal)
+        vm.warp(block.timestamp + EXPIRY);
+        assertEq(uint8(counsel.state(idB)), uint8(ISuperVaultCounsel.ProposalStatus.Expired));
+        vm.recordLogs();
+        counsel.proposeStrategyRoot(bytes32(uint256(0xe3)), bytes32(uint256(3)));
+        _assertNoSupersededLog();
+        assertEq(uint8(counsel.state(idB)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded));
+        vm.stopPrank();
+    }
+
+    /// A Ready (matured) predecessor is live and therefore does get the event when superseded.
+    function test_Supersession_EventForReadyPredecessor() public {
+        vm.startPrank(operator);
+        uint256 idOld = counsel.proposeStrategyRoot(bytes32(uint256(0xf1)), bytes32(uint256(1)));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        assertEq(uint8(counsel.state(idOld)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultCounsel.ProposalSuperseded(idOld, idOld + 1, ISuperVaultCounsel.ActionType.StrategyRoot);
+        counsel.proposeStrategyRoot(bytes32(uint256(0xf2)), bytes32(uint256(2)));
+        vm.stopPrank();
+        assertEq(uint8(counsel.state(idOld)), uint8(ISuperVaultCounsel.ProposalStatus.Superseded));
+    }
+
+    /// Global leaves status is single-slot per leaf: a stale matured "unban X" batch must not be
+    /// executable after a newer "ban X" batch was proposed (same rollback class as the root).
+    function test_Supersession_GlobalLeavesStatusIsSingleSlot() public {
+        bytes32[] memory leaves = new bytes32[](1);
+        leaves[0] = keccak256("leaf-x");
+        bool[] memory unban = new bool[](1);
+        bool[] memory ban = new bool[](1);
+        ban[0] = true;
+
+        vm.startPrank(operator);
+        uint256 idUnban = counsel.proposeGlobalLeavesStatus(leaves, unban);
+        vm.warp(block.timestamp + 1 days);
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultCounsel.ProposalSuperseded(
+            idUnban, idUnban + 1, ISuperVaultCounsel.ActionType.GlobalLeavesStatus
+        );
+        uint256 idBan = counsel.proposeGlobalLeavesStatus(leaves, ban);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        counsel.execute(idBan);
+        assertEq(aggregator.lastStatuses(0), true, "ban applied");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, idUnban, ISuperVaultCounsel.ProposalStatus.Superseded
+            )
+        );
+        counsel.execute(idUnban);
+        vm.stopPrank();
+        assertEq(aggregator.lastStatuses(0), true, "stale unban never rolled the ban back");
+        (bool exists, uint256 latest) = counsel.latestProposalIdOfType(ISuperVaultCounsel.ActionType.GlobalLeavesStatus);
+        assertTrue(exists);
+        assertEq(latest, idBan);
+    }
+
+    /// The operator/guardian separation is enforced against a CUSTOM registry too (the prod
+    /// configuration), not only the SuperGovernor fallback.
+    function test_Constructor_RevertIf_OperatorIsGuardian_CustomRegistry() public {
+        MockCounselSuperGovernor registry = new MockCounselSuperGovernor();
+        registry.setGuardian(operator, true);
+        vm.expectRevert(ISuperVaultCounsel.OPERATOR_IS_GUARDIAN.selector);
+        new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            address(registry),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+    }
+
+    /// A codeless veto registry (EOA / counterfactual) could never veto anything: rejected with
+    /// a readable error instead of an opaque ABI-decode revert.
+    function test_Constructor_RevertIf_VetoRegistryHasNoCode() public {
+        vm.expectRevert(ISuperVaultCounsel.VETO_REGISTRY_NOT_A_CONTRACT.selector);
+        new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            makeAddr("eoaRegistry"),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV
+        );
+    }
+
+    function _assertNoSupersededLog() internal {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(logs[i].topics[0] != ISuperVaultCounsel.ProposalSuperseded.selector, "unexpected supersession");
+        }
     }
 }
