@@ -18,6 +18,15 @@ import { ISuperHook } from "../../lib/v2-core/src/interfaces/ISuperHook.sol";
 /// @notice Mock hook for testing native ETH handling in SuperVaultStrategy
 /// @dev This hook simulates operations that require native ETH value
 contract MockNativeETHHook is BaseHook, ISuperHookContextAware {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "MockNativeETHHook";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/

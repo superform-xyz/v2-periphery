@@ -9,6 +9,20 @@ import {
 } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 contract MockHook is ISuperHook, ISuperHookResult, ISuperHookResultOutflow {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "MockHook";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
+    /// @dev ISuperHook.getOutToken (v2-core dev): mock reports its configured asset
+    function getOutToken(address) external view returns (address) {
+        return asset;
+    }
+
     HookType public hookType;
     uint256 public outAmount;
     uint256 public usedShares;

@@ -227,9 +227,8 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         returns (address)
     {
         // Use low-level call to check if address exists without reverting
-        (bool success, bytes memory data) = address(governor).staticcall(
-            abi.encodeWithSelector(governor.getAddress.selector, key)
-        );
+        (bool success, bytes memory data) =
+            address(governor).staticcall(abi.encodeWithSelector(governor.getAddress.selector, key));
 
         if (!success) {
             console2.log("");
@@ -267,7 +266,10 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Verify all roles are configured correctly
         // Skip for HyperEVM/Flare since roles haven't been transferred yet
-        if (chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID) {
+        if (
+            chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID
+                || chainId == BNB_CHAIN_ID
+        ) {
             console2.log("[Role Check] SKIPPED - Roles not yet transferred on this chain");
         } else {
             _verifyRoles(governor, env);
@@ -277,7 +279,6 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         address activePPSOracle = governor.getActivePPSOracle();
         console2.log("[Config Check] Active PPS Oracle:", activePPSOracle);
         require(activePPSOracle == peripheryContracts.ecdsappsOracle, "SMOKE_TEST_FAILED: PPS Oracle mismatch");
-
 
         // Verify SuperVaultAggregator is set
         address aggregator = governor.getAddress(governor.SUPER_VAULT_AGGREGATOR());
@@ -378,8 +379,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         if (env == 2) {
             console2.log("[Role Check] SKIPPED - SUPER_GOVERNOR_ADDRESS role check skipped for staging");
         } else {
-            bool superGovernorHasDefaultAdmin =
-                governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
+            bool superGovernorHasDefaultAdmin = governor.hasRole(governor.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
             bool superGovernorHasSuperGovernorRole =
                 governor.hasRole(governor.SUPER_GOVERNOR_ROLE(), SUPER_GOVERNOR_ADDRESS);
 
@@ -391,7 +391,8 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
                 superGovernorHasDefaultAdmin, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing DEFAULT_ADMIN_ROLE"
             );
             require(
-                superGovernorHasSuperGovernorRole, "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing SUPER_GOVERNOR_ROLE"
+                superGovernorHasSuperGovernorRole,
+                "SMOKE_TEST_FAILED: SUPER_GOVERNOR_ADDRESS missing SUPER_GOVERNOR_ROLE"
             );
         }
 
@@ -872,8 +873,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         view
     {
         // Verify strategy's vault info
-        (address stratVault, address stratAsset, uint8 stratDecimals) =
-            ISuperVaultStrategy(strategyAddr).getVaultInfo();
+        (address stratVault, address stratAsset, uint8 stratDecimals) = ISuperVaultStrategy(strategyAddr).getVaultInfo();
         console2.log("  Strategy -> Vault:", stratVault);
         console2.log("  Strategy -> Asset:", stratAsset);
         console2.log("  Strategy Decimals:", stratDecimals);
@@ -937,9 +937,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         console2.log("  Min update interval (seconds):", minUpdateInterval);
 
         // Verify min update interval < max staleness
-        require(
-            minUpdateInterval < maxStaleness, "SMOKE_TEST_FAILED: minUpdateInterval must be less than maxStaleness"
-        );
+        require(minUpdateInterval < maxStaleness, "SMOKE_TEST_FAILED: minUpdateInterval must be less than maxStaleness");
 
         // Get deviation threshold
         uint256 deviationThreshold = aggregator.getDeviationThreshold(strategyAddr);

@@ -8,7 +8,7 @@
 NETWORKS=(
     "1:Ethereum:ETH_MAINNET"
     "8453:Base:BASE_MAINNET"
-    # "56:BNB:BSC_MAINNET"
+    "56:BNB:BSC_MAINNET"
     # "42161:Arbitrum:ARBITRUM_MAINNET"
     # "10:Optimism:OPTIMISM_MAINNET"
     # "137:Polygon:POLYGON_MAINNET"
@@ -33,9 +33,9 @@ get_network_name() {
         8453)
             echo "Base"
             ;;
-        # 56)
-        #     echo "BNB"
-        #     ;;
+        56)
+            echo "BNB"
+            ;;
         # 42161)
         #     echo "Arbitrum"
         #     ;;
@@ -89,9 +89,9 @@ get_rpc_var() {
         8453)
             echo "BASE_MAINNET"
             ;;
-        # 56)
-        #     echo "BSC_MAINNET"
-        #     ;;
+        56)
+            echo "BSC_MAINNET"
+            ;;
         # 42161)
         #     echo "ARBITRUM_MAINNET"
         #     ;;
@@ -145,9 +145,9 @@ get_rpc_url() {
         8453)
             echo "$BASE_MAINNET"
             ;;
-        # 56)
-        #     echo "$BSC_MAINNET"
-        #     ;;
+        56)
+            echo "$BSC_MAINNET"
+            ;;
         # 42161)
         #     echo "$ARBITRUM_MAINNET"
         #     ;;
@@ -232,12 +232,12 @@ load_rpc_urls_ci() {
         failed_rpcs+=("BASE_RPC_URL")
     fi
 
-    # echo "  • Loading BSC RPC..."
-    # if [[ -n "${BSC_RPC_URL:-}" ]]; then
-    #     export BSC_MAINNET="$BSC_RPC_URL"
-    # else
-    #     failed_rpcs+=("BSC_RPC_URL")
-    # fi
+    echo "  • Loading BSC RPC..."
+    if [[ -n "${BSC_RPC_URL:-}" ]]; then
+        export BSC_MAINNET="$BSC_RPC_URL"
+    else
+        failed_rpcs+=("BSC_RPC_URL")
+    fi
 
     # echo "  • Loading Arbitrum RPC..."
     # if [[ -n "${ARBITRUM_RPC_URL:-}" ]]; then
@@ -336,7 +336,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, HyperEVM, Flare)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, BSC, HyperEVM, Flare, RH)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -347,19 +347,29 @@ load_rpc_urls() {
 
     # Load core networks (same as staging)
     echo "  • Loading Ethereum RPC..."
-    if ! export ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null); then
+    ETH_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHEREUM_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$ETH_MAINNET" ]; then
         failed_rpcs+=("ETHEREUM_RPC_URL")
+    else
+        export ETH_MAINNET
     fi
 
     echo "  • Loading Base RPC..."
-    if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
+    BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$BASE_MAINNET" ]; then
         failed_rpcs+=("BASE_RPC_URL")
+    else
+        export BASE_MAINNET
     fi
 
-    # echo "  • Loading BSC RPC..."
-    # if ! export BSC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BSC_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("BSC_RPC_URL")
-    # fi
+    echo "  • Loading BSC RPC..."
+    BSC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BSC_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$BSC_MAINNET" ]; then
+        echo "  • BSC_RPC_URL not in 1Password, using default public RPC"
+        export BSC_MAINNET="https://bsc-dataseed.binance.org"
+    else
+        export BSC_MAINNET
+    fi
 
     # echo "  • Loading Arbitrum RPC..."
     # if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
@@ -443,17 +453,22 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, HyperEVM, Flare)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, BSC, HyperEVM, Flare, RH)"
 }
 
 # Load Etherscan V2 API key for verification
 load_etherscan_api_key() {
     echo "Loading Etherscan V2 API key for production verification..."
-    if ! export ETHERSCANV2_API_KEY=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHERSCANV2_API_KEY/credential 2>/dev/null); then
-        echo "❌ Failed to load ETHERSCANV2_API_KEY from 1Password"
+    # NOTE: `export VAR=$(cmd)` always succeeds (the exit status is export's, not cmd's), which used
+    # to print a green "loaded" line with an EMPTY key when the 1Password session had expired - forge
+    # then failed with "a value is required for '--etherscan-api-key'". Capture, then check non-empty.
+    ETHERSCANV2_API_KEY=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHERSCANV2_API_KEY/credential 2>/dev/null) || true
+    if [ -z "$ETHERSCANV2_API_KEY" ]; then
+        echo "❌ Failed to load ETHERSCANV2_API_KEY from 1Password (is the op session signed in? try: eval \$(op signin))"
         echo "   Contract verification will not work without this credential"
         return 1
     fi
+    export ETHERSCANV2_API_KEY
     echo "✅ Etherscan V2 API key loaded for production"
 }
 

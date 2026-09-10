@@ -26,6 +26,9 @@ set -euo pipefail
 SKIP_NETWORKS=(
     "1"      # Ethereum - already configured
     "8453"   # Base - already configured
+    "999"    # HyperEVM - already configured
+    "14"     # Flare - already configured
+    "4663"   # RH - already configured
 )
 
 # Function to check if a network should be skipped

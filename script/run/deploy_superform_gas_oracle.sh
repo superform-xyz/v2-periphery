@@ -52,10 +52,16 @@ readonly DEFAULT_GAS_PRICE=1000000
 readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 # Supported chains: "CHAIN_ID:CHAIN_NAME"
+# Convention: comment a chain out once its oracle is deployed. The "already deployed" check
+# computes the CREATE2 address from the DEFAULT initial gas price, so a chain whose oracle was
+# deployed with a different price (RH: 0x986c...) would NOT be detected and execute mode would
+# deploy a second oracle there. NOTE: simulate mode also rewrites {Chain}-latest.json with the
+# computed address - only run it against chains you intend to deploy.
 readonly SUPPORTED_CHAINS=(
-    # "999:HyperEVM"
-    "14:Flare"
-    "4663:RH"
+    # "999:HyperEVM"   # deployed
+    # "14:Flare"       # deployed 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc
+    # "4663:RH"        # deployed 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0 (non-default args)
+    "56:BNB"
 )
 
 ###################################################################################
@@ -94,7 +100,7 @@ Examples:
     # Execute with custom gas price
     $0 staging execute v2-supervaults 50
 
-Note: Deploys on Base (8453) and HyperEVM (999). Already-deployed chains are skipped.
+Note: Deploys on every chain listed in SUPPORTED_CHAINS (currently BNB/56). Comment a chain out once deployed.
 
 EOF
     exit 1
@@ -155,6 +161,9 @@ get_chain_rpc_url() {
             ;;
         4663)
             echo "${RH_MAINNET:-}"
+            ;;
+        56)
+            echo "${BSC_MAINNET:-}"
             ;;
         *)
             echo ""

@@ -12,6 +12,15 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///      With the new approach, we validate the hook configuration (hook + args) instead of
 ///      individual targets, allowing this pattern to work correctly.
 contract MockMultiTargetHook is BaseHook {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "MockMultiTargetHook";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
     // Events for testing
     event PreExecuteCalled(address prevHook, address sender, bytes data);
     event PostExecuteCalled(address prevHook, address sender, bytes data);

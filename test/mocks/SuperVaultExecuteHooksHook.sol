@@ -16,6 +16,15 @@ import { ISuperVaultStrategy } from "../../src/interfaces/SuperVault/ISuperVault
 /// @notice data has the following structure:
 /// @notice         ISuperVaultStrategy.ExecuteArgs executeArgs (ABI encoded)
 contract SuperVaultExecuteHooksHook is BaseHook {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "SuperVaultExecuteHooksHook";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
