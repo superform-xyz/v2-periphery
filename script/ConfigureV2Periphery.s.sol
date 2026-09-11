@@ -10,37 +10,6 @@ contract ConfigureV2Periphery is DeployV2Base {
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Core hook addresses from v2-core deployment
-    struct HookAddresses {
-        address approveErc20Hook;
-        address transferErc20Hook;
-        address batchTransferHook;
-        address batchTransferFromHook;
-        address deposit4626VaultHook;
-        address approveAndDeposit4626VaultHook;
-        address redeem4626VaultHook;
-        address deposit5115VaultHook;
-        address redeem5115VaultHook;
-        address approveAndDeposit5115VaultHook;
-        address deposit7540VaultHook;
-        address requestDeposit7540VaultHook;
-        address approveAndRequestDeposit7540VaultHook;
-        address redeem7540VaultHook;
-        address requestRedeem7540VaultHook;
-        address swap1InchHook;
-        address swapOdosHook;
-        address approveAndSwapOdosHook;
-        address cancelDepositRequest7540Hook;
-        address cancelRedeemRequest7540Hook;
-        address claimCancelDepositRequest7540Hook;
-        address claimCancelRedeemRequest7540Hook;
-        address merklClaimRewardHook;
-        address pendleRouterRedeemHook;
-        address pendleRouterSwapHook;
-        address pendleUnifiedHook;
-        address acrossSendFundsAndExecuteOnDstHook;
-    }
-
     /// @notice Configuration parameters for hook setup
     struct ConfigParams {
         uint256 env;
@@ -112,11 +81,12 @@ contract ConfigureV2Periphery is DeployV2Base {
 
         console2.log("SuperGovernor address:", params.superGovernor);
 
-        // Get core hook addresses
-        HookAddresses memory hooks = _getCoreHookAddresses(params);
-
-        // Register all hooks with SuperGovernor
-        _registerAllHooks(params.superGovernor, hooks);
+        // Load the core deployment JSON for this chain and register every hook in _hookKeys()
+        string memory coreJson = _readCoreContractsFromOutput(params.chainId, params.env, params.saltNamespace);
+        if (bytes(coreJson).length == 0) {
+            console2.log("WARNING: Failed to load core contracts - no hooks will be registered");
+        }
+        _registerAllHooks(params.superGovernor, coreJson);
 
         // Set UP and UPKEEP_TOKEN addresses in SuperGovernor
         _setTokenAddresses(params.superGovernor, params.chainId, params.env);
@@ -262,6 +232,32 @@ contract ConfigureV2Periphery is DeployV2Base {
             }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (RH)");
+        } else if (chainId == BNB_CHAIN_ID) {
+            // BNB: Both UP and UPKEEP_TOKEN are the UpOFT token
+            address upToken = UP_TOKEN_BNB;
+            address upkeepToken = UPKEEP_TOKEN_BNB;
+            console2.log("  Chain: BNB");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (BNB)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (BNB)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
         }
@@ -302,63 +298,6 @@ contract ConfigureV2Periphery is DeployV2Base {
 
         console2.log("SuperGovernor not found in deployment files");
         return address(0);
-    }
-
-    /// @notice Get all core hook addresses from v2-core deployment
-    function _getCoreHookAddresses(ConfigParams memory params) internal view returns (HookAddresses memory hooks) {
-        console2.log("Loading core hook addresses from deployment files...");
-
-        // Read core deployment JSON using the same pattern as v2-core
-        string memory coreJson = _readCoreContractsFromOutput(params.chainId, params.env, params.saltNamespace);
-
-        if (bytes(coreJson).length > 0) {
-            console2.log("Successfully loaded core contracts from deployment files");
-
-            // Parse JSON to extract hook addresses using vm.parseJsonAddress
-            hooks = _parseHookAddresses(coreJson);
-            console2.log("Core hook addresses parsed from deployment files");
-        } else {
-            console2.log("WARNING: Failed to load core contracts, using empty addresses");
-            // Return empty struct - all addresses will be zero
-        }
-
-        return hooks;
-    }
-
-    /// @notice Parse hook addresses from core deployment JSON using vm.parseJsonAddress
-    function _parseHookAddresses(string memory coreJson) internal pure returns (HookAddresses memory hooks) {
-        // Parse each hook address from the JSON structure using the actual JSON keys from deployment
-        // Keys match the contract names in the v2-core deployment JSON files
-
-        hooks.approveErc20Hook = _safeParseJsonAddress(coreJson, ".ApproveERC20Hook");
-        hooks.transferErc20Hook = _safeParseJsonAddress(coreJson, ".TransferERC20Hook");
-        hooks.batchTransferHook = _safeParseJsonAddress(coreJson, ".BatchTransferHook");
-        hooks.batchTransferFromHook = _safeParseJsonAddress(coreJson, ".BatchTransferFromHook");
-        hooks.deposit4626VaultHook = _safeParseJsonAddress(coreJson, ".Deposit4626VaultHook");
-        hooks.approveAndDeposit4626VaultHook = _safeParseJsonAddress(coreJson, ".ApproveAndDeposit4626VaultHook");
-        hooks.redeem4626VaultHook = _safeParseJsonAddress(coreJson, ".Redeem4626VaultHook");
-        hooks.deposit5115VaultHook = _safeParseJsonAddress(coreJson, ".Deposit5115VaultHook");
-        hooks.redeem5115VaultHook = _safeParseJsonAddress(coreJson, ".Redeem5115VaultHook");
-        hooks.approveAndDeposit5115VaultHook = _safeParseJsonAddress(coreJson, ".ApproveAndDeposit5115VaultHook");
-        hooks.deposit7540VaultHook = _safeParseJsonAddress(coreJson, ".Deposit7540VaultHook");
-        hooks.requestDeposit7540VaultHook = _safeParseJsonAddress(coreJson, ".RequestDeposit7540VaultHook");
-        hooks.approveAndRequestDeposit7540VaultHook =
-            _safeParseJsonAddress(coreJson, ".ApproveAndRequestDeposit7540VaultHook");
-        hooks.redeem7540VaultHook = _safeParseJsonAddress(coreJson, ".Redeem7540VaultHook");
-        hooks.requestRedeem7540VaultHook = _safeParseJsonAddress(coreJson, ".RequestRedeem7540VaultHook");
-        hooks.swap1InchHook = _safeParseJsonAddress(coreJson, ".Swap1InchHook");
-        hooks.swapOdosHook = _safeParseJsonAddress(coreJson, ".SwapOdosV2Hook");
-        hooks.approveAndSwapOdosHook = _safeParseJsonAddress(coreJson, ".ApproveAndSwapOdosV2Hook");
-        hooks.cancelDepositRequest7540Hook = _safeParseJsonAddress(coreJson, ".CancelDepositRequest7540Hook");
-        hooks.cancelRedeemRequest7540Hook = _safeParseJsonAddress(coreJson, ".CancelRedeemRequest7540Hook");
-        hooks.claimCancelDepositRequest7540Hook = _safeParseJsonAddress(coreJson, ".ClaimCancelDepositRequest7540Hook");
-        hooks.claimCancelRedeemRequest7540Hook = _safeParseJsonAddress(coreJson, ".ClaimCancelRedeemRequest7540Hook");
-        hooks.merklClaimRewardHook = _safeParseJsonAddress(coreJson, ".MerklClaimRewardHook");
-        hooks.pendleRouterRedeemHook = _safeParseJsonAddress(coreJson, ".PendleRouterRedeemHook");
-        hooks.pendleRouterSwapHook = _safeParseJsonAddress(coreJson, ".PendleRouterSwapHook");
-        hooks.pendleUnifiedHook = _safeParseJsonAddress(coreJson, ".PendleUnifiedHook");
-        hooks.acrossSendFundsAndExecuteOnDstHook =
-            _safeParseJsonAddress(coreJson, ".AcrossSendFundsAndExecuteOnDstHook");
     }
 
     /// @notice Safely parse an address from JSON, returning zero address on failure
@@ -458,9 +397,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         }
 
         // Read from latest.json which contains all networks
-        string memory latestPath = string(
-            abi.encodePacked(peripheryRoot, "/script/output/", envName, "/latest.json")
-        );
+        string memory latestPath = string(abi.encodePacked(peripheryRoot, "/script/output/", envName, "/latest.json"));
 
         console2.log("Reading periphery contracts from:", latestPath);
 
@@ -497,11 +434,11 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 1) return "Ethereum";
         if (chainId == 8453) return "Base";
         if (chainId == 10) return "Optimism";
-        if (chainId == 42161) return "Arbitrum";
+        if (chainId == 42_161) return "Arbitrum";
         if (chainId == 137) return "Polygon";
-        if (chainId == 43114) return "Avalanche";
+        if (chainId == 43_114) return "Avalanche";
         if (chainId == 56) return "BNB";
-        if (chainId == 80094) return "Berachain";
+        if (chainId == 80_094) return "Berachain";
         if (chainId == 146) return "Sonic";
         if (chainId == 100) return "Gnosis";
         if (chainId == 130) return "Unichain";
@@ -509,6 +446,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 999) return "HyperEVM";
         if (chainId == 14) return "Flare";
         if (chainId == 4663) return "RH";
+        if (chainId == 56) return "BNB";
         return "Unknown";
     }
 
@@ -524,153 +462,123 @@ contract ConfigureV2Periphery is DeployV2Base {
     }
 
     /// @notice Hook registration result codes
-    uint256 internal constant HOOK_NOT_DEPLOYED = 0;
-    uint256 internal constant HOOK_NEWLY_REGISTERED = 1;
-    uint256 internal constant HOOK_ALREADY_REGISTERED = 2;
-    uint256 internal constant HOOK_REGISTRATION_FAILED = 3;
+    /*//////////////////////////////////////////////////////////////
+                              HOOK REGISTRY
+    //////////////////////////////////////////////////////////////*/
 
-    /// @notice Register all hooks with SuperGovernor
-    function _registerAllHooks(address superGovernor, HookAddresses memory hooks) internal {
+    /// @notice v2-core deployment-JSON keys of every hook that must be registered in SuperGovernor
+    /// @dev Source of truth (2026-09-10): the union of the hooks registered on the Ethereum and Base
+    ///      SuperGovernors (getRegisteredHooks), resolved to their CURRENT contract names in the
+    ///      v2-core output files. Older hook versions that remain registered on those chains under a
+    ///      superseded address are intentionally NOT re-registered elsewhere - only the address the
+    ///      core JSON currently maps to a name is used. A key that is missing from a chain's core JSON
+    ///      (hook not deployed there) is skipped, so this list is safe to run on every chain.
+    ///      Excluded on purpose: PendleRouterSwapHook (moved to hooks/swappers/pendle/deprecated in
+    ///      v2-core; Base/Ethereum only carry its superseded address). The following keys are, as of
+    ///      2026-09-10, registered on Base/Ethereum ONLY under superseded addresses - their current
+    ///      address gets registered on new chains for name-parity: ApproveAndDeposit5115VaultHook,
+    ///      BatchTransferFromHook, BatchTransferHook, Deposit5115VaultHook, PendleRouterRedeemHook,
+    ///      RecordRedemptionPendlePTAmortizedOracleHook, Redeem5115VaultHook, SwapOdosV2Hook.
+    ///      To add a hook: append its JSON key here; nothing else needs to change.
+    function _hookKeys() internal pure returns (string[] memory keys) {
+        keys = new string[](59);
+        keys[0] = "AcrossSendFundsAndExecuteOnDstHook";
+        keys[1] = "ApproveAndAcrossSendFundsAndExecuteOnDstHook";
+        keys[2] = "ApproveAndAcrossSendFundsAndExecuteOnDstHookV2";
+        keys[3] = "ApproveAndDeposit4626VaultHook";
+        keys[4] = "ApproveAndDeposit5115VaultHook";
+        keys[5] = "ApproveAndRequestDeposit7540VaultHook";
+        keys[6] = "ApproveAndStargateSendHookV2";
+        keys[7] = "ApproveAndSwapKyberSwapHook";
+        keys[8] = "ApproveAndSwapOdosV2Hook";
+        keys[9] = "ApproveAndSwapOdosV3Hook";
+        keys[10] = "ApproveERC20Hook";
+        keys[11] = "BatchTransferFromHook";
+        keys[12] = "BatchTransferHook";
+        keys[13] = "CancelDepositRequest7540Hook";
+        keys[14] = "CancelDepositRequestWithId7540Hook";
+        keys[15] = "CancelRedeemRequest7540Hook";
+        keys[16] = "CancelRedeemRequestWithId7540Hook";
+        keys[17] = "CircleGatewayWalletHook";
+        keys[18] = "ClaimCancelDepositRequest7540Hook";
+        keys[19] = "ClaimCancelDepositRequestWithId7540Hook";
+        keys[20] = "ClaimCancelRedeemRequest7540Hook";
+        keys[21] = "ClaimCancelRedeemRequestWithId7540Hook";
+        keys[22] = "Deposit4626VaultHook";
+        keys[23] = "Deposit5115VaultHook";
+        keys[24] = "Deposit7540VaultHook";
+        keys[25] = "FetchNativeFeeHook";
+        keys[26] = "ForceDeallocateMorphoHook";
+        keys[27] = "MerklClaimRewardHook";
+        keys[28] = "MetaMorphoReallocateHook";
+        keys[29] = "MorphoBorrowHook";
+        keys[30] = "MorphoLendHook";
+        keys[31] = "MorphoRepayAndWithdrawHook";
+        keys[32] = "MorphoRepayHook";
+        keys[33] = "MorphoSupplyAndBorrowHook";
+        keys[34] = "MorphoSupplyHook";
+        keys[35] = "MorphoWithdrawHook";
+        keys[36] = "PendlePTHook";
+        keys[37] = "PendleRouterRedeemHook";
+        keys[38] = "PendleUnifiedHook";
+        keys[39] = "RecordPurchasePendlePTAmortizedOracleHook";
+        keys[40] = "RecordPurchasePendlePTAmortizedOracleHookV2";
+        keys[41] = "RecordPurchasePendlePTHook";
+        keys[42] = "RecordRedemptionPendlePTAmortizedOracleHook";
+        keys[43] = "RecordRedemptionPendlePTAmortizedOracleHookV2";
+        keys[44] = "RecordRedemptionPendlePTHook";
+        keys[45] = "Redeem4626VaultHook";
+        keys[46] = "Redeem5115VaultHook";
+        keys[47] = "Redeem7540VaultHook";
+        keys[48] = "RedeemWithId7540VaultHook";
+        keys[49] = "RequestDeposit7540VaultHook";
+        keys[50] = "RequestRedeem7540VaultHook";
+        keys[51] = "SetOperator7540Hook";
+        keys[52] = "Swap1InchHook";
+        keys[53] = "SwapKyberSwapHook";
+        keys[54] = "SwapOdosV2Hook";
+        keys[55] = "TransferERC20Hook";
+        keys[56] = "TransferHook";
+        keys[57] = "Withdraw7540VaultHook";
+        keys[58] = "WithdrawWithId7540VaultHook";
+    }
+
+    /// @notice Register every hook in _hookKeys() whose address is present in the core JSON
+    /// @param superGovernor The SuperGovernor to register with
+    /// @param coreJson The chain's v2-core deployment JSON (may be empty -> everything "not deployed")
+    function _registerAllHooks(address superGovernor, string memory coreJson) internal {
         ISuperGovernor governor = ISuperGovernor(superGovernor);
-        uint256 totalHooks = 27; // Total number of hooks in HookAddresses struct
+        string[] memory keys = _hookKeys();
         uint256 newlyRegistered = 0;
         uint256 alreadyRegistered = 0;
         uint256 notDeployed = 0;
         uint256 failed = 0;
 
         console2.log("Registering hooks with SuperGovernor...");
-        console2.log("All hooks currently allowed as fulfill request hooks! WARNING...");
+        console2.log("Hook keys in registry:", keys.length);
 
-        // Register each hook and track results
-        uint256 result;
-
-        // ERC20 hooks
-        result = _registerHook(governor, hooks.approveErc20Hook, "approveErc20Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.transferErc20Hook, "transferErc20Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.batchTransferHook, "batchTransferHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.batchTransferFromHook, "batchTransferFromHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // 4626 Vault hooks
-        result = _registerHook(governor, hooks.deposit4626VaultHook, "deposit4626VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.approveAndDeposit4626VaultHook, "approveAndDeposit4626VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.redeem4626VaultHook, "redeem4626VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // 5115 Vault hooks
-        result = _registerHook(governor, hooks.deposit5115VaultHook, "deposit5115VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.redeem5115VaultHook, "redeem5115VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.approveAndDeposit5115VaultHook, "approveAndDeposit5115VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // 7540 Vault hooks
-        result = _registerHook(governor, hooks.deposit7540VaultHook, "deposit7540VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.redeem7540VaultHook, "redeem7540VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result =
-            _registerHook(governor, hooks.approveAndRequestDeposit7540VaultHook, "approveAndRequestDeposit7540VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Async request hooks
-        result = _registerHook(governor, hooks.requestDeposit7540VaultHook, "requestDeposit7540VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.requestRedeem7540VaultHook, "requestRedeem7540VaultHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.claimCancelDepositRequest7540Hook, "claimCancelDepositRequest7540Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.claimCancelRedeemRequest7540Hook, "claimCancelRedeemRequest7540Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Cancel request hooks
-        result = _registerHook(governor, hooks.cancelDepositRequest7540Hook, "cancelDepositRequest7540Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.cancelRedeemRequest7540Hook, "cancelRedeemRequest7540Hook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Swap hooks
-        result = _registerHook(governor, hooks.swap1InchHook, "swap1InchHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.swapOdosHook, "swapOdosHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.approveAndSwapOdosHook, "approveAndSwapOdosHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Protocol-specific hooks
-        result = _registerHook(governor, hooks.merklClaimRewardHook, "merklClaimRewardHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Pendle hooks
-        result = _registerHook(governor, hooks.pendleRouterRedeemHook, "pendleRouterRedeemHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.pendleRouterSwapHook, "pendleRouterSwapHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        result = _registerHook(governor, hooks.pendleUnifiedHook, "pendleUnifiedHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
-
-        // Across bridge hooks
-        result = _registerHook(governor, hooks.acrossSendFundsAndExecuteOnDstHook, "acrossSendFundsAndExecuteOnDstHook");
-        (newlyRegistered, alreadyRegistered, notDeployed, failed) =
-            _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
+        for (uint256 i = 0; i < keys.length; i++) {
+            address hookAddr = bytes(coreJson).length == 0
+                ? address(0)
+                : _safeParseJsonAddress(coreJson, string(abi.encodePacked(".", keys[i])));
+            uint256 result = _registerHook(governor, hookAddr, keys[i]);
+            (newlyRegistered, alreadyRegistered, notDeployed, failed) =
+                _updateCounts(result, newlyRegistered, alreadyRegistered, notDeployed, failed);
+        }
 
         console2.log("");
         console2.log("=== Hook Registration Summary ===");
-        console2.log("Total hooks processed:", totalHooks);
+        console2.log("Total hooks processed:", keys.length);
         console2.log("- Newly registered:", newlyRegistered);
         console2.log("- Already registered (skipped):", alreadyRegistered);
         console2.log("- Not deployed on chain:", notDeployed);
         console2.log("- Failed:", failed);
     }
+
+    uint256 internal constant HOOK_NOT_DEPLOYED = 0;
+    uint256 internal constant HOOK_NEWLY_REGISTERED = 1;
+    uint256 internal constant HOOK_ALREADY_REGISTERED = 2;
+    uint256 internal constant HOOK_REGISTRATION_FAILED = 3;
 
     /// @notice Update hook registration counts based on result
     function _updateCounts(

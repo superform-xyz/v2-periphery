@@ -14,7 +14,7 @@ import { IERC20Metadata } from "openzeppelin-contracts/contracts/token/ERC20/ext
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ApproveAndSwapOdosV2Hook } from "@superform-v2-core/src/hooks/swappers/odos/ApproveAndSwapOdosV2Hook.sol";
-import { PendleRouterSwapHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterSwapHook.sol";
+import { PendleRouterSwapHook } from "@superform-v2-core/src/hooks/swappers/pendle/deprecated/PendleRouterSwapHook.sol";
 import { PendleRouterRedeemHook } from "@superform-v2-core/src/hooks/swappers/pendle/PendleRouterRedeemHook.sol";
 import { IOdosRouterV2 } from "@superform-v2-core/src/vendor/odos/IOdosRouterV2.sol";
 import { IPendleMarket } from "@superform-v2-core/src/vendor/pendle/IPendleMarket.sol";

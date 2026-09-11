@@ -7,6 +7,15 @@ import { ISuperHook } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 /// @notice Mock hook that extends BaseHook for slippage testing
 contract MockHookWithSlippage is BaseHook {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "MockHookWithSlippage";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
     address public targetToReturn;
     uint256 public outputAmount;
 

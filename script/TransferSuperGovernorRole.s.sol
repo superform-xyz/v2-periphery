@@ -60,6 +60,12 @@ contract TransferSuperGovernorRole is DeployV2Base {
             return;
         }
 
+        // Hard stop: SUPER_GOVERNOR_ADDRESS is a Safe that must exist ON THIS CHAIN. AccessControl's
+        // grantRole does not check for code, so transferring DEFAULT_ADMIN_ROLE to a codeless address
+        // would strand the SuperGovernor permanently (observed 2026-09-10: the Safe exists on
+        // Ethereum/Base/BSC but had no code on RH).
+        require(SUPER_GOVERNOR_ADDRESS.code.length > 0, "SAFE_NOT_DEPLOYED_ON_THIS_CHAIN");
+
         // Continue with transfer
         _executeRoleTransfer(superGovernorAddr, chainId, env, saltNamespace);
     }
@@ -357,6 +363,8 @@ contract TransferSuperGovernorRole is DeployV2Base {
         if (chainId == 10) return "Optimism";
         if (chainId == 999) return "HyperEVM";
         if (chainId == 14) return "Flare";
+        if (chainId == 4663) return "RH";
+        if (chainId == 56) return "BNB";
         return "Unknown";
     }
 

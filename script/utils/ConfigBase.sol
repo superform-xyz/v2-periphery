@@ -83,11 +83,18 @@ abstract contract ConfigBase is Constants {
     /// @notice Gas to WEI oracle on RH (SuperformGasOracle - keeper updated)
     address internal constant ORACLE_GAS_TO_WEI_RH = 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0;
 
+    /// @notice Gas to WEI oracle on BNB Chain (SuperformGasOracle - keeper updated; BSC has no
+    ///         Chainlink Fast Gas feed and block.basefee is pinned at 0)
+    address internal constant ORACLE_GAS_TO_WEI_BNB = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
+
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
     /// @notice ETH/USD oracle on Base
     address internal constant ORACLE_ETH_USD_BASE = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70;
+
+    /// @notice NATIVE/USD oracle on BNB Chain (Chainlink BNB/USD - 8 decimals)
+    address internal constant ORACLE_BNB_USD_BNB = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE;
 
     /// @notice ETH/USD oracle on HyperEVM
     address internal constant ORACLE_ETH_USD_HYPEREVM = 0x017151e74fB3a393673B5B5149F53578c0Fa55B0;
@@ -113,6 +120,7 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_FLARE = 0xe030A89fd2b7f858c8aA47725679CA25D467dFD1;
     address internal constant UP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
     address internal constant UP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
+    address internal constant UP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B; // UpOFT on BSC
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -143,6 +151,9 @@ abstract contract ConfigBase is Constants {
 
     /// @notice UPKEEP_TOKEN on RH (UpOFT)
     address internal constant UPKEEP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
+
+    /// @notice UPKEEP_TOKEN on BNB Chain (UpOFT)
+    address internal constant UPKEEP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
