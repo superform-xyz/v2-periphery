@@ -4,17 +4,31 @@ pragma solidity 0.8.30;
 import { Test, console2 } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 import { ISuperGovernor } from "../../../src/interfaces/ISuperGovernor.sol";
 import { ISuperOracle } from "../../../src/interfaces/oracles/ISuperOracle.sol";
 import { ISuperVaultAggregator } from "../../../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
 import { ISuperVaultStrategy } from "../../../src/interfaces/SuperVault/ISuperVaultStrategy.sol";
 import { ISuperVault } from "../../../src/interfaces/SuperVault/ISuperVault.sol";
+import { IECDSAPPSOracle } from "../../../src/interfaces/oracles/IECDSAPPSOracle.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+
+interface IGasFeed {
+    function latestAnswer() external view returns (int256);
+}
+
+interface IAggregatorUpkeepView {
+    function claimableUpkeep() external view returns (uint256);
+}
 
 /// @title BSCDeploymentForkTest
 /// @notice End-to-end check of the BNB Chain (56) SuperVaults periphery deployment of 2026-09-10:
 ///         wiring of the live contracts, then a real vault lifecycle through the production
-///         SuperVaultAggregator - createVault -> deposit -> requestRedeem -> fulfil -> redeem.
+///         SuperVaultAggregator - createVault -> deposit -> requestRedeem -> fulfil -> redeem - and the
+///         upkeep economics now that gasPerEntry is set: signed PPS update debits the strategy's UP
+///         upkeep balance by exactly the quoted cost, insufficient upkeep auto-pauses, governance
+///         claims spent upkeep into SuperBank, and the manager can withdraw after the 24h timelock.
 /// @dev Fork of BSC mainnet. Set BSC_RPC_URL for a private endpoint; falls back to the public
 ///      dataseed (rate-limited but sufficient for this suite).
 contract BSCDeploymentForkTest is Test {
@@ -49,6 +63,19 @@ contract BSCDeploymentForkTest is Test {
 
     uint256 constant EXPECTED_HOOKS = 59; // ConfigureV2Periphery._hookKeys() as registered 2026-09-10
     uint256 constant PRECISION = 1e18;
+    uint256 constant GAS_PER_ENTRY = 135_000; // SetGasInfo (toolbox) applied on BSC 2026-09-10, same as Ethereum
+    uint256 constant UP_USD_PRICE = 0.09e18; // FixedPriceOracle
+    uint256 constant MIN_UPDATE_INTERVAL = 3600;
+
+    // OZ AccessControl role ids (SuperGovernor)
+    bytes32 constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
+
+    // GOVERNOR_ROLE candidates on BSC: deployer until the Safe handover, Safe afterwards
+    address constant DEPLOYER = 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8;
+    address constant SUPERFORM_SAFE = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
+
+    // Test-only PPS validator (swapped into the governor's validator set on the fork)
+    uint256 constant TEST_VALIDATOR_KEY = 0xB5C;
 
     /*//////////////////////////////////////////////////////////////
                                   STATE
@@ -61,10 +88,16 @@ contract BSCDeploymentForkTest is Test {
     address internal manager = makeAddr("bsc-vault-manager");
     address internal treasury = makeAddr("bsc-fee-recipient");
     address internal alice = makeAddr("alice");
+    address internal keeper = makeAddr("pps-keeper"); // any EOA may submit signed updates
+    address internal testValidator;
+
+    IECDSAPPSOracle internal ppsOracle = IECDSAPPSOracle(ECDSA_PPS_ORACLE);
+    IERC20 internal up = IERC20(UP_OFT);
 
     function setUp() public {
         vm.createSelectFork(vm.envOr("BSC_RPC_URL", string("https://bsc-dataseed.binance.org")));
         assertEq(block.chainid, 56, "not a BSC fork");
+        testValidator = vm.addr(TEST_VALIDATOR_KEY);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -119,11 +152,10 @@ contract BSCDeploymentForkTest is Test {
         (uint256 weiFor135kGas,,,) = superOracle.getQuoteFromProvider(135_000, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
         assertGt(weiFor135kGas, 0, "GAS->WEI feed answers");
 
-        // NOTE: SuperGovernor.getUpkeepCostPerSingleUpdate(ECDSAPPSOracle) reverts on BSC because
-        // gasPerEntry is 0 - identical to Base and RH today (only Ethereum has 135_000 set). It is a
-        // governor parameter (set_gas_info.sh / SetGasInfo), not a deployment fault, so we assert
-        // parity with Base rather than a quote.
-        assertEq(governor.getGasInfo(ECDSA_PPS_ORACLE), 0, "gasPerEntry unset on BSC, same as Base/RH");
+        // gasPerEntry is set on BSC (SetGasInfo, 2026-09-10) so the full gas -> BNB -> USD -> UP
+        // conversion answers. Detailed reconciliation in test_Fork_BSC_UpkeepCostMatchesFeeds.
+        assertEq(governor.getGasInfo(ECDSA_PPS_ORACLE), GAS_PER_ENTRY, "gasPerEntry configured on BSC");
+        assertGt(governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE), 0, "upkeep cost quotable");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -232,5 +264,262 @@ contract BSCDeploymentForkTest is Test {
         assertEq(IERC4626(vault).totalAssets(), 400e18);
         assertLe(IERC4626(vault).maxWithdraw(alice) + IERC4626(vault).maxWithdraw(bob), 400e18, "no over-claim");
         assertEq(IERC4626(vault).convertToAssets(IERC20(vault).balanceOf(bob)), 300e18, "bob pro-rata");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    3. UPKEEP ECONOMICS (LIVE ORACLES + FEEDS)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The governor's UP quote per PPS update must equal the composition of the three live
+    ///         feeds: 135k gas x SuperformGasOracle (wei/gas) -> Chainlink BNB/USD -> UP at $0.09.
+    function test_Fork_BSC_UpkeepCostMatchesFeeds() public view {
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+
+        uint256 weiPerGas = uint256(IGasFeed(SUPERFORM_GAS_ORACLE).latestAnswer());
+        assertGt(weiPerGas, 0, "gas oracle answers");
+        (uint256 weiForUpdate,,,) =
+            superOracle.getQuoteFromProvider(GAS_PER_ENTRY, GAS_QUOTE, WEI_QUOTE, AVERAGE_PROVIDER);
+        assertEq(weiForUpdate, GAS_PER_ENTRY * weiPerGas, "GAS->WEI is linear in the oracle answer");
+
+        (uint256 usdForUpdate,,,) =
+            superOracle.getQuoteFromProvider(weiForUpdate, NATIVE_TOKEN, USD_TOKEN, AVERAGE_PROVIDER);
+        uint256 expected = usdForUpdate * PRECISION / UP_USD_PRICE;
+
+        assertApproxEqRel(cost, expected, 1e12, "UP cost = usd(gas) / usd(UP)");
+        // Sanity band: BSC gas is 0.05 gwei, so an update costs a few cents -> well under 1 UP
+        assertLt(cost, 1e18, "cost below 1 UP");
+        console2.log("BSC upkeep cost per PPS update (UP wei):", cost);
+    }
+
+    /// @notice Happy path: manager funds upkeep in UP, keeper submits a validator-signed PPS,
+    ///         the aggregator stores the new PPS and debits exactly the quoted cost.
+    function test_Fork_BSC_PPSUpdateDebitsUpkeep() public {
+        (address vault, address strategy,) = _createVault();
+        _seedDeposit(vault, alice, 1000e18);
+        _installTestValidator();
+
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+        uint256 funded = 10 * cost;
+        _fundUpkeep(strategy, funded);
+        assertEq(aggregator.getUpkeepBalance(strategy), funded, "upkeep credited to strategy");
+        assertEq(up.balanceOf(AGGREGATOR), funded, "UP held by aggregator");
+
+        uint256 claimableBefore = IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep();
+        uint256 nonceBefore = ppsOracle.noncePerStrategy(strategy);
+        uint256 newPPS = 1.01e18; // +1%, well inside the default deviation threshold
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.expectEmit(true, false, false, true, AGGREGATOR);
+        emit ISuperVaultAggregator.UpkeepSpent(strategy, cost, funded, claimableBefore + cost);
+        vm.expectEmit(true, false, false, true, AGGREGATOR);
+        emit ISuperVaultAggregator.PPSUpdated(strategy, newPPS, block.timestamp);
+        _submitPPS(strategy, newPPS);
+
+        assertEq(aggregator.getPPS(strategy), newPPS, "PPS stored");
+        assertEq(aggregator.getUpkeepBalance(strategy), funded - cost, "upkeep decreased by exactly one update");
+        assertEq(
+            IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep(),
+            claimableBefore + cost,
+            "spent upkeep becomes claimable"
+        );
+        assertEq(ppsOracle.noncePerStrategy(strategy), nonceBefore + 1, "nonce consumed");
+        assertFalse(aggregator.isStrategyPaused(strategy), "strategy live");
+        assertFalse(aggregator.isPPSStale(strategy), "PPS fresh");
+        // Depositors' claim on assets follows the new PPS
+        assertEq(IERC4626(vault).convertToAssets(1e18), newPPS, "1 share = 1.01 USDC");
+    }
+
+    /// @notice Two consecutive paid updates: each debits the then-current quote, and a replayed
+    ///         signature (old nonce) is rejected without touching the balance.
+    function test_Fork_BSC_ConsecutiveUpdatesAndReplayRejected() public {
+        (, address strategy,) = _createVault();
+        _installTestValidator();
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+        _fundUpkeep(strategy, 3 * cost);
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        bytes memory firstSig = _signPPS(strategy, 1.01e18, block.timestamp);
+        uint256 firstTs = block.timestamp;
+        _submitSigned(strategy, 1.01e18, firstTs, firstSig);
+        assertEq(aggregator.getUpkeepBalance(strategy), 2 * cost, "first debit");
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        _submitPPS(strategy, 1.02e18);
+        assertEq(aggregator.getUpkeepBalance(strategy), cost, "second debit");
+        assertEq(aggregator.getPPS(strategy), 1.02e18);
+
+        // Replay of the first signature: nonce moved on, so proof validation fails inside the
+        // oracle (emits ProofValidationFailed*, forwards nothing). No debit, PPS unchanged.
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        _submitSigned(strategy, 1.01e18, firstTs, firstSig);
+        assertEq(aggregator.getUpkeepBalance(strategy), cost, "replay not charged");
+        assertEq(aggregator.getPPS(strategy), 1.02e18, "replay ignored");
+    }
+
+    /// @notice Unfunded strategy: the update is refused, the strategy is auto-paused and its PPS
+    ///         flagged stale, and nothing is debited. Deposits are then blocked until unpaused.
+    function test_Fork_BSC_InsufficientUpkeepPausesStrategy() public {
+        (address vault, address strategy,) = _createVault();
+        _installTestValidator();
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+        _fundUpkeep(strategy, cost - 1); // one wei short
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        vm.expectEmit(true, true, false, true, AGGREGATOR);
+        emit ISuperVaultAggregator.InsufficientUpkeep(strategy, strategy, cost - 1, cost);
+        _submitPPS(strategy, 1.01e18);
+
+        assertTrue(aggregator.isStrategyPaused(strategy), "auto-paused");
+        assertTrue(aggregator.isPPSStale(strategy), "PPS stale");
+        assertEq(aggregator.getPPS(strategy), 1e18, "PPS unchanged");
+        assertEq(aggregator.getUpkeepBalance(strategy), cost - 1, "nothing debited");
+
+        deal(USDC_BSC, alice, 1e18);
+        vm.startPrank(alice);
+        usdc.approve(vault, 1e18);
+        vm.expectRevert();
+        IERC4626(vault).deposit(1e18, alice);
+        vm.stopPrank();
+    }
+
+    /// @notice Spent upkeep is swept by governance into SuperBank (protocol revenue).
+    function test_Fork_BSC_GovernanceClaimsSpentUpkeepToSuperBank() public {
+        (, address strategy,) = _createVault();
+        _installTestValidator();
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+        _fundUpkeep(strategy, 2 * cost);
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        _submitPPS(strategy, 1.01e18);
+
+        uint256 claimable = IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep();
+        assertGe(claimable, cost, "at least this update is claimable");
+        uint256 bankBefore = up.balanceOf(SUPER_BANK);
+
+        // Non-governor cannot pull
+        vm.prank(alice);
+        vm.expectRevert();
+        governor.executeUpkeepClaim(claimable);
+        vm.prank(alice);
+        vm.expectRevert();
+        aggregator.claimUpkeep(claimable);
+
+        address gov = _governorRoleHolder();
+        vm.prank(gov);
+        vm.expectEmit(true, false, false, true, AGGREGATOR);
+        emit ISuperVaultAggregator.UpkeepClaimed(SUPER_BANK, claimable);
+        governor.executeUpkeepClaim(claimable);
+
+        assertEq(up.balanceOf(SUPER_BANK), bankBefore + claimable, "UP landed in SuperBank");
+        assertEq(IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep(), 0, "claimable drained");
+        assertEq(aggregator.getUpkeepBalance(strategy), cost, "strategy's remaining upkeep untouched");
+        assertEq(up.balanceOf(AGGREGATOR), cost, "aggregator holds only the unspent remainder");
+    }
+
+    /// @notice Manager exit: propose -> 24h timelock -> execute returns the unspent UP to the
+    ///         main manager (not the caller).
+    function test_Fork_BSC_ManagerWithdrawsUnspentUpkeepAfterTimelock() public {
+        (, address strategy,) = _createVault();
+        _installTestValidator();
+        uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
+        _fundUpkeep(strategy, 5 * cost);
+
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        _submitPPS(strategy, 1.01e18);
+        uint256 remaining = aggregator.getUpkeepBalance(strategy);
+        assertEq(remaining, 4 * cost);
+
+        vm.prank(alice);
+        vm.expectRevert();
+        aggregator.proposeWithdrawUpkeep(strategy);
+
+        vm.prank(manager);
+        aggregator.proposeWithdrawUpkeep(strategy);
+
+        vm.prank(manager);
+        vm.expectRevert();
+        aggregator.executeWithdrawUpkeep(strategy); // timelock not elapsed
+
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(alice); // permissionless once ready, funds still go to the main manager
+        aggregator.executeWithdrawUpkeep(strategy);
+
+        assertEq(up.balanceOf(manager), remaining, "manager refunded");
+        assertEq(aggregator.getUpkeepBalance(strategy), 0, "balance cleared");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              HELPERS: UPKEEP
+    //////////////////////////////////////////////////////////////*/
+
+    function _seedDeposit(address vault, address who, uint256 amount) internal {
+        deal(USDC_BSC, who, amount);
+        vm.startPrank(who);
+        usdc.approve(vault, amount);
+        IERC4626(vault).deposit(amount, who);
+        vm.stopPrank();
+    }
+
+    /// @dev Manager funds the strategy's upkeep in UP (UpOFT is a plain OZ ERC20 under the hood,
+    ///      so `deal` works even though live supply on BSC is 0 until bridged).
+    function _fundUpkeep(address strategy, uint256 amount) internal {
+        deal(UP_OFT, manager, amount);
+        vm.startPrank(manager);
+        up.approve(AGGREGATOR, amount);
+        aggregator.depositUpkeep(strategy, amount);
+        vm.stopPrank();
+    }
+
+    /// @dev The live GOVERNOR_ROLE holder (deployer until the Safe handover, Safe afterwards).
+    ///      SuperGovernor is plain AccessControl (no enumeration), so probe the known candidates.
+    function _governorRoleHolder() internal view returns (address) {
+        IAccessControl ac = IAccessControl(SUPER_GOVERNOR);
+        if (ac.hasRole(GOVERNOR_ROLE, SUPERFORM_SAFE)) return SUPERFORM_SAFE;
+        if (ac.hasRole(GOVERNOR_ROLE, DEPLOYER)) return DEPLOYER;
+        revert("no known GOVERNOR_ROLE holder on this fork");
+    }
+
+    /// @dev Swap the production validator set for a key we control, via the real governor path.
+    function _installTestValidator() internal {
+        address[] memory validators = new address[](1);
+        validators[0] = testValidator;
+        bytes[] memory pubKeys = new bytes[](1);
+        pubKeys[0] = "";
+        vm.prank(_governorRoleHolder());
+        governor.setValidatorConfig(1, validators, pubKeys, 1, "");
+        assertTrue(governor.isValidator(testValidator), "test validator installed");
+        assertEq(governor.getPPSOracleQuorum(), 1, "quorum 1");
+    }
+
+    function _signPPS(address strategy, uint256 pps, uint256 ts) internal view returns (bytes memory) {
+        bytes32 structHash = keccak256(
+            abi.encodePacked(ppsOracle.UPDATE_PPS_TYPEHASH(), strategy, pps, ts, ppsOracle.noncePerStrategy(strategy))
+        );
+        bytes32 digest = MessageHashUtils.toTypedDataHash(ppsOracle.domainSeparator(), structHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(TEST_VALIDATOR_KEY, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _submitPPS(address strategy, uint256 pps) internal {
+        _submitSigned(strategy, pps, block.timestamp, _signPPS(strategy, pps, block.timestamp));
+    }
+
+    function _submitSigned(address strategy, uint256 pps, uint256 ts, bytes memory sig) internal {
+        address[] memory strategies = new address[](1);
+        strategies[0] = strategy;
+        bytes[][] memory proofs = new bytes[][](1);
+        proofs[0] = new bytes[](1);
+        proofs[0][0] = sig;
+        uint256[] memory ppss = new uint256[](1);
+        ppss[0] = pps;
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = ts;
+
+        vm.prank(keeper);
+        ppsOracle.updatePPS(
+            IECDSAPPSOracle.UpdatePPSArgs({
+                strategies: strategies, proofsArray: proofs, ppss: ppss, timestamps: timestamps
+            })
+        );
     }
 }
