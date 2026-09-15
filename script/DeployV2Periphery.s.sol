@@ -144,7 +144,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB) or SuperOracleL2 (L2 chains with sequencer uptime feed)
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_KEY, chainId, env);
         } else {
@@ -517,6 +517,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
+            // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
+            gasOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP (no UpOFT)
+            if (ORACLE_GAS_TO_WEI_PLATABERGET.code.length == 0) {
+                console2.log("[WARNING] SuperformGasOracle not deployed on Plataberget - deploy it first");
+            }
+            ethUsdOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -543,7 +552,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             __checkContractWithBytecode(
                 SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
@@ -900,6 +909,15 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
+            // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
+            gasOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP (no UpOFT)
+            if (ORACLE_GAS_TO_WEI_PLATABERGET.code.length == 0) {
+                console2.log("[WARNING] SuperformGasOracle not deployed on Plataberget - deploy it first");
+            }
+            ethUsdOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -924,7 +942,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
@@ -1047,9 +1065,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Step 6: Configure uptime feed for L2 chains (Chainlink oracles may be stale during sequencer downtime)
         // Skip for test environment (env == 1) since oracles not deployed
         // Skip for HyperEVM (no sequencer uptime feed)
+        // Skip for Plataberget (Glamsterdam testnet: L1 architecture, no sequencer)
         if (
             env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID
-                && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID
+                && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID && chainId != PLATABERGET_CHAIN_ID
         ) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
@@ -1119,6 +1138,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upToken = UP_TOKEN_RH;
             } else if (chainId == BNB_CHAIN_ID) {
                 upToken = UP_TOKEN_BNB;
+            } else if (chainId == PLATABERGET_CHAIN_ID) {
+                upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
             } else {
                 revert("UP token not configured for this chain");
             }
@@ -1144,6 +1165,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upkeepToken = UPKEEP_TOKEN_RH;
             } else if (chainId == BNB_CHAIN_ID) {
                 upkeepToken = UPKEEP_TOKEN_BNB;
+            } else if (chainId == PLATABERGET_CHAIN_ID) {
+                upkeepToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC as upkeep token
             } else {
                 revert("UPKEEP token not configured for this chain");
             }
@@ -1286,6 +1309,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_RH;
         } else if (chainId == BNB_CHAIN_ID) {
             upToken = UP_TOKEN_BNB;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
         } else {
             revert("UP token not configured for this chain");
         }

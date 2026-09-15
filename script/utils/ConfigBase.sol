@@ -82,6 +82,10 @@ abstract contract ConfigBase is Constants {
 
     /// @notice Gas to WEI oracle on RH (SuperformGasOracle - keeper updated)
     address internal constant ORACLE_GAS_TO_WEI_RH = 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0;
+    // Plataberget (Glamsterdam testnet): deterministic SuperformGasOracle address (staging salt,
+    // DEPLOYER owner); doubles as the ETH/USD feed on this devnet (no Chainlink there) — the
+    // keeper pushes both values. Deploy via DeploySuperformGasOracle before the periphery run.
+    address internal constant ORACLE_GAS_TO_WEI_PLATABERGET = 0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3;
 
     /// @notice Gas to WEI oracle on BNB Chain (SuperformGasOracle - keeper updated; BSC has no
     ///         Chainlink Fast Gas feed and block.basefee is pinned at 0)
@@ -151,6 +155,10 @@ abstract contract ConfigBase is Constants {
 
     /// @notice UPKEEP_TOKEN on RH (UpOFT)
     address internal constant UPKEEP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
+    // Plataberget (Glamsterdam testnet): deterministic MockERC20 "USDC" (6 dec) — serves as both
+    // UP and UPKEEP token on the devnet (no UpOFT/LayerZero there). Deploy via the Arachnid
+    // factory with salt keccak256("SuperformV2STAGING1.0.0MockUSDCv2.0") before configuration.
+    address internal constant MOCK_USDC_PLATABERGET = 0xec61E6337874d159DbF2b1bff88aC1b9e6Bf93bf;
 
     /// @notice UPKEEP_TOKEN on BNB Chain (UpOFT)
     address internal constant UPKEEP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
@@ -197,6 +205,7 @@ abstract contract ConfigBase is Constants {
         chainNames[HYPEREVM_CHAIN_ID] = HYPEREVM_KEY;
         chainNames[FLARE_CHAIN_ID] = FLARE_KEY;
         chainNames[ROBINHOOD_CHAIN_ID] = ROBINHOOD_KEY;
+        chainNames[PLATABERGET_CHAIN_ID] = PLATABERGET_KEY; // Glamsterdam testnet
 
         // ===== COMMON CONFIGURATION =====
         if (env == 0) {
