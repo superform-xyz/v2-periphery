@@ -221,7 +221,7 @@ check_v2_periphery_addresses() {
     check_output=$(forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
         --sig 'runCheck(uint256,uint64)' $FORGE_ENV $network_id \
         --rpc-url ${!rpc_url_var} \
-        --chain $network_id \
+        $([ "$network_id" != "7091047534" ] && echo "--chain $network_id") \
         -vv 2>&1)
     forge_exit_code=$?
 
@@ -286,7 +286,7 @@ estimate_deployment_costs() {
     estimate_output=$(forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
         --sig 'runEstimate(uint256,uint64)' $FORGE_ENV $network_id \
         --rpc-url ${!rpc_url_var} \
-        --chain $network_id \
+        $([ "$network_id" != "7091047534" ] && echo "--chain $network_id") \
         -vv 2>&1)
     forge_exit_code=$?
 
@@ -708,7 +708,17 @@ for network_def in "${NETWORKS[@]}"; do
             local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
             local CHAIN_ETHERSCAN_FLAGS=""
             local CHAIN_SLOW_FLAG=""
-            if [ "$network_id" == "4663" ]; then
+            local CHAIN_ID_FLAG="--chain $network_id"
+            local CHAIN_GAS_FLAGS=""
+            if [ "$network_id" == "7091047534" ]; then
+                # Plataberget (Glamsterdam testnet): no explorer, chain unknown to forge,
+                # RPC fee estimates unreliable (pin 1 gwei legacy), and forge's pre-fork
+                # simulation under-gases deploys under EIP-8037 (15x estimate multiplier)
+                CHAIN_VERIFY_FLAG=""
+                CHAIN_ID_FLAG=""
+                CHAIN_SLOW_FLAG="--slow"
+                CHAIN_GAS_FLAGS="--legacy --with-gas-price 1gwei --gas-estimate-multiplier 1500"
+            elif [ "$network_id" == "4663" ]; then
                 # Robinhood Chain — Blockscout explorer (not on Etherscan V2); Orbit needs --slow
                 CHAIN_ETHERSCAN_FLAGS="--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/"
                 CHAIN_SLOW_FLAG="--slow"
@@ -724,9 +734,10 @@ for network_def in "${NETWORKS[@]}"; do
             if forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
                 --sig 'run(uint256,uint64)' $FORGE_ENV $network_id \
                 --rpc-url ${!rpc_var} \
-                --chain $network_id \
+                $CHAIN_ID_FLAG \
                 $CHAIN_ETHERSCAN_FLAGS \
                 $CHAIN_SLOW_FLAG \
+                $CHAIN_GAS_FLAGS \
                 $ACCOUNT_FLAG \
                 $SENDER_FLAG \
                 $BROADCAST_FLAG \

@@ -11,6 +11,7 @@ abstract contract Constants {
     string internal constant HYPEREVM_KEY = "HyperEVM";
     string internal constant FLARE_KEY = "Flare";
     string internal constant ROBINHOOD_KEY = "RH";
+    string internal constant PLATABERGET_KEY = "Plataberget";
     string internal constant SEPOLIA_KEY = "Sepolia";
     string internal constant ARB_SEPOLIA_KEY = "Arbitrum_Sepolia";
     string internal constant BASE_SEPOLIA_KEY = "Base_Sepolia";
@@ -25,6 +26,7 @@ abstract contract Constants {
     uint64 internal constant HYPEREVM_CHAIN_ID = 999;
     uint64 internal constant FLARE_CHAIN_ID = 14;
     uint64 internal constant ROBINHOOD_CHAIN_ID = 4663; // Robinhood Chain (Arbitrum Orbit L2)
+    uint64 internal constant PLATABERGET_CHAIN_ID = 7_091_047_534; // Glamsterdam devnet-class testnet
     // testnets
     uint64 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
     uint64 internal constant ARB_SEPOLIA_CHAIN_ID = 421_613;
