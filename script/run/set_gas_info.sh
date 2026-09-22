@@ -50,7 +50,9 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-readonly CHAIN_ID=1  # Mainnet only
+# Chain to configure; defaults to Ethereum. Pass a chain id as the last argument for others
+# (e.g. 5042 for Arc). Every chain with upkeep payments enabled needs gas info set.
+readonly CHAIN_ID="${CHAIN_ID_OVERRIDE:-${4:-1}}"
 
 # Deployer address for simulation
 readonly DEPLOYER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
@@ -195,7 +197,7 @@ main() {
     log "INFO" "SetGasInfo Script"
     log "INFO" "============================================"
     log "INFO" "Environment: $environment (env=$env)"
-    log "INFO" "Chain ID: $CHAIN_ID (mainnet)"
+    log "INFO" "Chain ID: $CHAIN_ID"
     log "INFO" "Salt: $salt"
     log "INFO" "Mode: $mode"
     log "INFO" "RPC URL: ${rpc_url:0:50}..."

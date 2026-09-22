@@ -233,6 +233,9 @@ contract DeployBasefeeGasOracle is DeployV2Base {
     }
 
     /// @notice Compute the deterministic address for BasefeeGasOracle
+    /// @dev NOT `view`: with `dynamic_test_linking` enabled, forge's preprocessor rewrites
+    ///      `type(BasefeeGasOracle).creationCode` below into a `vm.getCode(...)` call, which solc
+    ///      treats as state-modifying and rejects inside a `view` function (error 8961).
     function _computeAddress(
         uint256 multiplierBps,
         uint256 priorityFeeWei,
@@ -240,7 +243,6 @@ contract DeployBasefeeGasOracle is DeployV2Base {
         address gasManager
     )
         internal
-        view
         returns (address)
     {
         return DeterministicDeployerLib.computeAddress(

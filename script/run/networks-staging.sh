@@ -13,6 +13,7 @@ NETWORKS=(
     # "43114:Avalanche:AVALANCHE_MAINNET"
     "999:HyperEVM:HYPEREVM_MAINNET"
     "14:Flare:FLARE_MAINNET"
+    # "5042:Arc:ARC_MAINNET"   # no staging deployment on Arc yet
     "7091047534:Plataberget:PLATABERGET_TESTNET"
 )
 
@@ -41,6 +42,9 @@ get_network_name() {
         14)
             echo "Flare"
             ;;
+        # 5042)
+        #     echo "Arc"
+        #     ;;
         7091047534)
             echo "Plataberget"
             ;;
@@ -76,6 +80,9 @@ get_rpc_var() {
         14)
             echo "FLARE_MAINNET"
             ;;
+        # 5042)
+        #     echo "ARC_MAINNET"
+        #     ;;
         7091047534)
             echo "PLATABERGET_TESTNET"
             ;;
@@ -111,6 +118,9 @@ get_rpc_url() {
         14)
             echo "$FLARE_MAINNET"
             ;;
+        # 5042)
+        #     echo "$ARC_MAINNET"
+        #     ;;
         7091047534)
             echo "$PLATABERGET_TESTNET"
             ;;

@@ -230,6 +230,9 @@ contract ConfigureGovernorAddresses is DeployV2Base {
         if (chainId == 14) return "Flare";
         if (chainId == 10) return "Optimism";
         if (chainId == 42161) return "Arbitrum";
+        if (chainId == 56) return "BNB";
+        if (chainId == 4663) return "RH";
+        if (chainId == 5042) return "Arc";
         return "Unknown";
     }
 

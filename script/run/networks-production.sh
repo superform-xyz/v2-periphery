@@ -6,9 +6,11 @@
 # Define production networks
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
-    "1:Ethereum:ETH_MAINNET"
-    "8453:Base:BASE_MAINNET"
-    "56:BNB:BSC_MAINNET"
+    # Only Arc (5042) is active: the other chains are already deployed. Uncomment a chain to
+    # include it again in the deploy/check/estimate loops of the staging_prod runners.
+    # "1:Ethereum:ETH_MAINNET"
+    # "8453:Base:BASE_MAINNET"
+    # "56:BNB:BSC_MAINNET"
     # "42161:Arbitrum:ARBITRUM_MAINNET"
     # "10:Optimism:OPTIMISM_MAINNET"
     # "137:Polygon:POLYGON_MAINNET"
@@ -18,9 +20,10 @@ NETWORKS=(
     # "146:Sonic:SONIC_MAINNET"
     # "100:Gnosis:GNOSIS_MAINNET"
     # "480:Worldchain:WORLDCHAIN_MAINNET"
-    "999:HyperEVM:HYPEREVM_MAINNET"
-    "14:Flare:FLARE_MAINNET"
-    "4663:RH:RH_MAINNET"
+    # "999:HyperEVM:HYPEREVM_MAINNET"
+    # "14:Flare:FLARE_MAINNET"
+    # "4663:RH:RH_MAINNET"
+    "5042:Arc:ARC_MAINNET"
 )
 
 # Network name mapping function
@@ -71,6 +74,9 @@ get_network_name() {
             ;;
         4663)
             echo "RH"
+            ;;
+        5042)
+            echo "Arc"
             ;;
         *)
             echo "ERROR: Unknown production network ID: $network_id" >&2
@@ -128,6 +134,9 @@ get_rpc_var() {
         4663)
             echo "RH_MAINNET"
             ;;
+        5042)
+            echo "ARC_MAINNET"
+            ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
             return 1
@@ -183,6 +192,9 @@ get_rpc_url() {
             ;;
         4663)
             echo "$RH_MAINNET"
+            ;;
+        5042)
+            echo "$ARC_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
@@ -327,6 +339,14 @@ load_rpc_urls_ci() {
         export RH_MAINNET="https://rpc.mainnet.chain.robinhood.com"
     fi
 
+    echo "  • Loading Arc RPC..."
+    if [[ -n "${ARC_RPC_URL:-}" ]]; then
+        export ARC_MAINNET="$ARC_RPC_URL"
+    else
+        echo "  • ARC_RPC_URL not set, using default public RPC"
+        export ARC_MAINNET="https://rpc.mainnet.arc.io"
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from environment:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -336,7 +356,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, BSC, HyperEVM, Flare, RH)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, BSC, HyperEVM, Flare, RH, Arc)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -444,6 +464,15 @@ load_rpc_urls() {
         export RH_MAINNET
     fi
 
+    echo "  • Loading Arc RPC..."
+    ARC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARC_RPC_URL/credential 2>/dev/null) || true
+    if [ -z "$ARC_MAINNET" ]; then
+        echo "  • ARC_RPC_URL not in 1Password, using default public RPC"
+        export ARC_MAINNET="https://rpc.mainnet.arc.io"
+    else
+        export ARC_MAINNET
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -453,7 +482,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, BSC, HyperEVM, Flare, RH)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, BSC, HyperEVM, Flare, RH, Arc)"
 }
 
 # Load Etherscan V2 API key for verification
@@ -462,6 +491,12 @@ load_etherscan_api_key() {
     # NOTE: `export VAR=$(cmd)` always succeeds (the exit status is export's, not cmd's), which used
     # to print a green "loaded" line with an EMPTY key when the 1Password session had expired - forge
     # then failed with "a value is required for '--etherscan-api-key'". Capture, then check non-empty.
+    # Honour an already-exported key (CI, or a one-off run without a 1Password session).
+    if [ -n "${ETHERSCANV2_API_KEY:-}" ]; then
+        export ETHERSCANV2_API_KEY
+        echo "✅ Etherscan V2 API key taken from the environment"
+        return 0
+    fi
     ETHERSCANV2_API_KEY=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ETHERSCANV2_API_KEY/credential 2>/dev/null) || true
     if [ -z "$ETHERSCANV2_API_KEY" ]; then
         echo "❌ Failed to load ETHERSCANV2_API_KEY from 1Password (is the op session signed in? try: eval \$(op signin))"

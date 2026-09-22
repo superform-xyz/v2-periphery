@@ -74,18 +74,21 @@ contract ConfigureV2Periphery is DeployV2Base {
 
         // Get SuperGovernor address
         params.superGovernor = _getSuperGovernorAddress(params);
-        if (params.superGovernor == address(0)) {
-            console2.log("ERROR: SuperGovernor not deployed or not found");
-            return;
-        }
+        // Revert rather than return: a silent `return` here exits the forge script with status 0,
+        // so the shell runner reported "Successfully configured hooks" while nothing was written.
+        // The usual cause is that script/output/{env}/latest.json has no entry for this chain yet -
+        // run script/run/merge_periphery_to_core_local_prod.sh after deploying to merge the
+        // per-chain file into it.
+        require(params.superGovernor != address(0), "SUPER_GOVERNOR_NOT_FOUND_RUN_MERGE_SCRIPT");
 
         console2.log("SuperGovernor address:", params.superGovernor);
 
         // Load the core deployment JSON for this chain and register every hook in _hookKeys()
         string memory coreJson = _readCoreContractsFromOutput(params.chainId, params.env, params.saltNamespace);
-        if (bytes(coreJson).length == 0) {
-            console2.log("WARNING: Failed to load core contracts - no hooks will be registered");
-        }
+        // Also fatal: with no core JSON every hook reads as "not deployed", so the run would report
+        // success having registered nothing. Usually means the lib/v2-core submodule predates this
+        // chain's core deployment and needs bumping.
+        require(bytes(coreJson).length > 0, "CORE_DEPLOYMENT_JSON_NOT_FOUND_BUMP_V2_CORE");
         _registerAllHooks(params.superGovernor, coreJson);
 
         // Set UP and UPKEEP_TOKEN addresses in SuperGovernor
@@ -258,6 +261,32 @@ contract ConfigureV2Periphery is DeployV2Base {
             }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (BNB)");
+        } else if (chainId == ARC_CHAIN_ID) {
+            // Arc: Both UP and UPKEEP_TOKEN are the UpOFT token
+            address upToken = UP_TOKEN_ARC;
+            address upkeepToken = UPKEEP_TOKEN_ARC;
+            console2.log("  Chain: Arc");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (Arc)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Arc)");
         } else {
             console2.log("WARNING: Unknown chain ID, skipping token address setup");
         }
@@ -446,7 +475,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 999) return "HyperEVM";
         if (chainId == 14) return "Flare";
         if (chainId == 4663) return "RH";
-        if (chainId == 56) return "BNB";
+        if (chainId == 5042) return "Arc";
         return "Unknown";
     }
 

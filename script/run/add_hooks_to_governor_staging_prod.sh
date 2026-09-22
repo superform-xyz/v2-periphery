@@ -328,7 +328,7 @@ configure_network() {
         forge_flags="--account $account --broadcast"
         # Chains whose (public) RPCs reject bursts of queued nonces ("future transaction tries to
         # replace pending"): send sequentially. Same treatment the deploy runners give 999/14/4663.
-        if [ "$network_id" = "56" ] || [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "4663" ]; then
+        if [ "$network_id" = "56" ] || [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "4663" ] || [ "$network_id" = "5042" ]; then
             forge_flags="$forge_flags --slow"
             log "INFO" "Using --slow (sequential sends) for chain $network_id"
         fi

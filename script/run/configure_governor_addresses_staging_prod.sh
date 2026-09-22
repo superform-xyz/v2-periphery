@@ -150,7 +150,7 @@ for network_def in "${NETWORKS[@]}"; do
     # Skip etherscan verification for HyperEVM
     VERIFY_FLAGS=""
     SLOW_FLAG=""
-    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ]; then
+    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "5042" ]; then
         SLOW_FLAG="--slow"
     fi
 

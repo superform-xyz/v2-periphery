@@ -91,6 +91,11 @@ abstract contract ConfigBase is Constants {
     ///         Chainlink Fast Gas feed and block.basefee is pinned at 0)
     address internal constant ORACLE_GAS_TO_WEI_BNB = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
 
+    /// @notice Gas to WEI oracle on Arc (SuperformGasOracle - keeper updated; no Chainlink gas feed on Arc).
+    ///         Deterministic address (default initial price, DEPLOYER owner) - identical to Base/HyperEVM/Flare/BNB.
+    ///         Deploy via script/run/deploy_superform_gas_oracle.sh before the periphery run.
+    address internal constant ORACLE_GAS_TO_WEI_ARC = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
+
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
@@ -99,6 +104,10 @@ abstract contract ConfigBase is Constants {
 
     /// @notice NATIVE/USD oracle on BNB Chain (Chainlink BNB/USD - 8 decimals)
     address internal constant ORACLE_BNB_USD_BNB = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE;
+
+    /// @notice NATIVE/USD oracle on Arc (Chainlink USDC/USD - 8 decimals). Arc's native gas token is USDC,
+    ///         so the NATIVE_TOKEN -> USD feed is the USDC/USD feed.
+    address internal constant ORACLE_USDC_USD_ARC = 0x84EA90AC252Dc437031461836DB5164219147905;
 
     /// @notice ETH/USD oracle on HyperEVM
     address internal constant ORACLE_ETH_USD_HYPEREVM = 0x017151e74fB3a393673B5B5149F53578c0Fa55B0;
@@ -125,6 +134,9 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_FLARE_STAGING = 0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5;
     address internal constant UP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
     address internal constant UP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B; // UpOFT on BSC
+    // Arc: deterministic UpOFT address (same CREATE2 salt, LZ endpoint 0x6F47...DD5B and v2-supervaults delegate
+    // as RH, hence the same address as RH). Deploy via script/run/deploy_up_oft_arc.sh before the periphery run.
+    address internal constant UP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Arc
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -162,6 +174,9 @@ abstract contract ConfigBase is Constants {
 
     /// @notice UPKEEP_TOKEN on BNB Chain (UpOFT)
     address internal constant UPKEEP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B;
+
+    /// @notice UPKEEP_TOKEN on Arc (UpOFT)
+    address internal constant UPKEEP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
@@ -205,6 +220,7 @@ abstract contract ConfigBase is Constants {
         chainNames[HYPEREVM_CHAIN_ID] = HYPEREVM_KEY;
         chainNames[FLARE_CHAIN_ID] = FLARE_KEY;
         chainNames[ROBINHOOD_CHAIN_ID] = ROBINHOOD_KEY;
+        chainNames[ARC_CHAIN_ID] = ARC_KEY; // Circle Arc L1 (chain 5042)
         chainNames[PLATABERGET_CHAIN_ID] = PLATABERGET_KEY; // Glamsterdam testnet
 
         // ===== COMMON CONFIGURATION =====
