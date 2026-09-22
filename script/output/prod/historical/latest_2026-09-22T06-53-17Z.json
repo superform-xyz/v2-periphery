@@ -2172,8 +2172,6 @@
         "SuperVaultAggregator": "0x10AC0b33e1C4501CF3ec1cB1AE51ebfdbd2d4698",
         "SuperVaultStrategy": "0x770abd170404B8ed8182c04f380E567e647b457D",
         "SuperVaultEscrow": "0x8982cf48eaB6616f2892888410afad9b0CD2BC9B",
-        "SuperVaultBatchOperator": "0x73d3f46d3a9f98C55C512DEca29993D28F93817c",
-        "SuperVaultExecutor": "0x183e3171EEf801cE2A29FD48B3b21188f241875d",
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracle": "0x15fC3d92d31b1a19c1368f9Db801a418060e46B1",
@@ -2181,5 +2179,5 @@
       }
     }
   },
-  "updated_at": "2026-09-22T06:53:13Z"
+  "updated_at": "2026-09-21T08:22:20Z"
 }
