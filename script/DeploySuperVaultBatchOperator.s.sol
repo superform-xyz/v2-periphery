@@ -149,6 +149,12 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
 
         // Validate inputs
         require(admin != address(0), "INVALID_ADMIN");
+        // Hard stop: when the admin is the SuperGovernor Safe it must exist ON THIS CHAIN. AccessControl's
+        // constructor grant does not check for code, so deploying with a codeless admin would strand
+        // DEFAULT_ADMIN_ROLE permanently (e.g. Arc, where the Safe has not been recreated yet).
+        if (admin == SUPER_GOVERNOR_ADDRESS) {
+            require(admin.code.length > 0, "SAFE_NOT_DEPLOYED_ON_THIS_CHAIN");
+        }
         require(operator != address(0), "INVALID_OPERATOR");
 
         // Get bytecode from generated artifacts

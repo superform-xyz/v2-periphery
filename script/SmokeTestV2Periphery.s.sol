@@ -268,7 +268,7 @@ contract SmokeTestV2Periphery is DeployV2Base, ConfigPeriphery {
         // Skip for HyperEVM/Flare since roles haven't been transferred yet
         if (
             chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID
-                || chainId == BNB_CHAIN_ID
+                || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
         ) {
             console2.log("[Role Check] SKIPPED - Roles not yet transferred on this chain");
         } else {

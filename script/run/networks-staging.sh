@@ -13,6 +13,7 @@ NETWORKS=(
     # "43114:Avalanche:AVALANCHE_MAINNET"
     "999:HyperEVM:HYPEREVM_MAINNET"
     "14:Flare:FLARE_MAINNET"
+    # "5042:Arc:ARC_MAINNET"   # no staging deployment on Arc yet
 )
 
 # Network name mapping function
@@ -40,6 +41,9 @@ get_network_name() {
         14)
             echo "Flare"
             ;;
+        # 5042)
+        #     echo "Arc"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID: $network_id" >&2
             return 1
@@ -72,6 +76,9 @@ get_rpc_var() {
         14)
             echo "FLARE_MAINNET"
             ;;
+        # 5042)
+        #     echo "ARC_MAINNET"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -104,6 +111,9 @@ get_rpc_url() {
         14)
             echo "$FLARE_MAINNET"
             ;;
+        # 5042)
+        #     echo "$ARC_MAINNET"
+        #     ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1

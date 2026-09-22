@@ -141,10 +141,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         totalGasEstimate += _estimateContractGas(SUPER_GOVERNOR_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(ECDSAPPS_ORACLE_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(FIXED_PRICE_ORACLE_KEY, chainId, env);
-        // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB) or SuperOracleL2 (L2 chains with sequencer uptime feed)
+        // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB/Arc) or SuperOracleL2 (L2 chains with sequencer uptime feed)
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
         ) {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_KEY, chainId, env);
         } else {
@@ -517,6 +517,18 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            // Arc (Circle L1, USDC-native gas): Chainlink USDC/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas; L1 architecture, no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_ARC;
+            upToken = UP_TOKEN_ARC;
+            if (UP_TOKEN_ARC.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_ARC not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_ARC.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_USDC_USD_ARC;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -543,7 +555,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
         ) {
             __checkContractWithBytecode(
                 SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
@@ -900,6 +912,18 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            // Arc (Circle L1, USDC-native gas): Chainlink USDC/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas; L1 architecture, no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_ARC;
+            upToken = UP_TOKEN_ARC;
+            if (UP_TOKEN_ARC.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_ARC not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_ARC.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_USDC_USD_ARC;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -924,7 +948,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
         ) {
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
@@ -1047,9 +1071,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Step 6: Configure uptime feed for L2 chains (Chainlink oracles may be stale during sequencer downtime)
         // Skip for test environment (env == 1) since oracles not deployed
         // Skip for HyperEVM (no sequencer uptime feed)
+        // Skip for Arc (L1 architecture, no sequencer)
         if (
             env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID
-                && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID
+                && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID && chainId != ARC_CHAIN_ID
         ) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
@@ -1099,7 +1124,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("[Step 6] DONE - Configured uptime feeds for ETH/USD, GAS/WEI, and UP/USD oracles");
         } else if (
             chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID
-                || chainId == BNB_CHAIN_ID
+                || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
         ) {
             console2.log("[Step 6] SKIPPED - Chain has no sequencer uptime feed");
         }
@@ -1119,6 +1144,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upToken = UP_TOKEN_RH;
             } else if (chainId == BNB_CHAIN_ID) {
                 upToken = UP_TOKEN_BNB;
+            } else if (chainId == ARC_CHAIN_ID) {
+                upToken = UP_TOKEN_ARC;
             } else {
                 revert("UP token not configured for this chain");
             }
@@ -1144,6 +1171,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upkeepToken = UPKEEP_TOKEN_RH;
             } else if (chainId == BNB_CHAIN_ID) {
                 upkeepToken = UPKEEP_TOKEN_BNB;
+            } else if (chainId == ARC_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_ARC;
             } else {
                 revert("UPKEEP token not configured for this chain");
             }
@@ -1286,6 +1315,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_RH;
         } else if (chainId == BNB_CHAIN_ID) {
             upToken = UP_TOKEN_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            upToken = UP_TOKEN_ARC;
         } else {
             revert("UP token not configured for this chain");
         }

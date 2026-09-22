@@ -236,6 +236,8 @@ generate_constructor_args() {
     local ORACLE_ETH_USD_RH="0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9"
     local ORACLE_GAS_TO_WEI_BNB="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
     local ORACLE_BNB_USD_BNB="0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"
+    local ORACLE_GAS_TO_WEI_ARC="0x473b88f017dE39d85a102DA01A35a1b3507eBcFc"
+    local ORACLE_USDC_USD_ARC="0x84EA90AC252Dc437031461836DB5164219147905"
 
     # UP Token addresses per chain
     local UP_TOKEN="0x1D926bbE67425C9F507b9A0E8030eEdc7880BF33"
@@ -246,6 +248,7 @@ generate_constructor_args() {
     local UP_TOKEN_FLARE_STAGING="0x8fAc7d7Af6e2fA711d065BAB0BbD73d21f8d91D5"
     local UP_TOKEN_RH="0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E"
     local UP_TOKEN_BNB="0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B"
+    local UP_TOKEN_ARC="0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E"
 
     # LayerZero V2 endpoints
     local LZ_ENDPOINT="0x1a44076050125825900e736c501f859c50fE728c"
@@ -351,6 +354,12 @@ generate_constructor_args() {
                     gas_oracle="$ORACLE_GAS_TO_WEI_BNB"
                     eth_usd_oracle="$ORACLE_BNB_USD_BNB"
                     up_token="$UP_TOKEN_BNB"
+                    ;;
+                "5042")
+                    # Arc: native gas is USDC, so NATIVE/USD is the Chainlink USDC/USD feed
+                    gas_oracle="$ORACLE_GAS_TO_WEI_ARC"
+                    eth_usd_oracle="$ORACLE_USDC_USD_ARC"
+                    up_token="$UP_TOKEN_ARC"
                     ;;
                 *)
                     echo ""
@@ -490,7 +499,8 @@ generate_constructor_args() {
             local lz_endpoint="$LZ_ENDPOINT"
             if [ "$chain_id" = "999" ]; then
                 lz_endpoint="$LZ_ENDPOINT_HYPEREVM"
-            elif [ "$chain_id" = "4663" ]; then
+            elif [ "$chain_id" = "4663" ] || [ "$chain_id" = "5042" ]; then
+                # Arc shares its EndpointV2 address with RH
                 lz_endpoint="$LZ_ENDPOINT_RH"
             fi
             echo "$(cast abi-encode "constructor(address,address)" "$lz_endpoint" "$DEPLOYER")"
@@ -554,6 +564,9 @@ verify_contract() {
         echo ""
         return
     fi
+
+    # Arc (5042) IS served by Etherscan V2 (chainid 5042, arc.etherscan.io), so it uses the
+    # standard V2 standard-json submission below - no special casing needed.
 
     # Check for Standard JSON Input in locked bytecode directory
     local standard_json_path="${LOCKED_BYTECODE_DIR}/${contract_name}.standard-json-input.json"
@@ -629,7 +642,21 @@ verify_contract() {
         # Fallback: use forge verify-contract (no Standard JSON Input available)
         echo -e "${YELLOW}      No Standard JSON Input found, falling back to forge verify-contract${NC}"
 
-        local verify_cmd="forge verify-contract \"$contract_address\" \"$source_file:$contract_name\" --rpc-url \"$rpc_url\" --chain \"$chain_id\" --etherscan-api-key \"$ETHERSCANV2_API_KEY\" --verifier etherscan --watch"
+        # forge only knows an Etherscan API URL for chains in its built-in list. Arc (5042) IS
+        # served by Etherscan V2 but is absent from that list, and forge resolves the chain (from
+        # --chain, or failing that from --rpc-url) before it ever looks at --verifier-url. Both
+        # flags must therefore be OMITTED for Arc and the endpoint given explicitly.
+        local verify_cmd
+        case "$chain_id" in
+            5042)
+                # NOTE: --rpc-url is omitted as well - forge re-derives the chain from the RPC and
+                # fails the same way. --skip-is-verified-check covers the lookup it would have done.
+                verify_cmd="forge verify-contract \"$contract_address\" \"$source_file:$contract_name\" --etherscan-api-key \"$ETHERSCANV2_API_KEY\" --verifier etherscan --verifier-url \"https://api.etherscan.io/v2/api?chainid=${chain_id}\" --skip-is-verified-check --watch"
+                ;;
+            *)
+                verify_cmd="forge verify-contract \"$contract_address\" \"$source_file:$contract_name\" --rpc-url \"$rpc_url\" --chain \"$chain_id\" --etherscan-api-key \"$ETHERSCANV2_API_KEY\" --verifier etherscan --watch"
+                ;;
+        esac
 
         if [ -n "$constructor_args" ]; then
             echo -e "${CYAN}      Constructor args: $constructor_args${NC}"

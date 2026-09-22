@@ -712,6 +712,11 @@ for network_def in "${NETWORKS[@]}"; do
                 # Robinhood Chain — Blockscout explorer (not on Etherscan V2); Orbit needs --slow
                 CHAIN_ETHERSCAN_FLAGS="--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/"
                 CHAIN_SLOW_FLAG="--slow"
+            elif [ "$network_id" == "5042" ]; then
+                # Arc — on Etherscan V2 (chainid 5042), but forge does not know chain 5042 by name,
+                # so the verifier URL must be given explicitly; send sequentially.
+                CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=5042"
+                CHAIN_SLOW_FLAG="--slow"
             elif [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
             else

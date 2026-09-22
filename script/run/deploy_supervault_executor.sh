@@ -173,8 +173,14 @@ deploy_on_chain() {
     if [ "$mode" = "execute" ]; then
         BROADCAST_FLAG="--broadcast"
         ACCOUNT_FLAG="--account $account"
-        # Skip etherscan verification for HyperEVM, Flare, and RH (no etherscan support)
-        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ] && [ "$chain_id" != "4663" ]; then
+        # Skip inline verification for HyperEVM, Flare and RH (no Etherscan V2 support) and for
+        # Arc. Arc IS served by Etherscan V2, but forge has no built-in entry for chain 5042 and
+        # resolves the chain (from --chain, or failing that from --rpc-url) before it ever reads
+        # --verifier-url; `forge script --verify` cannot omit --rpc-url, so it always aborts with
+        # "Missing etherscan key for chain 5042". Deploy here, then verify with
+        # ./verify_v2_periphery_staging_prod.sh, which omits both flags - see its 5042 case.
+        if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ] && [ "$chain_id" != "4663" ] \
+            && [ "$chain_id" != "5042" ]; then
             VERIFY_FLAG="--verify"
             ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
         fi
