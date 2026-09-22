@@ -14,6 +14,7 @@ NETWORKS=(
     "999:HyperEVM:HYPEREVM_MAINNET"
     "14:Flare:FLARE_MAINNET"
     # "5042:Arc:ARC_MAINNET"   # no staging deployment on Arc yet
+    "7091047534:Plataberget:PLATABERGET_TESTNET"
 )
 
 # Network name mapping function
@@ -44,6 +45,9 @@ get_network_name() {
         # 5042)
         #     echo "Arc"
         #     ;;
+        7091047534)
+            echo "Plataberget"
+            ;;
         *)
             echo "ERROR: Unknown staging network ID: $network_id" >&2
             return 1
@@ -79,6 +83,9 @@ get_rpc_var() {
         # 5042)
         #     echo "ARC_MAINNET"
         #     ;;
+        7091047534)
+            echo "PLATABERGET_TESTNET"
+            ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -114,6 +121,9 @@ get_rpc_url() {
         # 5042)
         #     echo "$ARC_MAINNET"
         #     ;;
+        7091047534)
+            echo "$PLATABERGET_TESTNET"
+            ;;
         *)
             echo "ERROR: Unknown staging network ID for RPC: $network_id" >&2
             return 1
@@ -179,6 +189,9 @@ load_rpc_urls() {
     fi
 
     echo "  • Loading Flare RPC..."
+    # Plataberget (Glamsterdam testnet) — public endpoint, hardcoded; env var override supported
+    export PLATABERGET_TESTNET="${PLATABERGET_RPC_URL:-https://rpc.plataberget.ethpandaops.io}"
+
     if ! export FLARE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/FLARE_RPC_URL/credential 2>/dev/null); then
         echo "  • FLARE_RPC_URL not in 1Password, using default RPC"
         export FLARE_MAINNET="https://flare-api.flare.network/ext/C/rpc"
