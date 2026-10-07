@@ -1,0 +1,62 @@
+{
+  "chainId": 8453,
+  "network": "Base",
+  "repository": "v2-periphery",
+  "contract": "SuperBuilderCodeRegistry",
+  "authorizationModel": "admin-registration-and-current-payout-address-management",
+  "revision": 3,
+  "address": "0x5f4a89321917279547468ade27bED8CbCfA267d3",
+  "deploymentTransaction": "0x9c799b681e3d1d8210d1610533a89dd3647be7f37715ab5611c273aedfc1d31e",
+  "deploymentBlock": 52288551,
+  "deploymentBlockHash": "0xc338ee79063b2dcae4c5b36df943f9c19353163bdfae0c59a60d4888ca8c7237",
+  "deploymentTimestamp": 1791366449,
+  "admin": "0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC",
+  "adminConfiguration": "script/utils/ConfigBase.sol:GOVERNOR",
+  "deployer": "0x91489D9c003A65eBd7C351dA60D01be71fA18FC9",
+  "deterministicFactory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "salt": "0xa00ad207f01692f1fc9f5c1905902c1cd6eac62c182819a6475f1f6e133e24dd",
+  "constructorArgs": "0x0000000000000000000000009e01f41da2212c1fbc32a041cfaef72479fa48ec",
+  "initCodeHash": "0xb069e4899e596c923acddb0aa212d3fa224185d14835d99e8e8a3bfb0456fe98",
+  "runtimeCodeHash": "0xbc9f8c0f27c261d9f38b72dda5939dc050f401fa8495447fe7fc7b79d6a6dd8e",
+  "runtimeSizeBytes": 4289,
+  "gasUsed": 1013197,
+  "effectiveGasPriceWei": 5302587,
+  "l1FeeWei": 67152783855,
+  "totalFeeWei": 5439718024494,
+  "rolesVerified": {
+    "governor": {
+      "address": "0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC",
+      "admin": true
+    },
+    "previousSuperGovernorSafe": {
+      "address": "0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e",
+      "admin": false
+    },
+    "superGovernorContract": {
+      "address": "0xB5396ef2bF8CA360cEB4166b77AFb2bed20e74d4",
+      "admin": false
+    },
+    "signer": {
+      "address": "0x91489D9c003A65eBd7C351dA60D01be71fA18FC9",
+      "admin": false
+    },
+    "factory": {
+      "address": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      "admin": false
+    }
+  },
+  "metadataAuthority": "current payoutAddress(code); changing it immediately transfers management; no admin override",
+  "supersedes": "0x5E02efd9443CEEd45af408E45bbB5e28c35A3cE0",
+  "previousDeploymentRecord": "specs/builder-codes/archive/deployment-base-core-admin.json",
+  "abiArtifact": "script/locked-bytecode/SuperBuilderCodeRegistry.json",
+  "goBinding": "contract_bindings/SuperBuilderCodeRegistry/SuperBuilderCodeRegistry.go",
+  "sharedFixtures": "test/fixtures/builder-codes.json",
+  "explorer": "https://basescan.org/address/0x5f4a89321917279547468ade27bED8CbCfA267d3#code",
+  "sourceVerification": "verified",
+  "previousRegistryRegistrationCounts": {
+    "0xAa47CcbbD7074e33F89fE4ee98a6eAc304762888": 0,
+    "0x5E02efd9443CEEd45af408E45bbB5e28c35A3cE0": 0
+  },
+  "historyCheckedThroughBlock": 52288513,
+  "sourceVerificationMethod": "Forge/Etherscan reported the contract already verified; exact runtime independently checked"
+}

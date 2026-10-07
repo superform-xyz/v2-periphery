@@ -1,0 +1,48 @@
+{
+  "chainId": 8453,
+  "network": "Base",
+  "contract": "SuperBuilderCodeRegistry",
+  "authorizationModel": "admin-registration-and-current-payout-address-management",
+  "revision": 2,
+  "address": "0x5E02efd9443CEEd45af408E45bbB5e28c35A3cE0",
+  "deploymentTransaction": "0x201fde6c01c6b5c95342332ce8546fd2bfdc75f200df3d8761f08d1a6380def9",
+  "deploymentBlock": 52287179,
+  "deploymentBlockHash": "0x263915a37fee76ef62e09d53ba879a4c00fcb309dfef42b2d800a8221c5e8d32",
+  "deploymentTimestamp": 1791363705,
+  "governance": "0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e",
+  "deployer": "0x91489D9c003A65eBd7C351dA60D01be71fA18FC9",
+  "deterministicFactory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "salt": "0xa00ad207f01692f1fc9f5c1905902c1cd6eac62c182819a6475f1f6e133e24dd",
+  "constructorArgs": "0x00000000000000000000000089226a5fd572f380991bb17c20c96ba91f98ad2e",
+  "initCodeHash": "0x12f044655f3d6897086e9a069ea02a4d4166102ff7f3d07b0d42c578e9098ae7",
+  "runtimeCodeHash": "0xbc9f8c0f27c261d9f38b72dda5939dc050f401fa8495447fe7fc7b79d6a6dd8e",
+  "runtimeSizeBytes": 4289,
+  "gasUsed": 1013197,
+  "effectiveGasPriceWei": 5250000,
+  "l1FeeWei": 35356404413,
+  "totalFeeWei": 5354640654413,
+  "rolesVerified": {
+    "governance": {
+      "admin": true
+    },
+    "signer": {
+      "admin": false
+    },
+    "factory": {
+      "admin": false
+    }
+  },
+  "metadataAuthority": "current payoutAddress(code); changing it immediately transfers management; no admin override",
+  "supersedes": "0xAa47CcbbD7074e33F89fE4ee98a6eAc304762888",
+  "previousDeploymentRecord": "specs/builder-codes/archive/deployment-base-three-roles.json",
+  "abiArtifact": "specs/builder-codes/archive/SuperBuilderCodeRegistry-core-admin.json",
+  "sharedFixtures": "test/fixtures/builder-codes.json",
+  "explorer": "https://basescan.org/address/0x5E02efd9443CEEd45af408E45bbB5e28c35A3cE0#code",
+  "sourceVerification": "verified",
+  "oldRegistryRegistrationCount": 0,
+  "oldRegistryCheckedThroughBlock": 52287110,
+  "sourceVerificationGuid": "vkrpfwvzpbzr7rkjh177cz6rgbbtmmscw8e3ywkzshrkttbker",
+  "repositoryAtDeployment": "v2-core",
+  "supersededBy": "0x5f4a89321917279547468ade27bED8CbCfA267d3",
+  "replacementDeploymentRecord": "specs/builder-codes/deployment-base.json"
+}

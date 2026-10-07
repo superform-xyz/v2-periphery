@@ -79,6 +79,7 @@ log "INFO" "${BLUE}📋 Copying periphery contract artifacts...${NC}"
 # Define arrays of contracts to copy
 # Core periphery contracts
 CORE_PERIPHERY_CONTRACTS=(
+    "SuperBuilderCodeRegistry"
     "SuperGovernor"
     "SuperVault"
     "SuperVaultAggregator"
@@ -103,6 +104,7 @@ CORE_PERIPHERY_CONTRACTS=(
 get_contract_source() {
     local contract_name=$1
     case $contract_name in
+        "SuperBuilderCodeRegistry") echo "src/attribution/SuperBuilderCodeRegistry.sol" ;;
         "SuperOracle") echo "src/oracles/SuperOracle.sol" ;;
         "SuperOracleL2") echo "src/oracles/SuperOracleL2.sol" ;;
         "SuperformGasOracle") echo "src/oracles/SuperformGasOracle.sol" ;;
