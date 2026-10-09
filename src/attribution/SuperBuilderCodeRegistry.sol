@@ -33,6 +33,11 @@ contract SuperBuilderCodeRegistry is AccessControl, ISuperBuilderCodeRegistry {
         _grantRole(DEFAULT_ADMIN_ROLE, governance);
     }
 
+    /// @inheritdoc AccessControl
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return interfaceId == type(ICodeRegistry).interfaceId || super.supportsInterface(interfaceId);
+    }
+
     /// @inheritdoc ISuperBuilderCodeRegistry
     function registerCode(
         string calldata code,

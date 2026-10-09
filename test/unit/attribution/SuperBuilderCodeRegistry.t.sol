@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { ICodeRegistry } from "../../../src/interfaces/ICodeRegistry.sol";
 import { ISuperBuilderCodeRegistry } from "../../../src/interfaces/ISuperBuilderCodeRegistry.sol";
 import { SuperBuilderCodeRegistry } from "../../../src/attribution/SuperBuilderCodeRegistry.sol";
@@ -31,6 +32,13 @@ contract SuperBuilderCodeRegistryTest is Test {
     function test_ConstructorRejectsZeroGovernance() public {
         vm.expectRevert(ISuperBuilderCodeRegistry.ZERO_ADDRESS.selector);
         new SuperBuilderCodeRegistry(address(0));
+    }
+
+    function test_SupportsRegistryAndInheritedInterfaces() public view {
+        assertTrue(registry.supportsInterface(type(ICodeRegistry).interfaceId));
+        assertTrue(registry.supportsInterface(type(IAccessControl).interfaceId));
+        assertTrue(registry.supportsInterface(type(IERC165).interfaceId));
+        assertFalse(registry.supportsInterface(0xffffffff));
     }
 
     function test_RegistrationAndStandardReadInterface() public {
