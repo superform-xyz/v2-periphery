@@ -2,6 +2,13 @@
 
 set -e
 
+# Optional exact contract name avoids regenerating unrelated bindings.
+requested_contract="${1:-}"
+if [[ -n "$requested_contract" && ! -f "out/${requested_contract}.sol/${requested_contract}.abi" ]]; then
+  echo "No exported ABI found for $requested_contract" >&2
+  exit 1
+fi
+
 # Create the base directory if it doesn't exist
 mkdir -p contract_bindings
 
@@ -10,6 +17,9 @@ find ./out -name "*.abi" | while read abi_file; do
   # Extract contract name and directory from the ABI file path
   dir_path=$(dirname "$abi_file")
   base_name=$(basename "$abi_file" .abi)
+  if [[ -n "$requested_contract" && "$base_name" != "$requested_contract" ]]; then
+    continue
+  fi
   
   # Extract directory name to check if it's a test file
   dir_name=$(basename "$dir_path")
@@ -20,6 +30,7 @@ find ./out -name "*.abi" | while read abi_file; do
 
   # Define allowed contract prefixes and suffixes for flexible matching
 declare -a ALLOWED_PREFIXES=(
+  "SuperBuilderCodeRegistry"
   "SuperGovernor"
   "FixedPriceOracle"
   "SuperOracle"
@@ -84,4 +95,4 @@ done
 # Disable debugging
 set +x
 
-echo "Contract bindings generated successfully" 
+echo "Contract bindings generated successfully"

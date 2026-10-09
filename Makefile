@@ -93,9 +93,9 @@ test-cache :; $(MAKE) ensure-merkle-cache && forge test --cache-tests
 
 .PHONY: generate
 generate:
-	rm -rf contract_bindings/*
-	./lib/v2-core/script/run/retrieve-abis.sh
-	./script/run/generate-contract-bindings.sh
+	@if [ -z "$(CONTRACT)" ]; then rm -rf contract_bindings/*; fi
+	./script/run/retrieve-abis.sh $(CONTRACT)
+	./script/run/generate-contract-bindings.sh $(CONTRACT)
 # ── SuperBank merkle roots (migrated from archived superman repo) ─────────────
 # Usage: make generate-superbank-roots CHAIN_ID=8453 [ENVIRONMENT=prod] [HOOKS="SwapKyberSwapHook ..."]
 .PHONY: generate-superbank-roots
