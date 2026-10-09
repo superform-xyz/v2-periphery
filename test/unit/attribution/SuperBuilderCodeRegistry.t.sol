@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { ICodeRegistry } from "../../../src/interfaces/ICodeRegistry.sol";
@@ -149,10 +150,14 @@ contract SuperBuilderCodeRegistryTest is Test {
 
     function test_PayoutUpdateEmitsHistoryAndPreservesIdentity() public {
         _register();
-        vm.expectEmit(true, false, false, true, address(registry));
+        vm.expectEmit(true, true, false, true, address(registry));
         emit ISuperBuilderCodeRegistry.PayoutAddressUpdated(CODE_HASH, payout, otherPayout);
+        vm.recordLogs();
         vm.prank(payout);
         registry.setPayoutAddress("partner_1", otherPayout);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs[0].topics.length, 3);
+        assertEq(logs[0].topics[2], bytes32(uint256(uint160(otherPayout))));
         assertEq(registry.payoutAddress("partner_1"), otherPayout);
         assertEq(registry.partnerId("partner_1"), PARTNER);
         assertEq(registry.codeURI("partner_1"), URI);

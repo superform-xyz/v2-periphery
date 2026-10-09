@@ -27,7 +27,9 @@ interface ISuperBuilderCodeRegistry is ICodeRegistry {
     );
 
     /// @notice Records a payout and management change; partner identity is unaffected.
-    event PayoutAddressUpdated(bytes32 indexed codeHash, address previousPayoutAddress, address newPayoutAddress);
+    event PayoutAddressUpdated(
+        bytes32 indexed codeHash, address previousPayoutAddress, address indexed newPayoutAddress
+    );
 
     /// @notice Records a URI change; partner identity is unaffected.
     event CodeURIUpdated(bytes32 indexed codeHash, string previousURI, string newURI);
