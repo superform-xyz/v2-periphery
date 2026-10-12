@@ -301,6 +301,8 @@ contract SuperVaultCounselTest is Test {
     uint256 internal constant EXPIRY = 7 days;
     uint256 internal constant MIN_DEV = 1e16; // 1%
     uint256 internal constant MAX_DEV = 9e17; // 90%
+    uint256 internal constant MAX_PERF_CAP = 5100; // strategy ceiling, so legacy bound tests still hold
+    uint256 internal constant MAX_MGMT_CAP = 10_000; // strategy ceiling
 
     SuperVaultCounsel internal counsel;
     MockCounselSuperGovernor internal superGovernor;
@@ -330,7 +332,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         vm.deal(operator, 100 ether);
     }
@@ -349,6 +353,10 @@ contract SuperVaultCounselTest is Test {
         assertEq(counsel.EXPIRY(), EXPIRY);
         assertEq(counsel.MIN_DEVIATION_THRESHOLD(), MIN_DEV);
         assertEq(counsel.MAX_DEVIATION_THRESHOLD(), MAX_DEV);
+        assertEq(counsel.MAX_PERFORMANCE_FEE_BPS(), MAX_PERF_CAP);
+        assertEq(counsel.MAX_MANAGEMENT_FEE_BPS(), MAX_MGMT_CAP);
+        assertEq(counsel.STRATEGY_MAX_PERFORMANCE_FEE_BPS(), 5100);
+        assertEq(counsel.STRATEGY_MAX_MANAGEMENT_FEE_BPS(), 10_000);
     }
 
     function test_constructor_revertsOnZeroAddresses() public {
@@ -363,7 +371,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -380,7 +390,9 @@ contract SuperVaultCounselTest is Test {
             0,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         // expiry <= window
         vm.expectRevert(ISuperVaultCounsel.INVALID_CONFIG.selector);
@@ -394,7 +406,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             VETO_WINDOW,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -411,7 +425,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MAX_DEV,
-            MIN_DEV
+            MIN_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         // max == type(uint256).max would disable PPS checks
         vm.expectRevert(ISuperVaultCounsel.INVALID_CONFIG.selector);
@@ -425,7 +441,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            type(uint256).max
+            type(uint256).max,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -748,6 +766,391 @@ contract SuperVaultCounselTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    PER-INSTANCE FEE CAPS (CONSTRUCTOR)
+    //////////////////////////////////////////////////////////////*/
+
+    function _newCounselWithCaps(uint256 perfCap, uint256 mgmtCap) internal returns (SuperVaultCounsel c) {
+        c = new SuperVaultCounsel(
+            operator,
+            address(superGovernor),
+            address(0),
+            address(aggregator),
+            address(strategy),
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV,
+            perfCap,
+            mgmtCap
+        );
+    }
+
+    /// @notice The per-instance caps may never exceed the strategy's own ceilings
+    function test_constructor_RevertIf_FeeCapAboveStrategyCeiling() public {
+        vm.expectRevert(ISuperVaultCounsel.INVALID_CONFIG.selector);
+        _newCounselWithCaps(5101, 10_000);
+        vm.expectRevert(ISuperVaultCounsel.INVALID_CONFIG.selector);
+        _newCounselWithCaps(5100, 10_001);
+    }
+
+    /// @notice Zero caps are valid: they forbid that fee entirely
+    function test_constructor_ZeroFeeCapsAllowed() public {
+        SuperVaultCounsel c = _newCounselWithCaps(0, 0);
+        assertEq(c.MAX_PERFORMANCE_FEE_BPS(), 0);
+        assertEq(c.MAX_MANAGEMENT_FEE_BPS(), 0);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 1, 0));
+        c.proposeVaultFeeConfigUpdate(1, 0, makeAddr("recipient"));
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 0, 1));
+        c.proposeVaultFeeConfigUpdate(0, 1, makeAddr("recipient"));
+    }
+
+    /// @notice A lower immutable cap binds propose-time validation (the regulatory fee-cap lever):
+    ///         over-cap configs fail even though the strategy itself would accept them
+    function test_feeConfig_lowerImmutableCapBinds() public {
+        SuperVaultCounsel c = _newCounselWithCaps(3000, 100);
+        vm.startPrank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 3001, 0));
+        c.proposeVaultFeeConfigUpdate(3001, 0, makeAddr("recipient"));
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 0, 101));
+        c.proposeVaultFeeConfigUpdate(0, 101, makeAddr("recipient"));
+        // exact caps accepted and forwarded unchanged after the window
+        uint256 id = c.proposeVaultFeeConfigUpdate(3000, 100, makeAddr("recipient"));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        c.execute(id);
+        vm.stopPrank();
+        assertEq(strategy.feePerf(), 3000);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    VETO-GATED: YIELD SOURCE REMOVE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_yieldSourceRemove_vetoGated_executeAfterWindow() public {
+        address source = makeAddr("source");
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(source);
+        assertEq(uint8(counsel.state(id)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+        assertEq(uint8(counsel.getProposal(id).actionType), uint8(ISuperVaultCounsel.ActionType.YieldSourceRemove));
+        // nothing reaches the strategy before the window
+        assertEq(strategy.manageYieldSourceCalls(), 0);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Pending
+            )
+        );
+        counsel.execute(id);
+
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(id);
+        assertEq(strategy.manageYieldSourceCalls(), 1);
+        assertEq(strategy.lastSource(), source);
+        assertEq(strategy.lastOracle(), address(0));
+        assertEq(uint8(strategy.lastAction()), uint8(ISuperVaultStrategy.YieldSourceAction.Remove));
+        assertEq(uint8(counsel.state(id)), uint8(ISuperVaultCounsel.ProposalStatus.Executed));
+    }
+
+    function test_yieldSourceRemove_expiresAfterExpiry() public {
+        uint256 proposedAt = block.timestamp;
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(makeAddr("source"));
+        vm.warp(proposedAt + EXPIRY);
+        assertEq(uint8(counsel.state(id)), uint8(ISuperVaultCounsel.ProposalStatus.Expired));
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Expired
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.manageYieldSourceCalls(), 0);
+    }
+
+    function test_yieldSourceRemove_guardianCanVeto() public {
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(makeAddr("source"));
+        vm.prank(guardian);
+        counsel.veto(id);
+        vm.warp(block.timestamp + VETO_WINDOW + 1);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Vetoed
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.manageYieldSourceCalls(), 0);
+    }
+
+    function test_yieldSourceRemove_RevertIf_ZeroSource_or_NotOperator() public {
+        vm.prank(operator);
+        vm.expectRevert(ISuperVaultCounsel.ZERO_ADDRESS.selector);
+        counsel.proposeYieldSourceRemove(address(0));
+        vm.prank(guardian);
+        vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
+        counsel.proposeYieldSourceRemove(makeAddr("source"));
+    }
+
+    /// @notice Set-membership type: a newer removal does not supersede an older pending one
+    function test_yieldSourceRemove_isNotSingleSlot() public {
+        vm.startPrank(operator);
+        uint256 a = counsel.proposeYieldSourceRemove(makeAddr("a"));
+        uint256 b = counsel.proposeYieldSourceRemove(makeAddr("b"));
+        vm.stopPrank();
+        assertEq(uint8(counsel.state(a)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+        assertEq(uint8(counsel.state(b)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+        (bool exists,) = counsel.latestProposalIdOfType(ISuperVaultCounsel.ActionType.YieldSourceRemove);
+        assertFalse(exists);
+    }
+
+    function test_yieldSourceRemove_cannotReplay() public {
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(makeAddr("source"));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(id);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Executed
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.manageYieldSourceCalls(), 1);
+    }
+
+    /// @notice The veto stays valid once the removal is Ready (until execution, expiry or supersession)
+    function test_yieldSourceRemove_vetoValidWhenReady() public {
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(makeAddr("source"));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        assertEq(uint8(counsel.state(id)), uint8(ISuperVaultCounsel.ProposalStatus.Ready));
+        vm.prank(guardian);
+        counsel.veto(id);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Vetoed
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.manageYieldSourceCalls(), 0);
+    }
+
+    /// @notice Remove and Add of the SAME source are independent proposals (set-membership types
+    ///         never supersede each other, across or within type); each forwards its own enum
+    function test_yieldSourceRemove_andAdd_sameSource_independentProposals() public {
+        address source = makeAddr("source");
+        address oracle = makeAddr("oracle");
+        vm.startPrank(operator);
+        uint256 removeId = counsel.proposeYieldSourceRemove(source);
+        uint256 addId = counsel.proposeYieldSourceAdd(source, oracle);
+        vm.stopPrank();
+        assertEq(uint8(counsel.state(removeId)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+        assertEq(uint8(counsel.state(addId)), uint8(ISuperVaultCounsel.ProposalStatus.Pending));
+
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.startPrank(operator);
+        counsel.execute(removeId);
+        assertEq(uint8(strategy.lastAction()), uint8(ISuperVaultStrategy.YieldSourceAction.Remove));
+        assertEq(strategy.lastOracle(), address(0));
+        counsel.execute(addId);
+        assertEq(uint8(strategy.lastAction()), uint8(ISuperVaultStrategy.YieldSourceAction.Add));
+        assertEq(strategy.lastOracle(), oracle);
+        vm.stopPrank();
+        assertEq(strategy.manageYieldSourceCalls(), 2);
+        assertEq(uint8(counsel.state(removeId)), uint8(ISuperVaultCounsel.ProposalStatus.Executed));
+        assertEq(uint8(counsel.state(addId)), uint8(ISuperVaultCounsel.ProposalStatus.Executed));
+    }
+
+    /// @notice Regression guard: the immediate removal forward is gone from the ABI, so no call
+    ///         path touches the yield-source set without a proposal (the Counsel has no fallback)
+    function test_removeYieldSource_forwardRemoved_noBypass() public {
+        vm.prank(operator);
+        (bool ok,) = address(counsel).call(abi.encodeWithSignature("removeYieldSource(address)", makeAddr("source")));
+        assertFalse(ok);
+        assertEq(strategy.manageYieldSourceCalls(), 0);
+    }
+
+    /// @notice Removal is a proposal, not a forward: the whole lifecycle emits no
+    ///         OperatorActionExecuted (the post-hoc audit event reserved for window-bypassing calls)
+    function test_yieldSourceRemove_emitsNoOperatorActionEvent() public {
+        vm.recordLogs();
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(makeAddr("source"));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(id);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 forwardSig = ISuperVaultCounsel.OperatorActionExecuted.selector;
+        bool sawCreated;
+        bool sawExecuted;
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(logs[i].topics[0] != forwardSig, "removal must not look like a forward");
+            if (logs[i].topics[0] == ISuperVaultCounsel.ProposalCreated.selector) sawCreated = true;
+            if (logs[i].topics[0] == ISuperVaultCounsel.ProposalExecuted.selector) sawExecuted = true;
+        }
+        assertTrue(sawCreated && sawExecuted);
+    }
+
+    function test_event_proposalCreated_yieldSourceRemove_payload() public {
+        address source = makeAddr("source");
+        ISuperVaultCounsel.Proposal memory expected;
+        expected.proposedAt = uint64(block.timestamp);
+        expected.status = ISuperVaultCounsel.ProposalStatus.Pending;
+        expected.actionType = ISuperVaultCounsel.ActionType.YieldSourceRemove;
+        expected.source = source;
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultCounsel.ProposalCreated(
+            0,
+            ISuperVaultCounsel.ActionType.YieldSourceRemove,
+            operator,
+            expected,
+            block.timestamp + VETO_WINDOW,
+            block.timestamp + EXPIRY
+        );
+        vm.prank(operator);
+        counsel.proposeYieldSourceRemove(source);
+    }
+
+    /// @notice Monitors evaluate fee proposals from the event alone: the payload carries the
+    ///         exact fee fields that execute() will forward
+    function test_event_proposalCreated_feeConfig_payload() public {
+        address recipient = makeAddr("recipient");
+        ISuperVaultCounsel.Proposal memory expected;
+        expected.proposedAt = uint64(block.timestamp);
+        expected.status = ISuperVaultCounsel.ProposalStatus.Pending;
+        expected.actionType = ISuperVaultCounsel.ActionType.FeeConfig;
+        expected.performanceFeeBps = 1234;
+        expected.managementFeeBps = 56;
+        expected.feeRecipient = recipient;
+        vm.expectEmit(true, true, true, true);
+        emit ISuperVaultCounsel.ProposalCreated(
+            0,
+            ISuperVaultCounsel.ActionType.FeeConfig,
+            operator,
+            expected,
+            block.timestamp + VETO_WINDOW,
+            block.timestamp + EXPIRY
+        );
+        vm.prank(operator);
+        counsel.proposeVaultFeeConfigUpdate(1234, 56, recipient);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    PER-INSTANCE FEE CAPS (FUZZ + MIGRATION)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Any cap pair at or below the strategy ceilings deploys and is readable; anything
+    ///         above either ceiling reverts INVALID_CONFIG
+    function testFuzz_constructor_feeCaps(uint256 perfCap, uint256 mgmtCap) public {
+        perfCap = bound(perfCap, 0, 20_000);
+        mgmtCap = bound(mgmtCap, 0, 20_000);
+        bool valid = perfCap <= 5100 && mgmtCap <= 10_000;
+        if (!valid) vm.expectRevert(ISuperVaultCounsel.INVALID_CONFIG.selector);
+        SuperVaultCounsel c = _newCounselWithCaps(perfCap, mgmtCap);
+        if (valid) {
+            assertEq(c.MAX_PERFORMANCE_FEE_BPS(), perfCap);
+            assertEq(c.MAX_MANAGEMENT_FEE_BPS(), mgmtCap);
+        }
+    }
+
+    /// @notice The immutable cap is an exact propose-time boundary: cap accepted (and stored
+    ///         verbatim), cap + 1 rejected, independently per fee
+    function testFuzz_feeConfig_capIsExactBoundary(uint256 perfCap, uint256 mgmtCap) public {
+        perfCap = bound(perfCap, 0, 5099);
+        mgmtCap = bound(mgmtCap, 0, 9999);
+        SuperVaultCounsel c = _newCounselWithCaps(perfCap, mgmtCap);
+        address recipient = makeAddr("recipient");
+        vm.startPrank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, perfCap + 1, mgmtCap));
+        c.proposeVaultFeeConfigUpdate(perfCap + 1, mgmtCap, recipient);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, perfCap, mgmtCap + 1));
+        c.proposeVaultFeeConfigUpdate(perfCap, mgmtCap + 1, recipient);
+        uint256 id = c.proposeVaultFeeConfigUpdate(perfCap, mgmtCap, recipient);
+        vm.stopPrank();
+        ISuperVaultCounsel.Proposal memory p = c.getProposal(id);
+        assertEq(p.performanceFeeBps, perfCap);
+        assertEq(p.managementFeeBps, mgmtCap);
+        assertEq(p.feeRecipient, recipient);
+    }
+
+    /// @notice A capped Counsel still forwards exactly what was proposed; the strategy never sees
+    ///         a value above the cap even across repeated proposals
+    function testFuzz_feeConfig_strategyNeverSeesAboveCap(uint256 perfCap, uint256 perf1, uint256 perf2) public {
+        perfCap = bound(perfCap, 0, 5100);
+        perf1 = bound(perf1, 0, perfCap);
+        perf2 = bound(perf2, 0, perfCap);
+        SuperVaultCounsel c = _newCounselWithCaps(perfCap, 0);
+        address recipient = makeAddr("recipient");
+        vm.startPrank(operator);
+        uint256 id1 = c.proposeVaultFeeConfigUpdate(perf1, 0, recipient);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        c.execute(id1);
+        assertEq(strategy.feePerf(), perf1);
+        uint256 id2 = c.proposeVaultFeeConfigUpdate(perf2, 0, recipient);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        c.execute(id2);
+        vm.stopPrank();
+        assertEq(strategy.feePerf(), perf2);
+        assertLe(strategy.feePerf(), perfCap);
+    }
+
+    /// @notice Caps are independent: a zero perf cap does not constrain the entry fee, and vice versa
+    function test_feeConfig_capsAreIndependent() public {
+        address recipient = makeAddr("recipient");
+        SuperVaultCounsel perfOnlyZero = _newCounselWithCaps(0, 10_000);
+        vm.prank(operator);
+        perfOnlyZero.proposeVaultFeeConfigUpdate(0, 10_000, recipient);
+        SuperVaultCounsel mgmtOnlyZero = _newCounselWithCaps(5100, 0);
+        vm.prank(operator);
+        mgmtOnlyZero.proposeVaultFeeConfigUpdate(5100, 0, recipient);
+    }
+
+    /// @notice Caps are deliberately NOT a migration predicate (like EXECUTOR and timing): a
+    ///         successor with different caps is a valid target, and both caps are readable through
+    ///         the interface so guardians can diff them during the veto window
+    function test_counselMigration_successorCapsNotRequiredEqual_butReadable() public {
+        SuperVaultCounsel successor = _newCounselWithCaps(3000, 0);
+        vm.prank(operator);
+        uint256 id = counsel.proposeCounselMigration(address(successor));
+        ISuperVaultCounsel offered = ISuperVaultCounsel(counsel.getProposal(id).newCounsel);
+        assertEq(address(offered), address(successor));
+        assertEq(offered.MAX_PERFORMANCE_FEE_BPS(), 3000);
+        assertEq(offered.MAX_MANAGEMENT_FEE_BPS(), 0);
+        assertLt(offered.MAX_PERFORMANCE_FEE_BPS(), counsel.MAX_PERFORMANCE_FEE_BPS());
+        // a LOOSER successor is equally accepted at propose time - the guardian review is the gate
+        SuperVaultCounsel looser = _newCounselWithCaps(5100, 10_000);
+        SuperVaultCounsel tight = _newCounselWithCaps(100, 0);
+        vm.prank(operator);
+        uint256 tightId = tight.proposeCounselMigration(address(looser));
+        assertEq(tight.getProposal(tightId).newCounsel, address(looser));
+    }
+
+    /// @notice The caps cannot be changed on a live instance: no setter exists in the ABI and the
+    ///         values survive every other lever (fee config, migration offer, forwards)
+    function test_feeCaps_immutableAcrossLifecycle() public {
+        (bool ok,) = address(counsel).call(abi.encodeWithSignature("setMaxPerformanceFeeBps(uint256)", 1));
+        assertFalse(ok);
+        (ok,) = address(counsel).call(abi.encodeWithSignature("setMaxManagementFeeBps(uint256)", 1));
+        assertFalse(ok);
+        vm.startPrank(operator);
+        uint256 id = counsel.proposeVaultFeeConfigUpdate(1, 1, makeAddr("recipient"));
+        vm.warp(block.timestamp + VETO_WINDOW);
+        counsel.execute(id);
+        counsel.executeVaultFeeConfigUpdate();
+        counsel.proposeCounselMigration(address(_newCounselWithCaps(0, 0)));
+        counsel.pauseStrategy();
+        vm.stopPrank();
+        assertEq(counsel.MAX_PERFORMANCE_FEE_BPS(), MAX_PERF_CAP);
+        assertEq(counsel.MAX_MANAGEMENT_FEE_BPS(), MAX_MGMT_CAP);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                         DAY-TO-DAY FORWARDS
     //////////////////////////////////////////////////////////////*/
 
@@ -761,7 +1164,7 @@ contract SuperVaultCounselTest is Test {
             vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
             counsel.pauseStrategy();
             vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
-            counsel.removeYieldSource(makeAddr("source"));
+            counsel.executeVaultFeeConfigUpdate();
             vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
             counsel.enrollExecutor();
             vm.expectRevert(ISuperVaultCounsel.NOT_OPERATOR.selector);
@@ -778,12 +1181,6 @@ contract SuperVaultCounselTest is Test {
         counsel.executeHooks{ value: 1 ether }(args);
         assertEq(strategy.lastMsgValue(), 1 ether);
         assertEq(address(counsel).balance, 5 ether); // dust untouched
-    }
-
-    function test_removeYieldSource_removeEnumHardcoded() public {
-        vm.prank(operator);
-        counsel.removeYieldSource(makeAddr("source"));
-        assertEq(uint8(strategy.lastAction()), uint8(ISuperVaultStrategy.YieldSourceAction.Remove));
     }
 
     function test_enrollExecutor_hardcodedTarget() public {
@@ -954,7 +1351,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         // governor guardian is NOT authorized on this instance
         vm.prank(guardian);
@@ -985,7 +1384,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         assertEq(address(c.VETO_REGISTRY()), address(registry));
         // governor guardian has NO veto power on this instance
@@ -1278,7 +1679,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         evilStrategy.setCounsel(counsel2);
         ISuperVaultStrategy.ExecuteArgs memory args;
@@ -1306,7 +1709,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         vm.prank(operator);
         uint256 id = counsel2.proposeYieldSourceAdd(makeAddr("source"), makeAddr("oracle"));
@@ -1364,7 +1769,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -1395,7 +1802,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         vm.prank(operator);
         vm.expectRevert(ISuperVaultCounsel.INVALID_MIGRATION_TARGET.selector);
@@ -1413,7 +1822,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         vm.prank(operator);
         vm.expectRevert(ISuperVaultCounsel.INVALID_MIGRATION_TARGET.selector);
@@ -1431,7 +1842,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
         vm.prank(operator);
         vm.expectRevert(ISuperVaultCounsel.INVALID_MIGRATION_TARGET.selector);
@@ -1635,7 +2048,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -1854,7 +2269,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 
@@ -1872,7 +2289,9 @@ contract SuperVaultCounselTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 

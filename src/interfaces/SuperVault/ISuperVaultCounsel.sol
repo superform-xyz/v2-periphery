@@ -12,11 +12,11 @@ import { ISuperVaultAggregator } from "./ISuperVaultAggregator.sol";
 /// @author Superform Labs
 /// @notice Interface for the SuperVaultCounsel — an immutable, ownerless adapter that occupies
 ///         the SuperVault primary-manager/curator seat. Every sharp curator lever (yield-source
-///         additions, strategy hooks-root replacement, PPS deviation-threshold changes,
-///         global-leaf ban/unban, min-update-interval changes, secondary-manager additions,
-///         Counsel migration offers) exists only behind a propose → guardian-veto-window →
-///         execute flow; day-to-day operations are typed, operator-only forwards. The adapter's
-///         entire authority is enumerable from this ABI.
+///         additions and removals, strategy hooks-root replacement, PPS deviation-threshold
+///         changes, global-leaf ban/unban, min-update-interval changes, secondary-manager
+///         additions, fee-config changes, Counsel migration offers) exists only behind a propose →
+///         guardian-veto-window → execute flow; day-to-day operations are typed, operator-only
+///         forwards. The adapter's entire authority is enumerable from this ABI.
 interface ISuperVaultCounsel {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -70,7 +70,8 @@ interface ISuperVaultCounsel {
     /// @notice Thrown when a global-leaves proposal has empty or length-mismatched arrays
     error INVALID_LEAVES();
 
-    /// @notice Thrown when a proposed fee config exceeds the strategy caps or has a zero recipient
+    /// @notice Thrown when a proposed fee config exceeds this Counsel's immutable caps
+    ///         (MAX_PERFORMANCE_FEE_BPS / MAX_MANAGEMENT_FEE_BPS) or has a zero recipient
     /// @param performanceFeeBps The proposed performance fee
     /// @param managementFeeBps The proposed management (entry) fee
     error INVALID_FEE_CONFIG(uint256 performanceFeeBps, uint256 managementFeeBps);
@@ -104,7 +105,8 @@ interface ISuperVaultCounsel {
         GlobalLeavesStatus, // 4: aggregator.changeGlobalLeavesStatus(leaves, statuses, strategy)
         MinUpdateInterval, // 5: aggregator.proposeMinUpdateIntervalChange(strategy, interval) — two-leg
         SecondaryManagerAdd, // 6: aggregator.addSecondaryManager(strategy, manager)
-        FeeConfig // 7: strategy.proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient) — two-leg
+        FeeConfig, // 7: strategy.proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient) — two-leg
+        YieldSourceRemove // 8: strategy.manageYieldSource(source, address(0), Remove)
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -120,7 +122,7 @@ interface ISuperVaultCounsel {
         ProposalStatus status;
         /// @notice Which veto-gated action this proposal performs on execute
         ActionType actionType;
-        /// @notice YieldSourceAdd: the yield source to add
+        /// @notice YieldSourceAdd / YieldSourceRemove: the yield source to add or remove
         address source;
         /// @notice YieldSourceAdd: the oracle for the yield source
         address oracle;
@@ -140,10 +142,11 @@ interface ISuperVaultCounsel {
         uint256 newMinUpdateInterval;
         /// @notice SecondaryManagerAdd: the manager to seat as secondary
         address newSecondaryManager;
-        /// @notice FeeConfig: performance fee in bps (strategy cap: 5100 = 51%)
+        /// @notice FeeConfig: performance fee in bps (<= MAX_PERFORMANCE_FEE_BPS; strategy
+        ///         ceiling 5100 = 51%)
         uint256 performanceFeeBps;
-        /// @notice FeeConfig: management fee in bps - an ASSET-SIDE ENTRY FEE (strategy cap:
-        ///         10_000 = 100% of every deposit)
+        /// @notice FeeConfig: management fee in bps - an ASSET-SIDE ENTRY FEE
+        ///         (<= MAX_MANAGEMENT_FEE_BPS; strategy ceiling 10_000 = 100% of every deposit)
         uint256 managementFeeBps;
         /// @notice FeeConfig: the fee recipient
         address feeRecipient;
@@ -214,6 +217,14 @@ interface ISuperVaultCounsel {
     /// @param oracle The oracle for the yield source; must be non-zero
     /// @return id The monotonic proposal id
     function proposeYieldSourceAdd(address source, address oracle) external returns (uint256 id);
+
+    /// @notice Queue an exact yield-source removal behind the veto window
+    /// @dev Removing a venue is a material strategy change, so it is veto-gated like an addition.
+    ///      The Remove enum is fixed at execute time; this path can never add or update. Not a
+    ///      single-slot type (set membership), so pending removals are not superseded.
+    /// @param source The yield source to remove; must be non-zero
+    /// @return id The monotonic proposal id
+    function proposeYieldSourceRemove(address source) external returns (uint256 id);
 
     /// @notice Queue a replacement strategy hooks-root behind the veto window
     /// @dev manifestHash is evidentiary: the manifest MUST be published to an append-only channel
@@ -314,17 +325,12 @@ interface ISuperVaultCounsel {
     /// @notice Skim accrued performance fees on the strategy
     function skimPerformanceFee() external;
 
-    /// @notice Remove a yield source immediately; the Remove enum is hard-coded and this path can
-    ///         never add or update
-    /// @param source The yield source to remove
-    function removeYieldSource(address source) external;
-
     /// @notice Propose a vault fee-config update — VETO-GATED (ActionType.FeeConfig)
     /// @dev Two-leg: after the guardian veto window (3 days in production), execute(id) pushes
     ///      strategy.proposeVaultFeeConfigUpdate, whose own 1-week timelock then runs;
-    ///      executeVaultFeeConfigUpdate() is the second-leg forward. Bounds mirrored from the
-    ///      strategy at propose time: perf <= 5100 bps, mgmt (asset-side ENTRY fee) <= 10_000 bps,
-    ///      recipient non-zero.
+    ///      executeVaultFeeConfigUpdate() is the second-leg forward. Bounds at propose time are
+    ///      this Counsel's immutable caps: perf <= MAX_PERFORMANCE_FEE_BPS, mgmt (asset-side
+    ///      ENTRY fee) <= MAX_MANAGEMENT_FEE_BPS, recipient non-zero.
     /// @param performanceFeeBps Performance fee in bps
     /// @param managementFeeBps Management (entry) fee in bps
     /// @param recipient The fee recipient
@@ -498,4 +504,19 @@ interface ISuperVaultCounsel {
     /// @notice Immutable ceiling for proposeDeviationThreshold
     /// @dev Exposed for successor-config diffing during migration review
     function MAX_DEVIATION_THRESHOLD() external view returns (uint256);
+
+    /// @notice Immutable per-instance performance-fee ceiling (bps) for proposeVaultFeeConfigUpdate
+    /// @dev At most STRATEGY_MAX_PERFORMANCE_FEE_BPS; exposed for successor-config diffing
+    function MAX_PERFORMANCE_FEE_BPS() external view returns (uint256);
+
+    /// @notice Immutable per-instance management (entry) fee ceiling (bps) for proposeVaultFeeConfigUpdate
+    /// @dev At most STRATEGY_MAX_MANAGEMENT_FEE_BPS; exposed for successor-config diffing
+    function MAX_MANAGEMENT_FEE_BPS() external view returns (uint256);
+
+    /// @notice The strategy's own performance-fee cap (5100 = 51%); the per-instance cap may not exceed it
+    function STRATEGY_MAX_PERFORMANCE_FEE_BPS() external view returns (uint256);
+
+    /// @notice The strategy's own management (entry) fee cap (10_000 = 100%); the per-instance cap
+    ///         may not exceed it
+    function STRATEGY_MAX_MANAGEMENT_FEE_BPS() external view returns (uint256);
 }

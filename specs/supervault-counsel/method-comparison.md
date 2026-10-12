@@ -42,6 +42,7 @@ address passing `SuperGovernor.isGuardian` live; may only `veto` and `invalidate
 | `manageYieldSource(source, oracle, Add)` | `proposeYieldSourceAdd(source, oracle)` → `execute(id)` | Veto-gated |
 | `manageYieldSource(source, oracle, UpdateOracle)` | `removeYieldSource(source)` then `proposeYieldSourceAdd(source, newOracle)` → `execute(id)` | Composition — oracle swaps deliberately get guardian review |
 | `manageYieldSource(source, —, Remove)` | `removeYieldSource(source)` (Remove enum hard-coded; can never Add/UpdateOracle) | Immediate |
+| *Superseded 2026-10-12:* the two rows above describe the original immediate forward. Removal is now the veto-gated `proposeYieldSourceRemove(source)` → `execute(id)` (ActionType 8), so the oracle-swap composition is two veto-gated proposals. | | |
 | `manageYieldSources(...)` (batch) | N separate single proposals | Composition — batches removed so guardians review each payload |
 | `executeHooks(args)` (payable) | `executeHooks(args)` — relays exact `msg.value`, never resident balance | Immediate |
 | `fulfillRedeemRequests(controllers, assetsOut)` | `fulfillRedeemRequests(controllers, assetsOut)` | Immediate |

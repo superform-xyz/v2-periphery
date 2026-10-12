@@ -4,8 +4,8 @@
 
 `SuperVaultCounsel` is an immutable, ownerless adapter contract that occupies the SuperVault
 **primary manager / curator** seat on `SuperVaultAggregator`, replacing the SuperGovernor msig in
-that role. It constrains the curator key: every sharp lever — eight veto-gated action types
-(yield-source additions, strategy-root replacement, PPS deviation-threshold changes, Counsel
+that role. It constrains the curator key: every sharp lever — nine veto-gated action types
+(yield-source additions and removals, strategy-root replacement, PPS deviation-threshold changes, Counsel
 migration offers, global-leaf ban/unban, min-update-interval changes, secondary-manager
 additions, vault fee-config updates) — only exists behind a propose → 3-day guardian-veto window → execute-before-expiry
 flow, while day-to-day operations are typed, operator-only forwards. There is no generic call
@@ -97,7 +97,7 @@ None ──propose──▶ Pending ──veto (any live guardian, ANY time whil
   CANCELLER_ROLE, MetaMorpho guardian revoke, Compound admin cancel).
 - Same-block race: veto-then-execute reverts the execute; execute-then-veto reverts the veto.
   Both orderings deterministic; no interleaving can produce both succeeding.
-- Supersession epoch (single-slot types: StrategyRoot, DeviationThreshold, MinUpdateInterval, FeeConfig, CounselMigration, GlobalLeavesStatus — every leaf is its own ban/unban slot, so batch all desired leaf changes into one proposal): proposing a new value makes every older still-pending proposal of that type terminally `Superseded` (derived in `state()`: not executable, not vetoable; `ProposalSuperseded(id, byId, actionType)` emitted iff the predecessor was still live, i.e. Pending or Ready; `latestProposalIdOfType(type)` exposes the epoch). Closes the rollback where a compromised operator executes a matured, guardian-tolerated stale value within its 7-day expiry after a newer value was executed. Vetoing the newer proposal does NOT resurrect the older one (the epoch is monotonic); a superseded value comes back only through a fresh proposal and full window. Set-membership additions (YieldSourceAdd, SecondaryManagerAdd) are order-independent and idempotent-revert at the target, so they are not superseded. Guardian monitors should re-target review from `id` to `byId` on every `ProposalSuperseded`.
+- Supersession epoch (single-slot types: StrategyRoot, DeviationThreshold, MinUpdateInterval, FeeConfig, CounselMigration, GlobalLeavesStatus — every leaf is its own ban/unban slot, so batch all desired leaf changes into one proposal): proposing a new value makes every older still-pending proposal of that type terminally `Superseded` (derived in `state()`: not executable, not vetoable; `ProposalSuperseded(id, byId, actionType)` emitted iff the predecessor was still live, i.e. Pending or Ready; `latestProposalIdOfType(type)` exposes the epoch). Closes the rollback where a compromised operator executes a matured, guardian-tolerated stale value within its 7-day expiry after a newer value was executed. Vetoing the newer proposal does NOT resurrect the older one (the epoch is monotonic); a superseded value comes back only through a fresh proposal and full window. Set-membership changes (YieldSourceAdd, YieldSourceRemove, SecondaryManagerAdd) are order-independent and idempotent-revert at the target, so they are not superseded. Guardian monitors should re-target review from `id` to `byId` on every `ProposalSuperseded`.
 - Separation of powers: the constructor reverts `OPERATOR_IS_GUARDIAN` if the resolved veto registry reports the operator as a guardian, and `VETO_REGISTRY_NOT_A_CONTRACT` if the resolved registry has no code (an EOA/counterfactual registry could never veto); a registry whose lookup reverts is still tolerated at construction (documented dead-registry semantics). The deploy script mirrors both checks against the resolved veto authority (custom registry, auto-deployed registry, or the SuperGovernor fallback). The guardian veto is the only independent brake on the operator, so the roles must never coincide (address-level guard, deploy-time only: a mutable registry that later grants the operator guardian status is an off-chain monitoring requirement; organizational independence is a governance requirement).
 - Proposal ids: `uint256` monotonic nonce (`_nextProposalId++`), never reused. Full args stored in
   the proposal struct (Governor Bravo / MetaMorpho precedent) — `execute(id)` takes only the id, so
@@ -117,7 +117,8 @@ enum ActionType {
     GlobalLeavesStatus,  // 4: aggregator.changeGlobalLeavesStatus(leaves, statuses, strategy)
     MinUpdateInterval,   // 5: aggregator.proposeMinUpdateIntervalChange(strategy, interval) — two-leg
     SecondaryManagerAdd, // 6: aggregator.addSecondaryManager(strategy, manager)
-    FeeConfig            // 7: strategy.proposeVaultFeeConfigUpdate(perf, mgmt, recipient) — two-leg
+    FeeConfig,           // 7: strategy.proposeVaultFeeConfigUpdate(perf, mgmt, recipient) — two-leg
+    YieldSourceRemove    // 8: strategy.manageYieldSource(source, address(0), Remove) (appended last)
 }
 
 struct Proposal {
@@ -125,7 +126,7 @@ struct Proposal {
     ProposalStatus status; // stored subset: None/Pending/Executed/Vetoed
     ActionType actionType;
     // typed payload (separate slots):
-    address source;              // YieldSourceAdd
+    address source;              // YieldSourceAdd / YieldSourceRemove
     address oracle;              // YieldSourceAdd
     bytes32 root;                // StrategyRoot
     bytes32 manifestHash;        // StrategyRoot
@@ -135,8 +136,8 @@ struct Proposal {
     bool[] statuses;             // GlobalLeavesStatus
     uint256 newMinUpdateInterval; // MinUpdateInterval
     address newSecondaryManager; // SecondaryManagerAdd
-    uint256 performanceFeeBps;   // FeeConfig (cap 5100 = 51%)
-    uint256 managementFeeBps;    // FeeConfig (asset-side ENTRY fee, cap 10_000 = 100%)
+    uint256 performanceFeeBps;   // FeeConfig (<= MAX_PERFORMANCE_FEE_BPS immutable; strategy ceiling 5100 = 51%)
+    uint256 managementFeeBps;    // FeeConfig (asset-side ENTRY fee, <= MAX_MANAGEMENT_FEE_BPS immutable; strategy ceiling 10_000 = 100%)
     address feeRecipient;        // FeeConfig
 }
 mapping(uint256 id => Proposal) internal _proposals;
@@ -150,12 +151,13 @@ uint256 internal _nextProposalId;
 | Function | Forwards to (on execute) | Validity predicates at propose |
 |---|---|---|
 | `proposeYieldSourceAdd(address source, address oracle)` | `STRATEGY.manageYieldSource(source, oracle, YieldSourceAction.Add)` | `source != 0`, `oracle != 0` |
+| `proposeYieldSourceRemove(address source)` | `STRATEGY.manageYieldSource(source, address(0), YieldSourceAction.Remove)` — venue removal is a material change, so it earns the same window as an addition; set-membership type (not superseded) | `source != 0` |
 | `proposeStrategyRoot(bytes32 root, bytes32 manifestHash)` | `AGGREGATOR.proposeStrategyHooksRoot(STRATEGY, root)` | `root != 0`, `manifestHash != 0` |
 | `proposeDeviationThreshold(uint256 newThreshold)` | `AGGREGATOR.updateDeviationThreshold(STRATEGY, newThreshold)` | `MIN_DEVIATION_THRESHOLD <= newThreshold <= MAX_DEVIATION_THRESHOLD` |
 | `proposeCounselMigration(address newCounsel)` | `AGGREGATOR.addSecondaryManager(STRATEGY, newCounsel)` — offer only; seat moves via successor's `acceptCounselSeat()` + aggregator 7-day timelock | live contract, `!= this`, successor `STRATEGY()`/`AGGREGATOR()`/`SUPER_GOVERNOR()` match (P3 hardening: governor equality is the fake-veto-machinery invariant; EXECUTOR + timing/bounds exposed via interface getters for diffing, not required equal) |
 | `proposeGlobalLeavesStatus(bytes32[] leaves, bool[] statuses)` | `AGGREGATOR.changeGlobalLeavesStatus(leaves, statuses, STRATEGY)` | non-empty, equal lengths |
 | `proposeMinUpdateInterval(uint256 interval)` | `AGGREGATOR.proposeMinUpdateIntervalChange(STRATEGY, interval)` — two-leg; aggregator enforces `interval < maxStaleness` and runs its own parameter timelock (second-leg forwards: `executeMinUpdateIntervalChange` / `cancelMinUpdateIntervalChange`) | none at propose (guardian reviews value) |
-| `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` | `STRATEGY.proposeVaultFeeConfigUpdate(...)` — two-leg; the strategy's own 1-week fee timelock follows (second-leg forward: `executeVaultFeeConfigUpdate`) | perf <= 5100, mgmt <= 10_000, recipient != 0 (strategy caps mirrored) |
+| `proposeVaultFeeConfigUpdate(uint256 perfBps, uint256 mgmtBps, address recipient)` | `STRATEGY.proposeVaultFeeConfigUpdate(...)` — two-leg; the strategy's own 1-week fee timelock follows (second-leg forward: `executeVaultFeeConfigUpdate`) | perf <= `MAX_PERFORMANCE_FEE_BPS`, mgmt <= `MAX_MANAGEMENT_FEE_BPS` (both immutable, constructor-set, at most the strategy's own 5100 / 10_000), recipient != 0 |
 | `proposeSecondaryManagerAdd(address manager)` | `AGGREGATOR.addSecondaryManager(STRATEGY, manager)` | `manager != 0`; NOTE: a seated secondary can later `proposeChangePrimaryManager` — treat as adapter-escape authorization (~10 days) |
 | `acceptCounselSeat(address feeRecipient)` (not a proposal — successor-side claim) | `AGGREGATOR.proposeChangePrimaryManager(STRATEGY, address(this), feeRecipient)` | operator-only; `feeRecipient != 0`; aggregator's secondary-only gate restricts it to the offered contract |
 | `veto(uint256 id)` | — (terminal state write) | caller passes `VETO_REGISTRY.isGuardian(msg.sender)` **live** (SuperGovernor by default); proposal Pending/Ready (not Superseded/Expired) |
@@ -182,18 +184,19 @@ Notes:
 - `fulfillRedeemRequests(address[] calldata controllers, uint256[] calldata totalAssetsOut)`
 - `fulfillCancelRedeemRequests(address[] calldata controllers)`
 - `skimPerformanceFee()` — strategy blocks it for 12h post-unpause
-- `removeYieldSource(address source)` — `YieldSourceAction.Remove` hard-coded; structurally cannot
-  Add or UpdateOracle. **Runbook rule (oracle/source swaps)**: removal is pure registry deletion
-  with NO occupancy check — removing a source that still holds assets drops it from the
-  validators' valuation set for >= 3 days (the replacement's veto window) -> PPS deviation ->
-  likely auto-pause, which also blocks new redeem requests. Sequence swaps as: propose+execute
-  the ADD of the replacement first, unwind the old source to ~zero via `executeHooks`, and only
-  then remove — or knowingly accept the pause as deliberate friction.
+- (Yield-source removal is no longer an immediate forward: see `proposeYieldSourceRemove` above.
+  **Runbook rule (oracle/source swaps)** still applies: removal is pure registry deletion with NO
+  occupancy check — removing a source that still holds assets drops it from the validators'
+  valuation set -> PPS deviation -> likely auto-pause, which also blocks new redeem requests.
+  Sequence swaps as: propose+execute the ADD of the replacement first, unwind the old source to
+  ~zero via `executeHooks`, then propose+execute the REMOVE — or knowingly accept the pause.)
 - `executeVaultFeeConfigUpdate()` — second leg of the veto-gated FeeConfig flow. **P1 FIXED**:
   `proposeVaultFeeConfigUpdate` is now `ActionType.FeeConfig` — 3-day guardian veto, then the
   strategy's own `PROPOSAL_TIMELOCK = 1 weeks` (~10 days total). Scope that motivated the fix:
-  perf fee <= 5100 bps (51%) AND the management fee is an ASSET-SIDE ENTRY FEE capped at
-  10_000 bps (100%), payable to an arbitrary recipient.
+  the strategy allows a perf fee up to 5100 bps (51%) AND a management fee that is an ASSET-SIDE
+  ENTRY FEE up to 10_000 bps (100%), payable to an arbitrary recipient. The Counsel narrows both
+  with its immutable `MAX_PERFORMANCE_FEE_BPS` / `MAX_MANAGEMENT_FEE_BPS` (constructor args,
+  validated <= the strategy ceilings; lowering later = new Counsel + guardian-reviewed migration).
 - `managePPSExpiration(ISuperVaultStrategy.PPSExpirationAction action, uint256 staleness)` —
   strategy bounds 1 minute..1 week, own 1-week timelock
 
@@ -308,7 +311,7 @@ SuperGovernor takeover.
 ## Acceptance Criteria
 
 ### Functional
-- [ ] All eight veto-gated flows (plus the migration accept and fee/min-interval second legs) work end-to-end against
+- [ ] All nine veto-gated flows (plus the migration accept and fee/min-interval second legs) work end-to-end against
   fork-tested aggregator/strategy: propose →
   window → execute lands the exact stored args; vetoed and expired proposals can never execute
 - [ ] `veto` succeeds for any live guardian at any point before execution, including the Ready
@@ -338,7 +341,8 @@ SuperGovernor takeover.
 - [ ] Errors/events declared in `ISuperVaultCounsel` interface; implementation uses
   `@inheritdoc` (house convention)
 - [ ] `ProposalCreated` emits decoded typed args + **absolute** `vetoDeadline`/`expiry` timestamps;
-  every transition, sweep, and session-key change emits an event
+  every transition, sweep, and session-key change emits an event. `actionType` can now be 8
+  (`YieldSourceRemove`); off-chain monitors that filter `ProposalCreated` by type must include it
 - [ ] NatSpec on all externals; Solidity 0.8.30; OZ 5.3.0 non-upgradeable imports only
 
 ## Implementation
@@ -416,9 +420,6 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     // ── day-to-day typed forwards (operator-only; exact-msg.value relay on the payable one) ──
     function executeHooks(ISuperVaultStrategy.ExecuteArgs calldata args) external payable onlyOperator nonReentrant {
         STRATEGY.executeHooks{ value: msg.value }(args);
-    }
-    function removeYieldSource(address source) external onlyOperator {
-        STRATEGY.manageYieldSource(source, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
     }
     function enrollExecutor() external onlyOperator {
         AGGREGATOR.addSecondaryManager(address(STRATEGY), address(EXECUTOR)); // hard-coded target only

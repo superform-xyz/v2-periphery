@@ -24,6 +24,8 @@ contract CounselHandler is Test {
     uint256 public ghost_proposed;
     uint256 public ghost_executed;
     uint256 public ghost_vetoed;
+    uint256 public ghost_overCapAttempts;
+    uint256 public ghost_overCapAccepted;
     mapping(uint256 => bool) public ghost_wasExecuted;
     mapping(uint256 => bool) public ghost_wasVetoed;
 
@@ -40,7 +42,7 @@ contract CounselHandler is Test {
     }
 
     function propose(uint256 seed) external {
-        uint256 kind = seed % 7;
+        uint256 kind = seed % 8;
         vm.startPrank(operator);
         if (kind == 0) {
             counsel.proposeYieldSourceAdd(
@@ -64,11 +66,34 @@ contract CounselHandler is Test {
             counsel.proposeMinUpdateInterval(seed % 7 days);
         } else if (kind == 5) {
             counsel.proposeSecondaryManagerAdd(address(uint160(0x5000 + (seed % 1000))));
+        } else if (kind == 6) {
+            // always within the instance caps (the invariant run uses caps BELOW the strategy ceilings)
+            counsel.proposeVaultFeeConfigUpdate(
+                seed % (counsel.MAX_PERFORMANCE_FEE_BPS() + 1),
+                seed % (counsel.MAX_MANAGEMENT_FEE_BPS() + 1),
+                address(uint160(0x7000 + (seed % 1000)))
+            );
         } else {
-            counsel.proposeVaultFeeConfigUpdate(seed % 5101, seed % 10_001, address(uint160(0x7000 + (seed % 1000))));
+            // same address space as the Add kind so removals target plausible (possibly added) sources
+            counsel.proposeYieldSourceRemove(address(uint160(0x1000 + (seed % 1000))));
         }
         vm.stopPrank();
         ++ghost_proposed;
+    }
+
+    /// @notice Adversarial: try to queue a fee config above either immutable cap; must always revert
+    function proposeFeeAboveCap(uint256 seed) external {
+        uint256 perfCap = counsel.MAX_PERFORMANCE_FEE_BPS();
+        uint256 mgmtCap = counsel.MAX_MANAGEMENT_FEE_BPS();
+        bool overPerf = seed % 2 == 0;
+        uint256 perf = overPerf ? perfCap + 1 + (seed % 100) : seed % (perfCap + 1);
+        uint256 mgmt = overPerf ? seed % (mgmtCap + 1) : mgmtCap + 1 + (seed % 100);
+        ++ghost_overCapAttempts;
+        vm.prank(operator);
+        try counsel.proposeVaultFeeConfigUpdate(perf, mgmt, address(uint160(0x7000 + (seed % 1000)))) {
+            ++ghost_overCapAccepted;
+            ++ghost_proposed; // keep id accounting honest if it ever slips through
+        } catch { }
     }
 
     function veto(uint256 idSeed) external {
@@ -126,7 +151,9 @@ contract SuperVaultCounselInvariantTest is Test {
             3 days,
             7 days,
             1e16,
-            9e17
+            9e17,
+            3000, // caps deliberately BELOW the strategy ceilings so the cap invariants are not vacuous
+            500
         );
 
         handler = new CounselHandler(counsel, superGovernor, operator, guardian);
@@ -176,11 +203,35 @@ contract SuperVaultCounselInvariantTest is Test {
         assertEq(counsel.nextProposalId(), handler.ghost_proposed());
     }
 
-    /// @notice The strategy's governed surface is touched exactly once per executed Add proposal —
-    ///         no parameter changes without a full-window, un-vetoed proposal
+    /// @notice The strategy's governed surface is touched exactly once per executed Add/Remove
+    ///         proposal — no parameter changes without a full-window, un-vetoed proposal
     function invariant_noGovernedChangeWithoutExecution() public view {
         uint256 forwarded = strategy.manageYieldSourceCalls();
         assertLe(forwarded, handler.ghost_executed(), "strategy touched more often than executions");
+    }
+
+    /// @notice No fee proposal above the immutable caps is ever stored, and the strategy never
+    ///         receives a fee config above them (over-cap attempts always revert at propose time)
+    function invariant_feeConfigNeverExceedsImmutableCaps() public view {
+        uint256 perfCap = counsel.MAX_PERFORMANCE_FEE_BPS();
+        uint256 mgmtCap = counsel.MAX_MANAGEMENT_FEE_BPS();
+        assertEq(handler.ghost_overCapAccepted(), 0, "an over-cap fee proposal was accepted");
+        uint256 next = counsel.nextProposalId();
+        for (uint256 id; id < next; ++id) {
+            ISuperVaultCounsel.Proposal memory p = counsel.getProposal(id);
+            if (p.actionType == ISuperVaultCounsel.ActionType.FeeConfig) {
+                assertLe(p.performanceFeeBps, perfCap, "stored perf fee above cap");
+                assertLe(p.managementFeeBps, mgmtCap, "stored mgmt fee above cap");
+            }
+        }
+        assertLe(strategy.feePerf(), perfCap, "strategy perf fee above cap");
+        assertLe(strategy.feeMgmt(), mgmtCap, "strategy mgmt fee above cap");
+    }
+
+    /// @notice The immutable caps never move, whatever the handler does
+    function invariant_feeCapsConstant() public view {
+        assertEq(counsel.MAX_PERFORMANCE_FEE_BPS(), 3000);
+        assertEq(counsel.MAX_MANAGEMENT_FEE_BPS(), 500);
     }
 
     /// @notice Every stored proposal status is within the stored subset (derived states are
